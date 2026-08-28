@@ -1,0 +1,307 @@
+[
+  {
+    "name": "map-next-eo-reward",
+    "note": "真实报文 2026-08-12T11:33:52Z（1-6）。api_itemget_eo_comment 发了燃料 700，而**同一行的 api_itemget 是 undefined**——只读 api_itemget 这一笔就整个漏掉。",
+    "source": {
+      "event": 12199,
+      "ts": "2026-08-12T11:33:52.187Z"
+    },
+    "path": "/kcsapi/api_req_map/next",
+    "body": {
+      "api_maparea_id": 1,
+      "api_mapinfo_no": 6,
+      "api_no": 17,
+      "api_color_no": 8,
+      "api_event_id": 8,
+      "api_event_kind": 0,
+      "api_next": 0,
+      "api_bosscell_no": 0,
+      "api_bosscomp": 0,
+      "api_itemget_eo_comment": {
+        "api_usemst": 4,
+        "api_id": 1,
+        "api_getcount": 700
+      }
+    }
+  },
+  {
+    "name": "map-start-boss-cleared",
+    "note": "真实报文 2026-08-03T07:44:43Z。常规图 api_bosscomp=1。",
+    "source": {
+      "event": 197,
+      "ts": "2026-08-03T07:44:43.323Z"
+    },
+    "path": "/kcsapi/api_req_map/start",
+    "body": {
+      "api_maparea_id": 1,
+      "api_mapinfo_no": 4,
+      "api_no": 2,
+      "api_color_no": 4,
+      "api_event_id": 4,
+      "api_event_kind": 1,
+      "api_next": 1,
+      "api_bosscell_no": 12,
+      "api_bosscomp": 1,
+      "api_cell_data": [
+        {
+          "api_id": 3026,
+          "api_no": 0,
+          "api_color_no": 0,
+          "api_passed": 0
+        },
+        {
+          "api_id": 3027,
+          "api_no": 1,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3028,
+          "api_no": 2,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3029,
+          "api_no": 3,
+          "api_color_no": 2,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3030,
+          "api_no": 4,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3031,
+          "api_no": 5,
+          "api_color_no": 2,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3032,
+          "api_no": 6,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3033,
+          "api_no": 7,
+          "api_color_no": 2,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3034,
+          "api_no": 8,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3035,
+          "api_no": 9,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3036,
+          "api_no": 10,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3037,
+          "api_no": 11,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3038,
+          "api_no": 12,
+          "api_color_no": 5,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3039,
+          "api_no": 13,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3040,
+          "api_no": 14,
+          "api_color_no": 2,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3041,
+          "api_no": 15,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3042,
+          "api_no": 16,
+          "api_color_no": 5,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3043,
+          "api_no": 17,
+          "api_color_no": 5,
+          "api_passed": 1
+        }
+      ],
+      "api_from_no": 0
+    }
+  },
+  {
+    "name": "map-start-boss-pending",
+    "note": "真实报文 2026-08-06T05:45:49Z（2-5，当时本期还没打）。api_bosscomp=0。",
+    "source": {
+      "event": 1826,
+      "ts": "2026-08-06T05:45:49.705Z"
+    },
+    "path": "/kcsapi/api_req_map/start",
+    "body": {
+      "api_maparea_id": 2,
+      "api_mapinfo_no": 5,
+      "api_no": 3,
+      "api_color_no": 4,
+      "api_event_id": 4,
+      "api_event_kind": 1,
+      "api_next": 1,
+      "api_bosscell_no": 15,
+      "api_bosscomp": 0,
+      "api_cell_data": [
+        {
+          "api_id": 3127,
+          "api_no": 0,
+          "api_color_no": 0,
+          "api_passed": 0
+        },
+        {
+          "api_id": 3128,
+          "api_no": 1,
+          "api_color_no": 4,
+          "api_passed": 0
+        },
+        {
+          "api_id": 3129,
+          "api_no": 2,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3130,
+          "api_no": 3,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3131,
+          "api_no": 4,
+          "api_color_no": 4,
+          "api_passed": 0
+        },
+        {
+          "api_id": 3132,
+          "api_no": 5,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3133,
+          "api_no": 6,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3134,
+          "api_no": 7,
+          "api_color_no": 3,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3135,
+          "api_no": 8,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3136,
+          "api_no": 9,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3137,
+          "api_no": 10,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3138,
+          "api_no": 11,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3139,
+          "api_no": 12,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3140,
+          "api_no": 13,
+          "api_color_no": 2,
+          "api_passed": 0
+        },
+        {
+          "api_id": 3141,
+          "api_no": 14,
+          "api_color_no": 2,
+          "api_passed": 0
+        },
+        {
+          "api_id": 3142,
+          "api_no": 15,
+          "api_color_no": 5,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3143,
+          "api_no": 16,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3144,
+          "api_no": 17,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3145,
+          "api_no": 18,
+          "api_color_no": 4,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3146,
+          "api_no": 19,
+          "api_color_no": 5,
+          "api_passed": 1
+        },
+        {
+          "api_id": 3147,
+          "api_no": 20,
+          "api_color_no": 5,
+          "api_passed": 1
+        }
+      ],
+      "api_from_no": 0
+    }
+  }
+]

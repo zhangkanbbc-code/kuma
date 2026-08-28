@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="640px" height="640px" viewBox="0 0 640 640" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 46.2 (44496) - http://www.bohemiancoding.com/sketch -->
+    <title>19</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <linearGradient x1="54.7695312%" y1="53.0776367%" x2="50%" y2="50%" id="linearGradient-1">
+            <stop stop-color="#E7AB28" offset="0%"></stop>
+            <stop stop-color="#F8C04B" offset="100%"></stop>
+        </linearGradient>
+        <path d="M240,160 L400,160 L480,240 L480,400 L400,480 L240,480 L160,400 L160,240 L240,160 Z M280,220 L220,280 L220,360 L280,420 L360,420 L420,360 L420,280 L360,220 L280,220 Z M300,120 L340,120 L340,160 L300,160 L300,120 Z M300,480 L340,480 L340,520 L300,520 L300,480 Z M120,300 L160,300 L160,340 L120,340 L120,300 Z M480,300 L520,300 L520,340 L480,340 L480,300 Z M240,120 L280,120 L280,160 L240,160 L240,120 Z M360,120 L400,120 L400,160 L360,160 L360,120 Z M360,480 L400,480 L400,520 L360,520 L360,480 Z M240,480 L280,480 L280,520 L240,520 L240,480 Z M120,360 L160,360 L160,400 L120,400 L120,360 Z M120,240 L160,240 L160,280 L120,280 L120,240 Z M480,240 L520,240 L520,280 L480,280 L480,240 Z M480,360 L520,360 L520,400 L480,400 L480,360 Z M440,440 L480,440 L480,480 L440,480 L440,440 Z M160,160 L200,160 L200,200 L160,200 L160,160 Z M440,160 L480,160 L480,200 L440,200 L440,160 Z M160,440 L200,440 L200,480 L160,480 L160,440 Z" id="path-2"></path>
+        <filter x="-3.8%" y="-3.8%" width="115.0%" height="115.0%" filterUnits="objectBoundingBox" id="filter-3">
+            <feOffset dx="20" dy="20" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.25 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="19">
+            <path d="M240,160 L400,160 L480,240 L480,400 L400,480 L240,480 L160,400 L160,240 L240,160 Z M280,220 L220,280 L220,360 L280,420 L360,420 L420,360 L420,280 L360,220 L280,220 Z" id="Combined-Shape" fill="#F8C04B"></path>
+            <rect id="Rectangle-7" fill="#F8C04B" x="300" y="120" width="40" height="40"></rect>
+            <rect id="Rectangle-7-Copy" fill="#F8C04B" x="300" y="480" width="40" height="40"></rect>
+            <rect id="Rectangle-7-Copy-2" fill="#F8C04B" x="120" y="300" width="40" height="40"></rect>
+            <rect id="Rectangle-7-Copy-3" fill="#F8C04B" x="480" y="300" width="40" height="40"></rect>
+            <rect id="Rectangle-7-Copy-4" fill="#F8C04B" x="240" y="120" width="40" height="40"></rect>
+            <rect id="Rectangle-7-Copy-5" fill="#F8C04B" x="360" y="120" width="40" height="40"></rect>
+            <rect id="Rectangle-7-Copy-6" fill="#F8C04B" x="360" y="480" width="40" height="40"></rect>
+            <rect id="Rectangle-7-Copy-7" fill="#F8C04B" x="240" y="480" width="40" height="40"></rect>
+            <rect id="Rectangle-7-Copy-8" fill="#F8C04B" x="120" y="360" width="40" height="40"></rect>
+            <rect id="Rectangle-7-Copy-9" fill="#F8C04B" x="120" y="240" width="40" height="40"></rect>
+            <rect id="Rectangle-7-Copy-10" fill="#F8C04B" x="480" y="240" width="40" height="40"></rect>
+            <rect id="Rectangle-7-Copy-11" fill="#F8C04B" x="480" y="360" width="40" height="40"></rect>
+            <rect id="Rectangle-7-Copy-12" fill="#F8C04B" x="440" y="440" width="40" height="40"></rect>
+            <rect id="Rectangle-7-Copy-13" fill="#F8C04B" x="160" y="160" width="40" height="40"></rect>
+            <rect id="Rectangle-7-Copy-14" fill="#F8C04B" x="440" y="160" width="40" height="40"></rect>
+            <rect id="Rectangle-7-Copy-15" fill="#F8C04B" x="160" y="440" width="40" height="40"></rect>
+            <g id="Combined-Shape">
+                <use fill="black" fill-opacity="1" filter="url(#filter-3)" xlink:href="#path-2"></use>
+                <use fill="url(#linearGradient-1)" fill-rule="evenodd" xlink:href="#path-2"></use>
+            </g>
+        </g>
+    </g>
+</svg>

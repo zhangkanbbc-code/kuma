@@ -1,0 +1,3707 @@
+{
+ "meta": {
+  "id": "map-drop-windows",
+  "name": "常规海域限定期台账（第一方）",
+  "version": "2026.08.28",
+  "source": "kuma 限定期台账（第一方维护）",
+  "fetchedAt": "2026-08-27T18:25:51.638Z",
+  "upstreamUpdatedAt": null,
+  "license": "第一方台账：记的是运营行为事实（哪张图哪个点从哪天起掉哪条船），随源码分发",
+  "note": "常规海域限定掉落的开放时段。没写结束日的是一直开着",
+  "maintainerNote": [
+   "限定期窗口的唯一出处（2026-08-22 批次 4）。这一格穷举过的社区机读源只有一家给，而那家的许可不允许随包分发——所以事实自己记一份台账，抓取脚本降为维护者侧对照工具（scripts/refresh-map-intel-limited.mjs，eo-quests 地位，不再写随包数据）。每条带 evidence（凭什么 + 录入日期）与印证票；votes 里的 ledger 是本机遭遇志，按图归不按点。舰号一律是改钉后的形态号，与 map-drops 同键。until 为 null 是如实记录不是资料缺失：常规图的限定掉落多是追加后一直开着的，调用方不许据此制造「快关门」的紧迫感。待裁项（limited-vs-plain 等）逐条挂 conflict，脚本不代拍；裁完的把 conflict 撤下，裁语与两票出处写进 evidence.note（2026-08-23 那 7 条 limited-vs-plain 即按此收案），痕迹另留在 assets/review/map-drops-conflicts.json 的 verdict 里。",
+   "2026-08-28 批次：补上「已终了的常规图限定邂逅」。此前上游对照只读页面顶上那张「海域別リスト」——那张表里只有还开着的，一条限定终了之后就从表里消失，于是只看得见「不再列出」（缺席），永远看不见「它说自己终了了」（断言）。终了是在逐批次小节里**用删除线逐条标出来的**，而删除线只活在原始字节里，取文本的层一律会把它抹平。parseLimitedBatches（scripts/map-intel.mjs）改成在去标签之前判 <del>，据此补进 34 条 ended_undated/ended_confirmed。这一档与 end_pending 的分别是断言 vs 缺席：end_pending 只是上游不再列出，不许对玩家说「已终了」。另有 5 条同页自相矛盾（小节划了删除线、海域別名单又还列着），一律挂 conflict 不动 status。"
+  ]
+ },
+ "data": {
+  "schemaVersion": 1,
+  "compiledAt": "2026-08-28",
+  "checkedAt": "2026-06-26",
+  "source": "kuma 限定期台账（第一方维护）",
+  "revision": "2026.08.28",
+  "voters": {
+   "wikiwiki": "艦これ攻略 Wiki 的期间限定掉落总表——起讫日期与批次标签的整理来源，只作参考",
+   "ledger": "本机遭遇志 encounters.drop_mst——第一方一手，印证窗口确实开过，按图归不按点",
+   "kanlog": "艦ログ（kanlog.info）的「開催中の期間限定ドロップ」名单——甲ブラウザ玩家上传数据的掉落统计站，每 2 小时汇总；只作参考，且按站点纪律只人工核阅、不抓取"
+  },
+  "maps": {
+   "1-1": {
+    "C": [
+     {
+      "id": 89,
+      "window": {
+       "from": "2025-01-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "節分"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 132,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-12-26",
+       "until": null,
+       "lastConfirmedAt": "2024-12-26",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "年の瀬"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「年の瀬」2024-12-26 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-1 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 451,
+      "window": {
+       "from": "2025-01-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "節分"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 453,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-12-26",
+       "until": null,
+       "lastConfirmedAt": "2024-12-26",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "年の瀬"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「年の瀬」2024-12-26 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-1 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 456,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-12-03",
+       "until": null,
+       "lastConfirmedAt": "2024-12-03",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "Xmas"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「Xmas」2024-12-03 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-1 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 457,
+      "window": {
+       "from": "2025-10-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、磯風など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 465,
+      "window": {
+       "from": "2026-04-24",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "13周年記念"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 484,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-09-26",
+       "until": null,
+       "lastConfirmedAt": "2025-09-26",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "Halloween"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「Halloween」2025-09-26 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-1 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 485,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-02-13",
+       "until": null,
+       "lastConfirmedAt": "2024-02-13",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "Valentine"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「Valentine」2024-02-13 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-1 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 528,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-09-26",
+       "until": null,
+       "lastConfirmedAt": "2025-09-26",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "Halloween"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「Halloween」2025-09-26 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-1 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "1-2": {
+    "E": [
+     {
+      "id": 167,
+      "window": {
+       "from": "2025-10-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、磯風など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 409,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-01-28",
+       "until": null,
+       "lastConfirmedAt": "2025-01-28",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "節分"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「節分」2025-01-28 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-2 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 410,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-01-28",
+       "until": null,
+       "lastConfirmedAt": "2025-01-28",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "節分"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「節分」2025-01-28 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-2 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 524,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-01-28",
+       "until": null,
+       "lastConfirmedAt": "2025-01-28",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "節分"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「節分」2025-01-28 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-2 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 634,
+      "window": {
+       "from": "2026-04-24",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "13周年記念"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 891,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-12-26",
+       "until": null,
+       "lastConfirmedAt": "2024-12-26",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "年の瀬"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「年の瀬」2024-12-26 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-2 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "1-3": {
+    "J": [
+     {
+      "id": 133,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-04-10",
+       "until": null,
+       "lastConfirmedAt": "2024-04-10",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "卯月、春雨、Fletcher"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「卯月、春雨、Fletcher」2024-04-10 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-3 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 451,
+      "window": {
+       "from": "2023-11-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Xmas"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 452,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-11-08",
+       "until": null,
+       "lastConfirmedAt": "2024-11-08",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "秋刀魚祭り"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「秋刀魚祭り」2024-11-08 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-3 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 457,
+      "window": {
+       "from": "2019-09-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、対馬"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 540,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-12-26",
+       "until": null,
+       "lastConfirmedAt": "2024-12-26",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "年の瀬"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「年の瀬」2024-12-26 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-3 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 565,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-11-08",
+       "until": null,
+       "lastConfirmedAt": "2024-11-08",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "秋刀魚祭り"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「秋刀魚祭り」2024-11-08 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-3 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 638,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-01-28",
+       "until": null,
+       "lastConfirmedAt": "2025-01-28",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "節分"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「節分」2025-01-28 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-3 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 943,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-09-26",
+       "until": null,
+       "lastConfirmedAt": "2025-09-26",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "Halloween"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「Halloween」2025-09-26 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-3 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 944,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-12-26",
+       "until": null,
+       "lastConfirmedAt": "2024-12-26",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "年の瀬"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「年の瀬」2024-12-26 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-3 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 953,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-12-18",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Xmas"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。2026-08-23 裁「限定」收案：舰娘百科的常规掉落表不区分限定/常驻，把限定条目一并混编进去，与本条并非互斥的断言；艦ログ 2026-08-23 13:00 页面人工核阅，本条仍列在「開催中の期間限定ドロップ」名单里，批次标签与起始日逐条吻合——互斥两票制的第二票到齐。",
+       "recordedAt": "2026-08-23"
+      },
+      "votes": [
+       "wikiwiki",
+       "kanlog"
+      ]
+     }
+    ]
+   },
+   "1-4": {
+    "L": [
+     {
+      "id": 140,
+      "limitedOnly": true,
+      "window": {
+       "from": "2023-11-28",
+       "until": null,
+       "lastConfirmedAt": "2023-11-28",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "Xmas"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「Xmas」2023-11-28 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-4 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 165,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-04-07",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "最後の第一遊撃部隊"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 425,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-04-07",
+       "until": null,
+       "lastConfirmedAt": "2025-04-07",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "最後の第一遊撃部隊"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：小节标题写明这一批只剩另一条还在继续——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「最後の第一遊撃部隊」2025-04-07 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-4 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 527,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-11-08",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "秋刀魚祭り"
+      },
+      "evidence": {
+       "kind": "ledger",
+       "note": "本机遭遇志在 1-4 实测捞到过 mstId 527——第一方一手，印证这段窗口确实开过；起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）。2026-08-23 裁「限定」收案：舰娘百科的常规掉落表不区分限定/常驻，把限定条目一并混编进去，与本条并非互斥的断言；艦ログ 2026-08-23 13:00 页面人工核阅，本条仍列在「開催中の期間限定ドロップ」名单里，批次标签与起始日逐条吻合——互斥两票制的第二票到齐。",
+       "recordedAt": "2026-08-23"
+      },
+      "votes": [
+       "wikiwiki",
+       "ledger",
+       "kanlog"
+      ]
+     },
+     {
+      "id": 636,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-10-18",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Fleet Halloween!"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。2026-08-23 裁「限定」收案：舰娘百科的常规掉落表不区分限定/常驻，把限定条目一并混编进去，与本条并非互斥的断言；艦ログ 2026-08-23 13:00 页面人工核阅，本条仍列在「開催中の期間限定ドロップ」名单里，批次标签与起始日逐条吻合——互斥两票制的第二票到齐。",
+       "recordedAt": "2026-08-23"
+      },
+      "votes": [
+       "wikiwiki",
+       "kanlog"
+      ]
+     },
+     {
+      "id": 699,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-12-18",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Xmas"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。2026-08-23 裁「限定」收案：舰娘百科的常规掉落表不区分限定/常驻，把限定条目一并混编进去，与本条并非互斥的断言；艦ログ 2026-08-23 13:00 页面人工核阅，本条仍列在「開催中の期間限定ドロップ」名单里，批次标签与起始日逐条吻合——互斥两票制的第二票到齐。",
+       "recordedAt": "2026-08-23"
+      },
+      "votes": [
+       "wikiwiki",
+       "kanlog"
+      ]
+     },
+     {
+      "id": 900,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-05-01",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "菖蒲"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。2026-08-23 裁「限定」收案：舰娘百科的常规掉落表不区分限定/常驻，把限定条目一并混编进去，与本条并非互斥的断言；艦ログ 2026-08-23 13:00 页面人工核阅，本条仍列在「開催中の期間限定ドロップ」名单里，批次标签与起始日逐条吻合——互斥两票制的第二票到齐。",
+       "recordedAt": "2026-08-23"
+      },
+      "votes": [
+       "wikiwiki",
+       "kanlog"
+      ]
+     },
+     {
+      "id": 921,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-12-03",
+       "until": null,
+       "lastConfirmedAt": "2024-12-03",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "Xmas"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「Xmas」2024-12-03 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-4 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "1-5": {
+    "J": [
+     {
+      "id": 182,
+      "window": {
+       "from": "2016-04-01",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "明石"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 637,
+      "window": {
+       "from": "2025-01-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "節分"
+      },
+      "evidence": {
+       "kind": "ledger",
+       "note": "本机遭遇志在 1-5 实测捞到过 mstId 637——第一方一手，印证这段窗口确实开过；起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki",
+       "ledger"
+      ]
+     },
+     {
+      "id": 638,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-04-24",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "13周年記念"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 881,
+      "window": {
+       "from": "2024-10-18",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Fleet Halloween!"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 882,
+      "window": {
+       "from": "2024-11-08",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "秋刀魚祭り"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 898,
+      "window": {
+       "from": "2025-01-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "節分"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 943,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-11-08",
+       "until": null,
+       "lastConfirmedAt": "2024-11-08",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "秋刀魚祭り"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「秋刀魚祭り」2024-11-08 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-5 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 944,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-04-24",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "13周年記念"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 992,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-04-24",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "13周年記念"
+      },
+      "evidence": {
+       "kind": "ledger",
+       "note": "本机遭遇志在 1-5 实测捞到过 mstId 992——第一方一手，印证这段窗口确实开过；起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki",
+       "ledger"
+      ]
+     }
+    ]
+   },
+   "1-6": {
+    "B": [
+     {
+      "id": 128,
+      "window": {
+       "from": "2021-06-22",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "伊8、秋月、有明"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 167,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-04-07",
+       "until": null,
+       "lastConfirmedAt": "2025-04-07",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "最後の第一遊撃部隊"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：小节标题写明这一批只剩另一条还在继续——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「最後の第一遊撃部隊」2025-04-07 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-6 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 170,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-04-07",
+       "until": null,
+       "lastConfirmedAt": "2025-04-07",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "最後の第一遊撃部隊"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：小节标题写明这一批只剩另一条还在继续——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「最後の第一遊撃部隊」2025-04-07 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-6 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 184,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-12-26",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "年の瀬"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 925,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-04-07",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "春"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 931,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-11-08",
+       "until": null,
+       "lastConfirmedAt": "2024-11-08",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "秋刀魚祭り"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「秋刀魚祭り」2024-11-08 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-6 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ],
+    "D": [
+     {
+      "id": 167,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-04-07",
+       "until": null,
+       "lastConfirmedAt": "2025-04-07",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "最後の第一遊撃部隊"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：小节标题写明这一批只剩另一条还在继续——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「最後の第一遊撃部隊」2025-04-07 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-6 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 170,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-04-07",
+       "until": null,
+       "lastConfirmedAt": "2025-04-07",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "最後の第一遊撃部隊"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：小节标题写明这一批只剩另一条还在继续——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「最後の第一遊撃部隊」2025-04-07 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-6 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 931,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-11-08",
+       "until": null,
+       "lastConfirmedAt": "2024-11-08",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "秋刀魚祭り"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「秋刀魚祭り」2024-11-08 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-6 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ],
+    "F": [
+     {
+      "id": 167,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-04-07",
+       "until": null,
+       "lastConfirmedAt": "2025-04-07",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "最後の第一遊撃部隊"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：小节标题写明这一批只剩另一条还在继续——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「最後の第一遊撃部隊」2025-04-07 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-6 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ],
+    "J": [
+     {
+      "id": 167,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-04-07",
+       "until": null,
+       "lastConfirmedAt": "2025-04-07",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "最後の第一遊撃部隊"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：小节标题写明这一批只剩另一条还在继续——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「最後の第一遊撃部隊」2025-04-07 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-6 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 170,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-04-07",
+       "until": null,
+       "lastConfirmedAt": "2025-04-07",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "最後の第一遊撃部隊"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：小节标题写明这一批只剩另一条还在继续——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「最後の第一遊撃部隊」2025-04-07 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-6 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 931,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-11-08",
+       "until": null,
+       "lastConfirmedAt": "2024-11-08",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "秋刀魚祭り"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「秋刀魚祭り」2024-11-08 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-6 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ],
+    "K": [
+     {
+      "id": 167,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-04-07",
+       "until": null,
+       "lastConfirmedAt": "2025-04-07",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "最後の第一遊撃部隊"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：小节标题写明这一批只剩另一条还在继续——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「最後の第一遊撃部隊」2025-04-07 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-6 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "2-1": {
+    "H": [
+     {
+      "id": 425,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-04-07",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "春"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 644,
+      "window": {
+       "from": "2026-03-13",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "ホワイトデー"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "2-2": {
+    "B": [
+     {
+      "id": 133,
+      "limitedOnly": true,
+      "window": {
+       "from": "2021-03-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "end_pending",
+       "statusChangedAt": "2026-08-11",
+       "label": "春風、天霧、狭霧、Johnston、夕雲、長波"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。艦ログ 2026-08-23 13:00 页面人工核阅：这一点的開催中名单里也不再列出它，「上游不再列出」拿到第二票；但仍旧没有任何一方说得出结束日，所以 status 保持 end_pending 不动。",
+       "recordedAt": "2026-08-23"
+      },
+      "votes": [
+       "wikiwiki",
+       "kanlog"
+      ]
+     },
+     {
+      "id": 479,
+      "window": {
+       "from": "2021-03-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "春風、天霧、狭霧、Johnston、夕雲、長波"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 480,
+      "limitedOnly": true,
+      "window": {
+       "from": "2021-03-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "end_pending",
+       "statusChangedAt": "2026-08-11",
+       "label": "春風、天霧、狭霧、Johnston、夕雲、長波"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。艦ログ 2026-08-23 13:00 页面人工核阅：这一点的開催中名单里也不再列出它，「上游不再列出」拿到第二票；但仍旧没有任何一方说得出结束日，所以 status 保持 end_pending 不动。",
+       "recordedAt": "2026-08-23"
+      },
+      "votes": [
+       "wikiwiki",
+       "kanlog"
+      ]
+     }
+    ],
+    "D": [
+     {
+      "id": 133,
+      "limitedOnly": true,
+      "window": {
+       "from": "2021-03-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "end_pending",
+       "statusChangedAt": "2026-08-11",
+       "label": "春風、天霧、狭霧、Johnston、夕雲、長波"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。艦ログ 2026-08-23 13:00 页面人工核阅：这一点的開催中名单里也不再列出它，「上游不再列出」拿到第二票；但仍旧没有任何一方说得出结束日，所以 status 保持 end_pending 不动。",
+       "recordedAt": "2026-08-23"
+      },
+      "votes": [
+       "wikiwiki",
+       "kanlog"
+      ]
+     },
+     {
+      "id": 479,
+      "window": {
+       "from": "2021-03-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "春風、天霧、狭霧、Johnston、夕雲、長波"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 480,
+      "limitedOnly": true,
+      "window": {
+       "from": "2021-03-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "end_pending",
+       "statusChangedAt": "2026-08-11",
+       "label": "春風、天霧、狭霧、Johnston、夕雲、長波"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。艦ログ 2026-08-23 13:00 页面人工核阅：这一点的開催中名单里也不再列出它，「上游不再列出」拿到第二票；但仍旧没有任何一方说得出结束日，所以 status 保持 end_pending 不动。",
+       "recordedAt": "2026-08-23"
+      },
+      "votes": [
+       "wikiwiki",
+       "kanlog"
+      ]
+     }
+    ],
+    "E": [
+     {
+      "id": 133,
+      "limitedOnly": true,
+      "window": {
+       "from": "2021-03-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "end_pending",
+       "statusChangedAt": "2026-08-11",
+       "label": "春風、天霧、狭霧、Johnston、夕雲、長波"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。艦ログ 2026-08-23 13:00 页面人工核阅：这一点的開催中名单里也不再列出它，「上游不再列出」拿到第二票；但仍旧没有任何一方说得出结束日，所以 status 保持 end_pending 不动。",
+       "recordedAt": "2026-08-23"
+      },
+      "votes": [
+       "wikiwiki",
+       "kanlog"
+      ]
+     },
+     {
+      "id": 479,
+      "window": {
+       "from": "2021-03-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "春風、天霧、狭霧、Johnston、夕雲、長波"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 480,
+      "limitedOnly": true,
+      "window": {
+       "from": "2021-03-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "end_pending",
+       "statusChangedAt": "2026-08-11",
+       "label": "春風、天霧、狭霧、Johnston、夕雲、長波"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。艦ログ 2026-08-23 13:00 页面人工核阅：这一点的開催中名单里也不再列出它，「上游不再列出」拿到第二票；但仍旧没有任何一方说得出结束日，所以 status 保持 end_pending 不动。",
+       "recordedAt": "2026-08-23"
+      },
+      "votes": [
+       "wikiwiki",
+       "kanlog"
+      ]
+     }
+    ],
+    "G": [
+     {
+      "id": 133,
+      "limitedOnly": true,
+      "window": {
+       "from": "2021-03-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "end_pending",
+       "statusChangedAt": "2026-08-11",
+       "label": "春風、天霧、狭霧、Johnston、夕雲、長波"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。艦ログ 2026-08-23 13:00 页面人工核阅：这一点的開催中名单里也不再列出它，「上游不再列出」拿到第二票；但仍旧没有任何一方说得出结束日，所以 status 保持 end_pending 不动。",
+       "recordedAt": "2026-08-23"
+      },
+      "votes": [
+       "wikiwiki",
+       "kanlog"
+      ]
+     },
+     {
+      "id": 479,
+      "window": {
+       "from": "2021-03-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "春風、天霧、狭霧、Johnston、夕雲、長波"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 480,
+      "limitedOnly": true,
+      "window": {
+       "from": "2021-03-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "end_pending",
+       "statusChangedAt": "2026-08-11",
+       "label": "春風、天霧、狭霧、Johnston、夕雲、長波"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。艦ログ 2026-08-23 13:00 页面人工核阅：这一点的開催中名单里也不再列出它，「上游不再列出」拿到第二票；但仍旧没有任何一方说得出结束日，所以 status 保持 end_pending 不动。",
+       "recordedAt": "2026-08-23"
+      },
+      "votes": [
+       "wikiwiki",
+       "kanlog"
+      ]
+     }
+    ],
+    "K": [
+     {
+      "id": 133,
+      "window": {
+       "from": "2021-03-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "春風、天霧、狭霧、Johnston、夕雲、長波"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。｜2026-08-28 复核出分歧：同页逐批次小节把 2-2-K 的这一条划了删除线（已终了），可同页「現在継続中」的海域別名单又仍把它列在 2-2。同一家两个视图自相矛盾，脚本不代拍——status 一个字不动，挂 conflict 等人裁。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ],
+      "conflict": "ended-vs-still-listed"
+     },
+     {
+      "id": 134,
+      "window": {
+       "from": "2022-08-04",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Samuel B.Roberts、Zara、迅鯨、長鯨、春日丸、第四号海防艦、第三〇号海防艦"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。｜2026-08-28 复核出分歧：同页逐批次小节把 2-2-K 的这一条划了删除线（已终了），可同页「現在継続中」的海域別名单又仍把它列在 2-2。同一家两个视图自相矛盾，脚本不代拍——status 一个字不动，挂 conflict 等人裁。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ],
+      "conflict": "ended-vs-still-listed"
+     },
+     {
+      "id": 138,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-06-27",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "夏季"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 168,
+      "window": {
+       "from": "2022-08-04",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Samuel B.Roberts、Zara、迅鯨、長鯨、春日丸、第四号海防艦、第三〇号海防艦"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。｜2026-08-28 复核出分歧：同页逐批次小节把 2-2-K 的这一条划了删除线（已终了），可同页「現在継続中」的海域別名单又仍把它列在 2-2。同一家两个视图自相矛盾，脚本不代拍——status 一个字不动，挂 conflict 等人裁。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ],
+      "conflict": "ended-vs-still-listed"
+     },
+     {
+      "id": 181,
+      "window": {
+       "from": "2022-08-04",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Samuel B.Roberts、Zara、迅鯨、長鯨、春日丸、第四号海防艦、第三〇号海防艦"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 421,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-05-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "梅雨"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 479,
+      "limitedOnly": true,
+      "window": {
+       "from": "2021-03-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "end_pending",
+       "statusChangedAt": "2026-08-11",
+       "label": "春風、天霧、狭霧、Johnston、夕雲、長波"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。艦ログ 2026-08-23 13:00 页面人工核阅：这一点的開催中名单里也不再列出它，「上游不再列出」拿到第二票；但仍旧没有任何一方说得出结束日，所以 status 保持 end_pending 不动。",
+       "recordedAt": "2026-08-23"
+      },
+      "votes": [
+       "wikiwiki",
+       "kanlog"
+      ]
+     },
+     {
+      "id": 480,
+      "window": {
+       "from": "2021-03-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "春風、天霧、狭霧、Johnston、夕雲、長波"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 484,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-05-02",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "菖蒲"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 485,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-04-07",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "春"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 521,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-04-07",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "春"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 561,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-05-12",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "玉波、涼波、Heywood L.E.、Richard P.Leary"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 625,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-08-27",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "秋の気配"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 988,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-04-07",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "春"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "2-3": {
+    "N": [
+     {
+      "id": 110,
+      "window": {
+       "from": "2024-04-23",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "翔鶴、Houston、Tuscaloosa、Northampton"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 111,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-04-07",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "春"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 135,
+      "window": {
+       "from": "2021-03-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "春風、天霧、狭霧、Johnston、夕雲、長波"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。｜2026-08-28 复核出分歧：同页逐批次小节把 2-3-N 的这一条划了删除线（已终了），可同页「現在継続中」的海域別名单又仍把它列在 2-3。同一家两个视图自相矛盾，脚本不代拍——status 一个字不动，挂 conflict 等人裁。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ],
+      "conflict": "ended-vs-still-listed"
+     },
+     {
+      "id": 137,
+      "window": {
+       "from": "2025-10-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、磯風など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 409,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-05-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "梅雨"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 410,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-05-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "梅雨"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 413,
+      "window": {
+       "from": "2023-11-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Xmas"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 414,
+      "window": {
+       "from": "2023-11-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Xmas"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。｜2026-08-28 复核出分歧：同页逐批次小节把 2-3-N 的这一条划了删除线（已终了），可同页「現在継続中」的海域別名单又仍把它列在 2-3。同一家两个视图自相矛盾，脚本不代拍——status 一个字不动，挂 conflict 等人裁。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ],
+      "conflict": "ended-vs-still-listed"
+     },
+     {
+      "id": 421,
+      "window": {
+       "from": "2024-06-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "秋月、初月"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 423,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-04-07",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "春"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 479,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-01-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "節分"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 480,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-01-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "節分"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 484,
+      "window": {
+       "from": "2024-04-10",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "卯月、春雨、Fletcher"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 485,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-10-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、磯風など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 527,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-04-10",
+       "until": null,
+       "lastConfirmedAt": "2024-04-10",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "卯月、春雨、Fletcher"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「卯月、春雨、Fletcher」2024-04-10 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，2-3 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 528,
+      "window": {
+       "from": "2024-04-10",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "卯月、春雨、Fletcher"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 544,
+      "window": {
+       "from": "2025-05-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "梅雨"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 561,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-07-26",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "夏の追加"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 562,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-06-27",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "夏季"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 596,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-04-07",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "春"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 621,
+      "window": {
+       "from": "2025-10-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、磯風など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 674,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-01-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "32駆等"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 898,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-03-13",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "ホワイトデー"
+      },
+      "evidence": {
+       "kind": "ledger",
+       "note": "本机遭遇志在 2-3 实测捞到过 mstId 898——第一方一手，印证这段窗口确实开过；起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki",
+       "ledger"
+      ]
+     },
+     {
+      "id": 904,
+      "window": {
+       "from": "2026-03-13",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "ホワイトデー"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "2-4": {
+    "P": [
+     {
+      "id": 135,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-08-27",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "秋の気配"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 456,
+      "window": {
+       "from": "2021-10-15",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、親潮、浜波"
+      },
+      "history": [
+       {
+        "from": "2020-09-17",
+        "until": null,
+        "lastConfirmedAt": "2026-06-26",
+        "status": "end_pending",
+        "statusChangedAt": "2026-06-26"
+       }
+      ],
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 484,
+      "window": {
+       "from": "2021-10-15",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、親潮、浜波"
+      },
+      "history": [
+       {
+        "from": "2020-09-17",
+        "until": null,
+        "lastConfirmedAt": "2026-06-26",
+        "status": "end_pending",
+        "statusChangedAt": "2026-06-26"
+       }
+      ],
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "2-5": {
+    "O": [
+     {
+      "id": 80,
+      "window": {
+       "from": "2025-10-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、磯風など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 81,
+      "window": {
+       "from": "2025-10-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、磯風など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 120,
+      "window": {
+       "from": "2025-10-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、磯風など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 138,
+      "window": {
+       "from": "2021-01-13",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "能代、迅鯨、神州丸"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 415,
+      "window": {
+       "from": "2025-10-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、磯風など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 424,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-05-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "梅雨"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 458,
+      "window": {
+       "from": "2025-10-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、磯風など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 484,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-01-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "32駆等"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 522,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-04-07",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "春"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 528,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-01-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "32駆等"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 637,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-05-01",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "菖蒲"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 638,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-05-01",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "菖蒲"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 674,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-01-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "32駆等"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 675,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-01-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "32駆等"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 699,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-05-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "梅雨"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 895,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-03-13",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "ホワイトデー"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "3-1": {
+    "C": [
+     {
+      "id": 162,
+      "limitedOnly": true,
+      "window": {
+       "from": "2023-11-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Xmas"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ],
+    "G": [
+     {
+      "id": 413,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-10-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、磯風など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 631,
+      "window": {
+       "from": "2025-10-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、磯風など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 634,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-01-25",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "節分"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 635,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-01-25",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "節分"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 699,
+      "window": {
+       "from": "2025-05-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "梅雨"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 964,
+      "window": {
+       "from": "2025-05-30",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "梅雨"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 995,
+      "window": {
+       "from": "2025-09-26",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Halloween"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "3-2": {
+    "L": [
+     {
+      "id": 101,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-10-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、磯風など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 114,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-10-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、磯風など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 132,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-10-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、磯風など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 133,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-10-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、磯風など"
+      },
+      "evidence": {
+       "kind": "ledger",
+       "note": "本机遭遇志在 3-2 实测捞到过 mstId 133——第一方一手，印证这段窗口确实开过；起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki",
+       "ledger"
+      ]
+     },
+     {
+      "id": 413,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-10-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、磯風など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 453,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-10-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、磯風など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 631,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-10-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、磯風など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "3-3": {
+    "M": [
+     {
+      "id": 110,
+      "limitedOnly": true,
+      "window": {
+       "from": "2023-11-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Xmas"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 111,
+      "limitedOnly": true,
+      "window": {
+       "from": "2023-11-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Xmas"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 124,
+      "limitedOnly": true,
+      "window": {
+       "from": "2023-11-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Xmas"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 125,
+      "limitedOnly": true,
+      "window": {
+       "from": "2023-11-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Xmas"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 995,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-10-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、磯風など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "4-4": {
+    "K": [
+     {
+      "id": 120,
+      "limitedOnly": true,
+      "window": {
+       "from": "2023-11-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Xmas"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。2026-08-23 裁「限定」收案：舰娘百科的常规掉落表不区分限定/常驻，把限定条目一并混编进去，与本条并非互斥的断言；艦ログ 2026-08-23 13:00 页面人工核阅，本条仍列在「開催中の期間限定ドロップ」名单里，批次标签与起始日逐条吻合——互斥两票制的第二票到齐。",
+       "recordedAt": "2026-08-23"
+      },
+      "votes": [
+       "wikiwiki",
+       "kanlog"
+      ]
+     },
+     {
+      "id": 441,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-09-26",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Halloween"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 442,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-09-26",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Halloween"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 614,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-09-26",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Halloween"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 653,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-09-26",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Halloween"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "4-5": {
+    "T": [
+     {
+      "id": 110,
+      "window": {
+       "from": "2023-11-28",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Xmas"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 492,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-04-07",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "春"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 535,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-09-26",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Halloween"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 935,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-04-07",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "春"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "5-1": {
+    "J": [
+     {
+      "id": 633,
+      "limitedOnly": true,
+      "window": {
+       "from": "2023-06-14",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "夕暮"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 671,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-09-26",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Halloween"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "5-3": {
+    "Q": [
+     {
+      "id": 945,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-06-27",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "夏季"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 1005,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-03-02",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "桃の節句"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "5-4": {
+    "P": [
+     {
+      "id": 632,
+      "window": {
+       "from": "2021-06-22",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "伊8、秋月、有明"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 655,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-05-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "梅雨"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 675,
+      "window": {
+       "from": "2024-02-13",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Valentine"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 1005,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-05-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "梅雨"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "5-5": {
+    "S": [
+     {
+      "id": 597,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-06-27",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "夏季"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 633,
+      "limitedOnly": true,
+      "window": {
+       "from": "2023-06-14",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "夕暮"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。2026-08-23 裁「限定」收案：舰娘百科的常规掉落表不区分限定/常驻，把限定条目一并混编进去，与本条并非互斥的断言；艦ログ 2026-08-23 13:00 页面人工核阅，本条仍列在「開催中の期間限定ドロップ」名单里，批次标签与起始日逐条吻合——互斥两票制的第二票到齐。",
+       "recordedAt": "2026-08-23"
+      },
+      "votes": [
+       "wikiwiki",
+       "kanlog"
+      ]
+     }
+    ]
+   },
+   "6-1": {
+    "K": [
+     {
+      "id": 635,
+      "window": {
+       "from": "2022-08-04",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Samuel B.Roberts、Zara、迅鯨、長鯨、春日丸、第四号海防艦、第三〇号海防艦"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "6-2": {
+    "K": [
+     {
+      "id": 139,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-04-07",
+       "until": null,
+       "lastConfirmedAt": "2025-04-07",
+       "status": "ended_undated",
+       "statusChangedAt": "2026-08-28",
+       "label": "最後の第一遊撃部隊"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：小节标题写明这一批只剩另一条还在继续——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「最後の第一遊撃部隊」2025-04-07 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，6-2 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。本机遭遇志没有这一格的记录，暂无第一方印证。",
+       "recordedAt": "2026-08-28"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "6-3": {
+    "J": [
+     {
+      "id": 186,
+      "limitedOnly": true,
+      "window": {
+       "from": "2025-10-29",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "山風、磯風など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "7-3": {
+    "E": [
+     {
+      "id": 441,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-02-13",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Valentine"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 535,
+      "limitedOnly": true,
+      "window": {
+       "from": "2020-09-17",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "end_pending",
+       "statusChangedAt": "2026-08-11",
+       "label": "福江、Pola、Luigi Torelli、平戸、Gambier Bay"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。艦ログ 2026-08-23 13:00 页面人工核阅：这一点的開催中名单里也不再列出它，「上游不再列出」拿到第二票；但仍旧没有任何一方说得出结束日，所以 status 保持 end_pending 不动。",
+       "recordedAt": "2026-08-23"
+      },
+      "votes": [
+       "wikiwiki",
+       "kanlog"
+      ]
+     }
+    ],
+    "P": [
+     {
+      "id": 441,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-02-13",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Valentine"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 535,
+      "window": {
+       "from": "2020-09-17",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "福江、Pola、Luigi Torelli、平戸、Gambier Bay"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 962,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-02-13",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "Valentine"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 973,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-03-02",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "桃の節句"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "7-4": {
+    "P": [
+     {
+      "id": 895,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-03-13",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "ホワイトデー"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   },
+   "7-5": {
+    "M": [
+     {
+      "id": 595,
+      "limitedOnly": true,
+      "window": {
+       "from": "2024-04-23",
+       "until": null,
+       "lastConfirmedAt": "2026-06-26",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-06-26",
+       "label": "翔鶴、Houston、Tuscaloosa、Northampton"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；本机遭遇志尚未在这张图捞到过它，暂无第一方印证。",
+       "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     }
+    ]
+   }
+  }
+ }
+}

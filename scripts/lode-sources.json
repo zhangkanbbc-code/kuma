@@ -1,0 +1,591 @@
+[
+  {
+    "id": "abyssal-stats",
+    "name": "深海数值推定",
+    "source": "KC3Kai",
+    "license": "MIT",
+    "licenseId": "MIT",
+    "bundle": true,
+    "url": "https://raw.githubusercontent.com/KC3Kai/KC3Kai/master/src/data/abyssal_stats.json",
+    "note": "深海舰的耐久、火力、装甲，社区实测推定值",
+    "maintainerNote": [
+      "社区实测推定，非官方；推定数值的事实标准（普查 §2.3）"
+    ]
+  },
+  {
+    "id": "ship-exp",
+    "name": "舰娘等级经验表",
+    "source": "KC3Kai",
+    "license": "MIT",
+    "licenseId": "MIT",
+    "bundle": true,
+    "url": "https://raw.githubusercontent.com/KC3Kai/KC3Kai/master/src/data/exp_ship.json",
+    "note": "每一级升级所需经验与累计经验的完整对照表。数值由社区整理",
+    "maintainerNote": [
+      "「等级: [升下一级所需, 达到该级的累计]」原样保留。游戏 api_start2 不给这张表，高段也没有可套的公式；本地用 95 个实测点（每艘未满级舰的 expTotal+expNext）逐点核对过，全部一致。",
+      "⚠️ 别换成 wikiwiki / kcwiki 的表：那两个按「结婚后从 0 重数」列（Lv130 = 785,000），与 api_exp[0] 的连续累计口径（1,785,000）差 100 万"
+    ]
+  },
+  {
+    "id": "akashi-list",
+    "name": "明石改修总表（akashi-list 同构）",
+    "source": "kcwiki-luatable (kcwikizh)",
+    "license": "未声明——仅用户显式拉取，不随包分发",
+    "bundle": false,
+    "url": "https://raw.githubusercontent.com/kcwikizh/kcwiki-luatable/gh-pages/json/akashi-list.json",
+    "note": "装备改修每提升一星带来的加成，以及装备图鉴里的说明文字",
+    "maintainerNote": [
+      "改修首选口径（普查 §一/§3.2）：消费两项——ji 的逐星加成表（item_remodel）与装备图鉴说明（item_intro）。",
+      "⚠️ 2026-08-22 换源二期实测**两条候选路都不是超集，故不换**，别再重跑这轮搜索：① KC3Kai src/data/akashi.json（MIT，48 KB）只有「曜日 × 装备 → 二番舰」一张关系表，没有逐星加成、没有图鉴说明、没有消耗与更新链——它是 equip-upgrades 里 helpers 那一个字段的子集，不是本包的候选；② zh.kcwiki「模块:明石工厂数据」（pageid 30856，CC BY-NC-SA，与本包同源同构，item_intro 540/540 逐字全等）**内容更旧**：540 件 vs 本包 573 件（少的 33 件全是 id≥546 的新装备）、逐星加成表 336 张 vs 本包 396 张，而且上游 CI 机器人 2024-09-30 就停摆、末次人工编辑 2026-02-24。整体替换等于「用 60 张逐星表换 0 张」，违反同域单基准。⇒ 本包维持不随包，鉴的逐星加成格在发行版上如实挂缺（已在《使用说明.md》已知限制里）"
+    ]
+  },
+  {
+    "id": "kcwiki-ships",
+    "name": "舰娘中文口径（改造/消耗/获得）",
+    "source": "zh.kcwiki 模块:舰娘数据",
+    "license": "CC BY-NC-SA 3.0（kcwiki 站点条款）",
+    "licenseId": "CC-BY-NC-SA-3.0",
+    "bundle": true,
+    "url": "https://zh.kcwiki.cn/index.php?title=%E6%A8%A1%E5%9D%97:%E8%88%B0%E5%A8%98%E6%95%B0%E6%8D%AE&action=raw",
+    "format": "text",
+    "dailyCache": true,
+    "parser": "kcwiki-ships",
+    "upstreamApi": "https://zh.kcwiki.cn/api.php?action=query&prop=revisions&titles=%E6%A8%A1%E5%9D%97%3A%E8%88%B0%E5%A8%98%E6%95%B0%E6%8D%AE&rvprop=timestamp&format=json",
+    "note": "舰娘的中文名、舰级、改造需求与获得方式",
+    "maintainerNote": [
+      "2026-08-21 换源：原从 kcwikizh/kcwiki-luatable 的 gh-pages 镜像 ships.json 取，那个中转仓无 LICENSE（且掺了 kcdata/get_kaisou_data/akashi/wikiwiki 爬取的成分）。改直取站点原模块后同一份数据落进 CC BY-NC-SA 3.0，可随发行版分发。全量对账：字段名一字不差、旧包 773 条一条不少，模块多出 84 条——正好是 2023 霧島改二丙起系统性停收的那批"
+    ]
+  },
+  {
+    "id": "kcwiki-expedition",
+    "name": "远征中文名称与本地化",
+    "source": "zh.kcwiki 远征列表",
+    "license": "CC BY-NC-SA 3.0（kcwiki 站点条款）",
+    "licenseId": "CC-BY-NC-SA-3.0",
+    "bundle": true,
+    "url": "https://zh.kcwiki.cn/index.php?title=%E8%BF%9C%E5%BE%81%E5%88%97%E8%A1%A8&action=raw",
+    "format": "text",
+    "parser": "kcwiki-expedition",
+    "upstreamApi": "https://zh.kcwiki.cn/api.php?action=query&prop=revisions&titles=%E8%BF%9C%E5%BE%81%E5%88%97%E8%A1%A8&rvprop=timestamp&format=json",
+    "note": "远征的中文名称与说明",
+    "maintainerNote": [
+      "只承担中文名称与 wikiwiki 缺项兜底；远征事实优先游戏 API 与 wikiwiki-expedition",
+      "旧包内 note（当时未随清单重出，带着清单没有的事实）：远征域单基准（条件+报酬+大成功+月常，替换了 kcanotify expedition）；骨架/消耗 = api_mst_mission"
+    ]
+  },
+  {
+    "id": "kcwiki-bgm",
+    "name": "战斗曲曲名（按资源号）",
+    "source": "zh.kcwiki 拆包BGM列表",
+    "license": "CC BY-NC-SA 3.0（kcwiki 站点条款）",
+    "licenseId": "CC-BY-NC-SA-3.0",
+    "bundle": true,
+    "url": "https://zh.kcwiki.cn/index.php?title=%E6%8B%86%E5%8C%85BGM%E5%88%97%E8%A1%A8&action=raw",
+    "format": "text",
+    "parser": "kcwiki-bgm",
+    "upstreamApi": "https://zh.kcwiki.cn/api.php?action=query&prop=revisions&titles=%E6%8B%86%E5%8C%85BGM%E5%88%97%E8%A1%A8&rvprop=timestamp&format=json",
+    "note": "战斗中播放的曲目名称，按游戏内的战斗曲编号对应",
+    "maintainerNote": [
+      "只补**战斗树**资源号→官方曲名；母港树的号由游戏主数据 api_mst_bgm 自己给，这一层不碰。两套编号不通用（战斗树 118=梅雨明けの白露，主数据 118=鎮守府の秋祭り），详见 scripts/lib/kcwiki-bgm.mjs 顶部的三处实证",
+      "⚠️ 2026-08-24 这个源逮到第一笔**转写错**：124 号站方写「決戦！北太平洋」，官方原名是「決戦！北大西洋」（太/大 一笔之差）。三票独立一致——官方曲目表 OST vol.VI【雪】(KA2C-0010, 2021-04-07) Tr.23「決戦！北大西洋」（C2 运营公布的曲目表，電撃ホビーウェブ实物评测逐曲抄录同值）／EN Fandom `Sound_b_bgm_124.ogg` 三列 ja=決戦! 北大西洋・ro=Kessen! Kita-taiseiyou・en=Decisive Battle! North Atlantic（罗马音 taiseiyou 只能从「大西洋」来，「太平洋」是 taiheiyou）／wikiwiki.jp/kancolle「BGM」全页 7 处「北大西洋」、0 处「北太平洋」。**初出考证**：kcwiki 本页按活动分节，124 落在「2018年初秋季活动『抜錨！連合艦隊、西へ！』」（2018-09-09～10-10）一节的末位，wikiwiki 与 Fandom 同判该期，用处是**E-5 最终 Boss**；该图是欧洲/大西洋战场（kcwiki E-5 页抄下的敌方点名逐字为「深海北大西洋艦隊 機動部隊III群」「深海北海潜水艦隊集団」，编成条件挂「Force H」「莱茵演习」，同期新舰 Nelson/Maestrale/Gotland、新深海栖舰欧洲水姬/战舰法栖姬）。所以不存在「日英两个官方名互相打架」，只是上游打错一个字；2026 夏活 62-5（ブレスト沖/大西洋/イギリス本土沖/バルト海）复用此号也是照战场复用。修正与指纹核对落在 scripts/lib/kcwiki-bgm.mjs 的 KNOWN_TRANSCRIPTION_FIXES，护栏在 test/kcs-bgm",
+      "这一层的可靠度要分两半看：**号可靠**（从游戏原文件名读出来，中间没有人的判断），**曲名是转写**（站方编辑照官方曲目表手打）。所以曲名遇到官方一手出处（OST 曲目表 / 運営 推文）时以官方为准，别再拿「上游优先」把它判回去",
+      "⚠️ 2026-08-24 立了一把**官方曲名字形尺子**：scripts/ost-tracklists.json（网易云的舰これ官方 OST 九卷曲目表，218 曲，抓取器 scripts/fetch-ost-tracklists.mjs，运行时零读取、/scripts 整个目录不随包），审计器 scripts/bgm-name-audit.mjs。首轮拿它把本包 97 + 耳测层 61 共 158 个曲名逐字铺开比过：119 条逐字相同；13 条只差约物（全半角「！」，各家自己都不统一，无判决力，一律不动）；本包另揪出两笔**繁体「擊」写成日文新字体「撃」**的转写错（109、136 母艦攻擊隊→母艦攻撃隊），已进 KNOWN_TRANSCRIPTION_FIXES；109 那笔当晚悬案终审后升格为改题修正（出擊前夜→決戦前夜，旧题在台账注记留档），同轮另添 152/153 整对错位两笔（提督按号实听终审，详见台账各条）。**这把尺子自己也会错**：同轮反过来查实参考表错了三格（vol.I Tr.7 海上護衛艦→海上護衛戦、vol.VI Tr.1 捷号作戦前夜→捷号決戦前夜、vol.IX Tr.7 Trick of Fleet!→Trick or Fleet!），而且它自己也有一处「擊」（vol.VII Tr.10，与本源同错）——两个中文平台同错不算两票，第二票一律取 wikiwiki 的日文页。碟面时长是完整版、游戏内是循环版（華の二水戦 2:53 vs 1:28），**绝不许喂给 scripts/bgm-duration-align.mjs**"
+    ]
+  },
+  {
+    "id": "wikiwiki-expedition",
+    "name": "远征条件与报酬（日文一手）",
+    "source": "wikiwiki.jp/kancolle「遠征」",
+    "license": "未声明——仅用户显式拉取，不随仓库分发",
+    "bundle": false,
+    "url": "https://wikiwiki.jp/kancolle/%E9%81%A0%E5%BE%81",
+    "format": "text",
+    "parser": "wikiwiki-expedition",
+    "note": "远征的所需时间、报酬、经验，以及成功与大成功的条件",
+    "maintainerNote": [
+      "时间、基础报酬、经验、成功条件与大成功条件的首选社区源；名称中文仍由 kcwiki 提供，官方奖励物品/示例编成/难度优先 api_mst_mission"
+    ]
+  },
+  {
+    "id": "quests-scn",
+    "name": "任务库（简中）",
+    "source": "zh.kcwiki 任务 / 任务·最新任务",
+    "license": "CC BY-NC-SA 3.0（kcwiki 站点条款）",
+    "licenseId": "CC-BY-NC-SA-3.0",
+    "bundle": true,
+    "url": "https://zh.kcwiki.cn/index.php?title=%E4%BB%BB%E5%8A%A1&action=raw",
+    "selfFetch": true,
+    "parser": "quests-scn",
+    "note": "任务的中文名称、说明与报酬",
+    "maintainerNote": [
+      "中文任务名/描述/报酬口径。2026-08-21 换源：原取 kcwikizh/kcQuests 的 quests-scn.json，那个仓无 LICENSE 无 README，而它 src/kcwiki/constants.py 的 URL_LIST 明写内容就是 action=raw 抓的这两张 zh.kcwiki 页——去掉中转层后同一份内容落进 CC BY-NC-SA 3.0。解析口径逐条对齐 kcQuests 既有实现（含 [[6-1|中部海域哨戒战(6-1)]] 留下带竖线文本这类版式怪癖），644 条 id 一条不差、546 条六字段全等；余 98 条只差「奖励」里的装备名——改从 zh.kcwiki 装备模块取，与 kuma 其余各处的装备名一致（旧的 kcdata 名大量留着日文原文）"
+    ]
+  },
+  {
+    "id": "eo-quests",
+    "name": "任务元数据（EO）",
+    "source": "ElectronicObserver (EN)",
+    "license": "NOASSERTION（自定义，分发前须读）",
+    "bundle": false,
+    "url": "https://raw.githubusercontent.com/ElectronicObserverEN/Data/master/Data/Quests.json",
+    "note": "任务编号与日文原名的对照表，含已经下线的任务",
+    "maintainerNote": [
+      "⚠ 维护者侧专用：运行时零读取（不在 CONSUMED_LODES 里），且 scripts/lib/package-ignore.mjs 钉死不随包（NOASSERTION 不许再分发）。用途三处，都在 scripts/ 里：① 给 wikiwiki-quests 做任务码空间公证（周期任务重编过号，code 不能裸信）；② 喂 scn×eo×ww 的任务前提三方对账；③ 它的 desc_jp 是仲裁台账「日文原文」的次级出处（账本 questlist 没见过的任务只能读它）。api_id↔code↔日文名对照 899 条，含已下线任务；实测无前置字段——前置链在 quests-scn 与 wikiwiki-quests",
+      "旧包内 note（当时未随清单重出，带着清单没有的事实）：任务结构/前置/报酬"
+    ]
+  },
+  {
+    "id": "kcwiki-quest-req",
+    "name": "任务结构化要求（KCWiki）",
+    "source": "kcwiki-quest-data (kcwikizh)",
+    "license": "MIT",
+    "licenseId": "MIT",
+    "bundle": true,
+    "url": "https://kcwikizh.github.io/kcwiki-quest-data/data.min.json",
+    "parser": "kcwiki-quest-req",
+    "upstreamUpdatedAt": "2022-04-24T13:42:00Z",
+    "note": "任务达成条件的结构化记录，用来判断任务进度",
+    "maintainerNote": [
+      "446 条任务的机器可读 requirements；data/ 最后一次实质更新于 2022-04-24，规则陈旧度必须原样展示"
+    ]
+  },
+  {
+    "id": "wikiwiki-quests",
+    "name": "任务前提链（日文一手）",
+    "source": "wikiwiki.jp/kancolle 任務 各分类页",
+    "license": "未声明——仅用户显式拉取，不随仓库分发",
+    "bundle": false,
+    "url": "https://wikiwiki.jp/kancolle/%E4%BB%BB%E5%8B%99",
+    "selfFetch": true,
+    "parser": "wikiwiki-quests",
+    "note": "任务的开放条件，也就是要先做完哪些任务才会出现",
+    "maintainerNote": [
+      "常驻分类页（編成/出撃/出撃定期/演習/遠征/補給入渠/工廠/改装/ケッコン）+新着页的 開放条件 列；只在達成後语境收前提码，wiki 自标的不确定（達成後？/検証中）原样带出。期间限定任务不收。与 quests-scn（kcQuests）的 pre 链在运行时双源对照；周期任务历史上重编过号（任務/定期任務のID変更一覧），对账须经日文名二次校验"
+    ]
+  },
+  {
+    "id": "poi-quest-goal",
+    "name": "任务进度目标（poi）",
+    "source": "poi (poooi)",
+    "license": "MIT",
+    "licenseId": "MIT",
+    "bundle": true,
+    "url": "https://raw.githubusercontent.com/poooi/poi/master/assets/data/quest_goal.cson",
+    "format": "text",
+    "parser": "poi-quest-goal",
+    "upstreamUpdatedAt": "2026-07-22T00:00:00Z",
+    "note": "任务进度的计数目标，补上较新的那些任务",
+    "maintainerNote": [
+      "KCWiki 规则之后的新任务补充源；抓取时把 CSON 安全转换为有界 JSON，运行时不解析或执行 CSON"
+    ]
+  },
+  {
+    "id": "poi-fcd-map",
+    "name": "海图路线/点位（poi fcd）",
+    "source": "poi (poooi)",
+    "license": "MIT",
+    "licenseId": "MIT",
+    "bundle": true,
+    "url": "https://raw.githubusercontent.com/poooi/poi/master/fcd/map.json",
+    "note": "海图上各点位的坐标与航线连接，小地图与航迹靠它绘制",
+    "maintainerNote": [
+      "route: 边号(=罗盘 api_no)→[起点,终点字母]；spots: 字母→坐标。航迹字母与小地图的数据源"
+    ]
+  },
+  {
+    "id": "equip-upgrades",
+    "name": "装备改修详表（维护者侧对照票）",
+    "source": "wikiwiki.jp/kancolle「改修表」",
+    "license": "未声明——wikiwiki 平台条款实读无 CC 字样，著作权在各编辑者",
+    "bundle": false,
+    "url": "https://wikiwiki.jp/kancolle/%E6%94%B9%E4%BF%AE%E8%A1%A8",
+    "format": "text",
+    "dailyCache": true,
+    "parser": "wikiwiki-kaishu",
+    "note": "装备改修每一段的资材消耗、可用的二番舰与开放曜日，以及改修到底后能更新成哪件装备",
+    "maintainerNote": [
+      "⚠️ 2026-08-25 **降级为维护者侧对照票，不再是随包数据的产地**。改修的消耗/二号舰/星期/更新链是游戏机制的客观事实，不属于任何转录者——原先因为这个包上游无许可（bundle:false），首发玩家的改修卡整块是「待补」，一件明明是客观事实的东西因为转录者的许可对玩家消失了。现已改成第一方事实表 assets/lodes/equip-improve.json 随包，每行带 basis 写明置信等级。抓它只为对照：跑 scripts/diff-equip-improve.mjs 出 diff 报告，人工判要不要把某一格转写进事实表（转写时 basis 照实写，别默认升级）。运行时一行都不读，已从 CONSUMED_LODES 移出、进了 NEVER_BUNDLED_LODE_IDS。",
+      "消耗/二番舰/曜日/更新链，解析成 EO EquipmentUpgrades 同构。2026-08-11 与 EO 全量对账后换源：EO 停在 2025 年初（9 条新更新链缺失、吹雪改三等新形态缺席、二番舰不要行全丢），wikiwiki 改修表随维护活跃更新。二番舰不要写成 ship_ids:[-1]。",
+      "⚠️ 2026-08-22 换源二期实测：真正的同域 CC 候选**不是**「模块:明石改修 / 模块:改修工厂」（这两个确实不存在），而是**「模块:舰娘装备数据改」里的 `装备改修` / `装备改修2` / `装备改修3` 字段**（pageid 11634，2026-08-19 仍在更新，CC BY-NC-SA，本仓 kcwiki-fit-bonus 与 localization.mjs 早就在读这张表）——它带全套资源消费 / 初期·中段·更新消费 / 更新装备 / 曜日秘书舰，与本包结构一一对得上。**但逐条对账下来是本包的真子集，故不换**：可改修装备 309 件 vs 本包 372 件（只本包有 63 件、只 kcwiki 有 0 件，缺的那 63 件里 522–575 是近两年一整段新装备）、方案 339 套 vs 411 套；且它的曜日名单是**中文舰名**（453 个不同取值，含「×」这类非舰名占位），换过去还得先建一张解号词表，代价换来的是更小的数据集。整体替换违反同域单基准（与 2026-08-21 fit-bonus「用 43 件换 11 件」同形，只是更糟：用 63 件换 0 件）。",
+      "⚠️ 2026-08-24 又被问了一次「逐装备页会不会比这张总表新」——**不会，而且结构上不可能**：wikiwiki 逐页「備考」栏的改修可否那一格是**一条指回本表的锚链**（12cm30連装噴進砲 → `改修表#id051` 文字「改修可」；QF 2ポンド8連装ポンポン砲 → `改修表#id092`「改修更新」，指的是它的来源装备毘式40mm連装機銃 那一行），不可改修的则是无链纯文字「改修不可」。改修数据在 wikiwiki 上**只有总表这一份**，逐页是入口不是第二份。抽查 6 页（Last-modified）：51 12cm30連装噴進砲 2026-06-09「改修可」／54 彩雲 2026-08-19「改修不可」／191 QF 2ポンド8連装ポンポン砲 2026-06-09「改修更新」／577 61cm四連装(酸素)魚雷五型改三 2026-08-22「改修不可」／579 13.8cm単装砲 Modèle 1927 2026-08-19「改修不可」／580 55cm三連装魚雷 Modèle 1924 2026-08-10「改修不可」——**其中 3 页确实比总表(08-17)新，但新的一个字都不是改修内容**；对照组 51（总表有完整方案）的逐页反而比总表旧两个月，方向上逐页是滞后的。kcwiki 逐页更没戏：老装备页是 2016–2018 年的空壳（474–588 字节，正文只有一句「改修列表为自动生成页面」的注释，pageid 2351/2354/20523），新装备页（577/579/580，2026-08-08~10）的 `|改修=` 模板参数是空的。⇒ 舰娘域那条「三维批量表对新实装整批不收 → 定向抓逐舰页补缺」的先例（wikiwiki-ship-profile）**在改修域不成立，别照搬**：那边逐页是独立的第二份数据，这边逐页只是总表的锚链入口。逐页唯一能给出而总表给不出的是**「改修不可」这个肯定断言**（总表只有沉默），那是核对用的，不是补缺用的"
+    ]
+  },
+  {
+    "id": "kcwiki-voice",
+    "name": "台词（场合/日文/中文）",
+    "source": "zh.kcwiki 舰娘/深海舰页 {{台词翻译表}}",
+    "license": "CC BY-NC-SA 3.0（kcwiki 站点条款）",
+    "licenseId": "CC-BY-NC-SA-3.0",
+    "bundle": true,
+    "url": "https://zh.kcwiki.cn/api.php (按 {{台词翻译表}} 转写清单穷举取页)",
+    "selfFetch": true,
+    "parser": "kcwiki-voice",
+    "upstreamApi": "https://zh.kcwiki.cn/api.php?action=query&prop=revisions&titles=%E6%97%B6%E9%9B%A8&rvprop=timestamp&format=json",
+    "note": "舰娘与深海舰的台词，每条带场合、日文原文与中文翻译",
+    "maintainerNote": [
+      "台词首选源：每条自带「场合」场景名 + 日文原文 + 中文译文。舰娘按改装形态匹配；深海舰按 ShinkaiSeikan 档名中的精确 ID 匹配，不按同名猜形态。舰娘覆盖不及 subtitle-zh，故按实体级回退而非整体替换。",
+      "⚠️ 2026-08-23 页清单换成**穷举式**（embeddedin『Template:台词翻译表』∪ 链首名单）：旧的「按链首中文名」两处漏——`图鉴号` 是数字而 `系列` 是补零字符串，字符串比较对图鉴号小于 100 的 94 艘老舰一律判假（睦月/吹雪/雪风/时雨/曙/潮全家一行都没进过包），且清单跟着 ships 包漂、页面换归属就整页丢。同批还修了形态映射只认 {{舰娘资料改}} 的毛病——上游同页混用 {{舰娘资料}}，认不出时整页台词会被算到唯一认得出的那个形态头上。368 页 / 765 个玩家形态 / 17434 行"
+    ]
+  },
+  {
+    "id": "kcwiki-seasonal-voice",
+    "name": "季节限定台词（中文译文）",
+    "source": "zh.kcwiki「季节性/*」页 {{台词翻译表|type=seasonal}}",
+    "license": "CC BY-NC-SA 3.0（kcwiki 站点条款）",
+    "licenseId": "CC-BY-NC-SA-3.0",
+    "bundle": true,
+    "url": "https://zh.kcwiki.cn/api.php (allpages 穷举「季节性/」页后批量取)",
+    "selfFetch": true,
+    "parser": "kcwiki-seasonal-voice",
+    "upstreamApi": "https://zh.kcwiki.cn/api.php?action=query&prop=revisions&titles=%E5%AD%A3%E8%8A%82%E6%80%A7%2F2026%E5%B9%B4%E6%83%85%E4%BA%BA%E8%8A%82&rvprop=timestamp&format=json",
+    "note": "历年季节活动期间的限定台词，带日文原文与中文翻译",
+    "maintainerNote": [
+      "2026-08-22 新建。**这一域此前是空的**：舰娘页的「季节限定语音」小节整段是 {{#widget:SeasonalSubtitle}} 挂件，一行文本都没有，kcwiki-voice 的抓取器把页外段落当「未匹配到 mstId」丢掉，于是 kuma 一条季节台词也没有。实测：zh.kcwiki 的 Module 名字空间 82 项穷举过，**没有任何模块存台词**，台词只以 wikitext 存在；季节性页 155 张（5 张重定向、1 张空页「2026年盛夏季节」），144 张有台词共 25152 行——比常规台词包（11250 行）还大。",
+      "⚠️ **随包只落中文译文**：台词是 C2 的创作性表达，kcwiki 的 CC 只覆盖它自己的翻译劳动，覆盖不了日文原文，故按任务域 2026-08-21 的口径把日文挡在分发物外（要对账跑 `lodes:fetch --only=kcwiki-seasonal-voice --seasonal-voice-audit`，材料落 assets/review/，不入仓）。形态归属按档名的形态码（080 / 080a / 145），不按图鉴号猜——时雨改的形态码是 080a 而图鉴号是 1343。深海域**无季节台词**：季节页里 ShinkaiSeikan 档名 0 条，那 27 处 ShinkaiSeikan 全是立绘图片名",
+      "旧包内 note（当时未随清单重出，带着清单没有的事实）：2026-08-22 新建。**这一域此前是空的**：舰娘页的「季节限定语音」小节整段是 {{#widget:SeasonalSubtitle}} 挂件，一行文本都没有，kcwiki-voice 的抓取器把页外段落当「未匹配到 mstId」丢掉，于是 kuma 一条季节台词也没有。实测：zh.kcwiki 的 Module 名字空间 82 项穷举过，**没有任何模块存台词**，台词只以 wikitext 存在；季节性页 155 张（5 张重定向、1 张空页「2026年盛夏季节」），144 张有台词共 25152 行——比常规台词包（11250 行）还大。⚠️ **随包日中两列都落**（2026-08-22 起；此前一版只落中文，是把任务域「日文原文不进分发物」的口径类推过来，同日用户重算法理后撤销——逐字转写的权利归游戏方，这一列与随包早就有的 kcwiki-voice 日文列、整份 subtitle-ja 同源同性质、同样的灰度）。形态归属按档名的形态码（080 / 080a / 145），不按图鉴号猜——时雨改的形态码是 080a 而图鉴号是 1343。深海域**无季节台词**：季节页里 ShinkaiSeikan 档名 0 条，那 27 处 ShinkaiSeikan 全是立绘图片名。2026-08-22 补：中文译文过一道标点体例归一（行尾不写句号、省略号后不许再接句号），日文原样落盘；上游确实没转日文的行照实留空（实测 91 行，集中在 2023 十周年 / 2024 十一周年那几张只填了中文的页）。要看**每一次列出**的原始行（往年台词会在每张同季节页上重复列出，包里只留「本家那一次」），跑 lodes:fetch --only=kcwiki-seasonal-voice --seasonal-voice-audit，材料落 assets/review/，不入仓。"
+    ]
+  },
+  {
+    "id": "subtitle-zh",
+    "name": "台词中文翻译（覆盖兜底）",
+    "source": "poi-plugin-subtitle (kcwikizh)",
+    "license": "MIT",
+    "licenseId": "MIT",
+    "bundle": true,
+    "url": "https://raw.githubusercontent.com/kcwikizh/poi-plugin-subtitle/master/data/zh-CN.json",
+    "note": "台词的中文翻译，补上主来源没有收录的形态",
+    "maintainerNote": [
+      "kcwiki 未收录该形态时整条回退到此源；结构 {mstId:{语音编号:文本}}，无场景名"
+    ]
+  },
+  {
+    "id": "subtitle-ja",
+    "name": "台词日文原文（覆盖兜底）",
+    "source": "poi-plugin-subtitle (kcwikizh)",
+    "license": "MIT",
+    "licenseId": "MIT",
+    "bundle": true,
+    "url": "https://raw.githubusercontent.com/kcwikizh/poi-plugin-subtitle/master/data/ja-JP.json",
+    "note": "台词的日文原文，与中文翻译那一份配对显示",
+    "maintainerNote": [
+      "与 subtitle-zh 同结构，配对使用"
+    ]
+  },
+  {
+    "id": "wikiwiki-voice",
+    "name": "台词（日文原文·新形态补录）",
+    "source": "wikiwiki.jp/kancolle 舰娘页「セリフ / 改装段階」表",
+    "license": "未声明——仅用户显式拉取，不随仓库分发",
+    "bundle": false,
+    "url": "https://wikiwiki.jp/kancolle/",
+    "selfFetch": true,
+    "parser": "wikiwiki-voice",
+    "note": "其他来源都没有收录的那些形态的台词，只有日文原文",
+    "maintainerNote": [
+      "仅抓取 kcwiki-voice 与 poi-plugin-subtitle 均未覆盖的形态；按表中各改装阶段的 ○/× 精确拆分，并以当日缓存续传控制请求频率。提供日文原文和可靠的标准语音编号；能与既有日中表逐字对齐时，运行时才复用中文译文。",
+      "⚠️ 2026-08-22 换源二期实测 KC3Kai/kc3-translations 的 data/jp/quotes.json（MIT，data/scn 活跃到 2026-08）**不是超集，故不换**：本包 124 个形态 / 5704 行，kc3 按它自己的 tools/remodelGroups.json 继承规则展开后只有 3236 行（57%），其中 12 个形态一条都没有（樫改 / Glorious 三形态 / 清霜改二 / 大泊 / Wasp / Thonburi / Dace / 涼波改二補 / Indiana / Reno / Independence）。本包定位就是「捡上游都没捡的形态」，换到一个更小的上游等于把补缺层缩掉四成"
+    ]
+  },
+  {
+    "id": "wikiwiki-ship-max",
+    "name": "舰娘 Lv99 上限（艦船最大値）",
+    "source": "wikiwiki.jp/kancolle「艦船最大値」总表",
+    "license": "未声明——仅用户显式拉取，不随仓库分发",
+    "bundle": false,
+    "url": "https://wikiwiki.jp/kancolle/%E8%89%A6%E8%88%B9%E6%9C%80%E5%A4%A7%E5%80%A4",
+    "format": "text",
+    "dailyCache": true,
+    "parser": "wikiwiki-ship-max",
+    "note": "舰娘 99 级时回避、对潜、索敌三项的上限值",
+    "maintainerNote": [
+      "三维（回避/对潜/索敌）Lv99 上限的社区基准：2026-08-11 拿账本一手（api_kaihi 等 [1]）对 340 持有形态仲裁，覆盖与正确率胜过 kcwiki（缺 6 可解 vs 缺 41）。批量表不收的形态（新实装/補形态/部分海外舰系，日枝丸实锤）定向抓逐舰页补齐并顺带取初期值。持有形态一律以游戏一手为准；初始值以 kcwiki-ships 为批量基准、舰页初期值兜缺"
+    ]
+  },
+  {
+    "id": "ship-stats",
+    "name": "舰娘成长三维端点（第一方汇编）",
+    "source": "kuma 汇编 · 舰娘百科「模块:舰娘数据」基座 + 逐格转写补丁 + 本机账本一手",
+    "license": "CC BY-NC-SA 3.0（kcwiki 站点条款）；成长端点事实本身不受著作权保护，汇编为第一方产物",
+    "licenseId": "CC-BY-NC-SA-3.0",
+    "bundle": true,
+    "url": "（纯本地重组：kcwiki-ships.json × wikiwiki-ship-max.json × src/shared/ship-stats-patches.ts，不发网络请求）",
+    "selfFetch": true,
+    "parser": "ship-stats",
+    "note": "舰娘回避、对潜、索敌在 1 级与 99 级的数值。多方资料汇总的结果",
+    "maintainerNote": [
+      "回避/对潜/索敌的 [Lv1, Lv99] 端点。这三项游戏不在 api_mst_ship 里下发，社区表会无声腐坏（C2 历年单独抬高过成长上限，官方公告只说谁的哪一项 up、不说加多少），所以端点表不能单源。值只来自两处：kcwiki 基座整表 + src/shared/ship-stats-patches.ts 里逐条转写带依据的 64 格分歧（wikiwiki 无许可声明，只准投票不准供值——一张 2500 格的表照抄是搬表，几十格分歧逐条带证据地记下来不是）。印证四档 ledger/multi/patched/single 同 map-drops 范式。两处消费：面板反推七项扩展的端点表、图鉴舰娘卷的三维上限展示（后者原先直读 wikiwiki-ship-max，发布版显示占位，本包一并消掉那条已知限制）。持有形态运行时一律再以游戏一手 api_kaihi[1] 为准，包里那一格只兜未持有形态。上线终审是 shared/ship-growth.ts 的标定闸门：拿空槽舰逐艘验零残差才准启用该形态该项的反推。待裁项落 assets/review/ship-stats-conflicts.json"
+    ]
+  },
+  {
+    "id": "wikiwiki-ship-profile",
+    "name": "舰娘档案补缺（CV/画师/舰级/初期装备）",
+    "source": "wikiwiki.jp/kancolle 逐舰页",
+    "license": "未声明——仅用户显式拉取，不随仓库分发",
+    "bundle": false,
+    "url": "https://wikiwiki.jp/kancolle/",
+    "selfFetch": true,
+    "parser": "wikiwiki-ship-profile",
+    "note": "补上中文资料还没收录的那些形态的声优、画师、舰级与初期装备",
+    "maintainerNote": [
+      "只针对 kcwiki-ships 没收的形态抓逐舰页补 CV/画师/舰级+番舰/初期装备；kcwiki 有条目的形态一律以 kcwiki 为准（实体级回退，不混拼）。初期装备名对不上主数据时整形态不发，残缺列表不冒充完整配置。",
+      "⚠️ 2026-08-21 kcwiki-ships 换源到 zh.kcwiki 原模块之后，「2023 霧島改二丙起停收 89 个形态」那条前提已经消失：上游补齐了 84 个，本包自动退役到 5 个（Phoenix/Phoenix改/Glorious×2/Glorious改）。上游继续补它还会更小——那是补缺层的设计终局，不是抓少了",
+      "旧包内 note（当时未随清单重出，带着清单没有的事实）：只针对 kcwiki-ships 没收的形态（2023 霧島改二丙起系统性停收，2026-08 实测缺 89 个）抓逐舰页补 CV/画师/舰级+番舰/初期装备；kcwiki 有条目的形态一律以 kcwiki 为准（实体级回退，不混拼）。初期装备名对不上主数据时整形态不发，残缺列表不冒充完整配置"
+    ]
+  },
+  {
+    "id": "wikiwiki-remodel",
+    "name": "舰娘改造需求（日文一手）",
+    "source": "wikiwiki.jp/kancolle「改造」总表",
+    "license": "未声明——仅用户显式拉取，不随仓库分发",
+    "bundle": false,
+    "url": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+    "format": "text",
+    "dailyCache": true,
+    "parser": "wikiwiki-remodel",
+    "note": "舰娘改造需要的等级、资材与设计图，含可逆改造的回程消耗",
+    "maintainerNote": [
+      "改造素材的首选社区源；总表一次读取，可逆循环成员按舰页チャート分边（主条目=链上首次解锁，edges[]=回环边与脚注回程边，各带 fromShipId）。游戏 api_mst_shipupgrade 原生数量字段优先于本包，kcwiki-ships 仅作最终兜底"
+    ]
+  },
+  {
+    "id": "dev-recipes",
+    "name": "装备开发表",
+    "source": "wikiwiki.jp/kancolle「開発」",
+    "license": "未声明——wikiwiki 平台条款实读无 CC 字样，著作权在各编辑者",
+    "bundle": false,
+    "url": "https://wikiwiki.jp/kancolle/%E9%96%8B%E7%99%BA",
+    "format": "text",
+    "parser": "dev-recipes",
+    "note": "按秘书舰类型与投入资材统计的装备开发出货率。这是社区大样本统计出来的推定值，不是游戏规则",
+    "maintainerNote": [
+      "「装备 → 秘书舰类型 × 最大资材表 → 出货率」。出货率是社区大样本统计的推定值，不是游戏规则，消费端须标注为推定"
+    ]
+  },
+  {
+    "id": "build-recipes",
+    "name": "建造参考表",
+    "source": "wikiwiki.jp/kancolle「建造レシピ」",
+    "license": "未声明——wikiwiki 平台条款实读无 CC 字样，著作权在各编辑者",
+    "bundle": false,
+    "url": "https://wikiwiki.jp/kancolle/%E5%BB%BA%E9%80%A0%E3%83%AC%E3%82%B7%E3%83%94",
+    "format": "text",
+    "parser": "build-recipes",
+    "note": "玩家上报的建造配方，以及按建造时间反查可能出现的舰娘。是上报统计，不是出货概率",
+    "maintainerNote": [
+      "通常建造的报告配方（按目标舰种分节，備考为报告口径**非概率**）+ 建造时间一览（時間→出現舰娘，含大型限定名单）。消费端须标注为报告统计"
+    ]
+  },
+  {
+    "id": "wikiwiki-abyss-voice",
+    "name": "深海台词（日文原文·精确形态）",
+    "source": "wikiwiki.jp/kancolle 深海舰页「セリフ」表",
+    "license": "未声明——仅用户显式拉取，不随仓库分发",
+    "bundle": false,
+    "url": "https://wikiwiki.jp/kancolle/",
+    "selfFetch": true,
+    "parser": "wikiwiki-abyss-voice",
+    "note": "深海舰的台词与战斗语音，只有日文原文",
+    "maintainerNote": [
+      "按深海舰页面列出的 No. 与 api_mst_ship 精确 ID 交集落位，不按同名猜形态；历史页通过 WIKIWIKI 只读镜像批量取回，2026 夏活动及后续新形态回原站核对。只保存日文原文、场景与可验证的音轨后缀；运行时结合战斗 API 自带 api_flavor_info 匹配当前音轨。",
+      "⚠️ 2026-08-22 换源二期实测：KC3Kai/kc3-translations 的 quotes.json **一条深海台词都没有**（867 个键里 857 个数字键全部 < 1500，深海 0 条），对本包覆盖的 646 个形态 / 2975 行是零覆盖，**不构成候选**；已随包的 subtitle-enemies（MIT，309 条）走的是另一套按音轨文件编号索引的键空间，与本包的 mstId 键空间交集为 0，也替代不了。⇒ 深海台词域没有可换的有许可源，维持不随包"
+    ]
+  },
+  {
+    "id": "subtitle-npc",
+    "name": "界面 NPC 台词（日中对照）",
+    "source": "poi-plugin-subtitle (kcwikizh)",
+    "license": "MIT",
+    "licenseId": "MIT",
+    "bundle": true,
+    "url": "https://raw.githubusercontent.com/kcwikizh/poi-plugin-subtitle/master/data/npc.json",
+    "note": "明石、大淀、间宫、伊良湖等界面角色与活动短剧的台词",
+    "maintainerNote": [
+      "kc9999 界面音轨：明石、大淀、间宫、伊良湖及活动短剧；运行时只读本地包"
+    ]
+  },
+  {
+    "id": "subtitle-enemies",
+    "name": "深海战斗台词（日中对照）",
+    "source": "poi-plugin-subtitle (kcwikizh)",
+    "license": "MIT",
+    "licenseId": "MIT",
+    "bundle": true,
+    "url": "https://raw.githubusercontent.com/kcwikizh/poi-plugin-subtitle/master/data/enemies.json",
+    "note": "深海舰在战斗中的台词，中文优先、日文兜底",
+    "maintainerNote": [
+      "kc9998 深海战斗音轨；中文优先、日文兜底，运行时只读本地包"
+    ]
+  },
+  {
+    "id": "fit-bonus",
+    "name": "装备加成（フィット/装備ボーナス）",
+    "source": "ElectronicObserver (EN)",
+    "license": "NOASSERTION（自定义，分发前须读）",
+    "bundle": false,
+    "url": "https://raw.githubusercontent.com/ElectronicObserverEN/Data/master/Data/FitBonuses.json",
+    "note": "装备装在特定舰娘身上时的额外加成",
+    "maintainerNote": [
+      "⚠ 维护者侧专用：运行时零读取（不在 CONSUMED_LODES 里），且 NOASSERTION 不许再分发（assets/lodes 白名单本来也放不进它）。用途只剩一处，在 scripts/ 里：`node scripts/fit-bonus-reconcile.mjs` 拿它当**另一份独立整理**逐格核我们自己的数。发布侧的数据基座 2026-08-22 起是第一方的 kcwiki-fit-bonus（CC BY-NC-SA，随包），消费端（ji/ru/lode-health）同日全部改吃新包，akashi-fit 的运行时拉取路径整层退役。",
+      "⚠️ 该文件上游停更于 2025-03-01（同仓库其他文件 2026-07 仍在提交，是这一份单独没人维护）。两边不同构：EO 是「类行+舰行相加、level/num 逐条追加」，kcwiki 是「分区 + 分档总值」，只能在共同分母上比，详见 scripts/fit-bonus-schema.md",
+      "旧包内 note（当时未随清单重出，带着清单没有的事实）：⚠️ 普查记该文件曾停更于 2025-03-01——抓取后以 meta.upstreamUpdatedAt 为准判断是否仍停滞；备源 zh.kcwiki 模块:装备增益"
+    ]
+  },
+  {
+    "id": "kcwiki-fit-bonus",
+    "name": "装备加成（装備ボーナス · 第一方口径）",
+    "source": "zh.kcwiki 模块:舰娘装备数据改 + 游戏主数据",
+    "license": "CC BY-NC-SA 3.0（kcwiki 站点条款）；id 空间与舰级/舰种编号取自游戏主数据",
+    "licenseId": "CC-BY-NC-SA-3.0",
+    "bundle": true,
+    "format": "text",
+    "url": "https://zh.kcwiki.cn/index.php?title=%E6%A8%A1%E5%9D%97:%E8%88%B0%E5%A8%98%E8%A3%85%E5%A4%87%E6%95%B0%E6%8D%AE%E6%94%B9&action=raw",
+    "upstreamApi": "https://zh.kcwiki.cn/api.php?action=query&prop=revisions&titles=%E6%A8%A1%E5%9D%97%3A%E8%88%B0%E5%A8%98%E8%A3%85%E5%A4%87%E6%95%B0%E6%8D%AE%E6%94%B9&rvprop=timestamp&format=json",
+    "parser": "kcwiki-fit-bonus",
+    "note": "装备装在特定舰娘、舰级或舰种上时的额外加成",
+    "maintainerNote": [
+      "上游 `额外收益` / `额外收益2` … `额外收益25` 的中文名字空间，抓取时就翻成 id 空间（形态 mstId / 舰级 api_ctype / 舰种 api_stype），运行时零解析。名字词表与逐条依据在 scripts/lib/fit-bonus-vocab.mjs，schema 说明在 scripts/fit-bonus-schema.md。关键语义：`适用舰娘` 是**精确形态**不是整条改造链（上游逐形态列举，实证见词表顶部）。抓取需要 api_start2 主数据快照，缺了宁可失败不猜。对账用 `node scripts/fit-bonus-reconcile.mjs`（EO 只当印证票，不入仓不随包）"
+    ]
+  },
+  {
+    "id": "kcwiki-routing",
+    "name": "带路条件（分歧点规则）",
+    "source": "zh.kcwiki 各海域「带路条件」子页",
+    "license": "CC BY-NC-SA 3.0（kcwiki 站点条款）",
+    "licenseId": "CC-BY-NC-SA-3.0",
+    "bundle": true,
+    "url": "https://zh.kcwiki.cn/api.php (按海域页清单逐图取渲染后 HTML)",
+    "selfFetch": true,
+    "parser": "kcwiki-routing",
+    "upstreamApi": "https://zh.kcwiki.cn/api.php?action=query&prop=revisions&titles=%E5%8C%97%E6%96%B9%E6%B5%B7%E5%9F%9F/3-2/%E5%B8%A6%E8%B7%AF%E6%9D%A1%E4%BB%B6&rvprop=timestamp&format=json",
+    "note": "常规海域与当期活动海域各分歧点的带路条件，中文说明",
+    "maintainerNote": [
+      "常规图带路规则快照（舰C 带路固定故可快照）。页面 mtime 被 2026-07 的机器人批量编辑统一刷新过，故逐图另记「最后一次非机器人编辑」为真实内容年龄；二期(2018-08-17)前内容不收。原始表多转自 nga 梦美，出处逐图保留",
+      "⚠ 2026-08-26 起并收**当期活动图**（62 期 = 62-1…62-5）。活动页与常规图同模板（`<活动页>/E-3/带路条件`，同一张 `分歧点 | 条件` wikitable），解析器共用 scripts/lib/kcwiki-routing.mjs。活动页名不硬编，取 scripts/map-intel-events.json 的 active.kcwikiPage；子页用 allpages 前缀列举，分期开图时列到几张算几张。包内键一律 `<mapAreaId>-<no>`（62-1），不是 E-1——校验器 SAFE_MAP 是 /^\\d+-\\d+$/，且 poi-fcd-map / map-intel 的活动层也用这个键",
+      "活动图规则里的**难度**不是单独一张表，而是规则文本里的条件短语（「甲难度 CV+CVB>=1 去A1」「乙丙丁难度 DD>=3 去G」），所以 schema 不加难度维度，原样录。判难度的活在 routing-engine：认这个短语并按玩家当前难度（mg.mapGauges[mapId].selectedRank）取舍，取不到难度就出 null（不确定），不按甲的规则糊弄乙",
+      "活动图带来两个常规图没有的构造，抓取/引擎都为此改过，动之前先看 test/routing-event-maps.test.mjs：① E-4 的分歧点真的叫 **T1 / T2**，撞上了老解析器的 `T<数字>` 子表占位符（会崩）；② 多出发点合流时规则写「从2出发的舰队 去O」，这里的「从2出发」是条件不是目的地（常规图只有 5-6 是多出发点，写法是赋值式的「其余从2出发」）"
+    ]
+  },
+  {
+    "id": "wikiwiki-routing",
+    "name": "带路分歧说明（日文一手）",
+    "source": "wikiwiki.jp/kancolle 各海域「ルート分岐」表",
+    "license": "未声明——仅用户显式拉取，不随仓库分发",
+    "bundle": false,
+    "url": "https://wikiwiki.jp/kancolle/",
+    "selfFetch": true,
+    "parser": "wikiwiki-routing",
+    "note": "常规海域分歧点的日文原文说明",
+    "maintainerNote": [
+      "按七张常规海域聚合页批量整理日文分歧说明，只给人阅读并保留来源；不把自然语言表直接当成可执行规则。运行时仍以游戏 API、可验证硬规则与精确实测样本为判定依据"
+    ]
+  },
+  {
+    "id": "kcnav-routing",
+    "name": "带路编成实测频率",
+    "source": "KCNav / TsunKit",
+    "license": "未声明——仅用户显式拉取，不随仓库分发",
+    "bundle": false,
+    "url": "https://tsunkit.net/nav/",
+    "selfFetch": true,
+    "manualImport": true,
+    "parser": "kcnav-routing",
+    "note": "特定编成下各条航线的实测出现频率，样本足够时才用来补充概率",
+    "maintainerNote": [
+      "只导入 KCNav 官方途径或用户手动取得的离线编成频率包；上游明确拒绝未授权 API 自动化，抓取器不会绕过。只在精确编成命中且样本充足时补充概率，不冒充游戏硬规则；中文自然语言带路解释仍由 kcwiki-routing 并列提供"
+    ]
+  },
+  {
+    "id": "map-intel",
+    "name": "海域确认掉落与敌编成",
+    "source": "艦これ攻略 Wiki",
+    "license": "WIKIWIKI 内容条款——仅用户显式拉取，不随包分发",
+    "bundle": false,
+    "url": "https://wikiwiki.jp/kancolle/（7 张常规海域聚合页 + 期间限定掉落页）",
+    "selfFetch": true,
+    "parser": "map-intel",
+    "note": "海域各点位确认过的掉落、限定掉落时段与敌方编成，不含掉落概率",
+    "maintainerNote": [
+      "⚠ 2026-08-22 起**常规图敌编成这一域**已迁到第一方汇编包 map-enemy-comps，运行时不再从这里读编成。这份包仍在供掉落、限定窗口、空掉落标记与活动图各难度层（那几域按批次收口，不整包退场）。只保存确认掉落、限定窗口、空掉落标记和离散敌编成，不保存概率；常规图批量重建时保留活动图甲乙丙丁维护层；运行时完全离线。",
+      "⚠ 2026-08-24 批次 3：活动图那一层已变成多源汇编——敌编成的 mstId 从舰娘百科活动海域页「深海配置」原生取（页面按甲乙丙丁四个 tab 分难度），日站供难度别掉落/标注/机关/特效/半径，本机遭遇志带 difficulty 列当第一方票。两家 wiki 在活动域是**同源转录**（舰娘百科活动页 5/5 自述转录自日站），不算两票。刷新走 npm run lodes:map-intel-event，对账报告落 assets/review/map-intel-event-sources.json",
+      "旧包内 note（当时未随清单重出，带着清单没有的事实）：反撃！第三十一戦隊の戦い 活动图甲乙丙丁候选已核对；应用运行时完全离线"
+    ]
+  },
+  {
+    "id": "map-enemy-comps",
+    "name": "常规海域敌编成（第一方汇编）",
+    "source": "kuma 汇编 · 参考舰娘百科「深海配置」",
+    "license": "CC BY-NC-SA 3.0（kcwiki 站点条款）；编成事实本身不受著作权保护，汇编为第一方产物",
+    "licenseId": "CC-BY-NC-SA-3.0",
+    "bundle": true,
+    "url": "https://zh.kcwiki.cn/api.php (按 37 张常规海域页逐图取渲染后 HTML)",
+    "selfFetch": true,
+    "parser": "map-enemy-comps",
+    "note": "常规海域各点位的敌方编成、阵形与基础经验",
+    "maintainerNote": [
+      "多源汇编（用户 2026-08-22 拍板）：每条编成带内部印证票——kcwiki「深海配置」直接填的 mstId、现行 map-intel（wikiwiki 标注名经 kuma 定号流水线定号）、本机遭遇志 encounters。两票一致才算多源印证，单源条目照收不丢，源间互斥进冲突台账等人裁，脚本不替用户拍板。印证状态只存数据内部与维护者工具，UI 不逐条挂标。收进包的只有事实三元组（mstId 数组/阵形/基础经验）与 wiki 的形态标注（「艦載機白赤」这类主数据没有的信息）；制空值按裁定 #7 只进维护者侧对账脚本当反校票，不入随包层。对账用 node scripts/compare-map-intel-sources.mjs"
+    ]
+  },
+  {
+    "id": "map-drops",
+    "name": "常规海域确认掉落（第一方汇编）",
+    "source": "kuma 汇编 · 参考舰娘百科「舰娘掉落表」",
+    "license": "CC BY-NC-SA 3.0（kcwiki 站点条款）；掉落事实本身不受著作权保护，汇编为第一方产物",
+    "licenseId": "CC-BY-NC-SA-3.0",
+    "bundle": true,
+    "url": "https://zh.kcwiki.cn/api.php (按 37 张常规海域页逐图取渲染后 HTML)",
+    "selfFetch": true,
+    "parser": "map-drops",
+    "note": "常规海域各点位确认掉落的舰娘，以及确认过没有掉落的点位",
+    "maintainerNote": [
+      "多源汇编（用户 2026-08-22 拍板，批次 2）：每条掉落带内部印证票——kcwiki 掉落表（中文舰名经 kcwiki-ships 解号）、现行 map-intel（wikiwiki 系既有条目）、本机遭遇志 encounters.drop_mst。",
+      "⚠ 票的独立性与编成域不同：kcwiki 常规海域页页脚 37/37 自述「主要数据来源为日wiki」（原文照录进包 sourceNotes），所以两 wiki 一致只算「同源转录」，只有账本票才算真正独立的第二票。单源条目照收不丢（5-6 的 473 条、7-5 的 323 条不归零）。中文舰名解不出 mstId 一律硬错拒绝出包，不静默丢。收进包的只有 (图, 点) → mstId 集合与节点级空掉落标记；kcwiki 掉落表里红色粗体的稀有度分级按 §3.1 红线不收。限定期窗口仍由 map-intel 供（批次 4 才做第一方台账），装配时原样带过去。待裁项落 assets/review/map-drops-conflicts.json"
+    ]
+  },
+  {
+    "id": "event-bonus",
+    "name": "活动特效倍卡（舰种/国籍/个别舰/装备组/舰载机/陆航）",
+    "source": "kcwiki",
+    "url": "https://zh.kcwiki.cn/api.php?action=parse&page=2026%E5%B9%B4%E5%A4%8F%E5%AD%A3%E6%B4%BB%E5%8A%A8&prop=wikitext&format=json&formatversion=2",
+    "upstreamApi": "https://zh.kcwiki.cn/api.php?action=query&prop=revisions&titles=2026%E5%B9%B4%E5%A4%8F%E5%AD%A3%E6%B4%BB%E5%8A%A8&rvprop=timestamp&format=json",
+    "parser": "event-bonus",
+    "license": "CC BY-NC-SA 3.0（kcwiki 站点条款）",
+    "licenseId": "CC-BY-NC-SA-3.0",
+    "bundle": true,
+    "note": "本期活动的特效倍率，按舰种、国籍、个别舰与装备分组。倍率不随难度变化",
+    "maintainerNote": [
+      "倍卡每次活动都变，**页名要跟着活动改**（url 与 upstreamApi 里的 page/titles）。倍卡不分难度。本项 kcwiki 优于 wikiwiki（三源核对，见 scripts/lib/event-bonus.mjs 的 KNOWN_SOURCE_CONFLICTS）"
+    ]
+  },
+  {
+    "id": "kcwiki-localization",
+    "name": "全域实体简中译名（日文原文并存）",
+    "source": "zh.kcwiki 各原始模块 + KC3Kai/kc3-translations + kcwikizh/kcwiki-quest-data + 游戏主数据",
+    "license": "CC BY-NC-SA 3.0（kcwiki 模块）与 MIT（kc3-translations 的道具中文名、kcwiki-quest-data 的任务日文名）；其余日文原名与 id 空间取自游戏主数据",
+    "licenseId": "CC-BY-NC-SA-3.0",
+    "bundle": true,
+    "url": "https://zh.kcwiki.cn/index.php?title=%E6%A8%A1%E5%9D%97:%E8%88%B0%E5%A8%98%E6%95%B0%E6%8D%AE&action=raw",
+    "selfFetch": true,
+    "parser": "kcwiki-localization",
+    "upstreamApi": "https://zh.kcwiki.cn/api.php?action=query&prop=revisions&titles=%E6%A8%A1%E5%9D%97%3A%E8%88%B0%E5%A8%98%E8%A3%85%E5%A4%87%E6%95%B0%E6%8D%AE%E6%94%B9&rvprop=timestamp&format=json",
+    "note": "舰娘、深海舰、装备、道具、舰种与海域的中文译名",
+    "maintainerNote": [
+      "舰娘/深海/装备/道具/舰种/海域一次批量更新；运行时完全离线。2026-08-22 换源二期复核：kcdata 那一半**已在 2026-08-21 换完**，本包现在的取数口只剩三处、全都有许可——zh.kcwiki 五张模块（CC BY-NC-SA）、kc3-translations 的 useitems.json（MIT，道具中文名）、kcwiki-quest-data 的 data.min.json（MIT，只给 entities.quest 的任务日文原名，运行时与 quests-scn 的中文名配对，见 renderer/localization.ts 的 source 标记 'kcwiki-quest-data+quests-scn'），其余日文原名与 id 空间读本机 api_start2 快照。2026-08-21 换源：原骑在 kcwikizh/kcdata 的七张表上（无 LICENSE，一个成分就把整包钉在不可分发），拆开后 kcdata 只干两件事——给日文原名与 id 空间（api_start2 原样转录，改读主数据快照即可自产），给一部分中文译名（舰娘 849/深海 298/道具 37/舰种 22）。译名改走同域有许可源：舰娘=模块:舰娘数据、深海舰=模块:深海栖舰数据改二（两者都比 kcdata 全）、道具=kc3-translations（MIT，活跃）、舰种=术语降级+SHIPTYPE_ZH_FIXES 台账。全量对账零丢失（唯一少的 equip 563 是 kcdata 里主数据没有的幽灵条目）。",
+      "⚠️ 活动海域会从主数据整批下线，故 map/mapArea 沿用 map-intel 的老套路按上一份包累积续用（标 retired-master，本次 101 条）",
+      "旧包内 note（当时未随清单重出，带着清单没有的事实）：舰娘/深海/装备/道具/舰种/海域一次批量更新；运行时完全离线。2026-08-22 换源二期复核：kcdata 那一半**已在 2026-08-21 换完**，本包现在的取数口只剩三处，全都有许可——zh.kcwiki 五张模块（CC BY-NC-SA）、kc3-translations 的 useitems.json（MIT）、kcwiki-quest-data 的 data.min.json（MIT，只给 entities.quest 的任务日文原名，运行时与 quests-scn 的中文配对，见 renderer/localization.ts 的 source 标记 'kcwiki-quest-data+quests-scn'），其余日文原名与 id 空间读本机 api_start2 快照。2026-08-21 换源：原骑在 kcwikizh/kcdata 的七张表上（无 LICENSE，一个成分就把整包钉在不可分发），拆开后 kcdata 只干两件事——给日文原名与 id 空间（api_start2 原样转录，改读主数据快照即可自产），给一部分中文译名（舰娘 849/深海 298/道具 37/舰种 22）。译名改走同域有许可源：舰娘=模块:舰娘数据、深海舰=模块:深海栖舰数据改二（两者都比 kcdata 全）、道具=kc3-translations（MIT，活跃）、舰种=术语降级+SHIPTYPE_ZH_FIXES 台账。全量对账零丢失（唯一少的 equip 563 是 kcdata 里主数据没有的幽灵条目）。⚠️ 活动海域会从主数据整批下线，故 map/mapArea 沿用 map-intel 的老套路按上一份包累积续用（标 retired-master，本次 101 条）"
+    ]
+  },
+  {
+    "id": "wikiwiki-item-exchange",
+    "name": "道具历年兑换",
+    "source": "wikiwiki.jp/kancolle アイテム",
+    "license": "未声明——仅用户显式拉取，不随仓库分发",
+    "bundle": false,
+    "url": "https://wikiwiki.jp/kancolle/%E3%82%A2%E3%82%A4%E3%83%86%E3%83%A0",
+    "selfFetch": true,
+    "parser": "wikiwiki-item-exchange",
+    "note": "秋刀鱼、菱饼、节分豆这类道具历年的兑换内容与所需数量",
+    "maintainerNote": [
+      "アイテム説明各小节三种形态：秋刀魚年次表（年次×交換品×必要数×内容×備考）、菱餅固定表（交換品×中身）、活动史表（節分の豆/南瓜/てるてる坊主/Xmas盒——年次×詳細，詳細格式不一按原文速览收录不硬拆）。小节标题与 api_mst_useitem 日文名精确对齐才收；アイテム屋是课金商店不收。勲章的固定兑换三项走 src/shared/item-exchange.ts 手录表（依据 wikiwiki 勲章页用途节+游戏内道具使用界面），不在本包"
+    ]
+  }
+]

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="640px" height="640px" viewBox="0 0 640 640" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 46.2 (44496) - http://www.bohemiancoding.com/sketch -->
+    <title>12</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <filter x="-5.2%" y="-3.1%" width="110.4%" height="112.5%" filterUnits="objectBoundingBox" id="filter-1">
+            <feOffset dx="0" dy="20" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.25 0" type="matrix" in="shadowBlurOuter1" result="shadowMatrixOuter1"></feColorMatrix>
+            <feMerge>
+                <feMergeNode in="shadowMatrixOuter1"></feMergeNode>
+                <feMergeNode in="SourceGraphic"></feMergeNode>
+            </feMerge>
+        </filter>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="91.4941406%" id="linearGradient-2">
+            <stop stop-color="#61AA6E" offset="0%"></stop>
+            <stop stop-color="#74CC83" offset="100%"></stop>
+        </linearGradient>
+        <linearGradient x1="72.8306362%" y1="28.2561384%" x2="28.6802455%" y2="72.0326451%" id="linearGradient-3">
+            <stop stop-color="#62AB6E" offset="0%"></stop>
+            <stop stop-color="#74CC83" offset="100%"></stop>
+        </linearGradient>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="12">
+            <g id="Group" filter="url(#filter-1)" transform="translate(80.000000, 80.000000)">
+                <path d="M0,0 L140,0 L480,340 L480,400 L400,480 L340,480 L0,140 L0,0 Z M80,140 L80,180 L120,180 L120,140 L80,140 Z M200,140 L200,180 L240,180 L240,140 L200,140 Z M200,260 L200,300 L240,300 L240,260 L200,260 Z" id="Combined-Shape" fill="url(#linearGradient-2)"></path>
+                <rect id="Rectangle" fill="#74CC83" x="40" y="280" width="60" height="60"></rect>
+                <rect id="Rectangle-Copy" fill="#74CC83" x="260" y="20" width="60" height="60"></rect>
+                <rect id="Rectangle-Copy-2" fill="#74CC83" x="340" y="100" width="60" height="60"></rect>
+                <polygon id="Path-53" fill="url(#linearGradient-3)" points="0 0 0 140 140 0"></polygon>
+            </g>
+        </g>
+    </g>
+</svg>

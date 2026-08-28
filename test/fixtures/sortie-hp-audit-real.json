@@ -1,0 +1,748 @@
+[
+  {
+    "note": "贴着大破线的一场：有人停在 25.8%，比 25% 高一丝。判据线偏一点这条就会红。",
+    "at": "2026-08-26T13:43:30.032Z",
+    "map": 624,
+    "cell": 49,
+    "battleNo": 4,
+    "kind": "day",
+    "hasNight": false,
+    "fShips": [
+      {
+        "index": 0,
+        "fleet": "main",
+        "position": 0,
+        "mstId": 392,
+        "rosterId": 3447,
+        "name": "Richelieu改",
+        "hpStart": 89,
+        "hpEnd": 89,
+        "hpMax": 89,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 1,
+        "fleet": "main",
+        "position": 1,
+        "mstId": 724,
+        "rosterId": 3415,
+        "name": "Jean Bart改",
+        "hpStart": 88,
+        "hpEnd": 88,
+        "hpMax": 88,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 2,
+        "fleet": "main",
+        "position": 2,
+        "mstId": 393,
+        "rosterId": 3670,
+        "name": "Ark Royal改",
+        "hpStart": 71,
+        "hpEnd": 71,
+        "hpMax": 71,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 3,
+        "fleet": "main",
+        "position": 3,
+        "mstId": 560,
+        "rosterId": 939,
+        "name": "瑞鳳改二乙",
+        "hpStart": 66,
+        "hpEnd": 66,
+        "hpMax": 66,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 4,
+        "fleet": "main",
+        "position": 4,
+        "mstId": 297,
+        "rosterId": 332,
+        "name": "千代田航改二",
+        "hpStart": 58,
+        "hpEnd": 58,
+        "hpMax": 58,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 5,
+        "fleet": "main",
+        "position": 5,
+        "mstId": 506,
+        "rosterId": 25,
+        "name": "最上改二特",
+        "hpStart": 68,
+        "hpEnd": 31,
+        "hpMax": 68,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 6,
+        "fleet": "escort",
+        "position": 0,
+        "mstId": 177,
+        "rosterId": 7239,
+        "name": "Prinz Eugen改",
+        "hpStart": 63,
+        "hpEnd": 63,
+        "hpMax": 63,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 7,
+        "fleet": "escort",
+        "position": 1,
+        "mstId": 970,
+        "rosterId": 7322,
+        "name": "Gloire改",
+        "hpStart": 46,
+        "hpEnd": 46,
+        "hpMax": 46,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 8,
+        "fleet": "escort",
+        "position": 2,
+        "mstId": 961,
+        "rosterId": 877,
+        "name": "時雨改三",
+        "hpStart": 39,
+        "hpEnd": 26,
+        "hpMax": 39,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 9,
+        "fleet": "escort",
+        "position": 3,
+        "mstId": 968,
+        "rosterId": 7209,
+        "name": "初月改二",
+        "hpStart": 34,
+        "hpEnd": 34,
+        "hpMax": 39,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 10,
+        "fleet": "escort",
+        "position": 4,
+        "mstId": 464,
+        "rosterId": 711,
+        "name": "霞改二",
+        "hpStart": 31,
+        "hpEnd": 8,
+        "hpMax": 31,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 11,
+        "fleet": "escort",
+        "position": 5,
+        "mstId": 967,
+        "rosterId": 7046,
+        "name": "Mogador改",
+        "hpStart": 35,
+        "hpEnd": 35,
+        "hpMax": 38,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      }
+    ],
+    "shipDeck": [
+      {
+        "api_id": 25,
+        "api_ship_id": 506,
+        "api_lv": 131,
+        "api_nowhp": 31,
+        "api_maxhp": 68,
+        "api_slot": [
+          9911,
+          9912,
+          10156,
+          25,
+          -1
+        ],
+        "api_slot_ex": 7145,
+        "api_cond": 38
+      },
+      {
+        "api_id": 332,
+        "api_ship_id": 297,
+        "api_lv": 74,
+        "api_nowhp": 58,
+        "api_maxhp": 58,
+        "api_slot": [
+          4558,
+          13591,
+          14621,
+          4791,
+          -1
+        ],
+        "api_slot_ex": 0,
+        "api_cond": 38
+      },
+      {
+        "api_id": 711,
+        "api_ship_id": 464,
+        "api_lv": 97,
+        "api_nowhp": 8,
+        "api_maxhp": 31,
+        "api_slot": [
+          16630,
+          16050,
+          15895,
+          -1,
+          -1
+        ],
+        "api_slot_ex": 7426,
+        "api_cond": 38
+      },
+      {
+        "api_id": 877,
+        "api_ship_id": 961,
+        "api_lv": 139,
+        "api_nowhp": 26,
+        "api_maxhp": 39,
+        "api_slot": [
+          12737,
+          3727,
+          4978,
+          4348,
+          -1
+        ],
+        "api_slot_ex": 4347,
+        "api_cond": 38
+      },
+      {
+        "api_id": 939,
+        "api_ship_id": 560,
+        "api_lv": 113,
+        "api_nowhp": 66,
+        "api_maxhp": 66,
+        "api_slot": [
+          16535,
+          11148,
+          15046,
+          7151,
+          -1
+        ],
+        "api_slot_ex": 12475,
+        "api_cond": 48
+      },
+      {
+        "api_id": 3415,
+        "api_ship_id": 724,
+        "api_lv": 59,
+        "api_nowhp": 88,
+        "api_maxhp": 88,
+        "api_slot": [
+          7104,
+          16995,
+          16710,
+          9392,
+          -1
+        ],
+        "api_slot_ex": 0,
+        "api_cond": 38
+      },
+      {
+        "api_id": 3447,
+        "api_ship_id": 392,
+        "api_lv": 76,
+        "api_nowhp": 89,
+        "api_maxhp": 89,
+        "api_slot": [
+          7067,
+          16407,
+          14756,
+          7244,
+          -1
+        ],
+        "api_slot_ex": 0,
+        "api_cond": 100
+      },
+      {
+        "api_id": 3670,
+        "api_ship_id": 393,
+        "api_lv": 58,
+        "api_nowhp": 71,
+        "api_maxhp": 71,
+        "api_slot": [
+          15427,
+          14775,
+          13481,
+          13677,
+          -1
+        ],
+        "api_slot_ex": 0,
+        "api_cond": 44
+      },
+      {
+        "api_id": 7046,
+        "api_ship_id": 967,
+        "api_lv": 56,
+        "api_nowhp": 35,
+        "api_maxhp": 38,
+        "api_slot": [
+          12197,
+          4219,
+          16796,
+          12108,
+          -1
+        ],
+        "api_slot_ex": 0,
+        "api_cond": 59
+      },
+      {
+        "api_id": 7209,
+        "api_ship_id": 968,
+        "api_lv": 95,
+        "api_nowhp": 34,
+        "api_maxhp": 39,
+        "api_slot": [
+          13795,
+          7768,
+          6760,
+          1933,
+          -1
+        ],
+        "api_slot_ex": 385,
+        "api_cond": 54
+      },
+      {
+        "api_id": 7239,
+        "api_ship_id": 177,
+        "api_lv": 57,
+        "api_nowhp": 63,
+        "api_maxhp": 63,
+        "api_slot": [
+          12106,
+          12022,
+          16709,
+          14849,
+          -1
+        ],
+        "api_slot_ex": 4126,
+        "api_cond": 88
+      },
+      {
+        "api_id": 7322,
+        "api_ship_id": 970,
+        "api_lv": 58,
+        "api_nowhp": 46,
+        "api_maxhp": 46,
+        "api_slot": [
+          14754,
+          14755,
+          4315,
+          16201,
+          -1
+        ],
+        "api_slot_ex": 0,
+        "api_cond": 38
+      }
+    ]
+  },
+  {
+    "note": "2026-08-27 当天 62-5 的一场。",
+    "at": "2026-08-27T09:48:29.672Z",
+    "map": 625,
+    "cell": 46,
+    "battleNo": 2,
+    "kind": "day",
+    "hasNight": false,
+    "fShips": [
+      {
+        "index": 0,
+        "fleet": "main",
+        "position": 0,
+        "mstId": 392,
+        "rosterId": 3447,
+        "name": "Richelieu改",
+        "hpStart": 89,
+        "hpEnd": 89,
+        "hpMax": 89,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 1,
+        "fleet": "main",
+        "position": 1,
+        "mstId": 724,
+        "rosterId": 3415,
+        "name": "Jean Bart改",
+        "hpStart": 88,
+        "hpEnd": 88,
+        "hpMax": 88,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 2,
+        "fleet": "main",
+        "position": 2,
+        "mstId": 668,
+        "rosterId": 1339,
+        "name": "矢矧改二乙",
+        "hpStart": 54,
+        "hpEnd": 26,
+        "hpMax": 60,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 3,
+        "fleet": "main",
+        "position": 3,
+        "mstId": 506,
+        "rosterId": 25,
+        "name": "最上改二特",
+        "hpStart": 55,
+        "hpEnd": 55,
+        "hpMax": 68,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 4,
+        "fleet": "main",
+        "position": 4,
+        "mstId": 928,
+        "rosterId": 3877,
+        "name": "Tuscaloosa改",
+        "hpStart": 53,
+        "hpEnd": 53,
+        "hpMax": 53,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 5,
+        "fleet": "main",
+        "position": 5,
+        "mstId": 704,
+        "rosterId": 2854,
+        "name": "Hornet改",
+        "hpStart": 71,
+        "hpEnd": 71,
+        "hpMax": 81,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 6,
+        "fleet": "escort",
+        "position": 0,
+        "mstId": 696,
+        "rosterId": 3296,
+        "name": "Atlanta改",
+        "hpStart": 41,
+        "hpEnd": 41,
+        "hpMax": 41,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 7,
+        "fleet": "escort",
+        "position": 1,
+        "mstId": 656,
+        "rosterId": 1218,
+        "name": "雪風改二",
+        "hpStart": 36,
+        "hpEnd": 36,
+        "hpMax": 40,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 8,
+        "fleet": "escort",
+        "position": 2,
+        "mstId": 177,
+        "rosterId": 7239,
+        "name": "Prinz Eugen改",
+        "hpStart": 63,
+        "hpEnd": 63,
+        "hpMax": 63,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 9,
+        "fleet": "escort",
+        "position": 3,
+        "mstId": 961,
+        "rosterId": 877,
+        "name": "時雨改三",
+        "hpStart": 39,
+        "hpEnd": 39,
+        "hpMax": 39,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 10,
+        "fleet": "escort",
+        "position": 4,
+        "mstId": 464,
+        "rosterId": 711,
+        "name": "霞改二",
+        "hpStart": 31,
+        "hpEnd": 31,
+        "hpMax": 31,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      },
+      {
+        "index": 11,
+        "fleet": "escort",
+        "position": 5,
+        "mstId": 951,
+        "rosterId": 703,
+        "name": "天津風改二",
+        "hpStart": 38,
+        "hpEnd": 38,
+        "hpMax": 40,
+        "sunk": false,
+        "escaped": false,
+        "repairItemUsed": null
+      }
+    ],
+    "shipDeck": [
+      {
+        "api_id": 25,
+        "api_ship_id": 506,
+        "api_lv": 131,
+        "api_nowhp": 55,
+        "api_maxhp": 68,
+        "api_slot": [
+          6603,
+          9042,
+          16370,
+          8330,
+          -1
+        ],
+        "api_slot_ex": 3083,
+        "api_cond": 33
+      },
+      {
+        "api_id": 703,
+        "api_ship_id": 951,
+        "api_lv": 129,
+        "api_nowhp": 38,
+        "api_maxhp": 40,
+        "api_slot": [
+          537,
+          16151,
+          12668,
+          -1,
+          -1
+        ],
+        "api_slot_ex": 16857,
+        "api_cond": 33
+      },
+      {
+        "api_id": 711,
+        "api_ship_id": 464,
+        "api_lv": 97,
+        "api_nowhp": 31,
+        "api_maxhp": 31,
+        "api_slot": [
+          8329,
+          10381,
+          1192,
+          -1,
+          -1
+        ],
+        "api_slot_ex": 7426,
+        "api_cond": 33
+      },
+      {
+        "api_id": 877,
+        "api_ship_id": 961,
+        "api_lv": 139,
+        "api_nowhp": 39,
+        "api_maxhp": 39,
+        "api_slot": [
+          2890,
+          7258,
+          14937,
+          4347,
+          -1
+        ],
+        "api_slot_ex": 4348,
+        "api_cond": 33
+      },
+      {
+        "api_id": 1218,
+        "api_ship_id": 656,
+        "api_lv": 121,
+        "api_nowhp": 36,
+        "api_maxhp": 40,
+        "api_slot": [
+          3551,
+          3550,
+          10641,
+          -1,
+          -1
+        ],
+        "api_slot_ex": 12572,
+        "api_cond": 33
+      },
+      {
+        "api_id": 1339,
+        "api_ship_id": 668,
+        "api_lv": 141,
+        "api_nowhp": 26,
+        "api_maxhp": 60,
+        "api_slot": [
+          4457,
+          5511,
+          8359,
+          10041,
+          -1
+        ],
+        "api_slot_ex": 13858,
+        "api_cond": 50
+      },
+      {
+        "api_id": 2854,
+        "api_ship_id": 704,
+        "api_lv": 94,
+        "api_nowhp": 71,
+        "api_maxhp": 81,
+        "api_slot": [
+          2583,
+          16417,
+          4617,
+          16213,
+          -1
+        ],
+        "api_slot_ex": 12475,
+        "api_cond": 33
+      },
+      {
+        "api_id": 3296,
+        "api_ship_id": 696,
+        "api_lv": 59,
+        "api_nowhp": 41,
+        "api_maxhp": 41,
+        "api_slot": [
+          7092,
+          5281,
+          2891,
+          -1,
+          -1
+        ],
+        "api_slot_ex": 0,
+        "api_cond": 100
+      },
+      {
+        "api_id": 3415,
+        "api_ship_id": 724,
+        "api_lv": 61,
+        "api_nowhp": 88,
+        "api_maxhp": 88,
+        "api_slot": [
+          7104,
+          16995,
+          16710,
+          9392,
+          -1
+        ],
+        "api_slot_ex": 0,
+        "api_cond": 43
+      },
+      {
+        "api_id": 3447,
+        "api_ship_id": 392,
+        "api_lv": 80,
+        "api_nowhp": 89,
+        "api_maxhp": 89,
+        "api_slot": [
+          7067,
+          16407,
+          7106,
+          7244,
+          -1
+        ],
+        "api_slot_ex": 0,
+        "api_cond": 100
+      },
+      {
+        "api_id": 3877,
+        "api_ship_id": 928,
+        "api_lv": 52,
+        "api_nowhp": 53,
+        "api_maxhp": 53,
+        "api_slot": [
+          14191,
+          7031,
+          14756,
+          5722,
+          -1
+        ],
+        "api_slot_ex": 0,
+        "api_cond": 33
+      },
+      {
+        "api_id": 7239,
+        "api_ship_id": 177,
+        "api_lv": 61,
+        "api_nowhp": 63,
+        "api_maxhp": 63,
+        "api_slot": [
+          12106,
+          12022,
+          16709,
+          14849,
+          -1
+        ],
+        "api_slot_ex": 4126,
+        "api_cond": 53
+      }
+    ]
+  }
+]

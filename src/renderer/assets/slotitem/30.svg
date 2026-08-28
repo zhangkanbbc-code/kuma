@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="640px" height="640px" viewBox="0 0 640 640" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 46.2 (44496) - http://www.bohemiancoding.com/sketch -->
+    <title>30</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <filter x="-12.5%" y="-15.0%" width="150.0%" height="161.0%" filterUnits="objectBoundingBox" id="filter-1">
+            <feOffset dx="20" dy="20" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.25 0" type="matrix" in="shadowBlurOuter1" result="shadowMatrixOuter1"></feColorMatrix>
+            <feMerge>
+                <feMergeNode in="shadowMatrixOuter1"></feMergeNode>
+                <feMergeNode in="SourceGraphic"></feMergeNode>
+            </feMerge>
+        </filter>
+        <polygon id="path-2" points="120 420 200 380 380 380 520 420 440 460 260 460"></polygon>
+        <filter x="-3.7%" y="-18.8%" width="115.0%" height="175.0%" filterUnits="objectBoundingBox" id="filter-3">
+            <feOffset dx="20" dy="20" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.25 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+        <polygon id="path-4" points="440 260 520 220 520 420 440 460"></polygon>
+        <filter x="-18.8%" y="-6.2%" width="175.0%" height="125.0%" filterUnits="objectBoundingBox" id="filter-5">
+            <feOffset dx="20" dy="20" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.25 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="30">
+            <g id="Group" transform="translate(40.000000, 220.000000)">
+                <rect id="Rectangle" fill="#899A4D" x="80" y="0" width="400" height="200"></rect>
+                <polygon id="Path-27-Copy" fill="#899A4D" points="80 60 60 100 80 160 100 120"></polygon>
+                <polygon id="Path-28" fill="#899A4D" points="20 60 100 60 100 160 20 160"></polygon>
+                <polygon id="Path-28-Copy" fill="#91A353" points="40 120 100 120 80 160 20 160"></polygon>
+                <polygon id="Path-28-Copy-2" fill="#A1B55D" transform="translate(60.000000, 90.000000) scale(1, -1) translate(-60.000000, -90.000000) " points="40 60 100 60 80 120 20 120"></polygon>
+                <polygon id="Path-27" fill="#899A4D" points="20 60 0 100 20 160 40 120"></polygon>
+            </g>
+            <g id="Group-Copy" filter="url(#filter-1)" transform="translate(540.000000, 310.000000) scale(-1, 1) translate(-540.000000, -310.000000) translate(480.000000, 260.000000)">
+                <polygon id="Path-27" fill="#899A4D" points="20 0 0 60 20 100 40 40"></polygon>
+                <polygon id="Path-28" fill="#899A4D" points="20 0 100 0 100 100 20 100"></polygon>
+                <polygon id="Path-28-Copy-3" fill="#91A353" transform="translate(60.000000, 80.000000) scale(1, -1) translate(-60.000000, -80.000000) " points="20 60 120 60 100 100 0 100"></polygon>
+                <polygon id="Path-28-Copy-4" fill="#A1B55D" points="20 1.0658141e-14 120 0 100 60 0 60"></polygon>
+            </g>
+            <polygon id="Path-29" fill="#95A755" points="120 220 200 180 380 180 520 220 440 260 260 260"></polygon>
+            <g id="Path-29-Copy">
+                <use fill="black" fill-opacity="1" filter="url(#filter-3)" xlink:href="#path-2"></use>
+                <use fill="#899A4D" fill-rule="evenodd" xlink:href="#path-2"></use>
+            </g>
+            <rect id="Rectangle-11" fill="#A1B55D" x="260" y="260" width="180" height="200"></rect>
+            <g id="Rectangle-11">
+                <use fill="black" fill-opacity="1" filter="url(#filter-5)" xlink:href="#path-4"></use>
+                <use fill="#94A656" fill-rule="evenodd" xlink:href="#path-4"></use>
+            </g>
+        </g>
+    </g>
+</svg>

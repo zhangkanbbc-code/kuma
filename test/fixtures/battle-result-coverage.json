@@ -1,0 +1,89 @@
+[
+  {
+    "name": "result-eo-first-clear",
+    "note": "真实报文 2026-08-09T10:57:17Z（1-5 EO 首破）。api_get_exmap_rate 是**字符串** \"75\"，与本地 EO_SENKA 表的 1-5 分值相同；同包 api_next_map_ids=[16]＝解锁 1-6。",
+    "source": {
+      "event": 7272,
+      "ts": "2026-08-09T10:57:17.773Z"
+    },
+    "path": "/kcsapi/api_req_sortie/battleresult",
+    "body": {
+      "api_win_rank": "S",
+      "api_get_base_exp": 190,
+      "api_mvp": 2,
+      "api_dests": 4,
+      "api_destsf": 1,
+      "api_first_clear": 1,
+      "api_get_ship": {
+        "api_ship_id": 123,
+        "api_ship_type": "重巡洋艦",
+        "api_ship_name": "衣笠",
+        "api_ship_getmes": "はーいっ！衣笠さんの登場よ！<br>青葉ともども、よろしくね！"
+      },
+      "api_get_exmap_rate": "75",
+      "api_next_map_ids": [
+        16
+      ],
+      "api_escape_flag": 0,
+      "api_escape": null
+    }
+  },
+  {
+    "name": "result-drop-getmes",
+    "note": "真实报文 2026-08-03T07:47:20Z。api_get_ship.api_ship_getmes 是初春的入手台词，原文里带 <br>。",
+    "source": {
+      "event": 206,
+      "ts": "2026-08-03T07:47:20.562Z"
+    },
+    "path": "/kcsapi/api_req_sortie/battleresult",
+    "body": {
+      "api_win_rank": "S",
+      "api_get_base_exp": 120,
+      "api_mvp": 2,
+      "api_dests": 6,
+      "api_destsf": 1,
+      "api_first_clear": 0,
+      "api_get_ship": {
+        "api_ship_id": 38,
+        "api_ship_type": "駆逐艦",
+        "api_ship_name": "初春",
+        "api_ship_getmes": "わらわが初春じゃ。<br>よろしく頼みますぞ。"
+      },
+      "api_get_exmap_rate": 0,
+      "api_escape_flag": 0,
+      "api_escape": null
+    }
+  },
+  {
+    "name": "result-escape-offer",
+    "note": "真实报文 2026-08-06T14:39:20Z（账本里唯一一次）。api_escape_flag=1、api_escape.api_escape_idx=[2,3]（1 基舰位）、api_escape_type=1。",
+    "source": {
+      "event": 2680,
+      "ts": "2026-08-06T14:39:20.269Z"
+    },
+    "path": "/kcsapi/api_req_sortie/battleresult",
+    "body": {
+      "api_win_rank": "A",
+      "api_get_base_exp": 180,
+      "api_mvp": 7,
+      "api_dests": 4,
+      "api_destsf": 0,
+      "api_first_clear": 0,
+      "api_get_ship": {
+        "api_ship_id": 35,
+        "api_ship_type": "駆逐艦",
+        "api_ship_name": "響",
+        "api_ship_getmes": "響だよ。<br>その活躍ぶりから不死鳥の通り名もあるよ。"
+      },
+      "api_get_exmap_rate": 0,
+      "api_escape_flag": 1,
+      "api_escape": {
+        "api_escape_idx": [
+          2,
+          3
+        ],
+        "api_escape_type": 1
+      }
+    }
+  }
+]

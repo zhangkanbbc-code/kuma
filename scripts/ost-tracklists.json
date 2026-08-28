@@ -1,0 +1,1425 @@
+{
+  "schemaVersion": 1,
+  "fetchedAt": "2026-08-24T14:25:19.431Z",
+  "source": "网易云音乐 · 舰これ官方 OST 专辑页（发行方 Kadokawa 报送的曲目表）",
+  "sourceUrl": "https://music.163.com/album?id=3103387",
+  "albumCount": 9,
+  "trackCount": 218,
+  "note": [
+    "**维护者侧对账原料，运行时零读取、不随包**（scripts/ 整个目录都在 package-ignore 里）。",
+    "用途只有一个：拿官方曲目表逐字校我们自己收的曲名字形（太/大、擊/撃 这一档）。审计器是 scripts/bgm-name-audit.mjs。",
+    "⚠ **约物不是官方原样**：平台把全角「！」归一成半角「!」、括号前后补空格。所以约物差异不算发现，比对前先归一。",
+    "⚠ **时长是碟面完整版，不是游戏内循环版**（实案：華の二水戦 碟面 2:53 / 游戏内 1:28）。**绝不许喂给 scripts/bgm-duration-align.mjs**，收它只为人眼参考。",
+    "⚠ **专辑收录 ≠ 游戏内编号**：碟序不是资源号，碟上有的曲子游戏里可能没实装或改过号。这份表只出候选，定名仍要耳测或官宣。"
+  ],
+  "warnings": [],
+  "albums": [
+    {
+      "vol": "I",
+      "volName": "暁",
+      "albumId": 3103387,
+      "title": "艦隊これくしょん -艦これ- KanColle Original Sound Track 暁",
+      "company": "Kadokawa",
+      "publishedAt": "2014-08-02",
+      "url": "https://music.163.com/album?id=3103387",
+      "tracks": [
+        {
+          "no": 1,
+          "name": "母港",
+          "durationMs": 215733,
+          "duration": "3:36"
+        },
+        {
+          "no": 2,
+          "name": "出撃",
+          "durationMs": 149866,
+          "duration": "2:30"
+        },
+        {
+          "no": 3,
+          "name": "全艦娘、突撃!",
+          "durationMs": 153333,
+          "duration": "2:33"
+        },
+        {
+          "no": 4,
+          "name": "工廠",
+          "durationMs": 193426,
+          "duration": "3:13"
+        },
+        {
+          "no": 5,
+          "name": "昼戦 (砲雷撃戦、始め!)",
+          "durationMs": 185453,
+          "duration": "3:05"
+        },
+        {
+          "no": 6,
+          "name": "夜戦",
+          "durationMs": 170720,
+          "duration": "2:51"
+        },
+        {
+          "no": 7,
+          "name": "海上護衛艦",
+          "durationMs": 210853,
+          "duration": "3:31"
+        },
+        {
+          "no": 8,
+          "name": "我、敵機動部隊ト交戦ス",
+          "durationMs": 186786,
+          "duration": "3:07"
+        },
+        {
+          "no": 9,
+          "name": "決戦!鉄底海峡を抜けて",
+          "durationMs": 202826,
+          "duration": "3:23"
+        },
+        {
+          "no": 10,
+          "name": "冬の抜錨!",
+          "durationMs": 214853,
+          "duration": "3:35"
+        },
+        {
+          "no": 11,
+          "name": "敵超弩級戦艦を叩け! (夜戦アレンジ)",
+          "durationMs": 197960,
+          "duration": "3:18"
+        },
+        {
+          "no": 12,
+          "name": "索敵機、発艦始め!",
+          "durationMs": 212186,
+          "duration": "3:32"
+        },
+        {
+          "no": 13,
+          "name": "敵艦隊、見ゆ!",
+          "durationMs": 235213,
+          "duration": "3:55"
+        },
+        {
+          "no": 14,
+          "name": "二水戦の航跡",
+          "durationMs": 180106,
+          "duration": "3:00"
+        },
+        {
+          "no": 15,
+          "name": "次発装填、再突入!",
+          "durationMs": 269720,
+          "duration": "4:30"
+        },
+        {
+          "no": 16,
+          "name": "提督との絆 (実装BGM版)",
+          "durationMs": 82066,
+          "duration": "1:22"
+        }
+      ]
+    },
+    {
+      "vol": "II",
+      "volName": "風",
+      "albumId": 3211826,
+      "title": "艦隊これくしょん -艦これ- KanColle Original Sound Track II 風",
+      "company": "Kadokawa Shoten",
+      "publishedAt": "2015-07-30",
+      "url": "https://music.163.com/album?id=3211826",
+      "tracks": [
+        {
+          "no": 1,
+          "name": "作戦発動",
+          "durationMs": 122346,
+          "duration": "2:02"
+        },
+        {
+          "no": 2,
+          "name": "海原へ",
+          "durationMs": 226560,
+          "duration": "3:47"
+        },
+        {
+          "no": 3,
+          "name": "強襲! 空母機動部隊",
+          "durationMs": 215520,
+          "duration": "3:36"
+        },
+        {
+          "no": 4,
+          "name": "MI作戦",
+          "durationMs": 235506,
+          "duration": "3:56"
+        },
+        {
+          "no": 5,
+          "name": "シズメシズメ",
+          "durationMs": 256320,
+          "duration": "4:16"
+        },
+        {
+          "no": 6,
+          "name": "飛龍の反撃",
+          "durationMs": 193986,
+          "duration": "3:14"
+        },
+        {
+          "no": 7,
+          "name": "眼下の伊号",
+          "durationMs": 261906,
+          "duration": "4:22"
+        },
+        {
+          "no": 8,
+          "name": "明石の工廠",
+          "durationMs": 166560,
+          "duration": "2:47"
+        },
+        {
+          "no": 9,
+          "name": "秋の鎮守府",
+          "durationMs": 163160,
+          "duration": "2:43"
+        },
+        {
+          "no": 10,
+          "name": "秋月の空",
+          "durationMs": 208333,
+          "duration": "3:28"
+        },
+        {
+          "no": 11,
+          "name": "防空駆逐艦、参戦!",
+          "durationMs": 208080,
+          "duration": "3:28"
+        },
+        {
+          "no": 12,
+          "name": "鎮守府の午後",
+          "durationMs": 210866,
+          "duration": "3:31"
+        },
+        {
+          "no": 13,
+          "name": "士魂の護り",
+          "durationMs": 219240,
+          "duration": "3:39"
+        },
+        {
+          "no": 14,
+          "name": "第五戦隊の出撃",
+          "durationMs": 214047,
+          "duration": "3:34"
+        },
+        {
+          "no": 15,
+          "name": "冬の艦隊",
+          "durationMs": 213626,
+          "duration": "3:34"
+        },
+        {
+          "no": 16,
+          "name": "連合艦隊の出撃",
+          "durationMs": 221013,
+          "duration": "3:41"
+        },
+        {
+          "no": 17,
+          "name": "艦隊決戦",
+          "durationMs": 215600,
+          "duration": "3:36"
+        },
+        {
+          "no": 18,
+          "name": "武蔵の帰投",
+          "durationMs": 151266,
+          "duration": "2:31"
+        }
+      ]
+    },
+    {
+      "vol": "III",
+      "volName": "雲",
+      "albumId": 34590316,
+      "title": "艦隊これくしょん -艦これ- KanColle Original Sound Track vol.III 雲",
+      "company": "KADOKAWA",
+      "publishedAt": "2016-03-28",
+      "url": "https://music.163.com/album?id=34590316",
+      "tracks": [
+        {
+          "no": 1,
+          "name": "特型駆逐艦",
+          "durationMs": 245253,
+          "duration": "4:05"
+        },
+        {
+          "no": 2,
+          "name": "吹雪、出撃す!",
+          "durationMs": 228826,
+          "duration": "3:49"
+        },
+        {
+          "no": 3,
+          "name": "迎春の鎮守府",
+          "durationMs": 197453,
+          "duration": "3:17"
+        },
+        {
+          "no": 4,
+          "name": "節分の鎮守府",
+          "durationMs": 142560,
+          "duration": "2:23"
+        },
+        {
+          "no": 5,
+          "name": "新編「海上護衛隊」抜錨!",
+          "durationMs": 189080,
+          "duration": "3:09"
+        },
+        {
+          "no": 6,
+          "name": "艦娘のお菓子作り",
+          "durationMs": 201080,
+          "duration": "3:21"
+        },
+        {
+          "no": 7,
+          "name": "桃の節句と艦娘",
+          "durationMs": 193253,
+          "duration": "3:13"
+        },
+        {
+          "no": 8,
+          "name": "第三十駆逐隊、抜錨準備!",
+          "durationMs": 110800,
+          "duration": "1:51"
+        },
+        {
+          "no": 9,
+          "name": "睦月型駆逐艦の戦い",
+          "durationMs": 211600,
+          "duration": "3:32"
+        },
+        {
+          "no": 10,
+          "name": "連合艦隊、西へ",
+          "durationMs": 191866,
+          "duration": "3:12"
+        },
+        {
+          "no": 11,
+          "name": "敵地侵入",
+          "durationMs": 151306,
+          "duration": "2:31"
+        },
+        {
+          "no": 12,
+          "name": "深海への誘い",
+          "durationMs": 218773,
+          "duration": "3:39"
+        },
+        {
+          "no": 13,
+          "name": "モドレナイノ",
+          "durationMs": 128266,
+          "duration": "2:08"
+        },
+        {
+          "no": 14,
+          "name": "雨音の鎮守府",
+          "durationMs": 206133,
+          "duration": "3:26"
+        },
+        {
+          "no": 15,
+          "name": "雨とお酒と艦娘",
+          "durationMs": 175986,
+          "duration": "2:56"
+        },
+        {
+          "no": 16,
+          "name": "浜辺の艦娘",
+          "durationMs": 147440,
+          "duration": "2:27"
+        },
+        {
+          "no": 17,
+          "name": "艦隊の再集結",
+          "durationMs": 132373,
+          "duration": "2:12"
+        },
+        {
+          "no": 18,
+          "name": "出撃!第八艦隊",
+          "durationMs": 172080,
+          "duration": "2:52"
+        },
+        {
+          "no": 19,
+          "name": "艦隊、ソロモン海へ!",
+          "durationMs": 200026,
+          "duration": "3:20"
+        },
+        {
+          "no": 20,
+          "name": "深海水上打撃部隊",
+          "durationMs": 190600,
+          "duration": "3:11"
+        },
+        {
+          "no": 21,
+          "name": "アイアンボトムサウンド",
+          "durationMs": 156400,
+          "duration": "2:36"
+        },
+        {
+          "no": 22,
+          "name": "激突!夜間砲撃戦!",
+          "durationMs": 207680,
+          "duration": "3:28"
+        },
+        {
+          "no": 23,
+          "name": "加賀岬改 (母港ver.)",
+          "durationMs": 108800,
+          "duration": "1:49"
+        },
+        {
+          "no": 24,
+          "name": "加賀岬 (実装ver.)",
+          "durationMs": 131826,
+          "duration": "2:12"
+        }
+      ]
+    },
+    {
+      "vol": "IV",
+      "volName": "雨",
+      "albumId": 72316755,
+      "title": "艦隊これくしょん -艦これ- KanColle Original Sound Track vol.Ⅳ 雨",
+      "company": "KADOKAWA ARCHITECTURE",
+      "publishedAt": "2018-08-09",
+      "url": "https://music.163.com/album?id=72316755",
+      "tracks": [
+        {
+          "no": 1,
+          "name": "梅雨明けの白露",
+          "durationMs": 152241,
+          "duration": "2:32"
+        },
+        {
+          "no": 2,
+          "name": "邂逅",
+          "durationMs": 206333,
+          "duration": "3:26"
+        },
+        {
+          "no": 3,
+          "name": "鎮守府の秋祭り",
+          "durationMs": 196906,
+          "duration": "3:17"
+        },
+        {
+          "no": 4,
+          "name": "艦隊集結",
+          "durationMs": 116693,
+          "duration": "1:57"
+        },
+        {
+          "no": 5,
+          "name": "海上輸送作戦",
+          "durationMs": 164973,
+          "duration": "2:45"
+        },
+        {
+          "no": 6,
+          "name": "水雷戦隊の反撃",
+          "durationMs": 152213,
+          "duration": "2:32"
+        },
+        {
+          "no": 7,
+          "name": "待ち伏せの夜戦",
+          "durationMs": 183413,
+          "duration": "3:03"
+        },
+        {
+          "no": 8,
+          "name": "鎮守府秋刀魚祭り",
+          "durationMs": 214778,
+          "duration": "3:35"
+        },
+        {
+          "no": 9,
+          "name": "冬の二水戦",
+          "durationMs": 128240,
+          "duration": "2:08"
+        },
+        {
+          "no": 10,
+          "name": "礼号作戦",
+          "durationMs": 149786,
+          "duration": "2:30"
+        },
+        {
+          "no": 11,
+          "name": "艦隊突入!上陸船団を討て",
+          "durationMs": 169933,
+          "duration": "2:50"
+        },
+        {
+          "no": 12,
+          "name": "礼号作戦の凱歌",
+          "durationMs": 281040,
+          "duration": "4:41"
+        },
+        {
+          "no": 13,
+          "name": "聖夜の母港",
+          "durationMs": 145826,
+          "duration": "2:26"
+        },
+        {
+          "no": 14,
+          "name": "艦娘と提督の食卓",
+          "durationMs": 193880,
+          "duration": "3:14"
+        },
+        {
+          "no": 15,
+          "name": "遥かなる友邦",
+          "durationMs": 133746,
+          "duration": "2:14"
+        },
+        {
+          "no": 16,
+          "name": "戦場海域",
+          "durationMs": 163761,
+          "duration": "2:44"
+        },
+        {
+          "no": 17,
+          "name": "水底から",
+          "durationMs": 157178,
+          "duration": "2:37"
+        },
+        {
+          "no": 18,
+          "name": "敵航空基地を叩け",
+          "durationMs": 174720,
+          "duration": "2:55"
+        },
+        {
+          "no": 19,
+          "name": "紅い海の侵食",
+          "durationMs": 217495,
+          "duration": "3:37"
+        },
+        {
+          "no": 20,
+          "name": "友邦任務部隊",
+          "durationMs": 148715,
+          "duration": "2:29"
+        },
+        {
+          "no": 21,
+          "name": "波濤を越えて",
+          "durationMs": 126346,
+          "duration": "2:06"
+        },
+        {
+          "no": 22,
+          "name": "水着の出撃",
+          "durationMs": 128470,
+          "duration": "2:08"
+        },
+        {
+          "no": 23,
+          "name": "整備員の休息",
+          "durationMs": 106266,
+          "duration": "1:46"
+        },
+        {
+          "no": 24,
+          "name": "迎撃隊、発進!",
+          "durationMs": 185373,
+          "duration": "3:05"
+        },
+        {
+          "no": 25,
+          "name": "捜索!敵東洋艦隊",
+          "durationMs": 159320,
+          "duration": "2:39"
+        },
+        {
+          "no": 26,
+          "name": "東洋の魔女",
+          "durationMs": 198640,
+          "duration": "3:19"
+        },
+        {
+          "no": 27,
+          "name": "戦争を忌むもの",
+          "durationMs": 188160,
+          "duration": "3:08"
+        },
+        {
+          "no": 28,
+          "name": "雨とお酒と艦娘 (第二夜)",
+          "durationMs": 152685,
+          "duration": "2:33"
+        }
+      ]
+    },
+    {
+      "vol": "V",
+      "volName": "波",
+      "albumId": 78530073,
+      "title": "艦隊これくしょん -艦これ- KanColle Original Sound Track vol.Ⅴ 波",
+      "company": "KADOKAWA",
+      "publishedAt": "2019-04-11",
+      "url": "https://music.163.com/album?id=78530073",
+      "tracks": [
+        {
+          "no": 1,
+          "name": "長波、駆ける",
+          "durationMs": 139505,
+          "duration": "2:20"
+        },
+        {
+          "no": 2,
+          "name": "海鷲の翼",
+          "durationMs": 123623,
+          "duration": "2:04"
+        },
+        {
+          "no": 3,
+          "name": "基地航空隊",
+          "durationMs": 75911,
+          "duration": "1:16"
+        },
+        {
+          "no": 4,
+          "name": "噴式の胎動",
+          "durationMs": 75546,
+          "duration": "1:16"
+        },
+        {
+          "no": 5,
+          "name": "鎮守府秋刀魚祭り改",
+          "durationMs": 225326,
+          "duration": "3:45"
+        },
+        {
+          "no": 6,
+          "name": "艦娘音頭(Inst.)",
+          "durationMs": 132022,
+          "duration": "2:12"
+        },
+        {
+          "no": 7,
+          "name": "警戒線",
+          "durationMs": 112384,
+          "duration": "1:52"
+        },
+        {
+          "no": 8,
+          "name": "機動部隊を追え！",
+          "durationMs": 139833,
+          "duration": "2:20"
+        },
+        {
+          "no": 9,
+          "name": "泡沫のシャングリア",
+          "durationMs": 159686,
+          "duration": "2:40"
+        },
+        {
+          "no": 10,
+          "name": "水底の世界",
+          "durationMs": 131332,
+          "duration": "2:11"
+        },
+        {
+          "no": 11,
+          "name": "渚を越えて",
+          "durationMs": 78483,
+          "duration": "1:18"
+        },
+        {
+          "no": 12,
+          "name": "粉雪の降る夜",
+          "durationMs": 170840,
+          "duration": "2:51"
+        },
+        {
+          "no": 13,
+          "name": "師走の鎮守府",
+          "durationMs": 115121,
+          "duration": "1:55"
+        },
+        {
+          "no": 14,
+          "name": "舞鶴の港",
+          "durationMs": 117864,
+          "duration": "1:58"
+        },
+        {
+          "no": 15,
+          "name": "「光」作戦",
+          "durationMs": 152737,
+          "duration": "2:33"
+        },
+        {
+          "no": 16,
+          "name": "トラック目指して",
+          "durationMs": 139363,
+          "duration": "2:19"
+        },
+        {
+          "no": 17,
+          "name": "遥かなるウルシー泊地",
+          "durationMs": 166162,
+          "duration": "2:46"
+        },
+        {
+          "no": 18,
+          "name": "西方打通作戦発動",
+          "durationMs": 85760,
+          "duration": "1:26"
+        },
+        {
+          "no": 19,
+          "name": "特務艦隊抜錨！西へ",
+          "durationMs": 161280,
+          "duration": "2:41"
+        },
+        {
+          "no": 20,
+          "name": "特務艦隊の戦い",
+          "durationMs": 162298,
+          "duration": "2:42"
+        },
+        {
+          "no": 21,
+          "name": "西方の海",
+          "durationMs": 123623,
+          "duration": "2:04"
+        },
+        {
+          "no": 22,
+          "name": "地中海の戦い",
+          "durationMs": 172570,
+          "duration": "2:53"
+        },
+        {
+          "no": 23,
+          "name": "鎮魂の大西洋",
+          "durationMs": 117492,
+          "duration": "1:57"
+        },
+        {
+          "no": 24,
+          "name": "連合艦隊旗艦",
+          "durationMs": 175171,
+          "duration": "2:55"
+        },
+        {
+          "no": 25,
+          "name": "艦娘音頭",
+          "durationMs": 201177,
+          "duration": "3:21"
+        }
+      ]
+    },
+    {
+      "vol": "VI",
+      "volName": "雪",
+      "albumId": 147600544,
+      "title": "艦隊これくしょん -艦これ- KanColle Original Sound Track vol.VI 雪",
+      "company": "KADOKAWA",
+      "publishedAt": "2021-04-04",
+      "url": "https://music.163.com/album?id=147600544",
+      "tracks": [
+        {
+          "no": 1,
+          "name": "捷号作戦前夜",
+          "durationMs": 101000,
+          "duration": "1:41"
+        },
+        {
+          "no": 2,
+          "name": "捷一号作戦",
+          "durationMs": 195490,
+          "duration": "3:15"
+        },
+        {
+          "no": 3,
+          "name": "激戦！遊撃部隊",
+          "durationMs": 157910,
+          "duration": "2:38"
+        },
+        {
+          "no": 4,
+          "name": "海峡へ",
+          "durationMs": 112120,
+          "duration": "1:52"
+        },
+        {
+          "no": 5,
+          "name": "西村艦隊の戦い",
+          "durationMs": 228190,
+          "duration": "3:48"
+        },
+        {
+          "no": 6,
+          "name": "祈り",
+          "durationMs": 158641,
+          "duration": "2:39"
+        },
+        {
+          "no": 7,
+          "name": "決戦前夜",
+          "durationMs": 88790,
+          "duration": "1:29"
+        },
+        {
+          "no": 8,
+          "name": "第一遊撃部隊の進撃",
+          "durationMs": 205165,
+          "duration": "3:25"
+        },
+        {
+          "no": 9,
+          "name": "レイテ沖海戦",
+          "durationMs": 176150,
+          "duration": "2:56"
+        },
+        {
+          "no": 10,
+          "name": "シブヤン海を抜けて",
+          "durationMs": 110994,
+          "duration": "1:51"
+        },
+        {
+          "no": 11,
+          "name": "友軍艦隊！反撃開始",
+          "durationMs": 157010,
+          "duration": "2:37"
+        },
+        {
+          "no": 12,
+          "name": "鶴墜ちる海",
+          "durationMs": 244210,
+          "duration": "4:04"
+        },
+        {
+          "no": 13,
+          "name": "我は翼なき囮にあらず",
+          "durationMs": 241550,
+          "duration": "4:02"
+        },
+        {
+          "no": 14,
+          "name": "月夜海(Inst.)",
+          "durationMs": 304352,
+          "duration": "5:04"
+        },
+        {
+          "no": 15,
+          "name": "時雨の記憶",
+          "durationMs": 87301,
+          "duration": "1:27"
+        },
+        {
+          "no": 16,
+          "name": "試製 佐世保の時雨(Inst.)",
+          "durationMs": 164153,
+          "duration": "2:44"
+        },
+        {
+          "no": 17,
+          "name": "鎮守府秋刀魚祭り改二",
+          "durationMs": 234710,
+          "duration": "3:55"
+        },
+        {
+          "no": 18,
+          "name": "南西海域の午後",
+          "durationMs": 116088,
+          "duration": "1:56"
+        },
+        {
+          "no": 19,
+          "name": "西方打通作戦",
+          "durationMs": 144587,
+          "duration": "2:25"
+        },
+        {
+          "no": 20,
+          "name": "連合艦隊、再び西へ",
+          "durationMs": 204878,
+          "duration": "3:25"
+        },
+        {
+          "no": 21,
+          "name": "ジェノヴァの風",
+          "durationMs": 108068,
+          "duration": "1:48"
+        },
+        {
+          "no": 22,
+          "name": "新ライン演習作戦",
+          "durationMs": 175595,
+          "duration": "2:56"
+        },
+        {
+          "no": 23,
+          "name": "決戦！北大西洋",
+          "durationMs": 155846,
+          "duration": "2:36"
+        },
+        {
+          "no": 24,
+          "name": "北東方面艦隊の集結",
+          "durationMs": 84375,
+          "duration": "1:24"
+        },
+        {
+          "no": 25,
+          "name": "第五艦隊の奮戦",
+          "durationMs": 190484,
+          "duration": "3:10"
+        },
+        {
+          "no": 26,
+          "name": "北方艦隊決戦",
+          "durationMs": 202266,
+          "duration": "3:22"
+        },
+        {
+          "no": 27,
+          "name": "士魂の反撃",
+          "durationMs": 180640,
+          "duration": "3:01"
+        }
+      ]
+    },
+    {
+      "vol": "VII",
+      "volName": "夕",
+      "albumId": 147531398,
+      "title": "艦隊これくしょん -艦これ- KanColle Original Sound Track vol.VII 夕",
+      "company": "KADOKAWA ARCHITECTURE",
+      "publishedAt": "2022-06-09",
+      "url": "https://music.163.com/album?id=147531398",
+      "tracks": [
+        {
+          "no": 1,
+          "name": "中部ソロモン海作戦",
+          "durationMs": 93586,
+          "duration": "1:34"
+        },
+        {
+          "no": 2,
+          "name": "村雨と峯雲の出撃",
+          "durationMs": 123611,
+          "duration": "2:04"
+        },
+        {
+          "no": 3,
+          "name": "敵電探の罠を破れ!",
+          "durationMs": 128306,
+          "duration": "2:08"
+        },
+        {
+          "no": 4,
+          "name": "六〇三作戦",
+          "durationMs": 121280,
+          "duration": "2:01"
+        },
+        {
+          "no": 5,
+          "name": "日の進むところ",
+          "durationMs": 134426,
+          "duration": "2:14"
+        },
+        {
+          "no": 6,
+          "name": "邀撃!ブイン防衛作戦",
+          "durationMs": 171680,
+          "duration": "2:52"
+        },
+        {
+          "no": 7,
+          "name": "瑞雲の空",
+          "durationMs": 142426,
+          "duration": "2:22"
+        },
+        {
+          "no": 8,
+          "name": "単冠湾に集う雄姿",
+          "durationMs": 100746,
+          "duration": "1:41"
+        },
+        {
+          "no": 9,
+          "name": "空母機動部隊、抜錨!",
+          "durationMs": 175280,
+          "duration": "2:55"
+        },
+        {
+          "no": 10,
+          "name": "母艦攻擊隊、発艦始め!",
+          "durationMs": 120424,
+          "duration": "2:00"
+        },
+        {
+          "no": 11,
+          "name": "敵機動部隊の策動",
+          "durationMs": 89051,
+          "duration": "1:29"
+        },
+        {
+          "no": 12,
+          "name": "深海棲艦拠る紅の海",
+          "durationMs": 197360,
+          "duration": "3:17"
+        },
+        {
+          "no": 13,
+          "name": "北大西洋の風",
+          "durationMs": 129515,
+          "duration": "2:10"
+        },
+        {
+          "no": 14,
+          "name": "欧州防衛作戦",
+          "durationMs": 141773,
+          "duration": "2:22"
+        },
+        {
+          "no": 15,
+          "name": "佐世保の時雨 (instrumental)",
+          "durationMs": 102080,
+          "duration": "1:42"
+        },
+        {
+          "no": 16,
+          "name": "ジブラルタルの戦鬼",
+          "durationMs": 152053,
+          "duration": "2:32"
+        },
+        {
+          "no": 17,
+          "name": "地中海の潮風",
+          "durationMs": 112186,
+          "duration": "1:52"
+        },
+        {
+          "no": 18,
+          "name": "アンツィオ沖の戦い",
+          "durationMs": 136253,
+          "duration": "2:16"
+        },
+        {
+          "no": 19,
+          "name": "南方の戦闘哨戒",
+          "durationMs": 93320,
+          "duration": "1:33"
+        },
+        {
+          "no": 20,
+          "name": "八駆の迎撃",
+          "durationMs": 137946,
+          "duration": "2:18"
+        },
+        {
+          "no": 21,
+          "name": "八駆の迎撃 改 (instrumental)",
+          "durationMs": 182893,
+          "duration": "3:03"
+        },
+        {
+          "no": 22,
+          "name": "ダバオ沖の夕雲型",
+          "durationMs": 92290,
+          "duration": "1:32"
+        },
+        {
+          "no": 23,
+          "name": "激闘!第三次ソロモン海戦",
+          "durationMs": 204346,
+          "duration": "3:24"
+        },
+        {
+          "no": 24,
+          "name": "比叡と霧島の夜(origin)",
+          "durationMs": 187666,
+          "duration": "3:08"
+        },
+        {
+          "no": 25,
+          "name": "令和桃の節句",
+          "durationMs": 168489,
+          "duration": "2:48"
+        },
+        {
+          "no": 26,
+          "name": "沖に立つ波",
+          "durationMs": 192453,
+          "duration": "3:12"
+        }
+      ]
+    },
+    {
+      "vol": "VIII",
+      "volName": "夜",
+      "albumId": 166857729,
+      "title": "艦隊これくしょん -艦これ- KanColle Original Sound Track vol.VIII 夜",
+      "company": "KADOKAWA ARCHITECTURE",
+      "publishedAt": "2023-04-27",
+      "url": "https://music.163.com/album?id=166857729",
+      "tracks": [
+        {
+          "no": 1,
+          "name": "加賀（かが）が征く海",
+          "durationMs": 181450,
+          "duration": "3:01"
+        },
+        {
+          "no": 2,
+          "name": "島嶼防衛作戦",
+          "durationMs": 91080,
+          "duration": "1:31"
+        },
+        {
+          "no": 3,
+          "name": "輸送護衛船団の闘い",
+          "durationMs": 145970,
+          "duration": "2:26"
+        },
+        {
+          "no": 4,
+          "name": "松の反転",
+          "durationMs": 139790,
+          "duration": "2:20"
+        },
+        {
+          "no": 5,
+          "name": "島嶼海上輸送作戦",
+          "durationMs": 165920,
+          "duration": "2:46"
+        },
+        {
+          "no": 6,
+          "name": "ソロモンの夜",
+          "durationMs": 169410,
+          "duration": "2:49"
+        },
+        {
+          "no": 7,
+          "name": "鉄底海峡夜戦",
+          "durationMs": 169670,
+          "duration": "2:50"
+        },
+        {
+          "no": 8,
+          "name": "決戦！南太平洋海戦",
+          "durationMs": 195330,
+          "duration": "3:15"
+        },
+        {
+          "no": 9,
+          "name": "秋雲が描くスケッチ",
+          "durationMs": 101400,
+          "duration": "1:41"
+        },
+        {
+          "no": 10,
+          "name": "雪風の奇跡",
+          "durationMs": 141390,
+          "duration": "2:21"
+        },
+        {
+          "no": 11,
+          "name": "発動！MG1作戦",
+          "durationMs": 100600,
+          "duration": "1:41"
+        },
+        {
+          "no": 12,
+          "name": "バレンツ海 海戦",
+          "durationMs": 138320,
+          "duration": "2:18"
+        },
+        {
+          "no": 13,
+          "name": "北極海航路護衛戦",
+          "durationMs": 97550,
+          "duration": "1:38"
+        },
+        {
+          "no": 14,
+          "name": "PQ17船団を護衛せよ！",
+          "durationMs": 131170,
+          "duration": "2:11"
+        },
+        {
+          "no": 15,
+          "name": "多号作戦改",
+          "durationMs": 127680,
+          "duration": "2:08"
+        },
+        {
+          "no": 16,
+          "name": "オルモックの夜",
+          "durationMs": 126670,
+          "duration": "2:07"
+        },
+        {
+          "no": 17,
+          "name": "竹の輝き",
+          "durationMs": 167430,
+          "duration": "2:47"
+        },
+        {
+          "no": 18,
+          "name": "頌春令和の海",
+          "durationMs": 130130,
+          "duration": "2:10"
+        },
+        {
+          "no": 19,
+          "name": "Valentine's Sea",
+          "durationMs": 127690,
+          "duration": "2:08"
+        },
+        {
+          "no": 20,
+          "name": "第三十一戦隊",
+          "durationMs": 79010,
+          "duration": "1:19"
+        },
+        {
+          "no": 21,
+          "name": "第六艦隊の戦い",
+          "durationMs": 145080,
+          "duration": "2:25"
+        },
+        {
+          "no": 22,
+          "name": "ルンガ沖夜戦",
+          "durationMs": 130130,
+          "duration": "2:10"
+        },
+        {
+          "no": 23,
+          "name": "ラバウルの夜",
+          "durationMs": 118520,
+          "duration": "1:59"
+        },
+        {
+          "no": 24,
+          "name": "遊撃部隊の出撃",
+          "durationMs": 154800,
+          "duration": "2:35"
+        },
+        {
+          "no": 25,
+          "name": "ラバウルの遊撃部隊",
+          "durationMs": 139410,
+          "duration": "2:19"
+        },
+        {
+          "no": 26,
+          "name": "精鋭第二水雷戦隊",
+          "durationMs": 130710,
+          "duration": "2:11"
+        },
+        {
+          "no": 27,
+          "name": "二水戦駆逐艦の突撃",
+          "durationMs": 139930,
+          "duration": "2:20"
+        },
+        {
+          "no": 28,
+          "name": "夜の祈り",
+          "durationMs": 209270,
+          "duration": "3:29"
+        }
+      ]
+    },
+    {
+      "vol": "IX",
+      "volName": "護",
+      "albumId": 198558661,
+      "title": "艦隊これくしょん -艦これ-KanColle Original Sound Track vol.IX 護",
+      "company": "KADOKAWA ARCHITECTURE",
+      "publishedAt": "2024-03-03",
+      "url": "https://music.163.com/album?id=198558661",
+      "tracks": [
+        {
+          "no": 1,
+          "name": "スエズ運河を抜けて",
+          "durationMs": 81720,
+          "duration": "1:22"
+        },
+        {
+          "no": 2,
+          "name": "抜錨！アレクサンドリア",
+          "durationMs": 147240,
+          "duration": "2:27"
+        },
+        {
+          "no": 3,
+          "name": "地中海艦隊の激闘",
+          "durationMs": 134400,
+          "duration": "2:14"
+        },
+        {
+          "no": 4,
+          "name": "夏の弩級",
+          "durationMs": 132030,
+          "duration": "2:12"
+        },
+        {
+          "no": 5,
+          "name": "ペデスタル作戦",
+          "durationMs": 83070,
+          "duration": "1:23"
+        },
+        {
+          "no": 6,
+          "name": "マルタの戦翼",
+          "durationMs": 164510,
+          "duration": "2:45"
+        },
+        {
+          "no": 7,
+          "name": "Trick of Fleet!",
+          "durationMs": 127090,
+          "duration": "2:07"
+        },
+        {
+          "no": 8,
+          "name": "根室沖の輝き",
+          "durationMs": 126000,
+          "duration": "2:06"
+        },
+        {
+          "no": 9,
+          "name": "南号作戦",
+          "durationMs": 115470,
+          "duration": "1:55"
+        },
+        {
+          "no": 10,
+          "name": "第一護衛艦隊の戦い",
+          "durationMs": 143920,
+          "duration": "2:24"
+        },
+        {
+          "no": 11,
+          "name": "護衛船団の航跡",
+          "durationMs": 186050,
+          "duration": "3:06"
+        },
+        {
+          "no": 12,
+          "name": "八丈島沖の死闘",
+          "durationMs": 139370,
+          "duration": "2:19"
+        },
+        {
+          "no": 13,
+          "name": "南西諸島海上護衛",
+          "durationMs": 87810,
+          "duration": "1:28"
+        },
+        {
+          "no": 14,
+          "name": "バシー海峡を越えて",
+          "durationMs": 165670,
+          "duration": "2:46"
+        },
+        {
+          "no": 15,
+          "name": "防衛せよ！捷三号作戦発動",
+          "durationMs": 145130,
+          "duration": "2:25"
+        },
+        {
+          "no": 16,
+          "name": "シマ船団護衛作戦",
+          "durationMs": 152120,
+          "duration": "2:32"
+        },
+        {
+          "no": 17,
+          "name": "北九州の月",
+          "durationMs": 125090,
+          "duration": "2:05"
+        },
+        {
+          "no": 18,
+          "name": "北九州防空戦",
+          "durationMs": 173350,
+          "duration": "2:53"
+        },
+        {
+          "no": 19,
+          "name": "ラバウル基地への進出",
+          "durationMs": 93190,
+          "duration": "1:33"
+        },
+        {
+          "no": 20,
+          "name": "ラバウル航空隊",
+          "durationMs": 128070,
+          "duration": "2:08"
+        },
+        {
+          "no": 21,
+          "name": "R方面作戦",
+          "durationMs": 127920,
+          "duration": "2:08"
+        },
+        {
+          "no": 22,
+          "name": "ラバウル航空隊の死闘",
+          "durationMs": 128280,
+          "duration": "2:08"
+        },
+        {
+          "no": 23,
+          "name": "豊後水道の先へ",
+          "durationMs": 114610,
+          "duration": "1:55"
+        },
+        {
+          "no": 24,
+          "name": "第3警戒航行序列",
+          "durationMs": 152920,
+          "duration": "2:33"
+        },
+        {
+          "no": 25,
+          "name": "坊ノ岬沖の波間",
+          "durationMs": 149930,
+          "duration": "2:30"
+        },
+        {
+          "no": 26,
+          "name": "未来 (Ohkoshi Piano Instrumental mode)",
+          "durationMs": 110610,
+          "duration": "1:51"
+        }
+      ]
+    }
+  ]
+}

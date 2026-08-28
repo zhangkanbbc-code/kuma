@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="640px" height="640px" viewBox="0 0 640 640" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 46.2 (44496) - http://www.bohemiancoding.com/sketch -->
+    <title>29</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <path d="M180,100 L280,100 L360,180 L360,260 L540,440 L540,500 L500,540 L440,540 L260,360 L180,360 L100,280 L100,180 L120,160 L220,260 L260,260 L260,220 L160,120 L180,100 Z M420,420 L420,480 L480,480 L480,420 L420,420 Z M300,300 L300,340 L340,340 L340,300 L300,300 Z" id="path-1"></path>
+        <filter x="-5.7%" y="-3.4%" width="111.4%" height="113.6%" filterUnits="objectBoundingBox" id="filter-2">
+            <feOffset dx="0" dy="20" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.25 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+        <linearGradient x1="52.3470044%" y1="0%" x2="52.3470052%" y2="100%" id="linearGradient-3">
+            <stop stop-color="#EFE1CE" offset="0%"></stop>
+            <stop stop-color="#CDB89D" offset="100%"></stop>
+        </linearGradient>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="29">
+            <g id="Combined-Shape">
+                <use fill="black" fill-opacity="1" filter="url(#filter-2)" xlink:href="#path-1"></use>
+                <use fill="#E3D0B7" fill-rule="evenodd" xlink:href="#path-1"></use>
+            </g>
+            <path d="M420,420 L420,480 L480,480 L520,520 L500,540 L440,540 L260,360 L180,360 L100,280 L100,180 L120,160 L220,260 L260,260 L420,420 Z M300,300 L300,340 L340,340 L300,300 Z" id="Combined-Shape-Copy" fill="url(#linearGradient-3)"></path>
+        </g>
+    </g>
+</svg>

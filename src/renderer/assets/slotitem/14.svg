@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="640px" height="640px" viewBox="0 0 640 640" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 46.2 (44496) - http://www.bohemiancoding.com/sketch -->
+    <title>14</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <path d="M110,320 L110,340.411989 L170,400.265597 L190,400.265597 L270,320.536773 L490,540 L530,540 L530,500.097595 C383.950521,353.788777 310.617188,280.634368 310,280.634368 C309.382812,280.634368 356.049479,234.081562 450,140.975951 L450,100 L410,101.073546 L190,240.731963 L110,320 Z" id="path-1"></path>
+        <filter x="-3.6%" y="-3.4%" width="111.9%" height="113.6%" filterUnits="objectBoundingBox" id="filter-2">
+            <feOffset dx="10" dy="20" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.25 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+        <linearGradient x1="30.3350359%" y1="74.5171519%" x2="30.3350359%" y2="-18.1608943%" id="linearGradient-3">
+            <stop stop-color="#E8E8E8" offset="0%"></stop>
+            <stop stop-color="#BBBBBB" offset="100%"></stop>
+        </linearGradient>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="14">
+            <g id="Path-9">
+                <use fill="black" fill-opacity="1" filter="url(#filter-2)" xlink:href="#path-1"></use>
+                <use fill="#E8E8E8" fill-rule="evenodd" xlink:href="#path-1"></use>
+            </g>
+            <path d="M270,319.902405 L490,539.365632 L530,539.365632 L530,499.463227 C383.950521,353.154409 310.617188,280 310,280 C309.382812,280 296.049479,293.300802 270,319.902405 Z" id="Path-9-Copy" fill="url(#linearGradient-3)"></path>
+        </g>
+    </g>
+</svg>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="640px" height="640px" viewBox="0 0 640 640" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 46.2 (44496) - http://www.bohemiancoding.com/sketch -->
+    <title>41</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <path d="M403.636364,148.636364 L240,185 L220,165 L185.714286,173.571429 L100,105 L40,105 L20,125 L130.526316,203.947368 L120,225 L80,245 L60,285 L40,305 L80,305 L260,285 L451.611519,180.484626 L540,205 L560,185 L478.904853,165.597353 L480,165 L520,45 L480,65 L428.571429,133.571429 L400,105 L360,105 L403.636364,148.636364 Z" id="path-1"></path>
+        <filter x="-2.8%" y="-5.8%" width="111.1%" height="123.1%" filterUnits="objectBoundingBox" id="filter-2">
+            <feOffset dx="20" dy="20" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.25 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+        <linearGradient x1="0%" y1="50%" x2="50%" y2="100%" id="linearGradient-3">
+            <stop stop-color="#5FBC7F" offset="0%"></stop>
+            <stop stop-color="#428358" offset="100%"></stop>
+        </linearGradient>
+        <path d="M420,155 L640,375 L420,595 L200,375 L420,155 Z M417.92,270.9 C389.32,279.04 353.24,283.22 310.12,283.22 L314.74,297.3 C360.94,297.3 397.68,292.9 425.4,284.1 L417.92,270.9 Z M408.24,299.28 C403.4,317.32 398.12,332.06 391.96,343.72 L404.72,348.34 C411.54,335.14 417.04,319.96 421.44,302.58 L408.24,299.28 Z M485.02,266.5 C470.28,286.3 451.58,302.36 428.92,314.24 L435.74,328.76 C459.5,315.34 479.52,298.62 495.58,278.38 L485.02,266.5 Z M494.7,326.34 C478.42,347.46 457.74,364.62 432.44,377.6 L439.48,392.12 C465.66,377.82 487.44,359.78 505.04,338 L494.7,326.34 Z M501.08,386.62 C481.5,414.78 456.64,437.22 426.28,454.16 L433.54,469.12 C464.78,450.42 490.96,426.88 511.86,398.5 L501.08,386.62 Z M316.94,368.58 L316.94,383.98 L361.38,383.98 C348.84,405.98 331.46,425.12 309.46,441.4 L318.92,455.04 C336.52,440.96 351.7,423.14 364.9,401.8 L364.9,469.78 L380.74,469.78 L380.74,412.14 C389.76,418.74 400.76,427.54 413.52,438.98 L422.76,424.9 C408.46,414.56 394.38,405.54 380.74,397.62 L380.74,383.98 L424.3,383.98 L424.3,368.58 L380.74,368.58 L380.74,346.8 L364.9,346.8 L364.9,368.58 L316.94,368.58 Z M368.2,302.58 L354.78,306.32 C359.84,317.1 364.24,328.1 367.76,339.54 L381.18,334.7 C378.1,325.02 373.7,314.24 368.2,302.58 Z M328.6,306.76 L316.06,310.94 C322.66,322.82 328.16,335.58 332.56,348.78 L345.54,345.48 C340.7,330.96 334.98,317.98 328.6,306.76 Z" id="path-4"></path>
+        <filter x="-3.4%" y="-3.4%" width="113.6%" height="113.6%" filterUnits="objectBoundingBox" id="filter-5">
+            <feOffset dx="20" dy="20" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.25 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="41">
+            <g id="Combined-Shape">
+                <use fill="black" fill-opacity="1" filter="url(#filter-2)" xlink:href="#path-1"></use>
+                <use fill="#428358" fill-rule="evenodd" xlink:href="#path-1"></use>
+            </g>
+            <g id="Combined-Shape">
+                <use fill="black" fill-opacity="1" filter="url(#filter-5)" xlink:href="#path-4"></use>
+                <use fill="url(#linearGradient-3)" fill-rule="evenodd" xlink:href="#path-4"></use>
+            </g>
+        </g>
+    </g>
+</svg>

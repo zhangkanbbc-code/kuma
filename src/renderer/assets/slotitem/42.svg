@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="640px" height="640px" viewBox="0 0 640 640" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 46.2 (44496) - http://www.bohemiancoding.com/sketch -->
+    <title>42</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <filter x="-3.4%" y="-3.3%" width="113.6%" height="113.0%" filterUnits="objectBoundingBox" id="filter-1">
+            <feOffset dx="20" dy="20" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.25 0" type="matrix" in="shadowBlurOuter1" result="shadowMatrixOuter1"></feColorMatrix>
+            <feMerge>
+                <feMergeNode in="shadowMatrixOuter1"></feMergeNode>
+                <feMergeNode in="SourceGraphic"></feMergeNode>
+            </feMerge>
+        </filter>
+        <linearGradient x1="63.0892852%" y1="0%" x2="28.3868506%" y2="100%" id="linearGradient-2">
+            <stop stop-color="#9EBAE0" offset="0%"></stop>
+            <stop stop-color="#8299B7" offset="100%"></stop>
+        </linearGradient>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="42">
+            <g id="Group" filter="url(#filter-1)" transform="translate(100.000000, 90.000000)">
+                <path d="M120,40 L100,40 L100,0 L180,0 L180,40 L160,40 L160,140 L180,140 L180,100 L160,100 L160,60 L240,60 L240,100 L220,100 L220,140 L240,140 L240,120 L260,120 L260,140 L280,140 L280,120 L300,120 L300,140 L320,140 L320,120 L340,120 L340,300 L320,300 L320,260 L300,260 L300,300 L280,300 L280,260 L260,260 L260,300 L240,300 L240,260 L220,260 L220,320 L180,320 L180,260 L160,260 L160,320 L120,320 L120,40 Z M160,180 L160,220 L180,220 L180,180 L160,180 Z M220,220 L240,220 L240,180 L220,180 L220,220 Z M260,220 L280,220 L280,180 L260,180 L260,220 Z M300,220 L320,220 L320,180 L300,180 L300,220 Z" id="Combined-Shape" fill="#9EBAE0"></path>
+                <polygon id="Path-26" fill="#9EBAE0" points="0 320 0 360 120 460 320 460 440 340 440 300 240 300 240 320"></polygon>
+                <polygon id="Path-2" fill="url(#linearGradient-2)" points="240 300 240 320 0 320 0 360 120 460 320 460 440.193359 340 440 300"></polygon>
+            </g>
+        </g>
+    </g>
+</svg>

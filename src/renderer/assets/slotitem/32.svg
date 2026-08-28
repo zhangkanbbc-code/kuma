@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="640px" height="640px" viewBox="0 0 640 640" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 46.2 (44496) - http://www.bohemiancoding.com/sketch -->
+    <title>32</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <rect id="path-1" x="0" y="440" width="320" height="40"></rect>
+        <filter x="-4.7%" y="-37.5%" width="118.8%" height="250.0%" filterUnits="objectBoundingBox" id="filter-2">
+            <feOffset dx="20" dy="20" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.25 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+        <polygon id="path-3" points="159.289941 0 60 100.000972 159.289941 200 260 100.000972"></polygon>
+        <filter x="-7.5%" y="-7.5%" width="130.0%" height="130.0%" filterUnits="objectBoundingBox" id="filter-4">
+            <feOffset dx="20" dy="20" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.25 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+        <polygon id="path-5" points="40 220 280 220 160 420"></polygon>
+        <filter x="-6.2%" y="-7.5%" width="125.0%" height="130.0%" filterUnits="objectBoundingBox" id="filter-6">
+            <feOffset dx="20" dy="20" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.25 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+        <linearGradient x1="0%" y1="100%" x2="0%" y2="-96.9401042%" id="linearGradient-7">
+            <stop stop-color="#9DCE79" offset="0%"></stop>
+            <stop stop-color="#BFEB9F" offset="100%"></stop>
+        </linearGradient>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="32">
+            <g id="Group" transform="translate(160.000000, 80.000000)">
+                <g id="Rectangle-4">
+                    <use fill="black" fill-opacity="1" filter="url(#filter-2)" xlink:href="#path-1"></use>
+                    <use fill="#BFEB9F" fill-rule="evenodd" xlink:href="#path-1"></use>
+                </g>
+                <g id="Path-19">
+                    <use fill="black" fill-opacity="1" filter="url(#filter-4)" xlink:href="#path-3"></use>
+                    <use fill="#BFEB9F" fill-rule="evenodd" xlink:href="#path-3"></use>
+                </g>
+                <g id="Path-20">
+                    <use fill="black" fill-opacity="1" filter="url(#filter-6)" xlink:href="#path-5"></use>
+                    <use fill="#BFEB9F" fill-rule="evenodd" xlink:href="#path-5"></use>
+                </g>
+            </g>
+            <path d="M320.993789,520 L480,520 L480,560 L320.993789,560 L320.993789,520 Z M320,80 L420.084531,180.000972 L320,280 L320,80 Z M320.993789,300 L440.248447,300 L320.993789,500 L320.993789,300 Z" id="Combined-Shape" fill="url(#linearGradient-7)"></path>
+        </g>
+    </g>
+</svg>

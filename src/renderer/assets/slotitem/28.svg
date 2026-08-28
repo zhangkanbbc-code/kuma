@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="640px" height="640px" viewBox="0 0 640 640" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 46.2 (44496) - http://www.bohemiancoding.com/sketch -->
+    <title>28</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <filter x="-4.2%" y="-3.0%" width="116.7%" height="112.0%" filterUnits="objectBoundingBox" id="filter-1">
+            <feOffset dx="20" dy="20" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.25 0" type="matrix" in="shadowBlurOuter1" result="shadowMatrixOuter1"></feColorMatrix>
+            <feMerge>
+                <feMergeNode in="shadowMatrixOuter1"></feMergeNode>
+                <feMergeNode in="SourceGraphic"></feMergeNode>
+            </feMerge>
+        </filter>
+        <linearGradient x1="126.170654%" y1="117.801403%" x2="0%" y2="0%" id="linearGradient-2">
+            <stop stop-color="#6A568F" offset="0%"></stop>
+            <stop stop-color="#746098" offset="25.7577956%"></stop>
+            <stop stop-color="#907CB4" offset="100%"></stop>
+        </linearGradient>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="28">
+            <g id="Group" filter="url(#filter-1)" transform="translate(139.000000, 70.000000)" fill="#907CB4">
+                <polygon id="Path-30-Copy" transform="translate(180.000000, 350.000000) scale(1, -1) translate(-180.000000, -350.000000) " points="20 200 140 500 220 500 340 200 280 200 180 460 80 200"></polygon>
+                <rect id="Rectangle" x="130" y="280" width="100" height="40"></rect>
+                <rect id="Rectangle-Copy" x="80" y="420" width="200" height="40"></rect>
+                <polygon id="Path-30" points="0 120 0 160 140 200 220 200 360 160 360 120"></polygon>
+                <polygon id="Path-32" points="180 320 140 420 220 420"></polygon>
+                <polygon id="Path-31-Copy" points="180 0 120 60 180 120 240 60"></polygon>
+            </g>
+            <path d="M388.230769,490 L349.769231,390 L319,390 L319,350 L334.384615,350 L319,310 L319,270 L359,270 L479,570 L419,570 L403.615385,530 L319,530 L319,490 L388.230769,490 Z M319,190 L499,190 L501.557617,230 L359,270 L319,270 L319,190 Z M319,390 L359,490 L319,490 L319,390 Z M319,70 L379,130 L319,190 L319,70 Z" id="Combined-Shape" fill="url(#linearGradient-2)"></path>
+        </g>
+    </g>
+</svg>

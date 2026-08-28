@@ -1,0 +1,44 @@
+{
+  "name": "kuma",
+  "productName": "kuma",
+  "version": "1.0.0-beta.1",
+  "description": "《舰队 Collection》的信息工作台",
+  "main": "dist/main/index.js",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "package:win": "node scripts/build.mjs --release && node scripts/package-win.mjs",
+    "start": "npm run build && electron .",
+    "smoke": "npm run build && node scripts/smoke.mjs",
+    "quit:e2e": "node scripts/quit-e2e.mjs",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "test:lodes": "node scripts/require-test-lodes.mjs && npm test",
+    "typecheck": "tsc --noEmit",
+    "lodes:fetch": "node scripts/fetch-lodes.mjs",
+    "lodes:reconcile": "node scripts/reconcile-lodes.mjs",
+    "lodes:localization": "node scripts/fetch-lodes.mjs --only=kcwiki-localization",
+    "lodes:map-intel": "node scripts/fetch-map-intel.mjs",
+    "lodes:map-intel-limited": "node scripts/refresh-map-intel-limited.mjs",
+    "lodes:map-intel-event": "node scripts/fetch-map-intel-event.mjs",
+    "lodes:map-intel-event-end": "node scripts/archive-map-intel-event.mjs",
+    "lodes:map-intel-confirm-end": "node scripts/confirm-map-intel-end.mjs",
+    "lodes:map-intel-approve": "node scripts/approve-map-intel-candidate.mjs",
+    "lodes:sync-ignore": "node scripts/sync-bundled-lodes.mjs",
+    "bgm:align": "node scripts/bgm-duration-align.mjs",
+    "bgm:ost": "node scripts/fetch-ost-tracklists.mjs",
+    "bgm:audit": "node scripts/bgm-name-audit.mjs",
+    "voice:punct": "node scripts/voice-normalize-packs.mjs",
+    "voice:review": "node scripts/voice-translate-review.mjs"
+  },
+  "dependencies": {
+    "@electron/remote": "^2.1.3"
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.1.1",
+    "@types/node": "^22.10.0",
+    "electron": "^43.2.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.9.0"
+  }
+}

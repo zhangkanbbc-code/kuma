@@ -1,0 +1,1127 @@
+[
+  {
+    "name": "sortie-battle-rescue",
+    "note": "真实报文 2026-08-05T09:12:06Z（1 次出击的昼战包）。api_air_base_rescue_type=2（卡特琳娜救助，两个气泡）、两波陆航 api_base_id 都是 2、api_flavor_info 带 api_class_name「深海新鋭駆逐艦」。陆航波的 api_stage3 已剔除（本例只用它的波次编号与救助标志，不用伤害）。",
+    "source": {
+      "event": 1224,
+      "ts": "2026-08-05T09:12:06.952Z"
+    },
+    "path": "/kcsapi/api_req_sortie/battle",
+    "battle": {
+      "api_deck_id": 3,
+      "api_formation": [
+        1,
+        2,
+        2
+      ],
+      "api_f_nowhps": [
+        39,
+        33,
+        40,
+        40,
+        33,
+        39,
+        33
+      ],
+      "api_f_maxhps": [
+        39,
+        35,
+        40,
+        40,
+        33,
+        39,
+        33
+      ],
+      "api_ship_ke": [
+        2297,
+        1513,
+        1501,
+        1501
+      ],
+      "api_ship_lv": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "api_e_nowhps": [
+        330,
+        70,
+        20,
+        20
+      ],
+      "api_e_maxhps": [
+        330,
+        70,
+        20,
+        20
+      ],
+      "api_smoke_type": 0,
+      "api_midnight_flag": 1,
+      "api_search": [
+        5,
+        5
+      ],
+      "api_stage_flag": [
+        1,
+        0,
+        0
+      ],
+      "api_balloon_cell": 0,
+      "api_air_base_rescue_type": 2,
+      "api_flavor_info": [
+        {
+          "api_boss_ship_id": "2297",
+          "api_type": "4",
+          "api_voice_id": "605229710",
+          "api_class_name": "深海新鋭駆逐艦",
+          "api_ship_name": "駆逐ラ級ζ-壊",
+          "api_message": "イミ…ナゾナイ…ッテ……イッテ…ンジャンッ……！ナンデ……<br>ナンデ…ッワカンナイノ！　…ジャア…ッ……ココデ…<br>オワリ…ニ……ッ…シテアゲルッ……！",
+          "api_pos_x": "159",
+          "api_pos_y": "2",
+          "api_data": "d"
+        }
+      ],
+      "api_air_base_attack": [
+        {
+          "api_base_id": 2,
+          "api_stage_flag": [
+            1,
+            1,
+            1
+          ],
+          "api_squadron_plane": [
+            {
+              "api_mst_id": 479,
+              "api_count": 18
+            },
+            {
+              "api_mst_id": 178,
+              "api_count": 4
+            },
+            {
+              "api_mst_id": 225,
+              "api_count": 18
+            },
+            {
+              "api_mst_id": 504,
+              "api_count": 18
+            }
+          ],
+          "api_stage1": {
+            "api_f_count": 58,
+            "api_f_lostcount": 0,
+            "api_e_count": 0,
+            "api_e_lostcount": 0,
+            "api_disp_seiku": 1,
+            "api_touch_plane": [
+              178,
+              -1
+            ]
+          },
+          "api_stage2": {
+            "api_f_count": 36,
+            "api_f_lostcount": 4,
+            "api_e_count": 0,
+            "api_e_lostcount": 0
+          }
+        },
+        {
+          "api_base_id": 2,
+          "api_stage_flag": [
+            1,
+            1,
+            1
+          ],
+          "api_squadron_plane": [
+            {
+              "api_mst_id": 479,
+              "api_count": 18
+            },
+            {
+              "api_mst_id": 178,
+              "api_count": 4
+            },
+            {
+              "api_mst_id": 225,
+              "api_count": 18
+            },
+            {
+              "api_mst_id": 504,
+              "api_count": 18
+            }
+          ],
+          "api_stage1": {
+            "api_f_count": 58,
+            "api_f_lostcount": 0,
+            "api_e_count": 0,
+            "api_e_lostcount": 0,
+            "api_disp_seiku": 1,
+            "api_touch_plane": [
+              178,
+              -1
+            ]
+          },
+          "api_stage2": {
+            "api_f_count": 36,
+            "api_f_lostcount": 6,
+            "api_e_count": 0,
+            "api_e_lostcount": 0
+          }
+        }
+      ],
+      "api_kouku": {
+        "api_stage1": {
+          "api_f_count": 0,
+          "api_f_lostcount": 0,
+          "api_e_count": 0,
+          "api_e_lostcount": 0,
+          "api_disp_seiku": 1,
+          "api_touch_plane": [
+            -1,
+            -1
+          ]
+        },
+        "api_stage2": null
+      }
+    }
+  },
+  {
+    "name": "each-battle-support",
+    "note": "真实报文 2026-08-07T16:13:03Z（联合舰队 each_battle）。四波陆航的 api_base_id 是 [2,2,3,3]——按全局波次会写成「第 3/4 波」，其实是第 3 基地自己的第 1/2 波。同包 api_support_info.api_support_hourai 带 api_deck_id=3 与六条支援舰的 mstId。",
+    "source": {
+      "event": 5527,
+      "ts": "2026-08-07T16:13:03.252Z"
+    },
+    "path": "/kcsapi/api_req_combined_battle/each_battle",
+    "battle": {
+      "api_deck_id": 1,
+      "api_formation": [
+        12,
+        14,
+        2
+      ],
+      "api_f_nowhps": [
+        89,
+        78,
+        71,
+        58,
+        68,
+        64
+      ],
+      "api_f_maxhps": [
+        89,
+        88,
+        71,
+        58,
+        68,
+        66
+      ],
+      "api_f_nowhps_combined": [
+        32,
+        46,
+        51,
+        25,
+        39,
+        31
+      ],
+      "api_f_maxhps_combined": [
+        38,
+        46,
+        63,
+        39,
+        39,
+        31
+      ],
+      "api_ship_ke": [
+        2389,
+        2117,
+        2102,
+        2102,
+        2038,
+        2038
+      ],
+      "api_ship_lv": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "api_ship_ke_combined": [
+        2320,
+        2051,
+        1591,
+        1577,
+        1577,
+        1577
+      ],
+      "api_ship_lv_combined": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "api_e_nowhps": [
+        800,
+        830,
+        83,
+        83,
+        700,
+        700
+      ],
+      "api_e_maxhps": [
+        800,
+        830,
+        83,
+        83,
+        700,
+        700
+      ],
+      "api_e_nowhps_combined": [
+        270,
+        66,
+        48,
+        38,
+        38,
+        38
+      ],
+      "api_e_maxhps_combined": [
+        270,
+        66,
+        48,
+        38,
+        38,
+        38
+      ],
+      "api_smoke_type": 0,
+      "api_midnight_flag": 1,
+      "api_search": [
+        1,
+        1
+      ],
+      "api_stage_flag": [
+        1,
+        1,
+        1
+      ],
+      "api_balloon_cell": 0,
+      "api_air_base_attack": [
+        {
+          "api_base_id": 2,
+          "api_stage_flag": [
+            1,
+            1,
+            1
+          ],
+          "api_squadron_plane": [
+            {
+              "api_mst_id": 479,
+              "api_count": 18
+            },
+            {
+              "api_mst_id": 225,
+              "api_count": 18
+            },
+            {
+              "api_mst_id": 504,
+              "api_count": 18
+            },
+            {
+              "api_mst_id": 178,
+              "api_count": 4
+            }
+          ],
+          "api_stage1": {
+            "api_f_count": 58,
+            "api_f_lostcount": 24,
+            "api_e_count": 405,
+            "api_e_lostcount": 14,
+            "api_disp_seiku": 4,
+            "api_touch_plane": [
+              -1,
+              1574
+            ]
+          },
+          "api_stage2": {
+            "api_f_count": 21,
+            "api_f_lostcount": 8,
+            "api_e_count": 0,
+            "api_e_lostcount": 0
+          }
+        },
+        {
+          "api_base_id": 2,
+          "api_stage_flag": [
+            1,
+            1,
+            1
+          ],
+          "api_squadron_plane": [
+            {
+              "api_mst_id": 479,
+              "api_count": 18
+            },
+            {
+              "api_mst_id": 225,
+              "api_count": 18
+            },
+            {
+              "api_mst_id": 504,
+              "api_count": 18
+            },
+            {
+              "api_mst_id": 178,
+              "api_count": 4
+            }
+          ],
+          "api_stage1": {
+            "api_f_count": 58,
+            "api_f_lostcount": 17,
+            "api_e_count": 391,
+            "api_e_lostcount": 14,
+            "api_disp_seiku": 4,
+            "api_touch_plane": [
+              -1,
+              1611
+            ]
+          },
+          "api_stage2": {
+            "api_f_count": 25,
+            "api_f_lostcount": 1,
+            "api_e_count": 0,
+            "api_e_lostcount": 0
+          }
+        },
+        {
+          "api_base_id": 3,
+          "api_stage_flag": [
+            1,
+            1,
+            1
+          ],
+          "api_squadron_plane": [
+            {
+              "api_mst_id": 180,
+              "api_count": 18
+            },
+            {
+              "api_mst_id": 395,
+              "api_count": 9
+            },
+            {
+              "api_mst_id": 180,
+              "api_count": 18
+            },
+            {
+              "api_mst_id": 180,
+              "api_count": 18
+            }
+          ],
+          "api_stage1": {
+            "api_f_count": 63,
+            "api_f_lostcount": 19,
+            "api_e_count": 377,
+            "api_e_lostcount": 7,
+            "api_disp_seiku": 4,
+            "api_touch_plane": [
+              -1,
+              1574
+            ]
+          },
+          "api_stage2": {
+            "api_f_count": 44,
+            "api_f_lostcount": 41,
+            "api_e_count": 0,
+            "api_e_lostcount": 0
+          }
+        },
+        {
+          "api_base_id": 3,
+          "api_stage_flag": [
+            1,
+            1,
+            1
+          ],
+          "api_squadron_plane": [
+            {
+              "api_mst_id": 180,
+              "api_count": 18
+            },
+            {
+              "api_mst_id": 395,
+              "api_count": 9
+            },
+            {
+              "api_mst_id": 180,
+              "api_count": 18
+            },
+            {
+              "api_mst_id": 180,
+              "api_count": 18
+            }
+          ],
+          "api_stage1": {
+            "api_f_count": 63,
+            "api_f_lostcount": 21,
+            "api_e_count": 370,
+            "api_e_lostcount": 17,
+            "api_disp_seiku": 4,
+            "api_touch_plane": [
+              -1,
+              1574
+            ]
+          },
+          "api_stage2": {
+            "api_f_count": 42,
+            "api_f_lostcount": 10,
+            "api_e_count": 0,
+            "api_e_lostcount": 0
+          }
+        }
+      ],
+      "api_support_flag": 2,
+      "api_support_info": {
+        "api_support_hourai": {
+          "api_deck_id": 3,
+          "api_ship_id": [
+            711,
+            3224,
+            4460,
+            2460,
+            983,
+            202
+          ],
+          "api_damage": [
+            0,
+            0,
+            37,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            149,
+            0
+          ],
+          "api_cl_list": [
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "ec-midnight-carrier-night",
+    "note": "真实报文 2026-08-07T03:05:59Z（ec_midnight_battle）。api_hougeki.api_n_mother_list 第 4 击为 1＝空母夜间攻击，而同下标的 api_at_eflag 是 1＝**敌方**发动。四次亮灯全是对方的航母，我方零样本。",
+    "source": {
+      "event": 3591,
+      "ts": "2026-08-07T03:05:59.039Z"
+    },
+    "path": "/kcsapi/api_req_combined_battle/ec_midnight_battle",
+    "battle": {
+      "api_deck_id": 1,
+      "api_formation": [
+        12,
+        14,
+        2
+      ],
+      "api_f_nowhps": [
+        89,
+        21,
+        15,
+        21,
+        8,
+        68
+      ],
+      "api_f_maxhps": [
+        89,
+        88,
+        66,
+        58,
+        43,
+        68
+      ],
+      "api_f_nowhps_combined": [
+        63,
+        32,
+        39,
+        31,
+        31,
+        38
+      ],
+      "api_f_maxhps_combined": [
+        63,
+        46,
+        39,
+        31,
+        31,
+        38
+      ],
+      "api_ship_ke": [
+        2036,
+        2115,
+        1557,
+        1557,
+        1954,
+        1591
+      ],
+      "api_ship_lv": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "api_ship_ke_combined": [
+        1555,
+        1577,
+        1577,
+        1501,
+        1501,
+        1501
+      ],
+      "api_ship_lv_combined": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "api_e_nowhps": [
+        247,
+        233,
+        38,
+        323,
+        117,
+        0
+      ],
+      "api_e_maxhps": [
+        740,
+        380,
+        400,
+        400,
+        360,
+        48
+      ],
+      "api_e_nowhps_combined": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "api_e_maxhps_combined": [
+        57,
+        38,
+        38,
+        20,
+        20,
+        20
+      ],
+      "api_smoke_type": 0,
+      "api_balloon_cell": 0,
+      "api_active_deck": [
+        2,
+        1
+      ],
+      "api_touch_plane": [
+        -1,
+        -1
+      ],
+      "api_flare_pos": [
+        -1,
+        -1
+      ],
+      "api_hougeki": {
+        "api_at_list": [
+          6,
+          0,
+          7,
+          1,
+          8,
+          9,
+          10,
+          11
+        ],
+        "api_at_eflag": [
+          0,
+          1,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        "api_df_list": [
+          [
+            3,
+            3
+          ],
+          [
+            10,
+            10
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            10,
+            -1,
+            -1
+          ],
+          [
+            4
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            4
+          ],
+          [
+            4,
+            4
+          ]
+        ],
+        "api_si_list": [
+          [
+            "15",
+            "15"
+          ],
+          [
+            1596,
+            1596
+          ],
+          [
+            "536",
+            "15"
+          ],
+          [
+            1581,
+            1582
+          ],
+          [
+            "122"
+          ],
+          [
+            "314",
+            "125"
+          ],
+          [
+            "2"
+          ],
+          [
+            "15",
+            "15"
+          ]
+        ],
+        "api_cl_list": [
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            -1,
+            -1
+          ],
+          [
+            0
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            2
+          ],
+          [
+            1,
+            1
+          ]
+        ],
+        "api_sp_list": [
+          3,
+          1,
+          2,
+          6,
+          0,
+          3,
+          0,
+          3
+        ],
+        "api_damage": [
+          [
+            232,
+            175
+          ],
+          [
+            17,
+            1
+          ],
+          [
+            213,
+            140
+          ],
+          [
+            1,
+            -1,
+            -1
+          ],
+          [
+            0
+          ],
+          [
+            173,
+            174
+          ],
+          [
+            58
+          ],
+          [
+            248,
+            248
+          ]
+        ],
+        "api_n_mother_list": [
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    }
+  },
+  {
+    "name": "ld-airbattle-aa-cutin",
+    "note": "真实报文 2026-08-05T09:07:10Z（敌空袭 ld_airbattle）。api_kouku.api_stage2.api_air_fire：idx 0、kind 1、api_use_items=[122,122,315]（两门高角炮 + 一具电探）；同段 stage2 的 e_count=77 / e_lostcount=66 正是对空炮火那一段的分母与击坠数（stage1 报的是 120，两者不是一回事）。",
+    "source": {
+      "event": 1207,
+      "ts": "2026-08-05T09:07:10.957Z"
+    },
+    "path": "/kcsapi/api_req_sortie/ld_airbattle",
+    "battle": {
+      "api_deck_id": 3,
+      "api_formation": [
+        3,
+        3,
+        1
+      ],
+      "api_f_nowhps": [
+        39,
+        33,
+        40,
+        40,
+        33,
+        39,
+        33
+      ],
+      "api_f_maxhps": [
+        39,
+        35,
+        40,
+        40,
+        33,
+        39,
+        33
+      ],
+      "api_ship_ke": [
+        1762,
+        2310,
+        1591,
+        1575,
+        1575,
+        1501
+      ],
+      "api_ship_lv": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "api_e_nowhps": [
+        70,
+        64,
+        48,
+        35,
+        35,
+        20
+      ],
+      "api_e_maxhps": [
+        70,
+        64,
+        48,
+        35,
+        35,
+        20
+      ],
+      "api_smoke_type": 0,
+      "api_midnight_flag": 0,
+      "api_search": [
+        5,
+        1
+      ],
+      "api_stage_flag": [
+        1,
+        1,
+        1
+      ],
+      "api_balloon_cell": 0,
+      "api_kouku": {
+        "api_plane_from": [
+          null,
+          [
+            1,
+            2
+          ]
+        ],
+        "api_stage1": {
+          "api_f_count": 0,
+          "api_f_lostcount": 0,
+          "api_e_count": 120,
+          "api_e_lostcount": 3,
+          "api_disp_seiku": 4,
+          "api_touch_plane": [
+            -1,
+            1549
+          ]
+        },
+        "api_stage2": {
+          "api_f_count": 0,
+          "api_f_lostcount": 0,
+          "api_e_count": 77,
+          "api_e_lostcount": 66,
+          "api_air_fire": {
+            "api_idx": 0,
+            "api_kind": 1,
+            "api_use_items": [
+              122,
+              122,
+              315
+            ]
+          }
+        },
+        "api_stage3": {
+          "api_frai_flag": [
+            0,
+            0,
+            0,
+            1,
+            0,
+            1,
+            0
+          ],
+          "api_erai_flag": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "api_fbak_flag": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "api_ebak_flag": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "api_fcl_flag": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "api_ecl_flag": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "api_fdam": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "api_edam": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "api_f_sp_list": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "api_e_sp_list": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "sortie-battle-balloon",
+    "note": "真实报文 2026-08-11T05:42:15Z。api_balloon_cell=1（账本 887 行里为 1 的 12 行之一，全部集中在这一段时间的同一次活动出击）。",
+    "source": {
+      "event": 9516,
+      "ts": "2026-08-11T05:42:15.961Z"
+    },
+    "path": "/kcsapi/api_req_sortie/battle",
+    "battle": {
+      "api_deck_id": 1,
+      "api_formation": [
+        2,
+        3,
+        2
+      ],
+      "api_f_nowhps": [
+        92,
+        60,
+        73,
+        23,
+        61,
+        12
+      ],
+      "api_f_maxhps": [
+        92,
+        60,
+        78,
+        31,
+        68,
+        39
+      ],
+      "api_ship_ke": [
+        1588,
+        1549,
+        1550,
+        1551,
+        1550,
+        1551
+      ],
+      "api_ship_lv": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "api_e_nowhps": [
+        390,
+        66,
+        66,
+        66,
+        66,
+        66
+      ],
+      "api_e_maxhps": [
+        390,
+        66,
+        66,
+        66,
+        66,
+        66
+      ],
+      "api_smoke_type": 0,
+      "api_midnight_flag": 1,
+      "api_search": [
+        1,
+        5
+      ],
+      "api_stage_flag": [
+        1,
+        1,
+        1
+      ],
+      "api_balloon_cell": 1,
+      "api_kouku": {
+        "api_stage1": {
+          "api_f_count": 54,
+          "api_f_lostcount": 7,
+          "api_e_count": 534,
+          "api_e_lostcount": 159,
+          "api_disp_seiku": 0,
+          "api_touch_plane": [
+            -1,
+            -1
+          ]
+        },
+        "api_stage2": {
+          "api_f_count": 11,
+          "api_f_lostcount": 2,
+          "api_e_count": 205,
+          "api_e_lostcount": 86
+        }
+      }
+    }
+  }
+]

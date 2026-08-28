@@ -1,0 +1,58 @@
+node_modules/
+dist/
+release/
+.packager-tmp/
+/kuma.lnk
+/NVIDIA Corporation/
+*.log
+# 收尾门控把 npm test 的输出重定向到它；跑完就删，别哪次 `git add -A` 顺手带进仓库
+/test-out.txt
+
+# 矿脉数据包：默认不随仓库分发。
+# 多数上游未声明许可（wikiwiki 系 / akashi-list / EO 的 NOASSERTION 等），
+# 按项目纪律「可能构成侵权的一律换源，不随包分发」——
+# 克隆后自行 `npm run lodes:fetch` 生成（抓取清单见 scripts/lode-sources.json）。
+#
+# 例外是下面的反选块：数据本身所在的源有明确、允许再分发的许可（MIT / CC BY-NC-SA 3.0）
+# 的那些包**入仓、随发行版分发**，省玩家一次抓取、也不给原站添负担。
+# 名单由 scripts/lib/bundled-lodes.mjs 从 lode-sources.json 的 bundle 标志算出，
+# 打包过滤与这里共用同一份——`npm run lodes:sync-ignore` 生成，测试跑 --check 挡漂移。
+assets/lodes/*.json
+# >>> bundled-lodes（由 scripts/sync-bundled-lodes.mjs 生成，别手改）
+!assets/lodes/abyssal-stats.json
+!assets/lodes/equip-aa-evasion.json
+!assets/lodes/equip-improve.json
+!assets/lodes/event-bonus.json
+!assets/lodes/event-plane-groups.json
+!assets/lodes/kanso-voice.json
+!assets/lodes/kcwiki-bgm.json
+!assets/lodes/kcwiki-expedition.json
+!assets/lodes/kcwiki-fit-bonus.json
+!assets/lodes/kcwiki-localization.json
+!assets/lodes/kcwiki-quest-req.json
+!assets/lodes/kcwiki-routing.json
+!assets/lodes/kcwiki-seasonal-voice.json
+!assets/lodes/kcwiki-ships.json
+!assets/lodes/kcwiki-voice.json
+!assets/lodes/map-drop-windows.json
+!assets/lodes/map-drops.json
+!assets/lodes/map-enemy-comps.json
+!assets/lodes/poi-fcd-map.json
+!assets/lodes/poi-quest-goal.json
+!assets/lodes/quests-scn.json
+!assets/lodes/ship-exp.json
+!assets/lodes/ship-stats.json
+!assets/lodes/subtitle-enemies.json
+!assets/lodes/subtitle-ja.json
+!assets/lodes/subtitle-npc.json
+!assets/lodes/subtitle-zh.json
+# <<< bundled-lodes
+assets/review/*.json
+# 倍卡表原文夹具：上游内容，同样不随仓库分发（测试缺它时自动跳过真实格式那几条）
+assets/review/*.wikitext.txt
+assets/review/*.raw.txt
+assets/review/*.raw.csv
+assets/review/*.raw.html
+# 审稿单：日中对照的维护者侧材料。**日文原文只能待在这里**——
+# 它是参考文献，不入仓、不随分发物（台词域 2026-08-22 的口径）。
+assets/review/*.md

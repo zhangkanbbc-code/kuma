@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="640px" height="640px" viewBox="0 0 640 640" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 46.2 (44496) - http://www.bohemiancoding.com/sketch -->
+    <title>13</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <path d="M549.971624,409.971624 L409.999484,549.996732 L380.00648,519.995473 L520.007809,380.007809 L549.971624,409.971624 Z M560,420.015618 L560,480 L480,560 L420.001952,560 L560,420.015618 Z M509.971624,369.971624 L370.004987,509.991227 L260.022991,399.978963 L400.007809,260.007809 L509.971624,369.971624 Z M389.971624,249.971624 L250.021494,389.974714 L200,339.939453 L200,320 L120,240 L120,200 L100,180 L80,180 L80,80 L180,80 L180,100 L200,120 L240,120 L320,200 L340,200 L389.971624,249.971624 Z" id="path-1"></path>
+        <filter x="-5.2%" y="-3.1%" width="110.4%" height="112.5%" filterUnits="objectBoundingBox" id="filter-2">
+            <feOffset dx="0" dy="20" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.25 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+        <linearGradient x1="85.4952567%" y1="0%" x2="43.1745257%" y2="42.6632254%" id="linearGradient-3">
+            <stop stop-color="#933E3E" offset="0%"></stop>
+            <stop stop-color="#D15B5B" offset="100%"></stop>
+        </linearGradient>
+        <linearGradient x1="100%" y1="19.6103516%" x2="59.8652344%" y2="60.3916016%" id="linearGradient-4">
+            <stop stop-color="#913D3D" offset="0%"></stop>
+            <stop stop-color="#D15B5B" offset="100%"></stop>
+        </linearGradient>
+        <radialGradient cx="100%" cy="0%" fx="100%" fy="0%" r="140.448335%" id="radialGradient-5">
+            <stop stop-color="#913D3D" offset="0%"></stop>
+            <stop stop-color="#D05B5B" offset="80.5009766%"></stop>
+            <stop stop-color="#D15B5B" offset="100%"></stop>
+        </radialGradient>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="13">
+            <g id="Combined-Shape">
+                <use fill="black" fill-opacity="1" filter="url(#filter-2)" xlink:href="#path-1"></use>
+                <use fill="#D15B5B" fill-rule="evenodd" xlink:href="#path-1"></use>
+            </g>
+            <polygon id="Path-46" fill="url(#linearGradient-3)" points="320 200 200 320 200 340 340 200"></polygon>
+            <polygon id="Path-45" fill="url(#linearGradient-4)" points="120 199.995483 200 120 240 120 120 239.995483"></polygon>
+            <polygon id="Path-47" fill="url(#radialGradient-5)" points="80 80 180 80 180 100 100 180 80 180"></polygon>
+        </g>
+    </g>
+</svg>

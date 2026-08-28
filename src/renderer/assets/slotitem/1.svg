@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="640px" height="640px" viewBox="0 0 640 640" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 46.2 (44496) - http://www.bohemiancoding.com/sketch -->
+    <title>1</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <polygon id="path-1" points="390 180 230 300 210 380 110 460 130 480 230 400 250 420 150 500 170 520 270 440 330 440 370 440 530 320 530 280 430 180"></polygon>
+        <filter x="-3.6%" y="-4.4%" width="114.3%" height="117.6%" filterUnits="objectBoundingBox" id="filter-2">
+            <feOffset dx="20" dy="20" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.25 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+        <linearGradient x1="22.2558594%" y1="0%" x2="100%" y2="0%" id="linearGradient-3">
+            <stop stop-color="#D15B5B" offset="0%"></stop>
+            <stop stop-color="#941818" offset="100%"></stop>
+        </linearGradient>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="1">
+            <g id="Path">
+                <use fill="black" fill-opacity="1" filter="url(#filter-2)" xlink:href="#path-1"></use>
+                <use fill="#D15B5B" fill-rule="evenodd" xlink:href="#path-1"></use>
+            </g>
+            <polygon id="Path-55" fill="url(#linearGradient-3)" points="370 440 370 400 530 280 530 320"></polygon>
+        </g>
+    </g>
+</svg>

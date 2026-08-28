@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>kuma · 资源增减折线图</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg0: #0d1318;
+      --bg1: #121a21;
+      --bg2: #18232d;
+      --bg3: #20303d;
+      --line: #2a3a47;
+      --line-soft: #202d37;
+      --text: #d8e2e9;
+      --sub: #9eb0bd;
+      --dim: #607583;
+      --accent: #63b6de;
+      --accent-dim: #367c9e;
+      --ok: #67c98a;
+      --bad: #e06c75;
+      --gold: #d5b75e;
+      --r-fuel: #7ecb9a;
+      --r-ammo: #b99a4e;
+      --r-steel: #8fa8c0;
+      --r-baux: #efab30;
+      --r-repair: #7ac9b8;
+      --scrollbar-track: #10171d;
+      --scrollbar-thumb: #334957;
+      --scrollbar-thumb-hover: #486476;
+      --scrollbar-thumb-active: #5c7b90;
+      --mono: 'Maple Mono NF CN', 'Cascadia Code', 'Consolas', monospace;
+      font-family: 'Segoe UI', 'Microsoft YaHei UI', sans-serif;
+    }
+    * {
+      box-sizing: border-box;
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+    ::-webkit-scrollbar-thumb {
+      background: var(--scrollbar-thumb);
+      border: 2px solid var(--scrollbar-track);
+      border-radius: 8px;
+      background-clip: content-box;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+    ::-webkit-scrollbar-thumb:active { background: var(--scrollbar-thumb-active); }
+    ::-webkit-scrollbar-corner { background: var(--scrollbar-track); }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--bg0); color: var(--text); }
+    button { font: inherit; }
+    #trend-root { height: 100%; display: flex; flex-direction: column; }
+    .trend-head {
+      flex: none; display: flex; align-items: center; gap: 12px;
+      min-height: 54px; padding: 8px 16px;
+      border-bottom: 1px solid var(--line); background: var(--bg1);
+    }
+    .trend-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .trend-title b { font-size: 15px; font-weight: 600; }
+    .trend-title small { color: var(--dim); font-size: 10px; }
+    .range-strip, .series-strip { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .range-strip { margin-left: auto; }
+    .rchip, .schip {
+      border: 1px solid var(--line-soft); border-radius: 12px;
+      background: var(--bg2); color: var(--sub); cursor: pointer;
+      padding: 3px 10px; font-size: 11px;
+    }
+    .rchip:hover, .schip:hover { border-color: var(--accent-dim); color: var(--text); }
+    .rchip.on { border-color: var(--accent-dim); background: var(--accent-dim); color: #fff; }
+    .schip { display: inline-flex; align-items: center; gap: 5px; background: var(--bg1); }
+    .entity-term { color: var(--entity-color, var(--sub)); }
+    .e-material-0 { --entity-color: var(--r-fuel); }
+    .e-material-1 { --entity-color: var(--r-ammo); }
+    .e-material-2 { --entity-color: var(--r-steel); }
+    .e-material-3 { --entity-color: var(--r-baux); }
+    .e-material-5 { --entity-color: var(--r-repair); }
+    .schip s { width: 7px; height: 7px; border-radius: 50%; text-decoration: none; }
+    .schip.off { opacity: .35; }
+    .trend-body { flex: 1; min-height: 0; overflow: auto; padding: 18px; }
+    .chart-card {
+      width: min(1440px, 100%); min-height: 100%; margin: 0 auto;
+      display: flex; flex-direction: column; padding: 18px;
+      border: 1px solid var(--line); border-radius: 9px; background: var(--bg1);
+      box-shadow: 0 18px 56px rgba(0, 0, 0, .28);
+    }
+    .chart-wrap { flex: 1; min-height: 0; display: grid; place-items: center; }
+    svg.chart { width: 100%; height: auto; min-height: 360px; max-height: calc(100vh - 190px); display: block; }
+    .axis { font-family: var(--mono); font-size: 9px; fill: #6c8291; }
+    .gline { stroke: #263744; stroke-width: 1; }
+    .capline { stroke: #efab30; stroke-width: 1; stroke-dasharray: 4 3; opacity: .65; }
+    polyline.res { fill: none; stroke-width: 1.8; stroke-linejoin: round; }
+    .event-band { fill: color-mix(in srgb, var(--gold) 7%, transparent); }
+    .event-start { stroke: var(--gold); stroke-width: 1; stroke-dasharray: 2 3; opacity: .55; }
+    .chart-op line { stroke: var(--sub); stroke-width: .7; stroke-dasharray: 1 4; opacity: .18; }
+    .chart-op circle { fill: var(--bg2); stroke: var(--accent-dim); stroke-width: 1; }
+    .chart-op text { fill: var(--sub); font: 7px var(--mono); pointer-events: none; }
+    .chart-op:hover line { opacity: .75; stroke: var(--accent); }
+    .chart-op:hover circle { stroke: var(--accent); fill: var(--bg3); }
+    .chart-op:hover text { fill: var(--text); }
+    .chart-empty { width: 100%; padding: 90px 20px; text-align: center; color: var(--dim); }
+    .chart-note {
+      flex: none; display: flex; flex-wrap: wrap; gap: 8px 18px;
+      margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line-soft);
+      color: var(--dim); font-size: 10px;
+    }
+    .chart-note b { font-family: var(--mono); }
+    .event-key, .event-band-key { display: inline-flex; align-items: center; gap: 4px; }
+    .event-key i { width: 7px; height: 7px; border: 1px solid var(--accent-dim); border-radius: 50%; background: var(--bg2); }
+    .event-band-key i { width: 10px; height: 7px; background: color-mix(in srgb, var(--gold) 14%, transparent); border-left: 1px dashed var(--gold); }
+    /* 悬停读数 + 拖选区间（审计 C3） */
+    svg.chart { cursor: crosshair; }
+    .hover-line { stroke: var(--accent); stroke-width: .8; opacity: .5; pointer-events: none; }
+    .hover-dot { pointer-events: none; }
+    .sel-band { fill: color-mix(in srgb, var(--accent) 12%, transparent); pointer-events: none; }
+    .sel-edge { stroke: var(--accent); stroke-width: 1; opacity: .8; pointer-events: none; }
+    .chart-readout {
+      flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px;
+      margin-top: 8px; padding: 6px 9px; border-radius: 5px;
+      background: var(--bg1); border: 1px solid var(--line-soft); font-size: 10.5px; color: var(--sub);
+      min-height: 26px;
+    }
+    .chart-readout.sel { border-color: var(--accent-dim); }
+    .chart-readout.idle { color: var(--dim); }
+    .chart-readout .ro-k { color: var(--text); font-family: var(--mono); font-size: 10px; }
+    .chart-readout .ro-k i { font-style: normal; color: var(--dim); margin-left: 5px; }
+    .chart-readout .ro-cell { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; }
+    .chart-readout .ro-cell s { width: 7px; height: 7px; border-radius: 2px; text-decoration: none; }
+    .chart-readout .ro-cell b { font-family: var(--mono); color: var(--text); }
+    .chart-readout .ro-ops { color: var(--dim); font-size: 9.5px; }
+    .chart-readout .ro-x { margin-left: auto; color: var(--accent); cursor: pointer; font-size: 10px; }
+    .chart-readout .ro-x:hover { text-decoration: underline; }
+    .loading { height: 100%; display: grid; place-items: center; color: var(--dim); }
+    @media (max-width: 900px) {
+      .trend-head { align-items: flex-start; flex-wrap: wrap; }
+      .range-strip { margin-left: 0; }
+      .series-strip { width: 100%; }
+      .trend-body { padding: 9px; }
+      .chart-card { padding: 10px; }
+      svg.chart { min-height: 300px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="trend-root"><div class="loading">正在读取本地资源账本……</div></div>
+  <script src="./resource-trend.js"></script>
+</body>
+</html>
