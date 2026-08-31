@@ -1073,12 +1073,13 @@ export const withViewStateKept = (root: HTMLElement, mutate: () => void) => {
 // 代价是玩家实测得到的：滚动在那几百毫秒里不动（合成后一次跳过去），
 // 按下与抬起之间赶上一次重建，click 干脆不发生。
 //
-// 两道闸门都放在「换 DOM」这一步，不动数据流：
+// 三道闸门都放在「换 DOM」这一步，不动数据流：
 //   ① 输出没变就别换（commitPaneHtml）——比输入签名更硬：签名漏了一个输入会
 //      「该更新的不更新」，逐字节比较不会。代价只是多留一份字符串。
 //   ② 指针按下期间推迟到抬起（deferWhilePressed）——click 的成立条件是按下与
 //      抬起落在同一元素上，中途换掉 DOM 就没有 click。封顶 PRESS_DEFER_CAP，
 //      按住不放不会把界面冻在旧状态。
+//   ③ 输入法组合期间推迟到组合结束（deferWhileComposing）——见下方那一段。
 
 /** 各面板上一次真正提交过的 HTML。按 root 元素弱引用：重试装配换了新面板元素，记忆自然作废。 */
 const committedHtml = new WeakMap<HTMLElement, Map<string, string>>()
@@ -1199,6 +1200,99 @@ export const deferWhilePressed = (root: HTMLElement, key: string, run: () => voi
     }
   }, PRESS_DEFER_CAP - heldFor)
   return true
+}
+
+// ---- 第三道闸门：中文输入法组合期间不换 DOM ----
+//
+// 组合会话（composition）绑在**输入框元素本身**上。整块面板 innerHTML 一重建，
+// 那个元素连同组合一起没了，浏览器当场中止组合：候选框闪一下就关，已经敲进去的
+// 拼音字母作为普通字符落在框里。2026-08-31 玩家实报「搜索栏无法使用微软输入法：
+// 输入法只会闪一下候选框然后直接输入字符」，说的就是这件事。
+//
+// **withViewStateKept 挡不住它**：那里保的是 value、选区、焦点，换完 DOM 再放回
+// **新元素**上——对滚动和光标够用，对组合无效，因为组合不在值里，在元素上。
+// 隔离实例 + CDP（Input.imeSetComposition）复现到的事件流正是：
+//   compositionstart → compositionupdate(n) → input(isComposing) → 此时锚点已离开文档
+//
+// 组合不封顶。按下那道闸门要封顶是因为「按住不放」可以无限久，而组合一定会结束
+// （敲定、取消、失焦都会派发 compositionend）；封顶反而会在玩家还在选字时换掉 DOM，
+// 正是这里要防的那一下。焦点离开正在组合的框再兜一次底，免得漏掉的 compositionend
+// 把面板永久冻在旧状态。
+let composingIn: Node | null = null
+const composingDeferred = new Map<string, () => void>()
+
+const flushComposingDeferred = () => {
+  if (!composingDeferred.size) return
+  const pending = [...composingDeferred.values()]
+  composingDeferred.clear()
+  for (const run of pending) {
+    try {
+      run()
+    } catch (_error) {
+      /* 一个模块补渲失败不拦其余——与 safeEach 同一纪律 */
+    }
+  }
+}
+
+const endComposition = () => {
+  composingIn = null
+  // 与按下那道闸门同理，补渲再排一个任务：组合结束这一拍浏览器自己还要收尾
+  // （compositionend 之后还有 keyup），换 DOM 让给它做完。
+  if (composingDeferred.size) setTimeout(flushComposingDeferred, 0)
+}
+
+if (typeof document !== 'undefined') {
+  // 捕获阶段登记：模块自己的 handler 里 stopPropagation 也拦不住
+  document.addEventListener('compositionstart', (event) => {
+    composingIn = event.target as Node
+  }, true)
+  document.addEventListener('compositionend', endComposition, true)
+  document.addEventListener('focusout', (event) => {
+    if (event.target === composingIn) endComposition()
+  }, true)
+}
+
+/** 这块面板里是否正有一个进行中的输入法组合会话。 */
+export const isComposingIn = (root: HTMLElement): boolean => {
+  // 正在组合的元素被别的路径摘走时，compositionend 未必会来——Chromium 移除
+  // 聚焦元素并不保证派发 blur/focusout，上面那条兜底也就跟着落空。留着它，
+  // 这块面板的被动重渲会永远排队，界面停在旧状态且没有任何报错，
+  // 比原来那个「输入法被打断」更难查。离开文档就当这次组合已经结束。
+  if (composingIn && !composingIn.isConnected) endComposition()
+  return !!composingIn && root.contains(composingIn)
+}
+
+/**
+ * 玩家正在这块面板里用输入法打字时，把这次**被动**重渲推迟到组合结束。
+ * 返回 true = 已经排队，调用方本次直接返回。玩家自己点出来的渲染不要走这里。
+ *
+ * 排队的是渲染函数本身而不是那一份 HTML：组合结束后重跑一次是照当时的状态全量重画，
+ * 不会把组合期间攒下的其他变化落下。
+ */
+export const deferWhileComposing = (root: HTMLElement, key: string, run: () => void): boolean => {
+  if (!isComposingIn(root)) return false
+  composingDeferred.set(key, run)
+  return true
+}
+
+/**
+ * 输入即过滤的搜索框统一挂这里：`handle` 负责「读框里的值 → 重渲」，
+ * 组合期间一次都不跑，组合结束之后补跑一次。
+ *
+ * **不能只写 `if (isComposing) return`**。实测（Electron 43，CDP 模拟微软拼音）
+ * 敲定候选那一下的次序是：
+ *   compositionupdate(你) → input[isComposing=true] → compositionend(你)
+ * 提交那一次的 input **仍然带 isComposing=true**，compositionend 排在它后面——
+ * 只跳过不补做的话，中文永远进不了搜索状态，框里有字而列表纹丝不动。
+ *
+ * compositionend 会冒泡，所以委托挂在面板上的用法与直接挂在输入框上一样管用。
+ */
+export const onFilterInput = (target: HTMLElement, handle: (event: Event) => void): void => {
+  target.addEventListener('input', (event) => {
+    if ((event as InputEvent).isComposing) return
+    handle(event)
+  })
+  target.addEventListener('compositionend', handle)
 }
 
 // 刷新容器内所有 data-cd（时:分:秒）/ data-cds（短格式）/ data-cdl（月周日时）倒计时文本

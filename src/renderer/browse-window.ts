@@ -93,6 +93,9 @@ forward.addEventListener('click', () => {
 })
 home.addEventListener('click', () => navigate(BROWSE_HOME_URL))
 address.addEventListener('keydown', (e) => {
+  // 输入法组合中的回车是敲定候选那一下（实测它照样带 isComposing）——
+  // 当成「打开这条网址」的话，用中文搜东西永远只能打出半个词就跳走
+  if (e.isComposing) return
   if (e.key !== 'Enter') return
   navigate(address.value)
 })

@@ -6,6 +6,7 @@ import {
   initUiZoom,
   lodeCredit,
   mg,
+  onFilterInput,
   onMgChange,
   queryLode,
   uiGet,
@@ -386,7 +387,9 @@ root.addEventListener('click', (event) => {
   }
 })
 
-root.addEventListener('input', (event) => {
+// 走 onFilterInput 而不是裸 input：render 会把整棵树连同输入框一起重建，
+// 输入法的组合会话绑在那个元素上，换一次就断（见 kernel 第三道闸门）
+onFilterInput(root, (event) => {
   const input = (event.target as HTMLElement).closest<HTMLInputElement>('#tree-search')
   if (!input) return
   const cursor = input.selectionStart ?? input.value.length

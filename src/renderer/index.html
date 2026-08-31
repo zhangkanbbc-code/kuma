@@ -1793,6 +1793,13 @@
     .equip-icon.lg { width: 28px; height: 28px; background: transparent; }
     .equip-icon.hero-icon { width: 48px; height: 48px; background: transparent; }
     .equip-icon.abyss img { filter: sepia(.18) saturate(.72) hue-rotate(305deg) drop-shadow(0 1px 2px rgba(0, 0, 0, .35)); }
+    /* 补强增设格：金边。跟一排常规格混在一起时靠这圈认出来，
+       与未装备时那个金 ＋（.eq-ex-mark）同色。box-sizing 是 border-box，
+       边画在原来那 20px 里，链接热区和排布都不动。
+       编队的 20px 与鉴·列表的 15px（.xs）共用这一条，两个尺寸都真机看过。
+       别把 1.5px「化简」成 1px：边宽会被吸到整数个设备像素，缩放 1/1.15/1.25
+       下两者同像素（都是一根发丝），但缩放 ≥1.5 时 1px 会细一半，小图标上更难认。 */
+    .equip-icon.exslot { border: 1.5px solid var(--gold); }
     .ship-thumb {
       position: relative; width: 44px; height: 20px; flex: none; overflow: hidden;
       display: inline-grid; place-items: center; vertical-align: middle;
@@ -5793,6 +5800,9 @@
     .mod-di .bship-note { margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--line-soft); }
     .mod-di .brow.sunk .nm { color: var(--dim); text-decoration: line-through; }
     .mod-di .brow.escaped { opacity: 0.62; }
+    /* 对潜空袭战里退在后方、打不到的那条空母：游戏对它 HP 非表示，也没有血条。
+       整行灰掉，血条位由 di.ts 换成空轨 + 「打不到」。 */
+    .mod-di .brow.unattackable { opacity: 0.62; filter: grayscale(.85); }
     /* 这一列留几位由 di.ts 按这一侧实际打出的最大位数写进 --dmg-ch（上限 5）。
        ch 要在 .dmg 自己的等宽字体下量，所以宽度写在格子上、轨道用 min-content 跟着它；
        数字仍右对齐，同一侧各行位数相同、右边界仍然对齐。 */
@@ -5802,12 +5812,17 @@
     .mod-di .enemy-token { display: inline-flex; align-items: center; margin: 2px 7px 2px 0; }
     .mod-di .hpx .bar { height: 5px; border-radius: 3px; background: #1b2733; overflow: hidden; display: flex; }
     .mod-di .hpx .bar .rm { height: 100%; }
-    /* 空段：更早阶段掉的 + 开战前就缺的。只占位不着色，露出底轨——
-       任何时刻条上只有一截虚条（最近一段结算掉的），旧伤不再有第二种伤色。 */
+    /* 空段：虚条之前掉的 + 开战前就缺的。只占位不着色，露出底轨——
+       任何时刻条上只有一截虚条，旧伤不再有第二种伤色。 */
     .mod-di .hpx .bar .dd { height: 100%; }
-    /* 虚条：当前这一阶段掉的，红斜杠。满格不变，条子读起来就是
+    /* 虚条：跟随最新时是本段（昼/夜）结算掉的，红斜杠。满格不变，条子读起来就是
        「实血按当时战损档着色，本段掉的画成斜杠，更早掉的归于空」。 */
     .mod-di .hpx .bar .dl { height: 100%; background: repeating-linear-gradient(135deg, var(--bad) 0 3px, #8a3644 3px 6px); opacity: 0.8; }
+    /* 点住流水某一阶段：虚条的含义换成「**这一阶段**掉的」（基准是该阶段的开局血），
+       颜色也跟着换成蓝斜杠——与选中那一行的左边框同一个 --accent，一眼对得上是哪一行；
+       同时把它和残血红分开：小破以下的舰实血本来就是 .rm.r 那道红渐变，
+       红条接红斜杠两截会糊成一条，本阶段打掉多少反而读不出来。 */
+    .mod-di .hpx .bar.pinned .dl { background: repeating-linear-gradient(135deg, var(--accent) 0 3px, var(--accent-dim) 3px 6px); }
     /* 三截宽度是就地改的（切阶段不重建 DOM），所以过渡真的会跑；
        两拍时序（旧虚条先扣干，再落实血、接新虚条）在 di.ts 的 animateHpBar */
     .mod-di .hpx .bar > span { transition: width var(--motion-view) var(--motion-ease); }

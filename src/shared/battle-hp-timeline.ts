@@ -116,9 +116,9 @@ export const shipHpTimeline = (
 export interface HpBarSegments {
   /** 实血：这一刻还剩的，按当时战损档取色 */
   solidPct: number
-  /** 虚条：当前选中这一阶段掉的那截——红斜杠 */
+  /** 虚条：基准到当前之间掉的那截——斜杠（跟随最新时红，点住某一阶段时蓝） */
   ghostPct: number
-  /** 空：更早阶段掉的 + 开战前就缺的。不着色，露出血条底轨 */
+  /** 空：虚条之前掉的 + 开战前就缺的。不着色，露出血条底轨 */
   emptyPct: number
 }
 
@@ -129,7 +129,9 @@ export interface HpBarSegments {
  * 格子——总血量不会因为换了阶段就变少。要表达「这一阶段又掉了多少」，靠的是
  * 把这一截单独画出来，而不是动分母。
  *
- * 任何时刻条上只有一截虚条 = **最近一段结算**掉的血；更早掉的一律归于空。
+ * 任何时刻条上只有一截虚条，更早掉的一律归于空。虚条从哪儿起算由调用方给的
+ * `hpBefore` 定：跟随最新时是**最近一段结算**掉的，点住某一阶段时是**那一阶段**
+ * 掉的（见 hpAtStage 的 segStart）。
  * 「先扣掉更早的伤，再从那儿接着扣这一段」靠的是虚条位置，不是第二种伤色。
  */
 export const hpBarSegments = (
@@ -145,19 +147,21 @@ export const hpBarSegments = (
 }
 
 /**
- * 锚点所在**昼/夜段**的起始 stage。
+ * 最后一个**昼/夜段**的起始 stage，也就是「跟随最新」时虚条的基准。
  *
  * 「一段结算」的粒度是昼战/夜战（isNightPhase 的划分），不是流水的每个内部
  * 阶段——昼战里航空战掉一口、炮击又掉一口，虚条画的是**整个昼战段**累计掉的，
  * 不是「最后挨的那一小口」。曾把段锚在内部阶段上：满血参战被打成小破的舰，
  * 伤害分散在几个阶段里，虚条只剩最后一小截，玩家看不见「这场掉了多少」。
  *
- * `anchor` 传 null 表示跟随最新 = 整场最后一个段。用**全部**攻击（不分敌我）
- * 划段：段是战斗全局的时间划分，不随受击方变化。
+ * 玩家点住流水某一阶段时不走这儿：那时基准是那一阶段自己（见 hpAtStage 的
+ * segStart），虚条只画这一阶段掉的——上面那条「看不见掉了多少」是**默认视图**的
+ * 教训，聚焦时玩家问的正是「就这一下打掉多少」。
+ *
+ * 用**全部**攻击（不分敌我）划段：段是战斗全局的时间划分，不随受击方变化。
  */
 export const segmentStartOf = (
   attacks: readonly Pick<HpTimelineAttack, 'stage' | 'phase'>[] | null | undefined,
-  anchor: number | null,
 ): number => {
   // 与 shipHpTimeline 同一口径：回放/合并夜战后顺序不该被默认成天然有序，
   // 乱序时按数组顺序划段会把夜战伤害并进昼战段的虚条。
@@ -166,7 +170,6 @@ export const segmentStartOf = (
   let prevNight: boolean | null = null
   let best = 0
   for (const attack of ordered) {
-    if (anchor != null && attack.stage > anchor) break
     const night = attack.phase === 'night' || attack.phase === 'friendly'
     if (prevNight === null || night !== prevNight) {
       runStart = attack.stage
@@ -180,10 +183,13 @@ export const segmentStartOf = (
 /**
  * 选中某个阶段时，这艘舰显示什么。
  *
- * `stage` 传 null 表示跟随最新（= 整场结果）。`segStart` 是锚点所在昼/夜段的
- * 起始 stage（见 segmentStartOf）：`before` 回答的是「进入这个段的时候还有多少血」，
- * 虚条因此是**段内累计**掉的。选中的段若没伤到这艘舰，`before` 与 `hp` 相等，
- * 虚条自然是 0——它更早掉的血都在「空」里。
+ * `stage` 传 null 表示跟随最新（= 整场结果）。`segStart` 是**基准从哪个 stage 起算**：
+ * `before` 回答的是「进到这儿的时候还有多少血」，虚条因此是 segStart 到 stage 之间
+ * 掉的。这一截若没伤到这艘舰，`before` 与 `hp` 相等，虚条自然是 0——更早掉的血
+ * 都在「空」里。
+ *
+ * 调用方按视图给两种基准：跟随最新时给 segmentStartOf（昼/夜段的段首，虚条是段内
+ * 累计）；玩家点住某一阶段时给**那个 stage 自己**，虚条就只剩这一阶段掉的那截。
  */
 export const hpAtStage = (
   timeline: ShipHpTimeline,

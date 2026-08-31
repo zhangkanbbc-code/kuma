@@ -168,7 +168,7 @@ import { voicePlaybackObservationAt } from '../../shared/voice-playback-observat
 import { ENEMY_FORMATION, formationText } from '../../shared/enemy-formation'
 import { bgmPreviewHtml } from '../bgm-preview'
 import { archivedMapBgmOf } from '../../shared/event-map-bgm'
-import { applyScrollProfile, captureScrollProfile, combinedEscortState, commitPaneHtml, deferWhilePressed, esc, exitWithMotion, fmtDate, fmtDateTime, fmtTime, forgetCommittedHtml, jstDayOfWeek, lodeCredit, lodeCreditMark, lodeCreditShort, masterShipName, mg, nextJstTime, onMgChange, ownedHangarExpansionOf, queryLode, queryMasterRaw, queryShipMemorial, trackMountCleanup, uiGet, uiSet, withViewStateKept } from '../kernel'
+import { applyScrollProfile, captureScrollProfile, combinedEscortState, commitPaneHtml, deferWhileComposing, deferWhilePressed, esc, exitWithMotion, fmtDate, fmtDateTime, fmtTime, forgetCommittedHtml, jstDayOfWeek, lodeCredit, lodeCreditMark, lodeCreditShort, masterShipName, mg, nextJstTime, onFilterInput, onMgChange, ownedHangarExpansionOf, queryLode, queryMasterRaw, queryShipMemorial, trackMountCleanup, uiGet, uiSet, withViewStateKept } from '../kernel'
 import type { ScrollProfile } from '../kernel'
 import { createNavHistory } from '../nav-history'
 import { searchFold } from '../search-fold'
@@ -513,6 +513,8 @@ const scheduleRender = () => {
     // 用户正按在图鉴上：把这次被动重渲让到手指抬起来之后。按下与抬起之间换掉 DOM，
     // 浏览器就不会派发 click——「点了没反应」的机制就是这个（封顶见 kernel）。
     if (deferWhilePressed(pane, 'ji', () => render())) return
+    // 正在用输入法打字同理，让到组合结束：换掉 DOM 会把组合会话一起换没
+    if (deferWhileComposing(pane, 'ji', () => render())) return
     render()
   })
 }
@@ -2317,6 +2319,8 @@ const bindShipPanelControls = (scope: ParentNode) => {
     setShipRootNote(shipState.selectedRoot, rootNote.value)
   })
   rootNote?.addEventListener('keydown', (e) => {
+    // 组合中的按键是给输入法的（敲定候选那一下照样带 isComposing），别当成「填完了」
+    if (e.isComposing) return
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) rootNote.blur()
   })
   scope.querySelectorAll<HTMLInputElement>('[data-roster-note]').forEach((input) => {
@@ -2324,6 +2328,8 @@ const bindShipPanelControls = (scope: ParentNode) => {
       setShipRosterNote(parseInt(input.dataset.rosterNote!, 10), input.value)
     })
     input.addEventListener('keydown', (e) => {
+      // 同上：敲定候选的回车不是「写完了」，失焦会把词打断在半路
+      if (e.isComposing) return
       if (e.key === 'Enter') input.blur()
     })
   })
@@ -11767,11 +11773,15 @@ const wire = () => {
 
   // 舰娘卷
   const shipSearch = pane.querySelector<HTMLInputElement>('#ji-ship-search')
-  shipSearch?.addEventListener('input', () => {
-    shipState.search = shipSearch.value
-    render()
-    pane.querySelector<HTMLInputElement>('#ji-ship-search')?.focus()
-  })
+  // 四个卷的检索框一律走 onFilterInput 而不是裸 input：重渲会把输入框元素整个换掉，
+  // 输入法的组合会话绑在那个元素上，换一次就断（见 kernel 第三道闸门）
+  if (shipSearch) {
+    onFilterInput(shipSearch, () => {
+      shipState.search = shipSearch.value
+      render()
+      pane.querySelector<HTMLInputElement>('#ji-ship-search')?.focus()
+    })
+  }
   pane.querySelector('#ji-ship-wrap .type-chips')?.addEventListener('click', (e) => {
     const target = e.target as HTMLElement
     if (target.closest('[data-more-cat]')) {
@@ -11848,7 +11858,7 @@ const wire = () => {
   })
   // 段内就地过滤：每敲一下重渲一次，渲完把光标放回去（与主搜索框同一手法）
   pane.querySelectorAll<HTMLInputElement>('#ji-ship-wrap [data-cat-find]').forEach((input) => {
-    input.addEventListener('input', () => {
+    onFilterInput(input, () => {
       const key = input.dataset.catFind as 'class' | 'fleet'
       catFind[key] = input.value
       const caret = input.selectionStart
@@ -11992,11 +12002,13 @@ const wire = () => {
   })
   // 装备卷
   const equipSearch = pane.querySelector<HTMLInputElement>('#ji-equip-search')
-  equipSearch?.addEventListener('input', () => {
-    equipState.search = equipSearch.value
-    render()
-    pane.querySelector<HTMLInputElement>('#ji-equip-search')?.focus()
-  })
+  if (equipSearch) {
+    onFilterInput(equipSearch, () => {
+      equipState.search = equipSearch.value
+      render()
+      pane.querySelector<HTMLInputElement>('#ji-equip-search')?.focus()
+    })
+  }
   pane.querySelectorAll<HTMLElement>('[data-equip-mode]').forEach((button) => {
     button.addEventListener('click', () => {
       const mode = button.dataset.equipMode as typeof equipState.mode
@@ -12073,11 +12085,13 @@ const wire = () => {
   })
   // 深海卷
   const abyssSearch = pane.querySelector<HTMLInputElement>('#ji-abyss-search')
-  abyssSearch?.addEventListener('input', () => {
-    abyssState.search = abyssSearch.value
-    render()
-    pane.querySelector<HTMLInputElement>('#ji-abyss-search')?.focus()
-  })
+  if (abyssSearch) {
+    onFilterInput(abyssSearch, () => {
+      abyssState.search = abyssSearch.value
+      render()
+      pane.querySelector<HTMLInputElement>('#ji-abyss-search')?.focus()
+    })
+  }
   pane.querySelectorAll<HTMLElement>('.ab-tab[data-abtab]').forEach((tab) => {
     tab.addEventListener('click', () => {
       const next = tab.dataset.abtab as 'ship' | 'equip'
@@ -12284,11 +12298,13 @@ const wire = () => {
 
   // 道具卷
   const itemSearch = pane.querySelector<HTMLInputElement>('#ji-item-search')
-  itemSearch?.addEventListener('input', () => {
-    itemState.search = itemSearch.value
-    render()
-    pane.querySelector<HTMLInputElement>('#ji-item-search')?.focus()
-  })
+  if (itemSearch) {
+    onFilterInput(itemSearch, () => {
+      itemState.search = itemSearch.value
+      render()
+      pane.querySelector<HTMLInputElement>('#ji-item-search')?.focus()
+    })
+  }
   pane.querySelector('.icats')?.addEventListener('click', (e) => {
     const chip = (e.target as HTMLElement).closest<HTMLElement>('[data-icat]')
     if (!chip) return

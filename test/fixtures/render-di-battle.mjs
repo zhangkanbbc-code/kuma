@@ -96,6 +96,23 @@ const ALERT_BANNER = sliceBetween(
   'const verdictHtml =',
   '警告条 alertBannerHtml（含退避提示行）',
 )
+// 编队一行（血条那一格 + 灰化那几个类）连同破损档一起切：桩一写成「0/1 就是大破」，
+// 「打不到的那一位不画血条」这条就对着桩绿。
+const HP_CLASS = sliceBetween(
+  'const hpClass = (ratio: number)',
+  'const battleDefeated = (battle: BattleView',
+  '血条着色档 hpClass',
+)
+const DAMAGE_STATE = sliceBetween(
+  'const TIER_COLOR = {',
+  '// 大破线与铃的通知',
+  '破损档 damageState',
+)
+const SHIP_ROWS = sliceBetween(
+  'interface ShipStageView {',
+  '// 一侧的舰列表',
+  '编队一行 browHtml（含 shipStageView / hpBarHtml）',
+)
 
 // 空壳海图的判据**引真的那一份**，不补桩：桩一写成 `Boolean(entry?.spots)`
 // 就把被修掉的那个 bug 在测试里复活了，护栏会对着旧行为绿。
@@ -113,6 +130,10 @@ const MAP_ID = path.join(ROOT, 'src', 'shared', 'map-id.ts').replace(/\\/g, '/')
 const SPECIAL_ATTACK = path
   .join(ROOT, 'src', 'shared', 'fleet-special-attack.ts')
   .replace(/\\/g, '/')
+// 血条重放、破损词表、受损立绘判据同理，全引真的那一份。
+const HP_TIMELINE = path.join(ROOT, 'src', 'shared', 'battle-hp-timeline.ts').replace(/\\/g, '/')
+const BATTLE_DAMAGE = path.join(ROOT, 'src', 'shared', 'battle-damage.ts').replace(/\\/g, '/')
+const SHIP_ART_PATH = path.join(ROOT, 'src', 'shared', 'ship-art-path.ts').replace(/\\/g, '/')
 
 const HARNESS = `
 import { fcdTopologyUsable } from '${FCD_TOPOLOGY}'
@@ -120,6 +141,9 @@ import { flagshipHasDameconIn, isTaihaShip, taihaVerdictOf } from '${TAIHA_VERDI
 import { enemyNightTargetOf, isPtShipName } from '${ENEMY_NIGHT}'
 import { isEventMapArea } from '${MAP_ID}'
 import { SPECIAL_ATTACK_SEGMENT_ORDER, specialAttackLabel } from '${SPECIAL_ATTACK}'
+import { hpAtStage, hpBarSegments, segmentStartOf, shipHpTimeline } from '${HP_TIMELINE}'
+import { DAMAGE_TIER_WORDS, damageTierOf } from '${BATTLE_DAMAGE}'
+import { shipArtDamaged } from '${SHIP_ART_PATH}'
 
 type BattleView = any
 type BattleAttack = any
@@ -176,11 +200,21 @@ const ciLabel = (kind: any, ci: any) =>
       ? (specialAttackLabel(ci, kind === 'night' ? 'night' : 'day') ?? null)
       : null
 const battleHitState = (hit: any) => hit.hitState ?? (hit.miss ? 'miss' : hit.damage > 0 ? 'hit' : 'unknown')
-const shipThumbHtml = (_id: number, _name: string, _o?: any) => '<i class="thumb"></i>'
+// 舰绘桩把「换不换受损那张」原样写进属性，好让 browArtDamaged 的结果看得见。
+const shipThumbHtml = (_id: number, _name: string, o?: any) =>
+  \`<i class="ship-thumb" data-damaged="\${o?.damaged ? 1 : 0}" data-sunk="\${o?.sunk ? 1 : 0}"></i>\`
+const shipLink = (ship: any) => esc(ship.name)
+const battleShipExpandKey = (side: number, ship: any) => \`\${side}:\${ship.index}\`
+const expandedBattleShips = new Set<string>()
+// 伤害列本身不在这条护栏的射程内（它有自己的分段悬停），给最平淡的桩。
+const dealtHtml = (_b: any, ship: any, _enemy: boolean) => \`\${ship.damageDealt || '—'}\`
 const firstDropBadgeInSortieHtml = (..._a: any[]) => ''
 const unownedShipBadgeHtml = (_id: number) => ''
 
 const isDamageOnlyBattle = (battle: any) => battle.kind === 'airraid' || battle.kind === 'radar'
+// 「走的是不是通常昼战那套流程」：对潜空袭除了战型名之外全跟 day 走。
+// 这两档的分类本体由 fixtures/di-battle-type.mjs 切真的那一份来验，这里只是桩。
+const isDayFlowBattle = (battle: any) => battle.kind === 'day' || battle.kind === 'subAirRaid'
 const battleTypeLabel = (battle: any) => \`\${battle.kind}\`
 const battleForecastLead = (battle: any) => \`\${battle.kind}·\`
 const rankLabel = (rank: string, _p: any) => rank
@@ -211,7 +245,12 @@ const fcdMap: any = null
 // friendlyRequest 刻意**不给初值**：那正是「从没收到过 set_friendly_request」的未知态，
 // 也是这份桩的默认局面（用例要开要請时自己往上挂）。
 const mg: any = { master: { ships: {}, slotitems: {}, ready: false }, decks: [], ships: {}, slotitems: {} }
+// 流水聚焦：null = 跟随最新（默认态）。切片里 browHtml 与 logHtml 都读它，
+// 用例靠下面这个 setter 拨，好验「点住某一阶段时血条画的是那一阶段」。
 let selectedLogStage: number | null = null
+const setSelectedLogStage = (stage: number | null) => {
+  selectedLogStage = stage
+}
 // 阶段折叠集合住在 logHtml 外面，切片够不着——空集 = 默认全展开，正是要钉的默认态。
 // 用例要试折叠就自己往里塞 stage.order。
 const collapsedLogStages = new Set<number>()
@@ -227,6 +266,9 @@ const spotBranches = (..._a: any[]) => []
 const branchTallyText = (..._a: any[]) => ''
 const isActiveBranchSpot = (..._a: any[]) => false
 
+${HP_CLASS}
+${DAMAGE_STATE}
+${SHIP_ROWS}
 ${DROP_CHIP}
 ${AIRLINE}
 ${RESULT_STRIP}
@@ -240,6 +282,8 @@ ${ALERT_BANNER}
 
 export {
   mg,
+  setSelectedLogStage,
+  browHtml,
   battleDropChipHtml,
   airlineHtml,
   resultStripHtml,
@@ -280,6 +324,13 @@ const bundle = (() => {
 const loaded = createRequire(import.meta.url)(bundle)
 
 export const renderLog = (battle, expanded = true) => loaded.logHtml(battle, expanded)
+/** 编队里的一行（血条那一格与灰化那几个类都在里面）。 */
+export const renderBrow = (battle, side, ship) => loaded.browHtml(battle, side, ship)
+/**
+ * 把流水聚焦拨到某一阶段；`null` 回到跟随最新。
+ * 模块级变量是**跨用例共享**的，用完记得拨回 null。
+ */
+export const setSelectedLogStage = (stage) => loaded.setSelectedLogStage(stage)
 export const renderResultStrip = (battle) => loaded.resultStripHtml(battle)
 export const renderAirline = (battle, sortie = { active: false, practice: false }) =>
   loaded.airlineHtml(battle, sortie)

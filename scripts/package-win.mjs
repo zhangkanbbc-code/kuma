@@ -123,6 +123,14 @@ const options = {
   ignore: isPackageIgnored,
   // 见上方 BUNDLED_DOCS：这三份要以**真实文件**落在 resources/，不能只待在 asar 里。
   extraResource: BUNDLED_DOCS.map((name) => path.join(root, name)),
+  // 版权行只认这一处。写进下面的 win32metadata.LegalCopyright 是**静默无效**的：
+  // @electron/packager 20.1.1 的 resedit 只从 win32metadata 里取 CompanyName /
+  // FileDescription / InternalName / OriginalFilename 四个键，LegalCopyright 那一栏
+  // 取的是 appCopyright（dist/win32.js 里 legalCopyright: this.opts.appCopyright，
+  // 再由 dist/resedit.js 的白名单写进版本资源）。放错地方不报错，exe 会一直留着
+  // Electron 自带的「Copyright (C) 2015 GitHub, Inc.」——2026-08-31 就是这么撞上的，
+  // 改完必须从产物 exe 读回来看一眼。
+  appCopyright: 'Copyright (C) 2026 kuma',
   win32metadata: {
     CompanyName: 'kuma',
     FileDescription: 'kuma · 舰队收藏信息工作台',

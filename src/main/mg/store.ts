@@ -33,6 +33,7 @@ import type {
   Deck,
   Kdock,
   MasterShip,
+  MasterShipUpgrade,
   MasterSlotitem,
   MasterMission,
   MgState,
@@ -804,8 +805,8 @@ const runSortieHpAudit = (ts: number, announce: boolean): Section[] => {
     })),
   })
   reconciliation.records.length = Math.min(reconciliation.records.length, 100)
-  // 解析路径要留在日志里：`kind` 就是 battle.ts 按报文路径定的那一档（KIND_BY_PATH），
-  // 夜战合并是另一条代码路径，所以 hasNight 一并记。
+  // 解析路径要留在日志里：`kind` 就是 battle.ts 定的那一档（battleKindOf，按报文路径，
+  // 对潜空袭那一档另看报文特征），夜战合并是另一条代码路径，所以 hasNight 一并记。
   const at = `${sortie.mapArea}-${sortie.mapNo} 节点 ${sortie.currentCell}`
   const path = `${battle.kind}${battle.hasNight ? '+night' : ''}`
   for (const m of mismatches) {
@@ -1201,6 +1202,35 @@ const patchBasicLevel = (body: any): boolean => {
   if (!state.player.basic || !(level > 0) || state.player.basic.level === level) return false
   state.player.basic.level = level
   return true
+}
+
+// 改造消耗的道具：主数据 api_mst_shipupgrade 的计数字段 → api_mst_useitem 编号。
+//
+// 58 与 100 有实测对账：本机账本 2026-08-28 23:39 那次 Richelieu改 → Richelieu Deux，
+// 改造表那一行是 drawing=1、tech=2，账上落的正是 58 −1 与 100 −2。其余四项按主数据
+// 自己的道具名对齐，与 shared/kcwiki-upgrade 的别名表逐条同号。
+//
+// **boilerCount 不在这张表里**：新型高温高圧缶是装备（slotitem 87）不是道具，
+// 而且改造后紧跟的 slot_item 全量会把装备账补齐，这里插手只会记重。
+const REMODEL_USEITEM_COSTS: [keyof MasterShipUpgrade, number][] = [
+  ['drawingCount', 58], // 改装設計図
+  ['catapultCount', 65], // 試製甲板カタパルト
+  ['reportCount', 78], // 戦闘詳報
+  ['aviationMatCount', 77], // 新型航空兵装資材
+  ['armsMatCount', 75], // 新型砲熕兵装資材
+  ['techCount', 100], // 海外艦最新技術
+]
+
+// 「改造前是这一艘」→ 改造表的那一行。主数据按**改造后**形态建索引（同一目标可以有
+// 多行，可逆改装的每条来路各一行），而改造请求只给在籍 id，当刻只知道改造前是谁，
+// 所以反着找。非 0 的 api_current_ship_id 在主数据里不重号（2026-08-31 快照 359 行
+// 全查过），这一头认得唯一——不必等 ship3 说出改造后是谁。
+const upgradeRowFrom = (currentShipId: number): MasterShipUpgrade | null => {
+  if (!(currentShipId > 0)) return null
+  for (const rows of Object.values(state.master.upgrades)) {
+    for (const row of rows) if (row.currentShipId === currentShipId) return row
+  }
+  return null
 }
 
 // api_mst_ship 的成长属性是 [初始, 最大]；取初始值（裸值）
@@ -1851,8 +1881,9 @@ const reducers: Record<string, Reducer> = {
     if (!body?.api_id) return []
     state.player.ships[body.api_id] = toShip(body)
     const sections: Section[] = ['ships']
-    // ケッコンカッコカリ消耗的是游戏主数据 useitem 20「书类一式与戒指」。
-    if (incrementUseitem(20, -1, ts)) sections.push('useitems')
+    // ケッコンカッコカリ消耗的是游戏主数据 useitem **55**「書類一式＆指輪」。
+    // （原先写的 20 在主数据里是空条目：自扣一直空转，消耗只能等下一次全量作差。）
+    if (incrementUseitem(55, -1, ts)) sections.push('useitems')
     return sections
   },
 
@@ -1861,8 +1892,11 @@ const reducers: Record<string, Reducer> = {
     if (!ship || ship.slotEx !== 0) return []
     ship.slotEx = -1
     const sections: Section[] = ['ships']
-    // api_mst_useitem 26「补强增设」每次开槽消耗一个。
-    if (incrementUseitem(26, -1, ts)) sections.push('useitems')
+    // api_mst_useitem **64**「補強増設」每次开槽消耗一个。
+    // （原先写的 26 在主数据里是空条目，自扣空转：2026-08-31 13:43 连开五格，
+    // 账上一笔没有，直到 13:52 的全量下发才一口气差出 −5——原因也就记到了那一刻。
+    // 64 这个号在 shared/kcwiki-upgrade 与 qn 的道具别名表里本来就是对的。）
+    if (incrementUseitem(64, -1, ts)) sections.push('useitems')
     return sections
   },
 
@@ -1887,6 +1921,30 @@ const reducers: Record<string, Reducer> = {
     // 认不出是哪一艘也照扣：道具确实少了一个，这件事与「上限落在谁身上」无关。
     if (incrementUseitem(105, -1, ts)) sections.push('useitems')
     return sections
+  },
+
+  // 改造。响应体**只有 api_result**：舰体状态靠紧跟的 ship3 恢复，**道具没有对应的
+  // 恢复**——持有数只在全量下发（api_get_member/useitem）时作差落账，于是消耗要等到
+  // 下一次全量才被差出来。而「变动原因」是按落账时刻附近的操作推的（史那一列），
+  // 于是那笔消耗记到了当刻碰巧在做的事上：2026-08-28 23:39 那次改造的改装設計図与
+  // 海外艦最新技術，落在 23:44:51 的远征归来那一刻；08-20 铃谷改二的图纸更是隔了
+  // 两小时零十五分。所以这条与开增设槽 / 格納庫増設同族：按端点自扣。
+  //
+  // 不会记重：自扣当场就把 state 里的持有数改成扣后的数，下一次全量作差是拿
+  // state 当基准的（applyUseitems 的 prev），看到的是同一个数，不再产生第二笔。
+  //
+  // 认不出这艘舰、或主数据里查不到这次改造的行（不要道具的普通改造大多没有行），
+  // 就一个字不动——不知道消耗几个，就不猜。
+  '/kcsapi/api_req_kaisou/remodeling': (_body, post, ts) => {
+    const ship = state.player.ships[Number(post.api_id)]
+    const upgrade = ship ? upgradeRowFrom(ship.shipId) : null
+    if (!upgrade) return []
+    let changed = false
+    for (const [field, itemId] of REMODEL_USEITEM_COSTS) {
+      const count = upgrade[field]
+      if (count > 0 && incrementUseitem(itemId, -count, ts)) changed = true
+    }
+    return changed ? ['useitems'] : []
   },
 
   // 緊急泊地修理：明石改 / 朝日改 / 秋津洲改 在泊地格上给舰队回耐久。

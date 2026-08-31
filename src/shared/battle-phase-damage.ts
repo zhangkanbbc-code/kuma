@@ -40,13 +40,20 @@ export type BattlePhase = 'day' | 'night'
  * 其余一律 null：`nightonly` 整场都是夜战（虽然 hasNight 也是 true，
  * 但从头到尾没换过阶段），`airbattle`/`airraid`/`radar`/`baseDefense`
  * 更是单阶段节点。把它们也当成「有阶段」会让血条凭空换一次基准。
+ *
+ * `subAirRaid`（对潜空袭）跟着 `day` 走：wikiwiki「戦闘について」写的是
+ * 「戦闘自体は通常戦と同様の順番で進行する」，它只是敌方多一条不可攻击的空母，
+ * 流程与通常昼战同一套。本机还没有一场它接夜战包的样本，所以这一支是照机制留的口子，
+ * 真接上了血条才不会漏换基准。
  */
 export const battlePhaseOrder = (
   kind: string,
   hasNight: boolean,
 ): { first: BattlePhase; second: BattlePhase } | null => {
   if (kind === 'nightday') return { first: 'night', second: 'day' }
-  if (kind === 'day' && hasNight) return { first: 'day', second: 'night' }
+  if ((kind === 'day' || kind === 'subAirRaid') && hasNight) {
+    return { first: 'day', second: 'night' }
+  }
   return null
 }
 

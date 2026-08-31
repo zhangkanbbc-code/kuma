@@ -1864,7 +1864,7 @@ test('battle categories keep air raids, air battles, radar fire, and night trans
   assert.match(renderer, /'S（完全胜利）：我方零承伤'/)
   assert.match(renderer, /'E：我方损失达到 80%'/)
   assert.match(renderer, /const rankSource = '最终以游戏结算为准'/)
-  assert.match(renderer, /return '夜战转昼'/)
+  assert.match(renderer, /return '拂晓战'/)
   assert.match(renderer, /return '开幕夜战'/)
 })
 
@@ -8718,9 +8718,11 @@ test('血条跟着流水走：满格恒为最大血，选中哪一阶段就显�
   // 这里守的是渲染层没有绕过它：分母只能是 hpMax。
   assert.match(bar, /hpBarSegments\(view\.hpMax, view\.hp, view\.before\)/)
   assert.doesNotMatch(di, /phaseBase/, '又把满格换成阶段基准了')
-  // 虚条基准是昼/夜段的段首（不是流水的每个内部阶段）：昼战里掉的全是虚条，
-  // 进夜战才归于空。曾锚在内部阶段上，伤害分散的舰虚条只剩最后一小口。
-  assert.match(di, /hpAtStage\(timeline, stage, segmentStartOf\(b\.attacks, stage\)\)/)
+  // 虚条基准分两档：跟随最新时是昼/夜段的段首（昼战里掉的全是虚条，进夜战才归于空
+  // ——曾锚在内部阶段上，伤害分散的舰虚条只剩最后一小口）；玩家点住某一阶段时是
+  // 那一阶段自己，虚条只画这一阶段掉的。两档的行为测试在 battle-stage-hp-focus.test.mjs，
+  // 这里守的是渲染层没有把某一档接错。
+  assert.match(di, /hpAtStage\(timeline, stage, stage \?\? segmentStartOf\(b\.attacks\)\)/)
   assert.match(bar, /\$\{view\.hp\}\/\$\{view\.hpMax\}/, '数字要写「该时刻 cur/max」')
   // 颜色按绝对血量：这一阶段没挨打的舰新伤那截是空的，但它可能本来就是中破，
   // 那时涂成健康色会骗人
@@ -8759,6 +8761,14 @@ test('血条跟着流水走：满格恒为最大血，选中哪一阶段就显�
     emptyRule.slice(0, emptyRule.indexOf('}')),
     /background/,
     '空段又被着色了——更早掉的血应该露出底轨',
+  )
+  // 聚焦某一阶段时虚条换成蓝斜杠：那一截的含义换了（本阶段掉的，不是本段累计），
+  // 也得和残血红的实血分开。类挂没挂上有行为测试，这里守的是配色还在
+  const pinnedRule = htmlSrc.slice(htmlSrc.indexOf('.mod-di .hpx .bar.pinned .dl'))
+  assert.match(
+    pinnedRule.slice(0, pinnedRule.indexOf('}')),
+    /repeating-linear-gradient\([^)]*var\(--accent\)/,
+    '聚焦时的虚条不是蓝斜杠了',
   )
 
   // 流水每一行都是锚点，且能退回跟随最新
@@ -9195,7 +9205,7 @@ test('输出栏按昼夜分段，没出手写 -- 而不是 0', async () => {
   // 血条那一侧的判据见「打完夜战后血条换基准」那条测试
   // 谁算「两个阶段」交给 battlePhaseOrder 一处说了算。
   // 早先这里钉的是「排除 nightonly 与 nightday」——前半对，后半是错的：
-  // nightday 是夜战转昼，实打实两个阶段，被这条断言一起挡在外面了。
+  // nightday 是拂晓战（夜战打到天亮转昼战），实打实两个阶段，被这条断言一起挡在外面了。
   const tp = di.slice(di.indexOf('const phaseOrderOf'), di.indexOf('const phaseOrderOf') + 240)
   assert.ok(tp.includes('battlePhaseOrder(b.kind, b.hasNight)'), '两阶段判据该收在一处')
   assert.doesNotMatch(di, /kind !== 'nightday'/, '夜转昼有两个阶段，不该被排除')
@@ -10577,7 +10587,7 @@ test('游戏自报粗档只在同一任务周期内当下限,隔周期的旧 fla
 
 test('出击面板战型名看 api_event_kind:夜战点不写「通常战」,昼战模型不硬套', () => {
   const battle = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
-  // 战型细分表:2 夜战 / 3 夜战转昼 / 4 航空战 / 5 敌联合 / 6 长距离空袭 / 8 雷达射击。
+  // 战型细分表:2 夜战 / 3 拂晓战 / 4 航空战 / 5 敌联合 / 6 长距离空袭 / 8 雷达射击。
   // 账本实锤对照(用户真实战斗):ekind1↔昼战(6-5 B/F/I)、ekind5↔ec_battle、ekind6↔ld_airbattle
   assert.match(battle, /NODE_BATTLE_KIND: Record<number, string> = \{\s*2: '夜战',/)
   assert.match(battle, /6: '长距离空袭',/)

@@ -5,7 +5,7 @@
 // 「type + id → navigate」，所以这里只做一件事：把名字搜出来，交给 navigate。
 //
 // 不自己实现任何跳转逻辑：命中什么就 navigate 什么，落点与页面上的链接完全一致。
-import { esc, mg } from './kernel'
+import { esc, mg, onFilterInput } from './kernel'
 import { navigate, type EntityRef } from './link'
 import { entityNamePlain } from './localization'
 import { compareDisplayNames } from '../shared/name-order'
@@ -143,12 +143,20 @@ const ensureHost = () => {
     const row = (event.target as HTMLElement).closest<HTMLElement>('[data-cp]')
     if (row) openRef(Number(row.dataset.cp))
   })
-  input?.addEventListener('input', () => {
-    items = collect(input!.value)
-    active = 0
-    renderList()
-  })
+  // 组合期间不去过滤：那时框里是半截拼音，照它搜只会把候选清空。
+  // 这里的输入框不随 renderList 重建（只换 .cp-list），所以组合本身不会被打断。
+  const box = input
+  if (box) {
+    onFilterInput(box, () => {
+      items = collect(box.value)
+      active = 0
+      renderList()
+    })
+  }
   input?.addEventListener('keydown', (event) => {
+    // ↑↓ 选候选字、回车敲定、Esc 取消这一段——组合中的这几下都是给输入法的。
+    // 不让开的话，用中文搜舰娘时第一次按回车打开的是上一次的搜索结果。
+    if (event.isComposing) return
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault()
       if (!items.length) return

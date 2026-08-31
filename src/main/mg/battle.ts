@@ -50,6 +50,11 @@ export interface FleetContext {
 
 const num = (v: unknown, fallback = 0): number => (typeof v === 'number' ? v : fallback)
 const positive = (v: unknown): v is number => typeof v === 'number' && v > 0
+/**
+ * 这一位的 HP 是「非表示」：游戏下发的不是数字而是字符串 `"N/A"`。
+ * 对潜空袭战里退在后方、打不到的那条空母就长这样，出处与四票核对见 isSubAirRaid 头注。
+ */
+const hpHidden = (v: unknown): boolean => typeof v === 'string' && !Number.isFinite(Number(v))
 const hitStateFromCl = (
   cl: unknown,
   damage: number,
@@ -219,8 +224,10 @@ const pushEnemyFleet = (
     if (position >= 6) break
     const mstId = num(kes[raw], -1)
     if (mstId <= 0) continue
-    const hp = Math.max(0, num(nowhps?.[position + hpOffset]))
-    const hpMax = Math.max(1, num(maxhps?.[position + maxOffset], hp))
+    const rawHp = nowhps?.[position + hpOffset]
+    const rawMax = maxhps?.[position + maxOffset]
+    const hp = Math.max(0, num(rawHp))
+    const hpMax = Math.max(1, num(rawMax, hp))
     const rawSlots = Array.isArray(slots?.[position + slotOffset])
       ? slots[position + slotOffset]
       : undefined
@@ -242,21 +249,23 @@ const pushEnemyFleet = (
         }]
       },
     )
-    out.push(
-      makeShip(
-        base + position,
-        fleet,
-        position,
-        mstId,
-        null,
-        ctx.masterName(mstId),
-        num(lvs?.[position + lvOffset]),
-        hp,
-        hpMax,
-        false,
-        equipment,
-      ),
+    const ship = makeShip(
+      base + position,
+      fleet,
+      position,
+      mstId,
+      null,
+      ctx.masterName(mstId),
+      num(lvs?.[position + lvOffset]),
+      hp,
+      hpMax,
+      false,
+      equipment,
     )
+    // 上面那两个数是兜出来的假数（0 / 1），真相是这一位根本没有 HP。
+    // 标出来，显示层才分得清「被打成 0」和「打不到」。判据见 isSubAirRaid 头注。
+    if (hpHidden(rawHp) || hpHidden(rawMax)) ship.unattackable = true
+    out.push(ship)
   }
   return shipOffset || hpOffset
 }
@@ -1311,12 +1320,57 @@ const isNightPath = (apiPath: string) =>
 const isNightToDay = (apiPath: string) => apiPath.includes('night_to_day')
 const isRadarBattle = (apiPath: string) => apiPath.includes('ld_shooting')
 
-const KIND_BY_PATH = (apiPath: string): BattleView['kind'] => {
+/**
+ * 対潜空襲：敌潜艇 + 一条退在后方的空母系，那条空母**不是攻击对象**，却照样出击、
+ * 连炮击战也打。它走的是**通常战端点**（本机账本 62-1 U 点：`api_req_sortie/battle`；
+ * poi 自带的 62-3 样本走 `api_req_combined_battle/battle`），进点报文的
+ * `api_event_kind` 也照旧是 1，所以端点与战型编号都认不出它。
+ *
+ * 认得出它的是那条空母**没有 HP**：`api_e_nowhps` / `api_e_maxhps` 对应位上，
+ * 游戏下发的是字符串 `"N/A"` 而不是数字。两家开源实现各自独立用的都是这一条，
+ * 再加官方向的描述与本机账本，四票同指一件事：
+ *
+ * ① KC3改 `src/library/modules/BattlePrediction.js`（`hideOverkillAndInvisible`）：
+ *      // hp = "N/A" string implemented since event Spring 2023:
+ *      // known points: client-side uses isNaN(), invisible flag on, internal hp is 1;
+ *      //               server-side rank S if others sunk
+ *      if (isNaN(ship.hp)) return Object.assign({}, ship, { hp: 0, sunk: true, inv: true });
+ *    「internal hp is 1」正是我们这边 hpMax 兜到 1 的那个 1。
+ * ② poi 的 lib-battle `simulator.ts::_initEnemy`：
+ *    `const hpUnknown = typeof rawMaxHP !== "number" || typeof rawNowHP !== "number"`，
+ *    唯一的消费点是胜负判定（`simulateBattleRank` 里 `if (ship.hpUnknown) continue`）：
+ *    藏 HP 的舰不参与评级，其余全沉照样 S。
+ *    https://github.com/poooi/lib-battle/blob/master/simulator.ts
+ *    样本 tests/fixtures/battle-detail/features/hidden_enemy_hp/1786147087380.json
+ *    （62-3，`api_e_maxhps = [48,48,48,"N/A","N/A"]`，藏 HP 的可以不止一条）。
+ * ③ wikiwiki「戦闘について」原文：「潜水艦と、一歩下がった後方に空母系の敵が出現する。
+ *    後方にいる敵空母は攻撃対象にならない(HP非表示)にもかかわらず、航空戦のみならず
+ *    砲撃戦でも攻撃してくる。」「勝敗判定は後方空母を除いた潜水艦を全滅させればS勝利」。
+ *    「HP非表示」与这一位的非数字是同一件事。
+ * ④ 本机账本穷举 1063 份战斗报文，非数字 HP 只出现过一场，就是 62-1 那个对潜空袭点
+ *    （battleresult 自报 `api_deck_name`「深海潜水艦隊+航空支援艦載機」、
+ *    `api_dests=3` 只数潜艇、`api_win_rank=S`）。零误伤。
+ *
+ * 不拿「我方 0 机的单方面空袭」当判据：`api_kouku.api_stage1.api_f_count` 说的是
+ * **我方**放了几架，随编成变（对潜队带轻母就不是 0），认它会漏。
+ *
+ * 节点侧另有一条判据，KC3改用的是它：`api_req_map/next` 的 `api_color_no === 15`
+ * （`src/library/objects/Node.js`，注释写明「cannot be indentified by eventKind」，
+ * 词条 `BattleKindFakeAirSupportSub` =「対潜空襲マス」）。本机那份进点报文正是 15，
+ * 与上面的判据对上；但战斗解析这一层拿不到进点报文，所以判据落在战斗包自己身上。
+ */
+const isSubAirRaid = (body: any): boolean =>
+  [body?.api_e_nowhps, body?.api_e_maxhps, body?.api_e_nowhps_combined, body?.api_e_maxhps_combined]
+    .filter(Array.isArray)
+    .some((list: unknown[]) => list.some(hpHidden))
+
+const battleKindOf = (apiPath: string, body: any): BattleView['kind'] => {
   if (apiPath.includes('ld_shooting')) return 'radar'
   if (apiPath.includes('ld_airbattle')) return 'airraid'
   if (apiPath.includes('airbattle')) return 'airbattle'
   if (isNightToDay(apiPath)) return 'nightday'
   if (isNightPath(apiPath)) return 'nightonly'
+  if (isSubAirRaid(body)) return 'subAirRaid'
   return 'day'
 }
 
@@ -1392,7 +1446,13 @@ const applyGun = (
     ciKind: 'day',
   })
 
-const parseDayStages = (sim: Sim, body: any, apiPath: string, ctx: FleetContext) => {
+const parseDayStages = (
+  sim: Sim,
+  body: any,
+  apiPath: string,
+  ctx: FleetContext,
+  kind: BattleView['kind'],
+) => {
   for (const [i, wave] of asWaves(body.api_air_base_injection).entries()) {
     applyKouku(sim, wave, 'lbas', `基地喷气强袭${i + 1}`, `api_air_base_injection[${i}]`)
   }
@@ -1413,11 +1473,13 @@ const parseDayStages = (sim: Sim, body: any, apiPath: string, ctx: FleetContext)
     applyKouku(sim, wave, 'lbas', label, `api_air_base_attack[${i}]`)
   }
   applyKouku(sim, body.api_friendly_kouku, 'friendlyAir', '友军航空', 'api_friendly_kouku', 2)
+  // 「第一航空战」说的是双方对轰那一段。空袭点（airraid）与对潜空袭（subAirRaid）
+  // 都是敌方单方面来袭，用的是同一个词。
   applyKouku(
     sim,
     body.api_kouku,
     'air',
-    apiPath.includes('ld_airbattle') ? '敌空袭' : '第一航空战',
+    kind === 'airraid' || kind === 'subAirRaid' ? '敌空袭' : '第一航空战',
     'api_kouku',
   )
   applyKouku(sim, body.api_kouku2, 'air2', '第二航空战', 'api_kouku2')
@@ -1572,16 +1634,16 @@ export const parseBattle = (
   markEscaped(sim.f, body.api_escape_idx, 0)
   markEscaped(sim.f, body.api_escape_idx_combined, 6)
 
+  const kind = battleKindOf(apiPath, body)
   const night = isNightPath(apiPath)
   const dawn = isNightToDay(apiPath)
   if (night) parseNightStages(sim, body, false, ctx)
   else {
     if (dawn) parseNightStages(sim, body, true, ctx)
-    parseDayStages(sim, body, apiPath, ctx)
+    parseDayStages(sim, body, apiPath, ctx, kind)
   }
 
   const formation = Array.isArray(body.api_formation) ? body.api_formation : []
-  const kind = KIND_BY_PATH(apiPath)
   const touch = Array.isArray(body.api_touch_plane)
     ? [num(Number(body.api_touch_plane[0]), -1), num(Number(body.api_touch_plane[1]), -1)] as [number, number]
     : null

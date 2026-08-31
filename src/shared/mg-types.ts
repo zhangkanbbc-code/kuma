@@ -307,6 +307,13 @@ export interface BattleShipView {
   sunk: boolean
   defeated: boolean // 战斗内失去战力；演习的击破停在 HP1，但必须与“真实剩 1 HP”区分
   escaped: boolean // 退避/当前战斗不在场
+  /**
+   * 打不到的舰位：对潜空袭战里退在后方的那条空母，游戏对它「攻撃対象にならない(HP非表示)」。
+   * 报文对应位上是字符串 "N/A"，解析处（battle.ts pushEnemyFleet）就地置位。
+   * hpStart 0 / hpMax 1 是那里兜出来的假数，UI 不许拿它当血条画——游戏里这条舰没有血条。
+   * 旧快照没有此字段（那时整场还落在 'day' 上），保持 undefined。
+   */
+  unattackable?: true
   repairItemUsed: number | null // 42 要员 / 43 女神
   params?: [number, number, number, number] // 战斗开始时最终 [火力,雷装,对空,装甲]
   expGained?: number // 结算逐舰获得经验；旧快照/战斗中未结算时为空
@@ -533,7 +540,15 @@ export interface BattleView {
     | 'baseDefense' // 进点报文内嵌的基地防空结算；随后会被节点战斗替换
     | 'radar' // 长距离雷达射击节点：评级只看我方损害率
     | 'nightonly' // 开幕夜战
-    | 'nightday' // 夜战转昼
+    | 'nightday' // 拂晓战（开幕即夜战，天亮后转昼战）
+    /**
+     * 对潜空袭：敌潜艇 + 一条退在后方、不可攻击的空母系。走通常战端点、
+     * api_event_kind 也是 1，判据在报文里（敌方 HP 有一位是 "N/A"），见
+     * battle.ts 的 isSubAirRaid。评级仍按击沉算——那条空母 hpStart 为 0，
+     * 本来就不进 predictRank 的敌舰表，与 poi 跳过 hpUnknown 舰同一个结果。
+     * ⚠️ 2026-08-31 之前打的这类场次，快照里记的是 'day'（旧快照不重算）。
+     */
+    | 'subAirRaid'
   practice: boolean // 演习：HP 底线 1、无真轰沉（sunk 保持 false）
   hasNight: boolean // 已合并夜战包
   fFormation: number

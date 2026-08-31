@@ -9,18 +9,20 @@
 // 不该从这里进得来。
 
 /**
- * 主页按钮与新开一扇窗时的落点：DMM 的舰C 详情页。
+ * 主页按钮与新开一扇窗时的落点：DMM 本站首页。
  *
- * 取这一条而不是别的：
- *  · 不取 `play.games.dmm.com/game/kancolle`（游戏本体）——本体在主窗跑着，
- *    默认再开一份就是同一个账号双开，而浏览窗那份没有抓包桥，等于白玩；
- *  · 不取 `www.dmm.com/netgame/`——那是旧门户，舰C 早搬到 games.dmm.com
- *    （仓内 assets/preload/page-align.js 认的就是 games.dmm.com/detail/kancolle）；
- *  · 不取 games.dmm.com 根——门户首页会先撞年龄/分区选择，不适合当默认落点。
- * 详情页同时是官方お知らせ / メンテ情報 的落点（「边玩边查」），
- * 它自己的导航条又能通到整个 DMM GAMES 门户（「逛 DMM」），一条兼了两头。
+ * **别改回 `games.dmm.com/detail/kancolle`**（2026-08-30 之前的默认值）。
+ * 玩家实测：打开那一页会触发 DMM 的会话动作，而同一个账号只留一处会话——
+ * 主窗里正在玩的那一局当场被挤下线。「按一下新窗就掉线」是这个功能不能有的代价，
+ * 所以默认落点退到本站首页：它只是个门户入口，玩家想去哪自己在地址栏敲。
+ *
+ * 仍然不取 `play.games.dmm.com/game/kancolle`（游戏本体）：本体在主窗跑着，
+ * 默认再开一份就是同一个账号双开，而浏览窗那份没有抓包桥，等于白玩。
+ *
+ * assets/preload/page-align.js 里还认着 `games.dmm.com/detail/kancolle`，
+ * 那一处只做 location.href 比较、不导航，与这条默认值无关，别顺手一起改。
  */
-export const BROWSE_HOME_URL = 'https://games.dmm.com/detail/kancolle'
+export const BROWSE_HOME_URL = 'https://www.dmm.com/'
 
 /**
  * 地址栏那一行能不能拿去导航：认得出就返回真正要加载的那条，认不出返回 null。

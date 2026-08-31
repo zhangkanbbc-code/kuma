@@ -25,7 +25,7 @@ import {
   prepareMaterialHistory,
 } from '../../shared/material-history'
 import { questVerdicts } from './qn'
-import { commitPaneHtml, deferWhilePressed, esc, fmtDateTime, fmtK, fmtMonthDay, fmtTime, logSenkaQuest, mg, onMgChange, queryLode, querySenka, queryDeltaSummary, queryEventSortieCosts, queryMaterialHistory, queryMasterRaw, queryUseitemSummary, uiGet, uiSet } from '../kernel'
+import { commitPaneHtml, deferWhileComposing, deferWhilePressed, esc, fmtDateTime, fmtK, fmtMonthDay, fmtTime, logSenkaQuest, mg, onMgChange, queryLode, querySenka, queryDeltaSummary, queryEventSortieCosts, queryMaterialHistory, queryMasterRaw, queryUseitemSummary, uiGet, uiSet } from '../kernel'
 import { mapCodeOf } from '../../shared/map-id'
 import { hasEventMaps } from '../../shared/event-area'
 import { MATERIAL_ICON_BY_INDEX, materialIconHtml, useItemIconHtml } from '../entity-art'
@@ -985,6 +985,8 @@ const render = (force = false) => {
         render()
       }
       input.addEventListener('keydown', (e) => {
+        // 组合中的回车/Esc 是给输入法的（敲定候选、取消这一段），别当成存盘/放弃
+        if (e.isComposing) return
         if (e.key === 'Enter') commit(true)
         else if (e.key === 'Escape') commit(false)
       })
@@ -1010,6 +1012,7 @@ const scheduleShipsRender = () => {
   shipsRenderTimer = setTimeout(() => {
     shipsRenderTimer = null
     if (pane && deferWhilePressed(pane, 'zi', () => render())) return
+    if (pane && deferWhileComposing(pane, 'zi', () => render())) return
     render()
   }, 350)
 }
@@ -1196,8 +1199,8 @@ registerModule({
       if (keys.includes('master')) {
         void queryMasterRaw().then((raw) => {
           applyMaster(raw)
-          // 同下面那条：按下与抬起之间换掉 DOM，click 不会发生
-          if (!deferWhilePressed(pane, 'zi', () => render())) render()
+          // 同下面那条：按下与抬起之间换掉 DOM，click 不会发生；组合中换掉 DOM 则断输入法
+          if (!deferWhilePressed(pane, 'zi', () => render()) && !deferWhileComposing(pane, 'zi', () => render())) render()
         })
       }
       if (keys.includes('eventAreas')) {
@@ -1209,8 +1212,9 @@ registerModule({
       // sortie 不在直接重渲染名单里：上面那条 500ms 去抖 refresh 走完就会 render，
       // 出击中每个节点重复画两遍等于白付一次全量重建。
       if (keys.some((k) => ['materials', 'useitems', 'slotitems', 'master', 'basic', 'eventAreas'].includes(k))) {
-        // 用户正按在这块面板上就让到抬起之后（按下与抬起之间换掉 DOM，click 不会发生）
-        if (!deferWhilePressed(pane, 'zi', () => render())) render()
+        // 用户正按在这块面板上就让到抬起之后（按下与抬起之间换掉 DOM，click 不会发生）；
+        // 正在用输入法打字同理，让到组合结束——换掉 DOM 会把组合会话一起换没
+        if (!deferWhilePressed(pane, 'zi', () => render()) && !deferWhileComposing(pane, 'zi', () => render())) render()
       } else if (keys.includes('ships')) {
         scheduleShipsRender()
       }

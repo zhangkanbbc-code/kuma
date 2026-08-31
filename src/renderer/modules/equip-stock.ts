@@ -34,6 +34,9 @@ import {
   masterShipName,
   mg,
   commitPaneHtml,
+  deferWhileComposing,
+  deferWhilePressed,
+  onFilterInput,
   onMgChange,
   queryMasterRaw,
   uiGet,
@@ -107,7 +110,11 @@ const queueFurnitureMstWaiter = (onReady: () => void) => {
 
 // 装饰品视图正开着才值得为「主数据到货」重绘一次
 const renderIfFurnitureView = () => {
-  if (pane?.isConnected && state.view === 'furniture') render()
+  const host = pane
+  if (!host?.isConnected || state.view !== 'furniture') return
+  // 用户正按在这块面板上就让到抬起之后（按下与抬起之间换掉 DOM，click 不会发生）；
+  // 正在用输入法打字同理，让到组合结束——换掉 DOM 会把搜索框连同组合会话一起换没
+  if (!deferWhilePressed(host, 'es', render) && !deferWhileComposing(host, 'es', render)) render()
 }
 
 const loadFurnitureMst = () => {
@@ -172,7 +179,10 @@ const loadEquipTypeNames = () => {
       return
     }
     equipTypeNames = new Map(list.map((t: any) => [t.api_id, t.api_name]))
-    if (pane?.isConnected) render()
+    const host = pane
+    if (!host?.isConnected) return
+    // 同上：按下期间与输入法组合期间都不换 DOM
+    if (!deferWhilePressed(host, 'es', render) && !deferWhileComposing(host, 'es', render)) render()
   })()
 }
 
@@ -873,7 +883,10 @@ let wired = false
 const wire = () => {
   if (!pane || wired) return
   wired = true
-  pane.addEventListener('input', (e) => {
+  // 走 onFilterInput 而不是裸 input：重渲会把输入框元素整个换掉，
+  // 输入法的组合会话绑在那个元素上，换一次就断（见 kernel 第三道闸门）。
+  // compositionend 也冒泡，委托写法照旧成立。
+  onFilterInput(pane, (e) => {
     const input = (e.target as HTMLElement).closest<HTMLInputElement>('.es-search')
     if (!input) return
     state.search = input.value.trim()

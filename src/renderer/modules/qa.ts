@@ -18,8 +18,10 @@ import {
   masterShipName,
   mg,
   commitPaneHtml,
+  deferWhileComposing,
   deferWhilePressed,
   forgetCommittedHtml,
+  onFilterInput,
   onMgChange,
   onTick,
   queryLode,
@@ -530,6 +532,9 @@ const rowHtml = (row: Row) => {
   const modDots = row.modMax
     .map((maxed, i) => `<s class="${maxed ? ['f', 't', 'a', 'r'][i] : 'o'}"></s>`)
     .join('')
+  // 补强增设那一格描金边（exslot，与编队面板同一套），别的什么都不变：
+  // 这条图标带把 slotEx 直接拼在常规格后面，样式一模一样，不描就只能靠
+  // 「排在最后」认——而排在最后的未必是它（装满 5 格时它根本被 slice 切掉）。
   const equips = [...ship.slot, ship.slotEx]
     .filter((id) => id > 0)
     .slice(0, 5)
@@ -538,7 +543,7 @@ const rowHtml = (row: Row) => {
       const mst = inst ? mg.master.slotitems[inst.mstId] : undefined
       if (!mst) return ''
       return equipTypeIconHtml(mst.iconId, {
-        className: 'xs',
+        className: id === ship.slotEx ? 'xs exslot' : 'xs',
         title: entityNamePlain('equip', inst!.mstId, mst.name),
       })
     })
@@ -1183,11 +1188,15 @@ const render = () => {
 
 const wire = () => {
   const searchInput = pane.querySelector<HTMLInputElement>('#qa-search')
-  searchInput?.addEventListener('input', () => {
-    state.search = searchInput.value
-    render()
-    pane.querySelector<HTMLInputElement>('#qa-search')?.focus()
-  })
+  // 走 onFilterInput 而不是裸 input：重渲会把输入框元素整个换掉，
+  // 输入法的组合会话绑在那个元素上，换一次就断（见 kernel 第三道闸门）
+  if (searchInput) {
+    onFilterInput(searchInput, () => {
+      state.search = searchInput.value
+      render()
+      pane.querySelector<HTMLInputElement>('#qa-search')?.focus()
+    })
+  }
   pane.querySelector('.filters')?.addEventListener('click', (e) => {
     const chip = (e.target as HTMLElement).closest<HTMLElement>('.fchip')
     if (!chip) return
@@ -1289,6 +1298,9 @@ const wireDetail = (row: Row) => {
     setShipRosterNote(row.ship.id, rosterNote.value)
   })
   rosterNote?.addEventListener('keydown', (e) => {
+    // 组合中的回车是敲定候选那一下（实测它照样带 isComposing），
+    // 当成「填完了」把框失焦，玩家的词就被打断在半路
+    if (e.isComposing) return
     if (e.key === 'Enter') rosterNote.blur()
   })
 }
@@ -1467,8 +1479,9 @@ const initializeRosterView = () => {
       pane?.isConnected &&
       keys.some((k) => ['ships', 'slotitems', 'ndocks', 'decks', 'basic', 'master', 'sortie'].includes(k))
     ) {
-      // 用户正按在这块面板上就让到抬起之后（按下与抬起之间换掉 DOM，click 不会发生）
-      if (!deferWhilePressed(pane, 'qa', render)) render()
+      // 用户正按在这块面板上就让到抬起之后（按下与抬起之间换掉 DOM，click 不会发生）；
+      // 正在用输入法打字同理，让到组合结束——换掉 DOM 会把组合会话一起换没
+      if (!deferWhilePressed(pane, 'qa', render) && !deferWhileComposing(pane, 'qa', render)) render()
     }
   })
   // 行内的入渠倒计时（data-cd）原本永不刷新：qa 没有 onTick，而抬头状态条的

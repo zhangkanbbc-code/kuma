@@ -557,10 +557,12 @@ test('对战行的图跟着当前阶段的血走，敌我同一套判据', () =>
   // 判据里只许有血量：阵营与 id 段都不在这一层判——演习对手是玩家舰、有受损变体，
   // 出击时的深海由 kcs-image 的 resolveDamagedSuffix 统一抹回常态。
   // 在这儿再写一遍 `side === 0` 或 `mstId > 1500` 就是把同一条规则拆成两份。
+  // `unattackable` 那一项不是阵营判据：对潜空袭战里打不到的那一位根本没有 HP，
+  // view.hp/hpMax 是解析层兜出来的 0/1，按它算永远落在受损档。
   const body = /const browArtDamaged = \([^)]*\)[^=]*=>\s*\r?\n?\s*(.+)/.exec(di)?.[1]
   assert.equal(
     body?.trim(),
-    'shipArtDamaged(view.hp, view.hpMax)',
+    '!view.ship.unattackable && shipArtDamaged(view.hp, view.hpMax)',
     '受损档要对敌我一视同仁：抹回常态是取图那一层的事，di 不该自己再判阵营/id 段',
   )
 })

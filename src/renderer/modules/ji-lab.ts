@@ -20,6 +20,7 @@ import {
   hangarSlotCapacity,
   masterShipName,
   mg,
+  onFilterInput,
 } from '../kernel'
 import { elinkHtml } from '../link'
 import { entityNameHtml, entityNamePlain, localizationVersion } from '../localization'
@@ -715,7 +716,9 @@ const wire = () => {
   labHost.addEventListener('focusout', (event) => {
     if (suggestFieldOf(event.target)) scheduleSuggestClose()
   })
-  labHost.addEventListener('input', (event) => {
+  // 组合期间不重列候选：那时框里是半截拼音，照它过滤只会得到一片空。
+  // 组合结束后 onFilterInput 会补做一次，那时框里才是玩家真正要搜的词。
+  onFilterInput(labHost, (event) => {
     const field = suggestFieldOf(event.target)
     if (field) openSuggest(event.target as HTMLInputElement, field)
   })

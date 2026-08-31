@@ -15,8 +15,10 @@ import {
   masterShipName,
   mg,
   commitPaneHtml,
+  deferWhileComposing,
   deferWhilePressed,
   forgetCommittedHtml,
+  onFilterInput,
   onMgChange,
   onQpChange,
   onTick,
@@ -1586,13 +1588,17 @@ const render = () => {
   if (!commitPaneHtml(pane, 'bi', html)) return
 
   const input = pane.querySelector<HTMLInputElement>('#bi-search')
-  input?.addEventListener('input', () => {
-    state.search = input.value
-    state.resourceFocus = null
-    render()
-    // withViewStateKept 已恢复焦点与精确选区；只兜底焦点，不强拉光标到末尾
-    pane.querySelector<HTMLInputElement>('#bi-search')?.focus()
-  })
+  // 走 onFilterInput 而不是裸 input：重渲会把输入框元素整个换掉，
+  // 输入法的组合会话绑在那个元素上，换一次就断（见 kernel 第三道闸门）
+  if (input) {
+    onFilterInput(input, () => {
+      state.search = input.value
+      state.resourceFocus = null
+      render()
+      // withViewStateKept 已恢复焦点与精确选区；只兜底焦点，不强拉光标到末尾
+      pane.querySelector<HTMLInputElement>('#bi-search')?.focus()
+    })
+  }
 }
 
 /** 从资源目标直达对应时薪/奖励视图。只做只读筛选，不触碰游戏编成。 */
@@ -1808,8 +1814,9 @@ registerModule({
       }
       if (keys.some((k) => ['master', 'decks', 'ships', 'slotitems', 'ndocks', 'quests'].includes(k)) && pane.classList.contains('active')) {
         if (keys.includes('decks') || keys.includes('ships')) savePlannerPrefs()
-        // 用户正按在这块面板上就让到抬起之后（按下与抬起之间换掉 DOM，click 不会发生）
-        if (!deferWhilePressed(pane, 'bi', render)) render()
+        // 用户正按在这块面板上就让到抬起之后（按下与抬起之间换掉 DOM，click 不会发生）；
+        // 正在用输入法打字同理，让到组合结束——换掉 DOM 会把组合会话一起换没
+        if (!deferWhilePressed(pane, 'bi', render) && !deferWhileComposing(pane, 'bi', render)) render()
       }
     })
     onTick(() => {

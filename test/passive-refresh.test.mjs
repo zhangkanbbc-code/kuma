@@ -216,7 +216,9 @@ test('指针按下期间的被动重渲让到抬起之后（否则那一次 clic
   // 在 pointerup 里就换 DOM 那一次点击照样被吞（实测过，加这一拍才送达）
   assert.match(kernel, /if \(deferredRenders\.size\) setTimeout\(flushDeferredRenders, 0\)/)
   // 用上它的模块（镝与铃是未卜先知/通知，要实时，刻意不进这张表）
-  for (const mod of ['ji', 'qn', 'ru', 'zi', 'qa', 'bi', 'shi']) {
+  // equip-stock 2026-08-31 补进来：它的被动重渲（主数据到货）会把搜索框换掉，
+  // 与七个老模块同一条链，产品人拍板两道闸门一起接。
+  for (const mod of ['ji', 'qn', 'ru', 'zi', 'qa', 'bi', 'shi', 'equip-stock']) {
     assert.match(read(`renderer/modules/${mod}.ts`), /deferWhilePressed\(/, `${mod} 应当让出按下期间的被动重渲`)
   }
   for (const mod of ['di', 'lg']) {
@@ -226,4 +228,127 @@ test('指针按下期间的被动重渲让到抬起之后（否则那一次 clic
       `${mod} 是未卜先知/通知模块，实时优先，不进推迟名单`,
     )
   }
+})
+
+// ---- 2026-08-31：搜索框用不了微软输入法（玩家实报）----
+//
+// 「尝试输入时，输入法只会闪一下候选框然后直接输入字符了」。根子是输入即过滤：
+// input 事件里同步 render，整块面板 innerHTML 重建，输入框元素当场被换掉——
+// 而输入法的组合会话是**绑在元素上**的，元素一走组合立刻中止。
+// 隔离实例 + CDP（Input.imeSetComposition）复现到的事件流：
+//   compositionstart → compositionupdate(n) → input(isComposing) → 锚点已离开文档
+// withViewStateKept 救不了：它保的是 value/选区/焦点，换完再放回**新元素**上。
+
+test('输入法组合期间不换 DOM，组合结束再补做那次过滤', () => {
+  const kernel = read('renderer/kernel.ts')
+  assert.match(kernel, /export const deferWhileComposing = \(/)
+  assert.match(kernel, /export const onFilterInput = \(/)
+  assert.match(kernel, /export const isComposingIn = \(/)
+  // 只让出落在**这块面板里**的组合，别的面板照常更新
+  assert.match(kernel, /!!composingIn && root\.contains\(composingIn\)/)
+  // 登记走捕获阶段（模块自己的 handler 里 stopPropagation 也拦不住）
+  assert.match(kernel, /document\.addEventListener\('compositionstart',[\s\S]{0,120}?\}, true\)/)
+  assert.match(kernel, /document\.addEventListener\('compositionend', endComposition, true\)/)
+  // compositionend 收不到时的兜底：焦点离开正在组合的那个框也算结束，
+  // 否则面板会永久冻在旧状态（比原来的毛病更难查）
+  assert.match(kernel, /if \(event\.target === composingIn\) endComposition\(\)/)
+  // 元素被别的路径摘走时连 focusout 都不一定来（Chromium 移除聚焦元素不保证派发），
+  // 所以还要认「离开文档就算结束」——漏了这条，面板会永远排队且不报错
+  assert.match(kernel, /if \(composingIn && !composingIn\.isConnected\) endComposition\(\)/)
+  // **不封顶**：组合一定会结束，中途硬换 DOM 正是这里要防的那一下
+  assert.doesNotMatch(
+    kernel.slice(kernel.indexOf('let composingIn')),
+    /PRESS_DEFER_CAP/,
+    '组合闸门不该套用按下那道的封顶',
+  )
+})
+
+test('onFilterInput 不能只跳过组合中的 input，还必须补做一次', () => {
+  // 实测（Electron 43 + CDP 模拟微软拼音）敲定候选那一下的次序是
+  //   compositionupdate(你) → input[isComposing=true] → compositionend(你)
+  // 提交那一次的 input **仍然带 isComposing=true**，compositionend 排在它之后。
+  // 所以只写 `if (isComposing) return` 会把最后这次提交一起吞掉——
+  // 表现是框里打出了中文而列表纹丝不动，比原来的毛病更隐蔽。
+  const kernel = read('renderer/kernel.ts')
+  const helper = kernel.slice(kernel.indexOf('export const onFilterInput'))
+  const body = helper.slice(0, helper.indexOf('\n}'))
+  assert.match(body, /if \(\(event as InputEvent\)\.isComposing\) return/)
+  assert.match(body, /addEventListener\('compositionend', handle\)/, '跳过之后必须有人补做')
+})
+
+test('输入即过滤的搜索框一律走 onFilterInput，不留裸 input 监听', () => {
+  // 每一处都是「敲一下 → render() → innerHTML 重建 → 输入框换新」，同一条链
+  for (const [file, needles] of [
+    ['renderer/modules/qn.ts', [/onFilterInput\(searchInput,/]],
+    ['renderer/modules/qa.ts', [/onFilterInput\(searchInput,/]],
+    ['renderer/modules/bi.ts', [/onFilterInput\(input,/]],
+    ['renderer/modules/ru.ts', [/onFilterInput\(sandboxSearch,/]],
+    ['renderer/modules/equip-stock.ts', [/onFilterInput\(pane,/]],
+    ['renderer/quest-tree-window.ts', [/onFilterInput\(root,/]],
+    ['renderer/command-palette.ts', [/onFilterInput\(box,/]],
+    [
+      'renderer/modules/ji.ts',
+      [
+        /onFilterInput\(shipSearch,/,
+        /onFilterInput\(equipSearch,/,
+        /onFilterInput\(abyssSearch,/,
+        /onFilterInput\(itemSearch,/,
+        /onFilterInput\(input, \(\) => \{\s*\n\s*const key = input\.dataset\.catFind/,
+      ],
+    ],
+  ]) {
+    const source = read(file)
+    for (const needle of needles) assert.match(source, needle, `${file}：${needle}`)
+  }
+})
+
+test('被动重渲也要让开组合：游戏推一条报文不该把正在打的字打断', () => {
+  // 玩家打字那一秒里刚好收到一条报文，面板照样会 innerHTML 重建——
+  // 症状与主动那条一模一样，只是偶发，更难复现
+  for (const mod of ['ji', 'qn', 'ru', 'zi', 'qa', 'bi', 'shi', 'equip-stock']) {
+    assert.match(
+      read(`renderer/modules/${mod}.ts`),
+      /deferWhileComposing\(/,
+      `${mod} 的被动重渲应当让出输入法组合期`,
+    )
+  }
+  // 铃维持当年那条拍板排除（通知要实时）：它那两格是数字阈值且走 change，
+  // 主动路径本来就不经过组合；这里连同上面那条 deferWhilePressed 的排除一起钉住，
+  // 免得日后有人「顺手补齐」把拍过板的口径改掉。
+  assert.doesNotMatch(
+    read('renderer/modules/lg.ts'),
+    /deferWhileComposing\(/,
+    '铃的排除是拍过板的口径，要改得产品人再拍',
+  )
+})
+
+test('输入框上的回车/方向键要放过输入法那一下', () => {
+  // 敲定候选的回车、选字的 ↑↓、取消这一段的 Esc，keydown 都带 isComposing=true（实测）。
+  // 不放行的话：地址栏用中文搜东西打半个词就跳走、备注框敲一下候选就失焦、
+  // 速查面板第一次回车打开的是上一次的结果。
+  for (const [file, anchor] of [
+    ['renderer/browse-window.ts', 'address.addEventListener(\'keydown\''],
+    ['renderer/command-palette.ts', 'input?.addEventListener(\'keydown\''],
+    ['renderer/modules/ji-lab-suggest.ts', 'export const suggestKeydown'],
+    ['renderer/modules/zi.ts', 'input.addEventListener(\'keydown\''],
+  ]) {
+    const source = read(file)
+    const at = source.indexOf(anchor)
+    assert.ok(at > 0, `${file}: 找不到锚点 ${anchor}`)
+    // 守卫必须落在这个 handler 的**开头**（先于任何按键分支），不然照样被抢走
+    const head = source.slice(at, at + 600)
+    assert.match(head, /isComposing/, `${file}: ${anchor} 少了组合守卫`)
+    // 按键分支两种写法都有（`key === 'Enter'` 与 `key !== 'Enter'` 提前返回），都要认
+    const branchAt = head.search(/e(vent)?\.key\s*[!=]==/)
+    assert.ok(branchAt > 0, `${file}: ${anchor} 里没找到按键分支，锚点该复查了`)
+    assert.ok(
+      head.indexOf('isComposing') < branchAt,
+      `${file}: 组合守卫必须排在按键分支前面`,
+    )
+  }
+  // 图鉴的两个备注框（Enter=写完了）同样得让开
+  const catalog = read('renderer/modules/ji.ts')
+  assert.match(catalog, /if \(e\.isComposing\) return\s*\n\s*if \(e\.key === 'Enter' && \(e\.ctrlKey/)
+  assert.match(catalog, /if \(e\.isComposing\) return\s*\n\s*if \(e\.key === 'Enter'\) input\.blur\(\)/)
+  assert.match(read('renderer/modules/qa.ts'), /if \(e\.isComposing\) return\s*\n\s*if \(e\.key === 'Enter'\) rosterNote\.blur\(\)/)
 })

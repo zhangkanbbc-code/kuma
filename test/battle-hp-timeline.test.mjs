@@ -128,33 +128,49 @@ test('picking a stage nothing happened in shows the same HP with no fresh slice'
 })
 
 test('the ghost baseline is the day/night segment, not each internal stage', () => {
-  // 满血参战、昼战里航空+炮击分两口掉到 10——虚条必须是整个昼战段累计的 30，
-  // 不是「最后挨的那一小口」。曾把段锚在内部阶段上，玩家看不见这场掉了多少。
+  // 跟随最新时：满血参战、昼战里航空+炮击分两口掉到 10——虚条必须是整个昼战段累计的
+  // 30，不是「最后挨的那一小口」。曾把段锚在内部阶段上，玩家看不见这场掉了多少。
   const dayAir = { side: 1, stage: 1, action: 0, phase: 'air', hits: [hit(0, 10)] }
   const dayGun = { side: 1, stage: 3, action: 0, phase: 'gun1', hits: [hit(0, 20)] }
   const nightHit = { side: 1, stage: 6, action: 0, phase: 'night', hits: [hit(0, 5)] }
 
-  // 段的划分：昼战段从 stage 1 起，夜战段从 stage 6 起；跟随最新 = 最后一个段
-  assert.equal(segmentStartOf([dayAir, dayGun, nightHit], null), 6)
-  assert.equal(segmentStartOf([dayAir, dayGun, nightHit], 3), 1)
-  assert.equal(segmentStartOf([dayAir, dayGun, nightHit], 6), 6)
-  assert.equal(segmentStartOf([], null), 0)
+  // 段的划分：昼战段从 stage 1 起，夜战段从 stage 6 起；取的永远是最后一个段
+  assert.equal(segmentStartOf([dayAir, dayGun, nightHit]), 6)
+  assert.equal(segmentStartOf([dayAir, dayGun]), 1)
+  assert.equal(segmentStartOf([]), 0)
   // 与 shipHpTimeline 同口径：attacks 乱序也要划出同样的段，
   // 否则回放/合并夜战后夜战伤害会被并进昼战段的虚条
-  assert.equal(segmentStartOf([nightHit, dayGun, dayAir], null), 6)
-  assert.equal(segmentStartOf([nightHit, dayGun, dayAir], 3), 1)
+  assert.equal(segmentStartOf([nightHit, dayGun, dayAir]), 6)
 
   // 还没进夜战：跟随最新时虚条 = 昼战段累计（40→10 全画斜杠）
   const dayOnly = [dayAir, dayGun]
   const day = shipHpTimeline(dayOnly, ship({ hpEnd: 10 }), false, false)
-  assert.deepEqual(hpAtStage(day, null, segmentStartOf(dayOnly, null)), { hp: 10, before: 40 })
+  assert.deepEqual(hpAtStage(day, null, segmentStartOf(dayOnly)), { hp: 10, before: 40 })
 
   // 进了夜战：昼战掉的 30 归于空，虚条只剩夜战的 5
   const all = [dayAir, dayGun, nightHit]
   const full = shipHpTimeline(all, ship({ hpEnd: 5 }), false, false)
-  assert.deepEqual(hpAtStage(full, null, segmentStartOf(all, null)), { hp: 5, before: 10 })
-  // 锚回昼战炮击：虚条又是昼战段累计的 30
-  assert.deepEqual(hpAtStage(full, 3, segmentStartOf(all, 3)), { hp: 10, before: 40 })
+  assert.deepEqual(hpAtStage(full, null, segmentStartOf(all)), { hp: 5, before: 10 })
+})
+
+test('focusing one stage rebases the ghost onto that stage alone', () => {
+  // 玩家点住流水某一行：基准换成**那一阶段的开局血**，虚条只画这一阶段掉的那截。
+  // 昼战段累计的老口径下，点炮击那一行 before 会是 40（连航空战掉的 10 一起画进虚条），
+  // 「这一阶段打掉多少」还得自己减。
+  const dayAir = { side: 1, stage: 1, action: 0, phase: 'air', hits: [hit(0, 10)] }
+  const dayGun = { side: 1, stage: 3, action: 0, phase: 'gun1', hits: [hit(0, 20)] }
+  const nightHit = { side: 1, stage: 6, action: 0, phase: 'night', hits: [hit(0, 5)] }
+  const full = shipHpTimeline([dayAir, dayGun, nightHit], ship({ hpEnd: 5 }), false, false)
+
+  // 炮击那一阶段：开局 30（航空战之后）、本阶段掉 20、剩 10
+  assert.deepEqual(hpAtStage(full, 3, 3), { hp: 10, before: 30 })
+  // 第一个有伤的阶段：开局仍是 hpStart，暗段（更早掉的）为 0
+  assert.deepEqual(hpAtStage(full, 1, 1), { hp: 30, before: 40 })
+  // 这艘舰在这一阶段没挨打：虚条 0，之前掉的全归于空
+  assert.deepEqual(hpAtStage(full, 2, 2), { hp: 30, before: 30 })
+  // 夜战那一阶段：昼战掉的 30 归于空，虚条只有 5——与跟随最新时正好重合，
+  // 因为这个夜战段里只有这一个阶段
+  assert.deepEqual(hpAtStage(full, 6, 6), { hp: 5, before: 10 })
 })
 
 test('the bar always divides by hpMax, whichever stage is selected', () => {

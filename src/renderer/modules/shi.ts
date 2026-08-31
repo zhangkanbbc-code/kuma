@@ -19,6 +19,7 @@ import {
   jstHourOf,
   mg,
   commitPaneHtml,
+  deferWhileComposing,
   deferWhilePressed,
   forgetCommittedHtml,
   onMgChange,
@@ -1856,8 +1857,14 @@ registerModule({
         // 频繁变化，浮层根本没打开也全套跑一遍是纯浪费——不可见就攒脏标记，
         // 打开时（onShow）一次补上。（ji/qa/du 同款守卫，这里曾是唯一漏网）
         // 用户正按在这块面板上就让到抬起之后（按下与抬起之间换掉 DOM，click 不会发生）
+        // 正在用输入法打字也让路：换掉 DOM 会把组合会话一起换没
         if (pane.classList.contains('active')) {
-          if (!deferWhilePressed(pane, 'shi', scheduleRefresh)) scheduleRefresh()
+          if (
+            !deferWhilePressed(pane, 'shi', scheduleRefresh) &&
+            !deferWhileComposing(pane, 'shi', scheduleRefresh)
+          ) {
+            scheduleRefresh()
+          }
         } else refreshPending = true
       }
     })

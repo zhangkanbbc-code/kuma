@@ -15,8 +15,10 @@ import {
   lodeCreditMark,
   mg,
   onMgChange,
+  deferWhileComposing,
   deferWhilePressed,
   forgetCommittedHtml,
+  onFilterInput,
   onQpChange,
   onTick,
   openQuestTreeWindow,
@@ -2148,11 +2150,15 @@ const render = () => {
 
 const wire = () => {
   const searchInput = pane.querySelector<HTMLInputElement>('#qn-search')
-  searchInput?.addEventListener('input', () => {
-    state.search = searchInput.value
-    render()
-    pane.querySelector<HTMLInputElement>('#qn-search')?.focus()
-  })
+  // 走 onFilterInput 而不是裸 input：重渲会把输入框元素整个换掉，
+  // 输入法的组合会话绑在那个元素上，换一次就断（见 kernel 第三道闸门）
+  if (searchInput) {
+    onFilterInput(searchInput, () => {
+      state.search = searchInput.value
+      render()
+      pane.querySelector<HTMLInputElement>('#qn-search')?.focus()
+    })
+  }
   pane.querySelectorAll<HTMLElement>('[data-status]').forEach((chip) =>
     chip.addEventListener('click', () => {
       state.status = chip.dataset.status as typeof state.status
@@ -2662,8 +2668,9 @@ registerModule({
         keys.some((key) => ['quests', 'slotitems', 'mapGauges', 'useitems', 'materials'].includes(key)) &&
         pane.classList.contains('active')
       ) {
-        // 用户正按在这块面板上就让到抬起之后：按下与抬起之间换掉 DOM，click 不会发生
-        if (!deferWhilePressed(pane, 'qn', render)) render()
+        // 用户正按在这块面板上就让到抬起之后：按下与抬起之间换掉 DOM，click 不会发生。
+        // 正在用输入法打字同理，让到组合结束：换掉 DOM 会把组合会话一起换没。
+        if (!deferWhilePressed(pane, 'qn', render) && !deferWhileComposing(pane, 'qn', render)) render()
       }
     })
     let lastQuickFilterMinute = -1

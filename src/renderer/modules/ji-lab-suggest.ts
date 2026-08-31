@@ -219,6 +219,10 @@ export const suggestKeydown = (
   input: HTMLInputElement,
   next: SuggestField,
 ): boolean => {
+  // 输入法组合中的 ↑↓ / 回车 / Esc 是给候选字窗口的，不是给这层浮层的
+  // （实测：敲定候选那一下的 keydown 照样带 isComposing）。抢过来的话，
+  // 用中文敲装备名时第一次回车填进去的是浮层里高亮的那条，不是玩家选的字。
+  if (event.isComposing) return false
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
     event.preventDefault()
     // 收着的时候按 ↓ 就是「把候选叫出来」，与原生 datalist 的手感一致

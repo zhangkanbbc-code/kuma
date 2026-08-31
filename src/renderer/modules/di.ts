@@ -162,8 +162,19 @@ const rankOutcomeWord = (rank: string): string => {
   return '判定确定'
 }
 
+// 「只算我方损害率」的节点：我方全程不还手，敌全灭永远不成立，评级只看挨了多少。
+// **对潜空袭（subAirRaid）不在这里**：它有我方的先制对潜与炮击，敌方潜艇是真能沉的，
+// 胜负判定也照旧按击沉算——wikiwiki「戦闘について」写的是「勝敗判定は後方空母を除いた
+// 潜水艦を全滅させればS勝利」，账本那场也是 3 沉 3 → 游戏给 S。
 const isDamageOnlyBattle = (battle: BattleView): boolean =>
   battle.kind === 'airraid' || battle.kind === 'baseDefense' || battle.kind === 'radar'
+
+// 「这场走的是不是通常昼战那套流程」。对潜空袭除了战型名之外全跟 day 走——
+// wikiwiki「戦闘について」：「戦闘自体は通常戦と同様の順番で進行する」，
+// 它只是敌方多一条不可攻击的空母，先制对潜、炮击、追击夜战都照旧。
+// 按 kind 逐处写 `=== 'day'` 的话，下一次加档必定漏掉其中一处。
+const isDayFlowBattle = (battle: BattleView): boolean =>
+  battle.kind === 'day' || battle.kind === 'subAirRaid'
 
 const battleTypeLabel = (battle: BattleView): string => {
   if (battle.practice) return battle.hasNight ? '演习·夜战' : '演习'
@@ -172,7 +183,8 @@ const battleTypeLabel = (battle: BattleView): string => {
   if (battle.kind === 'baseDefense') return '基地防空'
   if (battle.kind === 'radar') return '长距离雷达射击'
   if (battle.kind === 'nightonly') return '开幕夜战'
-  if (battle.kind === 'nightday') return '夜战转昼'
+  if (battle.kind === 'nightday') return '拂晓战'
+  if (battle.kind === 'subAirRaid') return '对潜空袭战'
   return battle.hasNight ? '昼战转夜' : '通常战'
 }
 
@@ -224,15 +236,15 @@ const NODE_EVENT: Record<number, string> = {
 }
 // 战斗点（eventId 4/5）的细分战型 = api_event_kind。账本实测对照：kind 1 = 通常昼战
 // （6-5 B/F/I），5 = 敌联合舰队（接 ec_battle，仍是昼战流程），6 = 长距离空袭（接
-// ld_airbattle）；2 = 夜战点（进点即接 sp_midnight，全程夜战），3/7 = 夜战转昼，
+// ld_airbattle）；2 = 夜战点（进点即接 sp_midnight，全程夜战），3/7 = 拂晓战，
 // 4 = 双方航空战，8 = 长距离雷达射击（ld_shooting）。kind 1 不另起名。
 const NODE_BATTLE_KIND: Record<number, string> = {
   2: '夜战',
-  3: '夜战转昼',
+  3: '拂晓战',
   4: '航空战',
   5: '敌联合舰队',
   6: '长距离空袭',
-  7: '夜战转昼·敌联合',
+  7: '拂晓战·敌联合',
   8: '长距离雷达射击',
 }
 // 到点尚未开战时的战型名：光看 eventId 会把 6-5 J 这类夜战点写成「通常战」，
@@ -1160,7 +1172,7 @@ const blockedBossNightHtml = (s: SortieView, b: BattleView): string | null => {
     !atBoss ||
     !s.active ||
     b.practice ||
-    b.kind !== 'day' ||
+    !isDayFlowBattle(b) ||
     b.hasNight ||
     b.result
   ) {
@@ -1508,7 +1520,7 @@ const outcomeBannerHtml = (s: SortieView): string => {
   // 提示却还在说主力够不着。判别式是暂定式、有例外观测（见该文件头注 ③），
   // 所以除「护卫全灭」这条确定机制外一律只说「预计」。
   const nightHint = (() => {
-    if (b.hasNight || b.kind !== 'day' || !remain.length) return ''
+    if (b.hasNight || !isDayFlowBattle(b) || !remain.length) return ''
     const enemyCombined = b.eShips.some((ship) => ship.fleet === 'escort')
     if (!enemyCombined) {
       return ` · 进入夜战可继续追击（剩余敌舰合计 HP ${remain.reduce((acc, x) => acc + x.hpEnd, 0)}）`
@@ -1816,6 +1828,8 @@ interface ShipStageView {
   state: [string, string] | null
   /** 整场的来龙去脉，40→30→21 那串 */
   chain: string
+  /** 玩家点住了流水某一阶段：虚条画的是那一阶段掉的，不是本段累计（配色也跟着换） */
+  pinned: boolean
   /** 回放终点与结算 hpEnd 对不上：中间值不可全信，UI 要标 ≈ */
   mismatch: boolean
 }
@@ -1827,8 +1841,11 @@ const shipStageView = (
   timeline: ShipHpTimeline,
   stage: number | null,
 ): ShipStageView => {
-  // 虚条的基准是**昼/夜段**的段首血量：昼战里掉的全是虚条，进夜战才归于空
-  const { hp, before } = hpAtStage(timeline, stage, segmentStartOf(b.attacks, stage))
+  // 虚条的基准分两档：
+  // - 跟随最新：**昼/夜段**的段首血量，昼战里掉的全是虚条，进夜战才归于空
+  // - 点住了某一阶段：基准是**那一阶段的开局血**，虚条只画这一阶段掉的那截，更早的归空。
+  //   累计条要玩家自己心算「这阶段之前已经扣到哪」才能倒推本阶段输出，越靠后越难。
+  const { hp, before } = hpAtStage(timeline, stage, stage ?? segmentStartOf(b.attacks))
   // 「昼战即死的舰在其后所有阶段显示 0 并标沉」——反过来，选中它还活着的那一刻
   // 就不该提前给它划线。所以沉没也按当时的血量判，不拿整场结果一刀切。
   // 演习的「击破」是终局判定，锚点还得在最后一击之后：某舰中途恰好被打到 1 HP、
@@ -1856,6 +1873,7 @@ const shipStageView = (
     state,
     chain: steps.length ? [ship.hpStart, ...steps].join('→') : '',
     mismatch: timeline.mismatch,
+    pinned: stage != null,
   }
 }
 
@@ -1887,10 +1905,20 @@ const hpNumsHtml = (view: ShipStageView): string => {
  *
  * 三截**永远都在**，宽度可以是 0——切阶段时就地改 width 才有过渡可言，
  * 元素增删会让浏览器当成新节点，动画直接不跑。
+ *
+ * 点住某一阶段时条子多一个 `pinned`：虚条从红斜杠换成蓝斜杠，因为那一截的含义
+ * 也换了（本阶段掉的，不是本段累计）。就地拨条时这个类跟着第二拍一起翻，
+ * 见 applySelectedLogStage。
+ *
+ * 例外是打不到的那一位（unattackable）：它的 0/1 是解析层兜出来的假数，
+ * 照三截画会读成残血。游戏里这条舰本来就不显示血条，这里只留空轨。
  */
 const hpBarHtml = (view: ShipStageView): string => {
+  if (view.ship.unattackable) {
+    return '<span class="bar"><span class="dd" style="width:100%"></span></span><span class="nums"><span class="st9">打不到</span></span>'
+  }
   const { solidPct, ghostPct, emptyPct, ratio } = hpBarValues(view)
-  return `<span class="bar"><span class="rm ${hpClass(ratio)}" style="width:${solidPct}%"></span><span class="dl" style="width:${ghostPct}%"></span><span class="dd" style="width:${emptyPct}%"></span></span><span class="nums">${hpNumsHtml(view)}</span>`
+  return `<span class="bar${view.pinned ? ' pinned' : ''}"><span class="rm ${hpClass(ratio)}" style="width:${solidPct}%"></span><span class="dl" style="width:${ghostPct}%"></span><span class="dd" style="width:${emptyPct}%"></span></span><span class="nums">${hpNumsHtml(view)}</span>`
 }
 
 /**
@@ -1903,9 +1931,11 @@ const hpBarHtml = (view: ShipStageView): string => {
  * 由 kcs-image 的 resolveDamagedSuffix 统一抹回常态路径（本机学到的 262 条真实
  * `banner_dmg` 里一条深海都没有，poi 同样是在取图那一层抹）。
  * 别在这儿再手搓一遍「id > 1500 就不换」——那是把同一条规则写第二份。
+ *
+ * 打不到的那一位除外：它的 hp/hpMax 是假数，按 0/1 算永远落在受损档。
  */
 const browArtDamaged = (view: ShipStageView): boolean =>
-  shipArtDamaged(view.hp, view.hpMax)
+  !view.ship.unattackable && shipArtDamaged(view.hp, view.hpMax)
 
 const browHtml = (
   b: BattleView,
@@ -1922,7 +1952,7 @@ const browHtml = (
   const expandKey = battleShipExpandKey(side, ship)
   const expanded = expandedBattleShips.has(expandKey)
   return `<div class="bship${expanded ? ' open' : ''}">
-  <div class="brow${view.sunkVisual ? ' sunk' : ''}${ship.escaped ? ' escaped' : ''}" data-battle-side="${side}" data-battle-index="${ship.index}" role="button" aria-expanded="${expanded}"${ship.rosterId != null ? ` data-bship="${ship.rosterId}"` : ''}>
+  <div class="brow${view.sunkVisual ? ' sunk' : ''}${ship.escaped ? ' escaped' : ''}${ship.unattackable ? ' unattackable' : ''}" data-battle-side="${side}" data-battle-index="${ship.index}" role="button" aria-expanded="${expanded}"${ship.rosterId != null ? ` data-bship="${ship.rosterId}"` : ''}>
     <span class="nm">${shipThumbHtml(ship.mstId, ship.name, { className: 'battle', abyss: ship.mstId >= 1500, sunk: view.sunkVisual, damaged: browArtDamaged(view) })}${shipLink(ship)}${mark}<span class="bexp">${expanded ? '▴' : '▾'}</span></span>
     <span class="dmg${ship.damageDealt ? '' : ' zero'}">${dealtHtml(b, ship, enemySide)}</span>
     <span class="hpx">${hpBarHtml(view)}</span>
@@ -4733,10 +4763,15 @@ const applySelectedLogStage = (pane: HTMLElement) => {
     const bar = brow.querySelector<HTMLElement>('.hpx .bar')
     const nums = brow.querySelector<HTMLElement>('.hpx .nums')
     if (!ship || !timeline || !bar || !nums) continue
+    // 打不到的那一位没有条可拨：那一格是空轨 + 「打不到」，拨了反而会写回假的 0/1
+    if (ship.unattackable) continue
     const view = shipStageView(battle, ship, timeline, selectedLogStage)
     const { solidPct, ghostPct, emptyPct, ratio } = hpBarValues(view)
     animateHpBar(bar, { solidPct, ghostPct, emptyPct, solidClass: hpClass(ratio) }, () => {
       nums.innerHTML = hpNumsHtml(view)
+      // 虚条换色跟第二拍走：第一拍是把**上一个**基准的虚条扣干，那一截还属于旧含义，
+      // 提前变蓝会让「扣干」这一下看着像已经在讲新阶段了
+      bar.classList.toggle('pinned', view.pinned)
       brow.classList.toggle('sunk', view.sunkVisual)
       // 图跟着同一拍换：划线与破损标签都结算在这里，舰图停在上一阶段就自相矛盾了
       // （档位没变时 setShipThumbTier 自己空转，不会每拨一次都重取图）

@@ -29,9 +29,15 @@ const code = (rel) =>
 
 // ---- ① 主页与地址栏的判据 ----
 
-test('主页是 DMM 那一条，且它自己过得了地址栏的判据', () => {
-  assert.equal(BROWSE_HOME_URL, 'https://games.dmm.com/detail/kancolle')
+test('主页是 DMM 本站那一条，且它自己过得了地址栏的判据', () => {
+  assert.equal(BROWSE_HOME_URL, 'https://www.dmm.com/')
   assert.equal(normalizeBrowseInput(BROWSE_HOME_URL), BROWSE_HOME_URL)
+})
+
+test('主页不是舰C 详情页：那一页会把主窗正在玩的那一局挤下线', () => {
+  // 玩家实测（2026-08-30 换掉的就是它）：详情页会触发 DMM 的会话动作，
+  // 而同一个账号只留一处会话——按一下顶栏「新窗」，主窗那局当场掉线。
+  assert.ok(!BROWSE_HOME_URL.includes('detail/kancolle'), '主页改回了会踢掉游戏会话的详情页')
 })
 
 test('主页不是游戏本体那一条：本体在主窗跑着，浏览窗默认再开一份等于双开', () => {

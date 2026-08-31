@@ -46,8 +46,10 @@ import {
   escapedInSortie,
   isSunkInSortie,
   commitPaneHtml,
+  deferWhileComposing,
   deferWhilePressed,
   forgetCommittedHtml,
+  onFilterInput,
   onMgChange,
   onMourningChange,
   onQpChange,
@@ -383,12 +385,16 @@ const equipChips = (ship: PlayerShip) => {
   })
   // 补强增设（api_slot_ex：0 未开 / -1 开了没装 / >0 装备实例）：
   // 开了没装用小标记占位，装了照旧给装备图标
+  //
+  // 装了的那格描金边（exslot）：它和左边几个常规格图标混在一排、大小样式全一样，
+  // 不描就只能靠「排在最后」认，看走眼就把增设当成了常规格。金色呼应游戏内
+  // 补强格的金 ＋（未装备时的 eq-ex-mark 用的也是这个金）。
   if (ship.slotEx > 0) {
     const inst = mg.slotitems[ship.slotEx]
     const mst = inst ? mg.master.slotitems[inst.mstId] : undefined
     if (mst) {
       const name = entityNamePlain('equip', inst!.mstId, mst.name)
-      chips.push(equipPeekIconHtml(inst!.mstId, mst.iconId, `补强增设：${name}`))
+      chips.push(equipPeekIconHtml(inst!.mstId, mst.iconId, `补强增设：${name}`, { className: 'exslot' }))
     }
   } else if (ship.slotEx === -1) {
     chips.push(`<span class="eq-ex-mark" title="补强增设已开 · 未装备">＋</span>`)
@@ -2593,13 +2599,17 @@ const wireFleetPanel = (
   })
 
   const sandboxSearch = root.querySelector<HTMLInputElement>('#ru-sandbox-search')
-  sandboxSearch?.addEventListener('input', () => {
-    sandboxPick = sandboxSearch.value
-    rerender()
-    // withViewStateKept 已恢复焦点与**精确选区**；这里只兜底焦点，
-    // 不再强拉光标到末尾——那会把中途改字的光标位置踩掉（钦同款写法）
-    root.querySelector<HTMLInputElement>('#ru-sandbox-search')?.focus()
-  })
+  // 走 onFilterInput 而不是裸 input：重渲会把输入框元素整个换掉，
+  // 输入法的组合会话绑在那个元素上，换一次就断（见 kernel 第三道闸门）
+  if (sandboxSearch) {
+    onFilterInput(sandboxSearch, () => {
+      sandboxPick = sandboxSearch.value
+      rerender()
+      // withViewStateKept 已恢复焦点与**精确选区**；这里只兜底焦点，
+      // 不再强拉光标到末尾——那会把中途改字的光标位置踩掉（钦同款写法）
+      root.querySelector<HTMLInputElement>('#ru-sandbox-search')?.focus()
+    })
+  }
 
   root.querySelector('.ships')?.addEventListener('click', (e) => {
     // 点在 EntityLink 上 → 交给链路由（跳图鉴），不触发行展开
@@ -2870,8 +2880,10 @@ const scheduleRender = () => {
   requestAnimationFrame(() => {
     renderScheduled = false
     if (!pane?.classList.contains('active')) return
-    // 用户正按在这块面板上就让到抬起之后（按下与抬起之间换掉 DOM，click 不会发生）
+    // 用户正按在这块面板上就让到抬起之后（按下与抬起之间换掉 DOM，click 不会发生）；
+    // 正在用输入法打字同理，让到组合结束——换掉 DOM 会把组合会话一起换没
     if (deferWhilePressed(pane, 'ru', () => render())) return
+    if (deferWhileComposing(pane, 'ru', () => render())) return
     render()
   })
 }
