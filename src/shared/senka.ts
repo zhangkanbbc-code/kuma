@@ -8,6 +8,10 @@
 // 所以「通常戦果」不是推算，是换算；而 EO 与任务的「特別戦果」是固定分值表。
 // 两者性质不同，展示时必须分开——一个是算出来的，一个是查表来的。
 
+import { questPeriodStart } from './quest-period'
+
+import type { QuestPeriodKind } from './quest-period'
+
 /** 通常战果：每点提督经验折算多少战果。 */
 export const SENKA_PER_EXP = 7 / 10000
 
@@ -100,25 +104,30 @@ export const senkaCarryWindows = (at: number): SenkaCarryWindows => {
 }
 
 /**
- * 自检补记的资格（2026-08-17 用户纠正后的口径）：任务判成「已完成」只说明
- * **本期**交付过，而季任/年任的一期跨好几个月——「本期完成」定位不到
- * 「本战果月完成」。只有该任务的周期在本战果月里刚重置过，二者才必然重合：
- * - 月任及更短周期：每月都重置 → 永远可定位
- * - 季任：3 / 6 / 9 / 12 月（周期首月）才行
- * - 年任：只有它自己的重置月当月
- * 其余月份即便「已完成」也不列——那可能是本期更早月份交付的，靠实际校准兜底。
+ * 自检补记的资格（2026-08-17 立、2026-08-31 修）：任务判成「已完成」只说明
+ * **本期**交付过，而一期可能跨好几个月——「本期完成」定位不到「本战果月完成」，
+ * 只有该任务的当前周期是**在本战果月之内**才重置的，二者才必然重合。
+ *
+ * 判据就这一条：**当前周期的起点 ≥ 本战果月起点**（起点必然 ≤ 当前时刻，
+ * 所以它落在 [monthStart, at] 之间，本期的一切交付都只能发生在本战果月里）。
+ *
+ * 曾经按「本战果月的月份数是不是周期首月」判（季任看 3/6/9/12），
+ * 2026-08-31 被用户账本实锤打穿：战果月在月末 **22:00 JST** 就翻页，
+ * 任务却要到次月 1 日 **05:00 JST** 才重置——中间这 7 小时里月份数已经是 9，
+ * 季任却还挂着 6–8 月那一期的「已完成」，于是 8 月早已上缴的三个季任
+ * （Bq8/Bq11/Bq12，共 +710）被当成 9 月的差值补进了 9 月账。
+ * 月任 / 周任在同一个窗口里有同款隐患（旧判据对它们直接恒真），一并收进来。
+ *
+ * 年任重置月未知时 questPeriodStart 给 null → 一律不列：定位不到就不猜。
  */
-export const senkaQuestPeriodStartsInMonth = (
-  kind: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'annual',
+export const senkaQuestPeriodStartedInMonth = (
+  kind: QuestPeriodKind,
   monthStart: number,
+  at: number,
   annualMonth?: number | null,
 ): boolean => {
-  // 战果月的主体月份取自 senkaMonthLabel（「YYYY-MM」的后两位就是 1–12）——
-  // 「+9h +3d」的算术只留那一份，别在这里再抄一遍
-  const month = Number(senkaMonthLabel(monthStart).slice(5))
-  if (kind === 'daily' || kind === 'weekly' || kind === 'monthly') return true
-  if (kind === 'quarterly') return month === 3 || month === 6 || month === 9 || month === 12
-  return annualMonth != null && month === annualMonth
+  const periodStart = questPeriodStart(kind, at, annualMonth)
+  return periodStart != null && periodStart >= monthStart
 }
 
 export interface SenkaCarry {
@@ -131,6 +140,8 @@ export interface SenkaCarry {
 }
 
 export interface SenkaEntry {
+  /** senka_log 的行号。删手动补记行时按它定位 */
+  id: number
   ts: number
   kind: 'exp' | 'eo' | 'quest'
   /** kind='exp' 时的提督经验增量 */
@@ -138,6 +149,22 @@ export interface SenkaEntry {
   /** 该笔折算/查表得到的战果 */
   senka: number
   note: string
+  /** true = 玩家手动补记的一笔，不是报文观测。只有它可删（照 pay_log 的 manual 行） */
+  manual: boolean
+}
+
+/**
+ * 手动补记的候选：任务资料库里带固定战果的那几条。
+ * `taken` 说的是「本期已经有账了」——手动加与报文入账共用同一个去重窗口，
+ * 所以选单里能直接把会被挡掉的那几条标出来，玩家不必按下去才知道。
+ */
+export interface SenkaQuestOption {
+  id: number
+  code: string
+  name: string
+  senka: number
+  periodKind: QuestPeriodKind | null
+  taken: 'evidence' | 'manual' | null
 }
 
 /**

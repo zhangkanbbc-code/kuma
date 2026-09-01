@@ -102,7 +102,7 @@ const blockedAt = (mapArea) => {
   })
 }
 
-const NEW_LINE = '已开友军要請——友军清理敌护卫残余后，夜战就能与敌主力舰队交战'
+const NEW_LINE = '已开友军要請 · 友军先清残余'
 
 test('活动图 + 要請已开：副行改说友军，角标换成「友军先行」', () => {
   stageFriendlyRequest({ flag: 1, type: 0 })

@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>kuma · 人生记录</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg0: #0d1318;
+      --bg1: #151c23;
+      --bg2: #1c252e;
+      --bg3: #232f3a;
+      --line: #2a3742;
+      --line-soft: #22303c;
+      --text: #e8eef4;
+      --sub: #93a4b3;
+      --dim: #75899a;
+      --accent: #4db8ff;
+      --accent-dim: #2a6f9e;
+      --accent-ink: #bfe6ff;
+      --gold: #e8c66a;
+      --ok: #67c98a;
+      --warn: #e8a04c;
+      --bad: #e06c75;
+      --dock: #48a6c9;
+      --wedding: #ff8fd6;
+      --abyss-ink: #ff9fae;
+      --entity-map: #86d29b;
+      --scrollbar-track: #10171d;
+      --scrollbar-thumb: #334957;
+      --scrollbar-thumb-hover: #486476;
+      --scrollbar-thumb-active: #5c7b90;
+      --mono: 'Cascadia Code', 'Consolas', monospace;
+      --serif: 'Source Han Serif SC', 'Noto Serif CJK SC', 'Songti SC', serif;
+      font-family: 'Segoe UI', 'Microsoft YaHei UI', sans-serif;
+    }
+    * {
+      box-sizing: border-box;
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+    ::-webkit-scrollbar-thumb {
+      background: var(--scrollbar-thumb); border: 2px solid var(--scrollbar-track);
+      border-radius: 8px; background-clip: content-box;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+    ::-webkit-scrollbar-thumb:active { background: var(--scrollbar-thumb-active); }
+    ::-webkit-scrollbar-corner { background: var(--scrollbar-track); }
+    html, body {
+      width: 100%; height: 100%; margin: 0; overflow: hidden;
+      background: var(--bg0); color: var(--text);
+    }
+    button { font: inherit; cursor: pointer; }
+    #life-root, .life-app { width: 100%; height: 100%; }
+    .life-app { display: flex; flex-direction: column; min-width: 0; }
+
+    /* ---- 头部：立绘 + 名字 + 一生的坐标（入籍 / 誓约 / 在籍多久） ---- */
+    .hero {
+      flex: none; position: relative; display: flex; gap: 16px; align-items: stretch;
+      padding: 14px 18px; border-bottom: 1px solid var(--line);
+      background:
+        radial-gradient(120% 160% at 8% 0%, #1b2937 0%, transparent 62%),
+        linear-gradient(180deg, var(--bg2), var(--bg1));
+      overflow: hidden;
+    }
+    .hero.vowed::after {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(80% 120% at 100% 0%, color-mix(in srgb, var(--wedding) 13%, transparent), transparent 60%);
+    }
+    .hero-art {
+      flex: none; width: 152px; height: 208px; position: relative;
+      display: grid; place-items: center; overflow: hidden;
+      border: 1px solid var(--line); border-radius: 8px; background: var(--bg0);
+    }
+    .hero-art img { max-width: 100%; max-height: 100%; display: block; }
+    .hero-art .art-fallback { color: var(--dim); font: 34px var(--serif); }
+    .hero-copy { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 7px; }
+    .hero-name {
+      display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px;
+      font-family: var(--serif);
+    }
+    .hero-name b { font-size: 25px; font-weight: 600; letter-spacing: 1px; line-height: 1.2; }
+    .hero-name .yomi { color: var(--dim); font-size: 11px; letter-spacing: .5px; }
+    .hero-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pill {
+      display: inline-flex; align-items: baseline; gap: 5px; padding: 2px 9px;
+      border: 1px solid var(--line); border-radius: 11px;
+      background: var(--bg0); color: var(--dim); font-size: 9.5px;
+    }
+    .pill b { color: var(--text); font: 600 12px var(--mono); }
+    .pill.lv b { color: var(--gold); }
+    .pill.vow { border-color: color-mix(in srgb, var(--wedding) 50%, var(--line)); color: var(--wedding); }
+    .pill.vow b { color: var(--wedding); }
+    .hero-line { color: var(--sub); font-size: 10.5px; line-height: 1.6; overflow-wrap: anywhere; }
+    .hero-line .where { color: var(--entity-map); }
+    .hero-line.quiet { color: var(--dim); }
+
+    /* ---- KPI 带：贴在头部右栏的下缘，和立绘卡的底边齐平 ---- */
+    .kpis {
+      margin-top: auto; display: grid; gap: 6px;
+      grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+    }
+    .kpi {
+      display: flex; flex-direction: column; gap: 1px; padding: 5px 8px;
+      border: 1px solid var(--line-soft); border-radius: 6px; background: var(--bg0);
+    }
+    .kpi small { color: var(--dim); font-size: 8.5px; white-space: nowrap; }
+    .kpi b { color: var(--text); font: 600 13px var(--mono); }
+    .kpi.partial { border-style: dashed; }
+    .kpi.partial small { color: var(--warn); }
+
+    /* ---- 两栏：击杀簿 / 履历 ---- */
+    main {
+      flex: 1; min-height: 0; display: grid; gap: 0;
+      grid-template-columns: minmax(0, 42fr) minmax(0, 58fr);
+    }
+    .col { min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .col + .col { border-left: 1px solid var(--line); }
+    .col-h {
+      flex: none; display: flex; align-items: center; gap: 7px;
+      padding: 9px 16px 8px; border-bottom: 1px solid var(--line-soft);
+    }
+    .col-h::before {
+      content: ''; width: 3px; height: 12px; border-radius: 2px; flex: none;
+      background: var(--accent-dim);
+    }
+    .col.kills .col-h::before { background: var(--gold); }
+    .col-h b { color: var(--text); font-size: 12px; font-weight: 600; }
+    .col-h .cnt { color: var(--dim); font: 9px var(--mono); }
+    .col-h .r { margin-left: auto; color: var(--dim); font-size: 9px; }
+    .col-body { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 16px 22px; }
+
+    /* 击杀簿：一行一头敌旗舰（图 / 名 / ×次数 / 最近一次），点开是逐场 */
+    .kill-group {
+      margin-bottom: 6px; overflow: hidden;
+      border: 1px solid var(--line-soft); border-left: 2px solid var(--gold);
+      border-radius: 6px; background: var(--bg1);
+    }
+    .kill-group:hover { border-color: var(--accent-dim); border-left-color: var(--gold); }
+    .kill-h {
+      width: 100%; display: grid; gap: 3px 9px; text-align: left; align-items: center;
+      grid-template-columns: auto minmax(0, 1fr) auto auto 8px;
+      padding: 8px 10px; border: 0; background: transparent; color: var(--sub);
+    }
+    .kill-h:hover { background: var(--bg2); }
+    .kill-h .boss {
+      min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      color: var(--abyss-ink); font-size: 12px; font-weight: 600;
+    }
+    .kill-h .n { color: var(--gold); font: 600 11px var(--mono); }
+    .kill-h time { color: var(--dim); font: 8.5px var(--mono); white-space: nowrap; }
+    /* 三角用边框画，不占字形——屏外/无字体环境也不会掉成豆腐块，且不加过渡 */
+    .kill-h .caret {
+      justify-self: end; width: 0; height: 0;
+      border: 4px solid transparent; border-left-color: var(--dim);
+    }
+    .kill-group.open .kill-h .caret { transform: rotate(90deg); }
+    .kill-thumb {
+      flex: none; width: 46px; height: 15px; overflow: hidden; border-radius: 2px;
+      background: #2a1a20;
+    }
+    .kill-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .kill-thumb .art-fallback { display: block; }
+
+    /* 摊开后的逐场：日期 / 海域点位 / 评级，一条一场，点了跳主窗复盘 */
+    .kill-list { display: none; padding: 4px 0 5px; border-top: 1px solid var(--line-soft); }
+    .kill-group.open .kill-list { display: block; }
+    .kill-battle {
+      width: 100%; display: grid; gap: 9px; text-align: left; align-items: center;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      padding: 4px 10px 4px 22px; border: 0; background: transparent; color: var(--sub);
+    }
+    .kill-battle.jump:hover { background: var(--bg2); }
+    .kill-battle time { color: var(--dim); font: 8.5px var(--mono); white-space: nowrap; }
+    .kill-battle .where {
+      min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      color: var(--entity-map); font-size: 10px;
+    }
+    .kill-battle .rank {
+      justify-self: end; padding: 0 6px; border-radius: 8px; background: var(--bg3);
+      color: var(--gold); font: 9px var(--mono); line-height: 15px;
+    }
+    .kill-battle[disabled] { opacity: .62; cursor: default; }
+
+    /* 履历时间轴：与主界面的人生记录卡同一套点色与排版 */
+    .life-timeline { position: relative; padding-left: 12px; }
+    .life-timeline::before {
+      content: ''; position: absolute; left: 3px; top: 4px; bottom: 4px; width: 1px;
+      background: var(--line);
+    }
+    .life-event {
+      position: relative; display: grid; grid-template-columns: 9px minmax(0, 1fr) auto;
+      align-items: start; gap: 7px; padding: 4px 0;
+    }
+    .life-dot {
+      width: 6px; height: 6px; margin-top: 4px; border-radius: 50%;
+      background: var(--dim); flex: none;
+    }
+    .life-event.join .life-dot { background: var(--ok); }
+    .life-event.exp .life-dot { background: var(--accent); }
+    .life-event.equipment .life-dot { background: var(--ok); }
+    .life-event.remodel .life-dot { background: var(--gold); }
+    .life-event.sortie .life-dot, .life-event.battle .life-dot { background: var(--dock); }
+    .life-event.mvp .life-dot { background: var(--gold); box-shadow: 0 0 5px color-mix(in srgb, var(--gold) 55%, transparent); }
+    .life-event.scrap .life-dot, .life-event.material .life-dot { background: var(--dim); }
+    .life-event.sunk .life-dot { background: var(--bad); box-shadow: 0 0 5px color-mix(in srgb, var(--bad) 55%, transparent); }
+    .life-event.marriage .life-dot { background: var(--wedding); box-shadow: 0 0 5px color-mix(in srgb, var(--wedding) 55%, transparent); }
+    .life-copy { min-width: 0; display: flex; flex-direction: column; }
+    .life-copy b { color: var(--sub); font-size: 10.5px; font-weight: 600; }
+    .life-copy span { color: var(--dim); font-size: 9px; line-height: 1.4; overflow-wrap: anywhere; }
+    .life-event time { color: var(--dim); font: 8px var(--mono); white-space: nowrap; }
+    /* 履历里可点开复盘的那一场（跨窗通知主窗打开） */
+    .replay-jump {
+      border: 0; padding: 0; background: transparent; color: var(--accent-ink);
+      font: inherit; font-weight: 600; text-align: left;
+      border-bottom: 1px dotted currentColor;
+    }
+    .replay-jump:hover { color: var(--accent); }
+
+    .empty { padding: 26px 4px; color: var(--dim); font-size: 10.5px; line-height: 1.7; }
+    .loading, .fatal {
+      height: 100%; display: grid; place-items: center; padding: 40px;
+      color: var(--dim); font-size: 11.5px; line-height: 1.8; text-align: center;
+    }
+    footer {
+      flex: none; display: flex; align-items: center; gap: 10px;
+      min-height: 25px; padding: 5px 16px;
+      border-top: 1px solid var(--line-soft); background: var(--bg1);
+      color: var(--dim); font-size: 8.5px;
+    }
+    footer .sp { margin-left: auto; }
+    @media (max-width: 880px) {
+      main { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; overflow-y: auto; }
+      .col + .col { border-left: 0; border-top: 1px solid var(--line); }
+      .col-body { overflow-y: visible; }
+    }
+  </style>
+</head>
+<body>
+  <div id="life-root"><div class="loading">正在读取本地记录……</div></div>
+  <script src="./ship-life.js"></script>
+</body>
+</html>

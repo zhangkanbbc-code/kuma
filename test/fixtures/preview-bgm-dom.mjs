@@ -100,15 +100,50 @@ class FakeElement {
   constructor(tag) {
     this.tag = tag
     this.children = []
+    this.parent = null
     this.classes = new Set()
     this.attrs = {}
     this.textContent = ''
     this.listeners = new Map()
+    // 行内样式：挪窝那一段写的就是这四个键，断言直接读它
+    this.style = {}
+    /**
+     * 量出来的位置与尺寸。**故意不跟着 style 走**——生产代码写下 left/top 之后，
+     * 这里若自动跟着变，测的就成了「假 DOM 会不会自己动」。断言一律读 style，
+     * rect 只当作「布局此刻是什么样」的输入，由用例自己摆。
+     */
+    this.rect = { left: 0, top: 0, width: 0, height: 0 }
+    /** 拿到指针捕获的那些 pointerId。松手不放就是「条子粘在手上」，这一条要验得出来 */
+    this.captured = new Set()
     this.classList = {
       add: (name) => this.classes.add(name),
       remove: (name) => this.classes.delete(name),
       contains: (name) => this.classes.has(name),
     }
+  }
+
+  getBoundingClientRect() {
+    const { left, top, width, height } = this.rect
+    return { left, top, width, height, right: left + width, bottom: top + height, x: left, y: top }
+  }
+
+  /** 只够 `'button, input'` 这类纯标签名选择器用——挪窝那段让开控件靠的就是它 */
+  closest(selector) {
+    const tags = selector.split(',').map((part) => part.trim())
+    for (let node = this; node; node = node.parent) if (tags.includes(node.tag)) return node
+    return null
+  }
+
+  setPointerCapture(id) {
+    this.captured.add(id)
+  }
+
+  hasPointerCapture(id) {
+    return this.captured.has(id)
+  }
+
+  releasePointerCapture(id) {
+    this.captured.delete(id)
   }
 
   get className() {
@@ -130,6 +165,7 @@ class FakeElement {
 
   appendChild(child) {
     this.children.push(child)
+    child.parent = this
     return child
   }
 
@@ -141,8 +177,15 @@ class FakeElement {
     this.listeners.set(type, (this.listeners.get(type) ?? []).filter((fn) => fn !== handler))
   }
 
-  fire(type) {
-    for (const handler of [...(this.listeners.get(type) ?? [])]) handler({ type, target: this })
+  /**
+   * 派发一枚事件。`extra` 补上这一枚特有的那几样（指针事件的 pointerId/clientX/button…），
+   * `target` 默认是自己——指针捕获之后 move/up 落回宿主节点，但 target 仍是按下时那一个，
+   * 用例要能照着摆。
+   */
+  fire(type, extra = {}) {
+    const event = { type, target: this, preventDefault: () => {}, ...extra }
+    for (const handler of [...(this.listeners.get(type) ?? [])]) handler(event)
+    return event
   }
 }
 
@@ -268,6 +311,17 @@ export const mountBgmPreview = () => {
   const doc = makeDocument()
   const audios = []
   const sends = []
+  // 一副够用的假 window：挪窝那一段拿它夹视口、也靠它在窗口变大小时重夹一次
+  const resizeHandlers = []
+  const win = {
+    innerWidth: 1280,
+    innerHeight: 800,
+    addEventListener: (type, handler) => {
+      if (type === 'resize') resizeHandlers.push(handler)
+    },
+    removeEventListener: () => {},
+  }
+  globalThis.window = win
   globalThis.document = doc
   globalThis.Audio = class extends FakeAudio {
     constructor() {
@@ -342,6 +396,36 @@ export const mountBgmPreview = () => {
     },
     /** 点条子上的播放/暂停钮 */
     clickToggle: () => parts().toggle.fire('click'),
+
+    // ---- 挪窝：位置写在行内样式上，断言读的就是它写下的那四个键 ----
+    /** 摆一次布局：条子此刻量出来在哪、多大。不摆的话尺寸是 0，夹取那一段会自行让开 */
+    layoutBar: (box) => Object.assign(parts().host.rect, box),
+    /** 条子行内样式此刻是什么。默认位时四个键都该是空串 */
+    barStyle: () => ({ ...parts().host.style }),
+    /** 拖拽期的那层挡板在不在（游戏区会吃掉鼠标事件，靠它挡住） */
+    barDragging: () => parts().host.classes.has('pb-dragging'),
+    /** 还攥着哪些指针。松手后不清空就是「条子粘在手上」 */
+    barCaptured: () => [...parts().host.captured],
+    /**
+     * 按下。`on` 给 'toggle' / 'seek' 就是按在控件上——那一下不该被拖拽劫持。
+     * 事件挂在宿主节点上，所以一律从宿主派发，只把 target 换掉（真 DOM 的冒泡同理）。
+     */
+    pressBar: (x, y, on) => {
+      const found = parts()
+      const target = on ? found[on] : found.host
+      return found.host.fire('pointerdown', { target, pointerId: 7, button: 0, clientX: x, clientY: y })
+    },
+    moveBar: (x, y) =>
+      parts().host.fire('pointermove', { pointerId: 7, clientX: x, clientY: y }),
+    dropBar: () => parts().host.fire('pointerup', { pointerId: 7 }),
+    /** 指针被系统收走（切窗口、手势接管） */
+    cancelBar: () => parts().host.fire('pointercancel', { pointerId: 7 }),
+    /** 窗口变大小 / 换了一块屏 / 界面缩放系数变了 */
+    resizeViewport: (width, height) => {
+      win.innerWidth = width
+      win.innerHeight = height
+      for (const handler of [...resizeHandlers]) handler({ type: 'resize' })
+    },
     /** 手按在滑条上拖到某一秒（还没松手） */
     dragTo: (seconds) => {
       const seek = parts().seek

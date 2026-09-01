@@ -405,6 +405,170 @@ test('语音那边开口时条子跟着换人：它只认总机，不认识任�
   assert.equal(ui.bar().shown, false)
 })
 
+// ------------------------------------------------------- B'. 迷你条挪窝（可拖拽）
+//
+// 判断同样全是分支：「按的是控件还是空白」「夹不夹得回视口」「藏起来这段时间视口变了没」。
+// 写反了源码文本照样匹配得上，所以这一节也对着真跑起来的 preview-bar 下断言——
+// 读的是它自己写进行内样式的那四个键。
+//
+// 视口 1280×800（假 window 的默认值），条子摆成 180×30、留边 8：
+// 落点因此夹在 x∈[8, 1092]、y∈[8, 762]。
+
+/** 播上一首、把条子的量测尺寸摆好。落点是行内样式，与这里摆的 rect 互不相干。 */
+const mountBarPlaced = async () => {
+  const ui = mountBgmPreview()
+  ui.click(ui.entry(SONG, '曲101'))
+  await tick()
+  ui.layoutBar({ left: 1090, top: 758, width: 180, height: 30 })
+  return ui
+}
+
+test('按住空白处把条子拖走：写 left/top，右下角那两个锚点让开', async () => {
+  const ui = await mountBarPlaced()
+  assert.deepEqual(ui.barStyle(), {}, '没拖过就不该有行内落点，默认位归样式表管')
+
+  // 按在条子内 (10, 2) 处
+  ui.pressBar(1100, 760)
+  assert.deepEqual(ui.barCaptured(), [7], '没捏住指针：手一快滑出条子，拖拽就断在半路')
+  assert.equal(ui.barDragging(), false, '按下不动就铺挡板，纯点击会被它吃掉')
+
+  ui.moveBar(400, 300)
+  assert.deepEqual(
+    ui.barStyle(),
+    { left: '390px', top: '298px', right: 'auto', bottom: 'auto' },
+    'right/bottom 不撤成 auto，行内 left/top 与样式表的锚点会打架',
+  )
+  assert.equal(ui.barDragging(), true, '真动了才铺挡板——不铺就会被游戏区吃掉 pointermove')
+
+  ui.dropBar()
+  assert.deepEqual(ui.barCaptured(), [], '松手了还攥着指针，条子就粘在手上')
+  assert.equal(ui.barDragging(), false, '挡板没撤，整块屏幕从此点不动')
+  assert.deepEqual(ui.barStyle(), { left: '390px', top: '298px', right: 'auto', bottom: 'auto' })
+})
+
+test('拖拽期间声音一声不断：条子只写自己的坐标，碰都不碰 Audio', async () => {
+  const ui = await mountBarPlaced()
+  ui.audio().loadMetadata(200)
+  ui.audio().advance(30)
+
+  ui.pressBar(1100, 760)
+  ui.moveBar(700, 500)
+  ui.audio().advance(31) // 手还按着，声音照走
+  ui.moveBar(400, 300)
+  ui.audio().advance(32)
+  ui.dropBar()
+
+  assert.equal(ui.audio().paused, false, '拖一下把曲子拖停了')
+  assert.equal(ui.audio().playCalls, 1, '拖拽期间重放了一次——那是从头开始')
+  assert.deepEqual(ui.audio().srcWrites, [SONG], '拖拽期间重设了 src，进度会归零')
+  assert.equal(ui.audio().currentTime, 32, '进度断了')
+  assert.equal(ui.bar().time, '0:32 / 3:20', '拖完之后时间格没跟上')
+  assert.deepEqual(ui.activeSends(), [true], '拖拽期间往主进程多报了一次「不响了」')
+})
+
+test('拖出视口一律夹回来：四个方向都留得住', async () => {
+  const ui = await mountBarPlaced()
+  ui.pressBar(1100, 760) // 按在条子内 (10, 2)
+
+  ui.moveBar(-5000, -5000)
+  assert.deepEqual(
+    ui.barStyle(),
+    { left: '8px', top: '8px', right: 'auto', bottom: 'auto' },
+    '往左上拖过头，条子跑出屏外就再也捏不回来了',
+  )
+
+  ui.moveBar(9999, 9999)
+  assert.deepEqual(
+    ui.barStyle(),
+    { left: '1092px', top: '762px', right: 'auto', bottom: 'auto' },
+    '往右下拖过头没夹住',
+  )
+  ui.dropBar()
+})
+
+test('按在播放/暂停钮与滑条上不算拖：控件照常管自己的事', async () => {
+  const ui = await mountBarPlaced()
+
+  ui.pressBar(1100, 760, 'toggle')
+  ui.moveBar(400, 300)
+  assert.deepEqual(ui.barStyle(), {}, '按在播放钮上却把整条拖走了——那一下点不成暂停')
+  assert.deepEqual(ui.barCaptured(), [], '钮上的按下不该捏走指针')
+  assert.equal(ui.barDragging(), false)
+
+  ui.pressBar(1100, 760, 'seek')
+  ui.moveBar(400, 300)
+  assert.deepEqual(ui.barStyle(), {}, '按在滑条上却把整条拖走了——刻度就拖不动了')
+  assert.deepEqual(ui.barCaptured(), [])
+
+  // 钮本身仍旧管用
+  ui.clickToggle()
+  await tick()
+  assert.equal(ui.bar().toggle, '▶')
+  assert.equal(ui.audio().paused, true, '让开拖拽之后钮反而点不动了')
+})
+
+test('指针被系统收走（切窗口、手势接管）：与松手同样收摊', async () => {
+  const ui = await mountBarPlaced()
+  ui.pressBar(1100, 760)
+  ui.moveBar(400, 300)
+  ui.cancelBar()
+  assert.deepEqual(ui.barCaptured(), [], '指针被收走了还攥着不放')
+  assert.equal(ui.barDragging(), false, '挡板留在那儿，整块屏幕点不动')
+})
+
+test('拖走之后 Toast 不再让位；条子退场再回来还在拖走的地方', async () => {
+  const ui = await mountBarPlaced()
+  assert.equal(ui.bar().bodyLifted, true, '默认位就在右下角，Toast 该让')
+
+  ui.pressBar(1100, 760)
+  ui.moveBar(400, 300)
+  ui.dropBar()
+  assert.equal(ui.bar().bodyLifted, false, '条子已经不在右下角了，Toast 还空着那一块')
+
+  // 这一首播完：条子退场，但落点**不清**——同一次运行里下一首还该在那儿
+  ui.audio().finish()
+  assert.equal(ui.bar().shown, false)
+  ui.click(ui.entry(OTHER, '曲102'))
+  await tick()
+  assert.equal(ui.bar().shown, true)
+  assert.deepEqual(
+    ui.barStyle(),
+    { left: '390px', top: '298px', right: 'auto', bottom: 'auto' },
+    '换一首就弹回右下角，等于每首都要重拖一次',
+  )
+  assert.equal(ui.bar().bodyLifted, false)
+})
+
+test('窗口变小 / 换一块屏：落点重新夹回视口内', async () => {
+  const ui = await mountBarPlaced()
+  ui.pressBar(1100, 760)
+  ui.moveBar(9999, 9999) // 贴到右下角能到的极限
+  ui.dropBar()
+  assert.deepEqual(ui.barStyle(), { left: '1092px', top: '762px', right: 'auto', bottom: 'auto' })
+
+  ui.resizeViewport(900, 500)
+  assert.deepEqual(
+    ui.barStyle(),
+    { left: '712px', top: '462px', right: 'auto', bottom: 'auto' },
+    '窗口缩小之后落点没重夹，条子半截在屏外',
+  )
+})
+
+test('视口小到装不下条子：整个撤回默认位，别留一枚拖不回来的', async () => {
+  const ui = await mountBarPlaced()
+  ui.pressBar(1100, 760)
+  ui.moveBar(400, 300)
+  ui.dropBar()
+
+  ui.resizeViewport(120, 60) // 比 180×30 的条子还窄
+  assert.deepEqual(
+    ui.barStyle(),
+    { left: '', top: '', right: '', bottom: '' },
+    '夹不下去就该把四个键一起清掉，把位置交还给样式表',
+  )
+  assert.equal(ui.bar().bodyLifted, true, '回到默认位了，Toast 该重新让位')
+})
+
 // ---------------------------------------------------------------- C. 游戏页那一端
 
 test('游戏页的试听系数：只有明确说「在试听」才压，其余一律恢复', () => {

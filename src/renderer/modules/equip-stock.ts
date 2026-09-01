@@ -716,7 +716,7 @@ const renderFurniture = () => {
   if (!furnitureMst.length) {
     body = '<div class="es-empty">等待游戏数据 · 登录一次即可</div>'
   } else if (!scopeAll && !ownedKnown) {
-    body = '<div class="es-empty">还没同步过家具持有清单，登录游戏一次就有</div>'
+    body = '<div class="es-empty">等待家具持有清单 · 登录一次即可</div>'
   } else {
     body = FURNITURE_TYPE_LABELS.map(([label, jp], type) => {
       const all = furnitureMst.filter((f) => f.type === type)
@@ -737,7 +737,7 @@ const renderFurniture = () => {
         .join('')
       return `<div class="fst-group">
         <div class="fst-head" title="${esc(jp)}">${label}<i>持有 ${ownedKnown ? mine.length : '?'} / ${all.length}</i></div>
-        ${rows || '<div class="fst-none">这一类还没有持有的。</div>'}
+        ${rows || '<div class="fst-none">这一类暂无持有</div>'}
       </div>`
     }).join('')
   }

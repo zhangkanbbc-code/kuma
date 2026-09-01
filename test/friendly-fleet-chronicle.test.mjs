@@ -293,26 +293,26 @@ test('两层都有内容时并列显示，谁也不顶替谁', () => {
   assert.ok(html.includes('友军编成资料'), '随包资料层也要在')
   assert.ok(html.includes('op-friend seen'), '实测行')
   assert.ok(/<div class="op-friend">/.test(html), '资料行')
-  assert.ok(!html.includes('这个难度还没有友军编成资料'), '有内容就不许出空态')
+  assert.ok(!html.includes('这个难度暂无友军编成资料'), '有内容就不许出空态')
 })
 
 test('只有本地实测时：显示实测，不拿「还没有资料」盖掉它', () => {
   const html = renderFriendlySection([seenRecord()], [])
   assert.ok(html.includes('你遇到的友军'))
   assert.ok(!html.includes('友军编成资料'), '资料层空就整层不出现')
-  assert.ok(!html.includes('这个难度还没有友军编成资料'))
+  assert.ok(!html.includes('这个难度暂无友军编成资料'))
 })
 
 test('只有随包资料时维持原样', () => {
   const html = renderFriendlySection([], [packFleet])
   assert.ok(html.includes('友军编成资料'))
   assert.ok(!html.includes('你遇到的友军'))
-  assert.ok(!html.includes('这个难度还没有友军编成资料'))
+  assert.ok(!html.includes('这个难度暂无友军编成资料'))
 })
 
 test('两层都空才显示空态', () => {
   const html = renderFriendlySection([], [])
-  assert.ok(html.includes('这个难度还没有友军编成资料'))
+  assert.ok(html.includes('这个难度暂无友军编成资料'))
   // 比的是**层标**在不在：空态那句话里也含「友军编成资料」四个字，
   // 光搜字串会被它自己骗过去
   assert.ok(!html.includes('<div class="op-sub">'), '两层都空时一个层标也不摆')

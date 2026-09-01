@@ -114,7 +114,21 @@ let gameHost: string | null = null
 export const setVoiceHost = (host: string | null) => {
   gameHost = host && /^[\w.-]+$/.test(host) ? host : null
 }
-let allowRemote = true
+/**
+ * 与立绘同一个开关（`kanso.remoteArt`），初值同样自己去读配置、不写死 true——
+ * 理由与判据逐字同 kcs-image 里那一段：钥装配得晚（order 8.8），写死默认开的话，
+ * 关着开关的玩家在装配之前那几秒仍会放行远端取音。这里也走同步通道，拿到的是真值。
+ */
+const configuredAllowRemoteVoice = (): boolean => {
+  try {
+    return remote.require('./config').get('kanso.remoteArt', true) !== false
+  } catch (error) {
+    console.warn('[kanso] 远端取音开关读取失败，按默认（开）继续', error)
+    return true
+  }
+}
+
+let allowRemote = configuredAllowRemoteVoice()
 export const setAllowRemoteVoice = (v: boolean) => {
   allowRemote = v
 }

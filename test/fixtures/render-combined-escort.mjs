@@ -55,11 +55,13 @@ const BI_DECKS = cutFrom(
   '\nconst pickDeck = ',
   '铉的 expeditionDecks / freeDecks',
 )
+// 状态本体（deckStatusHtml）与摆法（fleetStatusHtml）一起切：紧凑态把状态
+// 移交悬停卡之后，「联合第2舰队算不算待命」那句判断住在前者里。
 const BI_GANTT = cutFrom(
   bi,
-  'const fleetStatusHtml = (): string => {',
-  '\nconst nativeRewardItems = ',
-  '铉的甘特条 fleetStatusHtml',
+  'const deckStatusHtml = (deck: Deck): string => {',
+  '\n// ---- 紧凑态：编队状态悬停卡 ----',
+  '铉的甘特条 deckStatusHtml / fleetStatusHtml',
 )
 // 远征规划的舰候选池：队号那头剔干净了，舰这头也得剔——否则方案会去拆随伴舰队。
 const BI_POOL = cutFrom(
@@ -97,6 +99,10 @@ export const unsuppliedDeckIds = new Set<number>()
 const fleetHasUnsupplied = (deck: any) => unsuppliedDeckIds.has(deck.id)
 // 甘特条右侧的补给角标：本条只看左边那格状态词，给个恒定桩免得把断言写脆
 const supplyIconHtml = (_deck: any) => '<span class="g-supply"></span>'
+// 紧凑模式的开关（真身在铆的 config 里）。用例直接往这个集合里塞模块 id
+// 来摆紧凑态——默认空 = 默认关，与产品口径一致。
+export const compactModules = new Set<string>()
+const isCompactMode = (id: string) => compactModules.has(id)
 
 ${ESCORT_STATE}
 ${HEADER_CHIPS}
@@ -104,7 +110,7 @@ ${BI_DECKS}
 ${BI_GANTT}
 ${BI_POOL}
 
-export { expeditionsHtml, fleetStatusHtml, freeDecks, expeditionChipState, availableShips }
+export { expeditionsHtml, deckStatusHtml, fleetStatusHtml, freeDecks, expeditionChipState, availableShips }
 `
 
 const loaded = (() => {
@@ -152,7 +158,14 @@ export const reset = ({ fleets = [], combinedFlag = 0, sortie = null, ships = {}
   loaded.plannerPrefs.protectedDeckIds = []
   loaded.plannerPrefs.excludedRosterIds = []
   loaded.unsuppliedDeckIds.clear()
+  loaded.compactModules.clear()
   for (const f of fleets) if (f.unsupplied) loaded.unsuppliedDeckIds.add(f.id)
+}
+
+/** 把镖切进紧凑态（默认关；reset 会清掉）。 */
+export const setBiCompact = (on) => {
+  if (on) loaded.compactModules.add('bi')
+  else loaded.compactModules.delete('bi')
 }
 
 /** 常规四支队，2/3/4 都没在远征。 */
@@ -160,6 +173,9 @@ export const FOUR_IDLE_FLEETS = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }]
 
 export const renderHeaderChips = () => loaded.expeditionsHtml()
 export const renderGantt = () => loaded.fleetStatusHtml()
+/** 一支队的状态本体：常规态摆在甘特条里，紧凑态摆进悬停卡——同一份 */
+export const renderDeckStatus = (deckId) =>
+  loaded.deckStatusHtml(loaded.mg.decks.find((d) => d.id === deckId))
 /** 铉眼里的「空闲舰队」队号清单 */
 export const freeDeckIds = () => loaded.freeDecks().map((d) => d.id)
 /** 铉的远征方案能拿来凑队的那些舰（在籍 id） */

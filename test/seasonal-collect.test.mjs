@@ -116,7 +116,7 @@ test('给不给采集钮：槽位推不出来不摆，已经有实物也不摆',
   const take = ji.slice(ji.indexOf('const seasonalTakeHtml'), ji.indexOf('const seasonalVoiceHtml'))
   assert.match(take, /if \(!isPlayableVoiceId\(slot\)\) return ''/)
   assert.match(take, /if \(!voicePathname\(mstId, slot\)\) \{/)
-  assert.match(take, /还没同步到这个形态的音轨信息/)
+  assert.match(take, /这一形态的音轨信息待同步/)
 })
 
 test('季节台词区铺开时不发请求：采集钮上只有槽位参数，地址是点下去才算的', () => {

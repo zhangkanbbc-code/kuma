@@ -43,6 +43,9 @@ export const PRESERVED_ENTRIES = [
   'backups',
   'screenshots',
   'ship-art-paths.json',
+  // 2026-08-31：衣装归属表（构图编号 → 是谁的）。它同样只能靠玩家在游戏里
+  // 翻一遍图鉴学到，删了就要让他再翻一遍才看得到已经入档的那些衣装。
+  'ship-costumes.json',
   'voice-archive',
   'art-archive',
   // 2026-08-24：「响过即存」的 BGM 档案。活动曲随活动撤场，撤场之后档案里

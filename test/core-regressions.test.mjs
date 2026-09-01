@@ -47,7 +47,7 @@ const {
   installGameAudioControl,
   normalizeGameAudioSettings,
 } = gameAudioModule
-const { questAnnualMonth, questPeriodFromCode, questPeriodKey } = questPeriod
+const { questAnnualMonth, questPeriodFromCode, questPeriodKey, questPeriodStart } = questPeriod
 const reconciliationFixtures = JSON.parse(
   fs.readFileSync(new URL('./fixtures/battle-reconciliation.json', import.meta.url), 'utf8'),
 )
@@ -431,7 +431,7 @@ test('game audio controls install before game scripts and notifications reset pe
   // 现在没有固定留存期可写，改成钉**两处不许各说各话**：空态与脚注都不许再声称一个天数。
   assert.doesNotMatch(notifications, /保留 14 天/)
   // 2026-08-26 文案清扫：空态尾巴「收到的会留在这里」删掉，只留状态本体
-  assert.match(notifications, /还没有通知<\/div>/)
+  assert.match(notifications, /暂无通知<\/div>/)
   assert.match(notifications, /<div class="c-foot"><span class="lk" data-act="clear"/)
   const ledgerSrc = fs.readFileSync(new URL('../src/main/mg/ledger.ts', import.meta.url), 'utf8')
   assert.match(ledgerSrc, /CREATE TABLE IF NOT EXISTS notify_log/)
@@ -2951,17 +2951,26 @@ test('quest rows keep stable progress, reward, and status columns', () => {
   assert.match(html, /\.mod-qn \.reward-resource-grid\s*\{[^}]*repeat\(4,/)
   assert.match(quest, /class="q-top-primary"/)
   assert.match(quest, /class="q-control-strip"/)
-  assert.doesNotMatch(quest, /data-period-clear|<span>周期<\/span>/)
+  // 周期条前面那枚写着「周期」的清除芯片（period-timer + data-period-clear）已退役，
+  // 别回潮：日/周/月自己就说清了，再挂一枚同款芯片当「全部」是重复。
+  // 紧凑态的周期选择钮（.sel-btn）不在此列——它是那条筛选**唯一**的控件，
+  // 不写维度名就只剩一个孤零零的「全部」，读不出选的是什么。
+  assert.doesNotMatch(quest, /data-period-clear/)
+  assert.doesNotMatch(quest, /class="period-timer[^"]*"[^>]*>\s*<span>周期<\/span>/)
   assert.match(html, /\.mod-qn \.q-period-strip::-webkit-scrollbar,[\s\S]*height: 4px;/)
   assert.match(html, /scrollbar-color: var\(--scrollbar-thumb\) var\(--scrollbar-track\);/)
   assert.match(quest, /data-quick-toggle/)
-  assert.match(quest, /data-status="current"[\s\S]*?>已同步 <b>\$\{current\}<\/b>/)
+  // 状态筛选的字样收进 STATUS_FILTERS：常规态的芯片与紧凑态的下拉读同一份，
+  // 改了一边两处会叫两个名字。芯片处因此改读 statusLabelOf。
+  assert.match(quest, /\{ key: 'current', label: '已同步' \}/)
+  assert.match(quest, /data-status="current"[\s\S]*?>\$\{statusLabelOf\('current'\)\} <b>\$\{current\}<\/b>/)
   assert.doesNotMatch(quest, /data-status="current">游戏/)
   assert.match(quest, /const inferredCompletedCodes = \(\): Set<string> =>/)
   assert.match(quest, /inferCompletedQuestCodes\(\s*lib\.values\(\),/)
   assert.match(quest, /Object\.values\(mg\.quests\)\.map\(\(quest\) => quest\.no\)/)
   assert.match(quest, /row\.inferredCompleted && periodOfRow\(row\)\[0\] === '单'/)
-  assert.match(quest, /data-status="completed"[\s\S]*?>已完成 <b>\$\{completed\}<\/b>/)
+  assert.match(quest, /\{ key: 'completed', label: '已完成' \}/)
+  assert.match(quest, /data-status="completed"[\s\S]*?>\$\{statusLabelOf\('completed'\)\} <b>\$\{completed\}<\/b>/)
   // 推断出来的「已完成」必须当场交代依据，不能让玩家以为游戏真报了这条。
   // 算法边界（只沿前置链、不认同级旁支）由 quest-chain-tree.test.mjs
   //「complete quest inference follows only observed downstream prerequisites」行为守住，
@@ -2998,9 +3007,12 @@ test('complete quest tree opens in a bounded independent window and returns to t
   const model = fs.readFileSync(new URL('../src/renderer/quest-chain-tree.ts', import.meta.url), 'utf8')
 
   assert.match(quest, /data-quest-tree[^>]*>完整任务树<\/button>/)
+  // 这枚钮两种抬头都要摆，所以抽成 questTreeHtml 一份；常规抬头里它的位置没变：
+  // 跟在搜索框后面收尾第一行，控制条紧随其后。
+  assert.match(quest, /const questTreeHtml = `<button class="quest-tree-open" data-quest-tree/)
   assert.match(
     quest,
-    /class="qsearch"[\s\S]{0,300}class="quest-tree-open"[\s\S]{0,120}<\/div>\s*<div class="q-control-strip">/,
+    /class="qsearch"[\s\S]{0,300}\$\{questTreeHtml\}[\s\S]{0,120}<\/div>\s*<div class="q-control-strip">/,
   )
   assert.match(html, /\.mod-qn\.narrow \.qsearch\s*\{[^}]*flex:\s*1 1 180px/)
   assert.match(html, /\.mod-qn\.narrow \.quest-tree-open\s*\{[^}]*order:\s*1/)
@@ -3397,7 +3409,13 @@ test('every renderer window uses the same dark scrollbar palette', () => {
   const main = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
   const trend = fs.readFileSync(new URL('../src/renderer/resource-trend.html', import.meta.url), 'utf8')
   const questTree = fs.readFileSync(new URL('../src/renderer/quest-tree.html', import.meta.url), 'utf8')
-  for (const [name, html] of [['main', main], ['resource trend', trend], ['quest tree', questTree]]) {
+  const shipLife = fs.readFileSync(new URL('../src/renderer/ship-life.html', import.meta.url), 'utf8')
+  for (const [name, html] of [
+    ['main', main],
+    ['resource trend', trend],
+    ['quest tree', questTree],
+    ['ship life', shipLife],
+  ]) {
     assert.match(html, /:root\s*\{[^}]*color-scheme:\s*dark/)
     assert.match(html, /--scrollbar-track:\s*#10171d/)
     assert.match(html, /--scrollbar-thumb:\s*#334957/)
@@ -3530,7 +3548,12 @@ test('battle results retain bounded local replay snapshots linked from ship life
   const chronicle = fs.readFileSync(new URL('../src/main/mg/chronicle.ts', import.meta.url), 'utf8')
   const tracker = fs.readFileSync(new URL('../src/main/mg/ship-life.ts', import.meta.url), 'utf8')
   const battle = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
-  const roster = fs.readFileSync(new URL('../src/renderer/modules/qa.ts', import.meta.url), 'utf8')
+  // 履历行的实现 2026-08-31 从 qa 挪进 renderer/ship-life-events（人生记录弹窗
+  // 摆的是同一条时间轴，文案源只许有一份）。守卫跟着挪，别对着老地址空转。
+  const lifeRow = fs.readFileSync(
+    new URL('../src/renderer/ship-life-events.ts', import.meta.url),
+    'utf8',
+  )
   assert.match(ledger, /CREATE TABLE IF NOT EXISTS battle_snapshots/)
   assert.match(ledger, /LIMIT 500/)
   assert.match(ledger, /queryBattleSnapshot = \(id: number\)/)
@@ -3540,7 +3563,15 @@ test('battle results retain bounded local replay snapshots linked from ship life
   assert.match(tracker, /snapshotId: battle\.result\.snapshotId/)
   assert.match(battle, /registerEntityRoute\('battle'/)
   assert.match(battle, /queryBattleSnapshot\(id\)/)
-  assert.match(roster, /titleHtml = elink\('battle', detail\.snapshotId, title\)/)
+  // 主窗口走实体链接；独立窗口没有路由，由调用方给一版跨窗跳转（battleLink）。
+  // 两支都必须在，缺哪一支那一边的复盘入口就成了死字。
+  assert.match(lifeRow, /: elink\('battle', snapshotId, title\)/)
+  assert.match(lifeRow, /titleHtml = options\.battleLink/)
+  const lifeWindow = fs.readFileSync(
+    new URL('../src/renderer/ship-life-window.ts', import.meta.url),
+    'utf8',
+  )
+  assert.match(lifeWindow, /openBattleInMainWindow\(snapshotId\)/)
 })
 
 test('review node history remains independently browsable after the current sortie ends', () => {
@@ -3566,13 +3597,20 @@ test('review node history remains independently browsable after the current sort
   assert.match(review, /selectedNodeMap \?\? selectedNode\?\.map \?\? nodeIndex\[0\]\?\.map/)
   assert.match(review, /nodeSnapshotsBlock\(shownNodeMap\(\)\)/)
   assert.match(review, /data-shi-snapshots-title/)
+  // 选中点位专属那块：整图那块必须留着，两块并排在底栏，且换点走补丁不整页重渲
+  assert.match(review, /const nodeBattlesBlock = \(\)/)
+  assert.match(review, /battle\.map === map && battle\.cell === cell/)
+  assert.match(review, /data-shi-node-snapshots-title/)
+  assert.match(review, /nodeSnapPanel\.hidden = !nodeSnaps/)
+  assert.match(review, /class="shi-panel shi-recent-battles"/)
   assert.match(html, /\.mod-shi \.shi-node-timeline/)
   assert.match(html, /\.shi-node-timeline \{ height: 420px; \}/)
   assert.match(html, /shi-body:has\(\.shi-nodes\)/)
   assert.match(html, /\.mod-shi \.shi-mapgraph-frame/)
   assert.match(html, /\.mod-shi \.shi-mapgraph-card \{[\s\S]*height: 220px;/)
   assert.match(html, /#overlay-host \.ov-panel \{[\s\S]*height: min\(820px, 84vh\);/)
-  assert.match(html, /\.mod-shi \.shi-nodes > \.shi-recent-battles \{[\s\S]*max-height: 200px;/)
+  assert.match(html, /\.mod-shi \.shi-nodes > \.shi-nodes-foot \{[\s\S]*max-height: 200px;/)
+  assert.match(html, /\.mod-shi \.shi-nodes-foot > \.shi-panel\[hidden\] \{ display: none; \}/)
 })
 
 test('map catalog owns full-route planning while combat keeps only the current encounter', () => {
@@ -3963,7 +4001,9 @@ test('new ships and taiha use manually dismissed top banners with persistent fra
     /document\.body\.classList\.remove\(\.\.\.Object\.values\(FRAME_CLASS\)\)[\s\S]*?const winner = FRAME_PRIORITY\.find[\s\S]*?if \(winner\) document\.body\.classList\.add\(FRAME_CLASS\[winner\]\)/,
     '外框光效必须先清空再按优先级挂唯一一个',
   )
-  assert.match(html, /#lg-banners \{[^}]*position: fixed;[^}]*top: 42px/)
+  // 36 = 顶栏（连边框整 34px）之上再留一线。2026-09-01 从 42 抬上来，抬起的那 6px
+  // 全数让给游戏画面；再往上就压住抬头那排资源数字了，所以这条同时是上限判据。
+  assert.match(html, /#lg-banners \{[^}]*position: fixed;[^}]*top: 36px/)
   assert.match(html, /\.lg-banner\.celebrate \{/)
   assert.match(html, /\.lg-banner\.danger \{/)
   assert.match(html, /body\.lg-frame-gold::after/)
@@ -4541,6 +4581,32 @@ test('quest period keys cross the JST 05:00 reset boundary', () => {
     questPeriodKey('quarterly', Date.parse('2026-08-31T19:59:59Z')),
     questPeriodKey('quarterly', Date.parse('2026-08-31T20:00:00Z')),
   )
+  // 键面没变：`d:` 是日序号，月/季/年是「年-月序号」（月序号 0 起）
+  assert.equal(questPeriodKey('monthly', Date.parse('2026-08-31T20:00:00Z')), 'm:2026-8')
+  assert.equal(questPeriodKey('quarterly', Date.parse('2026-08-31T20:00:00Z')), 'q:2026-8')
+  assert.equal(questPeriodKey('annual', Date.parse('2026-08-31T20:00:00Z'), 6), 'y:2026-5')
+  assert.equal(questPeriodKey('annual', Date.parse('2026-08-31T20:00:00Z')), 'y:unknown')
+})
+
+test('周期起点：重置时刻一律 05:00 JST，键与起点同出一源', () => {
+  // 起点是「战果补记该算哪个月」的判据（shared/senka），键只是它的字符串面。
+  // 两者各写一套算术就会漂——这里钉的是同源。
+  const reset = Date.parse('2026-09-01T20:00:00Z') // 2026-09-02 05:00 JST（周三）
+  assert.equal(questPeriodStart('daily', reset), reset)
+  assert.equal(questPeriodStart('daily', reset - 1), reset - 86_400_000)
+  // 周一 05:00：2026-08-31 是周一
+  assert.equal(questPeriodStart('weekly', reset), Date.parse('2026-08-30T20:00:00Z'))
+  assert.equal(questPeriodStart('monthly', reset), Date.parse('2026-08-31T20:00:00Z'))
+  assert.equal(questPeriodStart('quarterly', reset), Date.parse('2026-08-31T20:00:00Z'))
+  assert.equal(questPeriodStart('annual', reset, 6), Date.parse('2026-05-31T20:00:00Z'))
+  assert.equal(questPeriodStart('annual', reset, null), null, '重置月未知就不猜')
+  // 起点自反：拿起点再算一次是同一期；起点前 1ms 一定是上一期
+  for (const [kind, annual] of [['daily'], ['weekly'], ['monthly'], ['quarterly'], ['annual', 6]]) {
+    const start = questPeriodStart(kind, reset, annual)
+    assert.equal(questPeriodStart(kind, start, annual), start, kind)
+    assert.equal(questPeriodKey(kind, start, annual), questPeriodKey(kind, reset, annual), kind)
+    assert.notEqual(questPeriodKey(kind, start - 1, annual), questPeriodKey(kind, start, annual), kind)
+  }
 })
 
 test('valid FCD lodes are accepted and attribute-injection coordinates are rejected', () => {
@@ -4769,7 +4835,7 @@ test('quest details link expedition API ids and give inventory-aware choice rewa
   // 两句必须各自存在、且说的不是同一件事（「还没查」≠「查了没有」）；
   // 「计数引擎 / 规则库」这两个施工者词已按裁定换成用户语，钉法照旧一句一钉。
   assert.match(quest, /精确计数还在准备中/)
-  assert.match(quest, /无法精确计数：还没有这条任务的判定资料/)
+  assert.match(quest, /无法精确计数：暂无这条任务的判定资料/)
   assert.match(quest, /const blockedHtml = /)
   assert.match(quest, /QP_BLOCK_TEXT\[tracker\.blocked\]/)
   assert.doesNotMatch(quest, /本地没有这条任务的计数器/)
@@ -4982,9 +5048,48 @@ test('localization lodes accept bounded bilingual entities and reject HTML-shape
 
 test('ship banner thumbnails keep the subject in frame', () => {
   const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
-  assert.match(html, /\.ship-thumb img\s*\{[^}]*object-position:\s*right center;[^}]*\}/)
-  assert.match(html, /\.ship-thumb\.avatar img\s*\{[^}]*object-position:\s*65% center;[^}]*\}/)
+  // 默认档 2026-09-01 从贴右（100%）左移到 78%：脸在原图 x≈143，贴右会把它推到框左侧
+  // 并切掉半张。78% 是「脸完整入框、左侧不进徽章也不进杂物」那一档，徽章右缘 x≈58。
+  // 往回改成 right/100% 或往左越过 74%，这条就该红。
+  assert.match(html, /\.ship-thumb img\s*\{[^}]*object-position:\s*78% center;[^}]*\}/)
+  // 三个特调档各有各的框宽，不跟着默认走，改默认时一字不动
+  assert.match(html, /\.ship-thumb\.avatar img\s*\{[^}]*object-position:\s*68% center;[^}]*\}/)
   assert.match(html, /\.ship-thumb\.plan img\s*\{[^}]*object-position:\s*75% center;[^}]*\}/)
+  assert.match(
+    html,
+    /\.mod-shi \.factory-outcome \.ship-thumb\.factory img\s*\{[^}]*object-position:\s*68% center;[^}]*\}/,
+  )
+
+  // 取景百分比与**框宽**是一对，不能只动一半：窗口左沿 = p × (240 − 窗宽)，
+  // 窗宽 = 60 × 框宽 ÷ 框高，所以框一变宽，同一个 p 取到的就是另一段画面。
+  // avatar 档 2026-09-01 由 36×28 / 22×22 放宽到 46×28 / 36×22，p 跟着 65%→68%
+  // （两处新框宽高比一致，窗口都落在原图 x≈96–195）。把三处框宽钉在这里，
+  // 谁改了框宽而没回来重调上面那个 68%，这条就该红。
+  assert.match(html, /\.fleet-skin \.fc \{[^}]*width: 46px; height: 28px;[^}]*\}/)
+  assert.match(html, /\.fleet-skin \.fc \.ship-thumb\.avatar \{[^}]*width: 46px; height: 28px;/)
+  assert.match(html, /\.mod-du \.op-owned-ship \.ship-thumb \{ width: 36px; height: 22px;/)
+  assert.match(html, /\.mod-du \.op-friend-ship \.ship-thumb \{ width: 36px; height: 22px;/)
+
+  // 编队舰行的头像列是定宽 grid 列，窄档另有一份；列比头像窄就会把头像裁掉，
+  // 展开的详情卡又靠 margin-left 与这一列对齐。这三个数改一个就得一起改，
+  // 所以这里断言的是**它们之间的关系**，不是各自的字面值。
+  const px = (re, what) => {
+    const m = html.match(re)
+    assert.ok(m, `没匹配到${what}`)
+    return Number(m[1])
+  }
+  const fcWidth = px(/\.fleet-skin \.fc \{[^}]*width: (\d+)px;/, '编队头像格宽')
+  const col = px(/\.fleet-skin \.ship \{[^}]*grid-template-columns: (\d+)px minmax/, '宽档头像列')
+  const narrowCol = px(/\.fleet-skin\.narrow \.ship \{[^}]*grid-template-columns: (\d+)px /, '窄档头像列')
+  const indent = px(/\.fleet-skin \.ship-detail \{[^}]*margin: 0 0 0 (\d+)px;/, '详情卡左缩进')
+  const openIndent = px(
+    /\.fleet-skin \.ship\.open \.ship-detail \{[^}]*margin: 10px 0 4px (\d+)px;/,
+    '展开态详情卡左缩进',
+  )
+  assert.ok(col >= fcWidth, `宽档头像列 ${col}px 放不下 ${fcWidth}px 的头像格`)
+  assert.ok(narrowCol >= fcWidth, `窄档头像列 ${narrowCol}px 放不下 ${fcWidth}px 的头像格`)
+  assert.equal(indent, col, '详情卡左缘要和头像列对齐')
+  assert.equal(openIndent, col, '展开态详情卡左缘要和头像列对齐')
 })
 
 test('abyss occurrence maps request compact thumbnails with labeled confirmed nodes', () => {
@@ -5105,7 +5210,10 @@ test('expedition fleet status rows include a real fuel and ammo supply check', (
   const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
   assert.match(source, /ship\.fuel < master\.fuelMax/)
   assert.match(source, /ship\.bull < master\.bullMax/)
-  assert.match(source, /<span class="k">\$\{deck\.id\}舰<\/span>\$\{status\}\$\{supplyIconHtml\(deck\)\}/)
+  // 状态本体抽成 deckStatusHtml：甘特条与紧凑态的悬停卡共用一份，
+  // 补给记号是它的固定末项——两边都不许各写一版。
+  assert.match(source, /return `\$\{status\}\$\{supplyIconHtml\(deck\)\}`/)
+  assert.match(source, /<span class="k">\$\{deck\.id\}舰<\/span>\$\{deckStatusHtml\(deck\)\}/)
   assert.match(source, /class="g-exp-no"/)
   assert.match(source, /class="g-countdown" data-cds=/)
   assert.doesNotMatch(source, /g-track|g-bar|WINDOW_MS/)
@@ -5183,6 +5291,9 @@ test('periodic element rail stays hidden until the left edge is hovered', () => 
   assert.match(html, /#element-rail:has\(\.badge-n\)::after/)
 })
 
+// 同族的另一半在 `player-copy-ratchet.test.mjs`：那一条走 TS AST 语料（注释不算文案），
+// 管的是**已裁定的句式与措辞**（拟人、替玩家推结论、口语叙事腔）；这一条按整份文件做正则，
+// 管的是**直译腔词汇**。两条互不覆盖，加新词之前先想清楚该往哪边加。
 test('player-facing copy avoids stiff Japanese calques', () => {
   const root = new URL('../src/renderer/', import.meta.url)
   const pending = [root]
@@ -7254,8 +7365,9 @@ test('沉没横幅 banner_g 一律带 _dmg，深海舰也不例外', () => {
   assert.ok(gLine < abyssLine, 'banner_g 必须判在深海重置之前，否则深海舰的沉没横幅路径会算错')
 
   // 2026-08-23 起路径推导收口到 `shipImagePath` 一处（损伤后缀 +「学到的真实路径优先」），
-  // 三个入口都从它拿：取图（shipImageUrl）、查缓存（cachedShipImage）、
-  // 以及「显示即入档」要用的那条身份（availableShipImages 的 pathname）。
+  // 各入口都从它拿：取图（shipImageUrl）、查本机已有的字节（localShipImage：
+  // 缓存文件或档案实物）、以及「显示即入档」要用的那条身份
+  //（availableShipImages / availableCostumeImages 的 pathname）。
   // 所以损伤后缀规则**只该被调用一次**——数量变多就说明有人又抄了一份，
   // 而抄岔了的表现是「图显示出来了、格子却不亮」（两边按不同的文件名各走各的），不报错。
   assert.equal(
@@ -7263,7 +7375,12 @@ test('沉没横幅 banner_g 一律带 _dmg，深海舰也不例外', () => {
     1,
     '损伤后缀规则被抄了第二份；它只该在 shipImagePath 里算一次',
   )
-  for (const fn of ['shipImageUrl', 'cachedShipImage', 'availableShipImages']) {
+  for (const fn of [
+    'shipImageUrl',
+    'localShipImage',
+    'availableShipImages',
+    'availableCostumeImages',
+  ]) {
     const at = img.indexOf(`const ${fn} = (`)
     assert.ok(at > 0, `找不到 ${fn}`)
     assert.ok(
@@ -8061,7 +8178,7 @@ test('捞船清单：分组按「会不会消失」而不是「有没有日期�
   assert.ok(fn.includes('e.days != null && e.days <= HUNT_SOON_DAYS'), '「快关门」组的判据松了')
   assert.ok(!fn.includes('资料未写截止日'), 'null 是如实记录，不该说成资料没写')
   // ③ 活动结束的那批一条都不删，只换语境
-  assert.ok(fn.includes('活动结束了，这些掉点现在捞不到'), '活动结束的那批被删掉了')
+  assert.ok(fn.includes('活动已结束 · 这些掉点现在捞不到'), '活动结束的那批被删掉了')
   // 截断要说出来
   assert.ok(fn.includes('还有 ${standing.length - shownStanding.length} 艘未列出'), '常驻组截断没写明')
 })
@@ -8945,10 +9062,39 @@ test('战果账外差值全自动对账:明细截断不吞判据,补记不重复
   // EO:主进程查账时按海域页观测自动补记,入账取重置点(防校准重复计算)
   assert.match(main, /ledger\.autoBookEoFromMapinfo\(when\)/)
   assert.match(ledger, /this\.logEoClear\(resetTs, mapId\)/)
-  // 战果任务:锱检测后自动补,入账取月初(同一防重复策略);手动通道全撤
-  assert.match(main, /senkaMonthStart\(Date\.now\(\)\),/)
-  assert.match(zi, /void autoBookQuestSenka\(generation\)/)
+  // 战果任务(2026-09-01 重立):补记与 EO 同款——只按账本存着的 clearitemget 报文补,
+  // 入账时刻取报文观测时刻。判据的行为测试在 senka-quest-evidence,这里只钉接线。
+  assert.match(main, /ledger\.autoBookQuestSenkaFromEvents\(when, questSenkaInfo\)/)
+  assert.match(ledger, /this\.logQuestSenka\(Number\(row\.ts\), questId, info\.senka, info\)/)
   assert.doesNotMatch(zi, /data-senka-fix/)
+  // 渲染层不再有写账的手:那条路的触发端是「已完成」推断,推断在月初重置那一刻
+  // 必然失真(2026-09-01 用户账本实锤:两个从没做过的任务被记进 9 月账)
+  assert.doesNotMatch(main, /ipcMain\.handle\('mg:senka-log-quest'/, '主进程还收着补记请求')
+  for (const [name, source] of [['kernel', kernel], ['zi', zi]]) {
+    assert.doesNotMatch(source, /invoke\('mg:senka-log-quest'/, `${name} 还在往主进程递补记`)
+  }
+  assert.doesNotMatch(zi, /logSenkaQuest/)
+  // 入账与去重全走那一份纯判定,账本这边不许自己再写一套窗口算术
+  assert.match(ledger, /const plan = planQuestSenkaBooking\(\{/)
+  assert.doesNotMatch(
+    ledger,
+    /kind = 'quest' AND note = \? AND ts >= \?/,
+    '同任务同月去重已被同任务同周期取代,旧 SQL 不许回潮',
+  )
+  // 重算任务战果:撤回只走账本那一个守卫方法(指纹与理由都写在那儿)
+  assert.match(main, /ledger\.clearAutoBookedQuestSenka\(senkaMonthStart\(Date\.now\(\)\)\)/)
+  assert.match(
+    ledger,
+    /DELETE FROM senka_log\s+WHERE kind = 'quest' AND ts = \? AND \(manual IS NULL OR manual != 1\)/,
+    '撤回必须同时钉住 kind、「ts 恰等于月初」与「不是手动补记行」三个条件',
+  )
+  assert.doesNotMatch(ledger, /DELETE FROM senka_log WHERE ts >=/)
+  // 手动补记行只有行尾那个删除钮删得掉，且两道门（kind + manual）都要过
+  assert.match(
+    ledger,
+    /DELETE FROM senka_log WHERE id = \? AND kind = 'quest' AND manual = 1/,
+    '删补记必须钉住 manual = 1，否则观测行也删得掉',
+  )
   assert.doesNotMatch(main, /mg:senka-log-eo/)
   assert.doesNotMatch(kernel, /mg:senka-log-eo/)
 })
@@ -9070,7 +9216,7 @@ test('各队走向速览：一队一行并排比，判别沿用现成的带路�
   assert.match(atlas, /data-map-route-target=/)
   assert.ok(atlas.includes('未选目标点'), '没选目标点时该直说没选')
   assert.ok(
-    atlas.includes('还没打到过 Boss；从「目标点」里挑一个，走向就按它算'),
+    atlas.includes('暂无 Boss 记录；在「目标点」中选定，走向按其计算'),
     '没有 Boss 记录时没指路到目标点选择器',
   )
   assert.ok(!atlas.includes('bossLetters.add(route[route.length - 1]'), '又拿路线终点当 Boss 了')
@@ -9115,9 +9261,9 @@ test('分歧实测从账本一路接到界面，不再是只写不读的一张�
   assert.match(battle, /const routeTallyByMap = new Map<string, RouteTallyState>\(\)/)
   assert.match(atlas, /failed: true/)
   // 辩护半句「不是「没有记录」」按文案清扫裁定（族 5）删了，只留失败态本身。
-  // 护栏语义不放松：钉住「读失败」与「还没记到」仍是两个互不相同的分支文案。
+  // 护栏语义不放松：钉住「读失败」与「没记到」仍是两个互不相同的分支文案。
   assert.match(atlas, /航路志读取失败/)
-  assert.match(atlas, /还没记到航路/)
+  assert.match(atlas, /暂无航路记录/)
   assert.match(atlas, /tally\?\.failed/)
 
   // 只列真分过歧的点：去向只有一个的写出来是噪音
@@ -9713,7 +9859,7 @@ test('锱与资源趋势窗共用一份曲线取数：同一段时间不许给�
 test('战果月标签只此一份：月界在前月末 22:00，直接看月界会得到上个月', async () => {
   const read = (rel) => fs.readFileSync(new URL(rel, import.meta.url), 'utf8')
   const m = await import('../dist/shared/senka.js')
-  const { senkaMonthLabel, senkaMonthStart, senkaQuestPeriodStartsInMonth } = m.default ?? m
+  const { senkaMonthLabel, senkaMonthStart, senkaQuestPeriodStartedInMonth } = m.default ?? m
 
   // 2026-08 的战果月起点是 2026-07-31 22:00 JST。直接对它取月份会读成 7 月——
   // 「+9h 换 JST、+3 天稳落主体月」的算术原先在三处各写一遍，这里钉成一份。
@@ -9727,13 +9873,21 @@ test('战果月标签只此一份：月界在前月末 22:00，直接看月界�
   // 跨年：1 月的月界落在去年 12/31，年份要跟着主体月走
   assert.equal(senkaMonthLabel(senkaMonthStart(Date.UTC(2026, 0, 10) - 9 * 3600 * 1000)), '2026-01')
 
-  // 周期重置的月份判定从同一份标签里取，不再自带一套 getUTCMonth
-  const mar = senkaMonthStart(Date.UTC(2026, 2, 10) - 9 * 3600 * 1000)
-  assert.equal(senkaQuestPeriodStartsInMonth('quarterly', mar), true)
-  assert.equal(senkaQuestPeriodStartsInMonth('quarterly', aug), false)
-  assert.equal(senkaQuestPeriodStartsInMonth('annual', aug, 8), true)
-  assert.equal(senkaQuestPeriodStartsInMonth('annual', aug, 3), false)
-  assert.equal(senkaQuestPeriodStartsInMonth('monthly', aug), true)
+  // 补记资格的判据（行为全测在 senka-quest-recount.test.mjs；这里只钉「同一份口径」）：
+  // 判的是**当前周期的起点**落没落进本战果月，不是「本月是不是周期首月」——
+  // 后者在月界与任务重置差着的那 7 小时里会把上个月的季任记进新月（2026-08-31 实锤）。
+  const marAt = Date.UTC(2026, 2, 10) - 9 * 3600 * 1000
+  const augAt = Date.UTC(2026, 7, 10) - 9 * 3600 * 1000
+  const mar = senkaMonthStart(marAt)
+  assert.equal(senkaQuestPeriodStartedInMonth('quarterly', mar, marAt), true)
+  assert.equal(senkaQuestPeriodStartedInMonth('quarterly', aug, augAt), false)
+  assert.equal(senkaQuestPeriodStartedInMonth('annual', aug, augAt, 8), true)
+  assert.equal(senkaQuestPeriodStartedInMonth('annual', aug, augAt, 3), false)
+  assert.equal(senkaQuestPeriodStartedInMonth('monthly', aug, augAt), true)
+  // 错位窗口：8/31 22:30 JST 已属 9 月战果月，季任那一期却还是 6 月起的
+  const slip = Date.UTC(2026, 7, 31, 13, 30) // = 2026-08-31 22:30 JST
+  assert.equal(senkaMonthStart(slip), Date.UTC(2026, 7, 31, 13))
+  assert.equal(senkaQuestPeriodStartedInMonth('quarterly', senkaMonthStart(slip), slip), false)
 
   const senkaSource = read('../src/shared/senka.ts')
   assert.equal(
@@ -10609,13 +10763,188 @@ test('多子项任务进度条分段画:条与「N/M 项」同口径,tooltip 逐
   // 条按子项分段,各段填自己的完成率,填满的段换金色(与文字数的是同一批段)
   assert.match(quests, /pb seg/)
   assert.match(quests, /part\.ratio >= 1 \? ' class="ok"' : ''/)
-  // tooltip 逐项报数,标签剥掉 HTML 只留纯文本
-  assert.match(quests, /qpTaskLabel\(task\)\.replace\(\/<\[\^>\]\*>\/g, ''\)/)
+  // tooltip 逐项报数,标签剥掉 HTML 只留纯文本——剥法收在 qpTaskLabelText 一处,
+  // 列表行里顶掉正文的那一行也吃它,两处不各剥一遍
+  assert.match(quests, /const qpTaskLabelText = \([\s\S]{0,200}?\.replace\(\/<\[\^>\]\*>\/g, ''\)/)
+  assert.match(quests, /label: entries\.map\(\(\{ task \}\) => qpTaskLabelText\(task\)\)/)
   assert.match(quests, /\$\{part\.label\} \$\{part\.now\}\/\$\{part\.cap\}/)
   // 单子项任务的整条画法不变
   assert.match(quests, /<span class="pb"><i style="width:\$\{Math\.max\(3, precise\.pct\)\}%">/)
   const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
   assert.match(html, /\.pb\.seg b\.ok i/)
+})
+
+test('任务行的条件行顶掉正文:两半都与抽屉同源,不另占一行,不重复进度数字', () => {
+  const quests = fs.readFileSync(new URL('../src/renderer/modules/qn.ts', import.meta.url), 'utf8')
+  const body = quests.slice(quests.indexOf('const qpNeedHtml'), quests.indexOf('const qpStockCurrent'))
+  assert.ok(body.length > 200 && body.length < 4000, 'qpNeedHtml 的位置变了,下面的断言就不作数了')
+  // 没有任何判定资料的任务:行完全保持现状(正文照旧)
+  assert.match(body, /if \(!tracker\) return ''/)
+  assert.match(body, /if \(!items\.length\) return ''/)
+  // 行动需求取详情抽屉计数器的同一处,不另立一份文案
+  assert.match(body, /qpTaskLabelText\(task, \{ bare: true \}\)/)
+  // 这行只说「要什么」:当前进度归进度条,不在这里再报一遍
+  assert.doesNotMatch(body, /progress|serverFloors/)
+  // 搜索每敲一键都会重渲:缓存按 tracker 身份 + 实体索引代号,别把它做成每键击重算
+  assert.match(body, /cached\.tracker === tracker && cached\.version === entityIndexVersion/)
+  // **替换**而不是追加:有条件行就不再渲正文那一段,两者共用 .plain 这一个位置。
+  // 替换那一侧压着两道闸:类别白名单(白名单外一律回落到正文,行为判据见下一条守卫)
+  // 与 partial(追踪器自报另有准备资源等非计数条件的,零头不许盖全单——D21 那种
+  // 「准备 5000 钢材」写在正文里)。开头那个 `(` 必须贴着 PROSE_：写成
+  // `(!PROSE_….has(…)` 闸就反了(白名单外的反倒替换),而少了这个字符的正则照样
+  // 能在反了的那份代码里匹配上;partial 前面的 `!` 同理。
+  assert.match(
+    quests,
+    /\(PROSE_REPLACING_CATEGORIES\.has\(category\.key\) && !qp\?\.trackers\[row\.id\]\?\.partial\s*\? qpNeedHtml\(row\)\s*: ''\)\s*\|\|\s*`<span class="plain">\$\{taskProseHtml\(/,
+  )
+  assert.match(body, /<span class="plain q-need"/)
+  // 官方介绍在详情抽屉照旧全文可见
+  assert.match(quests, /row\.desc \? `<p>\$\{taskProseHtml\(row\.desc, row\.code\)\}<\/p>`/)
+  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  // 只改字色,行高与省略照 .plain 那一份走(不许自带 margin/行高把行撑高)
+  assert.match(html, /\.mod-qn \.q-nm \.plain\.q-need \{ color: [^}]*\}/)
+  assert.doesNotMatch(html, /\.q-need[^{]*\{[^}]*(margin|line-height|font-size)/)
+  // 它是正文信息不是筛选表头,紧凑态不许砍掉;窄态跟着 .plain 的既有规则走
+  assert.doesNotMatch(html, /\.q-need[^{]*\{[^}]*display:\s*none/)
+})
+
+// 编成门的标签语拿真结构跑一遍——判据落在**行为**上,不是源码里有没有某段文本。
+// （qn.ts 载不进 node --test：它 import 渲染层一整摞。照 eo-senka-reported 的既例
+//   把这一个纯函数原样取出来编译执行，测的是线上那份代码本身。）
+test('编成门标签语:词取 group.label,形态只补旗舰/位次/等级/数量,上限组不进这一行', async () => {
+  const { buildSync } = await import('esbuild')
+  const source = fs.readFileSync(new URL('../src/renderer/modules/qn.ts', import.meta.url), 'utf8')
+  const from = source.indexOf('const qpFleetNeedItems')
+  const to = source.indexOf('\n\n', from)
+  assert.ok(from >= 0 && to > from, 'qn.ts 里找不到 qpFleetNeedItems,这条守卫的锚点要跟着改')
+  const js = buildSync({
+    stdin: { contents: source.slice(from, to), loader: 'ts' },
+    write: false,
+    format: 'cjs',
+  }).outputFiles[0].text
+  const fleetItems = new Function(
+    'esc',
+    `${js.replace(/^"use strict";?/, '')}\nreturn qpFleetNeedItems`,
+  )((s) => `${s ?? ''}`.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`))
+
+  // 数量 1 不标 ×1;>1 才标。旗舰是前缀,不是另起一项
+  assert.deepEqual(
+    fleetItems({ groups: [
+      { label: '軽巡', ships: [], stypes: [3], amount: 1, flagship: true },
+      { label: '駆逐', ships: [], stypes: [2], amount: 3 },
+    ] }),
+    ['旗舰 軽巡', '駆逐 ×3'],
+  )
+  // 「限第 N 舰队」进这一行:漏掉它玩家会把队编在别处白打一场
+  assert.deepEqual(
+    fleetItems({ groups: [{ label: '空母', ships: [], stypes: [7], amount: 1 }], fleetId: 2 }),
+    ['第2舰队', '空母'],
+  )
+  // 组一个都没有时,「第2舰队」不许单独成行(215/872 这两条就是空 groups + fleetId)
+  assert.deepEqual(fleetItems({ groups: [], fleetId: 2 }), [])
+  // amount=0 的组是「至多 N 艘」的上限,不是要凑的东西 → 不进这一行(190 的駆逐≤1)
+  assert.deepEqual(
+    fleetItems({ groups: [
+      { label: '若葉改', ships: [240], stypes: [], amount: 1 },
+      { label: '駆逐', ships: [], stypes: [2], amount: 0, maxAmount: 1 },
+    ] }),
+    ['若葉改'],
+  )
+  // 位次与等级门(182/859 的伊勢日向 1・2 号位 Lv50)
+  assert.deepEqual(
+    fleetItems({ groups: [
+      { label: '伊勢改 / 日向改', ships: [82, 88], stypes: [], amount: 1, flagship: true, lv: 50 },
+      { label: '伊勢改 / 日向改', ships: [82, 88], stypes: [], amount: 1, position: 2, lv: 50 },
+    ] }),
+    ['旗舰 伊勢改 / 日向改 Lv50↑', '2号位 伊勢改 / 日向改 Lv50↑'],
+  )
+  // label 是规则包原文,既进 HTML 又进 title 属性 → 必须转义
+  assert.deepEqual(
+    fleetItems({ groups: [{ label: 'Saratoga "Mk.II"', ships: [], stypes: [], amount: 1 }] }),
+    ['Saratoga &#34;Mk.II&#34;'],
+  )
+})
+
+// 顶掉正文的类别闸。判据落在**行为**上：把线上那份 categoryOf（连同它依赖的
+// CAT_META/catOf/questText/TASK_CATEGORIES）原样取出来编译执行，喂**任务库真数据**，
+// 看每一条落在白名单里还是外面。
+//
+// 钉的是 2026-09-01 用户当场抓到的信息丢失：F125 的真实要求有五项（黎塞留旗舰、
+// 一二格 38cm四连装炮改 ×2、废弃 41cm连装炮 ×4、开发资材 ×20、海外舰最新技术 ×1），
+// 追踪器只解出可计数的「废弃 41cm连装炮 ×4」一项；工厂族的正文本身就是需求清单，
+// 顶掉它 = 把另外四项抹掉。所以 **E/F/G 码族一条都不许进白名单**。
+test('条件行顶掉正文的类别闸:只放出击/演习/远征/编成,工厂族与判不出类别的一律留正文', async () => {
+  const { buildSync } = await import('esbuild')
+  const source = fs.readFileSync(new URL('../src/renderer/modules/qn.ts', import.meta.url), 'utf8')
+  const entity = fs.readFileSync(new URL('../src/renderer/task-entity-match.ts', import.meta.url), 'utf8')
+  const slice = (text, from, to, what) => {
+    const at = text.indexOf(from)
+    const end = text.indexOf(to, at + 1)
+    assert.ok(at >= 0 && end > at, `找不到 ${what}，这条守卫的锚点要跟着改`)
+    return text.slice(at, end)
+  }
+  const contents = [
+    // 真的那张日→中归并表与 simplifyJp：questText 拿它归一化任务正文。
+    // 去掉 export：混着 ESM 语法的话下面那句 module.exports 就写不出去了
+    slice(entity, 'export const JP2CN', 'export const normalizeTaskEntityText', 'JP2CN/simplifyTaskEntityText')
+      .replace(/^export /gm, ''),
+    'const simplifyJp = simplifyTaskEntityText',
+    slice(source, 'const CAT_META', 'const periodOf', 'CAT_META/catOf/catColor'),
+    slice(source, 'const questTextCache', 'const TASK_CATEGORIES', 'questText'),
+    slice(source, 'const TASK_CATEGORIES', 'const FACTORY_CATEGORY_KEYS', 'TASK_CATEGORIES'),
+    slice(source, 'const categoryOf', '// 「即将重置」的时限', 'categoryOf/PROSE_REPLACING_CATEGORIES'),
+    'module.exports = { catOf, categoryOf, PROSE_REPLACING_CATEGORIES }',
+  ].join('\n\n')
+  const js = buildSync({ stdin: { contents, loader: 'ts' }, write: false, format: 'cjs' }).outputFiles[0].text
+  const shim = { exports: {} }
+  new Function('module', 'exports', js)(shim, shim.exports)
+  const { catOf, categoryOf, PROSE_REPLACING_CATEGORIES } = shim.exports
+
+  const library = JSON.parse(
+    fs.readFileSync(new URL('../assets/lodes/quests-scn.json', import.meta.url), 'utf8'),
+  ).data
+  const rows = Object.entries(library).map(([id, entry]) => ({ ...entry, id: Number(id) }))
+  const byCode = new Map(rows.map((row) => [row.code, row]))
+  const verdict = (code) => {
+    const row = byCode.get(code)
+    assert.ok(row, `任务库里没有 ${code}，这条守卫的数据前提变了`)
+    const category = categoryOf(row)
+    return { key: category.key, label: category.label, replaces: PROSE_REPLACING_CATEGORIES.has(category.key) }
+  }
+
+  // —— 本次 bug 的两条实例：正文里的要求远多于追踪器解得出的那一项 ——
+  const f125 = byCode.get('F125')
+  assert.ok(
+    /开发资材/.test(f125.desc) && /海外舰最新技术/.test(f125.desc) && /黎塞留/.test(f125.desc),
+    'F125 的正文不再写着那几项要求，这条守卫的前提要重新对一遍',
+  )
+  assert.deepEqual(verdict('F125'), { key: 'develop', label: '开发', replaces: false })
+  const f128 = byCode.get('F128')
+  assert.ok(
+    /★\+8|★8|★\+８/.test(f128.desc + f128.memo2) && /钢材/.test(f128.desc),
+    'F128 的正文不再写着装备位与钢材要求，这条守卫的前提要重新对一遍',
+  )
+  assert.deepEqual(verdict('F128'), { key: 'scrap', label: '废弃', replaces: false })
+
+  // —— 白名单里的四类照旧替换（出击/演习/远征/编成各钉一条真任务）——
+  assert.deepEqual(verdict('B18'), { key: 'sortie', label: '出击', replaces: true })
+  assert.deepEqual(verdict('A12'), { key: 'formation', label: '编成', replaces: true })
+  assert.deepEqual(verdict('C1'), { key: 'exercise', label: '演习', replaces: true })
+  assert.deepEqual(verdict('D1'), { key: 'expedition', label: '远征', replaces: true })
+
+  // —— 穷举：E/F/G 码族（补给/入渠/建造/开发/废弃/改修/改造）一条都不许进白名单 ——
+  const factoryLeaks = rows
+    .filter((row) => ['E', 'F', 'G'].includes(catOf(row.code)))
+    .filter((row) => PROSE_REPLACING_CATEGORIES.has(categoryOf(row).key))
+    .map((row) => `${row.code}→${categoryOf(row).label}`)
+  assert.deepEqual(factoryLeaks, [], '工厂族任务的正文是完整需求清单，一条都不能被条件行顶掉')
+
+  // —— 判不出类别的默认不替换：游戏里冒出任务库还没收的新任务时 code 是 '?' ——
+  const unknown = { id: -1, code: '?', name: '未知任务', desc: '', memo: '', memo2: '' }
+  assert.equal(PROSE_REPLACING_CATEGORIES.has(categoryOf(unknown).key), false)
+  // 这是白名单不是黑名单：随手加一类也默认在外面，别写成「排除工厂族」
+  assert.equal(PROSE_REPLACING_CATEGORIES.has('limited'), false)
+  assert.equal(PROSE_REPLACING_CATEGORIES.size, 4)
 })
 
 test('夜间触接挂战斗流水行:与照明弹同口径,只报发动方不量化加成', () => {
@@ -11820,7 +12149,8 @@ test('ケッコンカッコカリ：一手信号是 path 到达，认不出也�
   )
   assert.match(shipLife, /detail: \{ level: prior\?\.level \?\? null \}/, '拿婚后的等级冒充「当时等级」')
   for (const [name, rel, marker] of [
-    ['qa', '../src/renderer/modules/qa.ts', "event.kind === 'marriage'"],
+    // 履历行 2026-08-31 从 qa 挪进 ship-life-events（在籍列表与人生记录弹窗共用一份）
+    ['履历行', '../src/renderer/ship-life-events.ts', "event.kind === 'marriage'"],
     ['ji', '../src/renderer/modules/ji.ts', "event.kind === 'marriage'"],
   ]) {
     const src = fs.readFileSync(new URL(rel, import.meta.url), 'utf8')
@@ -12230,7 +12560,7 @@ test('第三批：严谨说明只在折叠/悬停里，停更与新鲜度只在�
 
   // ---- ① 单短标注与当下状态照旧常驻（这一改最容易被顺手连坐）----
   // 2026-08-26 文案清扫撤了行内 <b> 强调（族 9），空态本身照旧常驻
-  assert.match(catalog, /加成表还没有收录这件装备/) // 空态
+  assert.match(catalog, /加成表暂未收录这件装备/) // 空态
   assert.match(catalog, /加成表里没有指名这艘舰的条目。/) // 空态
   assert.match(battle, /记录已过期/) // 状态词
   assert.match(event, /<span class="mst lk">未同步<\/span>/) // 状态词

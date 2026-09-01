@@ -7,10 +7,11 @@
 import { crashLog, onCrash } from '../crash-guard'
 import { setAllowRemoteArt } from '../kcs-image'
 import { setAllowRemoteVoice } from '../kcs-voice'
-import { setVoiceCaptionsEnabled } from '../voice-subtitle'
+import { setVoiceCaptionSize, setVoiceCaptionsEnabled } from '../voice-subtitle'
 import { setOverlayEntranceEnabled } from '../launch-glow'
 import { reloadVoiceAbsent } from '../voice-probe'
 import {
+  getGameScaleLive,
   getGameScaleMode,
   getGameScaleStep,
   setGameScaleMode,
@@ -59,6 +60,14 @@ import {
   GAME_SCALE_MODES,
   GAME_SCALE_STEPS,
 } from '../../shared/game-scale'
+import {
+  effectiveVoiceCaptionPx,
+  normalizeVoiceCaptionSize,
+  VOICE_CAPTION_SIZE_CHIPS,
+  VOICE_CAPTION_SIZE_DEFAULT,
+  VOICE_CAPTION_SIZE_PATH,
+  VOICE_CAPTION_SIZE_STEP,
+} from '../../shared/voice-caption-size'
 import { LAUNCH_GLOW_CONFIG_KEY, LAUNCH_GLOW_DEFAULT } from '../../shared/launch-glow'
 import { mapIntelCatalog } from '../../shared/map-intel'
 import { groupVoiceAbsentByMonth } from '../../shared/voice-probe-plan'
@@ -386,18 +395,18 @@ const gameAudioSelfTestCardHtml = (): string => {
       <span>${esc(audioSelfTestError)}</span></div>`
   }
   if (audioSelfTest === null) {
-    return `${head}<div class="ynote">还没读过。点右上角「读一次」，从游戏页取一份现况。</div>`
+    return `${head}<div class="ynote">暂无读取记录。点右上角「读一次」，从游戏页取一份现况。</div>`
   }
   if (audioSelfTest.length === 0) {
     return `${head}<div class="yhealth bad"><b>一个帧都没装上钩子</b>
-      <span>游戏页里找不到音频钩子，三条滑条都不会起作用。多半是 preload 没跑起来，
-      看看主控台有没有 <span class="mono">failed to install game-audio</span>。</span></div>`
+      <span>游戏页里找不到音频钩子，三条滑条都不会起作用。可在主控台查
+      <span class="mono">failed to install game-audio</span>，确认 preload 是否启动。</span></div>`
   }
 
   const allDecodes = audioSelfTest.flatMap((frame) => frame.decodes)
   const voiceDecodes = allDecodes.filter((entry) => entry.category === 'voice').length
   const verdict = !allDecodes.length
-    ? `<div class="ynote">还没解过音频。去游戏里点一句台词、再切一次港区，然后回来重读。</div>`
+    ? `<div class="ynote">暂无音频解码记录。在游戏里点一句台词、切一次港区，再回来重读。</div>`
     : voiceDecodes
       ? `<div class="yhealth ok"><b>语音认得出来</b>
           <span>最近 ${allDecodes.length} 条里有 ${voiceDecodes} 条认成语音，语音滑条这一路是通的。</span></div>`
@@ -419,7 +428,7 @@ const gameAudioSelfTestCardHtml = (): string => {
             )
             .reverse()
             .join('')
-        : `<div class="yl-row"><span class="dim">这个帧还没解过音频</span></div>`
+        : `<div class="yl-row"><span class="dim">这个帧暂无音频解码记录</span></div>`
       return `<div class="ynote" style="margin-top:8px">
           <b>${esc(frame.frame || '(读不出路径)')}</b><br>
           记下的地址：XHR ${frame.captures.xhr} · fetch ${frame.captures.fetch} ·
@@ -564,7 +573,7 @@ const lodeHealthCardHtml = (): string => {
   const intelHtml = `${
     mapIntelError
       ? `<div class="yhealth warn"><b>活动图底座读取失败</b>
-          <span>${esc(mapIntelError)} · 不是「上游没有」，是这次没读出来；重开面板或重启 kuma 再试。</span></div>`
+          <span>${esc(mapIntelError)} · 重开面板或重启 kuma 再试</span></div>`
       : ''
   }<div class="ynote" style="margin-top:8px">
       <b>海域情报</b>：常规海域 ${intel.normalCovered}/${intel.normalTotal} 张有节点资料 ·
@@ -659,7 +668,7 @@ const pushCardHtml = (): string => {
           push.barkEndpoint && endpoint.error ? endpoint.error : '',
           push.barkEncrypt && push.barkKey && !isValidPushKey(push.barkKey) ? PUSH_KEY_ERROR : '',
           push.enabled && push.barkEncrypt && !push.barkKey
-            ? '开着加密但还没有密钥——点「生成密钥」再抄进 Bark App'
+            ? '已开加密但没有密钥 · 点「生成密钥」后填进 Bark App'
             : '',
           push.enabled && !push.barkEndpoint ? '推送已启用，但地址还空着，不会发出任何请求' : '',
         ]
@@ -667,7 +676,7 @@ const pushCardHtml = (): string => {
   // 拦不住但要说：频道名短 = 口令短
   const advisories = [
     isNtfy && isWeakNtfyTopic(push.ntfyTopic)
-      ? `频道名不到 ${NTFY_TOPIC_WEAK_LENGTH} 位。它就是口令，太短别人猜得到，点「生成频道名」换一个`
+      ? `频道名不到 ${NTFY_TOPIC_WEAK_LENGTH} 位。频道名即口令，过短易被猜到，可点「生成频道名」重新生成`
       : '',
   ].filter(Boolean)
 
@@ -788,7 +797,7 @@ const archiveLimitLine = (
   return `<div class="yline">占用上限
     <input class="yin w60" type="number" data-archive-limit="${kind}" value="${mb}"
       min="0" max="1048576" step="1" placeholder="不限">
-    <span class="note9">MB · 留空或 0 = 不限量（默认）；想设的话 ${suggested} 是个合适的起点</span></div>`
+    <span class="note9">MB · 留空或 0 = 不限量（默认）；参考值 ${suggested}</span></div>`
 }
 
 const formatArchiveBytes = (bytes: number): string => {
@@ -890,7 +899,7 @@ const retentionCardHtml = (): string => {
           ? ledgerRetention.months
               .map((row) => monthLineHtml(row.month, row.count, 'data-ledger-clear'))
               .join('')
-          : '<div class="yline"><span class="note9">还没有记录</span></div>'
+          : '<div class="yline"><span class="note9">暂无记录</span></div>'
       }`
   const voiceBlock = !voiceAbsentLedger
     ? '<div class="yline">占用统计中…</div>'
@@ -902,7 +911,7 @@ const retentionCardHtml = (): string => {
               .map((group) => monthLineHtml(group.month, group.count, 'data-absent-clear'))
               .join('')}
             <div class="yline"><span class="ybtn warn" data-absent-clear="all">全部清理</span></div>`
-          : '<div class="yline"><span class="note9">还没有记录</span></div>'
+          : '<div class="yline"><span class="note9">暂无记录</span></div>'
       }`
   return `<div class="h"><b>记录保留与清理</b><span class="aux">${esc(state)}</span></div>
       <div class="ynote">保留天数留空 = 永久保留，也可以在下面按月清。
@@ -932,7 +941,7 @@ const zoomCardHtml = (): string => {
         `<span class="ychip${Math.abs(zoom - z) < 0.001 ? ' on' : ''}" data-zoom="${z}">${Math.round(z * 100)}%</span>`,
     )
     .join('')
-  return `<div class="h"><b>界面缩放</b><span class="aux">字太小就调这里 · 即时生效</span></div>
+  return `<div class="h"><b>界面缩放</b><span class="aux">即时生效</span></div>
     <div class="yline">${zoomChips}<span class="ylk" data-act="zoom-dec">－</span><span class="ylk" data-act="zoom-inc">＋</span>
       <b style="font-family:var(--mono);color:var(--text)">${Math.round(zoom * 100)}%</b></div>
     <div class="ynote">快捷键 <span class="mono">Ctrl +</span> / <span class="mono">Ctrl -</span> / <span class="mono">Ctrl 0</span>（回到 115%）。</div>`
@@ -959,6 +968,45 @@ const gameScaleCardHtml = (): string => {
     <div class="yline">${modeChips}</div>
     ${mode === 'lock' ? `<div class="yline">${stepChips}</div>` : ''}
     <div class="ynote">固定倍率四周可能出现黑边</div>`
+}
+
+/**
+ * 语音字幕的字号。**玩家调的是基准，读数那一格写的是实际生效值**（用户 2026-08-31 拍板）。
+ *
+ * 两个数都摆出来是因为它们会不一样：实际 = 基准 × 游戏画面当前倍率，固定倍率 75% 时
+ * 基准 20 落到屏幕上是 15。只摆基准，玩家改完对不上眼睛看到的；只摆实际，那个数
+ * 又不是他能直接选的（倍率不归这张卡管）。
+ *
+ * 倍率取的是**量出来**的那个（getGameScaleLive），不是选中的档位：自适应根本没有
+ * 选中的档，固定倍率装不下时还会自己往下退。
+ */
+const currentCaptionSize = (): number =>
+  normalizeVoiceCaptionSize(config.get(VOICE_CAPTION_SIZE_PATH, VOICE_CAPTION_SIZE_DEFAULT))
+
+/**
+ * 改一次字幕字号：落盘 → 当场推给字幕层 → 重画这张卡（两个读数都要跟着变）。
+ * 没变就整套不做——顶到上下限时连按加号不该每按一次都写一遍盘、重画一次面板。
+ */
+const applyCaptionSize = (raw: number) => {
+  const next = normalizeVoiceCaptionSize(raw)
+  if (next === currentCaptionSize()) return
+  config.set(VOICE_CAPTION_SIZE_PATH, next)
+  setVoiceCaptionSize(next)
+  render()
+}
+
+const captionSizeCardHtml = (): string => {
+  const base = currentCaptionSize()
+  const scale = getGameScaleLive()
+  const chips = VOICE_CAPTION_SIZE_CHIPS.map(
+    (value) =>
+      `<span class="ychip${base === value ? ' on' : ''}" data-caption-size="${value}">${value}px</span>`,
+  ).join('')
+  return `<div class="h"><b>字幕字号</b><span class="aux">随游戏画面倍率 · 即时生效</span></div>
+    <div class="yline">${chips}<span class="ylk" data-act="caption-size-dec">－</span><span class="ylk" data-act="caption-size-inc">＋</span>
+      <b style="font-family:var(--mono);color:var(--text)" title="实际字号 = 基准 × 游戏画面当前倍率 ${Math.round(
+        scale * 100,
+      )}%">基准 ${base}px · 实际 ${effectiveVoiceCaptionPx(base, scale)}px</b></div>`
 }
 
 // 抬头那句不能写死「即时生效」：这一卡里最后那条（启动点亮动画）说的是「下次启动生效」,
@@ -1129,7 +1177,7 @@ const cacheRepairCardHtml = (): string => `<div class="h"><b>缓存修复</b><sp
 const modDirCardHtml = (): string => `<div class="h"><b>魔改文件夹</b><span class="aux">立绘、语音等游戏素材的本地替换；文件按游戏资源路径摆放</span></div>
   <div class="yline"><span class="ybtn" data-act="open-mod-dir">打开文件夹</span></div>`
 
-const voiceArchiveCardHtml = (): string => `<div class="h"><b>语音档案</b><span class="aux">在游戏里听过的语音会自己收进来</span></div>
+const voiceArchiveCardHtml = (): string => `<div class="h"><b>语音档案</b><span class="aux">游戏里听过的语音自动入档</span></div>
   <div class="ynote">游戏播过的语音会转存一份到本机档案，图鉴台词页据此点亮。
   ${
     voiceArchiveUsage
@@ -1157,7 +1205,7 @@ const voiceArchiveCardHtml = (): string => `<div class="h"><b>语音档案</b><s
   ${archiveLimitLine('voice', voiceArchiveUsage)}
   <div class="yline"><span class="ybtn warn" data-act="clear-voice-archive">清空语音档案</span></div>`
 
-const artArchiveCardHtml = (): string => `<div class="h"><b>立绘档案</b><span class="aux">在游戏里见过的立绘会自己收进来</span></div>
+const artArchiveCardHtml = (): string => `<div class="h"><b>立绘档案</b><span class="aux">游戏里见过的立绘自动入档</span></div>
   <div class="ynote">游戏取过的立绘会转存一份到本机档案，图鉴立绘页据此点亮。
   ${
     artArchiveUsage
@@ -1171,7 +1219,7 @@ const artArchiveCardHtml = (): string => `<div class="h"><b>立绘档案</b><spa
   ${archiveLimitLine('art', artArchiveUsage)}
   <div class="yline"><span class="ybtn warn" data-act="clear-art-archive">清空立绘档案</span></div>`
 
-const bgmArchiveCardHtml = (): string => `<div class="h"><b>BGM 档案</b><span class="aux">在游戏里响过的曲子会自己收进来</span></div>
+const bgmArchiveCardHtml = (): string => `<div class="h"><b>BGM 档案</b><span class="aux">游戏里响过的 BGM 自动入档</span></div>
   <div class="ynote">游戏放过的 BGM 会转存一份到本机档案，海域卷的 ♪ 试听据此改走本地实物。
   ${
     bgmArchiveUsage
@@ -1220,7 +1268,7 @@ const lodePacksCardHtml = (): string => {
         // 「上面那张卡列出了缺哪些」这句从前指的是矿脉健康度——而那张卡
         // 2026-08-24 起只在调试态装配，发行版里根本没有「上面那张卡」。
         // 这一格是玩家真会看到的，所以话要自己站得住，并且给一条他能做的事。
-        lodesLoaded ? '一个数据包都没有，多半是文件损坏，重装一次就回来' : '加载中…'
+        lodesLoaded ? '一个数据包都没有，多半是文件损坏，重装一次即可' : '加载中…'
       }</td></tr>`
     }</tbody></table>
     <div class="ynote">用户包目录 <span class="mono">${esc(appdataPath)}\\lodes</span> 内同 id 的文件会覆盖内置包。</div>`
@@ -1238,6 +1286,7 @@ const aboutCardHtml = (): string => `<div class="h"><b>关于</b></div>
 const CARD_HTML: Record<SettingsCardId, () => string> = {
   zoom: zoomCardHtml,
   'game-scale': gameScaleCardHtml,
+  'caption-size': captionSizeCardHtml,
   'ui-hints': uiHintsCardHtml,
   tray: trayCardHtml,
   'game-audio': gameAudioCardHtml,
@@ -1483,6 +1532,19 @@ registerModule({
         render()
         return
       }
+      const captionSizeChip = t.closest<HTMLElement>('[data-caption-size]')
+      if (captionSizeChip) {
+        applyCaptionSize(Number(captionSizeChip.dataset.captionSize))
+        return
+      }
+      if (act === 'caption-size-inc') {
+        applyCaptionSize(currentCaptionSize() + VOICE_CAPTION_SIZE_STEP)
+        return
+      }
+      if (act === 'caption-size-dec') {
+        applyCaptionSize(currentCaptionSize() - VOICE_CAPTION_SIZE_STEP)
+        return
+      }
       if (act === 'audio-selftest-refresh') {
         readAudioSelfTest()
         return
@@ -1561,8 +1623,8 @@ registerModule({
         if (
           confirm(
             '清空语音档案？\n' +
-              '图鉴台词页上已点亮的格子会全部灭掉。\n' +
-              '季节限定语音过季后游戏不再播放，清掉就再也收不回来了。',
+              '图鉴台词页上已点亮的格子会全部熄灭。\n' +
+              '季节限定语音过季后游戏不再播放，请谨慎清除。',
           )
         ) {
           void ipcRenderer.invoke('mg:voice-archive-clear').then(() => {
@@ -1579,7 +1641,7 @@ registerModule({
             '清空 BGM 档案？\n' +
               '海域卷的 ♪ 试听会退回「有缓存才响、没缓存要联网现取」。\n' +
               '活动曲随活动撤场，撤场之后游戏里不会再放。\n' +
-              '清掉就可能再也收不回来了。',
+              '清空后可能无法恢复，请谨慎清除。',
           )
         ) {
           void ipcRenderer.invoke('mg:bgm-archive-clear').then(() => {
@@ -1595,9 +1657,9 @@ registerModule({
         if (
           confirm(
             '清空立绘档案？\n' +
-              '图鉴立绘页上已点亮的格子会全部灭掉。\n' +
+              '图鉴立绘页上已点亮的格子会全部熄灭。\n' +
               '季节限定立绘过季就换回去了，活动限定深海舰的图在活动撤场后也再见不到。\n' +
-              '清掉就再也收不回来了。',
+              '清空后无法恢复，请谨慎清除。',
           )
         ) {
           void ipcRenderer.invoke('mg:art-archive-clear').then(() => {
@@ -1645,7 +1707,7 @@ registerModule({
         if (!count) return
         const what =
           month == null ? `全部 ${count.toLocaleString()} 条` : `${month} 的 ${count} 条`
-        if (!confirm(`清理 ${what}「官方没有」记录？\n这些格子回到可探测的状态，点一下会再问一次官方。`)) {
+        if (!confirm(`清理 ${what}「官方没有」记录？\n这些格子回到可探测状态，可重新核实。`)) {
           return
         }
         void ipcRenderer.invoke('mg:voice-absent-clear', { month }).then(() => {
@@ -1683,7 +1745,7 @@ registerModule({
           config.set(PUSH_CONFIG_PATHS.ntfyTopic, topic)
           pushMessage = {
             tone: 'ok',
-            text: `已生成频道名：${topic}\n在手机的 ntfy 里 Subscribe 这个名字（它就是口令，别发到公开的地方）。`,
+            text: `已生成频道名：${topic}\n在手机的 ntfy 里 Subscribe 这个名字（频道名即口令，请勿公开）。`,
           }
           render()
         })

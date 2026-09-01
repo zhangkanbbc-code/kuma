@@ -46,6 +46,7 @@ import {
   enemyCompRowSelector,
 } from '../../shared/map-node-jump'
 import { fcdTopologyUsable } from '../../shared/fcd-topology'
+import { mapGaugeSegmentLabels, mapGaugeSummaryText } from '../../shared/map-gauge-metric'
 import {
   abyssVoiceSceneFamily,
   abyssVoiceSightingFor,
@@ -91,7 +92,7 @@ import {
   metSinceOf,
   onFirstEncountersChange,
 } from '../first-encounter'
-import { availableShipImages, availableSlotItemImages, isBigShipImg, mapArtManifest, markShipImageMissing, missingShipImages, noteShipArtDisplayed, remoteArtState, setShipImageGraph, shipGraphLayout, shipImageUrl, shipImageVersionOf, slotItemImageUrl } from '../kcs-image'
+import { availableCostumeImages, availableShipImages, availableSlotItemImages, cgTypeLabel, costumeOwnerOf, isBigShipImg, mapArtManifest, markShipImageMissing, missingShipImages, noteShipArtDisplayed, remoteArtState, setShipImageGraph, shipCostumeGraphIds, shipGraphLayout, shipImageUrl, shipImageVersionOf, slotItemImageUrl } from '../kcs-image'
 import { extraVoiceUrl, isPlayableVoiceId, noteVoicePlayed, previewVoiceVolume, setShipGraph, voiceFilenameOf, voicePathname, voiceState, voiceUrl } from '../kcs-voice'
 import { claimPreviewPlayback, notePreviewStopped, registerPreviewPlayer } from '../preview-audio'
 import { previewClickAction } from '../../shared/preview-audio'
@@ -143,6 +144,7 @@ import {
   archivedArtUrl,
   artArchiveReady,
 } from '../art-archive'
+import { ensureMapCellLetters, mapCellLetter, mapPlaceText } from '../map-cell-letter'
 import { localDropCellsText } from '../../shared/local-drop-cells'
 import { legacyArchivedArt } from '../../shared/art-archive-plan'
 import type { ArtArchiveEntry } from '../../shared/art-archive-plan'
@@ -1862,13 +1864,13 @@ const huntPlanHtml = (): string => {
         // 包还写着 active、主数据里活动图却已经撤了的那批。一条都不删，沉到底
         // 换个如实的语境（同 di 把已收窗的掉落移进「往期」那一手）
         eventClosed.length
-          ? `<div class="hunt-h">活动结束了，这些掉点现在捞不到${eventName ? ` · ${esc(eventName)}` : ''}</div>${eventClosed.map(rowOf).join('')}`
+          ? `<div class="hunt-h">活动已结束 · 这些掉点现在捞不到${eventName ? ` · ${esc(eventName)}` : ''}</div>${eventClosed.map(rowOf).join('')}`
           : ''
       }
       ${
         // 同一手：限定期终了的那批也沉到底，只换语境不删行
         endedOnly.length
-          ? `<div class="hunt-h">限定期终了了，这些掉点现在捞不到</div>${endedOnly.map(endedRowOf).join('')}`
+          ? `<div class="hunt-h">限定期已终了 · 这些掉点现在捞不到</div>${endedOnly.map(endedRowOf).join('')}`
           : ''
       }
     </div>
@@ -1943,7 +1945,7 @@ const npcCatalogHtml = (): string => {
     <div class="type-chips">${shipChipsHtml()}</div>
     <div class="vo-note npc-note">明石、大淀她们的舰娘本体台词，在各自的图鉴页。</div>
     <div class="ship-list npc-list" id="ji-npc-list">${
-      rows || '<div style="padding:20px;color:var(--dim)">台词包还没加载</div>'
+      rows || '<div style="padding:20px;color:var(--dim)">台词包尚未加载</div>'
     }</div>`
 }
 
@@ -2128,6 +2130,11 @@ const memorialDate = (ts: number) =>
 const memorialMap = (map: number | null) =>
   map && map > 0 ? mapCodeOf(map) : ''
 
+// 收容库的履历也写玩家认的点位字母（`A 点`），拿不到退 `#号`——与鉴·列表的
+// 人生记录同一句口径。原先写的是罗盘内部编号（`点位 12`），海图上找不到。
+const memorialCell = (map: number | null, cell: number | null) =>
+  map && map > 0 && cell != null ? ` · ${mapCellLetter(map, cell)} 点` : ''
+
 const memorialEquipmentNames = (items: unknown) => {
   if (!Array.isArray(items) || !items.length) return '无装备'
   return (items as ShipLifeEquipment[])
@@ -2143,7 +2150,17 @@ const memorialEquipmentNames = (items: unknown) => {
 
 const memorialEventCopy = (event: ShipLifeEvent): [string, string] => {
   const detail = event.detail ?? {}
-  if (event.kind === 'join') return ['加入镇守府', `首次记录时 Lv ${detail.level ?? '?'}`]
+  if (event.kind === 'join') {
+    // 出处口径同鉴·列表的人生记录：掉落写图与点位，建造写建造，
+    // 认不到就什么都不加（确认不了就不标）。
+    const origin =
+      detail.origin === 'drop' && event.map != null && event.cell != null
+        ? ` · 掉落于 ${mapPlaceText(event.map, event.cell, event.isBoss)}`
+        : detail.origin === 'build'
+          ? ' · 建造入港'
+          : ''
+    return ['加入镇守府', `首次记录时 Lv ${detail.level ?? '?'}${origin}`]
+  }
   if (event.kind === 'exp') {
     return [
       `获得经验 +${event.expDelta.toLocaleString()}`,
@@ -2203,7 +2220,7 @@ const memorialEventCopy = (event: ShipLifeEvent): [string, string] => {
     return [
       event.practice
         ? `演习 ${rank}`
-        : `${memorialMap(event.map)}${event.cell != null ? ` · 点位 ${event.cell}` : ''} ${rank}`,
+        : `${memorialMap(event.map)}${memorialCell(event.map, event.cell)} ${rank}`,
       `${event.isBoss ? 'Boss 战 · ' : ''}${event.mvp ? 'MVP · ' : ''}${detail.fleet === 'escort' ? '护卫舰队' : '主力舰队'}`,
     ]
   }
@@ -2211,7 +2228,7 @@ const memorialEventCopy = (event: ShipLifeEvent): [string, string] => {
   if (event.kind === 'material') return ['离开仓库：被作为素材', `Lv ${detail.level ?? '?'} · 转入收容库`]
   return [
     '离开仓库：被击沉',
-    `${memorialMap(event.map)}${event.cell != null ? ` · 点位 ${event.cell}` : ''}${event.isBoss ? ' · Boss 战' : ''}`,
+    `${memorialMap(event.map)}${memorialCell(event.map, event.cell)}${event.isBoss ? ' · Boss 战' : ''}`,
   ]
 }
 
@@ -2511,7 +2528,7 @@ function shipDetailPanelHtml(enter = false): string {
         ? voicePanelHtml(shipState.selectedForm)
         : shipState.dtab === 'p-bonus'
           ? `${shipFitHtml(shipState.selectedForm)}
-             <div class="sec" style="margin-top:14px"><div class="sec-h">你这一艘实际吃到多少<span class="aux">实测 vs 预期</span></div>
+             <div class="sec" style="margin-top:14px"><div class="sec-h">这一艘的实测加成<span class="aux">实测 vs 预期</span></div>
              ${bonusPanelHtml(shipState.selectedForm)}</div>`
           : shipState.dtab === 'p-drop'
             ? // 先答「去哪捞」（离线目录），再答「你捞到过哪」（本地遭遇志），
@@ -2718,7 +2735,9 @@ const shipDrawerHtml = () => {
         const hero = shipImageUrl(shipState.selectedForm, 'banner')
         return hero
           ? `<div class="cg-card has"><img src="${esc(hero)}" alt="${esc(entityNamePlain('ship', form.api_id, form.api_name))} 横幅"></div>`
-          : '<div class="cg-card"><span class="st">未缓存</span></div>'
+          // 「缓存」一词 2026-08-31 退场：本机已有的字节现在有缓存与立绘档案两处
+          // （取图回退链见 kcs-image 的 shipImageUrl），两处都没有才是这一格
+          : '<div class="cg-card"><span class="st">本机没有</span></div>'
       })()}
     </div>
     ${getmesHtml(shipState.selectedForm)}
@@ -3535,7 +3554,7 @@ const collectOutcomeHtml = (key: string): string => {
 const seasonalTakeHtml = (mstId: number, slot: number): string => {
   if (!isPlayableVoiceId(slot)) return ''
   if (!voicePathname(mstId, slot)) {
-    return '<span class="vo-take wait" title="还没同步到这个形态的音轨信息，进一次游戏就有">取现值</span>'
+    return '<span class="vo-take wait" title="这一形态的音轨信息待同步 · 进一次游戏后自动获取">取现值</span>'
   }
   return `<span class="vo-take" data-voice-take="${mstId}/${slot}" title="${esc(
     // 这一钮不主张自己取回来的是哪一句（判据与全部理由见上面的头注），
@@ -3636,7 +3655,7 @@ const seasonalVoiceHtml = (mstId: number): string => {
         const seasonJa = `${line.ja ?? ''}`
         return `<div class="vo-row vo-${state}">
         <span class="vo-k">${esc(line.scene || line.key)}</span>
-        <div class="vo-tx">${seasonJa ? `<div class="vo-ja">${esc(seasonJa)}</div>` : ''}${seasonZh ? `<div class="vo-zh">${esc(seasonZh)}</div>` : '<div class="vo-zh vo-untranslated">（还没有译文）</div>'}</div>
+        <div class="vo-tx">${seasonJa ? `<div class="vo-ja">${esc(seasonJa)}</div>` : ''}${seasonZh ? `<div class="vo-zh">${esc(seasonZh)}</div>` : '<div class="vo-zh vo-untranslated">（暂无译文）</div>'}</div>
         ${take}${cell}
       </div>`
       })
@@ -3778,8 +3797,8 @@ const kansoVoiceOffNote = (playbackMstId: number, line: KansoVoiceRow): string =
 const absentTitle = (mstId: number, slot: number): string => {
   const day = voiceAbsentDay(mstId, slot)
   return day
-    ? `${day} 问过没有 · 点一下再问`
-    : '之前问过没有 · 点一下再问'
+    ? `${day} 核实过官方没有 · 点击重新核实`
+    : '核实过官方没有 · 点击重新核实'
 }
 
 const skeletonRows = (mstId: number, covered: Set<number>): { slot: number; html: string }[] => {
@@ -4838,7 +4857,7 @@ const equipObservedHtml = (equipMstId: number): string => {
   if (!rows.length) {
     return `<div class="fb-track"><div class="fb-track-h">你的实测</div>
       ${
-        history || '<div class="fb-empty">还没有哪一艘装着这件</div>'
+        history || '<div class="fb-empty">暂无舰娘装着这件</div>'
       }</div>`
   }
   // 两种「不值得一艘一行」的折起来，折叠用仓库现成的 <details data-keep>
@@ -4887,7 +4906,7 @@ const equipFitHtml = (equipMstId: number): string => {
       <div style="font-size:11.5px;color:var(--dim);line-height:1.7">
         ${
           uncovered
-            ? `加成表还没有收录这件装备（上游收到第 ${fitPackCoverageMax(data)} 号）`
+            ? `加成表暂未收录这件装备（上游收到第 ${fitPackCoverageMax(data)} 号）`
             : '加成表里没有这件装备的加成记录。'
         }
       </div>
@@ -5151,23 +5170,47 @@ const shipGraphLayoutHtml = (mstId: number): string => {
 // 所以「哪一份实物属于哪一季」**无从确证**。档案卡因此只说查得实的三件事：
 // 哪个图种、哪一月留存、版本几——**不声称某一份是 2015 年的圣诞版**。
 
+// 图种的显示名单一出处在 renderer/kcs-image 的 `cgTypeLabel`：
+// 这里、衣装格、档案旧版卡查的是同一张表，各写一份必然出现同一张图两个叫法。
+
 /**
- * 图种的显示名。**表里没有的一律按档名标识如实写**（`图种 sp_remodel`）——
- * 名分层滞后时给不出中文名是常态，编一个名字比裸着更糟。
+ * 图鉴衣装的格子：本体现行图组之后、档案旧版卡之前的那一段。
+ *
+ * ---- 为什么它是独立一段（2026-08-31 用户实机报）----
+ * 游戏图鉴里的衣装切替取的是**独立构图编号**（5xxx/6xxx），主数据 api_mst_ship 里
+ * 没有这些号。档案按路径里的四位号记归属，于是村雨改二的四套衣装被记在
+ * 5310/5403/5479/6024 这几个幽灵编号下，按舰去查一张都查不到。
+ * 归属由 picture_book 报文学到（判据见 shared/ship-costume），这里按学到的归属摆。
+ *
+ * 摆哪些图种由 `availableCostumeImages` 定：**不照搬本体那张表**——衣装只有
+ * card / character_full / character_up 三族，按本体表摆会稳定摆出一排 404。
+ * 取图走与本体同一条回退链（本地缓存 → 档案实物 → 远端，受钥里那个开关管）。
+ * 玩家没翻过图鉴的舰在这里就是空的：归属学不到，如实一格不摆。
  */
-const CG_TYPE_LABEL: Record<string, string> = {
-  full: '全身立绘',
-  full_dmg: '全身 · 中破',
-  character_full: '立绘',
-  character_full_dmg: '立绘 · 中破',
-  album_status: '图鉴立绘',
-  remodel: '改装图',
-  remodel_dmg: '改装图 · 中破',
-  sp_remodel: '特殊改装图',
-  banner: '横幅',
-  banner_dmg: '横幅 · 中破',
+const costumeCellsHtml = (mstId: number): { html: string; sets: number; paths: string[] } => {
+  const paths: string[] = []
+  let sets = 0
+  let html = ''
+  for (const graphId of shipCostumeGraphIds(mstId)) {
+    const images = availableCostumeImages(graphId)
+    if (!images.length) continue
+    sets += 1
+    // 版本号取**这套衣装自己的**（api_mst_shipgraph 里 5xxx 也有条目，实测村雨改二
+    // 那四套是 61/61/62/61）。透传本体的版号会让入档条目的归因串到另一张图上。
+    const version = shipImageVersionOf(graphId)
+    for (const im of images) {
+      paths.push(im.pathname)
+      const caption = `${im.label} · 衣装 #${graphId}${version ? ` · 版本 ${version}` : ''}`
+      html += `<figure class="cg-item${im.big ? ' big' : ''}"
+          data-cg="${esc(im.url)}" data-cg-path="${esc(im.pathname)}"
+          data-cg-version="${esc(version)}" data-cg-cell hidden>
+        <img src="${esc(im.url)}" alt="${esc(im.label)}" data-cg-image>
+        <figcaption>${esc(caption)}</figcaption>
+      </figure>`
+    }
+  }
+  return { html, sets, paths }
 }
-const cgTypeLabel = (type: string): string => CG_TYPE_LABEL[type] ?? `图种 ${type}`
 
 /**
  * 画廊尾接的「档案旧版卡」——**这是立绘档案唯一的展示面**。
@@ -5205,8 +5248,13 @@ const archivedArtCellsHtml = (mstId: number, displayed: readonly string[]): stri
 
 const cgPanelHtml = (mstId: number): string => {
   const imgs = availableShipImages(mstId)
-  // 画廊尾巴：档案里的非现行版本。官方现行那几条路径交给它去重，档案空就是空字符串
-  const archived = archivedArtCellsHtml(mstId, imgs.map((im) => im.pathname))
+  const costumes = costumeCellsHtml(mstId)
+  // 画廊尾巴：档案里的非现行版本。现行摆出来的那些路径（含衣装）交给它去重，
+  // 档案空就是空字符串
+  const archived = archivedArtCellsHtml(mstId, [
+    ...imgs.map((im) => im.pathname),
+    ...costumes.paths,
+  ])
   if (!imgs.length) {
     // 本地没有就**只出一句说明**。2026-08-22 之前这里还挂着一个「点了才请求」的
     // 社区图标源（tsunkit）作降级补位——整条退役了：发行产物的对外请求只许指向
@@ -5214,9 +5262,13 @@ const cgPanelHtml = (mstId: number): string => {
     // 缺格不写抱怨文案，也不摆一个点不出东西的按钮。
     // 档案里若留着旧版，那就是这一页现在唯一看得到的图——照样摆出来（零网络）。
     return `<div style="font-size:11.5px;color:var(--dim);line-height:1.8">
-      在游戏里打开一次她的图鉴页，这里就会有图
+      在游戏里打开一次她的图鉴页
     </div>
-    ${archived ? `<div class="cg-grid" data-cg-grid>${archived}</div>` : ''}
+    ${
+      costumes.html || archived
+        ? `<div class="cg-grid" data-cg-grid>${costumes.html}${archived}</div>`
+        : ''
+    }
     ${shipGraphLayoutHtml(mstId)}`
   }
   const cells = imgs
@@ -5240,7 +5292,7 @@ const cgPanelHtml = (mstId: number): string => {
   const missingBig = missing.filter((m) => m.big)
   // 与深海/装备两处同款：格子全 404 被摘掉后，靠这两个标记把「一张都取不到」
   // 说出来（wireCgImages 的 settle 按属性找），否则只剩一片空网格
-  return `<div class="cg-grid" data-cg-grid>${cells}${archived}</div>
+  return `<div class="cg-grid" data-cg-grid>${cells}${costumes.html}${archived}</div>
     <div class="af-empty ship-cg-empty" data-cg-empty hidden>图片都读不出来了 · 在游戏里打开一次她的图鉴页</div>
     ${
       missingBig.length
@@ -5251,16 +5303,20 @@ const cgPanelHtml = (mstId: number): string => {
                 ? ''
                 : rs.enabled
                   ? '还没识别出游戏服务器，先进一次游戏'
-                  : '设置里关掉了远程取图，只显示已缓存的'
+                  : '设置里关掉了远程取图，只显示本机已有的'
+            // 「缓存」一词 2026-08-31 退场：本机已有的字节现在有缓存与立绘档案两处，
+            // 档案里那份显示得好好的时候还说它「没落到缓存」，屏幕上就摆着一句错话。
             return `<div class="q-foot" style="color:var(--dim)">
-              <b>${missingBig.map((m) => esc(m.label)).join('、')}</b> 还没落到缓存${
+              <b>${missingBig.map((m) => esc(m.label)).join('、')}</b> 本机还没有${
                 how ? `·${how}` : ''
               }</div>`
           })()
         : ''
     }
     ${shipGraphLayoutHtml(mstId)}
-    <div class="q-foot">已有 ${imgs.length} 张${missing.length ? ` · 未缓存 ${missing.length} 张` : ''} · 点击看大图${
+    <div class="q-foot">已有 ${imgs.length + costumes.paths.length} 张${missing.length ? ` · 本机没有 ${missing.length} 张` : ''} · 点击看大图${
+        costumes.sets ? ` · 标「衣装 #」的是图鉴里的 ${costumes.sets} 套衣装切替` : ''
+      }${
         archived
           ? ' · 标「档案 … 留存」的来自立绘档案，官方现在放的不是它们'
           : ''
@@ -5969,7 +6025,7 @@ const equipDrawerHtml = () => {
               <img src="${esc(art)}" alt="${esc(entityNamePlain('equip', e.api_id, e.api_name))} 卡面" data-equip-art="${e.api_id}">
             </div>`
           : `<div class="equip-art">${equipTypeIconHtml(iconId, { className: 'hero-icon', title: entityNamePlain('equip', e.api_id, e.api_name) })}
-              <div class="cap">尚无可读取的官方卡面</div></div>`
+              <div class="cap">暂无可读取的官方卡面</div></div>`
       }
     </div>
     <div class="sec">
@@ -6221,7 +6277,7 @@ const improveSectionHtml = (e: any, instances: [string, { level?: number }][]): 
       <div class="sec-h">改修工厂<span class="aux">${uncovered ? '暂无收录' : '不可改修'}</span><span class="sp"></span>${eoLode ? lodeCreditMark(eoLode.meta) : ''}</div>
       <div class="ak-empty">${
         uncovered
-          ? `改修表还没收到这件${improveCoverageMax ? `（只到第 ${improveCoverageMax} 号）` : ''}`
+          ? `改修表暂未收录这件${improveCoverageMax ? `（只到第 ${improveCoverageMax} 号）` : ''}`
           : '改修表里没有它，这件不可改修'
       }</div>
     </div>`
@@ -7162,7 +7218,7 @@ const shipDropHtml = (mstId: number): string => {
   if (!sites.length) {
     return `<div class="sec"><div class="sec-h">掉落海域<span class="aux">本地遭遇志</span></div>
       <div style="font-size:11.5px;color:var(--dim);line-height:1.8">
-        你还没在任何海域捞到过她</div></div>`
+        暂无她的掉落记录</div></div>`
   }
   const letterOf = (map: number, cell: number): string => {
     const code = mapCodeOf(map)
@@ -7515,11 +7571,11 @@ const abyssFormsAndMapsHtml = (ship: any): string => {
         ? `<div class="af-maps">${confirmedRows}</div>`
         : '<div class="af-empty">离线海域资料没有收录这一形态。</div>'
     }
-    <div class="af-k">我的遭遇 <span>本地遭遇志</span></div>
+    <div class="af-k">遭遇记录 <span>本地遭遇志</span></div>
     ${
       seenRows
         ? `<div class="af-seen-list">${seenRows}</div>`
-        : '<div class="af-empty">你还没在任何海域遇到过这一精确形态。</div>'
+        : '<div class="af-empty">暂无这一精确形态的遭遇记录</div>'
     }
   </div>`
 }
@@ -7530,7 +7586,7 @@ const abyssRecordHtml = (mstId: number): string => {
   const k = abyssKills[mstId]
   if (!k?.met) {
     return `<div class="sec"><div class="sec-h">战绩<span class="aux">本地遭遇志 · 永久累计</span></div>
-      <div style="font-size:11.5px;color:var(--dim)">还没遇到过这舰</div></div>`
+      <div style="font-size:11.5px;color:var(--dim)">暂无这舰的遭遇记录</div></div>`
   }
   const rate = k.withMask ? (k.killed / k.withMask) * 100 : null
   const older = k.met - k.withMask
@@ -7645,7 +7701,7 @@ const abyssWikiLink = (ship: any): string => {
 const abyssEncounterFactHtml = (mstId: number): string => {
   ensureAbyssKills()
   const met = abyssKills?.[mstId]?.met ?? 0
-  if (!met) return '<div class="cg-fact">遭遇志：尚无交手记录</div>'
+  if (!met) return '<div class="cg-fact">遭遇志：暂无交手记录</div>'
   const since = metSinceOf(mstId)
   return `<div class="cg-fact">遭遇志：交手 ${met} 次${
     since ? ` · 最早一条 ${esc(fmtDate(since))}` : ''
@@ -7786,7 +7842,7 @@ const abyssDrawerHtml = () => {
       <div style="margin-top:8px;font-size:10px;color:var(--dim)">带 * 的数值为社区估算 ${lodeCreditMark(abyssalLode!.meta)}</div>`
   } else {
     statsHtml = `<div style="font-size:11.5px;color:var(--dim);line-height:1.8">
-      社区资料还没收这艘深海舰的估算数据</div>`
+      社区资料暂无这艘深海舰的估算数据</div>`
   }
   return `
   <div class="d-head">
@@ -7834,7 +7890,7 @@ const abyssDrawerHtml = () => {
           ? `<div class="abyss-art has banner" data-cg="${esc(heroArt)}">
               <img src="${esc(heroArt)}" alt="${esc(entityNamePlain('abyssShip', s.api_id, s.api_name))} 横幅" loading="lazy">
             </div>`
-          : '<div class="abyss-art"><span class="st">未缓存</span></div>'
+          : '<div class="abyss-art"><span class="st">本机没有</span></div>'
       }
     </div>
     <div class="sec"><div class="sec-h">估算数值</div>${statsHtml}</div>
@@ -8548,7 +8604,7 @@ const fleetOutlookHtml = (
     .join('')
   const note = target
     ? ''
-    : '<div class="q-foot">还没打到过 Boss；从「目标点」里挑一个，走向就按它算</div>'
+    : '<div class="q-foot">暂无 Boss 记录；在「目标点」中选定，走向按其计算</div>'
   return `<div class="map-model-title">各队走向<span class="aux">点一行切到那支队的详细预测</span></div>
     <div class="fo-lanes">${rows}</div>${note}`
 }
@@ -8692,7 +8748,7 @@ const mapForecastHtml = (
       ? ''
       : tally?.total
         ? `<div class="q-foot">记到 ${tally.total} 步，还没有一步分过歧</div>`
-        : '<div class="q-foot">还没记到航路</div>'
+        : '<div class="q-foot">暂无航路记录</div>'
   const total = mapForecastState.report.sortie
   const history =
     total.total >= PERSONAL_RATE_MIN_SAMPLES
@@ -8820,10 +8876,10 @@ const mapChronicleHtml = (info: any): string => {
   const report = mapChronicle.get(mapId)
   if (!report) {
     if (mapChronicleErrors.has(mapId)) {
-      return `<div class="sec map-personal"><div class="sec-h">我的海域记录<span class="aux">本地遭遇志</span></div>
+      return `<div class="sec map-personal"><div class="sec-h">海域记录<span class="aux">本地遭遇志</span></div>
         <div class="af-empty">本地记录读取失败。<button class="pf-btn" data-map-chronicle-retry="${mapId}">重试</button></div></div>`
     }
-    return `<div class="sec map-personal"><div class="sec-h">我的海域记录<span class="aux">本地遭遇志</span></div>
+    return `<div class="sec map-personal"><div class="sec-h">海域记录<span class="aux">本地遭遇志</span></div>
       <div class="af-empty">正在读取永久累计记录…</div></div>`
   }
   const code = `${info.api_maparea_id}-${info.api_no}`
@@ -8831,8 +8887,8 @@ const mapChronicleHtml = (info: any): string => {
     fcdMapLode?.data?.[code]?.route
   const letterOf = (cell: number): string => route?.[`${cell}`]?.[1] ?? `#${cell}`
   if (!report.sortieCount && !report.cells.length && !report.edges.length) {
-    return `<div class="sec map-personal"><div class="sec-h">我的海域记录<span class="aux">本地遭遇志 · 永久累计</span></div>
-      <div class="af-empty">还没有这张图的出击记录</div></div>`
+    return `<div class="sec map-personal"><div class="sec-h">海域记录<span class="aux">本地遭遇志 · 永久累计</span></div>
+      <div class="af-empty">暂无这张图的出击记录</div></div>`
   }
 
   const bossCells = new Set(report.bossCells)
@@ -8906,7 +8962,7 @@ const mapChronicleHtml = (info: any): string => {
   const visibleDrops = drops.slice(0, 12).map(dropRow).join('')
   const hiddenDrops = drops.slice(12).map(dropRow).join('')
   return `<div class="sec map-personal">
-    <div class="sec-h">我的海域记录<span class="aux">本地遭遇志 · 永久累计</span></div>
+    <div class="sec-h">海域记录<span class="aux">本地遭遇志 · 永久累计</span></div>
     <div class="map-personal-metrics">
       <span><small>出击</small><b>${report.sortieCount}</b></span>
       <span><small>战斗</small><b>${battles}</b></span>
@@ -9168,7 +9224,7 @@ const mapClearFleetsHtml = (info: any): string => {
   const head = headOf(rows?.length ?? null)
   if (!rows) return `${head}<div class="af-empty">正在读取出击样本…</div></div>`
   if (!rows.length) {
-    return `${head}<div class="af-empty">还没打赢过这张图的 Boss</div></div>`
+    return `${head}<div class="af-empty">暂无这张图的 Boss 通关记录</div></div>`
   }
   const code = `${info.api_maparea_id}-${info.api_no}`
   const fcdRoute: Record<string, [string | null, string]> | undefined = fcdMapLode?.data?.[code]?.route
@@ -9418,7 +9474,7 @@ const localDropPoolHtml = (
       ${mine.sWinsWithoutDrop ? `<span class="own-pill mi-warn">S 胜空手 ${mine.sWinsWithoutDrop}/${mine.sWins}</span>` : ''}
     </div>
     <div class="mi-drop-list">${
-      rows || '<div style="font-size:11.5px;color:var(--dim)">这张图还没捞到过舰娘</div>'
+      rows || '<div style="font-size:11.5px;color:var(--dim)">这张图暂无掉落记录</div>'
     }</div>
     ${
       past.length
@@ -9830,6 +9886,23 @@ const mapBgmLineHtml = (mapId: number): string => {
     .join('')}</div>`
 }
 
+/**
+ * 计量条那几枚词条（2026-09-01 重接）。
+ *
+ * 主数据的 `api_required_defeat_count` 是个没单位的数、语义按图而异，
+ * 曾经被当成「需击破 N 次」标出来，在 5-6（那 280 是输送 TP）与 7-5（那 2 只是
+ * 第一段）上直接说了谎，于是整个撤下（dff30b3）。现在按 shared/map-gauge-metric
+ * 那张按图核过的手工表渲染：**表里没有的图一枚都不出**——沿撤下之后的现状，
+ * 宁可不说，也不要一句在某张图上是假的标签。文案只有表里那一份，这里不另拼词。
+ */
+const mapGaugePillsHtml = (mapId: number): string =>
+  mapGaugeSegmentLabels(mapId)
+    .map(
+      (label) =>
+        `<span class="own-pill">${label.lead ? `${esc(label.lead)} · ` : ''}${esc(label.head)} <b>${label.amount}</b>${label.tail ? ` ${esc(label.tail)}` : ''}</span>`,
+    )
+    .join('')
+
 const mapDrawerHtml = () => {
   const info = mapInfos.find((m) => m.api_id === mapState.selected)
   if (!info) return ''
@@ -9872,7 +9945,7 @@ const mapDrawerHtml = () => {
         <div class="name-block"><h1 style="font-size:24px">${entityNameHtml('map', info.api_id, info.api_name)}</h1></div>
         <div class="own-line">
           ${info.api_level ? `<span class="own-pill">海域 Lv <b>${info.api_level}</b></span>` : ''}
-          ${info.api_required_defeat_count ? `<span class="own-pill">击破 <b>${info.api_required_defeat_count}</b> 次</span>` : ''}
+          ${mapGaugePillsHtml(info.api_id)}
           ${info.api_max_maphp ? `<span class="own-pill">血条 <b>${info.api_max_maphp}</b></span>` : ''}
           ${allowedFleets.map((label) => `<span class="own-pill">${esc(label)}</span>`).join('')}
         </div>
@@ -10000,7 +10073,7 @@ const equipMatrixHtml = (shipMstId: number): string => {
   if (!types.length) {
     return `<div class="sec"><div class="sec-h">可装备范围<span class="aux">待游戏同步</span></div>
       <div style="font-size:11.5px;color:var(--dim);line-height:1.8">
-        还没有这一形态的可装备规则，进一次游戏就有了</div>
+        这一形态的可装备规则待同步 · 进一次游戏后自动获取</div>
     </div>`
   }
   const chips = types
@@ -11185,10 +11258,10 @@ const jiNavButtonsHtml = (): string => {
   const forwardTarget = jiNav.peekForward()
   const backTitle = backTarget
     ? `返回上一层 · ${jiNavLabelOf(backTarget)}`
-    : '返回上一层：还没有来路'
+    : '已在最上层'
   const forwardTitle = forwardTarget
     ? `回到下一层 · ${jiNavLabelOf(forwardTarget)}`
-    : '回到下一层：前方没有记录'
+    : '已在最下层'
   return `<span class="ji-nav">
     <button class="ji-nav-btn" data-jinav="back"${backTarget ? '' : ' disabled'} title="${esc(backTitle)}">◂</button>
     <button class="ji-nav-btn" data-jinav="fwd"${forwardTarget ? '' : ' disabled'} title="${esc(forwardTitle)}">▸</button>
@@ -11218,7 +11291,7 @@ const render = () => {
   if (!mst) {
     forgetCommittedHtml(pane, 'ji') // 这一支绕开了 commitPaneHtml，记忆不能留着
     pane.innerHTML = `<div class="pane-waiting">
-      等待游戏同步基础数据……<br />登录进游戏一次就有了</div>`
+      等待游戏同步基础数据……<br />登录游戏后自动获取</div>`
     return
   }
   // 历史对账要在拼 HTML 之前：本次 render 若产生新层，按钮的可用态得马上跟上；
@@ -11385,7 +11458,7 @@ function wireShipDetailPanel(panel: HTMLElement) {
             // 换了一天（上一次是昨天或更早问的）就该重画，不然界面上还挂着旧日期；
             // 同一天里再点，重画会生成一模一样的字符串，反而把下面这句反馈吃掉。
             if (voiceAbsentDay(mstId, slot) !== shownDay) scheduleRender()
-            else probeButton.title = '刚问过，官方还是没有'
+            else probeButton.title = '刚核实过 · 官方仍无'
             return
           }
           probeButton.title =
@@ -12819,7 +12892,7 @@ registerEntityRoute('abyssShip', {
       // 官方对 api_mst_ship 的深海段只增不删。会缩水的只有活动海域表。
       // 所以落到这里只可能是主数据还没到（abyssalShips 由 buildIndex 从 mst 现建）
       // 或者 id 本身不对，措辞照实取中性的那一档，与海域侧同一语义族。
-      showMissNotice('abyss', '深海舰的资料还没就绪，稍后再点一下')
+      showMissNotice('abyss', '深海舰的资料尚未就绪，稍后重试')
       return
     }
     missNotice = null
@@ -12864,7 +12937,7 @@ registerEntityRoute('abyssShip', {
         }`,
       )
     } else {
-      lines.push('<span style="opacity:.6">你还没遇到过它</span>')
+      lines.push('<span style="opacity:.6">暂无遭遇记录</span>')
     }
     const seen = abyssSeenMaps(id)
     if (seen.length) {
@@ -12900,7 +12973,7 @@ const openMap = (id: number) => {
     // 落在这条分支上的绝大多数是启动后那段窗口期——归档排在几个资料包后面，
     // 还没轮到它。所以这里说的是「还在读」，不是「没有了」。
     pendingMapOpen = id
-    showMissNotice('map', '这片海域的资料还在读取，稍后再点一下')
+    showMissNotice('map', '这片海域的资料还在读取，稍后重试')
     return
   }
   pendingMapOpen = null
@@ -12938,7 +13011,8 @@ registerEntityRoute('map', {
     ]
     const bits = [
       info.api_level ? `海域 Lv ${info.api_level}` : '',
-      info.api_required_defeat_count ? `击破 ${info.api_required_defeat_count} 次` : '',
+      // 计量条按 shared/map-gauge-metric 的手工表报，表里没有的图为空串（见海域卡处头注）
+      mapGaugeSummaryText(id),
       info.api_max_maphp ? `血条 ${info.api_max_maphp}` : '',
     ].filter(Boolean)
     if (bits.length) lines.push(bits.join(' · '))
@@ -13134,8 +13208,10 @@ registerModule({
       const showing =
         abyssState.open ? abyssState.selected : shipState.open ? shipState.selectedForm : 0
       if (!showing) return
-      // mstId 为 0 = 存的时候还不知道归属（语音档案的「先收后认」），保险起见重画一次
-      if (mstId && mstId !== showing) return
+      // mstId 为 0 = 存的时候还不知道归属（语音档案的「先收后认」），保险起见重画一次。
+      // 衣装那一份记在**构图编号**下（5xxx/6xxx），要先换算回它属于哪个形态，
+      // 否则玩家正看着的那一页刚入档一套衣装，这里会当成「别人的事」不重画。
+      if (mstId && mstId !== showing && costumeOwnerOf(mstId) !== showing) return
       scheduleRender()
     }
     document.addEventListener('kanso:archive-lit', onArchiveLit)
@@ -13145,6 +13221,14 @@ registerModule({
     // 清理只可能由他自己按出来（钥里那个钮），所以这里没有轮询也不需要节流；
     // `scheduleRender` 自带的两道闸门（面板不 active 不画、手指按着时推迟）照旧管着。
     // 与上面那条不同的是**不按形态过滤**：清掉的是整整一个月的记录，跨多少艘舰不知道。
+    // ---- 衣装归属刚学到新的：立绘页的衣装段该跟着变 ----
+    // 与上面那条同理，只是不按形态过滤：一份图鉴报文一次带来几十条归属，
+    // 跨多少艘舰不知道。`scheduleRender` 自带的两道闸门照旧管着。
+    const onCostumesChange = () => scheduleRender()
+    document.addEventListener('kanso:ship-costumes-change', onCostumesChange)
+    trackMountCleanup(() =>
+      document.removeEventListener('kanso:ship-costumes-change', onCostumesChange),
+    )
     const onVoiceAbsentChange = () => scheduleRender()
     document.addEventListener('kanso:voice-absent-change', onVoiceAbsentChange)
     trackMountCleanup(() =>
@@ -13190,6 +13274,11 @@ registerModule({
       // 端点的**值**统一由 fleet-calc 持有（面板反推与图鉴三维上限共用一份，
       // 免得两处各拉一份各自失效）；这里那一份只用来给来源脚注取 meta。
       ensureShipStatsLode(() => {
+        if (pane?.isConnected) render()
+      })
+      // 收容库履历里的点位字母。上面已经把 poi-fcd-map 拉进 fcdMapLode 了，
+      // 但那份是海图卡自己的；文案层走公用的那本（queryLode 按 id 缓存，不多下一次）
+      ensureMapCellLetters(() => {
         if (pane?.isConnected) render()
       })
       shipProfileByMst = new Map()

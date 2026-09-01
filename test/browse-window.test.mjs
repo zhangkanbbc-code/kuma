@@ -189,7 +189,7 @@ test('第三道退出防线按「出生就记 PID」收，浏览窗天然在名�
 test('顶栏有「新窗」，一路接到主进程', () => {
   assert.match(
     read('src/renderer/index.html'),
-    /<button id="btn-browse" title="开一扇浏览窗逛 DMM，可以开好几扇，登录和代理跟游戏共用">新窗<\/button>/,
+    /<button id="btn-browse" title="新开浏览窗 · 可多开 · 与游戏共用登录与代理">新窗<\/button>/,
   )
   assert.match(read('src/renderer/index.ts'), /#btn-browse'\)\.addEventListener\('click'/)
   assert.match(read('src/renderer/kernel.ts'), /ipcRenderer\.invoke\('window:browse'\)/)

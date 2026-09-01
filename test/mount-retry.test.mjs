@@ -116,6 +116,11 @@ fs.copyFileSync(
   fileURLToPath(new URL('../src/shared/dock-layout.ts', import.meta.url)),
   path.join(sharedDir, 'dock-layout.ts'),
 )
+// 紧凑模式的偏好账同理：纯逻辑，拷真文件跟着一起编
+fs.copyFileSync(
+  fileURLToPath(new URL('../src/shared/compact-mode.ts', import.meta.url)),
+  path.join(sharedDir, 'compact-mode.ts'),
+)
 // 铆的 openOverlay 会调启动动画的浮层入场。同样不打桩、拷真文件跟着一起编：
 // 开关默认关，playOverlayEntrance 是彻底的空转，装配这条路上它一个字都不做。
 fs.copyFileSync(

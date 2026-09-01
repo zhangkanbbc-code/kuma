@@ -161,7 +161,7 @@ export const installCrashBadge = () => {
       `<button data-cp="copy">复制全文</button><button data-cp="clear">清空</button>` +
       `<button data-cp="close">关闭</button></div>` +
       `<div class="cp-body">${
-        real.length ? real.map(itemHtml).join('') : '<div class="cp-empty">这次运行还没有出过错。</div>'
+        real.length ? real.map(itemHtml).join('') : '<div class="cp-empty">本次运行未出错</div>'
       }${
         // 噪音单独一栏：不当作错误，但高频出现本身有意义（比如布局在反复抖），所以不藏起来
         noise.length

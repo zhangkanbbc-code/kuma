@@ -28,14 +28,29 @@ const ARCHIVE_DIR: string = path.join(remote.getGlobal('APPDATA_PATH'), 'art-arc
 let bySlot = new Map<string, ArtArchiveEntry[]>()
 /** mstId → 该形态留下过实物的图种数（逐舰进度用，免得每次都全表扫） */
 let keptTypesOf = new Map<number, Set<string>>()
+/**
+ * 资源路径 → 档案里那份实物（最近见到的那一条）。
+ *
+ * 取图那条回退链要用它（kcs-image 的 `shipImageUrl`：本地缓存 → **档案实物** → 远端）。
+ * 按路径而不是按槽位建第二张索引，是因为取图那一侧手上只有路径——
+ * 拿槽位表现算等于每格一次遍历，而一屏几十格。
+ */
+let byPathname = new Map<string, ArtArchiveEntry>()
 let loading: Promise<void> | null = null
 let ready = false
 
 const slotKey = (mstId: number, type: string) => `${mstId}/${type}`
 
+const indexBlob = (entry: ArtArchiveEntry) => {
+  if (!(entry.bytes > 0) || !entry.sha1) return
+  const known = byPathname.get(entry.pathname)
+  if (!known || entry.lastSeen > known.lastSeen) byPathname.set(entry.pathname, entry)
+}
+
 const index = (entries: ArtArchiveEntry[]) => {
   const map = new Map<string, ArtArchiveEntry[]>()
   const kept = new Map<number, Set<string>>()
+  byPathname = new Map<string, ArtArchiveEntry>()
   for (const entry of entries) {
     const key = slotKey(entry.mstId, entry.type)
     const list = map.get(key) ?? []
@@ -46,6 +61,7 @@ const index = (entries: ArtArchiveEntry[]) => {
       set.add(entry.type)
       kept.set(entry.mstId, set)
     }
+    indexBlob(entry)
   }
   bySlot = map
   keptTypesOf = kept
@@ -54,7 +70,17 @@ const index = (entries: ArtArchiveEntry[]) => {
 
 export const loadArtArchive = (): Promise<void> => {
   loading ??= (ipcRenderer.invoke('mg:art-archive-entries') as Promise<ArtArchiveEntry[]>)
-    .then((entries) => index(Array.isArray(entries) ? entries : []))
+    .then((entries) => {
+      index(Array.isArray(entries) ? entries : [])
+      // 索引到位之前，取图那条链看不见档案（`archivedArtUrlForPath` 一律返回 null），
+      // 已经画出来的那一屏会停在「只有缓存与远端」那一版。所以到位之后说一声，
+      // 由消费端按自己的闸门决定要不要重画（mstId 0 = 不知道涉及谁，重画一次）。
+      if (typeof document !== 'undefined') {
+        document.dispatchEvent(
+          new CustomEvent('kanso:archive-lit', { detail: { kind: 'art', mstId: 0 } }),
+        )
+      }
+    })
     .catch((error: unknown) => {
       loading = null
       console.warn('[kanso] 立绘档案索引读取失败', error)
@@ -93,6 +119,7 @@ export const noteArtArchived = (entry: ArtArchiveEntry): boolean => {
   const set = keptTypesOf.get(entry.mstId) ?? new Set<string>()
   set.add(entry.type)
   keptTypesOf.set(entry.mstId, set)
+  indexBlob(entry)
   return true
 }
 
@@ -129,6 +156,33 @@ export const archivedArtUrl = (entry: ArtArchiveEntry): string | null => {
   if (!relative) return null
   return pathToFileURL(path.join(ARCHIVE_DIR, ...relative.split('/'))).href
 }
+
+/**
+ * 这条资源路径在档案里有没有实物；有就给本地地址（`file://`，零网络）。
+ *
+ * ---- 为什么取图那条链非要看这一层不可（2026-08-31 用户实机报）----
+ * 他翻完游戏图鉴，村雨改二六个图种的字节当场全进了档案（盘上真有文件），
+ * 回到艦素的立绘页却还是空的、脚注还写着「还没落到缓存」。
+ * 因为**显示**只认 Chromium 缓存与远端两条路，而档案是第三本账，
+ * 谁也没告诉取图那一侧「东西其实就在盘上」。
+ *
+ * 档案里那一份还比缓存牢靠：缓存超限会被整盘丢弃（共享记忆 electron-disk-cache-size），
+ * 档案不会。所以它排在缓存之后、远端之前——本机已经有的字节永远优先于再取一次。
+ *
+ * 索引还没到位（`ready === false`）时返回 null：那时说「档案里没有」是没根据的，
+ * 交给远端那一档，等索引到位再重画（见 loadArtArchive 尾部那条广播）。
+ */
+export const archivedArtUrlForPath = (pathname: string): string | null => {
+  if (!ready || !pathname) return null
+  const entry = byPathname.get(pathname)
+  return entry ? archivedArtUrl(entry) : null
+}
+
+const NO_TYPES: ReadonlySet<string> = new Set<string>()
+
+/** 这个形态在档案里留下过实物的图种。取图与「缺哪些」两处都按它对账。 */
+export const archivedArtTypes = (mstId: number): ReadonlySet<string> =>
+  keptTypesOf.get(mstId) ?? NO_TYPES
 
 /**
  * 这个形态在档案里留下了几个图种的实物。

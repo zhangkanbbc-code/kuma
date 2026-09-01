@@ -16,6 +16,7 @@ import { installPerfLogging } from './perf-log'
 import { ROOT } from './env'
 import { installQuitGuard, reapOrphanKansoProcesses } from './quit-guard'
 import { flushShipArtPaths } from './ship-art-store'
+import { flushShipCostumes } from './ship-costume-store'
 import { flushAbyssVoiceSightings } from './abyss-voice-sightings'
 import { flushVoiceArchive } from './voice-archive'
 import { flushArtArchive } from './art-archive'
@@ -78,6 +79,8 @@ require('./push') // 手机推送（Bark）：全仓唯一的推送出网点，�
 
 // 学到的美术路径也要赶在硬退之前落盘（攒批写盘还可能压着最后几条）
 app.on('before-quit', () => flushShipArtPaths())
+// 衣装归属同理：学它要玩家在游戏里翻一遍图鉴，丢了就得再翻一遍
+app.on('before-quit', () => flushShipCostumes())
 // 语音档案的索引同理：实物已经落盘了，索引丢了会让刚点亮的格子又灭回去
 app.on('before-quit', () => flushVoiceArchive())
 app.on('before-quit', () => flushAbyssVoiceSightings())
@@ -125,6 +128,9 @@ app.setAppUserModelId('moe.kanso')
 let mainWindow: BrowserWindow | null = null
 let resourceTrendWindow: BrowserWindow | null = null
 let questTreeWindow: BrowserWindow | null = null
+// 人生记录窗：**一艘一扇**，按在籍 id 记账。同一艘再点是把那扇拿到前面来
+//（多开同一艘等于凭空造出两份互不同步的同一条时间轴）；换一艘才开新的一扇。
+const shipLifeWindows = new Map<number, BrowserWindow>()
 const appIcon = path.join(ROOT, 'assets', 'branding', 'kuma.png')
 
 const openResourceTrendWindow = () => {
@@ -277,6 +283,105 @@ const openQuestTreeWindow = (rawFocusId?: unknown) => {
     questTreeWindow = null
   })
 }
+
+const openShipLifeWindow = (rawRosterId: unknown) => {
+  const rosterId = Number(rawRosterId)
+  if (!Number.isInteger(rosterId) || rosterId <= 0) return
+  const open = shipLifeWindows.get(rosterId)
+  if (open && !open.isDestroyed()) {
+    if (open.isMinimized()) open.restore()
+    open.show()
+    open.focus()
+    return
+  }
+
+  const saved = config.get('kanso.shipLifeWindow', {}) as {
+    x?: number
+    y?: number
+    width?: number
+    height?: number
+    isMaximized?: boolean
+  }
+  const primary = screen.getPrimaryDisplay().workArea
+  const width = Math.max(720, saved.width ?? Math.min(primary.width, 1120))
+  const height = Math.max(520, saved.height ?? Math.min(primary.height, 820))
+  // 存的是一份位置，而这里可能同时开着好几艘：后开的逐扇错开一点，
+  // 免得三扇严丝合缝地叠在一起，看起来像只开了一扇。
+  const cascade = (shipLifeWindows.size % 6) * 26
+  let { x, y } = saved
+  const onDisplay = screen.getAllDisplays().some(({ workArea }) =>
+    x != null && y != null &&
+    x >= workArea.x && x < workArea.x + workArea.width &&
+    y >= workArea.y && y < workArea.y + workArea.height
+  )
+  if (!onDisplay) {
+    x = primary.x + Math.max(0, Math.floor((primary.width - width) / 2))
+    y = primary.y + Math.max(0, Math.floor((primary.height - height) / 2))
+  }
+  if (x != null && y != null && cascade > 0) {
+    x = Math.min(x + cascade, primary.x + Math.max(0, primary.width - width))
+    y = Math.min(y + cascade, primary.y + Math.max(0, primary.height - height))
+  }
+
+  const life = new BrowserWindow({
+    x,
+    y,
+    width,
+    height,
+    minWidth: 720,
+    minHeight: 520,
+    title: 'kuma · 人生记录',
+    icon: appIcon,
+    backgroundColor: '#0d1318',
+    show: false,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+      backgroundThrottling: false,
+      spellcheck: false,
+    },
+  })
+  shipLifeWindows.set(rosterId, life)
+  electronRemote.enable(life.webContents)
+  life.setMenu(null)
+  life.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  life.webContents.on('will-navigate', (event) => event.preventDefault())
+  life.once('ready-to-show', () => {
+    life.show()
+    if (saved.isMaximized) life.maximize()
+  })
+  // 是哪一艘走查询串，不走 did-finish-load 后补发：页面一开始就知道自己在讲谁，
+  // 中间没有「还不知道要显示谁」的那一帧。
+  life.loadFile(path.join(ROOT, 'dist', 'renderer', 'ship-life.html'), {
+    query: { roster: `${rosterId}` },
+  })
+  life.on('close', () => {
+    if (life.isDestroyed()) return
+    config.set('kanso.shipLifeWindow', {
+      ...life.getNormalBounds(),
+      isMaximized: life.isMaximized(),
+    })
+  })
+  life.on('closed', () => {
+    // 只在还是自己那一扇时销账：这一艘要是已经被换成新的一扇，别把新的抹掉
+    if (shipLifeWindows.get(rosterId) === life) shipLifeWindows.delete(rosterId)
+  })
+}
+
+ipcMain.handle('window:ship-life', (_event, rawRosterId: unknown) =>
+  openShipLifeWindow(rawRosterId),
+)
+// 人生记录窗里点了击杀簿/履历的某一场 → 主窗聚焦并打开那场复盘（与任务树同一套骨架）
+ipcMain.handle('window:ship-life-battle', (_event, rawSnapshotId: unknown) => {
+  const snapshotId = Number(rawSnapshotId)
+  if (!Number.isInteger(snapshotId) || snapshotId <= 0 || !mainWindow || mainWindow.isDestroyed()) {
+    return
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+  mainWindow.webContents.send('window:ship-life-battle', snapshotId)
+})
 
 // 浏览窗：每按一次开新的一扇（不复用、不聚焦已有的那扇——多开本来就是它的用途）。
 // 不把 BrowserWindow 回给渲染层：那东西过不了 IPC 序列化。
@@ -488,6 +593,12 @@ app.on('ready', () => {
     if (questTreeWindow && !questTreeWindow.isDestroyed()) {
       questTreeWindow.close()
     }
+    // 人生记录窗同理（可能开着好几扇）：主窗没了它们不该把应用留在后台——
+    // 窗口全关才有 window-all-closed → app.quit()，留一扇在那儿等于关不掉。
+    for (const life of [...shipLifeWindows.values()]) {
+      if (!life.isDestroyed()) life.close()
+    }
+    shipLifeWindows.clear()
     // 浏览窗是主窗的附属：主窗没了它们不该把应用留在后台（窗口全关才有
     // window-all-closed → app.quit()，留一扇在那儿等于关不掉）
     closeAllBrowseWindows()

@@ -100,6 +100,7 @@ interface Layout {
 import { beginMountScope, endMountScope, onGameScene, runMountCleanup, uiGet, uiSet } from './kernel'
 import { playOverlayEntrance } from './launch-glow'
 import { layoutForPersist } from '../shared/dock-layout'
+import { parseCompactModes, serializeCompactModes, toggledCompactModes } from '../shared/compact-mode'
 // 只要类型：启动点亮的顺序判据是纯函数，铆这边只负责报一份布局快照给它。
 import type { LaunchGlowLayout } from '../shared/launch-glow'
 
@@ -145,6 +146,30 @@ const displayed = (id: string) => moduleVisible(id) && !isShelved(id)
 
 export const registerModule = (mod: KansoModule) => {
   modules.push(mod)
+}
+
+// ---- 紧凑模式 ----
+// 开关摆在坞标签条右端、折叠坞的 × 左边（用户点的位置）。模块自愿登记，
+// 登记过的模块被激活时那一格才摆得出这枚钮；一格里两个模块各记各的开关。
+const COMPACT_KEY = 'compact.v1'
+let compactOn = parseCompactModes(uiGet<unknown>(COMPACT_KEY, []))
+const compactHooks = new Map<string, () => void>()
+
+/**
+ * 登记紧凑模式。`onChange` 在开关翻转后同步调用，模块自己重渲。
+ * 按 id 覆盖登记：重试装配走第二遍也不会叠成两份回调。
+ */
+export const registerCompactMode = (id: string, onChange: () => void) => {
+  compactHooks.set(id, onChange)
+}
+
+export const isCompactMode = (id: string) => compactOn.has(id)
+
+const toggleCompactMode = (id: string) => {
+  compactOn = toggledCompactModes(compactOn, id)
+  uiSet(COMPACT_KEY, serializeCompactModes(compactOn))
+  syncGroupTools()
+  compactHooks.get(id)?.()
 }
 
 const modById = (id: string) => modules.find((m) => m.id === id)
@@ -200,6 +225,30 @@ const reconcile = () => {
 
 // ---- DOM 铺设 ----
 
+// 格右端那撮工具。紧凑钮写功能名不写符号（顶栏按钮同规矩），紧挨着折叠坞的 ×。
+const groupToolsHtml = (dock: DockId, gi: number, fold: boolean) => {
+  const active = layout.docks[dock][gi]?.active
+  const compact =
+    active && compactHooks.has(active) && displayed(active)
+      ? `<span class="dock-compact-btn${compactOn.has(active) ? ' on' : ''}" data-compact="${active}">紧凑</span>`
+      : ''
+  return (
+    compact +
+    (fold ? `<span class="dock-fold-btn" data-fold="1" title="折叠此坞（导航条点元素可再展开）">×</span>` : '')
+  )
+}
+
+// 激活页一换、开关一翻，就地重画各格工具条。整坞重铺（layoutDock）会把 tab/pane
+// 元素摘下来再放回去，为一枚钮走那条路等于每次切标签都动一遍模块 DOM。
+const syncGroupTools = () => {
+  for (const dock of DOCKS) {
+    for (const tools of dockEl(dock).querySelectorAll<HTMLElement>('.dock-tabs > .dock-fold')) {
+      const gi = Number(tools.dataset.gi)
+      tools.innerHTML = groupToolsHtml(dock, gi, tools.dataset.fold === '1')
+    }
+  }
+}
+
 const applyDockChrome = (dock: DockId) => {
   const el = dockEl(dock)
   const empty = !dockHasMods(dock)
@@ -250,13 +299,15 @@ const layoutDock = (dock: DockId) => {
       tabs.appendChild(tab)
       panes.appendChild(pane)
     }
-    // 最后一格只保留折叠坞。
-    if (shownIndex === visibleGroups.length - 1) {
-      const tools = document.createElement('span')
-      tools.className = 'dock-fold'
-      tools.innerHTML = `<span class="dock-fold-btn" data-fold="1" title="折叠此坞（导航条点元素可再展开）">×</span>`
-      tabs.appendChild(tools)
-    }
+    // 格工具条：紧凑开关（登记过的模块当前被激活时才有）+ 折叠坞（只在最后一格）。
+    // 每一格都摆这个容器，空着时靠 :empty 收掉——激活页一换，工具就地重画，
+    // 不必为一枚钮重铺整个坞。
+    const tools = document.createElement('span')
+    tools.className = 'dock-fold'
+    tools.dataset.gi = `${gi}`
+    if (shownIndex === visibleGroups.length - 1) tools.dataset.fold = '1'
+    tools.innerHTML = groupToolsHtml(dock, gi, shownIndex === visibleGroups.length - 1)
+    tabs.appendChild(tools)
 
     groupEl.append(tabs, panes)
     el.appendChild(groupEl)
@@ -350,6 +401,7 @@ const activateIn = (dock: DockId, gi: number, id: string) => {
     paneOf.get(other)?.classList.toggle('active', on)
     if (on) showModule(other)
   }
+  syncGroupTools() // 紧凑钮跟着激活页走：换到没登记的模块就该收掉
   refreshRail()
   saveLayout()
 }
@@ -832,7 +884,7 @@ const mountModule = (mod: KansoModule, pane: HTMLElement): boolean => {
     box.innerHTML =
       `<b>${escapeText(mod.title)} 装配失败</b>` +
       `<p>${escapeText(message)}</p>` +
-      `<small>其余模块不受影响。重试仍失败就去设置 · 运行诊断打开 crash.log 看调用栈。</small>`
+      `<small>其余模块不受影响。重试仍失败可在「设置 · 运行诊断」查看 crash.log</small>`
     const retry = document.createElement('button')
     retry.textContent = '重试装配'
     retry.addEventListener('click', () => {
@@ -903,8 +955,13 @@ export const initModules = () => {
   for (const dock of DOCKS) wireDockSplitter(dock)
   wireGroupSplitters()
 
-  // 格工具条：折叠坞
+  // 格工具条：紧凑开关 + 折叠坞
   document.addEventListener('click', (e) => {
+    const compact = (e.target as HTMLElement).closest<HTMLElement>('.dock-fold [data-compact]')
+    if (compact) {
+      toggleCompactMode(compact.dataset.compact!)
+      return
+    }
     const fold = (e.target as HTMLElement).closest<HTMLElement>('.dock-fold [data-fold]')
     if (!fold) return
     const dock = (fold.closest('.dock') as HTMLElement).dataset.dock as DockId

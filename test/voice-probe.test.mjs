@@ -696,10 +696,11 @@ test('全部清理 = 一条不剩，含日期读不出来的那些', () => {
 })
 
 test('悬停带日期：日期由装配期的索引给，渲染路径上不现算', () => {
-  // 悬停文案本身：日期 + 「问过没有」+ 可点的暗示。
-  // 2026-08-26 文案清扫按裁决书把它缩成「${day} 问过没有 · 点一下再问」（族 9 断句、
-  // 去掉「官方那会儿」的免责腔）。护栏语义不变，仍钉三件：日期在、结论在、可点的暗示在。
-  assert.match(ji, /\$\{day\} 问过没有 · 点一下再问/)
+  // 悬停文案本身：日期 + 结论 + 可点的暗示。
+  // 2026-08-26 文案清扫缩成「问过没有 · 点一下再问」；2026-09-01 用户当场裁
+  // 「问过没有」是拟人 AI 腔，定稿「${day} 核实过官方没有 · 点击重新核实」。
+  // 护栏语义不变，仍钉三件：日期在、结论在、可点的暗示在。
+  assert.match(ji, /\$\{day\} 核实过官方没有 · 点击重新核实/)
   // 日期从渲染层那份索引里直接取（Map，不是 Set），不在这里扫台账
   assert.match(probeRenderer, /let absent = new Map<string, number>\(\)/)
   assert.match(probeRenderer, /export const voiceAbsentDay = \(mstId: number, slot: number\): string/)
@@ -722,7 +723,7 @@ test('重探再 404：日期变了就重画那一格，同一天里再点才只�
   // 换了一天还不重画，界面上就一直挂着旧日期。
   assert.match(ji, /const shownDay = recheck \? voiceAbsentDay\(mstId, slot\) : ''/)
   assert.match(ji, /if \(voiceAbsentDay\(mstId, slot\) !== shownDay\) scheduleRender\(\)/)
-  assert.match(ji, /else probeButton\.title = '刚问过，官方还是没有'/)
+  assert.match(ji, /else probeButton\.title = '刚核实过 · 官方仍无'/)
 })
 
 test('钥里那个清理口：按月列、按月清、另有全部清理，且不开新的持久化格式', () => {
@@ -787,8 +788,8 @@ test('骨架行不主张任何文本：文字位是中性短横，不写抱怨�
   // 三态各有各的样子
   assert.match(body, /vo-play probe/)
   assert.match(body, /vo-play none/)
-  // 无日期那一支同样缩过（见上一测的说明），结论「问过没有」照旧在
-  assert.match(ji, /之前问过没有 · 点一下再问/)
+  // 无日期那一支同口径（见上一测的说明）：日期读不出就不写日期，结论照旧
+  assert.match(ji, /核实过官方没有 · 点击重新核实/)
 })
 
 test('名单没到位时一格都不摆——别把「还不知道」显示成「官方没有」', () => {

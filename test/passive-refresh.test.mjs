@@ -194,7 +194,13 @@ test('输出没变就不换 DOM，且没换 DOM 就不重绑', () => {
     ['ru', /if \(!commitPaneHtml\(pane, 'ru', html\)\) return/],
     ['zi', /if \(!commitPaneHtml\(pane, 'zi', html\)\) return/],
     ['qa', /if \(!commitPaneHtml\(pane, 'qa', html\)\) return/],
-    ['bi', /if \(!commitPaneHtml\(pane, 'bi', html\)\) return/],
+    // bi 比别人多一步：紧凑态的编队悬停卡在「没换 DOM」那条路上也要重画一次
+    //（那时甘特条只剩队号，「远征跑完返港」逐字节闸门根本看不出来），所以闸门结果
+    // 先落进变量。要守的次序没变：闸门 → 判假就 return → 之后才轮到重绑。
+    [
+      'bi',
+      /const domChanged = commitPaneHtml\(pane, 'bi', html\)[\s\S]{0,400}?if \(!domChanged\) return[\s\S]*?onFilterInput\(/,
+    ],
     ['equip-stock', /if \(!commitPaneHtml\(pane!?, 'es', html\)\) return/],
     ['di', /if \(!committed\) return/],
     ['shi', /if \(!committed\) \{/],

@@ -58,7 +58,14 @@ import {
 } from '../../shared/item-use-materials'
 import { mapIdOf } from '../../shared/map-id'
 import type { PayLogRow } from '../../shared/pay-log'
+import { bossKillAnomalyText, resolveBossKill } from '../../shared/boss-kill'
 import { trainingCruiserSetup } from '../../shared/practice-exp'
+import {
+  matchShipJoinOrigins,
+  type ShipBuildReceipt,
+  type ShipDropSighting,
+  type ShipJoinRecord,
+} from '../../shared/ship-join-origin'
 
 import type {
   BattleSnapshot,
@@ -79,6 +86,7 @@ import type {
   ShipLifeEvent,
   ShipLifeEventKind,
   ShipLifeReport,
+  ShipBossKillEntry,
   ShipMemorialEntry,
   ShipMemorialReport,
   SortieForecastReport,
@@ -104,6 +112,15 @@ import {
   type SenkaEntry,
   type SenkaSummary,
 } from '../../shared/senka'
+import {
+  planManualQuestSenkaBooking,
+  planQuestSenkaBooking,
+  questIdFromClearItemGet,
+  questSenkaBookingWindow,
+} from '../../shared/senka-quest-book'
+import type { QuestSenkaBookingReason } from '../../shared/senka-quest-book'
+
+import type { QuestPeriodKind } from '../../shared/quest-period'
 
 // @types/node 对 node:sqlite 的覆盖尚不稳定，用 require 保持运行时兼容
 const { DatabaseSync } = require('node:sqlite')
@@ -460,6 +477,9 @@ class Ledger {
       // 开发那一刻的秘书舰（第一舰队旗舰 mstId）。响应体里没有这一项，只能记账时补；
       // 秘书舰类型决定开发表，回顾里同配方必须按它分行。NULL = 上线前老记录或非开发行。
       ['events', 'secretary_mst', 'INTEGER'],
+      // 手动补记标记（2026-09-01）：1 = 玩家自己补的一笔，NULL/0 = kuma 观测记的。
+      // 只有手动行可删、且「重算任务战果」不碰它——口径与 pay_log 的 kind='manual' 同源。
+      ['senka_log', 'manual', 'INTEGER'],
     ]) {
       try {
         this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`)
@@ -472,7 +492,10 @@ class Ledger {
     if (previousVersion < 6) this.redactStoredTokensV6()
     if (previousVersion < 7) this.backfillFriendlyFleetsV7()
     if (previousVersion < 8) this.reclassifyItemUseDeltasV8()
-    this.db.exec('PRAGMA user_version = 8')
+    if (previousVersion < 9) this.backfillShipJoinOriginsV9()
+    if (previousVersion < 10) this.backfillBossKillsV10()
+    if (previousVersion < 11) this.revokeUnevidencedQuestSenkaV11()
+    this.db.exec('PRAGMA user_version = 11')
     this.prune()
     // 每天顺手清一次陈账
     this.pruneTimer = setInterval(() => this.prune(), 24 * 3600 * 1000)
@@ -628,6 +651,34 @@ class Ledger {
       this.db.prepare('DELETE FROM notify_log').run()
     } catch (e) {
       console.warn('[kanso] mg: notify clear failed', e)
+    }
+  }
+
+  /**
+   * 账本里存着的图鉴报文（`api_get_member/picture_book`），供衣装归属回灌。
+   *
+   * 这个端点**不在** `SNAPSHOT_ONLY_PATHS` 里，body 是逐条入账的，所以玩家过去
+   * 每次翻图鉴的那一份都还在。只按 id 往后取：调用方存着游标，扫过的不再扫
+   *（一份报文四到六万字，全量重解析是每次启动白花几百毫秒）。
+   *
+   * `limit` 兜住「玩家翻过几千页」的极端情况——一次扫不完就下次接着扫，
+   * 游标保证不会倒退，也不会漏。
+   */
+  queryPictureBookBodies = (afterId: number, limit = 400) => {
+    try {
+      return this.db
+        .prepare(
+          `SELECT id, body FROM events
+           WHERE path = '/kcsapi/api_get_member/picture_book' AND body IS NOT NULL AND id > ?
+           ORDER BY id ASC LIMIT ?`,
+        )
+        .all(
+          Math.max(0, Math.floor(afterId) || 0),
+          Math.max(1, Math.min(5000, Math.floor(limit))),
+        ) as { id: number; body: string }[]
+    } catch (e) {
+      console.warn('[kanso] mg: picture_book query failed', e)
+      return []
     }
   }
 
@@ -851,6 +902,278 @@ class Ledger {
       }
     } catch (error) {
       console.warn('[kanso] mg: ledger v8 item-use delta reclassify failed', error)
+    }
+  }
+
+  // v9：老「加入镇守府」的出处回算。
+  //
+  // 这一列本来就答得上来，只是当初没人去问：掉落的地点在遭遇志里（永久表，
+  // drop_mst 一直在记），建造的在籍 id 在 events 的 getship 报文里。判据与实时归因
+  // 共用 shared/ship-join-origin 的**同一个匹配器**，回放跑不出第二套口径。
+  //
+  // **重跑安全**：已经有 origin 的 join 照样喂进匹配器（让它把对应的那条掉落/建造
+  // 认领掉），但只对没有 origin 的写回。所以第二次跑是空操作。
+  //
+  // 认不到就留空。**确认不了就不标**——玩家看到的那一行照旧只写 Lv，
+  // 不写「未知海域」这种既没信息又像是答案的东西。
+  private backfillShipJoinOriginsV9 = () => {
+    try {
+      const joins = this.db
+        .prepare(
+          `SELECT id, ts, roster_id AS rosterId, mst_id AS mstId, detail
+           FROM ship_life_events WHERE kind = 'join' ORDER BY ts ASC, id ASC`,
+        )
+        .all() as { id: number; ts: number; rosterId: number; mstId: number; detail: string }[]
+      if (!joins.length) return
+      const drops = (
+        this.db
+          .prepare(
+            `SELECT ts, map, cell, is_boss AS isBoss, drop_mst AS mstId
+             FROM encounters WHERE drop_mst IS NOT NULL AND cell > 0 ORDER BY ts ASC`,
+          )
+          .all() as any[]
+      ).map(
+        (row): ShipDropSighting => ({
+          ts: Number(row.ts),
+          mstId: Number(row.mstId),
+          map: Number(row.map),
+          cell: Number(row.cell),
+          isBoss: Number(row.isBoss) === 1,
+        }),
+      )
+      // 建造：只认 getship 的在籍 id。events 是可清理的滚动表，被清掉的那段就是
+      // 答不上来的那段——不去拿别的路径旁敲侧击。
+      const builds = (
+        this.db
+          .prepare(
+            `SELECT ts, body FROM events
+             WHERE path = '/kcsapi/api_req_kousyou/getship' AND body IS NOT NULL
+             ORDER BY ts ASC, id ASC`,
+          )
+          .all() as { ts: number; body: string }[]
+      ).flatMap((row): ShipBuildReceipt[] => {
+        try {
+          const response = JSON.parse(row.body)
+          const body = response?.api_data ?? response
+          const rosterId = Number(body?.api_ship?.api_id ?? body?.api_id)
+          if (!(rosterId > 0)) return []
+          const mstId = Number(body?.api_ship?.api_ship_id ?? body?.api_ship_id)
+          return [{ ts: Number(row.ts), rosterId, mstId: mstId > 0 ? mstId : 0 }]
+        } catch (_error) {
+          // 单条报文解不开不该带垮整次回算
+          return []
+        }
+      })
+      const details = joins.map((row) => {
+        try {
+          const parsed = JSON.parse(row.detail ?? '{}')
+          return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+        } catch (_error) {
+          return {}
+        }
+      })
+      const records: ShipJoinRecord[] = joins.map((row) => ({
+        ts: Number(row.ts),
+        rosterId: Number(row.rosterId),
+        mstId: Number(row.mstId),
+      }))
+      const origins = matchShipJoinOrigins(records, { drops, builds })
+      const updateDrop = this.db.prepare(
+        `UPDATE ship_life_events SET map = ?, cell = ?, is_boss = ?, detail = ? WHERE id = ?`,
+      )
+      const updateBuild = this.db.prepare(
+        `UPDATE ship_life_events SET detail = ? WHERE id = ?`,
+      )
+      const pending = joins.filter((_row, at) => typeof details[at]?.origin !== 'string').length
+      let dropped = 0
+      let built = 0
+      this.runBatch(joins.length, () => {
+        origins.forEach((origin, at) => {
+          if (!origin) return
+          if (typeof details[at]?.origin === 'string') return // 已有出处，不重写
+          const detail = JSON.stringify({ ...details[at], origin: origin.origin })
+          if (origin.origin === 'build') {
+            updateBuild.run(detail, joins[at].id)
+            built++
+            return
+          }
+          updateDrop.run(origin.map, origin.cell, origin.isBoss ? 1 : 0, detail, joins[at].id)
+          dropped++
+        })
+      })
+      if (dropped || built) {
+        console.log(
+          `[kanso] mg: ledger v9 — 加入镇守府补出处 ${dropped + built} 条` +
+            `（掉落 ${dropped} / 建造 ${built}），${pending - dropped - built} 条仍留空`,
+        )
+      }
+    } catch (error) {
+      console.warn('[kanso] mg: ledger v9 ship join origin backfill failed', error)
+    }
+  }
+
+  // v10：老 boss 战的「最后一击归谁」回算。
+  //
+  // 这一列同样本来就答得上来：终结那一击的 side/attacker 一直躺在战斗快照里
+  //（`hits[].sunk` 是解析层逐击模拟 HP 时立的），只是当初没人去问。
+  // 判据与实时落账共用 shared/boss-kill 的**同一个函数**，回放跑不出第二套口径。
+  //
+  // **能补到哪算哪**：快照是可清理的（保留期由玩家定），被清掉的那一段就是
+  // 答不上来的那一段——不去拿别的路径旁敲侧击，更不写「未知」。
+  //
+  // **重跑安全**：已经有 bossKill 的行不重写，第二次跑是空操作。
+  private backfillBossKillsV10 = () => {
+    try {
+      const snapshots = this.db
+        .prepare(
+          `SELECT id, snapshot FROM battle_snapshots
+           WHERE is_boss = 1 AND practice = 0 ORDER BY ts ASC`,
+        )
+        .all() as { id: number; snapshot: string }[]
+      if (!snapshots.length) return
+      // 这一批 boss 战事件按「快照 + 在籍舰」建索引，逐场再查表就是 N 次全表扫。
+      const events = this.db
+        .prepare(
+          `SELECT id, roster_id AS rosterId, detail FROM ship_life_events
+           WHERE kind = 'battle' AND is_boss = 1 AND practice = 0`,
+        )
+        .all() as { id: number; rosterId: number; detail: string }[]
+      const parseDetail = (raw: string): Record<string, any> => {
+        try {
+          const parsed = JSON.parse(raw ?? '{}')
+          return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+        } catch (_error) {
+          return {}
+        }
+      }
+      const byKey = new Map<string, { id: number; detail: Record<string, any> }>()
+      for (const row of events) {
+        const detail = parseDetail(row.detail)
+        const snapshotId = Number(detail.snapshotId)
+        if (!(snapshotId > 0)) continue
+        byKey.set(`${snapshotId}:${row.rosterId}`, { id: row.id, detail })
+      }
+      const update = this.db.prepare(`UPDATE ship_life_events SET detail = ? WHERE id = ?`)
+      let written = 0
+      let kept = 0 // 已经有归属：重跑时全部落在这里，这一列不为 0 就说明是第二次跑
+      let stageDamage = 0 // 航空/支援终结：没有单舰归属，这一迭代不落账
+      let noKill = 0 // boss 没沉
+      let unmatched = 0 // 算出归属了，但那艘舰的这场 battle 事件已经不在
+      let anomalies = 0
+      this.runBatch(snapshots.length, () => {
+        for (const row of snapshots) {
+          let battle: any = null
+          try {
+            battle = upgradeBattleView(JSON.parse(row.snapshot)?.battle)
+          } catch (_error) {
+            // 单份快照解不开不该带垮整次回算
+            continue
+          }
+          if (!battle) continue
+          const verdict = resolveBossKill(battle.eShips ?? [], battle.attacks ?? [])
+          if (!verdict) continue
+          for (const anomaly of verdict.anomalies) {
+            anomalies++
+            console.warn(
+              `[kanso] mg: ledger v10 boss 击杀归属异常（快照 ${row.id}）—`,
+              bossKillAnomalyText(anomaly),
+            )
+          }
+          if (!verdict.agent) {
+            if (!verdict.flagshipSunk) noKill++
+            continue
+          }
+          if (verdict.agent.kind !== 'ship') {
+            stageDamage++
+            continue
+          }
+          const index = verdict.agent.index
+          const ship = (battle.fShips ?? []).find((item: any) => item?.index === index)
+          const rosterId = Number(ship?.rosterId)
+          if (!(rosterId > 0)) {
+            unmatched++
+            continue
+          }
+          const target = byKey.get(`${row.id}:${rosterId}`)
+          if (!target) {
+            unmatched++
+            continue
+          }
+          if (target.detail.bossKill != null) {
+            kept++ // 已有归属，不重写
+            continue
+          }
+          update.run(
+            JSON.stringify({ ...target.detail, bossKill: verdict.flagshipMstId }),
+            target.id,
+          )
+          written++
+        }
+      })
+      console.log(
+        `[kanso] mg: ledger v10 — boss 击杀归属回算：快照 ${snapshots.length} 场，` +
+          `补写 ${written} 条（已有归属 ${kept} 条不重写，航空/支援终结 ${stageDamage} 场` +
+          `没有单舰归属，boss 未沉 ${noKill} 场，对不回事件 ${unmatched} 场，异常 ${anomalies} 条）`,
+      )
+    } catch (error) {
+      console.warn('[kanso] mg: ledger v10 boss kill backfill failed', error)
+    }
+  }
+
+  /**
+   * v11：撤回**本战果月**里那些没有领奖报文撑腰的任务战果合成行。
+   *
+   * 2026-09-01 用户账本实锤：9 月账凭空多出五笔（quest 284/845/854/872/893，
+   * 共 +1460，官方真值 35），其中 854/872 他**从没做过**——events 里一条
+   * clearitemget 都没有。它们是旧口径按「已完成」这个**推断**写进来的
+   * （出处与新口径见 shared/senka-quest-book）。新口径下这些行根本写不进来，
+   * 已经写进来的那几行不会自己消失，所以这里补一刀。
+   *
+   * **刀口收得很紧**，三条同时成立才删：
+   * - `kind='quest'` 且 `ts` **恰等于本战果月起点整值** —— 自动补记的合成行指纹
+   *   （实时领奖记的是真实毫秒时刻，压在月界整点上的概率可忽略）；
+   * - 只看**本战果月**，历史月份一行不碰（口径与「重算任务战果」按钮一致：
+   *   老账里合法的历史行不受影响）；
+   * - 本战果月内**查不到该任务的 clearitemget** —— 有证据的那几笔留着，
+   *   它们只是入账时刻取了月初，本身是真账。
+   *
+   * 玩家**手动补记**的行（manual=1）指纹与合成行一样是月初整值，但它是玩家自己
+   * 说的账，不归这一刀管——所以刀口第四条：只切 manual 不为 1 的行。
+   */
+  private revokeUnevidencedQuestSenkaV11 = () => {
+    try {
+      const now = Date.now()
+      const monthStart = senkaMonthStart(now)
+      const monthEnd = senkaMonthEnd(now)
+      const rows = this.db
+        .prepare(
+          `SELECT rowid AS id, note, senka FROM senka_log
+            WHERE kind = 'quest' AND ts = ? AND (manual IS NULL OR manual != 1)`,
+        )
+        .all(monthStart) as { id: number; note: string | null; senka: number }[]
+      if (!rows.length) return
+      const remove = this.db.prepare(`DELETE FROM senka_log WHERE rowid = ?`)
+      const revoked: string[] = []
+      let kept = 0
+      this.runBatch(rows.length, () => {
+        for (const row of rows) {
+          const questId = Number(row.note) || 0
+          if (questId > 0 && this.questClearEvidenceTs(questId, monthStart, monthEnd) != null) {
+            kept++
+            continue
+          }
+          remove.run(row.id)
+          revoked.push(`${row.note}(+${Number(row.senka) || 0})`)
+        }
+      })
+      if (revoked.length) {
+        console.log(
+          `[kanso] mg: ledger v11 — 撤回无领奖报文的任务战果 ${revoked.length} 笔：` +
+            `${revoked.join('、')}（有报文的 ${kept} 笔留着）`,
+        )
+      }
+    } catch (error) {
+      console.warn('[kanso] mg: ledger v11 unevidenced quest senka revoke failed', error)
     }
   }
 
@@ -1231,26 +1554,198 @@ class Ledger {
     }
   }
 
-  /** 任务领取 → 一笔特别战果。同一任务同一战果月只记一次（季度/年度任务本就一期一次）。 */
-  logQuestSenka = (ts: number, questId: number, senka: number, name: string): boolean => {
+  /**
+   * 任务领取 → 一笔特别战果。**入账时刻就是证据时刻**（观测到 clearitemget 那一刻），
+   * 去重按「同任务同周期 ∪ 同战果月」——判据与出处见 shared/senka-quest-book。
+   *
+   * 调用方必须先拿到证据：实时路径的证据就是手上这一条报文，补记路径的证据要从
+   * events 里查（questClearEvidenceTs）。这里不接受「推断出来的已完成」——
+   * 2026-09-01 的二次翻车正是推断进了账（884…893 五笔 +1460，两个任务从没做过）。
+   */
+  logQuestSenka = (
+    evidenceTs: number,
+    questId: number,
+    senka: number,
+    period: { kind: QuestPeriodKind | null; annualMonth: number | null },
+  ): boolean => {
     if (!(questId > 0) || !(senka > 0)) return false
     try {
-      const monthStart = senkaMonthStart(ts)
-      const already = this.db
-        .prepare(`SELECT 1 FROM senka_log WHERE kind = 'quest' AND note = ? AND ts >= ? LIMIT 1`)
-        .get(`${questId}`, monthStart)
-      if (already) return false
+      // 一个任务在账里至多几行，全捞出来交给纯判定，SQL 这边不做窗口算术
+      const bookedTs = (
+        this.db
+          .prepare(`SELECT ts FROM senka_log WHERE kind = 'quest' AND note = ?`)
+          .all(`${questId}`) as { ts: number }[]
+      ).map((row) => Number(row.ts))
+      const plan = planQuestSenkaBooking({
+        senka,
+        kind: period.kind,
+        annualMonth: period.annualMonth,
+        evidenceTs,
+        bookedTs,
+      })
+      if (!plan.book || plan.ts == null) return false
       this.db
         .prepare(
           `INSERT INTO senka_log (ts, kind, exp_delta, senka, note) VALUES (?, 'quest', 0, ?, ?)`,
         )
-        .run(ts, senka, `${questId}`)
-      void name
+        .run(plan.ts, senka, `${questId}`)
       return true
     } catch (e) {
       console.warn('[kanso] mg: senka quest log failed', e)
       return false
     }
+  }
+
+  /**
+   * 该任务在 `[from, to)` 里**最早**的一次领奖观测（clearitemget 报文的时刻）。
+   * 查不到就是 null——「查不到证据」与「没发生」在这里是同一件事：不入账。
+   *
+   * 只按 path + ts 走索引筛，任务号在 JS 侧解（post_body 是 JSON 串，
+   * 拿 SQL 的 LIKE '%api_quest_id=893%' 去凑会连 8931 一起命中）。
+   */
+  questClearEvidenceTs = (questId: number, from: number, to: number): number | null => {
+    if (!(questId > 0)) return null
+    try {
+      const rows = this.db
+        .prepare(
+          `SELECT ts, post_body FROM events
+           WHERE path LIKE '%/api_req_quest/clearitemget' AND ts >= ? AND ts < ?
+           ORDER BY ts ASC`,
+        )
+        .all(from, to) as { ts: number; post_body: string | null }[]
+      for (const row of rows) {
+        if (questIdFromClearItemGet(row.post_body) === questId) return Number(row.ts)
+      }
+      return null
+    } catch (e) {
+      console.warn('[kanso] mg: senka quest evidence query failed', e)
+      return null
+    }
+  }
+
+  /**
+   * 删掉本战果月**自动补记**的任务战果行（玩家按「重算任务战果」时走这里）。
+   *
+   * **为什么允许删。** 账本的其余部分是报文账——游戏说了什么就记什么，涂改
+   * 等于伪造。但自动补记这一族不是报文账：领奖报文里根本没有战果字段
+   * （见 logQuestSenka 上游），这些行是 kuma 自己按「本期已完成 + 账里没有」
+   * **推断**出来的合成行。推断错了就该收回重算，那不算涂账。
+   *
+   * **指纹只认合成行**：kind='quest' 且 ts **恰等于**本战果月起点整值。
+   * 自动补记入账时间一律取月初（本期最早可能时刻，见 mg:senka-log-quest），
+   * 而实时领奖路径记的是真实领奖时刻（毫秒级，压在月界整点上的概率可忽略）。
+   * exp / eo / 带真实时间戳的任务行一概不碰，别的月份也不碰。
+   *
+   * **手动补记行（manual=1）也不碰。** 它的 ts 同样是月初整值，指纹与合成行撞在
+   * 一起，但性质相反：合成行是 kuma 推断出来的、玩家没同意过，手动行是玩家自己
+   * 加的。这颗按钮的名字是「重算」，重算不该把玩家亲手加的账一起算没了——
+   * 要删它走行尾那个删除钮（removeManualQuestSenka）。
+   */
+  clearAutoBookedQuestSenka = (monthStart: number): number => {
+    try {
+      const result = this.db
+        .prepare(
+          `DELETE FROM senka_log
+            WHERE kind = 'quest' AND ts = ? AND (manual IS NULL OR manual != 1)`,
+        )
+        .run(monthStart)
+      // 增量扫描的游标要一起作废：不作废的话「有报文证据、本该回来的那几笔」
+      // 会被游标挡在已扫过的区段里，撤回之后再也补不回来。
+      this.questScanState = null
+      return Number(result.changes) || 0
+    } catch (e) {
+      console.warn('[kanso] mg: senka quest clear failed', e)
+      return 0
+    }
+  }
+
+  /** 该任务在账本里的全部行（数量很小，窗口算术交给纯判定，SQL 这边不做）。 */
+  private questSenkaRows = (questId: number): { ts: number; manual: boolean }[] => {
+    const rows = this.db
+      .prepare(`SELECT ts, manual FROM senka_log WHERE kind = 'quest' AND note = ?`)
+      .all(`${questId}`) as { ts: number; manual: number | null }[]
+    return rows.map((row) => ({ ts: Number(row.ts), manual: Number(row.manual) === 1 }))
+  }
+
+  /**
+   * 玩家手动补一笔任务战果（2026-09-01 用户要的权利，出处见 shared/senka-quest-book）。
+   * 分值由调用方从主进程自己的 quests-scn 现解，这里不接受渲染层递来的数字。
+   */
+  addManualQuestSenka = (
+    at: number,
+    questId: number,
+    senka: number,
+    period: { kind: QuestPeriodKind | null; annualMonth: number | null },
+  ): QuestSenkaBookingReason | 'failed' => {
+    if (!(questId > 0)) return 'no-senka'
+    try {
+      const plan = planManualQuestSenkaBooking({
+        senka,
+        kind: period.kind,
+        annualMonth: period.annualMonth,
+        at,
+        bookedTs: this.questSenkaRows(questId).map((row) => row.ts),
+      })
+      if (!plan.book || plan.ts == null) return plan.reason
+      this.db
+        .prepare(
+          `INSERT INTO senka_log (ts, kind, exp_delta, senka, note, manual)
+           VALUES (?, 'quest', 0, ?, ?, 1)`,
+        )
+        .run(plan.ts, senka, `${questId}`)
+      return 'booked'
+    } catch (e) {
+      console.warn('[kanso] mg: senka quest manual add failed', e)
+      return 'failed'
+    }
+  }
+
+  /**
+   * 删一条手动补记行。**只允许删手动补记的行**——观测记下的是账，账不许涂改
+   *（与 removeManualPayLog 同一条纪律）。
+   *
+   * 删完要作废补记扫描的游标（与 clearAutoBookedQuestSenka 同一个理由）：手动那一笔
+   * 占着周期的坑时，同期到达的真报文被去重挡下、游标却照常走过了它。不作废的话
+   * 手动行一删，那条真报文就永远补不回来了。
+   */
+  removeManualQuestSenka = (id: number): boolean => {
+    if (!Number.isInteger(id) || id <= 0) return false
+    try {
+      const result = this.db
+        .prepare(`DELETE FROM senka_log WHERE id = ? AND kind = 'quest' AND manual = 1`)
+        .run(id)
+      if (Number(result.changes) > 0) this.questScanState = null
+      return Number(result.changes) > 0
+    } catch (e) {
+      console.warn('[kanso] mg: senka quest manual remove failed', e)
+      return false
+    }
+  }
+
+  /**
+   * 补记选单要用的「这条任务本期已经有账了吗」。判据与 addManualQuestSenka 共用
+   * 同一个去重窗口——选单里标成已记的，按下去也必然被挡；反过来也一样。
+   * 返回值区分是哪一种账：`evidence` = 报文观测行，`manual` = 玩家自己补的。
+   */
+  questSenkaTaken = (
+    at: number,
+    quests: readonly { id: number; kind: QuestPeriodKind | null; annualMonth: number | null }[],
+  ): Record<number, 'evidence' | 'manual'> => {
+    const out: Record<number, 'evidence' | 'manual'> = {}
+    try {
+      for (const quest of quests) {
+        const window = questSenkaBookingWindow(quest.kind, at, quest.annualMonth)
+        const hit = this.questSenkaRows(quest.id).filter(
+          (row) => row.ts >= window.from && row.ts < window.to,
+        )
+        if (!hit.length) continue
+        // 同一窗口里既有观测行又有手动行时报观测行：那才是「账本自己看见的」
+        out[quest.id] = hit.some((row) => !row.manual) ? 'evidence' : 'manual'
+      }
+    } catch (e) {
+      console.warn('[kanso] mg: senka quest taken query failed', e)
+    }
+    return out
   }
 
   /** 本战果月的逐笔账。记账开始之前的部分这里没有，调用方必须说清楚。 */
@@ -1260,16 +1755,19 @@ class Ledger {
     const monthEnd = senkaMonthEnd(at)
     const rows = this.db
       .prepare(
-        `SELECT ts, kind, exp_delta, senka, note FROM senka_log WHERE ts >= ? AND ts < ? ORDER BY ts DESC`,
+        `SELECT id, ts, kind, exp_delta, senka, note, manual FROM senka_log
+          WHERE ts >= ? AND ts < ? ORDER BY ts DESC`,
       )
       .all(monthStart, monthEnd) as any[]
     const first = this.db.prepare(`SELECT MIN(ts) t FROM senka_log`).get() as { t: number | null }
     const entries: SenkaEntry[] = rows.map((row) => ({
+      id: Number(row.id) || 0,
       ts: row.ts,
       kind: row.kind,
       expDelta: row.exp_delta | 0,
       senka: Number(row.senka) || 0,
       note: `${row.note ?? ''}`,
+      manual: Number(row.manual) === 1,
     }))
     const normal = entries.filter((e) => e.kind === 'exp').reduce((sum, e) => sum + e.senka, 0)
     const special = entries.filter((e) => e.kind !== 'exp').reduce((sum, e) => sum + e.senka, 0)
@@ -1285,6 +1783,9 @@ class Ledger {
              WHERE kind = 'exp' AND ts >= ? AND ts < ?`,
           )
           .get(windows.yearStart, windows.monthStart) as { s: number | null; n: number }
+        // 前月特别里**含手动补记行**（2026-09-01 用户点名）：手动行是玩家自己
+        // 认下的账，与观测行同等参与下个月的继承。所以这里按 kind 取数，不按
+        // manual 过滤——manual 只决定「谁可以删」，不决定「算不算数」。
         const specialRow = this.db
           .prepare(
             `SELECT SUM(senka) s, COUNT(*) n FROM senka_log
@@ -1376,6 +1877,64 @@ class Ledger {
       return booked
     } catch (e) {
       console.warn('[kanso] mg: senka eo auto-book failed', e)
+      return []
+    }
+  }
+
+  // 任务战果补记的增量扫描位置（进程内缓存；跨月自动作废，撤回时显式作废）
+  private questScanState: { monthStart: number; lastEventTs: number } | null = null
+
+  /**
+   * 任务战果补记（2026-09-01 重立）：把本战果月里**观测到的每一条 clearitemget**
+   * 过一遍，有固定战果分值的就记一笔，入账时刻取报文观测时刻。
+   *
+   * 这是 EO 侧 `autoBookEoFromMapinfo` 的同款形态——都只认账本里存着的原始观测，
+   * 都拿观测时刻当归属依据。与 EO 的差别只在证据长什么样：EO 是海域页的
+   * cleared 位，任务是领奖报文。
+   *
+   * **它补的是什么。** 实时路径（mg/index 收到 clearitemget 当场记）已经覆盖了
+   * kuma 开着的绝大多数情形；这里补的是那时没记成的（任务资料包当时没装、
+   * 战果记账上线之前的旧报文）。玩家在别的设备交的任务这里补不了——
+   * 本机没有那条报文，就是没有证据，宁可不记，由玩家用「实际校准」兜底。
+   *
+   * `resolve` 给不出分值（不是战果任务 / 资料库没收录）就跳过；同月同期的重复
+   * 由 logQuestSenka 的去重挡掉，这里不自己判。
+   */
+  autoBookQuestSenkaFromEvents = (
+    at: number,
+    resolve: (
+      questId: number,
+    ) => { senka: number; kind: QuestPeriodKind | null; annualMonth: number | null } | null,
+  ): number[] => {
+    try {
+      const monthStart = senkaMonthStart(at)
+      const monthEnd = senkaMonthEnd(at)
+      if (this.questScanState?.monthStart !== monthStart) {
+        this.questScanState = { monthStart, lastEventTs: monthStart - 1 }
+      }
+      const rows = this.db
+        .prepare(
+          `SELECT ts, post_body FROM events
+           WHERE path LIKE '%/api_req_quest/clearitemget' AND ts > ? AND ts < ?
+           ORDER BY ts ASC`,
+        )
+        .all(this.questScanState.lastEventTs, monthEnd) as {
+        ts: number
+        post_body: string | null
+      }[]
+      if (!rows.length) return []
+      this.questScanState.lastEventTs = Number(rows[rows.length - 1].ts)
+      const booked: number[] = []
+      for (const row of rows) {
+        const questId = questIdFromClearItemGet(row.post_body)
+        if (!questId) continue
+        const info = resolve(questId)
+        if (!info?.senka) continue
+        if (this.logQuestSenka(Number(row.ts), questId, info.senka, info)) booked.push(questId)
+      }
+      return booked
+    } catch (e) {
+      console.warn('[kanso] mg: senka quest auto-book failed', e)
       return []
     }
   }
@@ -2152,6 +2711,55 @@ class Ledger {
       }
     } catch (e) {
       console.warn('[kanso] mg: ship life query failed', e)
+      throw e
+    }
+  }
+
+  /**
+   * 这一艘给谁送过终。
+   *
+   * 归属写在 battle 事件的 `detail.bossKill` 里（值 = 敌旗舰 mstId），没有单独的
+   * 事件种类，也没有新表——「谁终结了这场 boss」本来就是那一场战斗记录的一个属性。
+   * 航空/支援终结的那几场没有单舰归属，任何一艘都查不到，这是如实缺席。
+   *
+   * 按时间倒序（最近的在前）。detail 的解析失败当作没有这一列，不让一条坏 JSON
+   * 带垮整次查询。
+   */
+  queryBossKills = (rosterId: number, limit = 200): ShipBossKillEntry[] => {
+    try {
+      const rows = this.db
+        .prepare(
+          `SELECT id, ts, map, cell, rank, detail FROM ship_life_events
+           WHERE roster_id = ? AND kind = 'battle' AND is_boss = 1 AND practice = 0
+           ORDER BY ts DESC, id DESC`,
+        )
+        .all(rosterId) as any[]
+      const out: ShipBossKillEntry[] = []
+      for (const row of rows) {
+        let detail: Record<string, any> = {}
+        try {
+          const parsed = JSON.parse(row.detail)
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) detail = parsed
+        } catch (_e) {
+          continue
+        }
+        const bossMstId = Number(detail.bossKill)
+        if (!(bossMstId > 0)) continue
+        const snapshotId = Number(detail.snapshotId)
+        out.push({
+          eventId: Number(row.id),
+          ts: Number(row.ts),
+          map: row.map == null ? null : Number(row.map),
+          cell: row.cell == null ? null : Number(row.cell),
+          rank: row.rank == null ? null : `${row.rank}`,
+          bossMstId,
+          snapshotId: snapshotId > 0 ? snapshotId : null,
+        })
+        if (out.length >= Math.max(1, Math.min(500, limit | 0))) break
+      }
+      return out
+    } catch (e) {
+      console.warn('[kanso] mg: boss kill query failed', e)
       throw e
     }
   }

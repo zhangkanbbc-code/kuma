@@ -40,7 +40,14 @@ export interface KcwikiRuleContext {
   eventRunning: boolean
 }
 
-const FRIENDLY_STYPE_TOKENS: Record<string, number[]> = {
+/**
+ * 上游 requirements 里的**友军舰种词**（日文原文）→ 舰种号。
+ *
+ * 导出是给护栏用的：`shared/ship-type-name.ts` 的规范表必须覆盖这里的每一个键，
+ * 上游哪天冒出新词，`test/ship-type-name.test.mjs` 当场红——修法是补规范表一格，
+ * 而不是让那个词一路日文上屏。表本身仍以日文为键，转写忠实性不动。
+ */
+export const FRIENDLY_STYPE_TOKENS: Record<string, number[]> = {
   駆逐: [2],
   駆逐艦: [2],
   軽巡: [3],

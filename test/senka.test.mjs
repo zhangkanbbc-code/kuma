@@ -134,6 +134,25 @@ test('EO 月重置点：战果月起点 +7h = 当月 1 日 05:00 JST', () => {
   assert.equal(eoMonthResetTs(augStart), jstUtc(2026, 8, 1, 5))
 })
 
+test('EO 没有「月界→重置」错位病：窗口那 7 小时里重置点还在未来，观测一概不作数', () => {
+  // 2026-08-31 用户账本上的季任错位（见 senka-quest-recount.test.mjs）在 EO 侧
+  // 不成立：EO 的窗口下界本来就取**重置点**（月初 05:00 JST），不是月界。
+  // 22:00 翻月之后的那 7 小时里 resetTs 还在未来，8 月留着的 cleared=1
+  // 落在窗口之外，补不进 9 月账。这一条查过了，不改。
+  const at = jstUtc(2026, 8, 31, 22, 30)
+  const monthStart = senkaMonthStart(at)
+  const resetTs = eoMonthResetTs(monthStart)
+  assert.equal(monthStart, jstUtc(2026, 8, 31, 22), '此刻已属 9 月战果月')
+  assert.equal(resetTs, jstUtc(2026, 9, 1, 5))
+  assert.ok(resetTs > at, '窗口内重置点还没到')
+  const seen = firstEoClearObservations(
+    [{ ts: at, cleared: [15, 25, 35] }], // 8 月打的，cleared 位还没被重置
+    resetTs,
+    senkaMonthEnd(at),
+  )
+  assert.equal(seen.size, 0, '窗口内的旧 cleared 一张也不许进新月')
+})
+
 test('EO 击破观测：窗口内取首见，窗口外与非 EO 图不作数', () => {
   const reset = jstUtc(2026, 8, 1, 5)
   const end = senkaMonthEnd(jstUtc(2026, 8, 17, 12))

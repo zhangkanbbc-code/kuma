@@ -29,11 +29,13 @@ import {
   trackMountCleanup,
   updateCountdowns,
 } from '../kernel'
+import { hideFilterMenu, showFilterMenu } from '../filter-menu'
+import type { FilterMenuSpec } from '../filter-menu'
 import { elink, elinkHtml, navigate, registerEntityRoute } from '../link'
 import { entityNameHtml, entityNamePlain, entityTermHtml, registerLocalizedName } from '../localization'
 import { furnitureIconHtml, materialIconHtml, shipThumbHtml, useItemIconHtml } from '../entity-art'
 import { equipTypeIconHtml } from '../equip-icon'
-import { activateModule, registerModule } from '../mu'
+import { activateModule, isCompactMode, registerCompactMode, registerModule } from '../mu'
 import {
   buildQuestChainTree,
   countQuestChainDescendants,
@@ -98,7 +100,7 @@ import type {
 } from '../quest-chain-tree'
 
 import type { LodeMeta } from '../kernel'
-import type { QpFleetCheck, QpState, QpStockGoal, QpTask } from '../../shared/qp-types'
+import type { QpFleetCheck, QpFleetGoal, QpState, QpStockGoal, QpTask } from '../../shared/qp-types'
 import { isEventMapArea, mapCodeOf } from '../../shared/map-id'
 
 interface LibQuest {
@@ -397,7 +399,22 @@ const state = {
   quick: null as string | null,
   showQuick: false,
   selected: null as number | null,
+  // 紧凑态：搜索收成放大镜，点开才摆输入框。常规态不看这个字段（输入框恒显）。
+  searchOpen: false,
 }
+
+// 状态筛选的字样只此一份：常规态的芯片与紧凑态的下拉读同一张表，
+// 否则改了一边，两处的同一个筛选会叫两个名字。
+const STATUS_FILTERS: { key: typeof state.status; label: string }[] = [
+  { key: 'active', label: '进行' },
+  { key: 'done', label: '待领' },
+  { key: 'unaccepted', label: '未领' },
+  { key: 'completed', label: '已完成' },
+  { key: 'current', label: '已同步' },
+  { key: 'all', label: '全库' },
+]
+const statusLabelOf = (key: typeof state.status) =>
+  STATUS_FILTERS.find((entry) => entry.key === key)?.label ?? key
 
 // ---- code 解码：类别字母 + 周期 ----
 
@@ -757,6 +774,29 @@ const categoryOf = (row: QRow): QuestCategory =>
     test: () => true,
   }
 
+/**
+ * 追踪器解出的条件行**可以顶掉正文**的类别白名单。键取 `categoryOf(row).key`——
+ * 与行上那枚分类芯片同一个判据（芯片显示的就是 `categoryOf(row).label`），
+ * 不另立第二套分类。
+ *
+ * 只有这四类的正文与追踪器说的是同一件事：要什么全在「编成门 + 出击/演习/远征
+ * 动作」里，正文只是同一件事的绕口说法，直说那句换掉它不丢东西。
+ *
+ * **工厂族（开发/改修/废弃/建造/补给/入渠/改造）一律不换。** 那边的正文本身就是
+ * 一份完整需求清单——任务库的 memo2 是要求转录不是风味文案——而追踪器只建得起
+ * 其中可计数的那点零头：F125 的真实要求是「黎塞留旗舰 + 一、二格 38cm四连装炮改
+ * ×2（会被消耗）+ 废弃 41cm连装炮 ×4 + 开发资材 ×20 + 海外舰最新技术 ×1」，
+ * 追踪器只有最后可计数的「废弃 41cm连装炮 ×4」一项（tasks 一条、fleetGoal /
+ * stateGoal / stockGoals 全空、连 partial 都是 false），顶掉正文等于把另外四项
+ * 从玩家眼前抹掉。2026-09-01 用户拿任务原文当场实锤。
+ *
+ * **判不出类别的默认不替换**：这是白名单不是黑名单。`categoryOf` 走兜底分支时
+ * key 是任务编号的首字母（'F'/'G'）甚至 '其'，天然落在集合外——宁可显示官方介绍，
+ * 也不显示一份零头。往 TASK_CATEGORIES 里新增类别时同样默认在外，要进来得先确认
+ * 那一类的正文没有追踪器覆盖不到的要求。
+ */
+const PROSE_REPLACING_CATEGORIES = new Set(['formation', 'sortie', 'exercise', 'expedition'])
+
 // 「即将重置」的时限：按周期给不同的提前量，否则日任永远全部命中
 const RESET_SOON: Record<string, [kind: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'annual', within: number]> = {
   日: ['daily', 6 * 3600000],
@@ -887,8 +927,7 @@ const qpOf = (
             ratio: ratios[index],
             now: Math.min(cap, effective[index]),
             cap,
-            // tooltip 是纯文本：qpTaskLabel 出的是带链接芯片的 HTML，剥掉标签用
-            label: entries.map(({ task }) => qpTaskLabel(task).replace(/<[^>]*>/g, '')).join(' 或 '),
+            label: entries.map(({ task }) => qpTaskLabelText(task)).join(' 或 '),
           }
         })
       : []
@@ -962,7 +1001,7 @@ const rowHtml = (row: QRow) => {
   const verdict = ghost ? questVerdicts().get(row.id) : undefined
   let tag =
     verdict?.status === 'done'
-      ? `<span class="st-tag done" title="前置都满足却不在任务表里，只能是已经交付了">✓ ${verdict.cyclic ? '本期已完成' : '已完成'}</span>`
+      ? `<span class="st-tag done" title="前置都满足却不在任务表里 · 判为已交付">✓ ${verdict.cyclic ? '本期已完成' : '已完成'}</span>`
       : verdict?.status === 'locked'
         ? `<span class="st-tag lock" title="${esc(`还差前置：${verdict.missingPre.join('、')}`)}">未解锁</span>`
         : '<span class="st-tag lock">任务资料</span>'
@@ -987,7 +1026,20 @@ const rowHtml = (row: QRow) => {
       <span class="per ${periodCls}">${periodLabel}</span>
       <span class="q-nm">
         <span class="t"><span class="id">${esc(row.code)}</span><span class="q-cat-label">${category.label}</span><b title="${esc(entityNamePlain('quest', row.id, row.observed?.title ?? row.name))}">${entityNameHtml('quest', row.id, row.observed?.title ?? row.name, { compact: true })}</b></span>
-        <span class="plain">${taskProseHtml(row.desc || (observed ? '（以游戏内文本为准）' : ''))}</span>
+        ${
+          // 追踪器解出了条件（编成门 / 行动需求）就顶掉正文那一行——正文是游戏原话，
+          // 要做什么得自己从里面读，而这两半是同一件事的直说。官方介绍在详情抽屉
+          // 的「任务说明」照旧全文可见，行内不再多占一行。
+          // **但只对白名单里的那几类**：工厂族的正文是一份完整需求清单，追踪器只解得出
+          // 其中可计数的零头，顶掉它就是把要求抹掉；类别判不出的同样不替换。
+          // 判据与理由见 PROSE_REPLACING_CATEGORIES。
+          // 追踪器自报 partial（另有准备资源等非计数条件）的同样不替换——
+          // 白名单里也有 D21 这种「准备 5000 钢材」写在正文里的，零头不许盖全单。
+          (PROSE_REPLACING_CATEGORIES.has(category.key) && !qp?.trackers[row.id]?.partial
+            ? qpNeedHtml(row)
+            : '') ||
+          `<span class="plain">${taskProseHtml(row.desc || (observed ? '（以游戏内文本为准）' : ''))}</span>`
+        }
       </span>
       ${progressHtml(row)}
       <span class="q-rew">${rewardIcons(row.memo)}</span>
@@ -1379,8 +1431,10 @@ const expeditionDisplayName = (missionId: number): string => {
     entityNamePlain('expedition', missionId, raw)
 }
 
-// 追踪任务的可读标签（海域/装备走 elink 反查）
-const qpTaskLabel = (task: QpTask): string => {
+// 追踪任务的可读标签（海域/装备走 elink 反查）。
+// bare = 不带计数机制的注解，只留「要做什么」——列表行顶掉正文的那一行用它，
+// 机制归详情抽屉的计数器区说。
+const qpTaskLabel = (task: QpTask, options: { bare?: boolean } = {}): string => {
   const mapChip = (m: [number, number]) => {
     const id = m[0] * 10 + m[1]
     return availabilityWrap(mapUnlocked(id), '海域尚未解锁', elink('map', id, `${m[0]}-${m[1]}`))
@@ -1434,8 +1488,102 @@ const qpTaskLabel = (task: QpTask): string => {
         ? '完成演习（胜负不限）'
         : `演习 ${QP_RANK_NAME[task.rank] ?? '?'} 胜`
     case 'action':
-      return `${esc(task.label)}（本地动作计数）`
+      return options.bare ? esc(task.label) : `${esc(task.label)}（本地动作计数）`
   }
+}
+
+// 纯文本版：qpTaskLabel 出的是带链接芯片的 HTML，剥掉标签就是同一句话。
+// esc 出的是数字实体，剥完仍可直接当 HTML 文本用。
+const qpTaskLabelText = (task: QpTask, options: { bare?: boolean } = {}): string =>
+  qpTaskLabel(task, options).replace(/<[^>]*>/g, '')
+
+// 数字实体（&#39; 这类）按一个字算，否则截断长度会被实体的字符数带偏
+const needVisualLen = (text: string) => text.replace(/&#\d+;/g, '·').length
+
+// 截断额度按最窄的那一档定：留得下的宁可少列一项摆「等 N 项」，
+// 也别让行末被省略号切在半句上
+const NEED_MAX_ITEMS = 4
+const NEED_MAX_CHARS = 54
+
+// 编成门的最短标签语。**词仍取引擎发下来的 group.label**——详情抽屉的「编成检查」
+// 逐条显示的就是它，两处同源，不另立一份文案。这里补的只是「形态」：抽屉那边靠
+// 实时判定的 N/M 与未满足理由把旗舰/位次/等级说出来，静态一行没有判定结果可借，
+// 所以把这几档修饰按规则结构自己拼上去。
+//
+// 只说「要凑什么」，与行动需求那半同一条纪律：
+//  · amount=0 的组是上限（「駆逐 ≤1」「全队规模 ≤5」）不是要凑的东西 → 不进这一行；
+//  · 禁止舰种 / 不得带其它舰 / 总数上限 这些限定同理，全归抽屉的编成检查；
+//  · 「限第 N 舰队」例外：漏掉它玩家会把队编在别处白打一场。四个字，且与引擎
+//    判不通过时报的那句（evaluateFleetGoal 的「第N舰队」）是同一份说法。
+const qpFleetNeedItems = (goal: QpFleetGoal): string[] => {
+  const items = goal.groups
+    .filter((group) => group.amount > 0)
+    .map((group) => {
+      const head = group.flagship
+        ? '旗舰 '
+        : group.position !== undefined
+          ? `${group.position}号位 `
+          : ''
+      // label 有一部分是规则包原文（未过 esc），既进 HTML 又进 title 属性，这里统一转义
+      return `${head}${esc(group.label)}${group.lv ? ` Lv${group.lv}↑` : ''}${
+        group.amount > 1 ? ` ×${group.amount}` : ''
+      }`
+    })
+  return items.length && goal.fleetId !== undefined ? [`第${goal.fleetId}舰队`, ...items] : items
+}
+
+// 列表行里**顶掉正文那一行**的替换文案：编成门（要凑什么）+ 行动需求（要做什么）。
+// 两半都与详情抽屉同源（qpFleetNeedItems 走 group.label、行动需求走 qpTaskLabel），
+// 只是剥掉链接芯片与计数机制注解，进度数字留给进度条。两半都没有的任务返回空串，
+// 那一行照旧显示官方介绍。
+//
+// **能不能顶掉正文由调用处的类别闸决定**（PROSE_REPLACING_CATEGORIES），不在这里判：
+// 这个函数只负责「解得出什么」，工厂族解得出的那点零头照旧供进度条与详情抽屉用。
+//
+// 缓存按 tracker 对象身份 + 实体索引代号：进度补丁只换 progress、trackers 不动，
+// 所以搜索键击与逐场战斗都命中缓存，不会每拍重跑一遍海域/装备/远征反查。
+const needCache = new Map<number, { tracker: unknown; version: number; html: string }>()
+
+const qpNeedHtml = (row: QRow): string => {
+  const tracker = qp?.trackers[row.id]
+  if (!tracker) return ''
+  const cached = needCache.get(row.id)
+  if (cached && cached.tracker === tracker && cached.version === entityIndexVersion) return cached.html
+  const fleet = tracker.fleetGoal ? qpFleetNeedItems(tracker.fleetGoal) : []
+  const actions = qpTaskGroups(tracker.tasks).map(({ entries }) => {
+    const cap = (entries[0].task as any).count || 1
+    return `${entries.map(({ task }) => qpTaskLabelText(task, { bare: true })).join(' 或 ')} ×${cap}`
+  })
+  const items = [...fleet, ...actions]
+  if (!items.length) return ''
+  const shown: string[] = []
+  let used = 0
+  const take = (item: string) => {
+    shown.push(item)
+    used += needVisualLen(item) + 3
+  }
+  // 两半同屏时先给行动需求留一格：编成门可以很长（六只具名舰排一串），
+  // 让它把「打哪张图」整个挤出去，这一行就白替换了正文
+  const reserve = fleet.length && actions.length ? needVisualLen(actions[0]) + 3 : 0
+  // 第一项无条件收：再长也得让人看见一句，切在半路的收尾交给 CSS 的省略号
+  const room = (item: string, budget: number, slots: number) =>
+    !shown.length || (shown.length < slots && used + needVisualLen(item) <= budget)
+  for (const item of fleet) {
+    if (!room(item, NEED_MAX_CHARS - reserve, NEED_MAX_ITEMS - (reserve ? 1 : 0))) break
+    take(item)
+  }
+  for (const [index, item] of actions.entries()) {
+    if (index && !room(item, NEED_MAX_CHARS, NEED_MAX_ITEMS)) break
+    take(item)
+  }
+  const text = shown.join(' · ') + (shown.length < items.length ? ` 等 ${items.length} 项` : '')
+  // 标签里的名字有一部分是主数据原文（未过 esc），进属性前只补一道引号转义；
+  // 已有的数字实体不能再转一遍，否则屏幕上会读到 &#34; 本身
+  const full = items.join(' · ').replace(/"/g, '&#34;')
+  // class 上留着 plain：这一行占的就是正文的位置，窄态显示与否跟着正文的规则走
+  const html = `<span class="plain q-need" title="${full}">${text}</span>`
+  needCache.set(row.id, { tracker, version: entityIndexVersion, html })
+  return html
 }
 
 const qpStockCurrent = (goal: QpStockGoal): number | null => {
@@ -1490,7 +1638,7 @@ const blockedHtml = (tracker: QpState['trackers'][number]): string => {
 const noCounterHtml = (row: QRow): string => {
   const body = !qp
     ? '<div class="d-note">精确计数还在准备中</div>'
-    : '<div class="counter-why why"><b>无法精确计数：还没有这条任务的判定资料</b></div>'
+    : '<div class="counter-why why"><b>无法精确计数：暂无这条任务的判定资料</b></div>'
   return `<section class="q-section q-counter"><h4>计数器</h4>${body}</section>`
 }
 
@@ -1505,7 +1653,7 @@ const fleetCheckPendingHtml = (row: QRow, what: string): string => {
   }
   // 「没领取」也得先有根据：任务页一次都没同步过时，那是不知道，不是没领
   if (!row.observed && mg.questActiveTs == null) {
-    return '<div class="d-note">还没从游戏任务页同步过这条任务的领取情况</div>'
+    return '<div class="d-note">尚未从游戏任务页同步过这条任务的领取情况</div>'
   }
   return '<div class="d-note">这条任务当前没有领取</div>'
 }
@@ -1981,8 +2129,11 @@ const detailHtml = (row: QRow) => {
   const counter = qpDetailHtml(row) || noCounterHtml(row)
   const chain = questChainHtml(row)
   const resetInfo = annualResetHtml(row)
+  // 抬头条**一行摆完**（2026-08-31 用户拍板）：编号/周期/类别与状态从前上下叠着，
+  // 右边那半条一直空着，抽屉本身还得为两行留高。破折号前那半仍是暗色小字、
+  // 状态仍是亮色——分开的是样式，不再靠换行。
   return `<div class="q-drawer-head">
-      <span><small>${esc(row.code)} · ${periodOfRow(row)[0]}任 · ${categoryOf(row).label}</small><b>${esc(status)}</b></span>
+      <span><small>${esc(row.code)} · ${periodOfRow(row)[0]}任 · ${categoryOf(row).label} — </small><b>${esc(status)}</b></span>
       <button data-q-close title="关闭任务详情">×</button>
     </div>
     <div class="q-drawer-body">
@@ -2014,6 +2165,10 @@ const detailHtml = (row: QRow) => {
       ${scnLode ? `<div class="q-detail-source">${lodeCreditMark(scnLode.meta)}</div>` : ''}
     </div>`
 }
+
+// 三张下拉的内容随每次 render 的行集/计数重算，wire() 只管把钮接到当前这份上。
+// （放在 render 之外是因为 wire 拿不到 render 的局部量；每渲一次整体替换。）
+let filterMenuSpecs: Record<string, FilterMenuSpec> = {}
 
 // ---- 总渲染 ----
 
@@ -2059,17 +2214,131 @@ const render = () => {
     { period: '单', label: '单次', reset: null, count: rows.filter((row) => periodOfRow(row)[0] === '单').length },
   ]
 
-  // 输出没变就整段不动 DOM（口径见 kernel commitPaneHtml）
-  const html = `<div class="qn-app">
-      <div class="qn-top">
+  const statusCounts: Record<typeof state.status, number> = {
+    active,
+    done,
+    unaccepted,
+    completed,
+    current,
+    all: rows.length,
+  }
+  const shownCategories = CATEGORY_FILTERS.filter(
+    (category) => !category.onlyWhenPresent || categoryCountOf(category.key) > 0,
+  )
+  const currentCategory = shownCategories.find((category) => category.key === state.category) ?? null
+  const currentPeriod = resetFilters.find((item) => item.period === state.period) ?? null
+
+  filterMenuSpecs = {
+    cat: {
+      title: '分类',
+      items: [
+        { key: null, label: '全部', count: rows.length, color: 'var(--accent)', on: state.category == null },
+        ...shownCategories.map((category) => ({
+          key: category.key,
+          label: category.label,
+          count: categoryCountOf(category.key),
+          color: category.color,
+          on: state.category === category.key,
+        })),
+      ],
+      pick: (value) => {
+        state.category = value
+        render()
+      },
+    },
+    period: {
+      title: '周期',
+      items: [
+        { key: null, label: '全部', count: rows.length, on: state.period == null },
+        ...resetFilters.map((item) => ({
+          key: item.period,
+          label: item.label.replace('任务', ''),
+          count: item.count,
+          on: state.period === item.period,
+        })),
+      ],
+      pick: (value) => {
+        state.period = value
+        render()
+      },
+    },
+    status: {
+      title: '状态',
+      items: STATUS_FILTERS.map((entry) => ({
+        key: entry.key,
+        label: entry.label,
+        count: statusCounts[entry.key],
+        on: state.status === entry.key,
+      })),
+      pick: (value) => {
+        // 状态没有「全部」这一项：六格本身就覆盖全库，value 恒非空
+        state.status = (value ?? 'active') as typeof state.status
+        render()
+      },
+    },
+  }
+
+  // 两种抬头共用的两枚钮与那块面板：更多筛选与任务树在紧凑态照旧摆着——
+  // 前者本来就是点开才展开的收纳，后者是动作不是筛选。
+  const quickToggleHtml = `<button class="quick-toggle${state.showQuick || state.quick ? ' on' : ''}" data-quick-toggle>
+            更多筛选${state.quick ? ' · 1' : ''}
+          </button>`
+  const questTreeHtml = `<button class="quest-tree-open" data-quest-tree title="查看完整任务关系">完整任务树</button>`
+  const quickPanelHtml = `<div class="q-quick-panel${state.showQuick ? ' open' : ''}">
+          ${
+            // 收起时不渲染也不计数：其中 shipReward 一项要对每行全量扫舰名索引，
+            // 面板根本没露面还照算是纯浪费（资源变动一来就是一轮）
+            state.showQuick
+              ? (() => {
+                  const counts = quickFilterCounts(rows)
+                  return Object.entries(QUICK_FILTERS)
+                    .map(
+                      ([key, def]) =>
+                        `<button class="quick${state.quick === key ? ' on2' : ''}" data-quick="${key}">${def.label} <i>${counts.get(key) ?? 0}</i></button>`,
+                    )
+                    .join('')
+                })()
+              : ''
+          }
+        </div>`
+
+  // 紧凑态：三条筛选带各收成一枚「点开选」的钮，搜索收成放大镜——整片抬头
+  // 从最多五行降到一行。开关在坞标签条上（铆的 registerCompactMode），默认关。
+  const compact = isCompactMode('qn')
+  const compactSearchHtml = state.searchOpen
+    ? // ⌕ 用 button 而不是 span：label 里的交互元素不会把点击转发给输入框，
+      // 用 span 的话「收起」那一下会顺带把光标塞进正要消失的框
+      `<label class="qsearch compact-open"><button type="button" class="compact-search-key" data-search-toggle>⌕</button><input id="qn-search" placeholder="搜索任务名、编号、奖励或说明" value="${esc(state.search)}"></label>`
+    : // 收起时仍把搜索词摆在钮上：藏起来的筛选会让人以为列表本来就这么短
+      `<button class="compact-search-btn${state.search ? ' on' : ''}" data-search-toggle>⌕${
+        state.search ? `<b>${esc(state.search)}</b>` : ''
+      }</button>`
+
+  const headHtml = compact
+    ? `<div class="qn-top compact">
+        <div class="q-compact-strip">
+          <button class="sel-btn${state.category ? ' on' : ''}" data-filter-menu="cat"><span>分类</span><b>${
+            currentCategory ? esc(currentCategory.label) : '全部'
+          }</b><i>${currentCategory ? categoryCountOf(currentCategory.key) : rows.length}</i></button>
+          <button class="sel-btn${state.period ? ' on' : ''}" data-filter-menu="period"><span>周期</span><b>${
+            currentPeriod ? esc(currentPeriod.label.replace('任务', '')) : '全部'
+          }</b><i>${currentPeriod ? currentPeriod.count : rows.length}</i></button>
+          <button class="sel-btn${state.status === 'active' ? '' : ' on'}" data-filter-menu="status"><span>状态</span><b>${esc(
+            statusLabelOf(state.status),
+          )}</b><i>${statusCounts[state.status]}</i></button>
+          ${compactSearchHtml}
+          ${quickToggleHtml}
+          ${questTreeHtml}
+        </div>
+        ${quickPanelHtml}
+      </div>`
+    : `<div class="qn-top">
         <div class="q-top-primary">
           <div class="q-category-strip">
             <button class="qcat${state.category == null ? ' on' : ''}" data-cat-clear>
               <i style="background:var(--accent)"></i>全部 <b>${rows.length}</b>
             </button>
-            ${CATEGORY_FILTERS.filter(
-              (category) => !category.onlyWhenPresent || categoryCountOf(category.key) > 0,
-            )
+            ${shownCategories
               .map(
                 (category) => `<button class="qcat${state.category === category.key ? ' on' : ''}" data-cat="${category.key}">
                 <i style="background:${category.color}"></i>${category.label}<b>${categoryCountOf(category.key)}</b>
@@ -2078,7 +2347,7 @@ const render = () => {
               .join('')}
           </div>
           <label class="qsearch">⌕<input id="qn-search" placeholder="搜索任务名、编号、奖励或说明" value="${esc(state.search)}"></label>
-          <button class="quest-tree-open" data-quest-tree title="查看完整任务关系">完整任务树</button>
+          ${questTreeHtml}
         </div>
         <div class="q-control-strip">
           <div class="q-period-strip">
@@ -2098,37 +2367,23 @@ const render = () => {
               mg.basic?.parallelQuestCount
                 ? `游戏同时最多进行 ${mg.basic.parallelQuestCount} 个任务`
                 : '同时进行数上限待返港同步'
-            }">进行 <b>${active}</b>${mg.basic?.parallelQuestCount ? `<i class="qcap">/${mg.basic.parallelQuestCount}</i>` : ''}</button>
-            <button class="schip gold${state.status === 'done' ? ' on' : ''}" data-status="done">待领 <b>${done}</b></button>
-            <button class="schip${state.status === 'unaccepted' ? ' on' : ''}" data-status="unaccepted">未领 <b>${unaccepted}</b></button>
+            }">${statusLabelOf('active')} <b>${active}</b>${mg.basic?.parallelQuestCount ? `<i class="qcap">/${mg.basic.parallelQuestCount}</i>` : ''}</button>
+            <button class="schip gold${state.status === 'done' ? ' on' : ''}" data-status="done">${statusLabelOf('done')} <b>${done}</b></button>
+            <button class="schip${state.status === 'unaccepted' ? ' on' : ''}" data-status="unaccepted">${statusLabelOf('unaccepted')} <b>${unaccepted}</b></button>
             <button class="schip${state.status === 'completed' ? ' on' : ''}" data-status="completed"
-              title="由已解锁后续任务反推的单次任务">已完成 <b>${completed}</b></button>
+              title="由已解锁后续任务反推的单次任务">${statusLabelOf('completed')} <b>${completed}</b></button>
             <button class="schip${state.status === 'current' ? ' on' : ''}" data-status="current"
-              title="曾经从游戏任务页同步到本机的任务">已同步 <b>${current}</b></button>
-            <button class="schip${state.status === 'all' ? ' on' : ''}" data-status="all">全库 <b>${rows.length}</b></button>
+              title="曾经从游戏任务页同步到本机的任务">${statusLabelOf('current')} <b>${current}</b></button>
+            <button class="schip${state.status === 'all' ? ' on' : ''}" data-status="all">${statusLabelOf('all')} <b>${rows.length}</b></button>
           </div>
-          <button class="quick-toggle${state.showQuick || state.quick ? ' on' : ''}" data-quick-toggle>
-            更多筛选${state.quick ? ' · 1' : ''}
-          </button>
+          ${quickToggleHtml}
         </div>
-        <div class="q-quick-panel${state.showQuick ? ' open' : ''}">
-          ${
-            // 收起时不渲染也不计数：其中 shipReward 一项要对每行全量扫舰名索引，
-            // 面板根本没露面还照算是纯浪费（资源变动一来就是一轮）
-            state.showQuick
-              ? (() => {
-                  const counts = quickFilterCounts(rows)
-                  return Object.entries(QUICK_FILTERS)
-                    .map(
-                      ([key, def]) =>
-                        `<button class="quick${state.quick === key ? ' on2' : ''}" data-quick="${key}">${def.label} <i>${counts.get(key) ?? 0}</i></button>`,
-                    )
-                    .join('')
-                })()
-              : ''
-          }
-        </div>
-      </div>
+        ${quickPanelHtml}
+      </div>`
+
+  // 输出没变就整段不动 DOM（口径见 kernel commitPaneHtml）
+  const html = `<div class="qn-app">
+      ${headHtml}
       <div class="q-work${selected ? ' drawer-open' : ''}">
         <div class="main">
           <div class="list">${filtered.map(rowHtml).join('') || '<div class="q-empty">没有符合当前筛选条件的任务</div>'}</div>
@@ -2190,6 +2445,20 @@ const wire = () => {
   pane.querySelector<HTMLElement>('[data-quick-toggle]')?.addEventListener('click', () => {
     state.showQuick = !state.showQuick
     render()
+  })
+  // 紧凑态的三枚「点开选」与放大镜
+  pane.querySelectorAll<HTMLElement>('[data-filter-menu]').forEach((button) =>
+    button.addEventListener('click', () => {
+      const key = button.dataset.filterMenu!
+      const spec = filterMenuSpecs[key]
+      if (spec) showFilterMenu(button, `qn:${key}`, spec)
+    }),
+  )
+  pane.querySelector<HTMLElement>('[data-search-toggle]')?.addEventListener('click', () => {
+    state.searchOpen = !state.searchOpen
+    hideFilterMenu()
+    render()
+    if (state.searchOpen) pane.querySelector<HTMLInputElement>('#qn-search')?.focus()
   })
   pane.querySelector<HTMLElement>('[data-quest-tree]')?.addEventListener('click', () => {
     void openQuestTreeWindow(state.selected ?? undefined)
@@ -2566,6 +2835,12 @@ registerModule({
     }
     qnIpc.on('window:quest-tree-focus', focusQuestFromTree)
     trackMountCleanup(() => qnIpc.removeListener('window:quest-tree-focus', focusQuestFromTree))
+    // 紧凑模式：钮由铆摆在坞标签条上（折叠 × 旁边），翻转后回来重渲。
+    // 按 id 覆盖登记，重试装配不会叠成两份回调。
+    registerCompactMode('qn', () => {
+      hideFilterMenu()
+      render()
+    })
     const paneResize = new ResizeObserver(() => {
       // 切走时 clientWidth 会归 0，不守 active 就会对着看不见的面板全量重渲染
       if (!pane.classList.contains('active')) return

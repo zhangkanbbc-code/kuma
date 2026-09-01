@@ -193,6 +193,23 @@ const loadCjs = (outfile, dir, stubs) => {
   return mod.exports
 }
 
+// 档案索引的样本：**真实条目**（本机档案里村雨改二那套衣装的中破图，路径与指纹同形）。
+// 用一个与其余断言不撞车的槽位，免得把「缓存空 → 远端」那几条改掉。
+const ARCHIVE_APPDATA = path.join(os.tmpdir(), 'kanso-art-archive-appdata')
+const ARCHIVED = [
+  {
+    pathname: '/kcs2/resources/ship/character_full_dmg/5310_1257.png',
+    mstId: 5310,
+    type: 'character_full_dmg',
+    version: '61',
+    sha1: '0123456789abcdef',
+    bytes: 812_345,
+    firstSeen: 1_000,
+    lastSeen: 2_000,
+    seen: 3,
+  },
+]
+
 // ---- 真 kcs-image：只换掉 electron 与装备图标那两个外部依赖 ----
 const kcsImage = (() => {
   const built = compile(
@@ -200,21 +217,39 @@ const kcsImage = (() => {
     {
       'shared/ship-art-path.ts': read(srcFile('shared/ship-art-path.ts')),
       'shared/battle-damage.ts': read(srcFile('shared/battle-damage.ts')),
+      'shared/ship-costume.ts': read(srcFile('shared/ship-costume.ts')),
+      // 立绘档案是取图回退链的第二档（本地缓存 → 档案实物 → 远端）。用**真模块**：
+      // 换成桩就测不出「档案里有的时候到底走没走档案」，而那正是 2026-08-31 补的东西。
+      'shared/art-archive-plan.ts': read(srcFile('shared/art-archive-plan.ts')),
+      'shared/voice-archive-plan.ts': read(srcFile('shared/voice-archive-plan.ts')),
+      'renderer/art-archive.ts': read(srcFile('renderer/art-archive.ts')),
       'renderer/kcs-image.ts': read(srcFile('renderer/kcs-image.ts')),
       'renderer/equip-icon.ts': 'export const setEquipIconSpriteProvider = (_f: unknown) => {}\n',
+      // 编译入口把档案那一半也导出来：回退链要断言「档案里有的时候走没走档案」，
+      // 而喂索引的入口（loadArtArchive）在 art-archive 那边
+      'renderer/test-entry.ts': [
+        "export * from './kcs-image'",
+        "export { loadArtArchive } from './art-archive'",
+        '',
+      ].join('\n'),
     },
-    'renderer/kcs-image.ts',
+    'renderer/test-entry.ts',
     ['electron', '@electron/remote'],
   )
   // 缓存目录指向一个空目录：一律未命中，走「回退游戏资源服务器」那条，
   // 于是断言看到的就是拼出来的 pathname 本身。
   const globals = {
     DEFAULT_CACHE_PATH: path.join(built.dir, 'empty-cache'),
-    APPDATA_PATH: path.join(built.dir, 'empty-appdata'),
+    APPDATA_PATH: ARCHIVE_APPDATA,
     ROOT, // 让它 require 到真的 assets/preload/kcs-resource-path
   }
   const api = loadCjs(built.outfile, built.dir, {
-    electron: { ipcRenderer: { invoke: async () => null } },
+    electron: {
+      ipcRenderer: {
+        invoke: async (channel) => (channel === 'mg:art-archive-entries' ? ARCHIVED : null),
+        send: () => {},
+      },
+    },
     '@electron/remote': { getGlobal: (key) => globals[key] },
   })
   api.setGameHost('203.104.209.71')
@@ -224,9 +259,14 @@ const kcsImage = (() => {
     { api_id: 426, api_version: ['1'], api_filename: 'rtkekdbkqrkg' },
     { api_id: 1587, api_version: ['1'] },
     { api_id: 1600, api_version: ['1'] },
+    // 衣装构图也在 api_mst_shipgraph 里（本机实测：村雨改二那四套是 61/61/62/61）
+    { api_id: 5310, api_version: ['61'], api_filename: 'tjbchpbtekqm' },
   ])
   return api
 })()
+
+// 索引到位之后再跑断言：没到位时档案那一档一律落空（那也是启动瞬间的真实行为）
+await kcsImage.loadArtArchive()
 
 const urlPath = (url) => (url == null ? null : new URL(url).pathname)
 
@@ -355,6 +395,55 @@ test('深海舰没有受损变体：要了也只会拿回常态那张（北方�
     urlPath(kcsImage.shipImageUrl(1587, 'banner', true)),
     '/kcs2/resources/ship/banner_dmg/1587_1897.png',
   )
+})
+
+test('衣装构图号也在 1500 以上，但它有中破图：不许被深海那条规则抹回常态', () => {
+  // 归属由 picture_book 学到；没学到之前 5310 在这一层与深海舰无从区分
+  assert.equal(
+    kcsImage.shipImageUrl(5310, 'character_full', true),
+    kcsImage.shipImageUrl(5310, 'character_full'),
+    '还没学到归属时按号段处理，这是现状',
+  )
+  kcsImage.noteShipCostumes({ 5310: [498], 5403: [498] })
+  // 期望值取自本机真实档案里的那两条路径（游戏自己请求过的），不是这里算出来的。
+  // 断言的是**资源路径**而不是最终地址：中破那条档案里有实物，地址会是 file://
+  assert.equal(
+    kcsImage.shipImagePath(5310, 'character_full'),
+    '/kcs2/resources/ship/character_full/5310_1985.png',
+  )
+  assert.equal(
+    kcsImage.shipImagePath(5310, 'character_full', true),
+    '/kcs2/resources/ship/character_full_dmg/5310_1257.png',
+    '衣装的中破图确实存在，抹回常态会让两格长同一个样——而且不报错',
+  )
+  // 真深海舰照旧被抹回常态：这条规则的适用范围只是被收窄，不是被拆掉
+  assert.equal(kcsImage.shipImageUrl(1600, 'banner', true), kcsImage.shipImageUrl(1600, 'banner'))
+})
+
+test('取图回退链：本地缓存 → 档案实物 → 远端，本机已经有的字节永远优先', () => {
+  // 缓存目录是空的，而档案里恰好有这一条（5310 的中破图）——必须走档案那份 file://，
+  // 而不是再去游戏服务器要一遍。这正是 2026-08-31 用户实机报的那处脱节：
+  // 字节明明在盘上，取图这一侧却看不见。
+  const url = kcsImage.shipImageUrl(5310, 'character_full', true)
+  assert.match(url, /^file:\/\//, `档案里有实物却没走档案：${url}`)
+  assert.match(
+    decodeURIComponent(url),
+    /art\/character_full_dmg\/5310_1257\.0123456789abcdef\.png$/,
+    '取到的不是档案里那一份实物文件',
+  )
+  // 档案里没有的照旧回退远端（开关开着时）
+  assert.match(kcsImage.shipImageUrl(5310, 'character_full'), /^https:\/\//)
+})
+
+test('「本机有没有」的判据要连档案一起看，不然屏幕上会摆一句错话', () => {
+  // 用户实机报的那半句：六张图正从档案里显示着，脚注却说它们「还没落到缓存」。
+  const missing = kcsImage.missingShipImages(5310).map((m) => m.label)
+  assert.ok(
+    !missing.includes('立绘 · 中破'),
+    `档案里有实物的图种仍被算成「本机没有」：${missing.join('、')}`,
+  )
+  // 档案里没有的那些照旧如实列出来
+  assert.ok(missing.includes('立绘'), '档案里没有的图种不该被说成本机已有')
 })
 
 test('沉没横幅照旧只有损伤形态，不被受损档挤掉', () => {

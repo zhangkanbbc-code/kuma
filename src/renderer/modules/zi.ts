@@ -13,9 +13,12 @@ import {
   EO_SENKA,
   questFixedSenka,
   senkaMonthLabel,
-  senkaQuestPeriodStartsInMonth,
+  senkaQuestPeriodStartedInMonth,
 } from '../../shared/senka'
-import type { SenkaSummary } from '../../shared/senka'
+import type { SenkaEntry, SenkaQuestOption, SenkaSummary } from '../../shared/senka'
+import { questCountsObservedFull } from '../../shared/senka-quest-book'
+import { qpTaskGroups } from '../../shared/qp-types'
+import type { QpState } from '../../shared/qp-types'
 import { questAnnualMonth, questPeriodFromCode } from '../../shared/quest-period'
 import type { QuestPeriodKind } from '../../shared/quest-period'
 import { resolveUseitemStock } from '../../shared/useitem-stock'
@@ -24,8 +27,7 @@ import {
   naturalRegenCap,
   prepareMaterialHistory,
 } from '../../shared/material-history'
-import { questVerdicts } from './qn'
-import { commitPaneHtml, deferWhileComposing, deferWhilePressed, esc, fmtDateTime, fmtK, fmtMonthDay, fmtTime, logSenkaQuest, mg, onMgChange, queryLode, querySenka, queryDeltaSummary, queryEventSortieCosts, queryMaterialHistory, queryMasterRaw, queryUseitemSummary, uiGet, uiSet } from '../kernel'
+import { addManualSenkaQuest, clearAutoBookedSenkaQuests, commitPaneHtml, deferWhileComposing, deferWhilePressed, esc, fmtDateTime, fmtK, fmtMonthDay, fmtTime, mg, onMgChange, queryLode, queryQp, querySenka, querySenkaQuestOptions, queryDeltaSummary, queryEventSortieCosts, queryMaterialHistory, queryMasterRaw, queryUseitemSummary, removeManualSenkaQuest, uiGet, uiSet } from '../kernel'
 import { mapCodeOf } from '../../shared/map-id'
 import { hasEventMaps } from '../../shared/event-area'
 import { MATERIAL_ICON_BY_INDEX, materialIconHtml, useItemIconHtml } from '../entity-art'
@@ -281,7 +283,7 @@ const activityLedgerHtml = (): string => {
           `<span>${mapCodeOf(row.map)} · ${row.sorties} 次 · 燃−${row.fuel} 弹−${row.ammo}</span>`).join('')}</div>
         ${activitySortieCosts.skipped ? `<div class="ph2">另有 ${activitySortieCosts.skipped} 次因出发记录不完整而未计入</div>` : ''}
       </div>`
-    : `<div class="ev-sortie-cost empty"><b>活动出击航行消耗</b><span>还没有完整记录的活动出击</span></div>`
+    : `<div class="ev-sortie-cost empty"><b>活动出击航行消耗</b><span>暂无完整记录的活动出击</span></div>`
 
   return `<div class="scard activity-ledger">
     <div class="h">活动期间账号收支<span class="aux">第 ${activityAreaId} 活动区 · ${rangeDays} 天</span></div>
@@ -538,6 +540,10 @@ const readinessCardHtml = (eventMaps: boolean, bodyHtml: () => string): string =
 }
 
 let senka: SenkaSummary | null = null
+// 钦的精确计数镜像。自检那张提示单只认它——「计数本周期数满了」是 kuma
+// 自家的观测，与「看着已完成」那条推断链没有关系（判据见 computeQuestMisses）。
+// queryQp 返回的是主进程状态的**同一个对象**，实时 patch 原地改，握着引用即可。
+let qp: QpState | null = null
 let senkaOpen = false
 // 战果账本只存了任务编号（note），名字从任务资料库现查。
 // 「任务 893」这种裸编号等于让玩家自己再去翻一遍任务列表（2026-08-12 用户点名）。
@@ -633,7 +639,7 @@ const senkaHtml = (): string => {
         ? `<div class="senka-cal-tag" title="大数字 = 官方校准值 + 此后新增">已按官方值校准 ${fmtMonthDay(senka.calibration.ts)} · 基准 ${senka.calibration.value.toLocaleString()}</div>`
         : ''
     }
-    ${rows || '<div class="l">本月还没有新的一笔</div>'}
+    ${rows || '<div class="l">本月暂无新的一笔</div>'}
     ${
       senka.entries.length > 6
         ? `<div class="senka-more" data-act="senka-more">${senkaOpen ? '收起' : `展开全部 ${senka.entries.length} 笔`}</div>`
@@ -664,10 +670,21 @@ const QUEST_PERIOD_LABEL: Record<QuestPeriodKind, string> = {
 }
 
 /**
- * 战果任务的账外差值检测（弹窗展示与自动补记共用同一口径）：
- * 全量任务表本月刷新过 + 判定「本期已完成」+ 该任务的周期在本月刚重置过
- * （月任恒真、季任 3/6/9/12 月、年任只在重置月）——三者同时成立才能断定
- * 交付落在本战果月。2026-08-17 用户纠正的口径，判定层测试钉着。
+ * 「kuma 自己数满了、账里却没有领取记录」的战果任务——**只提示，不入账**。
+ *
+ * 2026-09-01 第二次收紧（用户抓的残留）。f3543a3 把**入账**换成了硬证据，
+ * 但这张提示单还是由推断填的（前置满足 + 不在任务表 = 已交付），于是他那五条
+ * 从没做过的任务（284/845/854/872/893，quest_progress 一行都没有）照旧全表挂在
+ * 这里。推断换个地方继续说话，还是推断。
+ *
+ * 现在的入场券只有一张：**钦的追踪计数在本周期真数满了**（判据在
+ * shared/senka-quest-book 的 questCountsObservedFull，计数天然只属本周期——
+ * quest-counter 跨重置线就把它删了）。计数没满、或一格都没有的，一个字不显示。
+ *
+ * 另两道门保留：
+ * - 账里已有这个任务的行（观测行或手动补记行）就不列；
+ * - 当前周期的起点要落在本战果月之内（判据在 shared/senka）——没有它，
+ *   一个 6 月交的季任会在 7、8 两个月一直挂在这张单子上。
  */
 const computeQuestMisses = (): {
   id: number
@@ -675,18 +692,32 @@ const computeQuestMisses = (): {
   senka: number
   periodKind: QuestPeriodKind
 }[] => {
-  if (!senka || !senkaQuestNames) return []
-  if (!(mg.questsFullTs != null && mg.questsFullTs >= senka.monthStart)) return []
+  if (!senka || !senkaQuestNames || !qp) return []
   const logged = new Set(
     senka.entries.filter((e) => e.kind === 'quest').map((e) => Number(e.note) || 0),
   )
-  const verdicts = questVerdicts()
   return [...senkaQuestNames.entries()]
     .filter(([id, info]) => {
-      if (!info.senka || logged.has(id)) return false
-      const verdict = verdicts.get(id)
-      if (verdict?.status !== 'done' || !verdict.cyclic || !info.periodKind) return false
-      return senkaQuestPeriodStartsInMonth(info.periodKind, senka!.monthStart, info.annualMonth)
+      if (!info.senka || logged.has(id) || !info.periodKind) return false
+      const tracker = qp!.trackers[id]
+      if (!tracker) return false
+      const full = questCountsObservedFull({
+        targets: qpTaskGroups(tracker.tasks).map(({ slot, entries }) => ({
+          slot,
+          target: (entries[0]?.task as { count?: number })?.count || 1,
+        })),
+        counts: qp!.progress[id],
+        approx: tracker.approx,
+        partial: tracker.partial,
+        extraGoals: Boolean(tracker.stateGoal) || Boolean(tracker.stockGoals?.length),
+      })
+      if (!full) return false
+      return senkaQuestPeriodStartedInMonth(
+        info.periodKind,
+        senka!.monthStart,
+        Date.now(),
+        info.annualMonth,
+      )
     })
     // 上面的 filter 已经把 senka/periodKind 为空的挡掉了
     .map(([id, info]) => ({
@@ -697,44 +728,83 @@ const computeQuestMisses = (): {
     }))
 }
 
-// 自动补记（2026-08-17 从手动补记改）：检测到就补，本会话每个任务只尝试一次
-// （账本的同月去重是最终闸，这里只是别对着失败无限重试）。补进了就重查重画。
-const senkaAutoBookAttempted = new Set<number>()
-// 补记没成功的任务与原因。不重试的语义保留（沿用「别对着失败无限重试」），
-// 但失败必须看得见：原先 .catch(() => false) 把异常静默吞掉，弹窗那一行就永远
-// 挂着「自动补记中」——一个补不进去的差值被显示成正在进行的动作。
-const senkaAutoBookFailed = new Map<number, string>()
+// 「重算任务战果」的两步确认状态与上一次结果。只活在这一次打开的弹窗里，
+// 每次开弹窗都归零——按钮不该开着「确认」态等下一次打开。
+let senkaRecountArmed = false
+let senkaRecountResult: string | null = null
 
-const bookOneQuestSenka = async (miss: { id: number; name: string; senka: number }) => {
-  try {
-    const ok = await logSenkaQuest(miss.id, miss.senka, miss.name)
-    if (ok) senkaAutoBookFailed.delete(miss.id)
-    // 主进程返回 false 有两种：账本同月已记过（下面重查后这一行会自然消失），
-    // 或写入本身出错（那边已经 warn 过）。两种都不该继续显示「进行中」。
-    else senkaAutoBookFailed.set(miss.id, '账本没有接受这一笔')
-  } catch (error) {
-    console.warn('[kanso] 战果任务自动补记失败', miss.id, miss.name, error)
-    senkaAutoBookFailed.set(miss.id, `${(error as Error)?.message ?? error}`)
-  }
+// 手动补记（照氪金那族的形态）：选单、表单开合、失败原因、两步删除的武装行。
+// 全部只活在这一次打开的弹窗里，openSenkaDetail 归零。
+let senkaQuestOptions: SenkaQuestOption[] = []
+let senkaAddOpen = false
+let senkaAddError = ''
+let senkaDelArmId = 0
+let senkaDelError = ''
+
+const SENKA_ADD_REJECT: Record<string, string> = {
+  'no-senka': '任务资料库里查不到固定战果',
+  'already-booked': '本期已经记过',
+  'no-evidence': '账本没有接受这一笔',
+  failed: '账本没有接受这一笔',
 }
 
-const autoBookQuestSenka = async (generation: number) => {
-  const misses = computeQuestMisses().filter((miss) => !senkaAutoBookAttempted.has(miss.id))
-  if (!misses.length) return
-  for (const miss of misses) senkaAutoBookAttempted.add(miss.id)
-  await Promise.all(misses.map((miss) => bookOneQuestSenka(miss)))
-  if (generation !== refreshGeneration) return
-  // 一笔都没补进去时也要重查+重画：账本可能早就有这一笔（同月去重也返回 false），
-  // 重查后它自己就从「账外差值」里消失；真失败的那几行才留下来顶着「补记失败」。
-  senka = await querySenka()
-  if (generation !== refreshGeneration) return
-  render()
-  const body = senkaDetailEl?.querySelector('.sd-body')
-  if (body) body.innerHTML = senkaDetailBodyHtml()
+/**
+ * 本月任务战果 + 手动补记入口（2026-09-01 用户要的权利：季中才装上 kuma 的玩家，
+ * 之前交过的任务账本里不可能有证据）。
+ *
+ * 形态照氪金记录那族的手动补记（shi 的 pay_log）：手动行带记号、只有手动行可删、
+ * 删除两步确认。选单里「本期已记」的置灰——判据由主进程给（与入账共用同一个
+ * 去重窗口），选不中也就手滑不了。
+ */
+const questSenkaBlockHtml = (
+  questRows: SenkaEntry[],
+  fmt: (value: number) => string,
+): string => {
+  const rows = questRows
+    .map(
+      (entry) =>
+        `<div class="sd-quest"><span>${questSenkaLabelHtml(entry.note)}${
+          entry.manual ? '<i class="sd-manual" title="手动补记 · 记在本月起点">手动</i>' : ''
+        }</span><b>+${fmt(entry.senka)}</b>${
+          entry.manual
+            ? `<button class="sd-qdel${senkaDelArmId === entry.id ? ' arm' : ''}" data-senka-qdel="${entry.id}" title="删除这条补记">${
+                senkaDelArmId === entry.id ? '确认删除' : '×'
+              }</button>`
+            : ''
+        }</div>`,
+    )
+    .join('')
+  const options = senkaQuestOptions
+    .map(
+      (option) =>
+        `<option value="${option.id}"${option.taken ? ' disabled' : ''}>${esc(option.code)}「${esc(
+          option.name,
+        )}」 +${option.senka}${option.taken ? ' · 本期已记' : ''}</option>`,
+    )
+    .join('')
+  const form = !senkaAddOpen
+    ? ''
+    : `<div class="sd-qadd">
+        ${
+          options
+            ? `<select class="sd-qadd-pick"><option value="">选一条任务</option>${options}</select>
+               <button class="sd-cal-btn" data-act="senka-quest-add">记一笔</button>`
+            : '<i class="sd-pend">暂无可补记的任务</i>'
+        }
+        <button class="sd-cal-btn ghost" data-act="senka-quest-add-cancel">取消</button>
+      </div>${senkaAddError ? `<div class="sd-note2 bad">没记上：${esc(senkaAddError)}</div>` : ''}`
+  return `<div class="sd-block">
+    <div class="sd-h">本月任务战果
+      <button class="sd-cal-btn ghost sd-qadd-open" data-act="senka-quest-add-open" title="补记一笔账外的任务战果">＋ 补记</button>
+    </div>
+    ${form}
+    ${senkaDelError ? `<div class="sd-note2 bad">${esc(senkaDelError)}</div>` : ''}
+    ${rows || '<div class="sd-note2">本月暂无任务战果</div>'}
+  </div>`
 }
 
 const senkaDetailBodyHtml = (): string => {
-  if (!senka) return '<p class="sd-empty">战果账还没读出来。</p>'
+  if (!senka) return '<p class="sd-empty">战果账暂未读出</p>'
   const fmt = (value: number) => (value >= 100 ? value.toFixed(0) : value.toFixed(2))
   const carry = senka.carry
   // EO 缺口：本月已记的图 vs 全表
@@ -756,22 +826,20 @@ const senkaDetailBodyHtml = (): string => {
     .reduce((sum, [, value]) => sum + value, 0)
   const questRows = senka.entries.filter((e) => e.kind === 'quest')
   const cal = senka.calibration
-  // ---- 自检：账外差值全部自动对账（2026-08-17 从手动补记改）----
+  // ---- 自检：账外差值（2026-09-01 二次收紧）----
   // 经验：换设备/离线获得的在下次返港按差值自动入账。
   // EO：主进程在每次查账时按本月海域页（mapinfo）观测自动补记——重置点后
   //     观测到击破必属本月，机器判得了，不再让玩家肉眼确认。
-  // 战果任务：锱检测到「本月周期内完成、账里没有」后自动补（见 autoBookQuestSenka）。
-  // 这里只展示两类「机器补不了」的残余：旧击破状态定位不到本月的 EO，
-  // 和还没来得及入账的任务（自动补记进行中/失败）。
+  // 战果任务：主进程在同一次查账里按本月的 clearitemget 报文补记（入账时刻取
+  //     报文观测时刻）。留在这张单子上的，是**自家计数已经数满、却没有领奖报文**
+  //     的那几条（判据见 computeQuestMisses）——推断出来的「已完成」不再进这张单子。
+  // 两类残余都只提示、都不写账；补不上的用下面的「补记」或实际校准兜底。
   const clearedEoSet = new Set(
     senka.entries.filter((e) => e.kind === 'eo').map((e) => Number(e.note) || 0),
   )
   const eoMisses = Object.entries(EO_SENKA)
     .map(([id, value]) => ({ id: Number(id), value }))
     .filter(({ id }) => mg.mapGauges[id]?.cleared && !clearedEoSet.has(id))
-  // 「已完成」判定读的是任务表快照；快照若是上个战果月拿的，连本期都存疑。
-  // 全量表（tab 0）本月内没刷新过就不列任务，改为提示先去游戏开一次任务页。
-  const questsFresh = mg.questsFullTs != null && mg.questsFullTs >= senka.monthStart
   const questMisses = computeQuestMisses()
   const selfCheckBlock = `
     <div class="sd-block">
@@ -789,24 +857,23 @@ const senkaDetailBodyHtml = (): string => {
           : ''
       }
       ${
-        !questsFresh
-          ? '<div class="sd-check-group">任务侧：本月还没同步过完整任务表，先打开一次游戏任务页的「全部」分页</div>'
-          : ''
-      }
-      ${
         questMisses.length
-          ? `<div class="sd-check-group">检测到本月完成、账里还没有的战果任务：</div>${questMisses
+          ? `<div class="sd-check-group">计数已满、但本月没有领取记录的战果任务：</div>${questMisses
               .map((q) => {
                 const periodLabel = QUEST_PERIOD_LABEL[q.periodKind]
-                const failure = senkaAutoBookFailed.get(q.id)
-                const state = failure
-                  ? `<i class="sd-pend" style="color:var(--bad)" title="${esc(failure)}">补记失败</i>`
-                  : '<i class="sd-pend">自动补记中</i>'
-                return `<div class="sd-check-row"><span><i class="sd-period">${periodLabel}</i>${questSenkaLabelHtml(`${q.id}`)} <b>+${q.senka}</b></span>${state}</div>`
+                return `<div class="sd-check-row"><span><i class="sd-period">${periodLabel}</i>${questSenkaLabelHtml(`${q.id}`)} <b>+${q.senka}</b></span><i class="sd-pend" title="本期计数已满 · 本月无领奖报文">没有领取记录</i></div>`
               })
-              .join('')}`
+              .join('')}<div class="sd-note2">交过的可在「本月任务战果」补记</div>`
           : ''
       }
+      <div class="sd-recount">
+        ${
+          senkaRecountArmed
+            ? `<button class="sd-cal-btn" data-act="senka-recount-do">确认重算</button><button class="sd-cal-btn ghost" data-act="senka-recount-cancel">取消</button>`
+            : `<button class="sd-cal-btn ghost" data-act="senka-recount-arm" title="撤回本月自动补记的任务战果，再按领奖报文重记一遍">重算任务战果</button>`
+        }
+        ${senkaRecountResult ? `<i class="sd-pend">${esc(senkaRecountResult)}</i>` : ''}
+      </div>
     </div>`
   // ⚠️ 下面那句指路里的 `戦績表示 → ランキング` **是游戏菜单的原字，不许汉化**。
   // 这是全仓语言总则（玩家可见文案统一中文）的一条**刻意例外**：指路文案的作用是
@@ -823,10 +890,11 @@ const senkaDetailBodyHtml = (): string => {
                 ? `<div class="sd-note2">比账内估算多 ${fmt(cal.current - senka.total)}</div>`
                 : '<div class="sd-note2">与账内估算基本一致</div>'
             }`
-          : '<div class="sd-note2" title="之后总值 = 校准值 + 此后账内新增，不用再进排名页对表；过战果月自动失效">去游戏「戦績表示 → ランキング」看一眼官方战果填进来</div>'
+          : '<div class="sd-note2" title="之后总值 = 校准值 + 此后账内新增，不用再进排名页对表；过战果月自动失效">到游戏「戦績表示 → ランキング」抄下官方战果填入</div>'
       }
       <div class="sd-cal-row">
-        <input class="sd-cal-input" type="number" min="0" step="1" placeholder="排名页看到的战果值">
+        <input class="sd-cal-input" type="number" min="0" step="1" placeholder="排名页看到的战果值"
+          title="统计存在「未使用 kuma 之前」的经验差值，kuma 仅能统计使用期间数据">
         <button class="sd-cal-btn" data-act="senka-calibrate">${cal ? '重新校准' : '以此为准'}</button>
         ${cal ? '<button class="sd-cal-btn ghost" data-act="senka-cal-clear">清除校准</button>' : ''}
       </div>
@@ -853,21 +921,78 @@ const senkaDetailBodyHtml = (): string => {
       <div class="sd-h">EO 攻略${eoRemain ? `<i>还可补 <b>${eoRemain}</b> 战果</i>` : '<i>本月已全部记到</i>'}</div>
       <div class="sd-eo-grid">${eoCells}</div>
     </div>
-    ${
-      questRows.length
-        ? `<div class="sd-block"><div class="sd-h">本月任务战果</div>${questRows
-            .map(
-              (entry) =>
-                `<div class="sd-quest"><span>${questSenkaLabelHtml(entry.note)}</span><b>+${fmt(entry.senka)}</b></div>`,
-            )
-            .join('')}</div>`
-        : ''
-    }
+    ${questSenkaBlockHtml(questRows, fmt)}
     <div class="sd-foot">继承 =（当年 1/1 起提督经验 ÷ 50000）+（前月特别战果 ÷ 35）</div>`
+}
+
+/**
+ * 重算任务战果（2026-08-31 用户要的自愈动作）：撤回本战果月**自动补记**的
+ * 任务行（合成行，指纹与「为什么允许删」见 ledger.clearAutoBookedQuestSenka），
+ * 再重查一次账——主进程在查账时按本月的 clearitemget 报文重扫，有报文的自己
+ * 回来（且落在真实领奖时刻），靠推断混进来的回不来。只管本月，历史月份不追溯。
+ */
+const recountQuestSenka = async () => {
+  senkaRecountArmed = false
+  let removed = 0
+  try {
+    removed = await clearAutoBookedSenkaQuests()
+  } catch (error) {
+    console.warn('[kanso] 战果任务重算失败', error)
+    senkaRecountResult = '重算失败'
+    await refreshSenkaDetail()
+    return
+  }
+  senkaRecountResult = removed > 0 ? `已重算 · 撤回 ${removed} 笔` : '已重算 · 无补记行'
+  await refreshSenkaDetail()
+}
+
+// 补记选单：拿不到就留空（表单里显示「暂无可补记的任务」），不拿旧的凑
+const loadSenkaQuestOptions = async () => {
+  try {
+    senkaQuestOptions = await querySenkaQuestOptions()
+  } catch (error) {
+    console.warn('[kanso] 战果任务补记选单读取失败', error)
+    senkaQuestOptions = []
+  }
+}
+
+const addManualQuestSenka = async (questId: number) => {
+  senkaAddError = ''
+  let reason: string
+  try {
+    reason = await addManualSenkaQuest(questId)
+  } catch (error) {
+    console.warn('[kanso] 战果任务补记失败', questId, error)
+    reason = 'failed'
+  }
+  // 补进去了就收表单；被挡回来的留着表单，玩家改选一条即可
+  if (reason === 'booked') senkaAddOpen = false
+  else senkaAddError = SENKA_ADD_REJECT[reason] ?? '账本没有接受这一笔'
+  await loadSenkaQuestOptions()
+  await refreshSenkaDetail()
+}
+
+const removeManualQuestSenka = async (id: number) => {
+  senkaDelArmId = 0
+  senkaDelError = ''
+  try {
+    if (!(await removeManualSenkaQuest(id))) senkaDelError = '只有补记行可删'
+  } catch (error) {
+    console.warn('[kanso] 战果任务补记删除失败', id, error)
+    senkaDelError = '删除失败'
+  }
+  await loadSenkaQuestOptions()
+  await refreshSenkaDetail()
 }
 
 const openSenkaDetail = () => {
   closeSenkaDetail()
+  senkaRecountArmed = false
+  senkaRecountResult = null
+  senkaAddOpen = false
+  senkaAddError = ''
+  senkaDelArmId = 0
+  senkaDelError = ''
   const monthLabel = senka ? senkaMonthLabel(senka.monthStart) : ''
   senkaDetailEl = document.createElement('div')
   senkaDetailEl.className = 'senka-detail-host'
@@ -897,7 +1022,71 @@ const openSenkaDetail = () => {
       void refreshSenkaDetail()
       return
     }
+    // 重算是删行的动作，隔一步确认防误触
+    if (target.closest('[data-act="senka-recount-arm"]')) {
+      senkaRecountArmed = true
+      senkaRecountResult = null
+      void refreshSenkaDetail()
+      return
+    }
+    if (target.closest('[data-act="senka-recount-cancel"]')) {
+      senkaRecountArmed = false
+      void refreshSenkaDetail()
+      return
+    }
+    if (target.closest('[data-act="senka-recount-do"]')) {
+      void recountQuestSenka()
+      return
+    }
+    // ---- 手动补记 ----
+    if (target.closest('[data-act="senka-quest-add-open"]')) {
+      senkaAddOpen = true
+      senkaAddError = ''
+      senkaDelError = ''
+      void (async () => {
+        await loadSenkaQuestOptions()
+        await refreshSenkaDetail()
+      })()
+      return
+    }
+    if (target.closest('[data-act="senka-quest-add-cancel"]')) {
+      senkaAddOpen = false
+      senkaAddError = ''
+      void refreshSenkaDetail()
+      return
+    }
+    if (target.closest('[data-act="senka-quest-add"]')) {
+      const pick = senkaDetailEl!.querySelector<HTMLSelectElement>('.sd-qadd-pick')
+      const questId = Number(pick?.value)
+      if (!Number.isInteger(questId) || questId <= 0) {
+        senkaAddError = '先选一条任务'
+        void refreshSenkaDetail()
+        return
+      }
+      void addManualQuestSenka(questId)
+      return
+    }
+    // 删补记也是两步：第一次点武装成「确认删除」，第二次点才真删
+    const del = target.closest<HTMLElement>('[data-senka-qdel]')
+    if (del) {
+      const id = Number(del.dataset.senkaQdel)
+      if (!Number.isInteger(id) || id <= 0) return
+      if (senkaDelArmId !== id) {
+        senkaDelArmId = id
+        senkaDelError = ''
+        void refreshSenkaDetail()
+        return
+      }
+      void removeManualQuestSenka(id)
+      return
+    }
   })
+  // 选单要现查一次：taken 是账本此刻的状态，攒着上一次打开的结果会说谎
+  void (async () => {
+    await loadSenkaQuestOptions()
+    const body = senkaDetailEl?.querySelector('.sd-body')
+    if (body) body.innerHTML = senkaDetailBodyHtml()
+  })()
 }
 
 // 校准写入后：重查战果（主进程组装校准段）→ 弹窗换块 + 主卡重渲
@@ -1097,8 +1286,17 @@ const refresh = async () => {
   activitySortieCosts = activeSortieCostRows
   itemFlow = new Map(flow.map((r) => [r.id, r]))
   senka = senkaRows
-  // 战果任务的账外差值：检测到就自动补记（EO 侧主进程在 mg:senka 里已补完）
-  void autoBookQuestSenka(generation)
+  // 账外差值不在这里补：EO 与任务的补记都在主进程 mg:senka 那一次查账里按
+  // 账本存着的观测完成了，渲染层只负责把补不了的那几笔照实列出来（不入账）。
+  // 自检那张单子还要读钦的精确计数——取不到就不列任务（拿不到观测就不说话）。
+  if (!qp) {
+    try {
+      qp = await queryQp()
+    } catch (error) {
+      console.warn('[kanso] 战果自检读取精确计数失败', error)
+    }
+    if (generation !== refreshGeneration) return
+  }
   render()
   scheduleDayRollover(now)
 }

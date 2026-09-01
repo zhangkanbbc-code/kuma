@@ -32,6 +32,25 @@ export const setGameScaleApplier = (apply: () => void) => {
 export const getGameScaleMode = (): GameScaleMode => mode
 export const getGameScaleStep = (): number => step
 
+/**
+ * 眼下**量出来**的倍率（`computeGameLayout` 那个 scale），不是选中的档位。
+ *
+ * 两者不是一回事：自适应根本没有选中的档，固定倍率装不下时又会自己往下退。
+ * 字幕字号要乘的是屏幕上真正生效的那个数，所以另存一份。镇壳每摆一次游戏区
+ * 就写一次；读的人是钥那张「字幕字号」卡（显示实际生效值）。
+ *
+ * 屏幕上那道乘法**不走这里**——它在样式表里（`--voice-caption-px`），
+ * 这个数只为了让设置页能把同一个值写成字。
+ */
+let liveScale = GAME_SCALE_DEFAULTS.step
+
+/** 摆完一屏之后把量到的倍率交上来。0/负数/NaN 一律不收：那是面板还没摆开时的读数 */
+export const noteGameScaleLive = (scale: number) => {
+  if (Number.isFinite(scale) && scale > 0) liveScale = scale
+}
+
+export const getGameScaleLive = (): number => liveScale
+
 export const setGameScaleMode = (raw: unknown) => {
   const next = normalizeGameScaleMode(raw)
   if (next === mode) return

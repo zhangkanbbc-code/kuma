@@ -459,15 +459,36 @@
        缩放系数按宽度算，游戏内容比可视区高，底下就切了。宽度显式取
        「区宽」与「区高×5/3」的小者，比例永远成立，横竖都只留黑边不裁内容。 */
     #game-wrapper { width: min(100cqw, calc(100cqh * (1200 / 720))); aspect-ratio: 1200 / 720; position: relative; }
+    /* 语音字幕的实际字号：基准（钥的「字幕字号」，voice-subtitle.ts 写在根元素上）
+       × 游戏画面当前倍率（index.ts 每摆一次游戏区就写一次 --game-scale）。
+       乘法放在样式表里，倍率变了不必逐条改行内样式；两个变量任一缺席都有兜底值，
+       那时等于可配之前那两条 clamp 的封顶档。
+       **另起一条规则**：上面那一行有护栏逐字比对（core-regressions 的等比包含那条）。 */
+    #game-wrapper {
+      --voice-caption-px: calc(var(--voice-caption-base, 20px) * var(--game-scale, 1));
+    }
     #game-wrapper webview { position: absolute; inset: 0; width: 100%; height: 100%; }
+    /* 弹幕收在画面**最上面那一条**（玩家 2026-09-01：「更集中在上方，不要挡住实际
+       交战动画」）。两处一起动，缺一条都收不拢：
+       ① 带子上沿 3.5% → 1%（只留一线呼吸位，再往上就贴着画面边框了）；
+       ② 四条弹道从 1.8em 收到 1.55em —— **正好等于 line-height**，行与行严丝合缝，
+          这是不动字号（×0.95 那条系数照旧）能做到的最紧一档：四行文字本身就要
+          4 × 1.55em，再挤就得压字或砍弹道。实测 1200×720 上占位从 3.5%–24.6%
+          收到 1%–19.8%，下沿抬起 34 个游戏像素。
+       带高（裁切区）从写死的 42% 改成 max(24%, 四行实际所需)：24% 是常用字号档下
+       的带宽，而玩家把字幕字号调到 28+ 时四行会超过 24%，那一档由后半段兜住，
+       不至于把最下面一行裁掉半截。两项都是相对量，随游戏倍率与画面尺寸一起缩。 */
     #voice-danmaku {
-      position: absolute; z-index: 8; inset: 3.5% 0 auto; height: 42%;
+      position: absolute; z-index: 8; inset: 1% 0 auto;
+      height: max(24%, calc(var(--voice-caption-px, 20px) * 6.1));
       overflow: hidden; pointer-events: none; background: transparent;
     }
     #voice-danmaku .voice-danmaku-item {
-      position: absolute; top: calc(var(--voice-lane) * 1.8em);
+      position: absolute; top: calc(var(--voice-lane) * 1.55em);
       display: block; width: max-content; max-width: none; white-space: nowrap;
-      font-size: clamp(13px, 1.45vw, 19px); font-weight: 650; line-height: 1.55;
+      /* 弹幕比底部字幕小一号——可配之前两处封顶就差着这 1px（19 / 20），
+         合成一个旋钮之后靠这个系数原样留着（判据在 shared/voice-caption-size） */
+      font-size: calc(var(--voice-caption-px) * 0.95); font-weight: 650; line-height: 1.55;
       letter-spacing: .01em;
       animation-duration: var(--voice-duration);
       animation-timing-function: linear;
@@ -500,10 +521,15 @@
       from { right: 0; transform: translateX(50%); }
       to { right: 100%; transform: translateX(0); }
     }
+    /* 底边留白用百分比，跟着游戏画面的高一起缩：写死像素的话，固定倍率 75% 与 200%
+       两档留白差着三倍。
+       留白值 2026-08-31 从 3.5% 抬到过 12%（那次一并改了字号），玩家 2026-09-01 当面
+       否掉：「底部的字幕其实可以不用动」——原样退回 3.5%。字号那条链（--voice-caption-px
+       与钥里的「字幕字号」）是另一件事，留着不动。 */
     #voice-subtitle {
       position: absolute; z-index: 7; left: 4%; right: 4%; bottom: 3.5%;
       display: block; pointer-events: none; background: transparent;
-      color: #f4f8fb; text-align: center; font-size: clamp(13px, 1.55vw, 20px);
+      color: #f4f8fb; text-align: center; font-size: var(--voice-caption-px);
       font-weight: 650; line-height: 1.45; letter-spacing: .01em;
       opacity: 0; transform: translateY(7px);
       transition: opacity var(--motion-fast) ease, transform var(--motion-fast) ease;
@@ -665,12 +691,24 @@
       color: var(--dim); font-size: 10.5px; padding: 0 3px 2px 6px;
       position: sticky; right: 0; background: var(--bg1); /* Tab 溢出滚动时把手常驻 */
     }
+    /* 非末格、且激活的模块没登记紧凑模式时，这撮工具是空的——留着会画出一条
+       9px 宽的 bg1 竖带（sticky + padding），收掉。 */
+    .dock-tabs .dock-fold:empty { display: none; }
     /* × 自己拉满并加宽内边距：条变薄了，热区反而要比原先大（13.5×16.5 → 15.2×19.9） */
     .dock-tabs .dock-fold-btn {
       cursor: pointer; padding: 0 4px;
       align-self: stretch; display: flex; align-items: center;
     }
     .dock-tabs .dock-fold-btn:hover { color: var(--accent); }
+    .dock-tabs .dock-compact-btn {
+      cursor: pointer; padding: 1px 6px; margin-bottom: 2px; border-radius: 4px;
+      border: 1px solid transparent; align-self: center;
+      font-size: 9.5px; line-height: 1.45; white-space: nowrap;
+    }
+    .dock-tabs .dock-compact-btn:hover { color: var(--accent); border-color: var(--line); }
+    .dock-tabs .dock-compact-btn.on {
+      color: var(--accent-ink); border-color: var(--accent-dim); background: #152632;
+    }
     .dock-panes { flex: 1; min-height: 0; position: relative; display: flex; }
     .ws-tab {
       background: none; color: var(--dim); white-space: nowrap; flex: none;
@@ -1401,7 +1439,7 @@
     .fleet-skin .sand-cand.full { opacity: .4; cursor: not-allowed; }
     .fleet-skin .sand-cand i { font-style: normal; color: var(--dim); font-size: 10px; margin-left: 3px; }
     /* 沙盘舰行的移出：人是在这张表里看编成的，入口就得在这儿。
-       行是固定 6 列 grid（头像列仅 38px），所以按钮绝对定位在行角，不占列。 */
+       行是固定 6 列 grid（头像列仅 48px），所以按钮绝对定位在行角，不占列。 */
     .fleet-skin .ship.in-sandbox { position: relative; }
     .fleet-skin .sand-out {
       position: absolute; top: 3px; right: 5px; z-index: 2;
@@ -1559,7 +1597,7 @@
     .fleet-skin .ab-empty-state b { color: var(--sub); font-size: 12px; }
     .fleet-skin .ship {
       /* 装备列必须定宽：每行是独立 grid，auto 列随装备数变宽会把中间列挤得行行错位 */
-      display: grid; grid-template-columns: 38px minmax(96px, 1fr) 100px 52px 40px 150px;
+      display: grid; grid-template-columns: 48px minmax(96px, 1fr) 100px 52px 40px 150px;
       /* 行距只留给列间：.ship-detail 是 grid-column:1/-1 的第七个孩子，永远自成一行，
          没展开时高度为 0——原来的 gap:8px 于是在**每一行**都留了 8px 的空白行距，
          看不见也点不着，六行白吃 48px。收起来的那份间距改由 .ship.open .ship-detail
@@ -1658,13 +1696,19 @@
     }
     /* 官方横幅是 4:1 的横条，cover 进正方形只剩全宽的四分之一——脸会被切掉半张
        （2026-08-20 用户对着铃谷改二实机指出）。所以头像格是横向的圆角矩形而不是
-       正方形：高度不动（行高不变），只把宽度放宽到 36px，取景多出约三成。 */
+       正方形：高度不动（行高不变），只放宽度。
+       2026-09-01 再宽一档 36→46px：36 那一档取景窗只有 77/240，脸多半是左右各被切
+       一点（用户实机报「看起来有点别扭」）；46 把窗放到 98/240，头部捕获率均值
+       66.3→75.3%（判据见下面 .ship-thumb.avatar img 那段）。
+       没有一路放到图鉴档（62×30，124/240）——他明说「不需要像图鉴那么宽」，
+       而且那一档脸会缩小、开始进背景。行高（28px）一点没动，所以舰行还是六行铺满。
+       宽出来的 10px 由中间那列（名字/等级，宽档实测 534px 里有大半是空的）让出。 */
     .fleet-skin .fc {
-      width: 36px; height: 28px; border-radius: 5px; display: grid; place-items: center;
+      width: 46px; height: 28px; border-radius: 5px; display: grid; place-items: center;
       font-family: var(--serif); font-size: 14px;
       background: linear-gradient(140deg, #2b3a48, #1b2530); color: #7d92a5; position: relative;
     }
-    .fleet-skin .fc .ship-thumb.avatar { width: 36px; height: 28px; border-radius: 5px; border: 0; }
+    .fleet-skin .fc .ship-thumb.avatar { width: 46px; height: 28px; border-radius: 5px; border: 0; }
     .fleet-skin .fc .flag {
       position: absolute; top: -4px; left: -5px; font-size: 8px; color: #0d1318;
       background: var(--gold); border-radius: 2px; padding: 0 2px; font-weight: 700;
@@ -1806,10 +1850,25 @@
       border: 1px solid var(--line); border-radius: 4px;
       background: linear-gradient(145deg, #263645, #141d25);
     }
-    /* 官方横幅的舰娘/深海主体位于右侧；横条缩略图统一保留主体取景。 */
-    .ship-thumb img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: right center; }
-    /* 方形头像完全贴右会只剩发梢/舾装；编队略向左，远征保留稍宽的右侧信息。 */
-    .ship-thumb.avatar img { object-position: 65% center; }
+    /* 官方横幅（240×60）的构图是「左徽章 · 中人物 · 右背景」，脸大致落在原图 x≈143。
+       此前默认贴右（100%），取景窗只剩最右那一段：脸被推到框的左侧，武蔵这类脸偏左的
+       还会被框左沿切掉半张（2026-09-01 用户实机报「头发贴着框边被切」）。
+       改成 78%：抽样 18 舰逐档比对下来，是「脸完整入框 + 不再偏左 + 左侧不进杂物」
+       三条同时成立的那一档。别再往左——74% 起赤城的货架、翔鹤的烟囱这类左侧杂物开始抢镜。
+       徽章不会进框：徽章右缘在原图 x≈58，而 78% 下窗左沿最靠左的一档（practice 55×23）
+       也在 x≈75，各档都隔着十几像素。 */
+    .ship-thumb img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: 78% center; }
+    /* 小头像档（编队舰行 46×28、活动的两处 36×22）的取景窗仍比默认档窄，78% 会只剩
+       发梢/舾装，所以自己一档。68% 是按新框宽重调的：窗宽从原来的 60~77/240 放到
+       98/240 之后，窗心要往右挪才继续压在脸上（原来 65% 是给 36×28 那一档调的）。
+       判据取自源 PNG 原始字节（不是 kuma 自己渲染的结果）——逐档算「窗内肤色质量 /
+       全图肤色质量」，只数上 22 行（头部带）：68% 是这条曲线的峰，且很平（±6 档内
+       只掉 0.8pt），所以这个数不必掐得死死的。缓存里 943 张横幅全量跑过一遍：
+       编队那处 794 张变好、149 张持平、**0 张变差**（均值 +9.0pt），活动那两处
+       900 变好 / 43 持平 / 0 变差（+19.6pt）。
+       窗口落在原图 x≈96–195：左边离徽章右缘（x≈58）还有近 40px，也过了 x≈80 那条
+       「赤城的货架、翔鹤的烟囱开始抢镜」的线（见上面默认档那段）。 */
+    .ship-thumb.avatar img { object-position: 68% center; }
     .ship-thumb.plan img { object-position: 75% center; }
     .ship-thumb-fallback {
       display: none; width: 100%; height: 100%; place-items: center;
@@ -1886,7 +1945,7 @@
     .fleet-skin .etimer { font-family: var(--mono); font-size: 10.5px; color: var(--dock); }
     .fleet-skin .ship-detail {
       grid-column: 1/-1; display: block; max-height: 0; opacity: 0; overflow: hidden;
-      margin: 0 0 0 38px; padding: 0 12px;
+      margin: 0 0 0 48px; padding: 0 12px;
       background: var(--bg1); border: 0 solid transparent; border-radius: 7px;
       transform: translate3d(0, -5px, 0);
       transition:
@@ -1901,7 +1960,7 @@
     /* 上边距 = 原来的 2px + 从 .ship 的 gap 里让出来的 8px：展开后这张卡与舰娘行
        之间的距离与压缩前一致，只是这 8px 现在只在真展开时才存在。 */
     .fleet-skin .ship.open .ship-detail {
-      max-height: 1000px; opacity: 1; margin: 10px 0 4px 38px; padding: 9px 12px;
+      max-height: 1000px; opacity: 1; margin: 10px 0 4px 48px; padding: 9px 12px;
       border-width: 1px; border-color: var(--line-soft); transform: none;
     }
     .fleet-skin .sd-eq { display: flex; flex-direction: column; gap: 4px; }
@@ -1933,7 +1992,7 @@
        而窄档一行本来就摞了两行内容（71px），主区又是整体滚动、没有「铺满」这回事，
        再加高只是让一屏少放一艘。 */
     .fleet-skin.narrow .ship {
-      grid-template-columns: 38px 1fr 96px 36px;
+      grid-template-columns: 48px 1fr 96px 36px;
       grid-template-areas: "fc who hp cond" "fc eq eq fa";
       row-gap: 0; padding: 5px 14px;
     }
@@ -2722,8 +2781,28 @@
     .senka-detail-host .sd-eo b { font-family: var(--mono); font-weight: 400; color: var(--dim); }
     .senka-detail-host .sd-eo.done { border-color: #2c5c50; color: var(--ok); }
     .senka-detail-host .sd-eo.done b { color: var(--ok); }
-    .senka-detail-host .sd-quest { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; padding: 2px 0; color: var(--sub); }
+    .senka-detail-host .sd-quest { display: flex; align-items: center; gap: 8px; font-size: 11px; padding: 2px 0; color: var(--sub); }
+    .senka-detail-host .sd-quest > span:first-child { flex: 1; min-width: 0; }
     .senka-detail-host .sd-quest b { font-family: var(--mono); color: var(--text); }
+    /* 手动补记行的记号 + 行尾删除钮：自动观测的行两样都没有，一眼分得出谁可以删 */
+    .senka-detail-host .sd-manual {
+      font-style: normal; font-size: 8.5px; color: var(--dim); margin-left: 5px;
+      border: 1px solid var(--line-soft); border-radius: 2px; padding: 0 3px;
+    }
+    .senka-detail-host .sd-qdel {
+      border: 1px solid transparent; border-radius: 4px; background: none;
+      color: var(--dim); padding: 0 5px; font-size: 10px; line-height: 1.6; cursor: pointer;
+    }
+    .senka-detail-host .sd-qdel:hover { color: var(--bad); border-color: var(--line); }
+    .senka-detail-host .sd-qdel.arm { color: var(--bad); border-color: var(--bad); }
+    .senka-detail-host .sd-qadd { display: flex; align-items: center; gap: 6px; margin: 4px 0 6px; }
+    .senka-detail-host .sd-qadd-pick {
+      flex: 1; min-width: 0; background: var(--bg0); border: 1px solid var(--line);
+      border-radius: 6px; padding: 4px 8px; color: var(--text); font-size: 11px; outline: none;
+    }
+    .senka-detail-host .sd-qadd-pick:focus { border-color: var(--accent-dim); }
+    .senka-detail-host .sd-qadd-open { margin-left: auto; padding: 1px 8px; font-size: 10px; }
+    .senka-detail-host .sd-note2.bad { color: var(--bad); }
     .senka-detail-host .sd-note { margin-top: 5px; font-size: 9.5px; color: var(--warn); line-height: 1.6; }
     .senka-detail-host .sd-note2 { font-size: 10px; color: var(--sub); line-height: 1.65; margin-bottom: 6px; }
     .senka-detail-host .sd-cal-now { font-size: 11px; color: var(--sub); margin-bottom: 6px; }
@@ -2753,6 +2832,8 @@
     }
     /* 自检行的状态签（自动补记中/定位不到本月）——只陈述状态，没有可点的 */
     .senka-detail-host .sd-pend { font-style: normal; font-size: 9px; color: var(--dim); }
+    /* 重算任务战果：自检块的收尾行，两步确认 + 结果签 */
+    .senka-detail-host .sd-recount { display: flex; align-items: center; gap: 6px; margin-top: 7px; }
     .senka-detail-host .sd-foot { margin-top: 4px; font-size: 9.5px; color: var(--dim); line-height: 1.65; }
     .senka-detail-host .sd-empty { padding: 18px; color: var(--dim); text-align: center; }
     /* 改造链的素材：链上只留一枚摘要，明细在悬停小卡里
@@ -2825,6 +2906,41 @@
     .cmenu .mi.pri { color: var(--accent-ink); }
     .cmenu .mi.dis { opacity: 0.45; cursor: default; }
     .cmenu .mi.dis:hover { background: none; color: #c3d1dc; }
+
+    /* ══ 紧凑模式的抬头控件（钦/镖共用；下拉借上面的 .cmenu 皮肤，住在 body）══ */
+    .filter-menu { max-height: 62vh; overflow-y: auto; }
+    .cmenu .mi .dot { width: 8px; height: 8px; border-radius: 2px; flex: none; text-decoration: none; }
+    .sel-btn {
+      display: inline-flex; align-items: center; gap: 4px; flex: none;
+      padding: 3px 7px; border: 1px solid var(--line); border-radius: 5px;
+      background: var(--bg2); color: var(--sub); cursor: pointer;
+      font-family: inherit; font-size: 10px; white-space: nowrap;
+    }
+    .sel-btn > span { color: var(--dim); }
+    .sel-btn > b { color: var(--text); font-weight: 500; }
+    .sel-btn > i { color: var(--dim); font: 9px var(--mono); font-style: normal; }
+    /* ▾ 是「点开还有」的记号，不是文案 */
+    .sel-btn::after { content: "▾"; color: var(--dim); font-size: 8px; }
+    .sel-btn:hover { border-color: var(--accent-dim); background: #172733; color: var(--text); }
+    .sel-btn.on { border-color: var(--accent); background: #142b3a; }
+    .sel-btn.on > span { color: var(--accent-ink); }
+    .compact-search-btn {
+      display: inline-flex; align-items: center; gap: 4px; flex: 0 1 auto; min-width: 0;
+      padding: 3px 8px; border: 1px solid var(--line); border-radius: 5px;
+      background: var(--bg2); color: var(--sub); cursor: pointer;
+      font-family: inherit; font-size: 11px;
+    }
+    .compact-search-btn > b {
+      min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      color: var(--text); font-size: 10px; font-weight: 500;
+    }
+    .compact-search-btn:hover { border-color: var(--accent-dim); color: var(--accent); }
+    .compact-search-btn.on { border-color: var(--accent); background: #142b3a; color: var(--accent-ink); }
+    .compact-search-key {
+      flex: none; padding: 0; border: none; background: none;
+      color: var(--dim); cursor: pointer; font-size: 11px; line-height: 1;
+    }
+    .compact-search-key:hover { color: var(--accent); }
 
     /* ══ 鉴 · 图鉴（移植自设计稿 01/02，.mod-ji 作用域）══ */
     .mod-ji { overflow: hidden; }
@@ -4675,6 +4791,28 @@
     .mod-qa .fchip.lvlsub { font-size: 9.5px; padding: 1px 7px; background: none; border: 1px solid var(--line); color: var(--dim); }
     .mod-qa .fchip.lvlsub.on { border-color: var(--accent-dim); color: var(--accent); }
     .mod-qa .fchip.q.on { border-style: solid; border-color: var(--accent); background: var(--accent-wash); }
+    /* 备注标签片：玩家自己写在备注里的 #xxx。等宽体 + 中性色，别跟一级筛选片抢眼；
+       备注 120 字，理论上能写出一个长到撑爆这一排的标签——截断在这里，不在解析层 */
+    .mod-qa .fchip.ntag {
+      background: none; border: 1px dashed var(--line); color: var(--sub);
+      font-family: var(--mono); font-size: 10px; max-width: 150px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .mod-qa .fchip.ntag i { font-style: normal; font-size: 9.5px; color: var(--dim); margin-left: 3px; }
+    .mod-qa .fchip.ntag.on { border-style: solid; border-color: var(--accent); background: var(--accent-wash); color: var(--accent); }
+    /* 收纳（2026-09-01 用户提「量大了不就会挤占下文内容」）：这一排默认只留一行，
+       摆不下的收进「更多 N ▾」。收哪几枚是量出来的（见 qa.ts foldNoteTagChips），
+       display:none 才对——visibility 之类还占位，占位就等于没收。 */
+    .mod-qa .fchip.ntag.nt-folded { display: none; }
+    /* 标签片与上面那排筛选片之间的 8px 间隔。收纳生效时这一枚变成**换行符**
+       （flex 里 basis:100% 的零高项自成一行），让标签片从整条面板宽的行首起头——
+       挂在上一行尾巴上的话，剩多宽全看筛选片排到哪，实测大半的宽度档剩不下一枚。 */
+    .mod-qa .filters .nt-gap { width: 8px; }
+    .mod-qa .filters .nt-gap.nt-row { width: auto; flex-basis: 100%; height: 0; }
+    /* 「更多 N ▾ / 收起 ▴」：形态跟着别处的收纳钮走（.mod-es .chip.more 那一枚），
+       但字是中文，不能留标签片的等宽体；也不设 max-width，钮自己没有被截断的道理 */
+    .mod-qa .fchip.ntag.more { font-family: var(--sans); font-size: 10px; color: var(--accent); max-width: none; }
+    .mod-qa .fchip.ntag.more i { font-family: var(--mono); font-size: 10px; color: inherit; margin: 0 1px; }
     .mod-qa .twrap { flex: 1; min-height: 0; overflow: auto; }
     .mod-qa table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
     .mod-qa thead th {
@@ -4701,6 +4839,14 @@
     .mod-qa td.nm .infleet { font-size: 8.5px; color: var(--accent); border: 1px solid #24475f; border-radius: 2px; padding: 0 4px; margin-left: 5px; vertical-align: 1px; }
     .mod-qa td.nm .marry { font-size: 8.5px; color: var(--gold); border: 1px solid #4a3f22; border-radius: 2px; padding: 0 4px; margin-left: 5px; vertical-align: 1px; }
     .mod-qa td.nm .dup { font-size: 8.5px; color: var(--bad); border: 1px solid #5c2c38; border-radius: 2px; padding: 0 4px; margin-left: 5px; vertical-align: 1px; }
+    /* 行上的备注标签：虚线中性色，排在在编/待嫁/札/重复这几枚**之后**，不抢它们的位 */
+    .mod-qa td.nm .ntag {
+      font-size: 8.5px; color: var(--sub); border: 1px dashed var(--line); border-radius: 2px;
+      padding: 0 4px; margin-left: 5px; vertical-align: 1px; font-family: var(--mono);
+      max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      display: inline-block;
+    }
+    .mod-qa td.nm .ntag.more { color: var(--dim); cursor: help; }
     .mod-qa td.cls { color: var(--dim); font-size: 10.5px; }
     .mod-qa td.lv { font-family: var(--mono); }
     .mod-qa td.lv b { font-size: 12.5px; font-weight: 600; }
@@ -4835,9 +4981,25 @@
       color: var(--sub); background: var(--bg0); font: 10.5px var(--sans);
     }
     .mod-qa .pv-personal input:focus { color: var(--text); border-color: var(--accent-dim); }
+    /* 备注里认出来的标签：框里是纯文本，描不了色，认没认出来只能靠下面这一排回执。
+       点一枚 = 带着它回列表，所以给指针手势；但比下面的「筛选同名」再轻一档 */
+    .mod-qa .pv-ntags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+    .mod-qa .pv-ntags .ntag {
+      font: 9.5px var(--mono); color: var(--sub); cursor: pointer;
+      border: 1px dashed var(--line); border-radius: 3px; padding: 1px 6px;
+    }
+    .mod-qa .pv-ntags .ntag:hover { color: var(--accent); border-color: var(--accent-dim); }
     .mod-qa .pv-acts { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
     .mod-qa .pv-act { font-size: 10.5px; color: var(--accent); cursor: pointer; border: 1px solid #2a4a5e; border-radius: 5px; padding: 2px 10px; }
     .mod-qa .life-card .h::before { background: var(--gold); }
+    /* 弹窗：把这一艘的人生记录摊到一扇单独的窗里。样式借实例收藏钮那一套小钮语汇 */
+    .mod-qa .life-pop {
+      flex: none; padding: 2px 8px;
+      background: var(--bg2); color: var(--sub);
+      border: 1px solid var(--line); border-radius: 4px;
+      font: 10px var(--mono); letter-spacing: 0; cursor: pointer;
+    }
+    .mod-qa .life-pop:hover { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 45%, var(--line)); }
     .mod-qa .life-metrics {
       display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px;
     }
@@ -5004,6 +5166,10 @@
     .mod-qn .q-nm .t .id { font-family: var(--mono); font-size: 10px; color: var(--dim); }
     .mod-qn .q-nm .t b { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .mod-qn .q-nm .plain { display: block; font-size: 10.5px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* 追踪器解出的条件顶掉正文那一行：占的就是 .plain 的位置（同一个类、不另加行高，
+       窄态的显隐也跟着它走），只在字色上偏一档冷蓝，让人分得清这句是艦素提炼的、
+       不是游戏原话。别再亮，否则一屏五百行全在抢眼 */
+    .mod-qn .q-nm .plain.q-need { color: color-mix(in srgb, var(--accent-ink) 55%, var(--sub)); }
     .mod-qn .q-prog { flex: none; width: 130px; }
     .mod-qn .q-prog .pb { display: block; height: 5px; border-radius: 3px; background: #1b2733; overflow: hidden; }
     .mod-qn .q-prog .pb i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent-dim), var(--accent)); }
@@ -5192,6 +5358,16 @@
       overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
     }
     .mod-qn .q-quick-panel.open { display: flex; }
+    /* 紧凑抬头：筛选带各收成一枚「点开选」的钮 + 放大镜，整片抬头一行装下。
+       仍留 flex-wrap：钮再少也架不住面板被拖到两百来像素，宁可折行也不横向裁掉。 */
+    .mod-qn .q-compact-strip {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 5px; min-width: 0;
+      padding: 4px 7px;
+    }
+    .mod-qn .qsearch.compact-open {
+      flex: 1 1 150px; min-width: 120px; max-width: 260px; margin: 0;
+      padding: 2px 7px; background: var(--bg0);
+    }
     .mod-qn .q-work { flex: 1; min-height: 0; min-width: 0; display: flex; position: relative; overflow: hidden; }
     .mod-qn .q-work > .main { flex: 1; min-width: 0; }
     .mod-qn .q-empty { padding: 30px 16px; color: var(--dim); text-align: center; }
@@ -5221,11 +5397,17 @@
     .mod-qn .q-drawer.stable { transition: none; }
     .mod-qn .q-drawer-head {
       flex: none; display: flex; align-items: center; justify-content: space-between;
-      gap: 12px; min-height: 45px; padding: 7px 10px 7px 13px;
+      /* 41px = 关闭钮 27 + 上下 padding 14，一行摆完之后这就是它能收到的最矮。
+         从前 45px 是给两行留的高（编号那行 + 状态那行）。 */
+      gap: 12px; min-height: 41px; padding: 7px 10px 7px 13px;
       border-bottom: 1px solid var(--line); background: #101a22;
     }
-    .mod-qn .q-drawer-head span { min-width: 0; }
-    .mod-qn .q-drawer-head small { display: block; color: var(--dim); font: 9px var(--mono); }
+    /* 一行摆完：窄坞里状态词长（「已完成 · 由后续任务确认」）也不许再折回两行，
+       挤不下就截断——抽屉正文里那几段本来就把同一件事写全了。 */
+    .mod-qn .q-drawer-head span {
+      min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .mod-qn .q-drawer-head small { color: var(--dim); font: 9px var(--mono); }
     .mod-qn .q-drawer-head b { color: var(--accent); font-size: 11.5px; }
     .mod-qn .q-drawer-head button {
       width: 27px; height: 27px; border: 1px solid var(--line); border-radius: 5px;
@@ -5745,8 +5927,10 @@
     .mod-di .brow .nm > * { flex: 0 0 auto; }
     .mod-di .brow .nm > .el { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
     /* 舰绘不在上面那句「徽记」里（那条列的是旗/初/★MVP/展开箭头）：它和名字说的是同一件事，
-       而横幅本来就是右侧取景（object-position: right），收窄只少露一点左边背景。
        所以格子实在放不下时先收它，把那 16px 让给名字。
+       代价是真的：收到 22px 后取景窗只剩原图 73px 宽，默认 78% 下窗左沿落在 x≈130，
+       框里只装得下半张脸（贴右的旧值更狠，只剩背景——c6d8b90 记的「只剩发梢」）。
+       这是这一档的几何本身决定的，不是取景值能救的，暂留。
        为什么用容器查询而不是 flex-shrink：按 shrink 收是**逐行**的（名字长的那行收得多），
        六行舰绘宽窄不一、名字起点参差；容器查询按 .battle-col 的实际宽一刀切，各行一致。
        阈值 470px 卡在「放开舰绘后名字仍够宽」的那一点上，免得出现「面板加宽反而少一个字」
@@ -6448,20 +6632,57 @@
     .mod-bi .sort-label { flex: none; }
     .mod-bi .schip { font-size: 10px; padding: 1px 7px; border-radius: 9px; cursor: pointer; background: var(--bg2); color: var(--sub); }
     .mod-bi .schip.on { background: var(--bg3); color: var(--text); outline: 1px solid var(--line); }
+    /* 紧凑抬头：搜索/海域/排序收成一行（钮的皮肤是全局的 .sel-btn） */
+    .mod-bi .bi-compact-strip {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 5px; min-width: 0;
+      padding: 8px 10px 6px;
+    }
+    .mod-bi .search.compact-open { flex: 1 1 140px; min-width: 110px; max-width: 260px; padding: 3px 8px; }
     .mod-bi .gantt { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; padding: 2px 10px 6px; border-bottom: 1px solid var(--line-soft); }
+    /* 紧凑态只留队号，状态在 #bi-fleet-peek 那张悬停卡里 */
+    .mod-bi .g-peek {
+      display: inline-flex; align-items: center; min-height: 20px; padding: 1px 8px;
+      border: 1px solid var(--line-soft); border-radius: 5px; background: var(--bg0);
+      color: var(--sub); font: 10px var(--mono); cursor: default;
+    }
+    .mod-bi .g-peek:hover, .mod-bi .g-peek:focus-visible {
+      border-color: var(--exp-dim); color: var(--text); outline: none;
+    }
+    /* 卡住在 body（面板裁 overflow 又是 transform 包含块），所以样式不挂 .mod-bi */
+    #bi-fleet-peek {
+      position: fixed; z-index: 1300; padding: 5px;
+      background: rgba(21, 28, 35, 0.98); border: 1px solid var(--line); border-radius: 7px;
+      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55);
+      visibility: hidden; opacity: 0; pointer-events: none;
+      transition: opacity var(--motion-fast) ease, visibility 0s linear var(--motion-fast);
+    }
+    #bi-fleet-peek.show {
+      visibility: visible; opacity: 1; pointer-events: auto;
+      transition: opacity var(--motion-fast) ease;
+    }
+    #bi-fleet-peek .g-item {
+      display: inline-flex; align-items: center; gap: 5px; min-height: 20px;
+      padding: 1px 5px 1px 7px; border: 1px solid var(--line-soft); border-radius: 5px;
+      background: var(--bg0); color: var(--sub); font: 10px var(--mono);
+    }
+    #bi-fleet-peek .g-item .k { color: var(--dim); }
+    #bi-fleet-peek .g-exp-no { color: #9ad0e0; font-weight: 600; }
+    #bi-fleet-peek .g-countdown { min-width: 34px; color: var(--text); }
+    #bi-fleet-peek .g-idle { color: var(--dim); }
     .mod-bi .g-item { display: inline-flex; align-items: center; gap: 5px; min-height: 20px; padding: 1px 5px 1px 7px; border: 1px solid var(--line-soft); border-radius: 5px; background: var(--bg0); color: var(--sub); font: 10px var(--mono); }
     .mod-bi .g-item .k { color: var(--dim); }
     .mod-bi .g-exp-no { color: #9ad0e0; font-weight: 600; }
     .mod-bi .g-countdown { min-width: 34px; color: var(--text); }
     .mod-bi .g-idle, .mod-bi .g-empty { color: var(--dim); }
-    .mod-bi .g-supply {
+    /* 补给记号在甘特条与紧凑态的悬停卡里都要用，卡不在 .mod-bi 里面 */
+    .mod-bi .g-supply, #bi-fleet-peek .g-supply {
       width: 15px; height: 15px; flex: none; display: inline-grid; place-items: center;
       border: 1px solid var(--line); border-radius: 50%; font: 700 9px var(--mono);
       background: var(--bg0); color: var(--dim);
     }
-    .mod-bi .g-supply.ok { color: var(--ok); border-color: #2b4a37; background: #132a1c; }
-    .mod-bi .g-supply.low { color: var(--warn); border-color: #6b4f2a; background: #2e2313; }
-    .mod-bi .g-supply.wait { color: var(--dim); border-style: dashed; }
+    .mod-bi .g-supply.ok, #bi-fleet-peek .g-supply.ok { color: var(--ok); border-color: #2b4a37; background: #132a1c; }
+    .mod-bi .g-supply.low, #bi-fleet-peek .g-supply.low { color: var(--warn); border-color: #6b4f2a; background: #2e2313; }
+    .mod-bi .g-supply.wait, #bi-fleet-peek .g-supply.wait { color: var(--dim); border-style: dashed; }
     .mod-bi .elist { flex: 1; min-height: 0; overflow-y: auto; }
     .mod-bi .erow { display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: pointer; border-left: 2px solid transparent; border-bottom: 1px solid var(--line-soft); }
     .mod-bi .erow:hover { background: var(--bg2); }
@@ -6758,9 +6979,15 @@
     .mod-lg .tp-cell[data-toast-value="tr"] i { top: 5px; right: 5px; }
     .mod-lg .tp-cell[data-toast-value="bl"] i { bottom: 5px; left: 5px; }
     .mod-lg .tp-cell[data-toast-value="br"] i { bottom: 5px; right: 5px; }
-    /* 新舰 / 大破：顶层持久横幅。仅关闭按钮移除；跳转按钮不会代替确认。 */
+    /* 新舰 / 大破：顶层持久横幅。仅关闭按钮移除；跳转按钮不会代替确认。
+       落点 2026-09-01 从 42px 抬到 36px（玩家：「大破、新船这个横幅稍微上调」）。
+       顶栏连边框整 34px，所以 36 已经是**贴着顶栏还留一线**的极限——再往上就压住
+       抬头那排资源数字了。抬起来这 6px 全数让给游戏画面：他那套坞位下游戏上沿落在
+       41px，横幅原本一开口就压进画面里，现在整摞先走完画面外那一段。
+       它与 #lg-toasts 的四角设置无关：新舰/大破在横幅开着时根本不发 Toast
+       （见 lg.ts 的「置顶横幅接管前台视觉」），所以动这一条不碰玩家选的通知位置。 */
     #lg-banners {
-      position: fixed; z-index: 1300; top: 42px; left: 50%; transform: translateX(-50%);
+      position: fixed; z-index: 1300; top: 36px; left: 50%; transform: translateX(-50%);
       width: min(720px, calc(100vw - 32px)); max-height: min(52vh, 520px);
       display: flex; flex-direction: column; gap: 8px; overflow-y: auto;
       pointer-events: none; scrollbar-width: thin;
@@ -7164,10 +7391,19 @@
       background: rgba(21, 28, 35, 0.96); border: 1px solid var(--line);
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
       font-size: 11px; color: var(--sub);
+      /* 按住空白处可以整条挪走（钉死在右下角就会压着那一块内容）。
+         落点由 preview-bar.ts 写成行内 left/top，盖掉上面这两行 right/bottom；
+         `move` 与钉住的 Peek 卡同一个手势语汇。 */
+      cursor: move; user-select: none;
       opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(6px);
       transition: opacity var(--motion-fast) ease, transform var(--motion-fast) ease,
         visibility 0s linear var(--motion-fast);
     }
+    /* 拖到游戏区上方时鼠标事件会被那个 webview 吃掉（坞分隔条那条拖拽循环为此专门
+       铺过一层遮罩）。这里铺同样一层，只是用伪元素——拖一次不必往 body 里插了又删。
+       z-index:-1 让它待在条子自己那层的最底下：只挡事件，不挡样子。
+       真动了才加 .pb-dragging，所以按下不动＝纯点击，不会平白多出一层挡板。 */
+    #preview-bar.pb-dragging::before { content: ''; position: fixed; inset: 0; z-index: -1; }
     #preview-bar.show {
       opacity: 1; visibility: visible; pointer-events: auto; transform: none;
       transition: opacity var(--motion-fast) ease, transform var(--motion-fast) ease;
@@ -7354,8 +7590,12 @@
     .mod-du .op-owned-row > b { color: var(--sub); font-size: 10px; font-weight: 600; }
     .mod-du .op-owned-row > div { display: contents; }
     .mod-du .op-owned-ship { display: inline-flex; align-items: center; gap: 3px; min-width: 0; color: var(--text); font-size: 10px; }
-    /* avatar 档默认圆形（50%）；这里要方头像，只借它的取景偏移（2026-08-24 用户点名） */
-    .mod-du .op-owned-ship .ship-thumb { width: 22px; height: 22px; border-radius: 4px; }
+    /* avatar 档默认圆形（50%）；这里要方头像，只借它的取景偏移（2026-08-24 用户点名）。
+       2026-09-01 由 22×22 放宽到 36×22：正方那一档取景窗只有 60/240（全仓最窄的一档），
+       脸左右各被切掉一块，用户点名「极小框头像看起来别扭」。高度不动，只加宽，
+       与编队舰行的 46×28 同一个宽高比——两处窗口都落在原图 x≈96–195，取景一致。
+       这一格是流式 flex，加宽只是让每行少排一两艘，放不下自己换行，不挤别人。 */
+    .mod-du .op-owned-ship .ship-thumb { width: 36px; height: 22px; border-radius: 4px; }
     .mod-du .op-owned-ship i { color: var(--gold); font: normal 9px var(--mono); }
     .mod-du .op-honesty { margin-top: 5px; color: var(--dim); font-size: 9.5px; line-height: 1.45; }
     .mod-du .op-friend { padding: 4px 7px; margin-top: 3px; border-left: 2px solid var(--accent-dim); background: var(--bg0); font-size: 10px; color: var(--sub); }
@@ -7365,8 +7605,8 @@
     .mod-du .op-friend .op-fnote { display: block; color: var(--dim); margin-top: 2px; }
     .mod-du .op-friend-ships { display: flex; flex-wrap: wrap; gap: 3px 8px; align-items: center; }
     .mod-du .op-friend-ship { display: inline-flex; align-items: center; gap: 3px; min-width: 0; color: var(--text); }
-    /* 与 .op-owned-ship 同一档方头像：借 avatar 的取景偏移，圆角压成方 */
-    .mod-du .op-friend-ship .ship-thumb { width: 22px; height: 22px; border-radius: 4px; }
+    /* 与 .op-owned-ship 同一档方头像：借 avatar 的取景偏移，圆角压成方。宽度跟着它走 */
+    .mod-du .op-friend-ship .ship-thumb { width: 36px; height: 22px; border-radius: 4px; }
     /* 本地实测的友军与随包资料层并列：换一档左边线，一眼分得出哪层是自己遇到的 */
     .mod-du .op-friend.seen { border-left-color: var(--ok); }
     .mod-du .op-friend.seen i { color: var(--gold); font: normal 9px var(--mono); }
@@ -7782,7 +8022,19 @@
     .mod-shi .factory-outcome.fail .factory-outcome-media i {
       color: var(--bad); font: 600 16px var(--mono); font-style: normal;
     }
-    .mod-shi .factory-more { margin-top: 4px; color: var(--dim); font-size: 9px; }
+    /* 两层展开行：结果超 8 种的配方 / 12 条之后的配方本身。裁掉的部分点开就在原地补齐 */
+    .mod-shi .factory-more {
+      margin-top: 4px; display: inline-flex; align-items: center; gap: 3px;
+      padding: 1px 7px; border: 1px solid var(--line-soft); border-radius: 9px;
+      background: var(--bg0); color: var(--dim); font: 9px var(--sans); cursor: pointer;
+    }
+    .mod-shi .factory-list-more {
+      width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px;
+      padding: 6px 10px; border: 0; /* 上一条配方行自带 border-bottom，别再叠一道 */
+      background: var(--bg0); color: var(--dim); font: 9.5px var(--sans); cursor: pointer;
+    }
+    .mod-shi .factory-more:hover { color: var(--sub); border-color: var(--line); }
+    .mod-shi .factory-list-more:hover { color: var(--sub); }
     .mod-shi .factory-foot {
       padding: 7px 10px; color: var(--dim); font-size: 9px; line-height: 1.55; background: var(--bg0);
     }
@@ -7975,7 +8227,7 @@
     .mod-shi .shi-nodes > .shi-kpis,
     .mod-shi .shi-nodes > .shi-node-maps,
     .mod-shi .shi-nodes > .shi-mapgraph-card,
-    .mod-shi .shi-nodes > .shi-recent-battles { margin: 0; }
+    .mod-shi .shi-nodes > .shi-nodes-foot { margin: 0; }
     .mod-shi .shi-nodes > .shi-mapgraph-card { flex: none; }
     .mod-shi .shi-nodes .shi-chart-title { flex: none; }
     .mod-shi .shi-nodes > .shi-two-col {
@@ -7990,11 +8242,19 @@
     .mod-shi .shi-nodes .shi-node-timeline {
       flex: 1; min-height: 0; height: auto; max-height: none;
     }
-    .mod-shi .shi-nodes > .shi-recent-battles {
-      flex: 0 1 180px; min-height: 120px; max-height: 200px;
+    /* 底部一行两块：左边整图快照照旧，右边是选中点位专属那块（没选点时挂 hidden 收起来） */
+    .mod-shi .shi-nodes > .shi-nodes-foot {
+      flex: 0 1 180px; min-width: 0; min-height: 120px; max-height: 200px;
+      display: flex; gap: 8px;
+    }
+    .mod-shi .shi-nodes-foot > .shi-panel {
+      flex: 1 1 0; min-width: 0; min-height: 0;
       display: flex; flex-direction: column; overflow: hidden;
     }
-    .mod-shi .shi-nodes > .shi-recent-battles .shi-history-list {
+    /* .shi-panel 自带 display:flex，会盖掉 UA 的 [hidden]{display:none}，得自己收一道 */
+    .mod-shi .shi-nodes-foot > .shi-panel[hidden] { display: none; }
+    .mod-shi .shi-nodes-foot > .shi-panel > h3 { flex: none; }
+    .mod-shi .shi-nodes-foot .shi-history-list {
       flex: 1; min-height: 0; max-height: none;
     }
     .mod-shi .shi-node-battle {
@@ -8007,7 +8267,6 @@
     .mod-shi .shi-node-battle > div > b { color: var(--sub); font-weight: 600; }
     .mod-shi .shi-node-battle > div .drop { color: var(--ok); }
     .mod-shi .shi-node-battle > small { min-width: 0; color: var(--dim); line-height: 1.55; }
-    .mod-shi .shi-recent-battles { margin-top: 8px; }
 
     .mod-shi .shi-event-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
     .mod-shi .shi-event-card { min-width: 0; padding: 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg1); }
@@ -8077,6 +8336,8 @@
       .mod-shi .shi-kpis > span:nth-child(-n+2) { border-bottom: 1px solid var(--line-soft); }
       .mod-shi .shi-overview-grid,
       .mod-shi .shi-two-col { grid-template-columns: 1fr; }
+      /* 窄栏并排两块谁都读不了：底部改上下叠，高度跟着放宽一点 */
+      .mod-shi .shi-nodes > .shi-nodes-foot { flex-direction: column; max-height: 280px; }
       .mod-shi .shi-overview-card { min-height: 90px; }
       .mod-shi .shi-practice-days,
       .mod-shi .shi-history-list,
@@ -8185,6 +8446,7 @@
       #lg-banners .lg-banner,
       .peek,
       .cmenu,
+      #bi-fleet-peek,
       #cg-lightbox,
       #cg-lightbox img,
       .mod-di .hpx .bar > span { transition: none !important; }
@@ -8234,7 +8496,7 @@
       <button id="btn-focus" title="专注模式：收起三坞只留游戏 (F9)">专注</button>
       <button id="btn-capture" title="保存游戏画面截图">截图</button>
       <button id="btn-reload" title="刷新游戏页面">刷新</button>
-      <button id="btn-browse" title="开一扇浏览窗逛 DMM，可以开好几扇，登录和代理跟游戏共用">新窗</button>
+      <button id="btn-browse" title="新开浏览窗 · 可多开 · 与游戏共用登录与代理">新窗</button>
     </header>
     <main>
       <nav id="element-rail"></nav>

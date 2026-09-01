@@ -21,6 +21,9 @@ import {
   itemUseMaterialCategory,
 } from '../../shared/item-use-materials'
 import { questFixedSenka, senkaMonthEnd, senkaMonthStart } from '../../shared/senka'
+import type { SenkaQuestOption } from '../../shared/senka'
+import { questAnnualMonth, questPeriodFromCode } from '../../shared/quest-period'
+import type { QuestPeriodKind } from '../../shared/quest-period'
 import { onQuestApi, reconcileQuestProgress } from './quest-counter-host'
 import { buildPowerupResultCue } from './powerup-result'
 import { onShipLifeApi, primeShipLife } from './ship-life'
@@ -32,6 +35,12 @@ import {
 } from '../voice-diagnostics'
 import { isGameWebContents, primeArtArchiveFromCache } from '../kcs-resource'
 import { shipArtPaths } from '../ship-art-store'
+import {
+  noteShipCostumeBackfill,
+  rememberPictureBookCostumes,
+  shipCostumeBackfillCursor,
+  shipCostumes,
+} from '../ship-costume-store'
 import { resourceVersionOf } from '../../shared/voice-request-gate'
 import {
   clearVoiceArchive,
@@ -219,6 +228,30 @@ const DELTA_CATEGORY: Record<string, string> = {
 // 用道具 → 下一包才到账，所以状态机跨包活着（见 shared/item-use-materials 的实测头注）。
 const itemUseRefresh = createItemUseRefreshTracker()
 
+/**
+ * 任务资料库里这个任务的战果分值与周期口径。解不出固定战果就返回 null
+ *（不是战果任务，或资料库没收录——两种都不该入账）。
+ *
+ * **分值一律从主进程自己的 quests-scn 现解**，不接受任何外部递来的数字：
+ * 渲染层曾经把 senka 值一路 IPC 递进来，账本照写不误（那条通道 2026-09-01 已撤）。
+ * 实时领奖与查账时的报文补记共用这一份，两条路解不出第二套口径。
+ */
+const questSenkaInfo = (
+  questId: number,
+): { senka: number; kind: QuestPeriodKind | null; annualMonth: number | null } | null => {
+  if (!(questId > 0)) return null
+  const entry = (getLode('quests-scn')?.data as any)?.[`${questId}`]
+  if (!entry) return null
+  const resetNote = `${entry.memo2 ?? ''}`
+  const senka = questFixedSenka([entry.memo, entry.memo2].filter(Boolean).join(' | '))
+  if (!senka) return null
+  return {
+    senka,
+    kind: questPeriodFromCode(`${entry.code ?? ''}`, resetNote),
+    annualMonth: questAnnualMonth(resetNote),
+  }
+}
+
 const handleEvent = (
   apiPath: string,
   body: unknown,
@@ -329,19 +362,17 @@ const handleEvent = (
   onQuestApi(apiPath, body, postBody, { destroyedSlotitems, expeditionMissionId, powerupShipIds })
   onChronicleApi(apiPath, body, postBody, ts)
   onShipLifeApi(apiPath, body, postBody, ts, sections, { hangarCapsBefore })
-  // 任务领取 → 特别战果。
+  // 任务领取 → 特别战果。**这一条报文就是任务战果唯一的合法入账证据**
+  //（口径与二次翻车的现场见 shared/senka-quest-book）。
   //
   // **领奖报文里没有战果字段**：实测 clearitemget 只回 api_material 与 api_bounus，
   // 而 api_bounus 全是 type=1 的资源/道具——战果是服务器内部计入的，不随奖励下发。
-  // 所以只能按任务查表（quests-scn 的奖励文本里写了「奖励:80战果」这类固定值）。
+  // 所以分值只能按任务查表（quests-scn 的奖励文本里写了「奖励:80战果」这类固定值），
+  // 但「这一笔到底发生没发生」由报文说了算，不由任何推断说了算。
   if (apiPath === '/kcsapi/api_req_quest/clearitemget') {
-    const questId = Number(new URLSearchParams(postBody).get('api_quest_id'))
-    if (questId > 0) {
-      const scn = getLode('quests-scn')
-      const entry = (scn?.data as any)?.[`${questId}`]
-      const senka = questFixedSenka([entry?.memo, entry?.memo2].filter(Boolean).join(' | '))
-      if (senka) ledger.logQuestSenka(ts, questId, senka, `${entry?.name ?? ''}`)
-    }
+    const questId = Number(postBody.api_quest_id) || 0
+    const info = questSenkaInfo(questId)
+    if (info) ledger.logQuestSenka(ts, questId, info.senka, info)
   }
 
   // 战果账：提督经验每涨一次就是一笔通常战果（× 7/10000）。
@@ -402,6 +433,8 @@ const handleEvent = (
   // 成功打开游戏的出击海域选择页后，让渲染层按最新编队状态做一次临行提醒。
   // 用 mapinfo 响应而不是猜 Canvas 点击坐标，缩放/改版后仍可靠。
   if (apiPath === '/kcsapi/api_get_member/mapinfo') broadcastSortieScreen(ts)
+  // 玩家正在翻图鉴：把这一页的衣装归属学下来（不发请求，只读它返回的报文）
+  if (apiPath === '/kcsapi/api_get_member/picture_book') learnCostumesFrom(body)
   // 打开远征页（api_get_member/mission）时底坞任务/远征格跟到远征；
   // 回母港、出击选择、演习、任务表都算离开，还原进页前那一格。
   if (apiPath === '/kcsapi/api_get_member/mission') broadcastGameScene('mission')
@@ -496,6 +529,82 @@ const isAbyssFormMstId = (mstId: number): boolean => {
   }
   return abyssFormIds.has(mstId)
 }
+
+/**
+ * 「这个号是主数据里真实存在的一艘舰吗」。衣装归属的分界线全靠它。
+ *
+ * 图鉴条目的 `api_table_id` 把「本条目下的全部真实形态」与「本条目的衣装」
+ * 混在一个数组里（村雨那条是 `[44, 244, 5191, …]`：前两个是村雨与村雨改），
+ * 只有主数据能把两者分开。主数据还没到位时一律 false——那会让这一次一条都学不到，
+ * **宁可学不到，也不能把 244 村雨改记成一套衣装**（判据见 shared/ship-costume）。
+ */
+let shipFormIds: Set<number> | null = null
+let shipFormMasterTs = 0
+const isShipMstId = (mstId: number): boolean => {
+  const raw = ensureMasterRaw()
+  if (!raw?.data) return false
+  if (!shipFormIds || shipFormMasterTs !== raw.ts) {
+    shipFormIds = new Set(
+      ((raw.data.api_mst_ship ?? []) as any[])
+        .map((ship) => Number(ship.api_id))
+        .filter((id) => Number.isInteger(id) && id > 0),
+    )
+    shipFormMasterTs = raw.ts
+  }
+  return shipFormIds.has(mstId)
+}
+
+/**
+ * 玩家翻图鉴时把衣装归属学下来，并让正开着的图鉴页跟上。
+ *
+ * **不发任何请求**：只解析游戏自己返回的那一份报文。
+ */
+const learnCostumesFrom = (apiData: unknown): number => {
+  const learned = rememberPictureBookCostumes(apiData, isShipMstId)
+  if (learned) broadcaster.emit('kancolle.shipcostume.learn', shipCostumes())
+  return learned
+}
+
+/**
+ * 启动后的一次性回灌：账本里躺着玩家过去翻图鉴留下的那些报文。
+ *
+ * 不回灌的话，这张表只对「本次会话里又翻了一遍图鉴」的舰有效——而衣装归属
+ * 一旦学到就长期有效，没道理让玩家为了看到已经入档的衣装再去游戏里翻一次。
+ * 扫过的用游标记住（见 ship-costume-store），下次启动只扫新的。
+ *
+ * 挪出启动那一拍（`setTimeout`）：几十份几万字的报文解析没必要跟窗口创建抢时间。
+ */
+const backfillShipCostumes = () => {
+  try {
+    // 主数据没到位时 `isShipMstId` 恒 false，这一轮一条都分不出来——**连扫都不扫**，
+    // 更不能推游标（推了这段报文就永远不会再被扫）。判据落在主数据本身，
+    // 不拿「学到 0 条」倒推（那是拿被验证系统自己的输出当判据）。
+    if (!((ensureMasterRaw()?.data?.api_mst_ship ?? []) as any[]).length) return
+    const rows = ledger.queryPictureBookBodies(shipCostumeBackfillCursor())
+    if (!rows.length) return
+    let learned = 0
+    let lastId = 0
+    for (const row of rows) {
+      lastId = row.id
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(row.body)
+      } catch (_e) {
+        continue // 这一条报文坏了，跳过它继续——游标照样往前推
+      }
+      learned += rememberPictureBookCostumes((parsed as any)?.api_data ?? parsed, isShipMstId)
+    }
+    noteShipCostumeBackfill(lastId)
+    if (learned) {
+      console.log(`[kanso] mg: 衣装归属回灌 ${learned} 条（扫到 events #${lastId}）`)
+      broadcaster.emit('kancolle.shipcostume.learn', shipCostumes())
+    }
+  } catch (error) {
+    // 回灌失败只是历史归属没补上，实时那一路照旧；绝不让它拦住启动
+    console.warn('[kanso] mg: 衣装归属回灌失败', error)
+  }
+}
+setTimeout(backfillShipCostumes, 3_000).unref?.()
 
 // mstId → 开发表（砲戦/水雷/空母/潜水系）。按主数据时效戳缓存 stype 索引。
 let devStypeByMst: Map<number, number> | null = null
@@ -915,6 +1024,13 @@ ipcMain.handle('mg:senka', (_event, at?: number) => {
   // EO——重置点后观测到 cleared=1 必属本月，去重与实时路径共用账本同月同图闸
   const booked = ledger.autoBookEoFromMapinfo(when)
   if (booked.length) console.log(`[kanso] mg: senka 自动补记 EO ${booked.join(',')}`)
+  // 任务侧同款（2026-09-01 重立）：只按账本里存着的 clearitemget 报文补，
+  // 入账时刻取报文观测时刻。资料包没装就整段跳过——跳过是「这次没补」，
+  // 而按不全的资料去解会把「解不出分值」记成「不是战果任务」，游标一过就永远补不回来。
+  if (getLode('quests-scn')) {
+    const quests = ledger.autoBookQuestSenkaFromEvents(when, questSenkaInfo)
+    if (quests.length) console.log(`[kanso] mg: senka 自动补记任务 ${quests.join(',')}`)
+  }
   const summary = ledger.querySenka(when)
   // 实际校准：renderer 经 uiSet 写进 config（ui.senka.calibration），这里组装。
   // 只认本战果月内的校准——过月后继承重算，旧校准自动失效。
@@ -935,18 +1051,80 @@ ipcMain.handle('mg:senka', (_event, at?: number) => {
   }
   return summary
 })
-// 战果任务自动补记（2026-08-17 从手动补记改）：锱检测到「本月周期内完成、
-// 账里没有」的战果任务后自动走这里。防重复计算两道闸：账本「同任务同月只记
-// 一次」去重（与实时领奖路径共用）；入账时间取月初——实际交付时刻无从得知，
-// 取本期最早可能时刻，玩家填过官方校准值时这笔永远落在校准点之前，
-// 不会混进「校准后新增」被二次计入（EO 自动对账同一策略）。
-ipcMain.handle('mg:senka-log-quest', (_event, questId: number, senka: number, name: string) =>
-  ledger.logQuestSenka(
-    senkaMonthStart(Date.now()),
-    Number(questId) || 0,
-    Number(senka) || 0,
-    `${name ?? ''}`,
-  ),
+// 「渲染层递一个任务号进来、主进程就给它记一笔」的入口（mg:senka-log-quest）
+// 2026-09-01 整个退役：那条路的触发端是渲染层的**推断**（前置满足 + 不在任务表
+// = 已交付），推断在月初重置那一刻必然失真，于是「从没做过的任务」也被记进账。
+// 现在任务战果只有一个写入口——账本里存着的 clearitemget 报文，实时一条路
+// （上面的 onApi）、补记一条路（mg:senka 里的 autoBookQuestSenkaFromEvents），
+// 两条走的是同一个 logQuestSenka。渲染层根本不再有写账的手，也就无所谓「判据坏了」。
+
+// 重算任务战果：撤回本战果月自动补记的任务行（合成行，允许删的理由见
+// ledger.clearAutoBookedQuestSenka），返回撤回笔数。撤回之后渲染层会重查一次账，
+// mg:senka 顺手按报文证据重扫——有 clearitemget 的自己回来（且落在真实时刻），
+// 靠推断混进来的回不来。
+ipcMain.handle('mg:senka-clear-quest', () =>
+  ledger.clearAutoBookedQuestSenka(senkaMonthStart(Date.now())),
+)
+
+/**
+ * 手动补记的候选清单：任务资料库里带固定战果的那几条（现役 9 条，全是季常/年常）。
+ * 分值与周期口径仍旧从主进程自己的 quests-scn 现解，与实时入账同一份。
+ */
+const senkaQuestCatalog = (): { id: number; code: string; name: string }[] => {
+  const data = getLode('quests-scn')?.data as Record<string, any> | undefined
+  if (!data) return []
+  const out: { id: number; code: string; name: string }[] = []
+  for (const [key, entry] of Object.entries(data)) {
+    const id = parseInt(key, 10)
+    if (!(id > 0) || !entry) continue
+    if (!questSenkaInfo(id)) continue
+    out.push({ id, code: `${entry.code ?? ''}`, name: `${entry.name ?? ''}` })
+  }
+  // 编码按「字母段 + 数字段」排，不能整串比字符串——Bq10 会排到 Bq2 前面
+  const parts = (code: string) => {
+    const match = code.match(/^([^0-9]*)(\d*)/)
+    return { head: match?.[1] ?? code, num: Number(match?.[2] ?? '') || 0 }
+  }
+  return out.sort((left, right) => {
+    const a = parts(left.code)
+    const b = parts(right.code)
+    return a.head.localeCompare(b.head) || a.num - b.num || left.id - right.id
+  })
+}
+
+// 补记选单。taken 与 addManualQuestSenka 走同一个去重窗口，选单里标成已记的
+// 按下去也必然被挡——两处各判一次迟早会说不到一块去。
+ipcMain.handle('mg:senka-quest-options', (): SenkaQuestOption[] => {
+  const catalog = senkaQuestCatalog()
+  if (!catalog.length) return []
+  const infos = catalog.map((row) => ({ ...row, info: questSenkaInfo(row.id)! }))
+  const taken = ledger.questSenkaTaken(
+    Date.now(),
+    infos.map(({ id, info }) => ({ id, kind: info.kind, annualMonth: info.annualMonth })),
+  )
+  return infos.map(({ id, code, name, info }) => ({
+    id,
+    code,
+    name,
+    senka: info.senka,
+    periodKind: info.kind,
+    taken: taken[id] ?? null,
+  }))
+})
+
+// 手动补记一笔任务战果。**渲染层只递任务号**——分值一律现解（f3543a3 撤掉的
+// 那条「渲染层递数字进来、账本照写」的通道不再开第二次）。
+ipcMain.handle('mg:senka-add-quest', (_event, questId: unknown) => {
+  const id = Number(questId)
+  if (!Number.isInteger(id) || id <= 0) return 'no-senka'
+  const info = questSenkaInfo(id)
+  if (!info) return 'no-senka'
+  return ledger.addManualQuestSenka(Date.now(), id, info.senka, info)
+})
+
+// 删一条手动补记行。观测记下的那些行这里删不掉（账本里 kind/manual 两道门都要过）。
+ipcMain.handle('mg:senka-remove-quest', (_event, id: unknown) =>
+  typeof id === 'number' && Number.isInteger(id) ? ledger.removeManualQuestSenka(id) : false,
 )
 
 ipcMain.handle('mg:expedition-history', (_event, missionId: number, limit?: number) =>
@@ -959,6 +1137,11 @@ ipcMain.handle('mg:ship-life', (_event, rosterId: number, limit?: number) =>
 )
 ipcMain.handle('mg:ship-memorial', (_event, mstIds: number[]) =>
   ledger.queryShipMemorial(Array.isArray(mstIds) ? mstIds : []),
+)
+// 她的 boss 击杀簿：终结过敌旗舰的那几场。归属写在 battle 事件的 detail.bossKill 上，
+// 不是单独的表（判据见 shared/boss-kill）。
+ipcMain.handle('mg:ship-boss-kills', (_event, rosterId: number, limit?: number) =>
+  ledger.queryBossKills(rosterId | 0, limit ?? 200),
 )
 
 // 启动回放：所有“完整/局部舰队快照”按真实时间灌回。

@@ -14,7 +14,14 @@ const { pathToFileURL } = require('url')
 const remote = require('@electron/remote')
 
 import { setEquipIconSpriteProvider } from './equip-icon'
+import { archivedArtUrlForPath, archivedArtTypes } from './art-archive'
 import { sanitizeShipArtMap, shipArtKey, type ShipArtPathEntry } from '../shared/ship-art-path'
+import {
+  costumeOwnerOf as costumeOwnerIn,
+  sanitizeShipCostumeMap,
+  shipCostumeIndex,
+  type ShipCostumeMap,
+} from '../shared/ship-costume'
 
 const CACHE_PATH: string = remote.getGlobal('DEFAULT_CACHE_PATH')
 const { getCacheCandidatePaths } = require(
@@ -204,7 +211,31 @@ export const shipGraphLayout = (mstId: number): ShipGraphLayout | null =>
  */
 export const shipImageVersionOf = (mstId: number): string => shipImageVersion.get(mstId) ?? ''
 
-let allowRemoteArt = true
+/**
+ * 「不联网补取美术资源」（`kanso.remoteArt`）的**初值自己去读配置**，不写死 true。
+ *
+ * 钥（yu）装配时还会再应用一次——那是玩家当场扳开关的通道，保留着。但钥的 order 是
+ * 8.8，而编队/图鉴那几个模块（order 2~4）早在它之前就把缩略图渲出去了；主机名又在
+ * 装配之前就从 `kanso.lastGameHost` 恢复好了。于是关着开关的玩家，启动头几秒照样有
+ * 一批横幅出网（2026-09-01 实测 12 条 banner_dmg）——开关的话写在屏幕上，产物没照做。
+ *
+ * 走的是同步通道：主进程那个 config 单例在 require 的那一下就把 config.json 读完了，
+ * 与钥、与人生记录窗读它的是同一句 `remote.require('./config')`。所以这里拿到的直接是
+ * 真值，没有「先按默认跑一会儿再纠正」的空窗。真读不到（remote 通道没起来）才回落默认
+ * 开：那与改前完全一致，不会让开着开关的玩家一启动就满屏图裂。
+ *
+ * 判据写成 `!== false`：配置里存的可能是历史遗留的非布尔值，只有明确的 false 算关。
+ */
+const configuredAllowRemoteArt = (): boolean => {
+  try {
+    return remote.require('./config').get('kanso.remoteArt', true) !== false
+  } catch (error) {
+    console.warn('[kanso] 远端取图开关读取失败，按默认（开）继续', error)
+    return true
+  }
+}
+
+let allowRemoteArt = configuredAllowRemoteArt()
 export const setAllowRemoteArt = (v: boolean) => {
   allowRemoteArt = v
   mapArtCache.clear()
@@ -316,6 +347,20 @@ const readStaticJson = async <T>(pathname: string): Promise<T | null> => {
 // 拼出的 /ship/full/2297_1270.png 多了 `_d` 中缀和一段 12 位随机串。
 // 那串防的就是推导，所以只能记下游戏实际请求过的路径（锚在 onBeforeRequest 里收）。
 const learnedArt = new Map<string, string>()
+/**
+ * mstId → 学到过真实路径的图种。衣装那一段要问「这套衣装还有哪些图种」，
+ * 而全表有三千多条——逐格现扫等于每渲染一次就把它扫十几遍。
+ */
+const learnedTypes = new Map<number, Set<string>>()
+const indexLearned = (key: string) => {
+  const slash = key.indexOf('/')
+  if (slash <= 0) return
+  const mstId = Number(key.slice(0, slash))
+  if (!(mstId > 0)) return
+  const set = learnedTypes.get(mstId) ?? new Set<string>()
+  set.add(key.slice(slash + 1))
+  learnedTypes.set(mstId, set)
+}
 const loadLearnedArt = () => {
   try {
     const file = path.join(remote.getGlobal('APPDATA_PATH'), 'ship-art-paths.json')
@@ -324,6 +369,7 @@ const loadLearnedArt = () => {
       sanitizeShipArtMap(JSON.parse(fs.readFileSync(file, 'utf8'))),
     )) {
       learnedArt.set(key, value)
+      indexLearned(key)
     }
   } catch (error) {
     // 学过的路径没了只是回到「按 cipher 拼」，不该影响启动
@@ -332,12 +378,69 @@ const loadLearnedArt = () => {
 }
 loadLearnedArt()
 
+// ---- 衣装的归属：哪套衣装是谁的 ----
+//
+// 游戏图鉴的衣装切替用的是**独立的构图编号**（5xxx/6xxx），主数据 api_mst_ship 里
+// 没有这些号，所以按路径记归属的档案层只能把它们挂在幽灵编号下。归属的唯一出处是
+// picture_book 报文，由主进程学下来落进 ship-costumes.json（见 shared/ship-costume）。
+// 这里与 learnedArt 同一条路子读它：不发 IPC，模块初始化时读一次盘。
+let shipCostumes: ShipCostumeMap = {}
+let costumesByShip = new Map<number, number[]>()
+const loadShipCostumes = () => {
+  try {
+    const file = path.join(remote.getGlobal('APPDATA_PATH'), 'ship-costumes.json')
+    if (!fs.existsSync(file)) return
+    const raw = JSON.parse(fs.readFileSync(file, 'utf8'))
+    shipCostumes = sanitizeShipCostumeMap(raw?.costumes)
+    costumesByShip = shipCostumeIndex(shipCostumes)
+  } catch (error) {
+    // 学过的归属没了只是衣装格摆不出来，不该影响启动
+    console.warn('[kanso] 衣装归属表读取失败，按空表继续', error)
+  }
+}
+loadShipCostumes()
+
+/**
+ * 主进程刚学到新的归属（玩家正在翻图鉴，或启动回灌补完了历史）。
+ *
+ * 说一声用的是**自己的事件**而不是 `kanso:art-source-change`：后者的消费端是
+ * 缩略图补图那条路（entity-art 全文档重扫），而这里变的是「谁有哪几套衣装」，
+ * 该跟上的是立绘页的衣装段。混用会让每翻一页图鉴就白扫一遍全文档缩略图。
+ */
+export const noteShipCostumes = (map: unknown): void => {
+  const next = sanitizeShipCostumeMap((map as { costumes?: unknown })?.costumes ?? map)
+  if (!Object.keys(next).length) return
+  shipCostumes = next
+  costumesByShip = shipCostumeIndex(next)
+  if (typeof document !== 'undefined') {
+    document.dispatchEvent(new CustomEvent('kanso:ship-costumes-change'))
+  }
+}
+
+/** 这个形态名下的衣装构图编号（升序）。没学到归属就是空数组——不猜。 */
+export const shipCostumeGraphIds = (mstId: number): readonly number[] =>
+  costumesByShip.get(mstId) ?? []
+
+/**
+ * 这个号是**衣装构图**而不是一艘舰吗。
+ *
+ * 只认学到的归属：号段（≥5000）看着也能判，但那是从本机一份主数据归纳出来的规律，
+ * 而这里的用途是改「深海舰没有 _dmg 变体」那条规则的适用范围——判宽了会让某艘
+ * 真深海舰的中破图指向不存在的地址。学到的归属是游戏自己说的，宁可窄。
+ */
+export const isCostumeGraphId = (mstId: number): boolean =>
+  Object.prototype.hasOwnProperty.call(shipCostumes, `${mstId}`)
+
+/** 这套衣装该算在哪个形态头上；没学到归属时如实返回它自己。 */
+export const costumeOwnerOf = (graphId: number): number => costumeOwnerIn(shipCostumes, graphId)
+
 /** 锚广播「游戏刚下了这张图」时调用；新路径要让已经画出来的格子重画 */
 export const noteLearnedShipArt = (entry: ShipArtPathEntry): void => {
   if (!entry?.pathname || !(entry.mstId > 0)) return
   const key = shipArtKey(entry.mstId, entry.type)
   if (learnedArt.get(key) === entry.pathname) return
   learnedArt.set(key, entry.pathname)
+  indexLearned(key)
   // 这条以前多半是 404 过的，死链表里那条现在无意义了
   clearDeadArtUrls()
   notifyArtSourceChange()
@@ -353,6 +456,11 @@ export const noteLearnedShipArt = (entry: ShipArtPathEntry): void => {
 const resolveDamagedSuffix = (mstId: number, type: ShipImgType, damaged: boolean): boolean => {
   if (type === 'album_status') return false
   if (type === 'banner_g') return true
+  // 衣装构图编号（5xxx/6xxx）也落在 1500 以上，但它是**舰娘的衣装**、不是深海舰：
+  // 实测 5310（村雨改二的一套衣装）真实路径就是 character_full_dmg/5310_1257.png，
+  // 中破那张确实存在。按号段一刀切会把它抹回常态图——**两张都能显示，所以不报错**，
+  // 只是中破格与常态格永远长一个样。
+  if (isCostumeGraphId(mstId)) return damaged
   // 深海舰（>1500）损伤图与常态相同，北方栖姫系除外（同 poi）
   if (mstId > 1500 && ![1587, 1588, 1589, 1590].includes(mstId)) return false
   return damaged
@@ -383,12 +491,26 @@ export const shipImagePath = (mstId: number, type: ShipImgType, damaged = false)
   return learnedArt.get(shipArtKey(mstId, ntype)) ?? guessArtPath(mstId, ntype)
 }
 
-/** 舰娘立绘的 URL：本地缓存优先，未缓存则回退游戏资源服务器（可在钥里关） */
+/**
+ * 舰娘立绘的 URL。回退链三档：**本地缓存 → 立绘档案里的实物 → 游戏资源服务器**。
+ *
+ * ---- 档案那一档是 2026-08-31 补的（用户实机报的脱节）----
+ * 他翻完游戏图鉴，村雨改二六个图种的字节当场全进了档案（盘上真有文件），
+ * 艦素的立绘页却还是空的、脚注还写着「还没落到缓存」。因为这里此前只有
+ * 缓存与远端两档，而档案是第三本账——盘上明明有，取图这一侧却看不见。
+ *
+ * 档案排在缓存之后、远端之前：两者都是**本机已经有的字节**，谁都不必再走网络；
+ * 缓存在前只是因为它是游戏刚写的那一份（最新）。而档案比缓存牢靠——
+ * 缓存超限会被 Chromium 整盘丢弃（共享记忆 electron-disk-cache-size），档案不会。
+ * 于是「关掉远程取图」之后，见过的那些立绘照样看得到，这正是档案存在的意义。
+ */
 export const shipImageUrl = (mstId: number, type: ShipImgType, damaged = false): string | null => {
   const pathname = shipImagePath(mstId, type, damaged)
   if (!pathname) return null
   const file = cachedFile(pathname)
   if (file) return pathToFileURL(file).href
+  const archived = archivedArtUrlForPath(pathname)
+  if (archived) return archived
   const remote = remoteUrl(pathname)
   const version = shipImageVersion.get(mstId)
   return remote && version ? `${remote}?version=${encodeURIComponent(version)}` : remote
@@ -640,19 +762,108 @@ export const SHIP_IMG_WANTED: [ShipImgType, boolean, string, boolean][] = [
   ['supply_character', false, '补给', false],
 ]
 
-/** 尚未落到本地缓存的类型（开了远端回退时它们仍会显示，只是首次要走网络） */
+/**
+ * 本机一份都没有的图种（开了远端回退时它们仍会显示，只是首次要走网络）。
+ *
+ * 判据与取图那条链的前两档**必须是同一句话**：缓存里有、或者档案里有，就是本机有。
+ * 2026-08-31 之前这里只问缓存，于是出现用户报的那一幕——六张图正从档案里显示着，
+ * 脚注却还在说它们「还没落到缓存」。两本账各说各的，而错的那一本还写在屏幕上。
+ */
 export const missingShipImages = (mstId: number): { label: string; big: boolean }[] =>
-  SHIP_IMG_WANTED.filter(([type, damaged]) => !cachedShipImage(mstId, type, damaged)).map(
+  SHIP_IMG_WANTED.filter(([type, damaged]) => !localShipImage(mstId, type, damaged)).map(
     ([, , label, big]) => ({ label, big }),
   )
 
-/** 只查本地缓存，不回退远端（诊断用） */
-const cachedShipImage = (mstId: number, type: ShipImgType, damaged: boolean): string | null => {
+/** 只查本机已有的字节（缓存文件或档案实物），不回退远端（诊断用） */
+const localShipImage = (mstId: number, type: ShipImgType, damaged: boolean): string | null => {
   // 路径推导只有 `shipImagePath` 一份（含损伤后缀与「学到的真实路径优先」）：
-  // 两处各写一份的话，「有没有落到本地缓存」会按错的文件名去查，而它不报错
+  // 两处各写一份的话，「本机有没有」会按错的文件名去查，而它不报错
   const pathname = shipImagePath(mstId, type, damaged)
-  return pathname ? cachedFile(pathname) : null
+  if (!pathname) return null
+  return cachedFile(pathname) ?? archivedArtUrlForPath(pathname)
 }
+
+/**
+ * 图种的显示名（含 `_dmg` 后缀的档名形态）。**全项目就这一份**：
+ * 立绘画廊、衣装格、档案旧版卡都查它，各写一份必然出现同一张图两个叫法。
+ * 表里没有的按档名如实写（`图种 sp_remodel`）——名分层滞后时给不出中文名是常态，
+ * 编一个名字比裸着更糟。
+ */
+const CG_TYPE_LABEL: Record<string, string> = {
+  full: '全身立绘',
+  full_dmg: '全身 · 中破',
+  character_full: '立绘',
+  character_full_dmg: '立绘 · 中破',
+  character_up: '半身',
+  character_up_dmg: '半身 · 中破',
+  album_status: '图鉴立绘',
+  remodel: '改装图',
+  remodel_dmg: '改装图 · 中破',
+  sp_remodel: '特殊改装图',
+  card: '卡面',
+  card_dmg: '卡面 · 中破',
+  banner: '横幅',
+  banner_dmg: '横幅 · 中破',
+  banner_g_dmg: '横幅 · 沉没',
+  supply_character: '补给',
+}
+export const cgTypeLabel = (ntype: string): string => CG_TYPE_LABEL[ntype] ?? `图种 ${ntype}`
+
+// ---- 图鉴衣装 ----
+//
+// 一套衣装在游戏资源树里是一个**独立构图**，图种比本体少：实测本机学到的九套
+// 逐套都只有 card / character_full / character_up 三族（各含 _dmg），
+// 没有 full、没有 album_status、没有 remodel。所以这里不照搬 SHIP_IMG_WANTED——
+// 按本体那张表摆会稳定摆出一排 404，玩家看到的是一屏空框慢慢消失。
+/** 衣装画廊的一格。 */
+export interface CostumeArtCell {
+  type: ShipImgType
+  damaged: boolean
+  url: string
+  label: string
+  /** 档案里的身份。显示成功之后拿它入档（见 noteShipArtDisplayed） */
+  pathname: string
+  /** 立绘级尺寸，排版时占大格 */
+  big: boolean
+}
+
+// **推测只推这两格**：立绘与它的中破。card / character_up 那几种，玩家真在游戏里
+// 看过的会带着真实路径进 learnedArt（下面按学到的补），没看过的就不替他去问一遍——
+// 开着远程回退时，多推一种图种就是多一次对游戏服务器的请求。
+const COSTUME_IMG_WANTED: [ShipImgType, boolean, boolean][] = [
+  ['character_full', false, true],
+  ['character_full', true, true],
+]
+
+/**
+ * 一套衣装能摆出来的图。
+ *
+ * 除了上面那两格，**档案与学到的真实路径里另有的图种也一并摆出来**：
+ * 那两处记的都是「游戏自己取过这一张」，是事实而不是推测——官方哪天给某套衣装
+ * 补了别的图种，这里不必改代码就跟得上。反过来，推不出、也没见过的一律不摆。
+ */
+export const availableCostumeImages = (graphId: number): CostumeArtCell[] => {
+  const wanted = [...COSTUME_IMG_WANTED]
+  const known = new Set(wanted.map(([type, damaged]) => `${type}${damaged ? '_dmg' : ''}`))
+  for (const ntype of learnedCostumeTypes(graphId)) {
+    if (known.has(ntype)) continue
+    known.add(ntype)
+    const damaged = ntype.endsWith('_dmg')
+    wanted.push([(damaged ? ntype.slice(0, -4) : ntype) as ShipImgType, damaged, true])
+  }
+  const out: CostumeArtCell[] = []
+  for (const [type, damaged, big] of wanted) {
+    const url = shipImageUrl(graphId, type, damaged)
+    const pathname = shipImagePath(graphId, type, damaged)
+    if (!url || !pathname || deadArtUrls.has(url)) continue
+    out.push({ type, damaged, url, label: cgTypeLabel(`${type}${damaged ? '_dmg' : ''}`), pathname, big })
+  }
+  return out
+}
+
+/** 这套衣装在档案/学到的路径里出现过的图种（`character_full_dmg` 这种带后缀的原样返回）。 */
+const learnedCostumeTypes = (graphId: number): string[] =>
+  [...new Set([...archivedArtTypes(graphId), ...(learnedTypes.get(graphId) ?? [])])]
 
 /** 该图是否属于「大图」（排版用） */
 export const isBigShipImg = (type: ShipImgType, damaged: boolean): boolean =>

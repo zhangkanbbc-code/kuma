@@ -19,8 +19,10 @@ import {
   chipLabel,
   chipTitle,
   freeDeckIds,
+  renderDeckStatus,
   renderGantt,
   reset,
+  setBiCompact,
 } from './fixtures/render-combined-escort.mjs'
 
 const SORTIE = { active: true, practice: false, deckId: 1 }
@@ -180,4 +182,38 @@ test('铉的甘特条：联合未出击写「编队中」，未联合仍写「�
   assert.match(renderGantt(), /<span class="k">2舰<\/span><span class="g-idle">编队中<\/span>/)
   reset({ fleets: FOUR_IDLE_FLEETS })
   assert.match(renderGantt(), /<span class="k">2舰<\/span><span class="g-idle">待命<\/span>/)
+})
+
+// ---- ④'' 紧凑态：状态移交悬停，判定本身一个字不改 ----
+
+test('紧凑态默认关：不摆开关也没人动过它时，甘特条还是原来那条', () => {
+  reset({ fleets: FOUR_IDLE_FLEETS, combinedFlag: 1, sortie: SORTIE })
+  assert.match(renderGantt(), /<div class="g-item">/, '默认就该是常规排布，现状玩家零影响')
+  assert.doesNotMatch(renderGantt(), /g-peek/)
+})
+
+test('紧凑态的甘特条只留队号，状态不常驻', () => {
+  reset({ fleets: FOUR_IDLE_FLEETS, combinedFlag: 1, sortie: SORTIE })
+  setBiCompact(true)
+  const html = renderGantt()
+  assert.match(html, /data-fleet-peek="2"[^>]*>2舰</, '队号还得在，不然没东西可悬停')
+  assert.doesNotMatch(html, /出击中|待命|编队中/, '状态该移交悬停卡了')
+  assert.doesNotMatch(html, /g-supply/, '补给记号同理')
+})
+
+test('紧凑态移交的是摆法不是判定：悬停卡里那句仍然分得清出击/编队/待命', () => {
+  // 这条族的 bug 全长在判断上。摆法改了之后，同一条判定必须还在同一份产物里。
+  reset({ fleets: FOUR_IDLE_FLEETS, combinedFlag: 1, sortie: SORTIE })
+  setBiCompact(true)
+  assert.match(renderDeckStatus(2), /出击中/)
+  assert.doesNotMatch(renderDeckStatus(2), /待命/)
+  reset({ fleets: FOUR_IDLE_FLEETS, combinedFlag: 1 })
+  setBiCompact(true)
+  assert.match(renderDeckStatus(2), /编队中/)
+  reset({ fleets: FOUR_IDLE_FLEETS })
+  setBiCompact(true)
+  assert.match(renderDeckStatus(2), /待命/)
+  // 常规态与紧凑态读的是同一份，两边永远说同一句话
+  setBiCompact(false)
+  assert.match(renderGantt(), new RegExp(renderDeckStatus(2).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
 })

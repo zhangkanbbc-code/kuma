@@ -190,6 +190,35 @@ test('钥开关是主进程的不变量：三条会真出网的路都自己判�
   }
 })
 
+test('渲染层那两个开关的初值必须来自配置，不许写死 true', () => {
+  // 2026-09-01 实测的既有 bug：两处都是 `let allowRemote... = true`，真值只在钥（yu）
+  // 装配时才补上。可钥的 order 是 8.8，编队/图鉴（order 2~4）早就渲完了缩略图，
+  // 主机名也在装配之前就从 `kanso.lastGameHost` 恢复好了——于是玩家明明关着
+  // 「不联网补取美术资源」，启动头几秒仍有 12 条 banner_dmg 出网。
+  //
+  // 这一条只能钉源码：两个文件顶层都 require 了 `@electron/remote`，脱开 Electron
+  // 连 import 都做不到（同 core-regressions 里那几条的理由）。真正的判据是副本实测
+  // 的那两个数字（关：0 条；开：与改前一致），这里钉的是「别再改回写死默认」。
+  for (const [file, flag] of [
+    ['renderer/kcs-image.ts', 'allowRemoteArt'],
+    ['renderer/kcs-voice.ts', 'allowRemote'],
+  ]) {
+    const code = stripComments(fs.readFileSync(new URL(file, SRC), 'utf8'))
+    assert.doesNotMatch(
+      code,
+      new RegExp(`let ${flag}\\s*(?::[^=]+)?=\\s*(?:true|false)\\b`),
+      `${file} 把远端回退开关的初值写死了——它必须从 kanso.remoteArt 读`,
+    )
+    assert.match(
+      code,
+      /remote\.require\('\.\/config'\)\.get\('kanso\.remoteArt', true\) !== false/,
+      `${file} 少了「初值读配置」那一句`,
+    )
+    // 读不到配置时要回落默认开：默认关会让开着开关的玩家一启动就满屏图裂
+    assert.match(code, /catch \(error\) \{[\s\S]{0,200}?return true/, `${file} 的读取失败分支没有回落默认开`)
+  }
+})
+
 test('语音探测没有批量入口：一次点击一格，源码里不许出现对它的循环/并发调用', () => {
   // 整个域的前提就是玩家逐个点。打开一页扫 53 个槽 = 把一次浏览变成
   // 对游戏服务器的 53 连发，那正是「行为不像人」的样子。

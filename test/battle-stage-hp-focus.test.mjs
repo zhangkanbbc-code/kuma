@@ -130,8 +130,8 @@ test('打不到的那一位照旧跳过：聚焦也不给它画条', () => {
   const before = renderBrow(view, 1, hidden)
   setSelectedLogStage(3)
   const after = renderBrow(view, 1, hidden)
-  assert.equal(after, before, '空轨 +「打不到」，聚焦前后一个字都不该变')
-  assert.match(after, /打不到/)
+  assert.equal(after, before, '空轨 +「敌后方」，聚焦前后一个字都不该变')
+  assert.match(after, /敌后方/)
   assert.equal(/class="rm /.test(after), false, '实血那一截仍然不画')
 })
 

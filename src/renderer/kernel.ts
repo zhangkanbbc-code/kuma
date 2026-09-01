@@ -19,6 +19,7 @@ import type {
   NodeHistoryReport,
   PowerupResultCue,
   Quest,
+  ShipBossKillEntry,
   ShipLifeReport,
   ShipMemorialReport,
   SortieEscapedShip,
@@ -553,6 +554,15 @@ export const openResourceTrendWindow = (): Promise<void> =>
 export const openQuestTreeWindow = (questId?: number): Promise<void> =>
   ipcRenderer.invoke('window:quest-tree', questId ?? 0)
 
+// 人生记录窗：**一艘一扇**。同一个在籍 id 再调一次是把那扇拿到前面来，
+// 换一艘才开新的（主进程按 rosterId 记账，见 main/index 的 shipLifeWindows）。
+export const openShipLifeWindow = (rosterId: number): Promise<void> =>
+  ipcRenderer.invoke('window:ship-life', rosterId)
+
+/** 人生记录窗 → 主窗：把这一场战斗的复盘打开（跨窗，与任务树那条同一套骨架）。 */
+export const openBattleInMainWindow = (snapshotId: number): Promise<void> =>
+  ipcRenderer.invoke('window:ship-life-battle', snapshotId)
+
 // 浏览窗：每调用一次开新的一扇，不复用已经开着的那些
 export const openBrowseWindow = (): Promise<void> => ipcRenderer.invoke('window:browse')
 
@@ -655,10 +665,27 @@ export const queryFactoryStats = (
 export const querySenka = (at?: number): Promise<import('../shared/senka').SenkaSummary> =>
   ipcRenderer.invoke('mg:senka', at)
 
-// 战果任务自动补记：锱检测到「本月周期内完成、账里没有」后自动补一笔。
-// EO 的自动对账在主进程 mg:senka 查询时按海域页观测完成，渲染端不经手。
-export const logSenkaQuest = (questId: number, senka: number, name: string): Promise<boolean> =>
-  ipcRenderer.invoke('mg:senka-log-quest', questId, senka, name)
+// 任务战果的补记（连同 EO 的自动对账）都在主进程 mg:senka 查询时完成，渲染端
+// 不经手：入账只认账本里存着的 clearitemget 报文，渲染层的「看着已完成」是推断，
+// 推断不入账（2026-09-01 起，出处见 shared/senka-quest-book）。
+
+// 重算任务战果：撤回本战果月自动补记的任务行（合成行，指纹见 ledger），
+// 返回撤回的笔数。撤回之后重查一次账，有报文证据的自己回来，推断来的回不来。
+export const clearAutoBookedSenkaQuests = (): Promise<number> =>
+  ipcRenderer.invoke('mg:senka-clear-quest')
+
+// 手动补记（2026-09-01）：季中才装上 kuma 的玩家，之前交过的任务账本里没有证据。
+// 渲染层只递任务号，分值由主进程从 quests-scn 现解；去重与观测行共用同一个窗口。
+export const querySenkaQuestOptions = (): Promise<import('../shared/senka').SenkaQuestOption[]> =>
+  ipcRenderer.invoke('mg:senka-quest-options')
+
+export const addManualSenkaQuest = (
+  questId: number,
+): Promise<import('../shared/senka-quest-book').QuestSenkaBookingReason | 'failed'> =>
+  ipcRenderer.invoke('mg:senka-add-quest', questId)
+
+export const removeManualSenkaQuest = (id: number): Promise<boolean> =>
+  ipcRenderer.invoke('mg:senka-remove-quest', id)
 
 export const queryExpSamples = (): Promise<import('../shared/mg-types').ExpSampleReport> =>
   ipcRenderer.invoke('mg:exp-samples')
@@ -698,6 +725,12 @@ export const queryShipLife = (rosterId: number, limit = 80): Promise<ShipLifeRep
 
 export const queryShipMemorial = (mstIds: number[]): Promise<ShipMemorialReport> =>
   ipcRenderer.invoke('mg:ship-memorial', mstIds)
+
+/** 她终结过的 boss（敌旗舰的最后一击是她打的）。时间倒序，判据见 shared/boss-kill。 */
+export const queryBossKills = (
+  rosterId: number,
+  limit = 200,
+): Promise<ShipBossKillEntry[]> => ipcRenderer.invoke('mg:ship-boss-kills', rosterId, limit)
 
 export const queryBattleSnapshots = (limit = 40): Promise<BattleSnapshotSummary[]> =>
   ipcRenderer.invoke('chron:battles', limit)

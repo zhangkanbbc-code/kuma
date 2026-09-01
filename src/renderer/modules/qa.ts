@@ -2,12 +2,7 @@
 // 排序 + Shift 多选对比栏 + 单击进入这一艘的单独界面（整面板接管）。
 // 与鉴的关系：图鉴 = 收藏轴，列表 = 在籍轴；窄容器把表格重排成多行卡片，
 // 详情仍是同一套单独界面（2026-08-11 用户拍板，下接式预览与侧栏都被否掉）。
-import type {
-  PlayerShip,
-  ShipLifeEquipment,
-  ShipLifeEvent,
-  ShipLifeReport,
-} from '../../shared/mg-types'
+import type { PlayerShip, ShipLifeReport } from '../../shared/mg-types'
 
 import {
   esc,
@@ -24,12 +19,14 @@ import {
   onFilterInput,
   onMgChange,
   onTick,
+  openShipLifeWindow,
   queryLode,
   queryMasterRaw,
   queryShipLife,
   repairDuration,
   updateCountdowns,
 } from '../kernel'
+import { lifeEventHtml } from '../ship-life-events'
 import { alvIconHtml } from '../alv-icon'
 import { ensureShipStatsLode, panelBonusOf, shipGrowthEndpointsOf } from '../fleet-calc'
 import { fatigueBand } from '../fatigue'
@@ -40,6 +37,7 @@ import { elink, elinkHtml, navigate, pinEntityPeek, registerEntityRoute } from '
 import { entityNameHtml, entityNamePlain, entityTermHtml } from '../localization'
 import { activateModule } from '../mu'
 import { ensureLevelExpLode, expNeededTo } from '../level-exp'
+import { ensureMapCellLetters } from '../map-cell-letter'
 import {
   buildRemodelStageMap,
   isAdvancedRemodelTarget,
@@ -52,13 +50,14 @@ import {
   isFavoriteRoster,
   setShipRosterNote,
   shipPersonal,
+  shipPersonalRevision,
   shipRosterNote,
   toggleFavoriteRoster,
 } from '../ship-personal'
+import { parseNoteTags, tallyNoteTags, type NoteTagTally } from '../../shared/note-tags'
 import { shipChipMatches, SHIP_CHIPS, STYPE_CN } from '../ship-category'
 import { statRowLayered } from '../stat-bars'
 import { shipLifeDamageText } from '../../shared/ship-life-damage'
-import { mapCodeOf } from '../../shared/map-id'
 import { MARRIED_LEVEL_CAP } from '../../shared/ship-growth'
 import { compareDisplayNames } from '../../shared/name-order'
 import { instanceStatRows, type GrowthInitValues } from '../../shared/ship-stat-layers'
@@ -99,6 +98,8 @@ const state = {
   lvlFinal: false, // 临近改造的「最终改造」子筛选：只看目标是链尾的
   equipFilter: 0, // >0 时只显示装着该 mstId 装备的舰（装备图鉴「装备中清单」入口）
   equipFilterName: '',
+  noteTags: [] as string[], // 选中的备注标签（#xxx）；空 = 不按标签筛
+  tagsOpen: false, // 备注标签片是否摊开（收纳态默认只留一行）；模块级，跨重渲保留
 }
 const lifeReports = new Map<number, ShipLifeReport>()
 const lifeLoading = new Set<number>()
@@ -144,6 +145,29 @@ let rowCacheFavSignature = ''
 const favoriteSignature = (): string => {
   const personal = shipPersonal()
   return `${personal.favoriteRoots.join(',')}|${personal.favoriteRosterIds.join(',')}`
+}
+
+// ---- 备注标签（2026-09-01 用户拍板）----
+// 标签不是另一套数据，就是「这一艘的备注」正文里的 `#xxx`（口径见 shared/note-tags）。
+// 备注同样不走 mg 补丁，处境与上面的收藏签名一样；但它的写入点只有 ship-personal
+// 一处，那边给了一枚 revision，这里按它记忆——**不按键击重建**：备注框是
+// change（提交/失焦）才落盘的，玩家打字的每一下都走不到这里，输入链的闸门一根没碰。
+let noteTagRevision = -1
+let noteTagsByRoster = new Map<number, string[]>()
+
+const noteTagsOf = (rosterId: number): string[] => {
+  const revision = shipPersonalRevision()
+  if (revision !== noteTagRevision) {
+    noteTagRevision = revision
+    const next = new Map<number, string[]>()
+    // 离籍的舰备注仍留着（收容库要回看），照解不碍事——这是按 id 查的表。
+    for (const [key, note] of Object.entries(shipPersonal().rosterNotes)) {
+      const tags = parseNoteTags(note)
+      if (tags.length) next.set(Number(key), tags)
+    }
+    noteTagsByRoster = next
+  }
+  return noteTagsByRoster.get(rosterId) ?? []
 }
 
 const starSumOf = (ship: PlayerShip) =>
@@ -290,6 +314,12 @@ const applyFilters = (rows: Row[]): Row[] => {
   }
   if (state.smart && smartFilters[state.smart]) {
     out = out.filter(smartFilters[state.smart])
+  }
+  if (state.noteTags.length) {
+    // 多选取**并集**：标签多半是玩家自己起的分组名（札名、编队名），一艘舰通常
+    // 只带其中一个，取交集就是「点第二枚必空表」。「带其中任一个」才对得上
+    // 「把这几组人一起摆出来」这件事——他要的就是照札名凑编队。
+    out = out.filter((r) => noteTagsOf(r.ship.id).some((tag) => state.noteTags.includes(tag)))
   }
   if (state.smart === 'leveling' && state.lvlFinal) {
     // 「最终改造」子筛选：目标是中间段改造的不列（口径见 practice-leveling.ts）
@@ -502,6 +532,15 @@ const rowHtml = (row: Row) => {
   if (ship.lv === 99) badges.push('<span class="marry">Lv99 可结婚</span>')
   if (ship.sallyArea > 0) badges.push(`<span class="sally">标签 ${ship.sallyArea}</span>`)
   if (row.dup) badges.push('<span class="dup">重复 · 未锁</span>')
+  // 备注标签：玩家自己写在「这一艘的备注」里的 #xxx。摆在行上，筛出来的这几艘
+  // 是凭哪个标签进来的才看得出。行是这一页最挤的地方，最多摆三枚，其余折成 +N。
+  const rowTags = noteTagsOf(ship.id)
+  rowTags.slice(0, 3).forEach((tag) => badges.push(`<span class="ntag">#${esc(tag)}</span>`))
+  if (rowTags.length > 3) {
+    badges.push(
+      `<span class="ntag more" title="${esc(rowTags.map((tag) => `#${tag}`).join(' '))}">+${rowTags.length - 3}</span>`,
+    )
+  }
   const hurt = hurtBandOf(ship)
   const dockSub = row.dock
     ? `<span class="sub">入渠中 · 渠${row.dock.id} · <span data-cd="${row.dock.completeTime}">${fmtCountdown(row.dock.completeTime)}</span></span>`
@@ -627,110 +666,13 @@ const bonusLineHtml = (ship: PlayerShip) => {
     <span class="s" style="color:var(--dim)">${bonus.pure ? '装备加成' : '装备加成+改修★'}</span>${cells}</div>`
 }
 
-const lifeDate = (ts: number) =>
-  new Date(ts).toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+// 履历行的措辞、点色与日期格式都在 ../ship-life-events 里（人生记录弹窗摆的是
+// 同一条时间轴，文案源只许有一份）。这里只管把它嵌进卡片。
 
-const lifeMapName = (map: number | null) =>
-  map && map > 0 ? mapCodeOf(map) : ''
-
-const lifeEquipmentNames = (items: unknown): string => {
-  if (!Array.isArray(items) || !items.length) return '无装备'
-  return (items as ShipLifeEquipment[])
-    .map((item) =>
-      entityNamePlain(
-        'equip',
-        item.mstId,
-        mg.master.slotitems[item.mstId]?.name ?? `装备#${item.mstId || '?'}`,
-      ),
-    )
-    .join('、')
-}
-
-const lifeEventHtml = (event: ShipLifeEvent): string => {
-  const detail = event.detail ?? {}
-  let title = ''
-  let titleHtml: string | null = null
-  let note = ''
-  let tone: string = event.kind
-  if (event.kind === 'join') {
-    title = '加入镇守府'
-    note = `Lv ${detail.level ?? '?'}`
-  } else if (event.kind === 'exp') {
-    title = `获得经验 +${event.expDelta.toLocaleString()}`
-    note = `Lv ${detail.levelBefore ?? '?'} → ${detail.levelAfter ?? '?'}`
-  } else if (event.kind === 'equipment') {
-    title = '装备变更'
-    note = `${lifeEquipmentNames(detail.before)} → ${lifeEquipmentNames(detail.after)}`
-  } else if (event.kind === 'remodel') {
-    title = '完成改造'
-    const before = entityNamePlain(
-      'ship',
-      detail.beforeMstId ?? 0,
-      masterShipName(detail.beforeMstId ?? 0),
-    )
-    const after = entityNamePlain(
-      'ship',
-      detail.afterMstId ?? 0,
-      masterShipName(detail.afterMstId ?? 0),
-    )
-    note = `${before} → ${after} · Lv ${detail.level ?? '?'}`
-  } else if (event.kind === 'marriage') {
-    // 与改造同族的一次性永久变化；等级取婚礼**当刻**那份（通常 Lv99），
-    // 取不到就写「?」，不拿婚后的 100 冒充。
-    title = '结为誓约'
-    note = `ケッコンカッコカリ · 当时 Lv ${detail.level ?? '?'}`
-  } else if (event.kind === 'hangar_expand') {
-    // 同族的另一种一次性永久变化。点色借改造那一档金色，不新造样式。
-    // 旧上限取不到就只写新上限，不写箭头——不拿主数据的原量冒充「原来是几」。
-    tone = 'remodel'
-    title = '使用格納庫増設'
-    const slot = detail.slot ?? '?'
-    note =
-      detail.before != null
-        ? `第 ${slot} 格 · 搭载上限 ${detail.before} → ${detail.after ?? '?'}`
-        : `第 ${slot} 格 · 搭载上限现为 ${detail.after ?? '?'}`
-  } else if (event.kind === 'sortie') {
-    title = `出击 ${lifeMapName(event.map)}`
-    note = `${detail.deckId ? `第 ${detail.deckId} 舰队` : '出击舰队'}${detail.combined ? ' · 联合舰队' : ''}`
-  } else if (event.kind === 'battle') {
-    tone = event.mvp ? 'mvp' : 'battle'
-    const rank = event.rank === 'S' && detail.perfect ? 'S（完全胜利）' : (event.rank ?? '?')
-    title = event.practice
-      ? `演习 ${rank}`
-      : `${lifeMapName(event.map)}${event.cell != null ? ` · 点位 ${event.cell}` : ''} ${rank}`
-    note = `${event.isBoss ? 'Boss 战 · ' : ''}${event.mvp ? 'MVP · ' : ''}${detail.fleet === 'escort' ? '护卫舰队' : '主力舰队'}`
-    if (
-      typeof detail.snapshotId === 'number' &&
-      Number.isInteger(detail.snapshotId) &&
-      detail.snapshotId > 0
-    ) {
-      titleHtml = elink('battle', detail.snapshotId, title)
-    }
-  } else {
-    tone = event.kind
-    title =
-      event.kind === 'scrap'
-        ? '离开仓库：拆解'
-        : event.kind === 'material'
-          ? '离开仓库：被作为素材'
-          : '离开仓库：被击沉'
-    note =
-      event.kind === 'sunk'
-        ? `${lifeMapName(event.map)}${event.cell != null ? ` · 点位 ${event.cell}` : ''}${event.isBoss ? ' · Boss 战' : ''}`
-        : `Lv ${detail.level ?? '?'}`
-  }
-  return `<div class="life-event ${tone}">
-    <span class="life-dot"></span>
-    <span class="life-copy"><b>${titleHtml ?? esc(title)}</b><span>${esc(note)}</span></span>
-    <time>${esc(lifeDate(event.ts))}</time>
-  </div>`
-}
+/** 卡标题行右侧那枚开窗钮。弹窗与这张卡说的是同一艘，所以按钮就长在标题行上。 */
+const lifeWindowButtonHtml = (rosterId: number) =>
+  `<button class="life-pop" data-act="life-window">弹窗</button>
+    <span class="r">舰娘 ID ${rosterId}</span>`
 
 const lifeCardHtml = (row: Row | undefined): string => {
   if (!row) return ''
@@ -741,19 +683,19 @@ const lifeCardHtml = (row: Row | undefined): string => {
       : lifeLoading.has(row.ship.id)
         ? '正在读取本地记录……'
         : '等待读取记录……'
-    return `<div class="pcard life-card"><div class="h"><b>人生记录</b><span class="r">舰娘 ID ${row.ship.id}</span></div>
+    return `<div class="pcard life-card"><div class="h"><b>人生记录</b>${lifeWindowButtonHtml(row.ship.id)}</div>
       <div class="life-empty">${state}</div></div>`
   }
   const winRate = report.winRate == null ? '—' : `${Math.round(report.winRate * 100)}%`
   const practiceWinRate =
     report.practiceWinRate == null ? '—' : `${Math.round(report.practiceWinRate * 100)}%`
   const hurt = shipLifeDamageText(report)
-  const events = report.events.slice(0, 40).map(lifeEventHtml).join('')
+  const events = report.events.slice(0, 40).map((event) => lifeEventHtml(event)).join('')
   const since = report.trackingSince
     ? `自 ${fmtDate(report.trackingSince)} 起记录`
     : '等待下一次舰队同步'
   return `<div class="pcard life-card">
-    <div class="h"><b>人生记录</b><span class="r">舰娘 ID ${row.ship.id}</span></div>
+    <div class="h"><b>人生记录</b>${lifeWindowButtonHtml(row.ship.id)}</div>
     <div class="life-metrics">
       <span><small>记录经验</small><b>+${report.expGained.toLocaleString()}</b></span>
       <span><small>出击</small><b>${report.sorties}</b></span>
@@ -769,7 +711,7 @@ const lifeCardHtml = (row: Row | undefined): string => {
       <span class="hurt${hurt.partial ? ' partial' : ''}" title="${esc(hurt.title)}"><small>大破</small><b>${hurt.taiha}</b></span>
     </div>
     <div class="life-sub">Boss ${report.bossBattles} 战 · 改造 ${report.remodels} 次</div>
-    <div class="life-timeline">${events || '<div class="life-empty">还没有事件</div>'}</div>
+    <div class="life-timeline">${events || '<div class="life-empty">暂无事件</div>'}</div>
     <div class="life-foot">${esc(since)}</div>
   </div>`
 }
@@ -859,7 +801,17 @@ const previewHtml = (row: Row) => {
     ${bonusLineHtml(ship)}
     <label class="pv-personal"><span>这一艘的备注 · ID ${ship.id}</span>
       <input id="qa-roster-note" maxlength="120" value="${esc(shipRosterNote(ship.id))}"
-        placeholder="与图鉴共用"></label>
+        placeholder="与图鉴共用 · 写 #标签 可进筛选"></label>
+    ${(() => {
+      // 备注里认出来的标签摆一排：框里是纯文本（input 描不了色），玩家看不出
+      // 「#水打」到底算没算数——认出来的原样摆在下面，就是这一层的回执。
+      // 点一枚 = 回列表只看这个标签，与右边的「筛选同名」同一种去向。
+      const tags = noteTagsOf(ship.id)
+      if (!tags.length) return ''
+      return `<div class="pv-ntags">${tags
+        .map((tag) => `<span class="ntag" data-ntag="${esc(tag)}" title="回列表只看带 #${esc(tag)} 的舰娘">#${esc(tag)}</span>`)
+        .join('')}</div>`
+    })()}
     <div class="pv-acts">
       <span class="pv-act" data-act="filter-same">筛选同名 ${chainCount} 艘</span>
       <span class="pv-act" data-act="compare">${state.compare.includes(ship.id) ? '移出对比' : '加入对比'}</span>
@@ -921,6 +873,7 @@ export const openRosterCleanup = () => {
   state.stypeChip = '全部'
   state.equipFilter = 0
   state.equipFilterName = ''
+  state.noteTags = []
   applySmart('dupe')
   state.selected = 0
   render()
@@ -978,6 +931,10 @@ const exportCsv = async (rows: Row[]) => {
 
 const loadLife = async (rosterId: number) => {
   const generation = lifeGeneration
+  // 履历里的图/点要写成玩家认的字母，字母表到手后重渲一次（没到手先写 `#号`）
+  ensureMapCellLetters(() => {
+    if (pane?.isConnected) render()
+  })
   // 「手上这份是不是最新代」取代「有没有数据」当去重条件——数据现在不会被清空了
   if (lifeLoaded.get(rosterId) === generation || lifeLoading.has(rosterId)) return
   lifeLoading.add(rosterId)
@@ -1078,6 +1035,106 @@ const levelingTbodyHtml = (rows: Row[]): string => {
     .join('')
 }
 
+// ---- 筛选区那排标签片的收纳（2026-09-01 用户提）----
+// 「#内容会平铺开 如果量大了不就会挤占下文内容？」——标签是玩家自己写在备注里的，
+// 写多少就有多少枚片。平铺下去筛选区一路长高，把表顶到看不见。所以默认只留一行。
+//
+// 两档，都是**量**出来的，不掐死枚数：片宽随标签字数变（`#E1` 与 `#E1_甲战力保存`
+// 差一倍不止），面板还有宽窄两档并且可以拖，任何一个固定 N 都会在一半的情形下说谎
+// ——宽面板收得太狠，窄面板照样撑高。
+//   ① 就地摆得下（这一排没换行）：一枚不收，钮也不出现。两三个标签的档与收纳
+//      之前逐像素一致，玩家看不出这里多了一套机关。
+//   ② 摆不下：整排挪到**自己那一行**（上面那枚 8px 间隔变成换行符），只留这一行，
+//      余下的收进「更多 N ▾」。挪行是必须的——不挪的话这一排是从上一行的尾巴上
+//      起头的，尾巴上剩多宽全看筛选片排到哪，实测有大半的宽度档剩不下一枚，
+//      「只留一行」就成了「一枚都不给看」。挪到自己那一行，量的才是整条面板宽。
+// 做法照 ru 的度量收纳（foldMetricsRow）：摊开量一次、按次序从尾巴往回收、每收一枚
+// 复核一拍，直到真的只剩一行。次序就是片的次序（tallyNoteTags：用得多的在前），
+// 所以收掉的总是最少用的那几枚。
+//
+// 一条不让步的：**选中的片一枚都不收**。收进去就是「筛选生效了，可玩家看不见是哪个
+// 标签在筛」，而筛选区里已经没有片能把它点掉（口径同 ji 的 .cat-picked：状态不许跟着
+// 内容一起藏）。选中的多到一行摆不下时宁可让这一排换行，也不藏——那是玩家自己点出来的。
+let tagFold = { signature: '', folded: [] as string[], ownRow: false }
+
+const applyTagFold = (
+  chips: HTMLElement[],
+  more: HTMLElement,
+  gap: HTMLElement,
+  folded: string[],
+  ownRow: boolean,
+) => {
+  for (const chip of chips) chip.classList.toggle('nt-folded', folded.includes(chip.dataset.ntag!))
+  // 一枚都没收就没有「更多」这回事
+  more.classList.toggle('nt-folded', folded.length === 0)
+  gap.classList.toggle('nt-row', ownRow)
+  const count = more.querySelector('i')
+  if (count && folded.length) count.textContent = `${folded.length}`
+}
+
+const foldNoteTagChips = () => {
+  if (!pane?.isConnected) return
+  // 摊开态整排照摆，一枚不收：钮上写着「收起」，此刻不该还有东西藏着
+  if (state.tagsOpen) return
+  const bar = pane.querySelector<HTMLElement>('.filters')
+  if (!bar) return // 详情页没有筛选区
+  const chips = [...bar.querySelectorAll<HTMLElement>('.fchip.ntag[data-ntag]')]
+  const more = bar.querySelector<HTMLElement>('[data-ntag-more]')
+  const gap = bar.querySelector<HTMLElement>('[data-ntag-gap]')
+  if (!chips.length || !more || !gap) return
+  // 行宽 0 = 面板还没显示（模块没激活 / 分区切走了）。此刻量出来的结论是「全都放不下」，
+  // 会把整排收干净；真显示出来时 ResizeObserver 还会来一次，不必在这里瞎猜。
+  const probe = bar.clientWidth
+  if (probe <= 0) return
+  const signature = `${probe}|${chips
+    .map((chip) => `${chip.dataset.ntag}${chip.classList.contains('on') ? '*' : ''}`)
+    .join(',')}`
+  // 缓存命中是**照着重贴一遍**，不是跳过：重渲会把 DOM 整个换掉（收纳类跟着没了），
+  // 而同样的宽度、同样的片、同样的选中，结论本来就是同一份。
+  if (signature === tagFold.signature) {
+    applyTagFold(chips, more, gap, tagFold.folded, tagFold.ownRow)
+    return
+  }
+  // 先按①的样子量：全摊开、不挪行、钮藏起来。量的必须是「就这么摆放不放得下」——
+  // 连钮一起量的话，本来正好摆下的一排会因为钮自己换了行而被判成放不下。
+  for (const chip of chips) chip.classList.remove('nt-folded')
+  more.classList.add('nt-folded')
+  gap.classList.remove('nt-row')
+  const flatTop = chips[0].offsetTop
+  if (chips.every((chip) => chip.offsetTop === flatTop)) {
+    applyTagFold(chips, more, gap, [], false)
+    tagFold = { signature, folded: [], ownRow: false }
+    return
+  }
+  // ②：挪到自己那一行再收
+  gap.classList.add('nt-row')
+  more.classList.remove('nt-folded')
+  const baseTop = chips[0].offsetTop
+  const fits = () =>
+    chips.every((chip) => chip.classList.contains('nt-folded') || chip.offsetTop === baseTop) &&
+    more.offsetTop === baseTop
+  const folded: string[] = []
+  for (let i = chips.length - 1; i >= 0; i -= 1) {
+    if (fits()) break
+    const chip = chips[i]
+    if (chip.classList.contains('on')) continue
+    chip.classList.add('nt-folded')
+    folded.unshift(chip.dataset.ntag!)
+  }
+  if (folded.length === chips.length) {
+    // 一枚都没剩（面板窄到连一枚片加一枚钮都摆不下）。宁可多占一行，也不摆一排
+    // 「什么都没有的收纳钮」——那看着就是功能坏了。
+    chips[0].classList.remove('nt-folded')
+    folded.shift()
+  }
+  // 收纳只改类，不动 innerHTML：commitPaneHtml 记的那份字符串仍与 DOM 对得上——
+  // 下一次渲染生成同样的字符串就该整段跳过，收纳结果本来就是同一份。
+  // 唯一被改掉的一处文本是钮上的枚数（写在 <i> 里，渲染出来是占位的 0）：它只有
+  // 量完才知道，而重渲换回占位之后这一趟又会重新填上，两边始终自洽。
+  applyTagFold(chips, more, gap, folded, true)
+  tagFold = { signature, folded, ownRow: true }
+}
+
 const render = () => {
   if (!pane) return
   if (!Object.keys(mg.ships).length || !mstShips.size) {
@@ -1098,12 +1155,32 @@ const render = () => {
     void loadLife(detailRow.ship.id)
     return
   }
+  // 备注标签的片：只数**在籍**的（离籍舰的备注还留着，把它算进角标就是
+  // 「片上写 3、点开只有 2」）。一个标签都没写过时这一段是空的，筛选区
+  // 不会多出任何东西。
+  const tagTally = tallyNoteTags(all.map((r) => shipRosterNote(r.ship.id)))
+  if (state.noteTags.length) {
+    // 备注被改掉、或带着这个标签的舰离籍之后，条件本身就没了。留着它只会是
+    // 一张永远空的表，而筛选区里已经没有任何一枚片能把它点掉。
+    const alive = new Set(tagTally.map((entry) => entry.tag))
+    state.noteTags = state.noteTags.filter((tag) => alive.has(tag))
+  }
   const rows = applyFilters(all)
   sortRows(rows)
 
   const { counts, repairList } = tallyRows(all)
   const smartChip = (key: string, label: string, extra = '') =>
     `<span class="fchip q ${extra}${state.smart === key ? ' on' : ''}" data-smart="${key}"><b style="font-weight:400">${label}</b><i>${counts[key as keyof typeof counts]}</i></span>`
+
+  const tagChip = (entry: NoteTagTally) =>
+    `<span class="fchip ntag${state.noteTags.includes(entry.tag) ? ' on' : ''}" data-ntag="${esc(entry.tag)}" title="备注里写着 #${esc(entry.tag)} 的舰娘 · 多选 = 带其中任一个">#${esc(entry.tag)}<i>${entry.count}</i></span>`
+
+  // 收纳钮。收起态默认藏着（class nt-folded），由 foldNoteTagChips 量完再决定露不露、
+  // 数字写多少——摆得下就一直藏着，玩家看到的与没有这套收纳时一模一样。
+  // 反过来「默认露着、放不下才藏」的话，量之前那一帧会先闪一枚「更多 0」。
+  const tagMoreChip = state.tagsOpen
+    ? '<span class="fchip ntag more on" data-ntag-more="1" title="标签收回一行">收起 ▴</span>'
+    : '<span class="fchip ntag more nt-folded" data-ntag-more="1" title="展开摆不下的标签">更多 <i>0</i> ▾</span>'
 
   const th = (key: string, label: string, extra = '') =>
     `<th class="${extra}${state.sortKey === key ? ' sort' : ''}" data-sort="${key}">${label}${state.sortKey === key ? (state.sortDir < 0 ? ' ▼' : ' ▲') : ''}</th>`
@@ -1160,6 +1237,13 @@ const render = () => {
           ${smartChip('infleet', '在编')}
           ${smartChip('dock', '入渠中')}
           ${smartChip('repair', '待修', 'warn ')}
+          ${
+            tagTally.length
+              ? `<span class="nt-gap${state.tagsOpen ? ' nt-row' : ''}" data-ntag-gap="1"></span>${tagTally
+                  .map(tagChip)
+                  .join('')}${tagMoreChip}`
+              : ''
+          }
         </div>
         ${repairSummaryHtml(repairList)}
         <div class="qa-sort-mobile"><b>排序</b>${mobileSort}</div>
@@ -1182,6 +1266,8 @@ const render = () => {
   if (!commitPaneHtml(pane, 'qa', html)) return
 
   wire()
+  // 换过 DOM 才需要重收：输出没变的那一支上面已经 return，DOM 与收纳结果都还是原样
+  foldNoteTagChips()
 }
 
 // ---- 交互 ----
@@ -1212,6 +1298,16 @@ const wire = () => {
     } else if (chip.dataset.lvlfinal) {
       // 「最终改造」子筛选开关，与排序子分类同排
       state.lvlFinal = !state.lvlFinal
+    } else if (chip.dataset.ntag) {
+      // 备注标签可以并选（并集），所以这一枚是**加减**，不是像舰种那样的互斥切换
+      const tag = chip.dataset.ntag
+      state.noteTags = state.noteTags.includes(tag)
+        ? state.noteTags.filter((picked) => picked !== tag)
+        : [...state.noteTags, tag]
+    } else if (chip.dataset.ntagMore) {
+      // 摊开/收回那一排标签片。这是玩家自己按的，重渲随便换 DOM——
+      // 与被动补丁引发的重渲不同，没有「把正按着的那颗钮的 click 吃掉」这回事。
+      state.tagsOpen = !state.tagsOpen
     }
     render()
   })
@@ -1279,13 +1375,30 @@ const wireDetail = (row: Row) => {
     state.search = masterShipName(row.ship.shipId)
     state.stypeChip = '全部'
     state.smart = null
+    state.noteTags = []
     state.selected = 0
     render()
+  })
+  pane.querySelectorAll<HTMLElement>('.pv-ntags [data-ntag]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      // 详情里点标签 = 带着这一个标签回列表，与「筛选同名」同一种去向
+      state.search = ''
+      state.stypeChip = '全部'
+      state.smart = null
+      state.noteTags = [chip.dataset.ntag!]
+      state.selected = 0
+      render()
+    })
   })
   pane.querySelector('[data-act="fav-roster"]')?.addEventListener('click', () => {
     toggleFavoriteRoster(row.ship.id)
     invalidateRowCache() // 行上的 ★ 与临近改造排序都吃这份缓存
     render()
+  })
+  // 弹窗：同一艘再点一次是把已经开着的那扇拿到前面来，不会开出第二扇
+  //（主进程按在籍 id 记着开过哪几扇）。
+  pane.querySelector('[data-act="life-window"]')?.addEventListener('click', () => {
+    void openShipLifeWindow(row.ship.id)
   })
   pane.querySelector('[data-act="compare"]')?.addEventListener('click', () => {
     const id = row.ship.id
@@ -1296,6 +1409,11 @@ const wireDetail = (row: Row) => {
   const rosterNote = pane.querySelector<HTMLInputElement>('#qa-roster-note')
   rosterNote?.addEventListener('change', () => {
     setShipRosterNote(row.ship.id, rosterNote.value)
+    // change 只在**提交/失焦**时来一次（不是每键击），所以这里重渲一次把
+    // 刚认出来的标签摆到框下面，输入链上的三道闸门一根都没碰。
+    // 但要走推迟闸门：change 是被 mousedown 的失焦带出来的，此刻按下与抬起
+    // 之间——直接换 DOM 会把玩家正点着的那颗按钮的 click 吃掉。
+    if (!deferWhilePressed(pane, 'qa', render)) render()
   })
   rosterNote?.addEventListener('keydown', (e) => {
     // 组合中的回车是敲定候选那一下（实测它照样带 isComposing），
@@ -1316,6 +1434,7 @@ export const locateShipInList = (mstId: number) => {
   state.search = masterShipName(mstId)
   state.stypeChip = '全部'
   state.smart = null
+  state.noteTags = []
   state.equipFilter = 0
   state.selected = 0
   render()
@@ -1329,6 +1448,7 @@ export const locateRosterInList = (rosterId: number) => {
   state.search = ''
   state.stypeChip = '全部'
   state.smart = null
+  state.noteTags = []
   state.equipFilter = 0
   state.selected = rosterId
   detailEnter = true
@@ -1341,6 +1461,7 @@ export const locateEquipHolders = (equipMstId: number, name: string) => {
   state.search = ''
   state.stypeChip = '全部'
   state.smart = null
+  state.noteTags = []
   state.selected = 0
   state.equipFilter = equipMstId
   state.equipFilterName = name
@@ -1513,9 +1634,14 @@ export const mountRosterView = (element: HTMLElement) => {
       // 窄态把表格重排成多行卡片、并把滚动容器从 .twrap 换成 .qa-app
       // （CSS 在 index.html 的 .mod-qa.narrow 一段）。跨过阈值时渲染出的
       // 结构与滚动落点都不同，得重渲染一次。
-      if (element.classList.contains('narrow') === narrow) return
-      element.classList.toggle('narrow', narrow)
-      render()
+      if (element.classList.contains('narrow') !== narrow) {
+        element.classList.toggle('narrow', narrow)
+        render()
+      }
+      // 宽度一变，「一行摆得下几枚标签」就跟着变。跨没跨窄档阈值都要重量一次：
+      // 跨阈值那次只是换了个类，render 生成的字符串多半与上次一模一样、整段跳过，
+      // 收纳挂在它后面就永远等不到。
+      foldNoteTagChips()
     })
     rosterResizeObserver.observe(element)
   }

@@ -60,9 +60,9 @@ const FRAME = {
   voiceDurations: [{ path: '/kcs/sound/kcikwmknqjpvkg/167370.mp3', ms: 18_400 }],
 }
 
-test('自检卡：还没读过时不装作已经读过', () => {
+test('自检卡：没读过时不装作已经读过', () => {
   const html = cardHtml(mountDebug().pane.innerHTML, CARD)
-  assert.match(html, /还没读过/)
+  assert.match(html, /暂无读取记录/)
   assert.match(html, /读一次/)
   // 一个数字都不许有：没读过就是没读过，摆 0 会被当成「读到了，全是 0」
   assert.doesNotMatch(html, /XHR \d/)
@@ -105,7 +105,7 @@ test('自检卡：解过音频却一条语音都没认出来时，明说这一�
 test('自检卡：一条都没解过时不下结论，只说该去做什么', async () => {
   await withGamePage([{ ...FRAME, decodes: [] }], async () => {
     const html = await readOnce(mountDebug())
-    assert.match(html, /还没解过音频/)
+    assert.match(html, /暂无音频解码记录/)
     // 既不报通也不报坏——没有证据就不下判断
     assert.doesNotMatch(html, /语音认得出来/)
     assert.doesNotMatch(html, /没有一条认成语音/)

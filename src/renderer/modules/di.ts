@@ -54,6 +54,7 @@ import {
   queryBattleSnapshots,
   queryLode,
   queryRouteStats,
+  trackMountCleanup,
   uiGet,
   uiSet,
   updateCountdowns,
@@ -740,7 +741,7 @@ const myDropsHtml = (
         ? `这一点打过 ${mine.battles} 战，还没捞到过舰娘${
             mine.sWinsWithoutDrop ? `（S 胜 ${mine.sWins} 次里 ${mine.sWinsWithoutDrop} 次空手）` : ''
           }`
-        : '当前点还没有你的掉落记录'
+        : '当前点暂无你的掉落记录'
     }</div>`
   }
   // ⑤-裁-2（2026-08-22 用户拍板）：限定期结束后**永不删除，只换语境**。
@@ -1213,7 +1214,7 @@ const blockedBossNightHtml = (s: SortieView, b: BattleView): string | null => {
     const friendlyIncoming = isEventMapArea(s.mapArea) && mg.friendlyRequest?.flag === 1
     return `<div class="verdict v-warn"><span class="ic">夜</span><span class="tx">
       <b>敌护卫仍有战力 — 夜战预计接触不到 ${flagshipName}</b>
-      <span>${friendlyIncoming ? '已开友军要請——友军清理敌护卫残余后，夜战就能与敌主力舰队交战' : '可不进夜战省弹药'}</span>
+      <span>${friendlyIncoming ? '已开友军要請 · 友军先清残余' : '可不进夜战省弹药'}</span>
     </span><span class="act">${friendlyIncoming ? '友军先行' : '可选择撤退'}</span></div>`
   }
   // 打得到旗舰是斩杀决策的关键信息，不该只在「打不到」时才出声。
@@ -1915,7 +1916,7 @@ const hpNumsHtml = (view: ShipStageView): string => {
  */
 const hpBarHtml = (view: ShipStageView): string => {
   if (view.ship.unattackable) {
-    return '<span class="bar"><span class="dd" style="width:100%"></span></span><span class="nums"><span class="st9">打不到</span></span>'
+    return '<span class="bar"><span class="dd" style="width:100%"></span></span><span class="nums"><span class="st9">敌后方</span></span>'
   }
   const { solidPct, ghostPct, emptyPct, ratio } = hpBarValues(view)
   return `<span class="bar${view.pinned ? ' pinned' : ''}"><span class="rm ${hpClass(ratio)}" style="width:${solidPct}%"></span><span class="dl" style="width:${ghostPct}%"></span><span class="dd" style="width:${emptyPct}%"></span></span><span class="nums">${hpNumsHtml(view)}</span>`
@@ -3747,7 +3748,7 @@ const catalogTallyFor = (
 const myCompsHtml = (s: SortieView, tally: CatalogEncounterTally): string => {
   const chron = chronFor(s)
   if (!chron.encounters.length) {
-    return `<div class="l" style="color:var(--dim);font-size:10.5px">当前点还没有你的遭遇记录</div>`
+    return `<div class="l" style="color:var(--dim);font-size:10.5px">当前点暂无你的遭遇记录</div>`
   }
   return chron.encounters
     .slice(0, 3)
@@ -4182,7 +4183,7 @@ const openBattleSnapshot = async (id: number) => {
   try {
     const snapshot = await queryBattleSnapshot(id)
     if (!snapshot) {
-      replayOpenError = '这场战斗的本地记录已经不在了。'
+      replayOpenError = '这场战斗的本地记录已清理'
       activateModule('di')
       if (diPane) render(diPane)
       return
@@ -4214,7 +4215,7 @@ const practiceRosterHtml = (): string => {
   const snapshot = mg.practice
   if (!snapshot?.list?.length) {
     return `<div class="prac-card empty"><b>演习名簿</b>
-      <span>还没同步——在游戏里打开一次演习页即可。</span></div>`
+      <span>尚未同步：在游戏里打开一次演习页</span></div>`
   }
   const reset = nextJstTime([3, 15])
   // 快照属于本轮刷新周期才算数：演习一天刷两次（03:00 / 15:00 JST）
@@ -4360,7 +4361,7 @@ const practiceLevelingHtml = (): string => {
     `<i class="${levelingOrder === order ? 'on' : ''}" data-act="lvl-order" data-order="${order}" role="button" title="${tip}">${label}</i>`
   return `<div class="lvl-card">
     <div class="lvl-head"><b>推荐练级</b>
-      <span class="lvl-order"><i class="fin${levelingFinalOnly ? ' on' : ''}" data-act="lvl-final" role="button" title="只看下一段改造就是链尾的">最终改造</i>${orderChip('level', '按等级', '按还差的等级数排，同差距等级高的在前')}${orderChip('exp', '按经验', '按还差的总经验排，练半级也算数；算不出的沉底')}</span>
+      <span class="lvl-order"><i class="fin${levelingFinalOnly ? ' on' : ''}" data-act="lvl-final" role="button" title="只看下一段改造就是链尾的">最终改造</i>${orderChip('level', '按等级', '按还差的等级数排，同差距等级高的在前')}${orderChip('exp', '按经验', '按还差的总经验排 · 不足一级也计入 · 无值排末')}</span>
     </div>
     ${body}
   </div>`
@@ -4811,6 +4812,17 @@ registerModule({
   order: 7,
   mount(pane) {
     diPane = pane
+    // 人生记录窗里点了某一场（击杀簿或履历时间轴）→ 主进程把主窗拿到前面，
+    // 再把快照 id 送到这里打开复盘。**必须在同步段注册**并挂退订：
+    // mount 中途抛错后点「重试装配」会再走一遍，不退订就是双注册（点一场开两次）。
+    const openBattleFromShipLife = (_event: unknown, rawId: unknown) => {
+      const id = Number(rawId)
+      if (Number.isInteger(id) && id > 0) void openBattleSnapshot(id)
+    }
+    ipcRenderer.on('window:ship-life-battle', openBattleFromShipLife)
+    trackMountCleanup(() =>
+      ipcRenderer.removeListener('window:ship-life-battle', openBattleFromShipLife),
+    )
     // 玩家定的口径：这三段可折，战斗流水默认展开，另外两段默认折起来。
     // 其余卡片一概不动——右栏那些本来就短，折了反而多一次点击。
     installSectionFolding(pane, [

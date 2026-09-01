@@ -2,7 +2,7 @@
 // webview 参数与 UA 清洗移植自 poi views/kan-game-wrapper.tsx
 // (https://github.com/poooi/poi, MIT License, Copyright (c) poi contributors)。
 import { installCrashBadge, installCrashNet, recordCrash } from './crash-guard'
-import { noteLearnedShipArt, setGameHost } from './kcs-image'
+import { noteLearnedShipArt, noteShipCostumes, setGameHost } from './kcs-image'
 import type { ShipArtPathEntry } from '../shared/ship-art-path'
 import { loadVoiceArchive, noteVoiceArchived } from './voice-archive'
 import { loadVoiceAbsent } from './voice-probe'
@@ -14,7 +14,12 @@ import type { BgmArchiveEntry } from '../shared/bgm-archive-plan'
 import { setVoiceHost } from './kcs-voice'
 import { installEquipIconFallback } from './equip-icon'
 import { installEntityArtFallback } from './entity-art'
-import { getGameScaleMode, getGameScaleStep, setGameScaleApplier } from './game-scale'
+import {
+  getGameScaleMode,
+  getGameScaleStep,
+  noteGameScaleLive,
+  setGameScaleApplier,
+} from './game-scale'
 import { GAME_WIDTH, computeGameLayout } from '../shared/game-scale'
 import { getUiZoom, initKernel, initUiZoom, mg, onUiZoom, openBrowseWindow, setUiZoom } from './kernel'
 import { initBgmPreview } from './bgm-preview'
@@ -153,6 +158,14 @@ const applyGameLayout = (immediate = false) => {
   if (dragging) return
   const layout = gameLayoutNow()
   gameWrapper.style.width = layout.locked ? `${layout.width}px` : ''
+  // 语音字幕画在界面层，游戏画面缩放它本来不跟。把量到的倍率挂成 wrapper 上的一个
+  // 自定义属性，字号那道乘法交给样式表（见 index.html 的 --voice-caption-px）。
+  // **挂 wrapper 不挂根元素**：自定义属性一改，那棵子树的样式就要重算一遍，而
+  // 拖窗口时这一句每帧都会走到——wrapper 底下只有 webview 与两块字幕层。
+  // 拖分隔条期间不写（函数开头就返回了）也不缺：那会儿 wrapper 整个挂着
+  // transform: scale()，字幕跟着一起缩，松手时这里再补一次真值。
+  gameWrapper.style.setProperty('--game-scale', `${layout.scale}`)
+  noteGameScaleLive(layout.scale)
   if (immediate) applyZoom()
   else applyZoomDebounced()
 }
@@ -165,7 +178,7 @@ const showLoadError = (code: number, description: string, url: string) => {
   overlayTitle.textContent = '游戏页面加载失败'
   overlayDetail.textContent =
     `${description} (${code})\n${url}\n\n` +
-    `要走代理的话，在「设置 · 代理」里配置后点重试。`
+    `需要代理时，在「设置 · 代理」中配置后重试`
   overlayDetail.style.whiteSpace = 'pre-wrap'
   overlay.classList.add('visible')
 }
@@ -269,6 +282,12 @@ if (validGameHost(rememberedGameHost)) {
 // （新深海舰的立绘带随机串），拿到就让图鉴重画一次。
 broadcaster.addListener('kancolle.shipart.learn', (entry: ShipArtPathEntry) => {
   noteLearnedShipArt(entry)
+})
+
+// 玩家刚翻了图鉴（或启动回灌补完了历史）：衣装归属表变了，
+// 立绘页的衣装格该跟着变。整表广播——它只有几百条，比逐条并入省心。
+broadcaster.addListener('kancolle.shipcostume.learn', (map: unknown) => {
+  noteShipCostumes(map)
 })
 
 // 刚有一句语音进了持久档案：图鉴里那一格该点亮了。

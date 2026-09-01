@@ -181,7 +181,7 @@ const sendPush = async (input: unknown): Promise<PushSendResult> => {
       return {
         ok: false,
         deferred: true,
-        message: `人还在电脑前（键鼠空闲 ${Math.floor(idleSeconds)} 秒 · 门槛 ${settings.presenceIdleMinutes} 分）· 离开后补发`,
+        message: `在场中暂缓（键鼠空闲 ${Math.floor(idleSeconds)} 秒 · 门槛 ${settings.presenceIdleMinutes} 分）· 离开后补发`,
       }
     }
   }

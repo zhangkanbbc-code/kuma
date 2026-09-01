@@ -1957,7 +1957,7 @@ const render = () => {
         }${heldQueue.length ? ` 暂留 ${heldQueue.length}` : ''}</span>
         <span class="lk" data-act="readall">全部已读</span>
       </div>
-      <div class="c-list">${listHtml || '<div style="padding:30px 16px;color:var(--dim);font-size:12px;line-height:1.8">还没有通知</div>'}</div>
+      <div class="c-list">${listHtml || '<div style="padding:30px 16px;color:var(--dim);font-size:12px;line-height:1.8">暂无通知</div>'}</div>
       <div class="c-foot"><span class="lk" data-act="clear" title="删除账本里的全部通知历史，不影响规则与阈值">清空历史</span><span class="lk" data-act="test" title="只弹出来看效果，不写入通知历史，也不会推送到手机">▶ 测试通知</span></div>
     </aside>
     <div class="right">

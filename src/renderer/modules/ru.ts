@@ -797,7 +797,7 @@ const shipDetailHtml = (deck: Deck, ship: PlayerShip): string => {
       return `<div class="sd-row">${equipPeekIconHtml(inst!.mstId, mst.iconId, name, { className: 'sm' })}<span class="nm">${elink('mstEquip', inst!.mstId, mst.name)}</span>${imp}</div>`
     })
     .join('')
-  return `<div class="sd-eq">${detailRows || '<div class="sd-row" style="color:var(--dim)">尚无装备数据（返港后同步）</div>'}</div>
+  return `<div class="sd-eq">${detailRows || '<div class="sd-row" style="color:var(--dim)">暂无装备数据（返港后同步）</div>'}</div>
       ${shipStatsHtml(deck, ship)}
       ${repairQuoteHtml(ship)}
       ${nextRemodelHtml(deck, ship)}`
@@ -883,7 +883,7 @@ const shipRow = (deck: Deck, ship: PlayerShip, isFlag: boolean) => {
     : ''
   // 沙盘：就地给一个移出按钮。移除入口原本只在上面的选人条上，
   // 而人是在这张表里看编成的——找不到入口就等于不能移除。
-  // 行是固定 6 列的 grid，头像列只有 38px，塞不下按钮（会被挤成竖排两个字）。
+  // 行是固定 6 列的 grid，头像列只有 48px，塞不下按钮（会被挤成竖排两个字）。
   // 所以做成行角上的 ×，绝对定位、不占列。
   const sandboxOut =
     deck.id === SANDBOX_DECK_ID
@@ -1193,7 +1193,7 @@ const sallyFlagHtml = (ships: PlayerShip[]): string => {
   }
   if (verdict.kind === 'free') {
     return `<span class="ab-flag ok" data-sally-jump="1" title="${esc(
-      `现在开着的活动图都不查札，这支队随便派：\n${detail}${roster}`,
+      `现在开着的活动图都不查札，这支队不受限：\n${detail}${roster}`,
     )}">当前不查札</span>`
   }
   // 措辞用户 2026-08-11 点名要显化成整句;「期间限定」在直译黑名单里,
@@ -2182,7 +2182,7 @@ const sandboxPickerHtml = (): string => {
   return `<div class="sand-picker">
     <div class="sand-row">
       <div class="search">⌕<input id="ru-sandbox-search" placeholder="搜在册舰加入沙盘" value="${esc(sandboxPick)}"></div>
-      <div class="sand-chosen-row">${chosen || '<span class="sand-empty">还没挑人</span>'}</div>
+      <div class="sand-chosen-row">${chosen || '<span class="sand-empty">暂未选择</span>'}</div>
     </div>
     ${query ? `<div class="sand-cands">${chips || '<span class="sand-empty">没有匹配的舰</span>'}</div>` : ''}
   </div>`

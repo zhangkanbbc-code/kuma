@@ -515,7 +515,7 @@ test('那句与回退现实相悖的说明已经删掉——它写在可能刚�
 test('深海侧的遭遇事实行：拔收藏格时没跟着走，措辞也不越界', () => {
   const ji = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
   assert.match(ji, /const abyssEncounterFactHtml = /)
-  assert.match(ji, /遭遇志：尚无交手记录/)
+  assert.match(ji, /遭遇志：暂无交手记录/)
   assert.match(ji, /遭遇志：交手 \$\{met\} 次/)
   // ⚠️ 日期是「账本里最早的一条」，不是「你的第一次」——记账之前的不可知。
   // 首见志那个模块当初正是被这件事纠正的，别在这里把它写回「首次」。
@@ -673,10 +673,12 @@ test('画廊尾巴零网络：卡片只用档案那一份的 file:// 地址，�
   // 说明只陈述事实：图种 + 留存月份 +（有就写）版本号，不主张任何季节归属
   assert.match(section, /档案 \$\{kept\} 留存/)
   assert.equal(/季节版|当季|圣诞|盛夏/.test(section), false, '档案卡主张了推不出来的季节归属')
-  // 两侧都真的接上了（接不上就等于这个函数白写）
-  assert.match(ji, /archivedArtCellsHtml\(mstId, imgs\.map\(\(im\) => im\.pathname\)\)/)
+  // 两侧都真的接上了（接不上就等于这个函数白写）。舰娘侧的现行路径 2026-08-31 起
+  // 连衣装那几格一起去重——衣装也是「官方现在放着的」，漏掉它档案卡会摆重复的图。
+  assert.match(ji, /archivedArtCellsHtml\(mstId, \[\s*\.\.\.imgs\.map\(\(im\) => im\.pathname\),\s*\.\.\.costumes\.paths,\s*\]\)/)
   assert.match(ji, /archivedArtCellsHtml\(mstId, images\.map\(\(image\) => image\.pathname\)\)/)
-  assert.match(ji, /<div class="cg-grid" data-cg-grid>\$\{cells\}\$\{archived\}<\/div>/)
+  // 排序有讲究：本体现行 → 衣装 → 档案旧版。档案卡永远在最后一段
+  assert.match(ji, /<div class="cg-grid" data-cg-grid>\$\{cells\}\$\{costumes\.html\}\$\{archived\}<\/div>/)
   assert.match(ji, /<div class="cg-grid abyss-cg-grid" data-cg-grid>\$\{cells\}\$\{archived\}<\/div>/)
 })
 
@@ -695,7 +697,9 @@ test('入档之后界面要跟上：新并进来的那一条会广播，正看�
   assert.match(index, /new CustomEvent\('kanso:archive-lit'/)
   // ③ 图鉴听它，并且**只在看着那一页时**重画（两道性能闸门由 scheduleRender 自己管）
   assert.match(ji, /document\.addEventListener\('kanso:archive-lit', onArchiveLit\)/)
-  assert.match(ji, /if \(mstId && mstId !== showing\) return/)
+  // 衣装那一份记在**构图编号**下（5xxx/6xxx），要先换算回形态再比，
+  // 否则玩家正看着的那一页刚入档一套衣装，会被当成「别人的事」不重画
+  assert.match(ji, /if \(mstId && mstId !== showing && costumeOwnerOf\(mstId\) !== showing\) return/)
   assert.match(ji, /scheduleRender\(\)/)
   // 订阅要退订：图鉴会被重复装配，漏退就是双重订阅
   assert.match(ji, /trackMountCleanup\(\(\) => document\.removeEventListener\('kanso:archive-lit', onArchiveLit\)\)/)

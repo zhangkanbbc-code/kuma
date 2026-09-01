@@ -36,9 +36,16 @@ import { buildSortieRuleContext, deriveSortieRule } from './quest-sortie-rules'
 import { applyQuestSourceConflicts } from './quest-source-conflicts'
 import { actionIncrement, buildEquipTypeNameIndex, deriveFallbackTracker } from './quest-counter-rules'
 import { questAnnualMonth, questPeriodFromCode, questPeriodKey } from '../../shared/quest-period'
+import {
+  buildShipProperNameIndex,
+  localizeShipProperWords,
+} from '../../shared/ship-proper-name'
+import { localizeShipNationWords } from '../../shared/ship-nation-name'
+import { localizeShipTypeWords } from '../../shared/ship-type-name'
 import { USEITEM_MATERIAL_INDEX } from '../../shared/useitem-stock'
 
 import type { QuestPeriodKind } from '../../shared/quest-period'
+import type { ShipProperNameIndex } from '../../shared/ship-proper-name'
 import { qpTaskGroups, qpTaskSlot } from '../../shared/qp-types'
 
 import type {
@@ -118,6 +125,41 @@ interface Tracker {
 }
 
 const num = (v: unknown, d = 0) => (typeof v === 'number' ? v : d)
+
+/**
+ * 把追踪器表里所有编成门的词换成规范中文写法。**三遍，同一个出口**：
+ *   ① 舰种词（表与口径见 shared/ship-type-name.ts）——封闭表，认不出的放行；
+ *   ② 专有名词：舰名 / 舰级 / 队名残段（口径见 shared/ship-proper-name.ts）——
+ *      回查主数据与译名包，认不出的同样放行；
+ *   ③ 国籍词组（表与口径见 shared/ship-nation-name.ts）——封闭表，认不出的放行。
+ * ①② 认的词不相交，先后无所谓；按「先封闭表、后回查」排，落到 ② 的就都是 ① 明确放行的词。
+ * ③ **必须最后**：②的字形折叠先把「法国艦艇」折成「法国舰艇」，③ 一张表就收两种字形；
+ * 而 ③ 的产物自带「/」（「美/英/澳/荷舰娘」），放最后就不会再被谁切开重读。
+ *
+ * 追踪器自己的 `fleetGoal` 与**每条 task 各自带的** `fleetGoal` 都要过：
+ * 组合规则里那一份挂在 task 上（`QpTask.fleetGoal`），漏掉它，
+ * 抽屉的编成检查会有一半仍是日文。就地改，不复制一份追踪器——
+ * 消费端（`toState` 的快照、`evaluateFleetGoal` 的实时判定）拿的都得是同一份词。
+ *
+ * 舰名索引由调用方**装配期建一次**传进来：五百多个 token 各自线性扫 3057 条主数据，
+ * 是每次 `initQuestCounter` 都要白付的账。
+ */
+const localizeFleetGoalLabels = (
+  trackers: Map<number, Tracker>,
+  properNames: ShipProperNameIndex,
+): void => {
+  const localizeGoal = (goal: QpFleetGoal | undefined) => {
+    for (const group of goal?.groups ?? []) {
+      group.label = localizeShipNationWords(
+        localizeShipProperWords(localizeShipTypeWords(group.label), properNames),
+      )
+    }
+  }
+  for (const tracker of trackers.values()) {
+    localizeGoal(tracker.fleetGoal)
+    for (const task of tracker.tasks) localizeGoal(task.fleetGoal)
+  }
+}
 
 // ---- 引擎装配 ----
 //
@@ -404,6 +446,23 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
     const patched = applyQuestSourceConflicts(trackers, (conflict, reason) => {
       console.warn(`[kanso] qp: 源修正台账 ${conflict.questId}/${conflict.code} 未生效——${reason}`)
     })
+
+    // 编成门标签的中文化——**全仓唯一的那个出口**，位置就定在这里。
+    //
+    // 放在四层规则源与修正台账**之后**：再往前一步就要在每个源里各做一遍
+    //（kcwiki 抄上游日文、自研侧切中文正文，两边的词根本不同源），各做一遍就会漂移；
+    // 再往后一步就晚了——`evaluateFleetGoal` 拿 `group.label` 拼抽屉那几句
+    //（「还差 2 艘「駆逐」」），它读的是这张表里的追踪器，不是 `toState()` 的快照。
+    // 收在这一点上，任务行的 `qpFleetNeedItems` 与抽屉的「编成检查」用的就是同一份词。
+    //
+    // 三张口径各自封在 shared 里：舰种词 ship-type-name（封闭表），
+    // 专有名词 ship-proper-name（回查主数据 + 译名包），国籍词组 ship-nation-name（封闭表）。
+    // 都是整词匹配、认不出原样放行。
+    // 幂等——规范写法既不是任一封闭表的键，回查又把中文名指向它自己，重建多少次结果都一样。
+    localizeFleetGoalLabels(
+      trackers,
+      buildShipProperNameIndex({ masterRaw, localizationData: localization?.data }),
+    )
 
     const sourceCounts: Record<QpTrackerSource, number> = {
       kcwiki: 0,

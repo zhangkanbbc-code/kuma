@@ -364,7 +364,12 @@ test('fleet checks expose a readable difference for every deck', () => {
   const check = globalThis.__qpHandlers['qp:check-fleet']()
   assert.deepEqual(check[103].decks, [2])
   assert.equal(check[103].diffs[0].ok, false)
-  assert.equal(check[103].diffs[0].lines[0].issue, '旗舰不符合「軽巡」')
+  // 抽屉「编成检查」这一半也走 group.label：2026-09-01 起装配完追踪器统一中文化
+  //（shared/ship-type-name），kcwiki 的「軽巡」到这里已经是「轻巡」。
+  // 这一条钉的正是「一个出口两条腿同时受益」——任务行那半在
+  // core-regressions 的『编成门标签语』里，两处必须说同一个词。
+  assert.equal(check[103].diffs[0].lines[0].label, '轻巡')
+  assert.equal(check[103].diffs[0].lines[0].issue, '旗舰不符合「轻巡」')
   assert.equal(check[103].diffs[1].ok, true)
 })
 

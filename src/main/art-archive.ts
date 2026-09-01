@@ -28,6 +28,7 @@ import { atomicWriteJsonSync } from './atomic-json'
 import { APPDATA_PATH } from './env'
 import { safeConsole } from './crash-log'
 import config from './config'
+import { costumeOwnerOf } from './ship-costume-store'
 import {
   ART_ARCHIVE_MAX_ENTRY_BYTES,
   ART_ARCHIVE_PATH,
@@ -314,7 +315,9 @@ export const artArchiveEntries = (): ArtArchiveEntry[] => {
 
 export const artArchiveStats = (): ArtArchiveUsage => {
   load()
-  return artArchiveUsage([...entries.values()], limitBytes())
+  // 衣装归属换算：图鉴衣装记在独立构图编号下，不换算的话「覆盖 N 个形态」
+  // 会把玩家收的每一套衣装都数成一艘新舰娘（见 shared/ship-costume）
+  return artArchiveUsage([...entries.values()], limitBytes(), costumeOwnerOf)
 }
 
 /**

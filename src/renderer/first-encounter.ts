@@ -184,5 +184,5 @@ export const firstEncounterLineHtml = (kind: 'drop' | 'kill', mstId: number): st
   if (earliest) {
     return `<span class="first-line none">最早的一条：<b>${esc(placeText(earliest))}</b> · ${esc(dayText(earliest.ts))}（更早的不可知）</span>`
   }
-  return `<span class="first-line none">${kind === 'drop' ? '遭遇志里没有它的掉落记录' : '还没有击沉过它'}</span>`
+  return `<span class="first-line none">${kind === 'drop' ? '遭遇志里没有它的掉落记录' : '暂无击沉记录'}</span>`
 }

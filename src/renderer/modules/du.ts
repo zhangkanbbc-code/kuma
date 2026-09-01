@@ -418,7 +418,7 @@ const sallyCardHtml = (areaId: number): string => {
   if (!tagged.length) {
     return `<div class="card" style="--hc:var(--gold)">
       <div class="h"><b>锁船标签（札）</b></div>
-      <div style="font-size:11.5px;color:var(--dim);line-height:1.8">还没有舰娘被活动标签锁定</div>
+      <div style="font-size:11.5px;color:var(--dim);line-height:1.8">暂无被活动标签锁定的舰娘</div>
     </div>`
   }
   const rows = tagged
@@ -672,7 +672,7 @@ const airBaseCardHtml = (info: any): string => {
   if (!all.length) {
     return `<div class="card" style="--hc:#8fb8e0">
       <div class="h"><b>基地航空</b></div>
-      <div style="font-size:11.5px;color:var(--dim)">还没同步：在游戏里打开一次出击海域选择页</div>
+      <div style="font-size:11.5px;color:var(--dim)">尚未同步：在游戏里打开一次出击海域选择页</div>
     </div>`
   }
   // 只显示本活动海域的中队；对不上就全显示并标注
@@ -756,7 +756,7 @@ const airBaseCardHtml = (info: any): string => {
     ${targetSelect}
     ${rows}
     ${airAdviceHtml(info, targetNeed, target)}
-    ${Object.keys(distances).length ? '' : '<div class="tnote">本地资料尚无当前难度的确认航程</div>'}
+    ${Object.keys(distances).length ? '' : '<div class="tnote">本地资料暂无当前难度的确认航程</div>'}
   </div>`
 }
 
@@ -831,8 +831,8 @@ const ownedSpecialHtml = (
       const summary = [...new Set(effects.map((entry) => entry.effect))].join(' · ')
       return [`<span class="op-owned-ship" title="${esc(summary)}">
         ${
-          // 这一格被 .op-owned-ship 压成 22×22 正方形——方形裁横幅必须用 avatar 档
-          // 的取景偏移（65%），battle 档贴右裁出来只剩发梢/舾装（2026-08-24 用户实机报）。
+          // 这一格被 .op-owned-ship 压成 36×22 的小横框——小框裁横幅必须用 avatar 档
+          // 的取景偏移（68%），battle 档贴右裁出来只剩发梢/舾装（2026-08-24 用户实机报）。
           shipThumbHtml(ship.shipId, mst?.name ?? `#${ship.shipId}`, { className: 'avatar' })
         }
         ${elink('ship', rosterId, entityNamePlain('ship', ship.shipId, mst?.name ?? `#${ship.shipId}`))}
@@ -877,7 +877,7 @@ const friendlyFleetsHtml = (
   // 一艘友军一格：头像 + 舰名（+ 调用方追加的练度）。排布照 ownedSpecialHtml 的
   // .op-owned-ship，横排交给 .op-friend-ships 的 flex，不再拿「·」当分隔。
   //
-  // 头像这一格被压成 22×22 正方形——方形裁横幅必须用 avatar 档的取景偏移（65%），
+  // 头像这一格被压成 36×22 的小横框——小框裁横幅必须用 avatar 档的取景偏移（68%），
   // battle 档贴右裁出来只剩发梢/舾装（2026-08-24 用户实机报）。
   //
   // 资料层的舰名是从 wiki 誊抄的，连不上主数据就没有 mstId：**无号不放头像**，
@@ -941,7 +941,7 @@ const friendlyFleetsHtml = (
   const packHtml = layerHtml(pack, '友军编成资料', 'op-friends', packRow)
   return seenHtml || packHtml
     ? `${seenHtml}${packHtml}`
-    : '<div class="sub9">这个难度还没有友军编成资料</div>'
+    : '<div class="sub9">这个难度暂无友军编成资料</div>'
 }
 
 const extrasCardHtml = (info: any): string => {
@@ -962,7 +962,7 @@ const extrasCardHtml = (info: any): string => {
       <details class="op-more" data-keep="op-specials"><summary>展开完整特效资料（${specials.length} 条）</summary>
         <div class="op-list">${specials.map(specialChip).join('')}</div>
       </details>`
-    : '<div class="sub9">这个难度还没有特效舰资料</div>'
+    : '<div class="sub9">这个难度暂无特效舰资料</div>'
   const difficultyRank = mg.mapGauges[info.api_id]?.selectedRank ?? 0
   ensureFriendlyFleets(info.api_id, difficultyRank)
   const friendHtml = friendlyFleetsHtml(
@@ -1136,7 +1136,7 @@ const gaugeCardHtml = (info: any): string => {
   if (!gauge) {
     return `<div class="card" style="--hc:var(--bad)">
       <div class="h"><b>血条阶段</b></div>
-      <div style="font-size:11.5px;color:var(--dim)">还没同步：在游戏里打开一次出击地图</div>
+      <div style="font-size:11.5px;color:var(--dim)">尚未同步：在游戏里打开一次出击地图</div>
       ${sallyRuleHtml(info)}
     </div>`
   }
@@ -1198,7 +1198,7 @@ const gimmickCardHtml = (info: any): string => {
   }
   return `<div class="card" style="--hc:var(--evt)">
     <div class="h"><b>开路 · 破甲机关</b><span class="aux">当前难度资料待补</span></div>
-    <div class="gnote2">E-${info.api_no} 这个难度还没有机关资料</div>
+    <div class="gnote2">E-${info.api_no} 这个难度暂无机关资料</div>
   </div>`
 }
 

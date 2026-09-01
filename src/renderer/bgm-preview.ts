@@ -43,7 +43,7 @@ export const bgmPreviewHtml = (bgmId: number, kind: 'port' | 'battle'): string =
     // 与语音格同一口径——如实说明原因，别让玩家对着一个点不响的按钮猜。
     const why = remoteArtState().enabled
       ? '这一首本机还没有，游戏里响过一次就会存下来'
-      : '设置里关掉了「不联网补取」，这一首本机又还没存过，所以放不出来'
+      : '本机没有这一首；设置里「未缓存的立绘/语音从游戏资源服务器取」是关着的'
     return `<span class="bgm-pv muted" title="${esc(why)}">${name}</span>`
   }
   const from = archived ? '档案实物 · 零联网 · ' : ''

@@ -45,8 +45,17 @@ export const shipPersonal = (): ShipPersonalState => {
   return cache
 }
 
+// 这份个人层不走 mg 补丁，也没有版本号可订阅——用它派生出来的东西
+//（列表行上的 ★、备注里解析出来的 #标签）因此没法知道自己什么时候旧了。
+// 写入点只有本文件的 save 一处，所以就在这里记一个代号，派生方按它记忆。
+let revision = 0
+
+/** 个人层的写入代号：变了就说明收藏或备注被改过，派生缓存该重建了。 */
+export const shipPersonalRevision = () => revision
+
 const save = (next: ShipPersonalState) => {
   cache = next
+  revision += 1
   uiSet(KEY, next)
 }
 

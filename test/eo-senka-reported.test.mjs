@@ -19,7 +19,6 @@ import { fileURLToPath } from 'node:url'
 
 import { buildSync } from 'esbuild'
 
-import { EO_SENKA, senkaMonthStart } from '../src/shared/senka.ts'
 import { exmapSenkaOf } from './fixtures/store-result-readers.mjs'
 
 const require = createRequire(import.meta.url)
@@ -37,9 +36,11 @@ const sliceBetween = (from, to, label) => {
   return ledgerSource.slice(start, end)
 }
 
+// 下界锚在**下一个方法的声明**上，不锚在它的注释首行——注释是会重写的，
+// 锚在注释上等于让这条守卫跟着文案漂（2026-09-01 就这么断过一次）
 const LOG_EO_CLEAR = sliceBetween(
   '  logEoClear = (ts: number, mapId: number, reportedSenka?: number | null): boolean => {',
-  '  /** 任务领取 → 一笔特别战果',
+  '  logQuestSenka = (',
   'logEoClear',
 )
 
@@ -52,9 +53,14 @@ const senkaLogDdl = (() => {
   return ledgerSource.slice(at, end + '\n      );'.length)
 })()
 
+// EO_SENKA / senkaMonthStart 也从这一份打包里取：senka.ts 自己有 import 了
+// （周期起点判据在 quest-period），node 直接加载 .ts 会因为无扩展名的相对
+// 引入而 ERR_MODULE_NOT_FOUND——走 esbuild 这一条路两边都不会歪。
 const HARNESS = `
 import { EO_SENKA } from './senka'
 import { senkaMonthStart } from './senka'
+
+export { EO_SENKA, senkaMonthStart }
 
 class EoLedger {
   db: any
@@ -67,7 +73,9 @@ export const makeLedger = (db: any) => new EoLedger(db)
 
 const bundle = (() => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-eo-senka-'))
-  fs.copyFileSync(path.join(ROOT, 'src', 'shared', 'senka.ts'), path.join(dir, 'senka.ts'))
+  for (const name of ['senka.ts', 'quest-period.ts']) {
+    fs.copyFileSync(path.join(ROOT, 'src', 'shared', name), path.join(dir, name))
+  }
   const entry = path.join(dir, 'eo.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'eo.cjs')
@@ -81,7 +89,7 @@ const bundle = (() => {
   })
   return outfile
 })()
-const { makeLedger } = require(bundle)
+const { EO_SENKA, makeLedger, senkaMonthStart } = require(bundle)
 
 const openLedger = (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-eo-db-'))

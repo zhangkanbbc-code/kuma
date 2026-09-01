@@ -142,7 +142,7 @@ test('打不到的那一位画成灰态、血条位不画血条', () => {
   const hidden = view.eShips[3]
   const html = renderBrow(view, 1, hidden)
   assert.match(html, /class="brow[^"]*\bunattackable\b/, '整行灰化的类')
-  assert.match(html, /打不到/)
+  assert.match(html, /敌后方/)
   // 假数一个都不许露脸；空轨也不能被当成残血涂色
   assert.equal(/0\/1/.test(html), false, '「0/1」不是这条舰的血量')
   assert.equal(/class="rm /.test(html), false, '实血那一截不画')

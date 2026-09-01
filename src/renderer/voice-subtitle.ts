@@ -35,6 +35,11 @@ import {
   danmakuDurationSeconds,
 } from '../shared/voice-caption-hold'
 import { shouldRenderCaption } from '../shared/voice-request-gate'
+import {
+  normalizeVoiceCaptionSize,
+  VOICE_CAPTION_SIZE_DEFAULT,
+  VOICE_CAPTION_SIZE_PATH,
+} from '../shared/voice-caption-size'
 import { normalizeVoiceText } from '../shared/voice-text'
 
 const remote = require('@electron/remote')
@@ -179,6 +184,21 @@ export const setVoiceCaptionsEnabled = (enabled: boolean) => {
   captionsEnabled = enabled
   if (!enabled) clearCaptionVisuals()
 }
+
+/**
+ * 字幕的**基准**字号（px）。屏幕上生效的是它乘游戏画面当前倍率——那道乘法在样式表里
+ *（index.html 的 `--voice-caption-px`），倍率由镇壳写在 `#game-wrapper` 上。
+ *
+ * 初值自己从 config 读，不等钥推：钥装配失败这条设置就会静默失效，而字幕层
+ * 在钥之前很久就已经开始出字了（同 lg 的建造剧透开关那条注释）。
+ */
+export const setVoiceCaptionSize = (px: unknown) => {
+  document.documentElement.style.setProperty(
+    '--voice-caption-base',
+    `${normalizeVoiceCaptionSize(px)}px`,
+  )
+}
+setVoiceCaptionSize(config.get(VOICE_CAPTION_SIZE_PATH, VOICE_CAPTION_SIZE_DEFAULT))
 
 const loadData = async () => {
   const [raw, zh, ja, npc, enemies, wikiwiki, wikiwikiAbyss, seasonal, kcwikiVoice, kcwikiShips] =

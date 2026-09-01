@@ -7,7 +7,15 @@ import ledger from './ledger'
 import * as store from './store'
 
 import { damageTakenIn, taihaIn } from '../../shared/battle-damage'
+import { bossKillAnomalyText, resolveBossKill } from '../../shared/boss-kill'
 import { mapIdOf } from '../../shared/map-id'
+import {
+  matchShipJoinOrigins,
+  SHIP_JOIN_ORIGIN_WINDOW_MS,
+  type ShipBuildReceipt,
+  type ShipDropSighting,
+  type ShipJoinRecord,
+} from '../../shared/ship-join-origin'
 import type {
   PlayerShip,
   Section,
@@ -18,6 +26,97 @@ import type { ShipLifeEventInput, ShipLifeStateRow } from './ledger'
 const baselines = ledger.loadShipLifeState()
 let primed = baselines.size > 0
 const pendingRemodels = new Map<number, number>()
+
+// 「加入镇守府」的出处登记簿：掉落与建造各一本，等 join 来认领。
+//
+// 为什么要等：掉落舰要到**下一次回港**才出现在舰队列表里，join 是那时才检出的；
+// 建造虽然同一个包里就入籍，但归因判据同属一处，一起走 shared 的匹配器。
+// 只放内存——认领窗口只有半天，而中途重启会让 primeShipLife 重建基线，
+// 那些舰根本不会再产生 join 事件（老记录靠 ledger 的一次性回算补）。
+let pendingDrops: ShipDropSighting[] = []
+let pendingBuilds: ShipBuildReceipt[] = []
+
+const prunePendingOrigins = (ts: number) => {
+  const cutoff = ts - SHIP_JOIN_ORIGIN_WINDOW_MS
+  if (pendingDrops.some((row) => row.ts < cutoff)) {
+    pendingDrops = pendingDrops.filter((row) => row.ts >= cutoff)
+  }
+  if (pendingBuilds.some((row) => row.ts < cutoff)) {
+    pendingBuilds = pendingBuilds.filter((row) => row.ts >= cutoff)
+  }
+}
+
+/**
+ * 战斗结算带 `api_get_ship`：登记一条待认领的掉落。
+ *
+ * 地点取这一战的图与点（与遭遇志 logEncounter 同一批字段，一处口径）。
+ * 点位说不出（currentCell <= 0）就整条不登记——地点是这条记录存在的理由，
+ * 只剩一张图号不值得写进履历，更不该拿 `#0` 冒充一个点。
+ */
+const registerDropSighting = (body: any, ts: number) => {
+  const mstId = Number(body?.api_get_ship?.api_ship_id)
+  if (!(mstId > 0)) return
+  const sortie = store.getState().sortie
+  if (!sortie || sortie.practice || sortie.mapArea <= 0 || !(sortie.currentCell > 0)) return
+  const node = sortie.nodes.find((item) => item.cell === sortie.currentCell)
+  prunePendingOrigins(ts)
+  pendingDrops.push({
+    ts,
+    mstId,
+    map: mapIdOf(sortie.mapArea, sortie.mapNo),
+    cell: sortie.currentCell,
+    isBoss: node?.eventId === 5,
+  })
+}
+
+/**
+ * 领取建造结果：登记一条待认领的建造。
+ *
+ * `api_ship.api_id` 是**在籍 id**，精确到这一个实例；顶层 `api_id` 是同一个数，
+ * 只作兜底。同一个包里 store 已把她并进舰队，紧接着的 syncShipStates 就会认领。
+ */
+const registerBuildReceipt = (body: any, ts: number) => {
+  const rosterId = Number(body?.api_ship?.api_id ?? body?.api_id)
+  if (!(rosterId > 0)) return
+  const mstId = Number(body?.api_ship?.api_ship_id ?? body?.api_ship_id)
+  prunePendingOrigins(ts)
+  pendingBuilds.push({ ts, rosterId, mstId: mstId > 0 ? mstId : 0 })
+}
+
+/**
+ * 给这一批新检出的 join 补出处，并把认领掉的登记划走。
+ *
+ * 事件对象是引用，认到了就地补 map/cell/is_boss 与 detail.origin；
+ * 认不到的原样落账——**确认不了就不标**，履历那一行照旧只写 Lv。
+ */
+const attachJoinOrigins = (joins: ShipLifeEventInput[]) => {
+  if (!joins.length) return
+  const records: ShipJoinRecord[] = joins.map((event) => ({
+    ts: event.ts,
+    rosterId: event.rosterId,
+    mstId: event.mstId,
+  }))
+  const origins = matchShipJoinOrigins(records, { drops: pendingDrops, builds: pendingBuilds })
+  const usedDrops = new Set<number>()
+  const usedBuilds = new Set<number>()
+  origins.forEach((origin, at) => {
+    if (!origin) return
+    const event = joins[at]
+    if (origin.origin === 'build') {
+      usedBuilds.add(origin.sourceIndex)
+      event.detail = { ...(event.detail ?? {}), origin: 'build' }
+      return
+    }
+    usedDrops.add(origin.sourceIndex)
+    event.map = origin.map
+    event.cell = origin.cell
+    event.isBoss = origin.isBoss
+    event.detail = { ...(event.detail ?? {}), origin: 'drop' }
+  })
+  // 认领掉的立刻划走：一条掉落只能供一艘认亲，留着会被下一艘同名舰再认一次
+  if (usedDrops.size) pendingDrops = pendingDrops.filter((_row, at) => !usedDrops.has(at))
+  if (usedBuilds.size) pendingBuilds = pendingBuilds.filter((_row, at) => !usedBuilds.has(at))
+}
 
 const equipmentOf = (ship: PlayerShip): ShipLifeEquipment[] => {
   const state = store.getState()
@@ -101,6 +200,8 @@ const syncShipStates = (ts: number, apiPath = '') => {
   if (!ships.length) return
   const states: ShipLifeStateRow[] = []
   const events: ShipLifeEventInput[] = []
+  // 这一批新入籍的（与 events 里的是同一批对象），出处统一在循环后补
+  const joins: ShipLifeEventInput[] = []
 
   for (const ship of ships) {
     const prior = baselines.get(ship.id)
@@ -110,13 +211,15 @@ const syncShipStates = (ts: number, apiPath = '') => {
     const next = stateOf(ship, ts, prior?.firstSeen ?? ts)
     if (!prior) {
       if (primed) {
-        events.push({
+        const join: ShipLifeEventInput = {
           ts,
           rosterId: ship.id,
           mstId: ship.shipId,
           kind: 'join',
           detail: { level: ship.lv },
-        })
+        }
+        events.push(join)
+        joins.push(join)
       }
       baselines.set(ship.id, next)
       states.push(next)
@@ -187,6 +290,7 @@ const syncShipStates = (ts: number, apiPath = '') => {
   }
 
   primed = true
+  attachJoinOrigins(joins)
   ledger.saveShipLifeStates(states)
   ledger.logShipLifeEvents(events)
 }
@@ -348,6 +452,18 @@ const recordBattle = (body: any, ts: number) => {
   const mainMvp = typeof body?.api_mvp === 'number' ? body.api_mvp - 1 : -1
   const escortMvp =
     typeof body?.api_mvp_combined === 'number' ? 6 + body.api_mvp_combined - 1 : -1
+  const isBoss = !sortie.practice && node?.eventId === 5
+  // 谁给了 boss 最后一击。只有 boss 战问这一句：常规点的敌旗舰不是 boss，
+  // 演习更没有「击沉」可言（HP 底线 1）。判据全在这一场的 attacks 里。
+  const bossKill = isBoss ? resolveBossKill(battle.eShips, battle.attacks) : null
+  for (const anomaly of bossKill?.anomalies ?? []) {
+    console.warn('[kanso] mg: boss 击杀归属异常 —', bossKillAnomalyText(anomaly))
+  }
+  // 只有归到单舰那一档才落账：航空/支援终结的场次没有单舰归属，如实缺席。
+  const killer =
+    bossKill?.agent?.kind === 'ship'
+      ? { index: bossKill.agent.index, bossMstId: bossKill.flagshipMstId }
+      : null
   const seen = new Set<number>()
   const events: ShipLifeEventInput[] = []
   for (const ship of battle.fShips) {
@@ -361,7 +477,7 @@ const recordBattle = (body: any, ts: number) => {
       map: sortie.practice ? null : mapIdOf(sortie.mapArea, sortie.mapNo),
       cell: sortie.practice ? null : sortie.currentCell,
       rank: battle.result.rank,
-      isBoss: !sortie.practice && node?.eventId === 5,
+      isBoss,
       practice: sortie.practice,
       mvp: ship.index === mainMvp || ship.index === escortMvp,
       damageTaken: damageTakenIn(ship),
@@ -373,6 +489,9 @@ const recordBattle = (body: any, ts: number) => {
         fleet: ship.fleet,
         position: ship.position,
         snapshotId: battle.result.snapshotId ?? null,
+        // 敌旗舰的深海 mstId。只有终结那一击的那一艘带这个键，其余舰整个不写这一列
+        // ——「没有这一格」就是「不是她终结的」，不需要一个表示「无」的值。
+        ...(killer && ship.index === killer.index ? { bossKill: killer.bossMstId } : {}),
       },
     })
     // 演习的 sunk 只是 HP 降至 1 的胜负判定，绝不能写成实例舰真正沉没。
@@ -385,7 +504,7 @@ const recordBattle = (body: any, ts: number) => {
         map: sortie.practice ? null : mapIdOf(sortie.mapArea, sortie.mapNo),
         cell: sortie.practice ? null : sortie.currentCell,
         rank: battle.result.rank,
-        isBoss: !sortie.practice && node?.eventId === 5,
+        isBoss,
         detail: {
           level: ship.lv,
           fleet: ship.fleet,
@@ -426,6 +545,15 @@ export const onShipLifeApi = (
     // 「当时」可言了。认舰只认 post 的 api_ship_id（响应体里没有舰的身份）。
     if (apiPath === '/kcsapi/api_req_kaisou/hangar_expand') {
       recordHangarExpand(_post, body, extras.hangarCapsBefore ?? null, ts)
+    }
+    // 出处登记必须在 syncShipStates 之前：建造是同一个包里入籍的，
+    // 登记晚一步，那条 join 就已经写完并且再也不会重来。
+    if (apiPath === '/kcsapi/api_req_kousyou/getship') registerBuildReceipt(body, ts)
+    if (
+      apiPath === '/kcsapi/api_req_sortie/battleresult' ||
+      apiPath === '/kcsapi/api_req_combined_battle/battleresult'
+    ) {
+      registerDropSighting(body, ts)
     }
     if (sections.includes('ships') || sections.includes('slotitems')) {
       syncShipStates(ts, apiPath)

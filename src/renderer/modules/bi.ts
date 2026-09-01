@@ -30,6 +30,8 @@ import {
   uiSet,
   updateCountdowns,
 } from '../kernel'
+import { hideFilterMenu, showFilterMenu } from '../filter-menu'
+import type { FilterMenuSpec } from '../filter-menu'
 import { elink, elinkHtml, registerEntityRoute } from '../link'
 import {
   entityNameHtml,
@@ -38,7 +40,7 @@ import {
   localizedEntityId,
 } from '../localization'
 import { materialIconHtml, shipThumbHtml, useItemIconHtml } from '../entity-art'
-import { activateModule, registerModule } from '../mu'
+import { activateModule, isCompactMode, registerCompactMode, registerModule } from '../mu'
 import { matchSlots } from '../../shared/slot-matching'
 import {
   compReqStatus,
@@ -111,12 +113,38 @@ const savePlannerPrefs = () => {
 const state = {
   search: '',
   area: null as string | null, // 'a1'..'a7' | 'monthly' | 'support' | null
-  sort: 'total' as 'total' | 'fuel' | 'ammo' | 'steel' | 'baux' | 'time',
+  sort: 'total' as
+    | 'total'
+    | 'fuel'
+    | 'ammo'
+    | 'steel'
+    | 'baux'
+    | 'time'
+    | 'items'
+    | 'greatItems',
   selected: null as number | null, // api mission id
   deckId: null as number | null, // 条件检查所选舰队
   resourceFocus: null as number | null,
   joint: {} as Record<number, number>, // 多队联立：舰队 id → 打算跑的远征 apiId
+  // 紧凑态：搜索收成放大镜，点开才摆输入框。常规态不看这个字段（输入框恒显）。
+  searchOpen: false,
 }
+
+// 紧凑态两张下拉的内容随每次 render 重算，wire 只管把钮接到当前这份上
+let filterMenuSpecs: Record<string, FilterMenuSpec> = {}
+
+const SORT_FILTERS: { key: typeof state.sort; label: string }[] = [
+  { key: 'total', label: '综合/时' },
+  { key: 'fuel', label: '燃/时' },
+  { key: 'ammo', label: '弹/时' },
+  { key: 'steel', label: '钢/时' },
+  { key: 'baux', label: '铝/时' },
+  { key: 'time', label: '时间短' },
+  { key: 'items', label: '默认道具' },
+  { key: 'greatItems', label: '大成功道具' },
+]
+const sortLabelOf = (key: typeof state.sort) =>
+  SORT_FILTERS.find((entry) => entry.key === key)?.label ?? key
 
 const RESOURCE_FOCUS: Record<
   number,
@@ -905,7 +933,7 @@ const plannerPrefsHtml = (): string => {
     ${
       excluded.length
         ? `<details><summary>已排除 ${excluded.length} 艘舰娘</summary><div class="pl-excluded-list">${excluded.join('')}</div></details>`
-        : '<span>还没有手动排除舰娘；可在下方方案中点击“排除”。</span>'
+        : '<span>暂无手动排除的舰娘</span>'
     }
   </div>`
 }
@@ -1040,29 +1068,145 @@ const supplyIconHtml = (deck: Deck): string => {
 const fmtDur = (min: number) => `${Math.floor(min / 60)}:${`${min % 60}`.padStart(2, '0')}`
 const EXPEDITION_DIFFICULTY = ['', 'E', 'D', 'C', 'B', 'A', 'S', 'S+']
 
+// 一支队此刻的状态本体。常规态摆在甘特条里，紧凑态摆进悬停卡——同一份，
+// 免得哪天改了一处、两边说法对不上。
+const deckStatusHtml = (deck: Deck): string => {
+  const busy = deck.mission?.[0] > 0
+  // 联合第 2 舰队优先于远征位判定：她的 mission 恒为 0，不先摘出去就是一行「待命」，
+  // 而这条甘特条正是用来一眼看「谁还能派」的——那一行会直接把人骗过去。
+  const escort = combinedEscortState(deck.id)
+  let status: string
+  if (escort) {
+    status = `<span class="g-idle">${escort === 'sortie' ? '出击中' : '编队中'}</span>`
+  } else if (busy) {
+    const returnTs = deck.mission[2]
+    const dispNo = mg.master.missions[deck.mission[1]]?.dispNo ?? deck.mission[1]
+    status = `<b class="g-exp-no">${esc(`${dispNo}`)}</b><span class="g-countdown" data-cds="${returnTs}" data-cds-done="返港">${fmtCountdownShort(returnTs, '返港')}</span>`
+  } else {
+    status = '<span class="g-idle">待命</span>'
+  }
+  return `${status}${supplyIconHtml(deck)}`
+}
+
 const fleetStatusHtml = (): string => {
-  const items = expeditionDecks()
-    .map((deck) => {
-      const busy = deck.mission?.[0] > 0
-      // 联合第 2 舰队优先于远征位判定：她的 mission 恒为 0，不先摘出去就是一行「待命」，
-      // 而这条甘特条正是用来一眼看「谁还能派」的——那一行会直接把人骗过去。
-      const escort = combinedEscortState(deck.id)
-      let status: string
-      if (escort) {
-        status = `<span class="g-idle">${escort === 'sortie' ? '出击中' : '编队中'}</span>`
-      } else if (busy) {
-        const returnTs = deck.mission[2]
-        const dispNo = mg.master.missions[deck.mission[1]]?.dispNo ?? deck.mission[1]
-        status = `<b class="g-exp-no">${esc(`${dispNo}`)}</b><span class="g-countdown" data-cds="${returnTs}" data-cds-done="返港">${fmtCountdownShort(returnTs, '返港')}</span>`
-      } else {
-        status = '<span class="g-idle">待命</span>'
-      }
-      return `<div class="g-item"><span class="k">${deck.id}舰</span>${status}${supplyIconHtml(deck)}</div>`
-    })
-    .join('')
-  return `<div class="gantt" aria-label="远征舰队状态">
-    ${items || '<span class="g-empty">等待舰队数据（返港后刷新）</span>'}
+  const decks = expeditionDecks()
+  if (!decks.length) {
+    return `<div class="gantt" aria-label="远征舰队状态">
+    <span class="g-empty">等待舰队数据（返港后刷新）</span>
   </div>`
+  }
+  // 紧凑态只留队号，状态移交悬停卡——三支队的数据是这块抬头最占地方的一段。
+  if (isCompactMode('bi')) {
+    return `<div class="gantt compact" aria-label="远征舰队状态">
+    ${decks
+      .map(
+        (deck) =>
+          `<span class="g-peek" data-fleet-peek="${deck.id}" tabindex="0">${deck.id}舰</span>`,
+      )
+      .join('')}
+  </div>`
+  }
+  return `<div class="gantt" aria-label="远征舰队状态">
+    ${decks
+      .map((deck) => `<div class="g-item"><span class="k">${deck.id}舰</span>${deckStatusHtml(deck)}</div>`)
+      .join('')}
+  </div>`
+}
+
+// ---- 紧凑态：编队状态悬停卡 ----
+// 卡住在 document.body（面板裁 overflow 又是 transform 包含块，浮层放里面
+// absolute 被裁、fixed 飞出屏幕），元素与监听都只装一次。
+
+let fleetCard: HTMLElement | null = null
+let fleetCardReady = false
+let fleetCardDeckId: number | null = null
+let fleetCardHideTimer: ReturnType<typeof setTimeout> | null = null
+
+const hideFleetCard = () => {
+  fleetCard?.classList.remove('show')
+  fleetCardDeckId = null
+}
+
+const scheduleFleetCardHide = () => {
+  if (fleetCardHideTimer) clearTimeout(fleetCardHideTimer)
+  fleetCardHideTimer = setTimeout(hideFleetCard, 180)
+}
+
+const showFleetCard = (anchor: HTMLElement) => {
+  const card = fleetCard
+  if (!card) return
+  if (fleetCardHideTimer) clearTimeout(fleetCardHideTimer)
+  const deckId = Number(anchor.dataset.fleetPeek)
+  const deck = expeditionDecks().find((entry) => entry.id === deckId)
+  if (!deck) {
+    hideFleetCard()
+    return
+  }
+  fleetCardDeckId = deckId
+  card.innerHTML = `<div class="g-item"><span class="k">${deck.id}舰</span>${deckStatusHtml(deck)}</div>`
+  card.style.visibility = 'hidden'
+  card.classList.add('show')
+  const rect = anchor.getBoundingClientRect()
+  const width = card.offsetWidth
+  const height = card.offsetHeight
+  const above = rect.bottom + height > window.innerHeight - 6 && rect.top >= height
+  card.style.left = `${Math.min(Math.max(4, rect.left - 6), Math.max(4, window.innerWidth - width - 4))}px`
+  card.style.top = `${Math.max(4, above ? rect.top - height - 2 : rect.bottom + 2)}px`
+  card.style.visibility = ''
+}
+
+/**
+ * 被动重渲会把整条甘特连同锚点换掉。卡还开着就重新贴到新锚点上——
+ * 否则它钉在原地显示一份已经过期的快照（元素住在 body，不随 pane 生灭）。
+ */
+const refreshFleetCard = () => {
+  if (!fleetCard?.classList.contains('show') || fleetCardDeckId == null) return
+  const anchor = pane?.querySelector<HTMLElement>(`[data-fleet-peek="${fleetCardDeckId}"]`)
+  if (anchor) showFleetCard(anchor)
+  else hideFleetCard()
+}
+
+const initFleetCard = () => {
+  if (fleetCardReady) return
+  fleetCardReady = true
+  const card = document.createElement('div')
+  card.id = 'bi-fleet-peek'
+  card.setAttribute('role', 'tooltip')
+  document.body.appendChild(card)
+  fleetCard = card
+  const anchorOf = (node: EventTarget | null) =>
+    node instanceof HTMLElement ? node.closest<HTMLElement>('[data-fleet-peek]') : null
+  const leaving = (anchor: HTMLElement, related: EventTarget | null) => {
+    const next = related instanceof Node ? related : null
+    return !(next && (anchor.contains(next) || card.contains(next)))
+  }
+  document.addEventListener('mouseover', (event) => {
+    const anchor = anchorOf(event.target)
+    if (!anchor) return
+    const previous = event.relatedTarget instanceof Node ? event.relatedTarget : null
+    if (previous && (anchor.contains(previous) || card.contains(previous))) return
+    showFleetCard(anchor)
+  })
+  document.addEventListener('mouseout', (event) => {
+    const anchor = anchorOf(event.target)
+    if (anchor && leaving(anchor, event.relatedTarget)) scheduleFleetCardHide()
+  })
+  // 键盘走到那一格也该看得见（悬停卡不该只认鼠标）
+  document.addEventListener('focusin', (event) => {
+    const anchor = anchorOf(event.target)
+    if (anchor) showFleetCard(anchor)
+  })
+  document.addEventListener('focusout', (event) => {
+    const anchor = anchorOf(event.target)
+    if (anchor && leaving(anchor, event.relatedTarget)) scheduleFleetCardHide()
+  })
+  card.addEventListener('mouseenter', () => {
+    if (fleetCardHideTimer) clearTimeout(fleetCardHideTimer)
+  })
+  card.addEventListener('mouseleave', scheduleFleetCardHide)
+  window.addEventListener('resize', hideFleetCard)
+  // 滚轮翻页不动指针，mouseout 不会来——容器一滚就收卡（同链的 Peek）
+  document.addEventListener('scroll', hideFleetCard, true)
 }
 
 const nativeRewardItems = (e: Exped) =>
@@ -1091,6 +1235,38 @@ const nativeRewardItemsHtml = (e: Exped, compact = false) =>
       return compact ? `${item}×${count}` : `${label} ${item}×${count}`
     })
     .join(compact ? '、' : ' · ')
+
+/**
+ * 一次远征能拿几件道具：`normal` = 默认成功那一档，`great` = 大成功那一档。
+ *
+ * 口径原样沿用详情页收益栏（下面 gainSec 的 `nativeItems || 资料包`）：**主数据的
+ * winItem 优先，没有 winItem 才退到资料包的 items/greatItems**。分档也照收益栏
+ * 已有的标注——winItem1 是「随机奖励」（成功与大成功都可能给），winItem2 是
+ * 「大成功限定」，所以大成功这一档是两者相加，不是只算 winItem2。
+ *
+ * 这个分档不是这里现推的：用户账本里 37/38 号远征的 `great` 行确实带着 winItem1
+ * 那件（两条远征都没有 winItem2），而 11 号远征的 `success` 行只出现过 winItem1
+ * 那件、从没出现过它的 winItem2——与上面两条标注一致。
+ *
+ * 数字是奖励栏的额定件数，不是掉率：winItem1 本身是概率给的（账本里同一条远征
+ * 成功了也常常一件都没有）。所以这是「这条远征的道具栏有多满」，不是期望值。
+ */
+const rewardItemCounts = (e: Exped): { normal: number; great: number } => {
+  const countOf = (pair: [number, number]) => (pair[0] > 0 && pair[1] > 0 ? pair[1] : 0)
+  if (nativeRewardItems(e).length) {
+    const normal = countOf(e.winItem1)
+    return { normal, great: normal + countOf(e.winItem2) }
+  }
+  const sum = (list: unknown) =>
+    Array.isArray(list)
+      ? list.reduce((total: number, item: any) => total + Math.max(0, Number(item?.count) || 0), 0)
+      : 0
+  const normal = sum(e.wiki?.rewards?.items)
+  return { normal, great: normal + sum(e.wiki?.rewards?.greatItems) }
+}
+
+const isItemSort = (key: typeof state.sort): key is 'items' | 'greatItems' =>
+  key === 'items' || key === 'greatItems'
 
 const gainCellHtml = (e: Exped): string => {
   if (isSupport(e)) return `<span class="gain"><span class="sub9">无资源 · 出击支援</span></span>`
@@ -1125,8 +1301,18 @@ const gainCellHtml = (e: Exped): string => {
     return `<span class="gain"><span class="sub9">${native || (item ? `${entityTermHtml('useitem', undefined, rewardItemName(item.name))}×${item.count}` : '—')}</span></span>`
   }
   const [top, second] = ranked
+  // 小字那一行：按道具排时先摆道具。同上一段的理由——排序按的是什么，行上就得
+  // 看得见什么，否则「默认道具」排出来的顺序在列表里一点根据都没有。
+  const rewardLine = nativeRewardItems(e).length
+    ? `<span class="sub9">+${nativeRewardItemsHtml(e, true)}</span>`
+    : e.wiki.rewards.items?.length
+      ? `<span class="sub9">+${entityTermHtml('useitem', undefined, rewardItemName(e.wiki.rewards.items[0].name))}</span>`
+      : ''
+  const secondLine = second
+    ? `<span class="sub9">${entityTermHtml('material', second[3] - 1, second[0])}${second[1]}/时</span>`
+    : ''
   return `<span class="gain" title="${reference.length ? `按第${pickDeck()?.id ?? '?'}舰队满载补给估算净收益` : '基础总收益'}"><span class="ph ${top[2]}">${materialIconHtml(top[3], { className: 'sm', title: top[0] })}${top[1]}/时</span>${
-    second ? `<span class="sub9">${entityTermHtml('material', second[3] - 1, second[0])}${second[1]}/时</span>` : nativeRewardItems(e).length ? `<span class="sub9">+${nativeRewardItemsHtml(e, true)}</span>` : e.wiki.rewards.items?.length ? `<span class="sub9">+${entityTermHtml('useitem', undefined, rewardItemName(e.wiki.rewards.items[0].name))}</span>` : ''
+    isItemSort(pin) ? rewardLine || secondLine : secondLine || rewardLine
   }</span>`
 }
 
@@ -1178,7 +1364,7 @@ const expeditionHistoryHtml = (e: Exped): string => {
   }
   if (!report?.total) {
     return `<div class="sec"><div class="sec-h">远征记录</div>
-      <div class="sub9">还没有这项远征的结算记录，完成一次就有了</div></div>`
+      <div class="sub9">暂无这项远征的结算记录 · 完成一次后自动记入</div></div>`
   }
   const completed = report.success + report.great
   const successRate = report.total ? Math.round((completed / report.total) * 100) : 0
@@ -1526,6 +1712,14 @@ const render = () => {
   // 对同一条远征反复算（150 条一帧上千次，内部还要遍历参照舰队）
   if (sortKey === 'time') {
     list = [...list].sort((a, b) => a.timeMin - b.timeMin)
+  } else if (isItemSort(sortKey)) {
+    // 件数降序，所以一件都没有的（支援远征、以及主数据奖励栏为空的那十条）
+    // 自然垫在最后，不会插进有道具的中间；同件数按时间短的在前。
+    const field = sortKey === 'items' ? 'normal' : 'great'
+    list = list
+      .map((e) => ({ e, v: rewardItemCounts(e)[field] }))
+      .sort((a, b) => b.v - a.v || a.e.timeMin - b.e.timeMin)
+      .map((entry) => entry.e)
   } else {
     const val = (h: ReturnType<typeof hourly>) =>
       sortKey === 'total' ? h.fuel + h.ammo + h.steel + h.baux : h[sortKey]
@@ -1538,46 +1732,119 @@ const render = () => {
       .map((entry) => entry.e)
   }
 
-  const chips = [
-    `<span class="chip${state.area === null ? ' on' : ''}" data-area="">全部</span>`,
-    ...AREA_CHIP_ORDER.filter((a) => expeds.some((e) => e.mapArea === a)).map(
-      (a) => `<span class="chip${state.area === `a${a}` ? ' on' : ''}" data-area="a${a}">${entityNameHtml('mapArea', a, areaNames.get(a) ?? `海域${a}`, { compact: true })}</span>`,
-    ),
-    `<span class="chip${state.area === 'monthly' ? ' on' : ''}" data-area="monthly">月常</span>`,
-    `<span class="chip${state.area === 'support' ? ' on' : ''}" data-area="support">支援</span>`,
-  ].join('')
+  // 海域筛选做成一份数据：常规态的芯片与紧凑态的下拉读同一张表，
+  // 顺带给下拉配上条数（芯片行摆不下计数，下拉里放得下）。
+  // 计数走**一趟**扫描：逐格各筛一次就是每渲一拍把 150 条远征来回过九遍，
+  // 而这条路被动重渲也会走。两本账刻意分开——
+  // `present` 决定摆不摆这一格（含支援，与原先的 some() 同口径），
+  // `listable` 是点进去真能看到几条（与上面 state.area 的筛选同口径）。
+  const areaPresent = new Set<number>()
+  const areaListable = new Map<number, number>()
+  let monthlyCount = 0
+  let supportCount = 0
+  for (const e of expeds) {
+    areaPresent.add(e.mapArea)
+    if (isSupport(e)) supportCount++
+    else areaListable.set(e.mapArea, (areaListable.get(e.mapArea) ?? 0) + 1)
+    if (e.wiki?.monthly) monthlyCount++
+  }
+  const areaFilters: { key: string | null; label: string; html: string; count: number }[] = [
+    { key: null, label: '全部', html: '全部', count: expeds.length },
+    ...AREA_CHIP_ORDER.filter((a) => areaPresent.has(a)).map((a) => ({
+      key: `a${a}`,
+      label: entityNamePlain('mapArea', a, areaNames.get(a) ?? `海域${a}`),
+      html: entityNameHtml('mapArea', a, areaNames.get(a) ?? `海域${a}`, { compact: true }),
+      count: areaListable.get(a) ?? 0,
+    })),
+    { key: 'monthly', label: '月常', html: '月常', count: monthlyCount },
+    { key: 'support', label: '支援', html: '支援', count: supportCount },
+  ]
 
-  const sorts = (
-    [
-      ['total', '综合/时'],
-      ['fuel', '燃/时'],
-      ['ammo', '弹/时'],
-      ['steel', '钢/时'],
-      ['baux', '铝/时'],
-      ['time', '时间短'],
-    ] as [string, string][]
-  )
-    .map(([key, label]) => `<span class="schip${state.sort === key ? ' on' : ''}" data-sort="${key}">${label}</span>`)
+  const chips = areaFilters
+    .map(
+      (item) =>
+        `<span class="chip${state.area === item.key ? ' on' : ''}" data-area="${item.key ?? ''}">${item.html}</span>`,
+    )
     .join('')
+
+  const sorts = SORT_FILTERS.map(
+    (entry) => `<span class="schip${state.sort === entry.key ? ' on' : ''}" data-sort="${entry.key}">${entry.label}</span>`,
+  ).join('')
+
+  filterMenuSpecs = {
+    area: {
+      title: '海域',
+      items: areaFilters.map((item) => ({
+        key: item.key,
+        label: item.label,
+        count: item.count,
+        on: state.area === item.key,
+      })),
+      pick: (value) => {
+        state.resourceFocus = null
+        state.area = value
+        render()
+      },
+    },
+    sort: {
+      title: '排序',
+      items: SORT_FILTERS.map((entry) => ({
+        key: entry.key,
+        label: entry.label,
+        on: state.sort === entry.key,
+      })),
+      pick: (value) => {
+        // 排序没有「全部」这一项：这几格覆盖全部排法，value 恒非空
+        state.resourceFocus = null
+        state.sort = (value ?? 'total') as typeof state.sort
+        render()
+      },
+    },
+  }
 
   const selected = state.selected != null ? expeds.find((e) => e.apiId === state.selected) : null
   if (selected) ensureExpeditionHistory(selected.apiId)
   const detailWasOpen = !!selected && !!pane.querySelector('.bi-app.open')
 
-  // 输出没变就整段不动 DOM（口径见 kernel commitPaneHtml）
-  const html = `<div class="bi-app${selected ? ' open' : ''}${pane.clientWidth < 700 ? ' narrow' : ''}">
-      <aside class="index">
-        <div class="search-row"><div class="search">⌕<input id="bi-search" placeholder="远征名 / 编号 / 「鼓桶」" value="${esc(state.search)}"></div></div>
-        ${
-          state.resourceFocus != null && RESOURCE_FOCUS[state.resourceFocus]
-            ? `<div class="resource-focus">正在找：补充 <b>${entityTermHtml('material', state.resourceFocus, RESOURCE_FOCUS[state.resourceFocus].label)}</b> 的远征
+  const resourceFocusHtml =
+    state.resourceFocus != null && RESOURCE_FOCUS[state.resourceFocus]
+      ? `<div class="resource-focus">正在找：补充 <b>${entityTermHtml('material', state.resourceFocus, RESOURCE_FOCUS[state.resourceFocus].label)}</b> 的远征
               <span data-act="clear-resource-focus">清除</span></div>`
-            : ''
-        }
+      : ''
+
+  // 紧凑态：海域与排序各收成一枚「点开选」的钮，搜索收成放大镜，三支队的状态
+  // 移交悬停卡（见 fleetStatusHtml）。开关在坞标签条上（铆的 registerCompactMode），默认关。
+  const compact = isCompactMode('bi')
+  const currentArea = areaFilters.find((item) => item.key === state.area) ?? areaFilters[0]
+  const compactSearchHtml = state.searchOpen
+    ? `<div class="search compact-open"><button type="button" class="compact-search-key" data-search-toggle>⌕</button><input id="bi-search" placeholder="远征名 / 编号 / 「鼓桶」" value="${esc(state.search)}"></div>`
+    : // 收起时仍把搜索词摆在钮上：藏起来的筛选会让人以为列表本来就这么短
+      `<button class="compact-search-btn${state.search ? ' on' : ''}" data-search-toggle>⌕${
+        state.search ? `<b>${esc(state.search)}</b>` : ''
+      }</button>`
+
+  const headHtml = compact
+    ? `<div class="bi-compact-strip">
+          <button class="sel-btn${state.area ? ' on' : ''}" data-filter-menu="area"><span>海域</span><b>${esc(
+            currentArea.label,
+          )}</b><i>${currentArea.count}</i></button>
+          <button class="sel-btn${state.sort === 'total' ? '' : ' on'}" data-filter-menu="sort"><span>排序</span><b>${esc(
+            sortLabelOf(state.sort),
+          )}</b></button>
+          ${compactSearchHtml}
+        </div>
+        ${resourceFocusHtml}`
+    : `<div class="search-row"><div class="search">⌕<input id="bi-search" placeholder="远征名 / 编号 / 「鼓桶」" value="${esc(state.search)}"></div></div>
+        ${resourceFocusHtml}
         <div class="filter-strip">
           <div class="type-chips">${chips}</div>
           <div class="sort-row"><span class="sort-label">排序</span>${sorts}</div>
-        </div>
+        </div>`
+
+  // 输出没变就整段不动 DOM（口径见 kernel commitPaneHtml）
+  const html = `<div class="bi-app${selected ? ' open' : ''}${pane.clientWidth < 700 ? ' narrow' : ''}">
+      <aside class="index">
+        ${headHtml}
         ${fleetStatusHtml()}
         <div class="elist">${list.map(listRowHtml).join('') || '<div style="padding:20px;color:var(--dim)">无匹配远征</div>'}</div>
         <div class="index-foot">${referenceShips.length ? `按第${pickDeck()!.id}舰队满载补给估算 · 条件同队` : `显示每小时基础总收益 · 条件按${pickDeck() ? `第${pickDeck()!.id}舰队` : '—'}检查`}</div>
@@ -1585,7 +1852,11 @@ const render = () => {
       <main class="detail${detailWasOpen ? ' stable' : ''}">${selected ? detailHtml(selected) : ''}</main>
     </div>`
   // 没换 DOM 就不能重绑：搜索框还是老元素，再绑一遍就是监听叠加
-  if (!commitPaneHtml(pane, 'bi', html)) return
+  const domChanged = commitPaneHtml(pane, 'bi', html)
+  // 开着的悬停卡两条路都要重画：换了 DOM 是锚点没了，没换 DOM 也可能是队的状态变了
+  // ——紧凑态的甘特条只剩队号，「远征跑完返港」这种变化逐字节闸门根本看不出来。
+  refreshFleetCard()
+  if (!domChanged) return
 
   const input = pane.querySelector<HTMLInputElement>('#bi-search')
   // 走 onFilterInput 而不是裸 input：重渲会把输入框元素整个换掉，
@@ -1599,6 +1870,20 @@ const render = () => {
       pane.querySelector<HTMLInputElement>('#bi-search')?.focus()
     })
   }
+  // 紧凑态的两枚「点开选」与放大镜
+  pane.querySelectorAll<HTMLElement>('[data-filter-menu]').forEach((button) =>
+    button.addEventListener('click', () => {
+      const key = button.dataset.filterMenu!
+      const spec = filterMenuSpecs[key]
+      if (spec) showFilterMenu(button, `bi:${key}`, spec)
+    }),
+  )
+  pane.querySelector<HTMLElement>('[data-search-toggle]')?.addEventListener('click', () => {
+    state.searchOpen = !state.searchOpen
+    hideFilterMenu()
+    render()
+    if (state.searchOpen) pane.querySelector<HTMLInputElement>('#bi-search')?.focus()
+  })
 }
 
 /** 从资源目标直达对应时薪/奖励视图。只做只读筛选，不触碰游戏编成。 */
@@ -1676,6 +1961,14 @@ registerModule({
   order: 8,
   mount(el) {
     pane = el
+    initFleetCard()
+    // 紧凑模式：钮由铆摆在坞标签条上（折叠 × 旁边），翻转后回来重渲。
+    // 按 id 覆盖登记，重试装配不会叠成两份回调。
+    registerCompactMode('bi', () => {
+      hideFilterMenu()
+      hideFleetCard()
+      render()
+    })
     new ResizeObserver(() => {
       const app = pane.querySelector('.bi-app')
       if (app) app.classList.toggle('narrow', pane.clientWidth < 700)
@@ -1820,7 +2113,10 @@ registerModule({
       }
     })
     onTick(() => {
-      if (pane.classList.contains('active')) updateCountdowns(pane)
+      if (!pane.classList.contains('active')) return
+      updateCountdowns(pane)
+      // 紧凑态的返港倒计时只住在悬停卡里（卡在 body，不在 pane 的扫描范围内）
+      if (fleetCard?.classList.contains('show')) updateCountdowns(fleetCard)
     })
     render()
   },

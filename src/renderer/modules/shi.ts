@@ -158,6 +158,10 @@ let nodeLoadFailed = false // 读失败要说读失败，不能渲染成「该�
 let eventArchives: EventArchive[] = []
 let factoryStats: FactoryStatsReport | null = null
 let factoryKind: 'ship' | 'item' = 'ship'
+// 工厂实测的两层展开态。跟击杀簿的 expandedBosses 一个道理：状态活在渲染之外，
+// mg 补丁随时把整页重建一遍，记在 DOM 上的话摊开的那几行会自己合上。
+const factoryOpenRecipes = new Set<string>() // 结果超 8 种的那些配方，键见 factoryRecipeKey
+const factoryOpenLists = new Set<'ship' | 'item'>() // 配方行超 12 条的那一档，建造/开发各记各的
 let useitemSummary: UseitemSummary[] = []
 // 本机氪金记录（2026-08-19 用户定名）：永久表行 + 补记表单状态。
 // 表单值存模块变量：mg 补丁随时会触发重渲染，不存就会丢玩家输入到一半的内容。
@@ -559,7 +563,7 @@ const resourceViewHtml = (): string => {
               ${lineChart(series, meta.color)}
               ${cells}
             </div></div>`
-          : '<div class="shi-empty">这个区间还没有记录</div>'
+          : '<div class="shi-empty">这个区间暂无记录</div>'
       }
     </div>
     <button class="shi-primary" data-open-resource-chart>打开独立大图</button>
@@ -610,7 +614,7 @@ const practiceViewHtml = (): string => {
           </button>`,
         ),
       ].join('')
-    : '<div class="shi-empty">还没有演习结算记录。</div>'
+    : '<div class="shi-empty">暂无演习结算记录</div>'
   const visible = rows.filter((row) => {
     if (selectedPracticeDay != null && jstDayStart(row.ts) !== selectedPracticeDay) return false
     if (selectedPracticeSession && practiceSessionOf(row.ts) !== selectedPracticeSession) return false
@@ -641,7 +645,7 @@ const practiceViewHtml = (): string => {
     <div class="shi-two-col">
       <section class="shi-panel"><h3>按日（JST）· 点击筛选</h3><div class="shi-practice-days">${dailyHtml}</div></section>
       <section class="shi-panel"><h3>${recentTitle}</h3><div class="shi-history-list">${
-        recent || '<div class="shi-empty">尚无可回放记录。</div>'
+        recent || '<div class="shi-empty">暂无可回放记录</div>'
       }</div></section>
     </div>
   </div>`
@@ -710,7 +714,29 @@ const nodeSnapshotsBlock = (
     title: map > 0
       ? `${mapCode(map)} · ${rows.length} 场 · 点击复盘`
       : `出击记录 ${rows.length} 场 · 点击复盘`,
-    list: list || '<div class="shi-empty">尚无战斗记录。</div>',
+    list: list || '<div class="shi-empty">暂无战斗记录</div>',
+  }
+}
+
+// 选中点位专属的一块：整图那块照旧，这块只收「这一格」的快照，省得回到下面的长列表里翻。
+// 口径跟右边的遭遇志一致——按 map+cell 精确取，不按字母合并（同一个字母可能有多条进路边，
+// 索引里本来就是分开的两行，合并会让这块的场数跟上面的遭遇志对不上）。
+const nodeBattlesBlock = (): { title: string; list: string } | null => {
+  if (!selectedNode) return null
+  const { map, cell } = selectedNode
+  const rows = battles.filter(
+    (battle) => !battle.practice && battle.map === map && battle.cell === cell,
+  )
+  const list = battleHistoryHtml(
+    rows,
+    (battle) =>
+      `${mapCode(battle.map)} · ${battle.isBoss ? 'Boss' : `${letterOf(battle.map, battle.cell)}点`}`,
+  )
+  const head = `${mapCode(map)} · ${letterOf(map, cell)} 点`
+  return {
+    // 遭遇志留着、快照被清掉的点很常见，空态只报「这里没有可回放的」，不摆成故障。
+    title: rows.length ? `${head} · ${rows.length} 场 · 点击复盘` : `${head} · 0 场`,
+    list: list || '<div class="shi-empty">这一点暂无可回放快照</div>',
   }
 }
 
@@ -786,11 +812,12 @@ const nodeViewHtml = (): string => {
           </div>`
         })
         .join('')
-    : '<div class="shi-empty">还没有永久节点遭遇记录。</div>'
+    : '<div class="shi-empty">暂无永久节点遭遇记录</div>'
   const previewMap = shownNodeMap()
   // 记下这次整页渲染把海图卡画成了哪张图（0 = 没有卡），换点时的局部补丁据此判断该不该换卡。
   shownMapCard = previewMap > 0 ? previewMap : 0
   const snapshots = nodeSnapshotsBlock(previewMap)
+  const nodeSnaps = nodeBattlesBlock()
   return `<div class="shi-view shi-nodes">
     <div class="shi-view-head"><div><b>出击节点记录</b><span>遭遇志永久累计</span></div></div>
     <div class="shi-kpis">
@@ -809,9 +836,16 @@ const nodeViewHtml = (): string => {
           : '节点详情'
       }</h3><div class="shi-node-timeline">${nodeTimelineHtml()}</div></section>
     </div>
-    <section class="shi-panel shi-recent-battles"><h3 data-shi-snapshots-title>${
-      snapshots.title
-    }</h3><div class="shi-history-list">${snapshots.list}</div></section>
+    <div class="shi-nodes-foot">
+      <section class="shi-panel shi-recent-battles"><h3 data-shi-snapshots-title>${
+        snapshots.title
+      }</h3><div class="shi-history-list">${snapshots.list}</div></section>
+      <section class="shi-panel shi-node-battles" data-shi-node-snapshots${
+        nodeSnaps ? '' : ' hidden'
+      }><h3 data-shi-node-snapshots-title>${
+        nodeSnaps ? esc(nodeSnaps.title) : ''
+      }</h3><div class="shi-history-list">${nodeSnaps?.list ?? ''}</div></section>
+    </div>
   </div>`
 }
 
@@ -859,7 +893,7 @@ const eventViewHtml = (): string => {
   if (!eventArchives.length) {
     return `<div class="shi-view">
       <div class="shi-view-head"><div><b>往期活动</b></div></div>
-      <div class="shi-empty large">还没有已结束活动的归档。</div>
+      <div class="shi-empty large">暂无已结束活动的归档</div>
     </div>`
   }
   const cards = eventArchives
@@ -1027,7 +1061,7 @@ const payLogPanelHtml = (): string => {
   const stock = mg.payitems
   const stockEntries = stock ? Object.entries(stock.items) : []
   const stockHtml = !stock
-    ? `<div class="shi-pay-stock"><small>已购未用</small><i>还没同步 · 在 kuma 里开一次游戏内道具商店</i></div>`
+    ? `<div class="shi-pay-stock"><small>已购未用</small><i>尚未同步 · 在 kuma 里开一次游戏内道具商店</i></div>`
     : `<div class="shi-pay-stock"><small>已购未用</small>${
         stockEntries.length
           ? stockEntries
@@ -1038,7 +1072,7 @@ const payLogPanelHtml = (): string => {
                   }</span>`,
               )
               .join('')
-          : '<i>没有买了还没用的课金道具</i>'
+          : '<i>没有已购未用的课金道具</i>'
       }<time>同步于 ${fmtTime(stock.ts)}</time></div>`
   const rows = payLog
     .map((row) => {
@@ -1077,7 +1111,7 @@ const payLogPanelHtml = (): string => {
     ${payFormHtml()}
     ${payDelError ? `<div class="shi-note" style="color:var(--bad)">${esc(payDelError)}</div>` : ''}
     <div class="shi-pay-rows">${
-      rows || '<div class="shi-empty">还没有记录 · 此前的可用「补记」登记</div>'
+      rows || '<div class="shi-empty">暂无记录 · 此前的可用「补记」登记</div>'
     }</div>
   </section>`
 }
@@ -1149,16 +1183,25 @@ const itemViewHtml = (): string => {
     ${payLogPanelHtml()}
     <div class="shi-two-col">
       <section class="shi-panel"><h3>道具累计</h3><div class="shi-item-list">${
-        rows || '<div class="shi-empty">尚无特殊道具变化</div>'
+        rows || '<div class="shi-empty">暂无特殊道具变化</div>'
       }</div></section>
       <section class="shi-panel"><h3>最近变化 / 兑换线索
         ${selectedItemId ? `<button class="shi-inline-clear" data-shi-item="0">显示全部 ×</button>` : ''}
       </h3><div class="shi-item-timeline">${
-        timeline || '<div class="shi-empty">尚无变化记录。</div>'
+        timeline || '<div class="shi-empty">暂无变化记录</div>'
       }</div></section>
     </div>
   </div>`
 }
+
+// 两处裁切的档位。两层都不再静默截断：超出的部分挂在可点开的展开行后面。
+const FACTORY_OUTCOME_LIMIT = 8
+const FACTORY_RECIPE_LIMIT = 12
+
+// 展开态的键要跨重渲认得出同一行。行本身没有 id，聚合口径就是「配方 × 秘书舰类型」
+// （见 factory-stats 的分组键），照抄这一对即可，与列表顺序无关。
+const factoryRecipeKey = (row: FactoryRecipeStats, kind: 'ship' | 'item'): string =>
+  `${kind}:${row.recipe.join('/')}:${row.secretary ?? ''}`
 
 const factoryRecipeText = (row: FactoryRecipeStats, kind: 'ship' | 'item'): string => {
   const [fuel = 0, ammo = 0, steel = 0, baux = 0, devmat = 0, large = 0] = row.recipe
@@ -1218,10 +1261,14 @@ const factoryViewHtml = (): string => {
       : row.secretary
         ? `<em class="factory-secretary">${esc(row.secretary)}秘书</em>`
         : '<em class="factory-secretary unknown">秘书舰未记录</em>'
-  const rows = list
-    .slice(0, 12)
+  const listOpen = factoryOpenLists.has(factoryKind)
+  const shownRecipes = listOpen ? list : list.slice(0, FACTORY_RECIPE_LIMIT)
+  const rows = shownRecipes
     .map((row) => {
-      const shown = row.outcomes.slice(0, 8)
+      const key = factoryRecipeKey(row, factoryKind)
+      const open = factoryOpenRecipes.has(key)
+      const hidden = row.outcomes.length - FACTORY_OUTCOME_LIMIT
+      const shown = open ? row.outcomes : row.outcomes.slice(0, FACTORY_OUTCOME_LIMIT)
       return `<div class="factory-recipe">
         <div class="factory-recipe-head">
           <b>${esc(factoryRecipeText(row, factoryKind))}</b>${secretaryChip(row)}
@@ -1231,13 +1278,20 @@ const factoryViewHtml = (): string => {
           .map((outcome) => factoryOutcomeHtml(outcome, row.attempts, factoryKind))
           .join('')}</div>
         ${
-          row.outcomes.length > shown.length
-            ? `<div class="factory-more">另有 ${row.outcomes.length - shown.length} 种结果未展开</div>`
+          hidden > 0
+            ? `<button type="button" class="factory-more" data-factory-more="${esc(key)}"
+                aria-expanded="${open}">${open ? '收起 ▴' : `另有 ${hidden} 种结果 ▾`}</button>`
             : ''
         }
       </div>`
     })
     .join('')
+  const hiddenRecipes = list.length - FACTORY_RECIPE_LIMIT
+  const listMore =
+    hiddenRecipes > 0
+      ? `<button type="button" class="factory-list-more" data-factory-list-more
+          aria-expanded="${listOpen}">${listOpen ? '收起 ▴' : `另有 ${hiddenRecipes} 个配方 ▾`}</button>`
+      : ''
   const caveats: string[] = []
   if (factoryKind === 'ship' && factoryStats.pendingShips) {
     caveats.push(`${factoryStats.pendingShips} 次建造尚未领取`)
@@ -1255,7 +1309,8 @@ const factoryViewHtml = (): string => {
       </div>
     </div>
     <div class="factory-panel">
-      <div class="factory-list">${rows || `<div class="shi-empty large">还没有${factoryKind === 'ship' ? '已领取的建造' : '开发'}记录</div>`}</div>
+      <div class="factory-list">${rows || `<div class="shi-empty large">暂无${factoryKind === 'ship' ? '已领取的建造' : '开发'}记录</div>`}</div>
+      ${listMore}
       ${caveats.length ? `<div class="factory-foot">${caveats.join(' ')}</div>` : ''}
     </div>
   </div>`
@@ -1368,6 +1423,17 @@ const paintNodeSelection = (): boolean => {
   const snapList = pane.querySelector('.shi-recent-battles .shi-history-list')
   if (snapTitle) snapTitle.textContent = snapshots.title
   if (snapList) snapList.innerHTML = snapshots.list
+  // 选中点专属那块也走这条补丁链：整块常驻 DOM，没选点时靠 hidden 收起来，
+  // 换点只改标题和列表——别让它变成「结构变了就得整页重渲」的理由。
+  const nodeSnapPanel = pane.querySelector('[data-shi-node-snapshots]')
+  if (nodeSnapPanel instanceof HTMLElement) {
+    const nodeSnaps = nodeBattlesBlock()
+    nodeSnapPanel.hidden = !nodeSnaps
+    const nodeSnapTitle = nodeSnapPanel.querySelector('[data-shi-node-snapshots-title]')
+    const nodeSnapList = nodeSnapPanel.querySelector('.shi-history-list')
+    if (nodeSnapTitle) nodeSnapTitle.textContent = nodeSnaps?.title ?? ''
+    if (nodeSnapList) nodeSnapList.innerHTML = nodeSnaps?.list ?? ''
+  }
   pane.querySelectorAll('.shi-spot.on').forEach((el) => el.classList.remove('on'))
   pane.querySelectorAll('.shi-node-row.on').forEach((el) => el.classList.remove('on'))
   if (!selectedNode) return true
@@ -1430,7 +1496,7 @@ const openReviewBattle = async (id: number) => {
     const snapshot = await queryBattleSnapshot(id)
     if (generation !== battleLoadGeneration) return
     if (snapshot) selectedBattle = snapshot
-    else selectedBattleError = '这场战斗的记录已经不在了'
+    else selectedBattleError = '这场战斗的记录已清理'
   } catch (error) {
     if (generation !== battleLoadGeneration) return
     selectedBattleError = '战斗记录读取失败'
@@ -1748,7 +1814,7 @@ registerModule({
         // 不看返回值就刷新的话，那行原地不动，看着像点了没反应。
         void removeManualPayLog(id)
           .then((ok) => {
-            if (!ok) payDelError = '这条没能删掉——只有补记行可删'
+            if (!ok) payDelError = '只有补记行可删'
             void refresh()
           })
           .catch((error) => {
@@ -1799,6 +1865,21 @@ registerModule({
         const letter = mapSpot.dataset.shiSpot ?? ''
         const cell = map > 0 && letter ? pickCellForSpot(map, letter) : null
         if (cell != null) void selectNode(map, cell)
+        return
+      }
+      // 纯前端展开：手上的数据一个字都没变，不再查一次账本
+      const factoryMore = target.closest<HTMLElement>('[data-factory-more]')
+      if (factoryMore) {
+        const key = factoryMore.dataset.factoryMore ?? ''
+        if (factoryOpenRecipes.has(key)) factoryOpenRecipes.delete(key)
+        else factoryOpenRecipes.add(key)
+        render()
+        return
+      }
+      if (target.closest('[data-factory-list-more]')) {
+        if (factoryOpenLists.has(factoryKind)) factoryOpenLists.delete(factoryKind)
+        else factoryOpenLists.add(factoryKind)
+        render()
         return
       }
       const factory = target.closest<HTMLElement>('[data-factory-kind]')

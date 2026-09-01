@@ -21,6 +21,7 @@ export type SettingsSectionId = 'ui' | 'archive' | 'network' | 'lode' | 'health'
 export type SettingsCardId =
   | 'zoom'
   | 'game-scale'
+  | 'caption-size'
   | 'ui-hints'
   | 'tray'
   | 'game-audio'
@@ -61,8 +62,18 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     // 看得见、听得见的那些：开了就当场变样，所以排第一，也是默认落点。
     // 自检那张紧跟着音量卡——它诊断的就是那三条滑条，隔开摆反而要来回找。
     // 游戏画面紧跟界面缩放：两张说的都是「东西多大」，而且界面缩放一动，
-    // 游戏那边的锁定档也跟着重摆一次，摆一起才看得出这层联动
-    cards: ['zoom', 'game-scale', 'ui-hints', 'tray', 'game-audio', 'game-audio-selftest'],
+    // 游戏那边的锁定档也跟着重摆一次，摆一起才看得出这层联动。
+    // 字幕字号排第三同理，而且更紧：它显示的实际值就是「基准 × 上面那张卡的倍率」，
+    // 隔开摆的话，改完倍率要翻页才看得见字幕跟着变成了多少
+    cards: [
+      'zoom',
+      'game-scale',
+      'caption-size',
+      'ui-hints',
+      'tray',
+      'game-audio',
+      'game-audio-selftest',
+    ],
   },
   {
     id: 'archive',

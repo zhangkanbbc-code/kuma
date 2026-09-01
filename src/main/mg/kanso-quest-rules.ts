@@ -743,7 +743,9 @@ const DRAFTS: RuleDraft[] = [
       fleetGoal: {
         groups: [
           group('Gambier Bay Mk.II', 1, { ships: h.ships('Gambier Bay Mk.II'), flagship: true }),
-          group('Fletcher级/John C.Butler级', 2, {
+          // 级名写中文真名（约翰·C·巴特勒级 = kcwiki-ships ctype 87 的「级别」原字，
+          // 实体侧「涉及舰级」显示的就是它）——2026-09-01 用户拍板与同抽屉实体侧对齐。
+          group('弗莱彻级/约翰·C·巴特勒级', 2, {
             ctypes: [h.ctype('Fletcher'), h.ctype('Samuel B.Roberts')],
           }),
         ],

@@ -99,7 +99,7 @@ const rowAt = (ts: number): MaterialRow | null => {
 
 const chartHtml = () => {
   if (history.length < 2) {
-    return '<div class="chart-empty">曲线记录中——还没有足够的记录可画。</div>'
+    return '<div class="chart-empty">记录不足，暂不能画</div>'
   }
   const X0 = 40
   const X1 = 600
@@ -416,7 +416,7 @@ const render = () => {
     ? `${RANGES[rangeIdx][0]}起始数据完整`
     : historyObservedStart != null
       ? `历史仅覆盖 ${fmtSpan(observedMs)}`
-      : '尚无历史记录'
+      : '暂无历史记录'
   const netFuel = history.length ? history.at(-1)!.values[0] - history[0].values[0] : null
   const netLabel = historyHasBaseline
     ? `${RANGES[rangeIdx][0]}净增`

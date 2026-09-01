@@ -336,9 +336,18 @@ export interface ArtArchiveUsage {
   full: boolean
 }
 
+/**
+ * @param formOf 把一条档案的 `mstId` 换算成它属于哪个**形态**。默认原样返回。
+ *
+ * 存在的理由只有一个：图鉴衣装用的是**独立构图编号**（5xxx/6xxx），主数据里
+ * 没有这些号，而档案按路径里的四位号记归属。不换算的话，玩家收了村雨改二的
+ * 四套衣装，「覆盖 N 个形态」会当场多数出四艘舰娘——数字不报错，只是不对。
+ * 换算表学不到的照旧算它自己（如实，不猜；判据见 shared/ship-costume）。
+ */
 export const artArchiveUsage = (
   entries: readonly ArtArchiveEntry[],
   maxBytes: number | null = ART_ARCHIVE_MAX_BYTES,
+  formOf: (mstId: number) => number = (mstId) => mstId,
 ): ArtArchiveUsage => {
   const limit = archiveLimitBytes(maxBytes)
   const bytes = entries.reduce((sum, entry) => sum + Math.max(0, entry.bytes), 0)
@@ -351,7 +360,9 @@ export const artArchiveUsage = (
     bytes,
     kept: entries.filter((entry) => entry.bytes > 0).length,
     seen: entries.filter((entry) => entry.bytes <= 0).length,
-    forms: new Set(entries.filter((entry) => entry.bytes > 0).map((entry) => entry.mstId)).size,
+    forms: new Set(
+      entries.filter((entry) => entry.bytes > 0).map((entry) => formOf(entry.mstId)),
+    ).size,
     maxBytes: limit,
     lockedKept: lockedEntries.length,
     lockedBytes: lockedEntries.reduce((sum, entry) => sum + entry.bytes, 0),

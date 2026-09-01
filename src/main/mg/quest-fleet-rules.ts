@@ -69,8 +69,11 @@ import type { QpFleetGoal, QpFleetGoalGroup } from '../../shared/qp-types'
  * （Ark Royal、Samuel B.Roberts、Gotland andra），两字母缩写会从舰名当中割出来
  * ——实测「Ark Royal」被认成 AR（工作舰）+ AR，Cy1 因此凭空长出一道工作舰门。
  * 用到缩写的正文（2606Bm1 的「AO、LHA均可」）同一句里都另有中文写法，不吃亏。
+ *
+ * 导出是给护栏用的：`shared/ship-type-name.ts` 把日文舰种词译成中文时，
+ * 译出来的词必须是这里已有的键、且语义不窄于原词——那就证明中文这一半没有另立新说法。
  */
-const STYPE_ALIASES: Record<string, number[]> = {
+export const STYPE_ALIASES: Record<string, number[]> = {
   海防: [1], 海防舰: [1],
   驱逐: [2], 驱逐舰: [2],
   轻巡: [3], 轻巡洋舰: [3],
@@ -566,8 +569,12 @@ interface ClauseRead {
  * 国籍词 → ship-nationality id。1 个字的简称（美/英/澳/荷）也收，
  * 但只在「国籍串 + 舰娘/舰艇」这个整体里才算数（见 matchNationRun），
  * 免得正文里随处可见的「美」「英」变成一道门。
+ *
+ * **导出是给护栏当判据用的**（同 STYPE_ALIASES）：这张词典与下面那份中心词表
+ * 合起来正是「国籍组标签」的产地，`shared/ship-nation-name.ts` 那张统一写法表
+ * 的护栏要拿产地当判据——判据取自被验证的那张表自己，抄漏一格就永远发现不了。
  */
-const NATION_TOKENS: Record<string, number[]> = {
+export const NATION_TOKENS: Record<string, number[]> = {
   日本: [1], 日: [1], 德国: [2], 德意志: [2], 德: [2], 意大利: [3], 意: [3],
   美国: [4], 美军: [4], 美: [4], uss: [4], 英国: [5], 英: [5],
   法国: [6], 法兰西: [6], 法: [6], 俄罗斯: [7], 苏联: [7], 苏: [7], 俄: [7],
@@ -577,8 +584,18 @@ const NATION_TOKENS: Record<string, number[]> = {
   海外: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 外国: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
 }
 const NATION_KEYS = Object.keys(NATION_TOKENS).sort((a, b) => b.length - a.length)
+/**
+ * 国籍串后面的中心词全集。**长的在前**：alternation 先试「舰娘」再退到「舰」，
+ * 顺序即优先级，重排会让「法国舰娘」只量到「法国舰」。
+ * 与 NATION_TOKENS 一样导出给护栏当判据（见上）。
+ */
+export const NATION_HEAD_NOUNS = [
+  '舰娘', '艦娘', '舰艇', '艦艇', '舰船', '艦船', '军舰', '軍艦', '舰', '艦', '船',
+] as const
 /** 国籍串后面必须跟这些词才算数：「美英澳荷**出身的舰娘**」「法国**舰艇**」「3名法国**舰娘**」 */
-const NATION_SUFFIX = /^\s*(?:出身的?|籍|系)?\s*(?:舰娘|艦娘|舰艇|艦艇|舰船|艦船|军舰|軍艦|舰|艦|船)/
+const NATION_SUFFIX = new RegExp(
+  `^\\s*(?:出身的?|籍|系)?\\s*(?:${NATION_HEAD_NOUNS.join('|')})`,
+)
 /** 国籍串内部的分隔符 */
 const NATION_SEP = /^[\s/／、,，和及与與或]*/
 

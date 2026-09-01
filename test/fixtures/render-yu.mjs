@@ -46,7 +46,13 @@ const STUBS = {
   `,
   'renderer/kcs-image.ts': 'export const setAllowRemoteArt = (_v: boolean) => {}\n',
   'renderer/kcs-voice.ts': 'export const setAllowRemoteVoice = (_v: boolean) => {}\n',
-  'renderer/voice-subtitle.ts': 'export const setVoiceCaptionsEnabled = (_v: boolean) => {}\n',
+  // 字幕字号的热切：改一档钥要当场推给字幕层，所以记账而不是空转
+  'renderer/voice-subtitle.ts': `
+    export const setVoiceCaptionsEnabled = (_v: boolean) => {}
+    export const setVoiceCaptionSize = (px: unknown) => {
+      ;((globalThis as any).__captionSizes ??= []).push(px)
+    }
+  `,
   // 浮层入场的热切：翻开关时钥要当场调它，所以记账而不是空转
   'renderer/launch-glow.ts': `
     export const setOverlayEntranceEnabled = (v: boolean) => {
@@ -141,6 +147,7 @@ export const mountYu = ({
   globalThis.__uiStore = ui
   globalThis.__uiWrites = []
   globalThis.__overlayEntrance = []
+  globalThis.__captionSizes = []
   globalThis.__yuModule = null
   globalThis.requestAnimationFrame = (cb) => {
     cb()
@@ -203,6 +210,8 @@ export const mountYu = ({
     writes: () => globalThis.__uiWrites,
     /** 钥调 setOverlayEntranceEnabled 的流水账（装配时一次，之后每翻一次开关一次） */
     overlayEntrance: () => globalThis.__overlayEntrance,
+    /** 钥调 setVoiceCaptionSize 的流水账（每改一档字幕字号一次） */
+    captionSizes: () => globalThis.__captionSizes,
     /** 等 mount 里那个异步 IIFE 把清单读完并重渲一次 */
     settled: async () => {
       await new Promise((resolve) => setImmediate(resolve))

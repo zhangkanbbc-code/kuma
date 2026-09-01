@@ -1304,6 +1304,26 @@ export interface ShipLifeReport {
   events: ShipLifeEvent[]
 }
 
+/**
+ * 这一艘终结过的一场 boss（敌旗舰的最后一击是她打的）。
+ *
+ * 数据来自 battle 事件的 `detail.bossKill`——不是新事件种类，也不是新表：
+ * 「谁终结了这场 boss」本来就是那一场战斗记录的一个属性。
+ * 判据见 shared/boss-kill；航空/支援终结的场次没有单舰归属，不会出现在任何一艘的表里。
+ */
+export interface ShipBossKillEntry {
+  /** 对应的 battle 生命事件 id */
+  eventId: number
+  ts: number
+  map: number | null
+  cell: number | null
+  rank: string | null
+  /** 敌旗舰的深海 mstId */
+  bossMstId: number
+  /** 战斗快照 id；快照被清掉后为 null（这一条仍然成立，只是点不开复盘） */
+  snapshotId: number | null
+}
+
 export type ShipDepartureReason = 'scrap' | 'material' | 'sunk'
 
 export interface ShipMemorialEntry {
