@@ -201,7 +201,7 @@ test('渲染层：授键判据已按新政策反转，且没有留下旧的整�
     '「整份字幕缺席就不给键」那道闸门回潮了——它治的是错误的轴',
   )
   // 整页无钮时不许再挂「▶ 可播放」（这一条不反转，它管的是另一件事）
-  assert.match(ji, /都连不到音轨，原因见各行/)
+  assert.match(ji, /均无对应音轨/)
   // 台账要真的被消费——不然它就是一份没人看的死数据
   assert.match(ji, /voicePlaybackObservationAt\(playbackMstId, slot\)/)
 })
@@ -296,8 +296,8 @@ test('两条负例的格照旧无键：国後判分歧、島根丸指路', (t) =
   assert.match(ji, /if \(voicePlaybackObservationAt\(playbackMstId, slot\)\) return null/)
   // 08-24 与 08-26 两次文案清洗都改过措辞，钉的是**语义**：
   // 说清是季节版顶替，并指路到季节段（08-26 按拟稿断句成「 · 」、去掉尾巴）
-  assert.match(ji, /当季被季节版顶替/)
-  assert.match(ji, /「季节限定台词」里/)
+  assert.match(ji, /当前槽位为季节版/)
+  assert.match(ji, /对应台词见下方「季节限定台词」/)
 })
 
 test('实测判例排在推断之前，且判分歧的格照样查得到自己的判例', () => {

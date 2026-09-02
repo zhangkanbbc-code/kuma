@@ -27,11 +27,11 @@ export const sallyMarkHtml = (tag: number, areaId?: number | null): string => {
   if (tag > 0) {
     const named = sallyTagNameOf(areaId, tag)
     const title = named
-      ? `出击识别札 ${tag} · ${named.name}\n对应哪支部队看「活动」里的锁船标签卡`
-      : `出击识别札 ${tag}\n对应哪支部队看「活动」里的锁船标签卡`
+      ? `出击识别札 ${tag} · ${named.name}\n所属部队：见「活动」中的锁船标签卡`
+      : `出击识别札 ${tag}\n所属部队：见「活动」中的锁船标签卡`
     return `<span class="sally-mark" style="--tag:${sallyTagColor(tag)}"
       title="${esc(title)}">${tag}</span>`
   }
   return `<span class="sally-mark none"
-    title="${esc('还没有札\n出击活动图后会被永久打上该阶段对应的札，不可逆')}">—</span>`
+    title="${esc('暂无札 · 出击活动海域后永久获得对应阶段札')}">—</span>`
 }

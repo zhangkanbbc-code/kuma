@@ -145,7 +145,7 @@ const pack = {
     fetchedAt: existing?.meta?.fetchedAt ?? new Date().toISOString(),
     upstreamUpdatedAt: UPSTREAM_UPDATED_AT,
     license: '第一方事实表：记的是游戏定的客观事实（哪架机体属于哪个特効组），随源码分发',
-    note: '本期活动里哪架飞机属于哪个陆航特効组',
+    note: '活动陆航特效分组',
     maintainerNote: [
       `期号 ${EVENT_PAGE}：与 event-bonus 包的 page= 对不上就整表不生效，换期后自动退场，不拿上一期的名单套这一期。`,
       '舰上机吃 A/B 组、基地（陆航）只吃 C 组；一件装备可同属多组，算哪一侧就只看哪一侧。' +

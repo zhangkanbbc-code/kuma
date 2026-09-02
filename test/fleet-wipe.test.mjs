@@ -152,7 +152,9 @@ const ruleBody = (html, selector) => {
 }
 
 test('the wipe mark is a strikethrough on the fleet name, not an overlay', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html =
+    fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8') +
+    fs.readFileSync(new URL('../src/renderer/assets/battle-replay.css', import.meta.url), 'utf8')
   // 横线画在名字上：名字长度变化不用重算宽度。
   // 但不能用 text-decoration: line-through——它按字体的 strikeout 度量画线，
   // 那个度量是给拉丁小写字母定的，落到汉字上会偏到上三分之一（实机复现过）。

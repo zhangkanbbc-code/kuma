@@ -6,12 +6,13 @@
  * 于是分工定死：**机器守旧判例，人眼立新判例**——凡是他已经当场判过一次的措辞，
  * 从此由这份表挡住，不再靠人复查；没判过的新毛病仍然只能靠人读，机器不替他拍板。
  *
- * 判例出处只有两种，逐条写在表里：
+ * 判例出处只有三种，逐条写在表里：
  * - 《文案审计·三把尺子复扫》的 A 级 18 条与**已裁**的 B 级条目（`A9`/`B26` 这类编号）；
  * - 落地那几笔提交：`d4ab018`（A 级 18 条全修 + 空态统一「暂无」+ B 级按裁定收）、
  *   `d245b75`（两条漏网）、`ed03fae`（「问过没有」→「核实过官方没有」）、
  *   `4dfc282`（破折号后面把结论替玩家念一遍，砍掉）、`7444228`（「打不到」→「敌后方」）、
  *   `cca8e77`（「从建造坞领回」→「建造入港」）、`3c58fec`（「夜战转昼」→「拂晓战」）。
+ * - 用户带日期的亲笔裁定。
  *
  * 三条纪律：
  * 1. **只收判过的**。审计里「拿不准 / 待裁」而现仓还留着原样的（B3 在场检测、
@@ -25,9 +26,10 @@
  * 这一条走 AST 语料、管**已裁定的句式与措辞**。两条互不覆盖，都留着。
  */
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
 import test from 'node:test'
 
-import { collectPlayerCopy } from './player-copy-corpus.mjs'
+import { collectPlayerCopy, collectStructuralPlayerCopy } from './player-copy-corpus.mjs'
 
 /**
  * 豁免表。每条必须写清「为什么这不是那条判例要禁的东西」。
@@ -142,6 +144,19 @@ const RETIRED_WORDS = [
     re: /还没有来路|前方没有记录/,
     verdict: '审计 B25（导航钮 disabled 悬停把导航栈写成一条路）；d4ab018「导航钮 disabled 悬停…按建议收」',
     fix: '「已在最上层」/「已在最下层」',
+  },
+  {
+    id: '09-02 · 口语叙事腔',
+    re: /看看|瞧瞧|试试|接着找|接着放|接着输入|选一艘|挑一艘|摆装备|来看看/,
+    verdict:
+      '用户 2026-09-02 亲裁组合实验室「看看 / 摆装备 / 接着找」同族，并指定「接着放 / 接着输入 / 选一艘」一并清理',
+    fix: '改用标签语：查看 / 查找其他 / 继续播放 / 继续输入；去掉替玩家推进的祈使',
+  },
+  {
+    id: '09-02 · 解释腔从句',
+    re: /填了[^，。]{0,12}也不|没吃满|多出一条|那一档/,
+    verdict: '用户 2026-09-02 亲裁对空 CI 注文「填了…也不… / 没吃满 / 多出一条 / 那一档」同族',
+    fix: '只留成立条件、概率与改修项事实，不写操作后的解释性推论',
   },
 ]
 
@@ -348,6 +363,207 @@ const offendersIn = (rows, table) => {
   return out
 }
 
+const plainText = (text) =>
+  text
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&(?:nbsp|amp|lt|gt|quot|#\d+);/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+const titleTexts = (row) => {
+  const out = []
+  if (row.properties.includes('title')) out.push(row.text)
+  for (const match of row.text.matchAll(/\btitle="([^"]*)"/g)) out.push(match[1])
+  return [...new Set(out.map(plainText).filter(Boolean))]
+}
+
+const visibleTexts = (row) => {
+  const visible = plainText(row.text)
+  return visible ? [visible] : []
+}
+
+const allTexts = (row) => [...new Set([...visibleTexts(row), ...titleTexts(row)])]
+
+const confirmContext = (row) =>
+  row.calls.some((name) => /(?:^|\.)(?:confirm|dialog|message)$/i.test(name)) ||
+  row.functions.some((name) => /(?:confirm|dialog|message)/i.test(name))
+
+const pronounSubjectOrPossessive = /(?:^|[>，。；：！？·\s])(?:你的|你|她们?|它们?)(?:的)?(?=[\u4e00-\u9fff])/
+const asciiParenAfterCjk = /[\u4e00-\u9fff]\s*\([A-Za-z0-9][^()\r\n]{0,12}\)/
+const numericApprox = /(?<![誓条归违契公盟制签预])约\s*(?:[-+]?\d|〔插值〕)|(?:\d|〔插值〕)\s*约(?!翰)/
+const futureExpected = (text) =>
+  /预计修理/.test(text) ||
+  /预计回满/.test(text) ||
+  /预计(?:时刻|时间)/.test(text) ||
+  /预计\s*〔插值〕/.test(text) ||
+  /预计[^，。；\n]{0,24}(?:\d{1,2}:\d{2}|〔插值〕)[^，。；\n]{0,10}(?:后|时|完成|恢复)/.test(text)
+
+const emptyFirstTexts = (row) => {
+  const out = []
+  const open = /<([a-z][\w-]*)\b[^>]*class="[^"]*(?:empty|placeholder|waiting|loading|pending)[^"]*"[^>]*>/gi
+  for (const match of row.text.matchAll(open)) {
+    const direct = row.text.slice((match.index ?? 0) + match[0].length).split('<', 1)[0]
+    const value = plainText(direct.replace(/〔插值〕/g, ''))
+    if (/[\u4e00-\u9fff]/.test(value)) out.push(value)
+  }
+  if (
+    !out.length &&
+    !row.text.includes('<') &&
+    row.functions.some((name) => /empty|placeholder/i.test(name))
+  ) {
+    out.push(...visibleTexts(row))
+  }
+  return out
+}
+
+const STRUCTURAL_RULES = [
+  {
+    id: '① 面板人称主语/定语',
+    check: (row) => !confirmContext(row) && allTexts(row).some((text) => pronounSubjectOrPossessive.test(text)),
+    sample: { text: '你的实测', properties: [], calls: [], functions: [] },
+  },
+  {
+    id: '② 空态/等待节点状态词',
+    check: (row) => {
+      const firstTexts = emptyFirstTexts(row)
+      return firstTexts.some(
+        (first) =>
+          !/(?:^|^.{1,8})(?:暂无|尚未|暂未)/.test(first) &&
+          !/^(?:正在|[^·，。；：\n]{1,18}(?:中|失败|未出错)(?:\s|·|（|$))/.test(first) &&
+          !/^(?:输入|点击|单击|打开|选择)/.test(first) &&
+          !/^(?:S 胜空手|◇ 存在空掉落|空位|未装备|无装备)/.test(first),
+      )
+    },
+    sample: {
+      text: '<div class="audit-empty">等待同步</div>',
+      properties: [],
+      calls: [],
+      functions: [],
+    },
+  },
+  {
+    id: '③ 非确认框句末句号',
+    check: (row) => !confirmContext(row) && allTexts(row).some((text) => text.endsWith('。')),
+    sample: { text: '短标签。', properties: [], calls: [], functions: [] },
+  },
+  {
+    id: '④ 数值/概率限定词',
+    check: (row) =>
+      !confirmContext(row) &&
+      allTexts(row).some(
+        (text) =>
+          /保守|约莫|大概|近似|暂估/.test(text) ||
+          (/预计/.test(text) && !futureExpected(text)),
+      ),
+    sample: { text: '当前概率大概 50%', properties: [], calls: [], functions: [] },
+  },
+  {
+    id: '⑥ 数字/插值紧邻「约」',
+    check: (row) =>
+      allTexts(row).some((text) => numericApprox.test(text) && !/(?:估算|推定)/.test(text)),
+    sample: { text: '概率约 50%', properties: [], calls: [], functions: [] },
+  },
+  {
+    id: '⑦ 动作提示保证式',
+    check: (row) => allTexts(row).some((text) => /(?:即可|就会恢复)$|就会恢复/.test(text)),
+    sample: { text: '打开任务页即可', properties: [], calls: [], functions: [] },
+  },
+  {
+    id: '⑧ title 人称主语/定语',
+    check: (row) => !confirmContext(row) && titleTexts(row).some((text) => pronounSubjectOrPossessive.test(text)),
+    sample: {
+      text: '<span title="她不会被击沉">状态</span>',
+      properties: [],
+      calls: [],
+      functions: [],
+    },
+  },
+  {
+    id: '⑨ 游戏自报/自述',
+    check: (row) => allTexts(row).some((text) => /游戏自报|游戏自述/.test(text)),
+    sample: { text: '游戏自报进度', properties: [], calls: [], functions: [] },
+  },
+  {
+    id: '⑩ 可见中文后短 ASCII 括号',
+    check: (row) => allTexts(row).some((text) => asciiParenAfterCjk.test(text)),
+    sample: { text: '关闭 (Esc)', properties: [], calls: [], functions: [] },
+  },
+  {
+    id: '⑪ 推断/反推',
+    check: (row) => allTexts(row).some((text) => /推断|反推/.test(text)),
+    sample: { text: '由后续任务反推', properties: [], calls: [], functions: [] },
+  },
+  {
+    id: '⑫ 口语动作收尾',
+    check: (row) => allTexts(row).some((text) => /(?:就成了|即可|就行)$/.test(text)),
+    sample: { text: '完成就成了', properties: [], calls: [], functions: [] },
+  },
+]
+
+const STRUCTURAL_CASEBOOK = {
+  '①': ['用户 2026-09-02 施工单：面板串人称代词主语/定语为红线', '改用本地、本舰、当前或该'],
+  '②': ['用户 2026-09-02 施工单：空态/等待节点首文本必须是状态词', '以暂无、尚未、…中或…失败起头'],
+  '③': ['用户 2026-09-02 施工单：非确认框玩家串禁止句末句号', '删除标签、空态、通知标题与悬停末尾句号'],
+  '④': ['用户 2026-09-02 施工单：数值与概率限定词分预计/估算/推定', '未来时刻用预计，当前判断用估算，资料结论用推定'],
+  '⑤': ['用户 2026-09-02 施工单：rule.correction 进 title 禁维护过程叙事', '只写按 wikiwiki 值或按本地实测值等结果句'],
+  '⑥': ['用户 2026-09-02 施工单：数字或插值紧邻“约”为红线', '数值判断改用估算，资料结论改用推定'],
+  '⑦': ['用户 2026-09-02 施工单：动作提示禁“即可”收尾与“就会恢复”保证', '改成短祈使或失败 · 下一步动作'],
+  '⑧': ['用户 2026-09-02 施工单：title/悬停里她、它作主语定语为红线', '改用本舰、当前或该对象'],
+  '⑨': ['用户 2026-09-02 施工单：游戏自报/自述统一退役', '改用游戏显示、返回值或条件原文'],
+  '⑩': ['用户 2026-09-02 施工单：可见中文后的短 ASCII 括号为红线', '改用全角括号；代码、公式、URL 与快捷键组合除外'],
+  '⑪': ['用户 2026-09-02 施工单：玩家串与属性标题禁推断/反推', '改用推定或无法推定'],
+  '⑫': ['用户 2026-09-02 施工单：就成了/即可/就行收尾为红线', '删除口语保证尾，保留动作或状态'],
+}
+
+const STRUCTURAL_ALLOWLIST = [
+  {
+    rule: '②',
+    file: 'src/renderer/modules/ji.ts',
+    phrase: '仅有拆解、素材消耗或击沉记录',
+    why: 'mem-empty 在这里承载的是“仍有离库记录”的摘要，不是空集合或等待态',
+  },
+  {
+    rule: '②',
+    file: 'src/renderer/modules/yu.ts',
+    phrase: '上游无表',
+    why: 'yl-empty 是矿脉覆盖矩阵的分类徽记，前置插值是海域清单，不是空态文案',
+  },
+  {
+    rule: '③',
+    file: 'src/renderer/modules/mgstate.ts',
+    phrase: 'KANSO_DEBUG_UI',
+    why: '两条均为审计 C 级调试模拟说明，本单明确要求 C 不动',
+  },
+]
+
+const structuralAllowed = (row, rule) =>
+  STRUCTURAL_ALLOWLIST.some(
+    (entry) =>
+      rule.id.startsWith(entry.rule) &&
+      row.file === entry.file &&
+      row.text.includes(entry.phrase),
+  )
+
+const structuralOffenders = (rows, rule) =>
+  rows
+    .filter((row) => rule.check(row) && !structuralAllowed(row, rule))
+    .map((row) => `[${rule.id}] ${row.file}:${row.line} ${plainText(row.text).slice(0, 140)}`)
+
+const fitCorrectionNarrativeOffenders = () => {
+  const file = new URL('../src/shared/fit-bonus-corrections.ts', import.meta.url)
+  const source = fs.readFileSync(file, 'utf8')
+  const notes = [...source.matchAll(/^\s+note:\s*'([^'\r\n]*)',/gm)]
+  assert.equal(notes.length, 73, `第一方修正 UI 说明应为 73 条，实际 ${notes.length}`)
+  assert.match(
+    fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8'),
+    /rule\.correction \? ` · <em title="\$\{esc\(rule\.correction\)\}">第一方修正<\/em>`/,
+    'rule.correction 进 title 的显示路径断了',
+  )
+  return notes
+    .filter((match) => /按[^，。；\n]{0,24}(?:补|退回|归位|改回)/.test(match[1]))
+    .map((match) => `[⑤ correction 处理叙事] src/shared/fit-bonus-corrections.ts:${source.slice(0, match.index).split('\n').length} ${match[1]}`)
+}
+
 test('玩家文案语料提取器没有静默塌掉', () => {
   const { tierA, tierB } = collectPlayerCopy()
   // 提取器要是哪天被改坏、返回空数组，下面两条闸门会「全绿」——那是最坏的失败形态。
@@ -383,20 +599,109 @@ test('玩家可见文案的棘轮闸门：已裁定的句式不许回潮', () =>
   assert.deepEqual(offenders, [], `\n${offenders.join('\n')}\n`)
 })
 
+test('玩家可见文案的结构棘轮：09-02 全量审计判例不许回潮', () => {
+  const { tierA, tierB } = collectStructuralPlayerCopy()
+  const all = []
+  for (const rule of STRUCTURAL_RULES) {
+    const deliveryRows =
+      rule.id.startsWith('④') || rule.id.startsWith('⑥')
+        ? tierB.filter((row) => row.file === 'src/shared/ship-stat-layers.ts')
+        : rule.id.startsWith('⑦') || rule.id.startsWith('⑫')
+          ? tierB.filter((row) => row.file === 'src/shared/qp-types.ts')
+          : []
+    const offenders = structuralOffenders([...tierA, ...deliveryRows], rule)
+    console.log(`[棘轮] ${rule.id}：现语料命中 ${offenders.length}`)
+    all.push(...offenders)
+  }
+  const correctionOffenders = fitCorrectionNarrativeOffenders()
+  console.log(`[棘轮] ⑤ correction 处理叙事：现语料命中 ${correctionOffenders.length}`)
+  all.push(...correctionOffenders)
+  assert.deepEqual(all, [], `\n${all.join('\n')}\n`)
+})
+
+test('结构棘轮反向判例：每条红线放回旧句都会命中', () => {
+  for (const rule of STRUCTURAL_RULES) {
+    assert.equal(rule.check(rule.sample), true, `${rule.id} 没抓住反向旧句`)
+  }
+  const oldCorrection = '火力按日文原表补 1'
+  assert.match(oldCorrection, /按[^，。；\n]{0,24}(?:补|退回|归位|改回)/)
+})
+
+test('玩家文案观察名单：只列 file:line，不阻断提交', () => {
+  const { tierA } = collectStructuralPlayerCopy()
+  const rows = tierA
+  const watch = [
+    {
+      id: '去标签后长度 ≥14 且含全角逗号',
+      hit: (row) => visibleTexts(row).some((text) => text.length >= 14 && text.includes('，')),
+    },
+    {
+      id: '括号内 ≥6 字',
+      hit: (row) =>
+        allTexts(row).some((text) =>
+          /（[^）\r\n]{6,}）/.test(text),
+        ),
+    },
+    {
+      id: '破折号后判断/劝告从句',
+      hit: (row) =>
+        allTexts(row).some((text) =>
+          /——[^。！？\n]*(?:所以|说明|意味着|建议|应该|需要|不要|只能|可以|可)/.test(text),
+        ),
+    },
+    {
+      id: '同一串含两步以上操作',
+      hit: (row) =>
+        allTexts(row).some(
+          (text) =>
+            (text.match(/点击|单击|打开|选择|输入|填写|复制|返回|切换|清除|重试|领取/g) ?? [])
+              .length >= 2,
+        ),
+    },
+    {
+      id: '确认上屏 title/悬停末尾句号',
+      hit: (row) => titleTexts(row).some((text) => text.endsWith('。')),
+    },
+  ]
+  for (const rule of watch) {
+    const refs = [
+      ...new Set(
+        rows
+          .filter(rule.hit)
+          .map((row) => `${row.file}:${row.line}`),
+      ),
+    ]
+    console.log(`[观察] ${rule.id}：${refs.length}`)
+    for (const ref of refs) console.log(`[观察] ${ref}`)
+  }
+})
+
 test('棘轮词表本身是可读的判例账：每条都写了判例与改法', () => {
   for (const rule of [...RETIRED_WORDS, ...SENTENCE_SHAPES]) {
     assert.ok(rule.id && rule.re instanceof RegExp, `词表条目缺 id 或正则：${rule.id}`)
-    // 「每条注：裁定日期+判例出处」——判例栏必须点到审计编号或提交号，
+    // 「每条注：裁定日期+判例出处」——判例栏必须点到审计编号、提交号或用户亲裁日期，
     // 否则这条就是凭感觉加的，下一个人无从复核。
     assert.match(
       rule.verdict,
-      /审计 [AB]\d|[0-9a-f]{7}/,
-      `「${rule.id}」的判例栏没写审计编号或提交号：${rule.verdict}`,
+      /审计 [AB]\d|[0-9a-f]{7}|用户 20\d{2}-\d{2}-\d{2}/,
+      `「${rule.id}」的判例栏没写审计编号、提交号或用户亲裁日期：${rule.verdict}`,
     )
     assert.ok(rule.fix && rule.fix.length > 2, `「${rule.id}」没写改法`)
   }
   for (const entry of ALLOWLIST) {
     assert.ok(entry.phrase && entry.why.length > 20, `豁免「${entry.phrase}」没写足理由`)
+  }
+  assert.deepEqual(
+    Object.keys(STRUCTURAL_CASEBOOK),
+    ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩', '⑪', '⑫'],
+    '09-02 结构判例账不完整',
+  )
+  for (const [id, [verdict, fix]] of Object.entries(STRUCTURAL_CASEBOOK)) {
+    assert.match(verdict, /用户 2026-09-02/, `${id} 缺少带日期的裁定出处`)
+    assert.ok(fix.length > 8, `${id} 缺少可执行改法`)
+  }
+  for (const entry of STRUCTURAL_ALLOWLIST) {
+    assert.ok(entry.rule && entry.file && entry.phrase && entry.why.length > 20, '结构豁免缺少范围或理由')
   }
 })
 

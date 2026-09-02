@@ -18,6 +18,7 @@ import { parseAirBaseStrikes } from '../../shared/air-base-strike'
 import { mapIdOf } from '../../shared/map-id'
 import { berthBankedDecks } from '../../shared/berth-repair'
 import { detectEventAreas } from '../../shared/event-area'
+import { getLode } from '../lode'
 import ledger from './ledger'
 import { diffPayitemStocks, parsePayitemList, payitemUseEffect } from '../../shared/pay-log'
 import { reduceQuestList } from './quest-state'
@@ -1233,6 +1234,80 @@ const upgradeRowFrom = (currentShipId: number): MasterShipUpgrade | null => {
   return null
 }
 
+type ImproveStageKey = 'p1' | 'p2' | 'conv'
+interface ImproveConsumable {
+  id?: number
+  eq_count?: number
+}
+interface ImprovePlan {
+  convert?: { id_after?: number } | null
+  helpers?: { ship_ids?: number[] }[]
+  costs?: Partial<Record<ImproveStageKey, { consumable?: ImproveConsumable[] }>>
+}
+interface ImproveEntry {
+  eq_id?: number
+  improvement?: ImprovePlan[]
+}
+
+// 改修的特殊道具消耗查随包 equip-improve。请求给的是装备实例 id；星级必须在
+// applySlotitemInventoryMutation 用响应覆盖实例之前读取。★0–5 / ★6–9 / ★max
+// 分别对应 p1 / p2 / conv。
+//
+// 同一装备可能有多条更新路线，而且特殊道具并不总相同（例如 12cm30連装噴進砲改二
+// 可更新成两件不同装备）。更新成功的响应会在 api_after_slot 给出目标装备编号，
+// 用它认唯一一行；普通改修失败时响应只回原装备，则按请求中的二号舰在事实表认行。
+// 若事实表没写这一档、或仍有两种不同答案，就不猜、不扣。
+//
+// api_certain_flag 只在事实表中切换 devmats(_sli) / screws(_sli)；特殊道具只有一份
+// consumable，普通与确保化共用。前两项资源继续完全服从 api_after_material。
+const remodelSlotUseitemCosts = (
+  body: any,
+  post: Record<string, string>,
+): { id: number; count: number }[] => {
+  const target = state.player.slotitems[Number(post.api_slot_id)]
+  if (!target) return []
+  const stage: ImproveStageKey =
+    target.level >= 10 ? 'conv' : target.level >= 6 ? 'p2' : 'p1'
+  const entries = getLode('equip-improve')?.data
+  if (!Array.isArray(entries)) return []
+  const entry = (entries as ImproveEntry[]).find((one) => Number(one.eq_id) === target.mstId)
+  let plans = (entry?.improvement ?? []).filter((plan) => plan.costs?.[stage])
+  if (!plans.length) return []
+
+  if (stage === 'conv') {
+    const afterMst = Number(body?.api_after_slot?.api_slotitem_id)
+    if (afterMst > 0 && afterMst !== target.mstId) {
+      plans = plans.filter((plan) => Number(plan.convert?.id_after) === afterMst)
+    }
+  }
+  const helperMst =
+    Number(body?.api_voice_ship_id) ||
+    state.player.ships[Number(post.api_id)]?.shipId ||
+    0
+  if (helperMst > 0) {
+    const matched = plans.filter((plan) =>
+      (plan.helpers ?? []).some((helper) =>
+        (helper.ship_ids ?? []).map(Number).includes(helperMst),
+      ),
+    )
+    if (matched.length) plans = matched
+  }
+
+  const signatures = new Map<string, ImproveConsumable[]>()
+  for (const plan of plans) {
+    const consumable = plan.costs?.[stage]?.consumable
+    if (!Array.isArray(consumable)) continue
+    signatures.set(JSON.stringify(consumable), consumable)
+  }
+  if (signatures.size !== 1) return []
+  const costs: { id: number; count: number }[] = []
+  for (const need of signatures.values().next().value ?? []) {
+    const id = Number(need.id)
+    const count = Number(need.eq_count)
+    if (id > 0 && count > 0) costs.push({ id, count })
+  }
+  return costs
+}
 // api_mst_ship 的成长属性是 [初始, 最大]；取初始值（裸值）
 const first = (v: unknown): number => (Array.isArray(v) ? (v[0] ?? 0) : 0)
 const last = (v: unknown): number =>
@@ -1888,14 +1963,18 @@ const reducers: Record<string, Reducer> = {
   },
 
   '/kcsapi/api_req_kaisou/open_exslot': (_body, post, ts) => {
+    const sections: Section[] = []
     const ship = state.player.ships[Number(post.api_id)]
-    if (!ship || ship.slotEx !== 0) return []
-    ship.slotEx = -1
-    const sections: Section[] = ['ships']
+    if (ship && ship.slotEx === 0) {
+      ship.slotEx = -1
+      sections.push('ships')
+    }
     // api_mst_useitem **64**「補強増設」每次开槽消耗一个。
     // （原先写的 26 在主数据里是空条目，自扣空转：2026-08-31 13:43 连开五格，
     // 账上一笔没有，直到 13:52 的全量下发才一口气差出 −5——原因也就记到了那一刻。
     // 64 这个号在 shared/kcwiki-upgrade 与 qn 的道具别名表里本来就是对的。）
+    // 成功端点本身就是消费凭据；本地没这艘舰或 slotEx 已滞后时，只跳过舰状态，
+    // 不能连确定发生的道具扣减一起吞掉。
     if (incrementUseitem(64, -1, ts)) sections.push('useitems')
     return sections
   },
@@ -2265,9 +2344,11 @@ const reducers: Record<string, Reducer> = {
     return sections
   },
 
-  // 改修：响应同时带完整资源数组、被消耗的素材实例与改修后目标实例。
-  '/kcsapi/api_req_kousyou/remodel_slot': (body) => {
+  // 改修：响应同时带完整资源数组、被消耗的素材实例与改修后目标实例；
+  // 特殊道具不在响应里，按随包事实表当场自扣。
+  '/kcsapi/api_req_kousyou/remodel_slot': (body, post, ts) => {
     const sections: Section[] = []
+    const useitemCosts = remodelSlotUseitemCosts(body, post)
     if (Array.isArray(body.api_after_material)) {
       state.player.materials = toMaterials(body.api_after_material, state.player.materials)
       sections.push('materials')
@@ -2282,6 +2363,11 @@ const reducers: Record<string, Reducer> = {
     ) {
       sections.push('slotitems')
     }
+    let useitemsChanged = false
+    for (const cost of useitemCosts) {
+      if (incrementUseitem(cost.id, -cost.count, ts)) useitemsChanged = true
+    }
+    if (useitemsChanged) sections.push('useitems')
     return sections
   },
 

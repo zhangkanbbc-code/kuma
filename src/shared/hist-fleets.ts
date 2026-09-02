@@ -450,7 +450,7 @@ export const HIST_FLEETS: readonly HistFleetEntry[] = [
       q('B213'),
       q('B214'),
     ],
-    note: '玉波・早波・藤波・涼波 为编成时成员，浜波 于 1944 年 12 月编入。',
+    note: '玉波・早波・藤波・涼波 为编成时成员，浜波 于 1944 年 12 月编入',
     noteStatus: 'verified',
     refs: [
       {
@@ -705,7 +705,7 @@ export const HIST_FLEETS: readonly HistFleetEntry[] = [
     period: { label: '第一次', order: 1 },
     members: [exact([141], 'flagship'), exact([418]), exact([309])],
     questRefs: [q('A66', 'defines'), q('B60'), q('B72')],
-    note: '1944 年 8 月 20 日编成的对潜机动部队，旗舰 五十鈴；1945 年 4 月 20 日吸收解散的第二水雷战队所属各驱逐队。',
+    note: '1944 年 8 月 20 日编成的对潜机动部队，旗舰 五十鈴；1945 年 4 月 20 日吸收解散的第二水雷战队所属各驱逐队',
     noteStatus: 'verified',
     refs: [
       {
@@ -735,7 +735,7 @@ export const HIST_FLEETS: readonly HistFleetEntry[] = [
     ],
     constraint: { pickFrom: 5 },
     questRefs: [q('2606Am1', 'defines'), q('2606Cm1')],
-    note: '1945 年 4 月吸收第七（潮・響）／第十七（雪風・初霜）／第四十一（冬月・涼月）驱逐队后的名单。',
+    note: '1945 年 4 月吸收第七（潮・響）／第十七（雪風・初霜）／第四十一（冬月・涼月）驱逐队后的名单',
     noteStatus: 'verified',
     refs: [
       {
@@ -1094,7 +1094,7 @@ export const HIST_FLEETS: readonly HistFleetEntry[] = [
     period: { label: '礼号期', order: 2 },
     members: [root(49, 'flagship'), root(64), root(183), root(425), root(410)],
     questRefs: [q('A65', 'defines'), q('B57', 'defines', 'name')],
-    note: '1944 年 12 月 26 日民都洛岛冲的礼号作战部队；参战舰另含第三十一战队的 榧・杉・樫。',
+    note: '1944 年 12 月 26 日民都洛岛冲的礼号作战部队；参战舰另含第三十一战队的 榧・杉・樫',
     noteStatus: 'verified',
     refs: [
       {

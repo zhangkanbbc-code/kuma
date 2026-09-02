@@ -349,7 +349,7 @@ const readAudioSelfTest = (): void => {
   const webview = document.querySelector<GameWebview>('#game-wrapper webview')
   if (!webview) {
     audioSelfTest = null
-    audioSelfTestError = '游戏页还没挂上，等它出来再读'
+    audioSelfTestError = '游戏页面尚未加载 · 加载后重试'
     render()
     return
   }
@@ -391,28 +391,26 @@ const gameAudioSelfTestCardHtml = (): string => {
     }</span></span></div>`
 
   if (audioSelfTestError) {
-    return `${head}<div class="yhealth warn"><b>没读到</b>
+    return `${head}<div class="yhealth warn"><b>读取失败 · 请重试</b>
       <span>${esc(audioSelfTestError)}</span></div>`
   }
   if (audioSelfTest === null) {
-    return `${head}<div class="ynote">暂无读取记录。点右上角「读一次」，从游戏页取一份现况。</div>`
+    return `${head}<div class="ynote">暂无读取记录 · 右上角「读一次」读取当前状态</div>`
   }
   if (audioSelfTest.length === 0) {
-    return `${head}<div class="yhealth bad"><b>一个帧都没装上钩子</b>
-      <span>游戏页里找不到音频钩子，三条滑条都不会起作用。可在主控台查
-      <span class="mono">failed to install game-audio</span>，确认 preload 是否启动。</span></div>`
+    return `${head}<div class="yhealth bad"><b>音频钩子未安装到任何帧</b>
+      <span>三条滑条暂不可用 · 运行诊断：<span class="mono">failed to install game-audio</span> · 确认 preload 已启动</span></div>`
   }
 
   const allDecodes = audioSelfTest.flatMap((frame) => frame.decodes)
   const voiceDecodes = allDecodes.filter((entry) => entry.category === 'voice').length
   const verdict = !allDecodes.length
-    ? `<div class="ynote">暂无音频解码记录。在游戏里点一句台词、切一次港区，再回来重读。</div>`
+    ? `<div class="ynote">暂无音频解码记录 · 播放一句台词或切换港区后重读</div>`
     : voiceDecodes
-      ? `<div class="yhealth ok"><b>语音认得出来</b>
-          <span>最近 ${allDecodes.length} 条里有 ${voiceDecodes} 条认成语音，语音滑条这一路是通的。</span></div>`
-      : `<div class="yhealth bad"><b>解了 ${allDecodes.length} 条，没有一条认成语音</b>
-          <span>要么这几条本来就不是语音（先去点一句台词再读），
-          要么地址没记上或者分类认错——看下面每条的路径。</span></div>`
+      ? `<div class="yhealth ok"><b>语音识别正常</b>
+          <span>最近 ${allDecodes.length} 条中 ${voiceDecodes} 条识别为语音 · 语音滑条可用</span></div>`
+      : `<div class="yhealth bad"><b>语音识别失败 · 播放一句台词后重读</b>
+          <span>已解码 ${allDecodes.length} 条 · 语音识别 0 条 · 详见各条路径</span></div>`
 
   const frames = audioSelfTest
     .map((frame) => {
@@ -428,21 +426,21 @@ const gameAudioSelfTestCardHtml = (): string => {
             )
             .reverse()
             .join('')
-        : `<div class="yl-row"><span class="dim">这个帧暂无音频解码记录</span></div>`
+        : `<div class="yl-row"><span class="dim">当前帧暂无音频解码记录</span></div>`
       return `<div class="ynote" style="margin-top:8px">
-          <b>${esc(frame.frame || '(读不出路径)')}</b><br>
+          <b>${esc(frame.frame || '（路径读取失败 · 重新读取）')}</b><br>
           记下的地址：XHR ${frame.captures.xhr} · fetch ${frame.captures.fetch} ·
           Blob ${frame.captures.blob} · FileReader ${frame.captures.fileReader} ·
           objectURL ${frame.captures.objectUrl}<br>
-          还挂着的 WebAudio 源：${counts(frame.sources)}<br>
-          还挂着的音频元素：${counts(frame.media)}
+          当前 WebAudio 源：${counts(frame.sources)}<br>
+          当前音频元素：${counts(frame.media)}
         </div>
         <div class="ylayers">${decodeRows}</div>`
     })
     .join('')
 
   return `${head}${verdict}
-    <div class="ynote" style="margin-top:8px">装上钩子的帧共 ${audioSelfTest.length} 个：</div>
+    <div class="ynote" style="margin-top:8px">已安装钩子的帧：${audioSelfTest.length} 个</div>
     ${frames}`
 }
 
@@ -491,21 +489,20 @@ const lodeHealthCardHtml = (): string => {
       .join('')}</span>`
   const missingHtml =
     (selfFetch.length
-      ? `<div class="yhealth warn"><b>${selfFetch.length} 包没有随发行版</b>
-          <span>上游不许再分发，所以不随包；维护者侧跑 <span class="mono">npm run lodes:fetch</span>
-          补进开发树，玩家那份产物里则永远没有。缺着时影响：</span>${impactList(selfFetch)}</div>`
+      ? `<div class="yhealth warn"><b>${selfFetch.length} 包未随发行版提供</b>
+          <span>许可不允许再分发 · 影响：</span>${impactList(selfFetch)}</div>`
       : '') +
     (shouldBeBundled.length
-      ? `<div class="yhealth bad"><b>${shouldBeBundled.length} 包本该随发行版却不见了</b>
-          <span>本该随包发的，不见了多半是文件损坏，重装一次即可。</span>
+      ? `<div class="yhealth bad"><b>${shouldBeBundled.length} 包随包数据缺失</b>
+          <span>文件可能损坏 · 请重新安装</span>
           ${impactList(shouldBeBundled)}</div>`
       : '') +
     (manual.length
       ? manual
           .map(
             (row) => `<div class="yhealth warn"><b>${esc(row.id)} 需要手动导入</b>
-              <span>${esc(manualOnlyReason(row.id) ?? '')}；导出的文件放进下面写的用户包目录即可。
-              缺着的时候：${esc(consumedLodeImpact(row.id))}。</span></div>`,
+              <span>${esc(manualOnlyReason(row.id) ?? '')} · 将导出文件放入下方用户包目录 ·
+              缺失影响：${esc(consumedLodeImpact(row.id))}</span></div>`,
           )
           .join('')
       : '') +
@@ -514,15 +511,15 @@ const lodeHealthCardHtml = (): string => {
       : `<div class="yhealth ok"><b>${rows.length} 包齐全</b></div>`)
 
   const staleHtml = stale.length
-    ? `<div class="yhealth warn"><b>${stale.length} 包超过 ${STALE_DAYS} 天没更新</b>
+    ? `<div class="yhealth warn"><b>${stale.length} 包已超过 ${STALE_DAYS} 天未更新</b>
         <span>${stale
           .map((row) => `<span class="mono">${esc(row.id)}</span> ${row.ageDays} 天`)
           .join('、')}</span></div>`
     : ''
   const unknownHtml = unknownAge.length
-    ? `<div class="yhealth warn"><b>${unknownAge.length} 包读不出更新日期</b>
+    ? `<div class="yhealth warn"><b>${unknownAge.length} 包更新日期未知</b>
         <span>${unknownAge.map((row) => `<span class="mono">${esc(row.id)}</span>`).join('、')}
-        —— 当作未知，不按「刚更新」算。</span></div>`
+        · 更新状态未知</span></div>`
     : ''
 
   // 上游停更单独一行：上面那两行说的是**我们**下载得多久了，这行说的是**上游**
@@ -545,8 +542,8 @@ const lodeHealthCardHtml = (): string => {
             const day = (row.discontinuedAt ?? row.upstreamUpdatedAt ?? '').slice(0, 10)
             const note =
               consumedLodeOf(row.id)?.upstreamNote ??
-              '那之后加入游戏的内容不会出现在这份资料里，以游戏内与实测为准'
-            return `<span class="yl-impact"><span class="mono">${esc(row.id)}</span> 停在 ${esc(day)} —— ${esc(note)}</span>`
+              '资料截止日期后新增内容未收录 · 游戏内与本地实测补充'
+            return `<span class="yl-impact"><span class="mono">${esc(row.id)}</span> 截止 ${esc(day)} · ${esc(note)}</span>`
           })
           .join('')}</span></div>`
     : ''
@@ -572,8 +569,8 @@ const lodeHealthCardHtml = (): string => {
   // 从前这里是「出错就不摆统计」，那是统计还依赖底座时的写法。
   const intelHtml = `${
     mapIntelError
-      ? `<div class="yhealth warn"><b>活动图底座读取失败</b>
-          <span>${esc(mapIntelError)} · 重开面板或重启 kuma 再试</span></div>`
+      ? `<div class="yhealth warn"><b>活动图底座读取失败 · 请重试</b>
+          <span>${esc(mapIntelError)} · 重新打开面板或重启 kuma</span></div>`
       : ''
   }<div class="ynote" style="margin-top:8px">
       <b>海域情报</b>：常规海域 ${intel.normalCovered}/${intel.normalTotal} 张有节点资料 ·
@@ -661,36 +658,34 @@ const pushCardHtml = (): string => {
           push.ntfyServer && server.error ? server.error : '',
           push.ntfyTopic && topic.error ? topic.error : '',
           // 服务器不再有预置值，空着与频道名空着一样会让整条推送停在本机——都得说
-          push.enabled && !push.ntfyServer ? '推送已启用，但服务器地址还空着，不会发出任何请求' : '',
-          push.enabled && !push.ntfyTopic ? '推送已启用，但频道名还空着，不会发出任何请求' : '',
+          push.enabled && !push.ntfyServer ? '推送未配置：服务器地址为空' : '',
+          push.enabled && !push.ntfyTopic ? '推送未配置：频道名为空' : '',
         ]
       : [
           push.barkEndpoint && endpoint.error ? endpoint.error : '',
           push.barkEncrypt && push.barkKey && !isValidPushKey(push.barkKey) ? PUSH_KEY_ERROR : '',
           push.enabled && push.barkEncrypt && !push.barkKey
-            ? '已开加密但没有密钥 · 点「生成密钥」后填进 Bark App'
+            ? '加密已开启 · 尚未填写密钥 · 点击「生成密钥」'
             : '',
-          push.enabled && !push.barkEndpoint ? '推送已启用，但地址还空着，不会发出任何请求' : '',
+          push.enabled && !push.barkEndpoint ? '推送未配置：Bark 地址为空' : '',
         ]
   ).filter(Boolean)
   // 拦不住但要说：频道名短 = 口令短
   const advisories = [
     isNtfy && isWeakNtfyTopic(push.ntfyTopic)
-      ? `频道名不到 ${NTFY_TOPIC_WEAK_LENGTH} 位。频道名即口令，过短易被猜到，可点「生成频道名」重新生成`
+      ? `频道名不足 ${NTFY_TOPIC_WEAK_LENGTH} 位 · 长度不足 · 建议重新生成`
       : '',
   ].filter(Boolean)
 
   const ntfyFields = `
-    <div class="ynote"><b>怎么用</b>：① 手机上装 <b>ntfy</b>（Google Play 或 F-Droid，开源免费）
-    ② 下面填服务器与频道名，在 app 里 Subscribe 同一个频道
-    ③ 回来点「发送测试推送」，手机响了就成了。</div>
+    <div class="ynote"><b>使用步骤</b>：① 安装 <b>ntfy</b> ② 填写服务器与频道名并订阅同名频道 ③ 发送测试推送</div>
     <div class="yline">服务器
       <input class="yin wide" data-push-field="ntfyServer" value="${esc(push.ntfyServer)}"
         placeholder="${esc(NTFY_SERVER_PLACEHOLDER)}">
-      <span class="note9">要自己填；空着不会发送</span></div>
+      <span class="note9">必填 · 空值不发送</span></div>
     <div class="yline">频道名
       <input class="yin wide" data-push-field="ntfyTopic" value="${esc(push.ntfyTopic)}"
-        placeholder="点右边生成一个猜不到的">
+        placeholder="生成长随机频道名">
       <span class="ybtn" data-act="push-gentopic">生成频道名</span></div>
     <div class="yline">访问令牌
       <input class="yin wide" data-push-field="ntfyToken" value="${esc(push.ntfyToken)}"
@@ -698,40 +693,37 @@ const pushCardHtml = (): string => {
     ${toggleHtml(
       PUSH_CONFIG_PATHS.barkEncrypt,
       '端到端加密',
-      'ntfy 不提供端到端加密，这一格用不上',
+      'ntfy 不支持端到端加密',
       false,
       true,
-      '端到端加密只有 iOS · Bark 那条路有；ntfy 上内容在服务器端是明文的',
+      'ntfy 内容在服务器端为明文 · 端到端加密仅支持 iOS · Bark',
     )}`
 
   const barkFields = `
-    <div class="ynote"><b>iOS 专用</b>：Bark 走苹果 APNs，安卓装不了这个 app。
-    地址是 Bark App 首页给的那一整条，里面那串设备码等同于密码。</div>
+    <div class="ynote"><b>iOS 专用</b> · Bark 通过 Apple APNs · 推送地址使用 Bark App 首页完整地址 · 设备码等同密码</div>
     <div class="yline">推送地址
       <input class="yin wide" data-push-field="barkEndpoint" value="${esc(push.barkEndpoint)}"
         placeholder="https://api.day.app/你的设备码"></div>
     ${toggleHtml(
       PUSH_CONFIG_PATHS.barkEncrypt,
       '端到端加密',
-      `默认开。开启后需在 Bark App 的「推送加密」里选 AES128 / CBC / PKCS7，KEY 填下面这 ${PUSH_KEY_LENGTH} 位`,
+      `默认开启 · Bark App「推送加密」选择 AES128 / CBC / PKCS7 · KEY 填入下方 ${PUSH_KEY_LENGTH} 位`,
       push.barkEncrypt,
     )}
     <div class="yline">加密密钥
       <input class="yin wide" data-push-field="barkKey" value="${esc(push.barkKey)}"
-        placeholder="${PUSH_KEY_LENGTH} 位，可点右边生成">
+        placeholder="生成 ${PUSH_KEY_LENGTH} 位密钥">
       <span class="ybtn" data-act="push-genkey">生成密钥</span></div>`
 
   const privacyNote = isNtfy
-    ? `<div class="ynote">ntfy 没有端到端加密，内容在服务器上是明文。
-      频道名就是口令，用生成的长随机名；要端到端加密只有 iOS · Bark 那条路`
-    : `<div class="ynote">经 Bark 服务器与苹果推送通道各中转一次：
-      开着加密两段都只看得到密文，关掉则能看到标题和正文`
+    ? `<div class="ynote">ntfy 内容在服务器端为明文 · 频道名即口令 · 请使用长随机名 · 端到端加密仅支持 iOS · Bark`
+    : `<div class="ynote">Bark 经服务器与 Apple 推送通道中转 · 开启加密时传输密文 · 关闭时传输标题与正文`
 
-  return `<div class="h"><b>手机推送</b><span class="aux">默认全关 · 人不在电脑前时提醒远征、入渠这些时刻</span></div>
+  return `<div class="h"><b>手机推送</b><span class="aux">默认关闭 · 离开电脑时提醒远征、入渠等时刻</span></div>
     ${toggleHtml(
       PUSH_CONFIG_PATHS.enabled,
       '启用手机推送',
-      '通知里的「手机推送」跟着这一档',
+      '由通知规则中的「手机推送」控制',
       push.enabled,
     )}
     <div class="yline">${providerChips}</div>
@@ -739,27 +731,26 @@ const pushCardHtml = (): string => {
     ${toggleHtml(
       PUSH_CONFIG_PATHS.titleOnly,
       '只推标题',
-      '手机上只出现「远征 21 返港」这类时刻，正文（舰名、渠号）不上手机',
+      '手机仅显示时刻类标题 · 不含舰名、渠号等正文',
       push.titleOnly,
     )}
     ${toggleHtml(
       PUSH_CONFIG_PATHS.presenceHold,
       '人在电脑前暂缓推送',
-      '默认开。你还在动键鼠时先不推',
+      '默认开启 · 检测到键鼠操作时暂缓推送',
       push.presenceHold,
     )}
     <div class="yline">空闲多久算离开
       <input class="yin w60" type="number" data-push-minutes value="${push.presenceIdleMinutes}"
         min="${PUSH_IDLE_MINUTES_MIN}" max="${PUSH_IDLE_MINUTES_MAX}" step="1">
       <span class="note9">分钟（${PUSH_IDLE_MINUTES_MIN}–${PUSH_IDLE_MINUTES_MAX}）·
-        离开这么久之后，攒下的推送按发生顺序补上，标题带上「几分前」</span></div>
+        达到离开门槛后按发生顺序补发 · 标题包含「几分前」</span></div>
     <div class="yline"><span class="ybtn" data-act="push-test">发送测试推送</span></div>
     ${problems.map((text) => `<div class="ystatus bad">${esc(text)}</div>`).join('')}
     ${advisories.map((text) => `<div class="ystatus working">${esc(text)}</div>`).join('')}
     ${pushMessage ? `<div class="ystatus ${pushMessage.tone}">${esc(pushMessage.text)}</div>` : ''}
     ${privacyNote}
-    存在本机 <span class="mono">${esc(appdataPath)}\\config.json</span>，
-    里面有密钥，备份时当账号资料保管</div>`
+    本机 <span class="mono">${esc(appdataPath)}\\config.json</span> 包含密钥 · 备份时按账号资料保管</div>`
 }
 
 /**
@@ -775,16 +766,16 @@ const archiveLimitNote = (
   unit: string,
 ): string => {
   const locked = usage.lockedKept
-    ? `其中 <b>${usage.lockedKept}</b> ${unit}（${formatArchiveBytes(usage.lockedBytes)}）来源已不可再得，自动清理不会碰它们。`
+    ? `其中 <b>${usage.lockedKept}</b> ${unit}（${formatArchiveBytes(usage.lockedBytes)}）来源已不可再次获取 · 不参与自动清理`
     : ''
   if (usage.maxBytes == null) return `不设上限${locked ? ` ${locked}` : ''}`
   if (usage.full) {
     return (
       `${locked ? `${locked}<br>` : ''}已达上限 ${formatArchiveBytes(usage.maxBytes)}，` +
-      '剩下的都是取不回来的，不会自动删。调大上限或手动清空才继续收'
+      '不可再次获取项不参与自动清理 · 调整上限或手动清空后继续归档'
     )
   }
-  return `上限 ${formatArchiveBytes(usage.maxBytes)}，写满后先清理最久没再用到的。${locked}`
+  return `上限 ${formatArchiveBytes(usage.maxBytes)} · 达到上限后优先清理最久未使用项${locked ? ` · ${locked}` : ''}`
 }
 
 /** 上限输入框。留空或填 0 = 不限量（与主进程 archiveLimitBytes 同一条判据）。 */
@@ -914,8 +905,7 @@ const retentionCardHtml = (): string => {
           : '<div class="yline"><span class="note9">暂无记录</span></div>'
       }`
   return `<div class="h"><b>记录保留与清理</b><span class="aux">${esc(state)}</span></div>
-      <div class="ynote">保留天数留空 = 永久保留，也可以在下面按月清。
-      遭遇志、舰娘人生、道具履历、装备实测与活动履历两种清理都不碰</div>
+      <div class="ynote">保留天数留空 = 永久保留 · 支持按月清理 · 清理范围不含遭遇志、舰娘履历、道具履历、装备实测与活动履历</div>
       <div class="yline">保留天数
         <input class="yin w60" type="number" data-ledger-retention value="${days || ''}"
           min="0" max="${LEDGER_RETENTION_DAYS_MAX}" step="1" placeholder="不限">
@@ -944,7 +934,7 @@ const zoomCardHtml = (): string => {
   return `<div class="h"><b>界面缩放</b><span class="aux">即时生效</span></div>
     <div class="yline">${zoomChips}<span class="ylk" data-act="zoom-dec">－</span><span class="ylk" data-act="zoom-inc">＋</span>
       <b style="font-family:var(--mono);color:var(--text)">${Math.round(zoom * 100)}%</b></div>
-    <div class="ynote">快捷键 <span class="mono">Ctrl +</span> / <span class="mono">Ctrl -</span> / <span class="mono">Ctrl 0</span>（回到 115%）。</div>`
+    <div class="ynote">快捷键 <span class="mono">Ctrl +</span> / <span class="mono">Ctrl -</span> · <span class="mono">Ctrl 0</span> 恢复 115%</div>`
 }
 
 /**
@@ -1015,13 +1005,13 @@ const uiHintsCardHtml = (): string => `<div class="h"><b>界面提示</b><span c
   ${toggleHtml(
     'kanso.voiceCaptions',
     '显示语音文字',
-    '母港走底部字幕，战斗走双向弹幕',
+    '母港：底部字幕 · 战斗：双向弹幕',
     config.get('kanso.voiceCaptions', true),
   )}
   ${toggleHtml(
     'kanso.eventBannerEffects',
     '新舰 / 大破 / 应急修理 / 婚礼置顶横幅与外框光效',
-    '这几档光效的总闸 · 逐事件的开关在通知里',
+    '光效总开关 · 逐事件开关位于通知',
     config.get('kanso.eventBannerEffects', true),
   )}
   ${toggleHtml(
@@ -1033,13 +1023,13 @@ const uiHintsCardHtml = (): string => `<div class="h"><b>界面提示</b><span c
   ${toggleHtml(
     'kanso.buildSpoiler',
     '提前显示建造结果',
-    '在预览卡和完成通知里报舰名',
+    '预览卡与完成通知显示舰名',
     config.get('kanso.buildSpoiler', false),
   )}
   ${toggleHtml(
     LAUNCH_GLOW_CONFIG_KEY,
     '启动点亮动画',
-    '开 kuma 时先放一段入场动画，点一下直接到位 · 下次启动生效',
+    '启动入场动画 · 单击跳过 · 下次启动生效',
     config.get(LAUNCH_GLOW_CONFIG_KEY, LAUNCH_GLOW_DEFAULT),
   )}`
 
@@ -1047,22 +1037,22 @@ const trayCardHtml = (): string => `<div class="h"><b>托盘与后台</b><span c
   ${toggleHtml(
     'kanso.tray.enabled',
     '显示托盘图标',
-    '带未读条数，右键切勿扰或退出',
+    '显示未读条数 · 右键菜单：勿扰 / 退出',
     config.get('kanso.tray.enabled', true),
   )}
   ${toggleHtml(
     'kanso.tray.closeToTray',
     '关闭按钮改为收进托盘',
-    '默认关：点 ✕ 就是退出。开了 ✕ 只收起窗口，退出走托盘菜单',
+    '关闭：✕ 退出程序 · 开启：✕ 收起窗口，托盘菜单退出',
     config.get('kanso.tray.closeToTray', false),
   )}
   ${toggleHtml(
     'kanso.tray.minimizeToTray',
     '最小化时收进托盘',
-    '最小化后连任务栏一起收走，只留托盘图标',
+    '最小化至托盘 · 隐藏任务栏图标',
     config.get('kanso.tray.minimizeToTray', false),
   )}
-  <div class="ynote">收进托盘后从托盘、通知或再次启动都能唤回</div>`
+  <div class="ynote">托盘、通知或再次启动可唤回</div>`
 
 const gameAudioCardHtml = (): string => {
   const rawMode = config.get('kanso.gameAudio.mode', 'all')
@@ -1076,7 +1066,7 @@ const gameAudioCardHtml = (): string => {
     ${audioVolumeHtml('voiceVolume', '语音', readAudioVolume('voiceVolume'), 200)}
     ${audioVolumeHtml('bgmVolume', 'BGM', readAudioVolume('bgmVolume'), 200)}
     <div class="yline">${modeChips}</div>
-    <div class="ynote">实际音量 = 总音量 × 分项；超过 100% 会放大，可能失真</div>`
+    <div class="ynote">实际音量 = 总音量 × 分项 · 超过 100% 可能失真</div>`
 }
 
 const proxyCardHtml = (): string => {
@@ -1126,14 +1116,14 @@ const gameUrlCardHtml = (): string => {
   const current: string = config.get(GAME_URL_CONFIG_KEY, DEFAULT_GAME_URL)
   const raw = typeof current === 'string' ? current : ''
   const unusable = raw.trim() !== '' && !isValidGameUrl(raw)
-  return `<div class="h"><b>游戏页面网址</b><span class="aux">改完按一下重新载入</span></div>
+  return `<div class="h"><b>游戏页面网址</b><span class="aux">修改后重新载入</span></div>
     <div class="yline"><input class="yin wide" data-game-url value="${esc(raw)}"
         placeholder="${esc(DEFAULT_GAME_URL)}">
       <span class="ybtn" data-act="game-url-reset">恢复默认</span></div>
     <div class="yline"><span class="ybtn" data-act="game-url-reload">重新载入游戏页面</span></div>
-    ${unusable ? '<div class="ystatus bad">这条不是 http / https 网址，游戏页仍按默认那条加载</div>' : ''}
+    ${unusable ? '<div class="ystatus bad">网址无效 · 游戏页使用默认地址</div>' : ''}
     ${gameUrlMessage ? `<div class="ystatus ${gameUrlMessage.tone}">${esc(gameUrlMessage.text)}</div>` : ''}
-    <div class="ynote">只认 http / https；留空就用默认那条</div>`
+    <div class="ynote">仅支持 http / https · 留空使用默认地址</div>`
 }
 
 const loginCardHtml = (): string => {
@@ -1142,27 +1132,27 @@ const loginCardHtml = (): string => {
     : loginHealth?.lastFlushedAt
       ? `登录状态已保存 · ${fmtDateTime(loginHealth.lastFlushedAt)}`
       : loginHealth?.lastPersistedAt
-        ? `已记住这次登录 · ${fmtDateTime(loginHealth.lastPersistedAt)}`
-        : '没有新的 DMM 登录需要记住'
+        ? `登录状态已保存 · ${fmtDateTime(loginHealth.lastPersistedAt)}`
+        : '暂无新的 DMM 登录状态'
   return `<div class="h"><b>登录与会话</b></div>
-    ${toggleHtml('kanso.persistLogin', '保持登录状态', 'DMM 会话延到 180 天，重启一般不用重登', config.get('kanso.persistLogin', true))}
-    ${toggleHtml('kanso.dmmcookie', 'DMM 地区 Cookie 兼容', '大陆网络通常要开，关了可能撞区域限制页', config.get('kanso.dmmcookie', true))}
+    ${toggleHtml('kanso.persistLogin', '保持登录状态', 'DMM 会话延长至 180 天 · 重启通常无需重新登录', config.get('kanso.persistLogin', true))}
+    ${toggleHtml('kanso.dmmcookie', 'DMM 地区 Cookie 兼容', '大陆网络通常需要开启 · 关闭后可能出现区域限制页', config.get('kanso.dmmcookie', true))}
     ${toggleHtml(
       'kanso.remoteArt',
       '未缓存的立绘/语音从游戏资源服务器取',
-      '关掉就只读缓存，不再向游戏资源服务器取',
+      '关闭：仅使用本机已有资源',
       config.get('kanso.remoteArt', true),
     )}
     <div class="ystatus ${loginHealth?.lastError ? 'bad' : 'ok'}">${esc(healthText)}</div>`
 }
 
 const reportCardHtml = (): string => `<div class="h"><b>社区上报</b><span class="aux">默认关</span></div>
-  ${toggleHtml('kanso.report.tsundb', 'TsunDB 上报', '把你的带路、掉落和敌编成记录提交给社区数据库', false, true, '上报功能尚未接入')}
-  ${toggleHtml('kanso.report.poi', 'poi 统计上报', '把建造、开发和掉落记录提交到 api.poi.moe', false, true, '上报功能尚未接入')}`
+  ${toggleHtml('kanso.report.tsundb', 'TsunDB 上报', '提交本地带路、掉落与敌编成记录至社区数据库', false, true, '上报功能尚未接入')}
+  ${toggleHtml('kanso.report.poi', 'poi 统计上报', '提交本地建造、开发与掉落记录至 api.poi.moe', false, true, '上报功能尚未接入')}`
 
 const backupCardHtml = (): string => `<div class="h"><b>完整备份与恢复</b><span class="aux">历史数据 · 设置 · 收藏与个人备注</span></div>
-  <div class="ynote">单文件打包历史数据库与 <span class="mono">config.json</span>（布局、通知规则、目标、收藏、备注）；
-  登录 Cookie、游戏缓存、本地美术和矿脉包不在内。里面可能有代理账号与密码，当账号资料保管。</div>
+  <div class="ynote">备份范围：历史数据库 + <span class="mono">config.json</span>（布局、通知规则、目标、收藏、备注）·
+  不含登录 Cookie、游戏缓存、本地美术与矿脉包 · 可能包含代理账号与密码，请按账号资料保管</div>
   <div class="yline"><span class="ybtn" data-act="backup-ledger">创建完整备份</span><span class="ybtn warn" data-act="restore-ledger">从备份恢复并重启</span></div>
   ${backupMessage ? `<div class="ystatus ${backupMessage.startsWith('失败') ? 'bad' : 'ok'}">${esc(backupMessage)}</div>` : ''}`
 
@@ -1177,27 +1167,27 @@ const cacheRepairCardHtml = (): string => `<div class="h"><b>缓存修复</b><sp
 const modDirCardHtml = (): string => `<div class="h"><b>魔改文件夹</b><span class="aux">立绘、语音等游戏素材的本地替换；文件按游戏资源路径摆放</span></div>
   <div class="yline"><span class="ybtn" data-act="open-mod-dir">打开文件夹</span></div>`
 
-const voiceArchiveCardHtml = (): string => `<div class="h"><b>语音档案</b><span class="aux">游戏里听过的语音自动入档</span></div>
-  <div class="ynote">游戏播过的语音会转存一份到本机档案，图鉴台词页据此点亮。
+const voiceArchiveCardHtml = (): string => `<div class="h"><b>语音档案</b><span class="aux">游戏已播放语音自动归档</span></div>
+  <div class="ynote">游戏已播放语音自动归档 · 用于图鉴台词页
   ${
     voiceArchiveUsage
-      ? `当前 <b>${formatArchiveBytes(voiceArchiveUsage.bytes)}</b>，留住 ${voiceArchiveUsage.kept} 句，
-         另有 ${voiceArchiveUsage.heard} 句只留下「听过」的记录。${archiveLimitNote(voiceArchiveUsage, '句')}`
+      ? `当前 <b>${formatArchiveBytes(voiceArchiveUsage.bytes)}</b> · 已归档 ${voiceArchiveUsage.kept} 句 ·
+         另有 ${voiceArchiveUsage.heard} 句仅有播放记录 · ${archiveLimitNote(voiceArchiveUsage, '句')}`
       : '占用统计中…'
   }${
     voiceUnmatchedStats &&
     (voiceUnmatchedStats.unresolved || voiceUnmatchedStats.noText || voiceUnmatchedStats.noVoiceId)
-      ? `<br>字幕没出来的那些分三类记着：${
+      ? `<br>无字幕记录分为：${
           voiceUnmatchedStats.noText
-            ? `<b>${voiceUnmatchedStats.noText}</b> 条认得出是谁在说，但本地资料包没有这句的译文；`
+            ? `<b>${voiceUnmatchedStats.noText}</b> 条已确认角色 · 本地资料包暂无译文；`
             : ''
         }${
           voiceUnmatchedStats.noVoiceId
-            ? `<b>${voiceUnmatchedStats.noVoiceId}</b> 条认得出是深海/NPC/短剧、但本地没有那一条；`
+            ? `<b>${voiceUnmatchedStats.noVoiceId}</b> 条已确认深海/NPC/短剧 · 本地暂无对应项；`
             : ''
         }${
           voiceUnmatchedStats.unresolved
-            ? `<b>${voiceUnmatchedStats.unresolved}</b> 条连是谁的都认不出。`
+            ? `<b>${voiceUnmatchedStats.unresolved}</b> 条角色未识别`
             : ''
         }`
       : ''
@@ -1205,12 +1195,12 @@ const voiceArchiveCardHtml = (): string => `<div class="h"><b>语音档案</b><s
   ${archiveLimitLine('voice', voiceArchiveUsage)}
   <div class="yline"><span class="ybtn warn" data-act="clear-voice-archive">清空语音档案</span></div>`
 
-const artArchiveCardHtml = (): string => `<div class="h"><b>立绘档案</b><span class="aux">游戏里见过的立绘自动入档</span></div>
-  <div class="ynote">游戏取过的立绘会转存一份到本机档案，图鉴立绘页据此点亮。
+const artArchiveCardHtml = (): string => `<div class="h"><b>立绘档案</b><span class="aux">游戏已读取立绘自动归档</span></div>
+  <div class="ynote">游戏已读取立绘自动归档 · 用于图鉴立绘页
   ${
     artArchiveUsage
-      ? `当前 <b>${formatArchiveBytes(artArchiveUsage.bytes)}</b>，留住 ${artArchiveUsage.kept} 张
-         （覆盖 ${artArchiveUsage.forms} 个形态），另有 ${artArchiveUsage.seen} 张只留下「见过」的记录。${archiveLimitNote(
+      ? `当前 <b>${formatArchiveBytes(artArchiveUsage.bytes)}</b> · 已归档 ${artArchiveUsage.kept} 张
+         （覆盖 ${artArchiveUsage.forms} 个形态）· 另有 ${artArchiveUsage.seen} 张仅有读取记录 · ${archiveLimitNote(
            artArchiveUsage,
            '张',
          )}`
@@ -1219,12 +1209,12 @@ const artArchiveCardHtml = (): string => `<div class="h"><b>立绘档案</b><spa
   ${archiveLimitLine('art', artArchiveUsage)}
   <div class="yline"><span class="ybtn warn" data-act="clear-art-archive">清空立绘档案</span></div>`
 
-const bgmArchiveCardHtml = (): string => `<div class="h"><b>BGM 档案</b><span class="aux">游戏里响过的 BGM 自动入档</span></div>
-  <div class="ynote">游戏放过的 BGM 会转存一份到本机档案，海域卷的 ♪ 试听据此改走本地实物。
+const bgmArchiveCardHtml = (): string => `<div class="h"><b>BGM 档案</b><span class="aux">游戏已播放 BGM 自动归档</span></div>
+  <div class="ynote">游戏已播放 BGM 自动归档 · 用于海域卷 ♪ 试听
   ${
     bgmArchiveUsage
-      ? `当前 <b>${formatArchiveBytes(bgmArchiveUsage.bytes)}</b>，留住 ${bgmArchiveUsage.kept} 首，
-         另有 ${bgmArchiveUsage.heard} 首只留下「响过」的记录。${archiveLimitNote(
+      ? `当前 <b>${formatArchiveBytes(bgmArchiveUsage.bytes)}</b> · 已归档 ${bgmArchiveUsage.kept} 首 ·
+         另有 ${bgmArchiveUsage.heard} 首仅有播放记录 · ${archiveLimitNote(
            bgmArchiveUsage,
            '首',
          )}`
@@ -1233,14 +1223,29 @@ const bgmArchiveCardHtml = (): string => `<div class="h"><b>BGM 档案</b><span 
   ${archiveLimitLine('bgm', bgmArchiveUsage)}
   <div class="yline"><span class="ybtn warn" data-act="clear-bgm-archive">清空 BGM 档案</span></div>`
 
+// 诊断页版本号取自 app.getVersion()。
+const kumaVersion = (() => {
+  try {
+    return `${require('@electron/remote').app.getVersion()}`
+  } catch (error) {
+    console.warn('[kanso] 版本读取失败', error)
+    return '版本读取失败'
+  }
+})()
+
 const diagnosticsCardHtml = (): string => {
   // 已知噪音（如 ResizeObserver 的再跑一轮通知）不算出错，否则这张卡片会常年报红
   const crashes = crashLog().filter((r) => !r.benign)
   return `<div class="h"><b>运行诊断</b><span class="aux">${
     crashes.length ? `本次运行 ${crashes.length} 处出错` : '本次运行未出错'
   }</span></div>
-    <div class="ynote">每一条都记进 <span class="mono">${esc(appdataPath)}\\crash.log</span>。
-    顶栏出现 <b>⚠</b> 角标时点它可以直接翻本次记录。</div>
+    <div class="ynote">${
+      kumaVersion === '版本读取失败'
+        ? '版本读取失败'
+        : `版本 <b>kuma ${esc(kumaVersion)}</b>`
+    }</div>
+    <div class="ynote">错误记录：<span class="mono">${esc(appdataPath)}\\crash.log</span> ·
+    顶栏 <b>⚠</b> 角标可打开本次记录</div>
     ${
       crashes.length
         ? `<div class="ystatus bad">${esc(
@@ -1261,23 +1266,23 @@ const lodePacksCardHtml = (): string => {
         <td class="dim">${esc(lodeCredit(meta))}</td></tr>`,
     )
     .join('')
-  return `<div class="h"><b>矿脉数据包</b><span class="aux">共 ${lodes.length} 包 · 「谁说的、多新」</span></div>
+  return `<div class="h"><b>矿脉数据包</b><span class="aux">共 ${lodes.length} 包 · 来源与更新时间</span></div>
     <table class="ytable"><tbody>${
       lodeRows ||
       `<tr><td class="dim">${
         // 「上面那张卡列出了缺哪些」这句从前指的是矿脉健康度——而那张卡
         // 2026-08-24 起只在调试态装配，发行版里根本没有「上面那张卡」。
         // 这一格是玩家真会看到的，所以话要自己站得住，并且给一条他能做的事。
-        lodesLoaded ? '一个数据包都没有，多半是文件损坏，重装一次即可' : '加载中…'
+        lodesLoaded ? '暂无数据包 · 可能文件损坏 · 请重新安装' : '加载中…'
       }</td></tr>`
     }</tbody></table>
-    <div class="ynote">用户包目录 <span class="mono">${esc(appdataPath)}\\lodes</span> 内同 id 的文件会覆盖内置包。</div>`
+    <div class="ynote">用户包目录 <span class="mono">${esc(appdataPath)}\\lodes</span> 内同 id 文件覆盖内置包</div>`
 }
 
 const aboutCardHtml = (): string => `<div class="h"><b>关于</b></div>
-  <div class="ynote">kuma · 让各类信息彼此联动的舰队工作台。
-  数据目录 <span class="mono">${esc(appdataPath)}</span>；事件账本默认永久保留，
-  按月清理在「档案 · 记录保留与清理」里。</div>`
+  <div class="ynote">kuma · 让各类信息彼此联动的舰队工作台
+  数据目录 <span class="mono">${esc(appdataPath)}</span> · 事件账本默认永久保留 ·
+  按月清理入口：「档案 · 记录保留与清理」</div>`
 
 /**
  * 卡 id → 渲染出口。类型钉成 `Record<SettingsCardId, …>`：
@@ -1595,7 +1600,7 @@ registerModule({
             // 那时候它自己就会按新配置装一遍，所以这句是「等一下再按」而不是报错
             gameUrlMessage = result?.ok
               ? { tone: 'ok', text: `已按 ${result.url} 重新载入` }
-              : { tone: 'bad', text: '游戏页面还没就绪，等它出来再按一次' }
+              : { tone: 'bad', text: '游戏页面尚未就绪 · 加载后重试' }
             render()
           })
         return
@@ -1639,8 +1644,8 @@ registerModule({
         if (
           confirm(
             '清空 BGM 档案？\n' +
-              '海域卷的 ♪ 试听会退回「有缓存才响、没缓存要联网现取」。\n' +
-              '活动曲随活动撤场，撤场之后游戏里不会再放。\n' +
+              '海域卷 ♪ 试听仅使用本机已有资源；缺失资源需远程获取。\n' +
+              '活动曲随活动关闭而下架。\n' +
               '清空后可能无法恢复，请谨慎清除。',
           )
         ) {
@@ -1658,7 +1663,7 @@ registerModule({
           confirm(
             '清空立绘档案？\n' +
               '图鉴立绘页上已点亮的格子会全部熄灭。\n' +
-              '季节限定立绘过季就换回去了，活动限定深海舰的图在活动撤场后也再见不到。\n' +
+              '季节限定立绘过季后下架，活动限定深海舰图片随活动关闭下架。\n' +
               '清空后无法恢复，请谨慎清除。',
           )
         ) {
@@ -1680,7 +1685,7 @@ registerModule({
         if (
           !confirm(
             `清理 ${month} 的 ${count.toLocaleString()} 条记录？\n` +
-              '那段时间的事件、资源与战斗记录会删掉，相关统计和复盘就算不回来了。\n' +
+              '所选期间的事件、资源及战斗记录将永久删除，相关统计与复盘无法恢复。\n' +
               '遭遇志、舰娘人生、道具履历、装备实测与活动履历不受影响。',
           )
         ) {
@@ -1745,7 +1750,7 @@ registerModule({
           config.set(PUSH_CONFIG_PATHS.ntfyTopic, topic)
           pushMessage = {
             tone: 'ok',
-            text: `已生成频道名：${topic}\n在手机的 ntfy 里 Subscribe 这个名字（频道名即口令，请勿公开）。`,
+            text: `已生成频道名：${topic}\n请在手机 ntfy 中订阅该频道（频道名即口令，请勿公开）`,
           }
           render()
         })
@@ -1757,7 +1762,7 @@ registerModule({
         void ipcRenderer.invoke('push:generate-key').then((key: string) => {
           if (!key) return
           config.set(PUSH_CONFIG_PATHS.barkKey, key)
-          pushMessage = { tone: 'ok', text: `已生成密钥：${key}\n把它填进 Bark App 的「推送加密」（AES128 / CBC / PKCS7），两边必须一致。` }
+          pushMessage = { tone: 'ok', text: `已生成密钥：${key}\n请填入 Bark App 的「推送加密」（AES128 / CBC / PKCS7）· 两端需一致` }
           render()
         })
         return
@@ -1777,7 +1782,7 @@ registerModule({
             immediate: true,
           })
           .then((result: { ok?: boolean; message?: string } | null) => {
-            pushMessage = { tone: result?.ok === true ? 'ok' : 'bad', text: result?.message ?? '没有收到回报' }
+            pushMessage = { tone: result?.ok === true ? 'ok' : 'bad', text: result?.message ?? '尚未收到回报' }
             render()
           })
           .catch((error: unknown) => {

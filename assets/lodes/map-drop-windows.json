@@ -7,7 +7,7 @@
   "fetchedAt": "2026-08-27T18:25:51.638Z",
   "upstreamUpdatedAt": null,
   "license": "第一方台账：记的是运营行为事实（哪张图哪个点从哪天起掉哪条船），随源码分发",
-  "note": "常规海域限定掉落的开放时段。没写结束日的是一直开着",
+  "note": "常规海域限定掉落开放时段 · 未注明结束日时长期开放",
   "maintainerNote": [
    "限定期窗口的唯一出处（2026-08-22 批次 4）。这一格穷举过的社区机读源只有一家给，而那家的许可不允许随包分发——所以事实自己记一份台账，抓取脚本降为维护者侧对照工具（scripts/refresh-map-intel-limited.mjs，eo-quests 地位，不再写随包数据）。每条带 evidence（凭什么 + 录入日期）与印证票；votes 里的 ledger 是本机遭遇志，按图归不按点。舰号一律是改钉后的形态号，与 map-drops 同键。until 为 null 是如实记录不是资料缺失：常规图的限定掉落多是追加后一直开着的，调用方不许据此制造「快关门」的紧迫感。待裁项（limited-vs-plain 等）逐条挂 conflict，脚本不代拍；裁完的把 conflict 撤下，裁语与两票出处写进 evidence.note（2026-08-23 那 7 条 limited-vs-plain 即按此收案），痕迹另留在 assets/review/map-drops-conflicts.json 的 verdict 里。",
    "2026-08-28 批次：补上「已终了的常规图限定邂逅」。此前上游对照只读页面顶上那张「海域別リスト」——那张表里只有还开着的，一条限定终了之后就从表里消失，于是只看得见「不再列出」（缺席），永远看不见「它说自己终了了」（断言）。终了是在逐批次小节里**用删除线逐条标出来的**，而删除线只活在原始字节里，取文本的层一律会把它抹平。parseLimitedBatches（scripts/map-intel.mjs）改成在去标签之前判 <del>，据此补进 34 条 ended_undated/ended_confirmed。这一档与 end_pending 的分别是断言 vs 缺席：end_pending 只是上游不再列出，不许对玩家说「已终了」。另有 5 条同页自相矛盾（小节划了删除线、海域別名单又还列着），一律挂 conflict 不动 status。"

@@ -78,6 +78,7 @@ export const clearCache = () => runTrailBySnapshot.clear()
 export const stateOf = (snapshotId: number) => runTrailBySnapshot.get(snapshotId)?.state ?? null
 /** renderBattlePane 里那一句，连同它的宿主判断一起跑 */
 export const renderBattlePaneTrailStep = (pane: any, snapshot: any, embedded: boolean) => {
+  const trailIndex = battleHistory
 ${wiring[0]}
 }
 `

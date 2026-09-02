@@ -154,7 +154,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       '对空/回避两栏则逐格无误。日文近验表逐行核下来 16 格全部对得上「火力再 +1」：' +
       '金剛 2/1、金剛改二 4/3、比叡改二 3/2、榛名改二 3/2/1、榛名改二乙 3/4/2、' +
       '榛名改二丙 4/3/1、霧島改二 4/2。',
-    note: '火力按日文原表补 1（上游这一族的火力栏整体少 1）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -177,7 +177,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       '新奥尔良级(121)。日文近验表只给 Northampton 与 Houston（正好是 api_ctype 95 的四个形态）' +
       '那个高档，布鲁克林级与新奥尔良级属于「その他米英国艦」的 +1/+1/+1。' +
       '这是**扩大了适用面**，11 个形态各多拿 火力1/对空2/回避2。',
-    note: '按日文原表退回「その他米英国艦」档（上游把高档的适用面扩大了）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -212,7 +212,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       '響改・清霜改二/丁 应在 2/3/3 档，白露改・時雨改・雪風改 应在 1/4/4 档，' +
       '村雨改・夕立改・春雨改 应在 1/3/4 档，白雪改二 应在 2/3/4 档，藤波改二 应在 1/3/3 档。' +
       '这是**分档缺失**（少给），不是数值口径之争。',
-    note: '按日文原表归回各自的档（上游只分了 5 档，这几个形态掉进了驱逐舰通用档）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -241,7 +241,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       '矢矧改二系与能代改二 上游漏了 対潜+1。**不是孤例**：瑞雲/晴嵐系 10 件水上爆撃機在' +
       '最上改二系上呈现同一个缺口（上游逐装备写，把「水上爆撃機类目 × 最上改二系」那一层漏掉了），' +
       '这里先裁指标最全的这一件，其余留在待裁清单。',
-    note: '按日文原表补齐（上游整体偏低，矢矧/能代改二还漏了对潜）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -257,7 +257,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     source: 'wikiwiki.jp/kancolle「九六式艦戦」装備ボーナス表（页面 Last-modified 2026-07-27）',
     jp: '鳳翔改二 / 戦 火力+3 対空+4 対潜+3 回避+4／鳳翔 +2 +3 +2 +3',
     why: '上游把整个鳳翔型写成一档（用的是 鳳翔 那档的数），日文把 鳳翔改二/戦 单列高一档，EO 一致。',
-    note: '按日文原表给鳳翔改二/戦单列档',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -286,7 +286,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       '本装备自己的 wikiwiki 页没有「装備ボーナスについて」小节（页在，只是这一族的数值写在类目行里）。日文一手把这四行**写成类目行**「水上爆撃機(その他日本)' +
       '」——瑞雲系无固有補正的那几件共用同一档，两处互证：① 同族的 79 / 81 页逐格给出该类目行；② 能代改二舰娘页拆成「水上爆撃機(共通・1機目) 火力+1 対潜+1 回避+1」＋「水上爆撃機(その他日本)' +
       ' 火力+2 回避+1」，相加正是 火力+3 対潜+1 回避+2。上游是逐装备写的，把「水上爆撃機类目 × 最上改二系/阿賀野型改二系」这一层整层漏掉了。',
-    note: '按日文类目行补齐（上游漏了「水上爆撃機共通＋その他日本」这一层）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -304,7 +304,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '上游按舰级（阿賀野型）写成一档 対空+2 回避+1，日文把 矢矧改二乙 单列成 対空+3 回避+2，EO 一致。这一行在 25mm 四件机銃（39 / 40 / 49 / 131）' +
       '的页面上是同一条并列行，四件同裁。',
-    note: '按日文原表给矢矧改二乙单列档',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -322,7 +322,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '上游按舰级（阿賀野型）写成一档 対空+2 回避+1，日文把 矢矧改二乙 单列成 対空+3 回避+2，EO 一致。这一行在 25mm 四件机銃（39 / 40 / 49 / 131）' +
       '的页面上是同一条并列行，四件同裁。',
-    note: '按日文原表给矢矧改二乙单列档',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -340,7 +340,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '上游按舰级（阿賀野型）写成一档 対空+2 回避+1，日文把 矢矧改二乙 单列成 対空+3 回避+2，EO 一致。这一行在 25mm 四件机銃（39 / 40 / 49 / 131）' +
       '的页面上是同一条并列行，四件同裁。',
-    note: '按日文原表给矢矧改二乙单列档',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -356,7 +356,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     source: 'wikiwiki.jp/kancolle「零式水上観測機」装備ボーナス表（页面 Last-modified 2026-07-27）',
     jp: '零式水上観測機：最上改二 / 特・三隈改二 / 特 火力+2 対空+1 回避+1',
     why: '上游只写了 対空+1 回避+1，漏掉 火力+2 这一栏；日文一手与 EO 逐格一致。',
-    note: '按日文原表补火力（上游漏了火力栏）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -391,7 +391,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     source: 'wikiwiki.jp/kancolle「二式艦上偵察機」装備ボーナス表（页面 Last-modified 2026-07-27）',
     jp: '二式艦偵★0～1 伊勢改二 火力+3 装甲+1 回避+2 射程1段階延長 命中+5／日向改二 +3 装甲+3 回避+3 射程1段階延長 命中+5／★0 蒼龍改二・飛龍改二 射程1段階延長 命中+5',
     why: '四格差的都是同一栏：**命中+5**。上游把射程延长记下来了、把同一行的 命中+5 整栏漏了，其余逐格无误。EO 与日文一致。',
-    note: '按日文原表补命中（上游漏了命中栏）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -420,7 +420,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       '本装备自己的 wikiwiki 页没有「装備ボーナスについて」小节（页在，只是这一族的数值写在类目行里）。日文一手把这四行**写成类目行**「水上爆撃機(その他日本)' +
       '」——瑞雲系无固有補正的那几件共用同一档，两处互证：① 同族的 79 / 81 页逐格给出该类目行；② 能代改二舰娘页拆成「水上爆撃機(共通・1機目) 火力+1 対潜+1 回避+1」＋「水上爆撃機(その他日本)' +
       ' 火力+2 回避+1」，相加正是 火力+3 対潜+1 回避+2。上游是逐装备写的，把「水上爆撃機类目 × 最上改二系/阿賀野型改二系」这一层整层漏掉了。',
-    note: '按日文类目行补齐（上游漏了「水上爆撃機共通＋その他日本」这一层）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -436,7 +436,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     source: 'wikiwiki.jp/kancolle「12.7cm連装砲B型改二」装備ボーナス表（页面 Last-modified 2026-07-27）',
     jp: '天霧改二 / 丁 火力+2 対空+1／綾波型・暁型・初春型 対空+1',
     why: '上游漏了「天霧改二/丁」这一档（只给了綾波型通用的 対空+1），日文单列 火力+2 対空+1，EO 一致。',
-    note: '按日文原表补天霧改二/丁的火力档',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -462,7 +462,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '页内脚注写明这四行是「水上爆撃機(その他日本)のカテゴリ補正と水上爆撃機共通補正を加算したもので、本装備1つのみを装備する際の増分」——正是我们的共同分母（★0・1 件）' +
       '。逐格核下来日文与 EO 一致，上游整族偏低：最上改二/特 少 火力1 回避1，三隈改二/特 少 回避1，矢矧改二系与能代改二 还漏了 対潜+1。',
-    note: '按日文原表补齐（上游漏了水上爆撃機类目那一层）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -491,7 +491,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       '本装备自己的 wikiwiki 页没有「装備ボーナスについて」小节（页在，只是这一族的数值写在类目行里）。日文一手把这四行**写成类目行**「水上爆撃機(その他日本)' +
       '」——瑞雲系无固有補正的那几件共用同一档，两处互证：① 同族的 79 / 81 页逐格给出该类目行；② 能代改二舰娘页拆成「水上爆撃機(共通・1機目) 火力+1 対潜+1 回避+1」＋「水上爆撃機(その他日本)' +
       ' 火力+2 回避+1」，相加正是 火力+3 対潜+1 回避+2。上游是逐装备写的，把「水上爆撃機类目 × 最上改二系/阿賀野型改二系」这一层整层漏掉了。',
-    note: '按日文类目行补齐（上游漏了「水上爆撃機共通＋その他日本」这一层）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -517,7 +517,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '页内脚注写明这四行是「水上爆撃機(その他日本)のカテゴリ補正と水上爆撃機共通補正を加算したもので、本装備1つのみを装備する際の増分」——正是我们的共同分母（★0・1 件）' +
       '。逐格核下来日文与 EO 一致，上游整族偏低：最上改二/特 少 火力1 回避1，三隈改二/特 少 回避1，矢矧改二系与能代改二 还漏了 対潜+1。',
-    note: '按日文原表补齐（上游漏了水上爆撃機类目那一层）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -544,7 +544,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '上游把同一档写了两行（第 1 行只含 591/592、第 2 行含 591/592/593/954，数值相同），591/592 两格被相加成雷装2 回避4。' +
       '日文一手与 EO 都是 雷装+1 回避+2。这是**重复行相加**，不是数值口径之争。',
-    note: '按日文原表去掉重复的一份（上游同一档写了两行）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -564,7 +564,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '上游只写了「秋月型」一档，初月改二(968) 该在「秋月改二・初月改二」那一档。akashi 亦单列「秋月型改二 火力+2 対空+2 回避+2 命中+1」，' +
       'EO 一致。',
-    note: '按日文原表给秋月改二/初月改二单列档',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -582,7 +582,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '上游按舰级（阿賀野型）写成一档 対空+2 回避+1，日文把 矢矧改二乙 单列成 対空+3 回避+2，EO 一致。这一行在 25mm 四件机銃（39 / 40 / 49 / 131）' +
       '的页面上是同一条并列行，四件同裁。',
-    note: '按日文原表给矢矧改二乙单列档',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -611,7 +611,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       '本装备自己的 wikiwiki 页没有「装備ボーナスについて」小节（页在，只是这一族的数值写在类目行里）。日文一手把这四行**写成类目行**「水上爆撃機(その他日本)' +
       '」——瑞雲系无固有補正的那几件共用同一档，两处互证：① 同族的 79 / 81 页逐格给出该类目行；② 能代改二舰娘页拆成「水上爆撃機(共通・1機目) 火力+1 対潜+1 回避+1」＋「水上爆撃機(その他日本)' +
       ' 火力+2 回避+1」，相加正是 火力+3 対潜+1 回避+2。上游是逐装备写的，把「水上爆撃機类目 × 最上改二系/阿賀野型改二系」这一层整层漏掉了。',
-    note: '按日文类目行补齐（上游漏了「水上爆撃機共通＋その他日本」这一层）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -640,7 +640,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       '本装备自己的 wikiwiki 页没有「装備ボーナスについて」小节（页在，只是这一族的数值写在类目行里）。日文一手把这四行**写成类目行**「水上爆撃機(その他日本)' +
       '」——瑞雲系无固有補正的那几件共用同一档，两处互证：① 同族的 79 / 81 页逐格给出该类目行；② 能代改二舰娘页拆成「水上爆撃機(共通・1機目) 火力+1 対潜+1 回避+1」＋「水上爆撃機(その他日本)' +
       ' 火力+2 回避+1」，相加正是 火力+3 対潜+1 回避+2。上游是逐装备写的，把「水上爆撃機类目 × 最上改二系/阿賀野型改二系」这一层整层漏掉了。',
-    note: '按日文类目行补齐（上游漏了「水上爆撃機共通＋その他日本」这一层）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -656,7 +656,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     source: 'wikiwiki.jp/kancolle「九六式艦戦改」装備ボーナス表（页面 Last-modified 2026-07-27）',
     jp: '鳳翔改二 / 戦 火力+4 対空+5 対潜+8 回避+7／鳳翔 +3 +4 +6 +5',
     why: '同 19 号：上游把整个鳳翔型写成一档（用的是 鳳翔 那档的数），日文把 鳳翔改二/戦 单列高一档，EO 一致。',
-    note: '按日文原表给鳳翔改二/戦单列档',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -689,7 +689,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       '逐格核下来日文一手与 EO 一致，上游整体偏低：伊勢改二/日向改二 上游给 火力4 回避2，日文是 火力7 対空1 回避4；最上改二/特 上游少 火力1 回避1，' +
       '三隈改二/特 少 回避1，矢矧改二系与能代改二 还漏 対潜+1。akashi 逐行一致（伊勢型改二 火力+7 対空+1 回避+4／能代改二 火力+4 対潜+1 回避+2／' +
       '…）。',
-    note: '按日文原表补齐（上游整族偏低，矢矧/能代改二还漏了对潜）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -709,7 +709,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     source: 'wikiwiki.jp/kancolle「零式水上偵察機11型乙」装備ボーナス表（页面 Last-modified 2026-07-27）',
     jp: '零式水上偵察機11型乙・同(熟練)：最上改二 / 特・三隈改二 / 特 火力+2 雷装+1 回避+1',
     why: '上游只写了 雷装+1 回避+1，漏掉 火力+2；日文一手与 EO 逐格一致。该行日文原表**同时覆盖 238 与 239 两件**。',
-    note: '按日文原表补火力（上游漏了火力栏）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -731,7 +731,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       '，但 238 页（2026-07-27）那一行的「装備」栏原文就写着「零式水上偵察機11型乙／零式水上偵察機11型乙(熟練)」两件并列，用更新的那张也读到同一档',
     jp: '零式水上偵察機11型乙・同(熟練)：最上改二 / 特・三隈改二 / 特 火力+2 雷装+1 回避+1',
     why: '上游只写了 雷装+1 回避+1，漏掉 火力+2；日文一手与 EO 逐格一致。该行日文原表**同时覆盖 238 与 239 两件**。',
-    note: '按日文原表补火力（上游漏了火力栏）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -762,7 +762,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '秋雲改二(648) 与 時雨改三(961) 上游把「探照灯／熟練見張員」那两条**协同**行写成了无条件行（第 7 行），在 ★0・无协同 的共同分母上凭空多出 火力2 対空2 回避3；早霜改二(956)' +
       ' 与 藤波改二(981) 则是分档缺失（上游的 +4 档漏了早霜改二、+3 档漏了藤波改二，两者都掉进了「他夕雲型」+2 档）。EO 逐格与日文一致。',
-    note: '按日文原表归位（协同行被写成无条件 + 两个形态分档缺失）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -788,7 +788,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '村雨改(244) 本方对——它既不在「村雨改二・春雨改二」档也不在「白露改…」档，吃「他白露型」火力+1 回避+1，EO 那边多给了 回避1。春雨改二(975)' +
       ' 则上游漏档（应在 火力+1 対空+1 回避+2），EO 与日文一致。（本件是**部分裁决**，其余格见 PENDING 台账的注记）',
-    note: '春雨改二按日文原表归回自己的档',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -810,7 +810,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '上游把 榛名改二乙/丙 并进了「金剛型改二」档（回避-3），日文单列这两个形态为 回避-1，akashi 同款（「榛名改二乙・榛名改二丙 火力+1 装甲+1 回避-1」）' +
       '，EO 一致。',
-    note: '按日文原表把榛名改二乙/丙的回避罚从 -3 减到 -1',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -834,7 +834,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '上游把 榛名改二乙/丙 并进了「金剛型改二」档（回避-3），日文单列这两个形态为 回避-1，akashi 同款（「榛名改二乙・榛名改二丙 火力+1 装甲+1 回避-1」）' +
       '，EO 一致。',
-    note: '按日文原表把榛名改二乙/丙的回避罚从 -3 减到 -1',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -858,7 +858,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '上游把 榛名改二乙/丙 并进了「金剛型改二」档（回避-3），日文单列这两个形态为 回避-1，akashi 同款（「榛名改二乙・榛名改二丙 火力+1 装甲+1 回避-1」）' +
       '，EO 一致。',
-    note: '按日文原表把榛名改二乙/丙的回避罚从 -3 减到 -1',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -880,7 +880,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '上游只给了「阿賀野型」通用的 火力1 対潜1 回避1，漏掉 S9 专属那一档。日文页明确写这一档**优先**于水偵通用档，EO 一致。akashi 给的「能代改二・矢矧改二/乙 火力+2 対潜+3 回避+1」正是**水偵通用**那一档的数（与能代改二舰娘页的「水上偵察機 火力+2 対潜+3 回避+1」逐格相同）' +
       '，即 akashi 那张没有收录 S9 的专属覆盖档，不构成同粒度反证。本页取票日 2025-01-27，是各件里最旧的一张，复审优先。',
-    note: '按日文原表给 S9 专属档（上游只给了水侦通用档）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -904,7 +904,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '上游把「夕張」与「夕張改二系」两档都写成了 `classes:[34]` 的无条件行，两行相加 → 全夕張型一律 火力6 対空2 回避3 対潜1，这是**两档相加**的解析事故，' +
       '不是数值口径之争。日文一手是分档的（夕張/夕張改 2/1/1；夕張改二系 4/1/対潜1/2），EO 逐格与之一致；akashi 的「夕張 火力+2 対空+1 回避+1」也对得上。',
-    note: '按日文原表分档（上游把两档写成两条无条件行、被相加了）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -926,7 +926,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '上游这一行三处不对：凭空多了 対空+2、回避多 1、且把 索敵+3 整栏漏了。akashi 逐格与 wikiwiki 一致（丹陽・雪風改二 火力+2 回避+2 索敵+3 射程:長）' +
       '，EO 也一致。',
-    note: '按日文原表校正（上游多给对空、少给索敌）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -960,7 +960,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       'wikiwiki 与 akashi **两张日文票逐格完全一致**（akashi：伊勢型改二 火力+9 対空+4 対潜+2 回避+5／能代改二 火力+4 対潜+1 回避+2／' +
       '矢矧改二/乙 火力+4 対空+1 対潜+1 回避+3／最上改二/特 火力+4 対空+1 回避+3），且与 EO 逐格一致。上游偏低同 322 一族。',
-    note: '按日文原表补齐（两张日文票逐格一致）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -984,7 +984,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '金剛型未改造 4 格本方对（火力+1，日文这一档没有回避，EO 那边多给了 回避+1）。榛名改二丙(954) 一格上游落进了「金剛型改/改二」档（火力2 回避1）' +
       '，日文单列 火力+3 対空+1 回避+1，EO 一致。（本件是**部分裁决**，其余格见 PENDING 台账的注记）',
-    note: '榛名改二丙按日文原表归回改二丙档',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1008,7 +1008,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '金剛型未改造 4 格本方对（EO 多给 回避+1）。榛名改二丙(954) 上游落进「金剛型改二」档（火力3 対空1 回避1），日文单列在「金剛改二丙・比叡改二丙・榛名改二丙」档 火力+4 雷装+2 対空+1 回避+1，' +
       'EO 一致。（本件是**部分裁决**，其余格见 PENDING 台账的注记）',
-    note: '榛名改二丙按日文原表归回改二丙档',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1024,7 +1024,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     source: 'wikiwiki.jp/kancolle「16inch Mk.VIII連装砲改」装備ボーナス表（页面 Last-modified 2026-07-27）',
     jp: 'Colorado改・Maryland改 火力+2 対空+1 回避+1',
     why: '上游漏了 回避+1 这一栏，火力与对空两栏无误；EO 与日文一致。',
-    note: '按日文原表补回避（上游漏了回避栏）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1044,7 +1044,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     source: 'wikiwiki.jp/kancolle「流星改(一航戦)」装備ボーナス表（页面 Last-modified 2026-07-27）',
     jp: '赤城改二戊・加賀改二戊 火力+3 対空+2 回避+2／赤城改二・加賀改二 / 改二護 +2 +1 +1',
     why: '上游把 改二戊 那档的 対空+2 也给了 改二/改二護，日文这一档是 対空+1，EO 一致；火力与回避两栏无误。',
-    note: '按日文原表退回对空+1（上游用了改二戊档的对空）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1064,7 +1064,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '与 310 同一个解析事故：上游两条 `classes:[34]` 无条件行相加 → 全夕張型 火力3 対空3 回避2。日文一手分档（夕張/改 1/1/1；夕張改二系 2/2/1）' +
       '，EO 逐格一致。',
-    note: '按日文原表分档（上游把两档写成两条无条件行、被相加了）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1086,7 +1086,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '7 格里 6 格本方对——日文与本方都给 回避-2，EO 那边整片写成 回避+5（符号方向都不同），日文站本方。只有 **三隈改二特(507)** 一格：日文单列一档 雷装+3 回避-2，' +
       '本方把它并进了 雷装+1 那档。akashi 表里没有三隈改二特这一行（它只有四行，粒度更粗），不构成同粒度反证。（本件是**部分裁决**，其余格见 PENDING 台账的注记）',
-    note: '三隈改二特按日文原表升到雷装+3 档（上游把它并进了 +1 档）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1114,7 +1114,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       '四格都是分档错位：大和改(136)/武蔵改(148) 应在 +2 档（上游给 +1），霧島改二丙(694) 应在 +3 档（上游给 +1），榛名改二乙(593)' +
       ' 应在 +2 档（上游给 +3）。EO 逐格与日文一致。akashi 粒度更粗（只有「金剛型改二丙 +3／武蔵改・大和改・長門改二・陸奥改二 +2／その他日本戦艦 +1」三档，' +
       '未单列 榛名改二乙），不构成同粒度反证。',
-    note: '按日文原表归档（上游四个形态各落错了一档）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1152,7 +1152,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       '同 267：秋雲改二/時雨改三 被「探照灯・熟練見張員」协同行（上游第 10 行写成无条件）顶高，早霜改二/藤波改二 分档缺失。EO 逐格与日文一致。**注意**：该页有两张加成表，' +
       '第二张的表前文字写明是「2022/07/13アップデート以前」的旧表（旧表 他夕雲型改二 是 火力+3、无命中；同页明确写了「夕雲型改二・島風改においてそれぞれ火力+1命中+1の上方修正」）' +
       '。akashi 那张给的正是旧表的 火力+3——属**过期**而非同期反证，取现行表。',
-    note: '按日文现行表归位（协同行被写成无条件 + 两个形态分档缺失）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1170,7 +1170,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '上游按舰级（Warspite改型）把 Valiant 与 Warspite 写成同一档，日文把两舰**单列成两档**（Valiant 火力低 1、回避高 1）' +
       '，EO 一致。akashi 那张只有 Warspite 行、没有 Valiant 行，不构成反证。',
-    note: '按日文原表把 Valiant 单列（上游按舰级并档了）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1186,7 +1186,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     source: 'wikiwiki.jp/kancolle「Fairey Seafox改」装備ボーナス表（页面 Last-modified 2026-07-30）',
     jp: 'Nelson・Rodney 火力+6 対潜+1 索敵+5 回避+4',
     why: '上游 回避只给了 +1，日文与 akashi 都是 回避+4，EO 一致。其余三栏逐格无误。',
-    note: '按日文原表补回避',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1202,7 +1202,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     source: 'wikiwiki.jp/kancolle「天山一二型甲」装備ボーナス表（页面 Last-modified 2026-07-27）',
     jp: '瑞鳳改二 / 乙・龍鳳改 雷装+1 対潜+1（火力栏为空）',
     why: '上游把 雷装+1 记成了 **火力+1**（栏搞错），日文原表这一档火力栏是空的，EO 一致。',
-    note: '按日文原表把火力改回雷装（上游记错了栏）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1218,7 +1218,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     source: 'wikiwiki.jp/kancolle「天山一二型甲改(空六号電探改装備機)」装備ボーナス表（页面 Last-modified 2026-08-01）',
     jp: '祥鳳・瑞鳳 対潜+1（火力・雷装栏为空）／祥鳳改・瑞鳳改・龍鳳 火力+1 雷装+1 対潜+1',
     why: '未改造的 祥鳳(74)/瑞鳳(116) 日文只给 対潜+1，上游多给了 雷装+1（那是「改」以后那一档的），EO 一致。',
-    note: '按日文原表去掉未改造形态的雷装',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1259,7 +1259,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '瑞鳳改二/乙・龍鳳改 三格上游把同一档写了两遍（第 4 行 flat 与第 7 行 byCount 的第 1 档同值），被相加成 2/2/対潜6/回避4；日文与 EO 都是 1/1/対潜3/回避2。' +
       '祥鳳改 上游多给 雷装1；龍鳳改二戊 上游少 回避2。',
-    note: '按日文原表归位（上游把同一档写了两行、被相加了）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1278,7 +1278,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '上游把 由良改二 这一档**写了两条一模一样的行**（第 7、8 行 who 都是 forms:[488]、数值都是 火力2 対空4 対潜2），于是被相加成 4/8/4。' +
       '日文一手与 EO 都是 2/4/2。这是重复行相加，不是数值口径之争。',
-    note: '按日文原表去掉重复的一份（上游同一档写了两行）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1294,7 +1294,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     source: 'wikiwiki.jp/kancolle「12cm単装高角砲E型」装備ボーナス表（页面 Last-modified 2026-07-27）',
     jp: '稲木改二 火力+1 対空+3 対潜+1 回避+3 命中+1／海防艦(稲木改二除く) 対空+2 対潜+1 回避+2',
     why: '上游没有 稲木改二 这一档，它落进了「海防艦」通用档。日文单列，EO 一致。akashi 那张只有「海防艦」行、没有 稲木改二 行，不构成反证。',
-    note: '按日文原表给稲木改二单列档',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1310,7 +1310,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     source: 'wikiwiki.jp/kancolle「後期型53cm艦首魚雷(8門)」装備ボーナス表（页面 Last-modified 2026-08-10）',
     jp: '★0～4 伊47 雷装+3／★0～4 伊47改 雷装+4',
     why: '上游把 伊47 与 伊47改 并成一档（雷装+3），日文把 伊47改 单列成 雷装+4，akashi 同款，EO 一致。',
-    note: '按日文原表把伊47改单列（雷装+4）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1334,7 +1334,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '与 383 同一个并档问题：上游把 伊47改 并进 伊47 那档（回避+3），日文单列 回避+4，EO 一致。akashi 那张只到「伊400・伊401・伊47 回避+3」、' +
       '没有 伊47改 行，不构成反证。',
-    note: '按日文原表把伊47改单列（回避+4）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1356,7 +1356,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '上游把 Nevada 型并进了 Colorado/Maryland/Iowa 那档（火力+2），日文单列 Nevada ★無し～5 火力+1，EO 一致。' +
       'akashi 那张压根没有 Nevada 行，不构成反证。',
-    note: '按日文原表把 Nevada 单列回 火力+1 档',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1381,7 +1381,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       '祥鳳改(282) 本方对——日文单列「瑞鳳改・祥鳳改・龍鳳改 火力+2 回避+2」，akashi 同款，EO 那边只给 回避+1 是错的。翔鶴改(288)' +
       '/瑞鶴改(112) 则相反：按「一番下の改造段階が基準」它们继承「翔鶴・瑞鶴 火力+2 回避+1」，本方多给了 回避1，EO 与日文一致（akashi 记作「翔鶴型 火力+2 回避+1」，' +
       '同）。（本件是**部分裁决**，其余格见 PENDING 台账的注记）',
-    note: '翔鶴改/瑞鶴改按日文原表退回回避+1',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1405,7 +1405,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '神州丸系上游多给 火力1，あきつ丸系上游少 回避1；EO 逐格与日文一致。akashi 那张（神州丸 火力+2 索敵+2 回避+3／あきつ丸 火力+1 索敵+1 対潜+1 回避+1）' +
       '在**栏名**上就与两方都不同（把 対空 记成了 索敵），属其自身表格的列错位，不作为同粒度反证；wikiwiki 这张 2026-08-14 更新且与 EO 独立吻合。',
-    note: '按日文原表校正（神州丸火力偏高、あきつ丸回避偏低）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1427,7 +1427,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '上游只写了「秋月型」一档，初月改二(968) 该在「秋月改二・初月改二」那一档（火力/対空/回避 各高 1）。EO 一致。akashi 那张只到「秋月型・最上改」与「最上改二/特」两行、' +
       '没有秋月改二档，不构成反证。',
-    note: '按日文原表给秋月改二/初月改二单列档',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1449,7 +1449,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '上游在 榛名改二乙 上多切了一档「★0 → 火力3 対空4」，日文原表的第一档是 **★0~3 火力+4 対空+6 回避+3**（akashi 同款），' +
       '所以 ★0 那一格上游偏低。EO 一致。',
-    note: '按日文原表把★0 归入第一档（上游多切了一档）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1473,7 +1473,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       'EO 那边给 5/6/7 是它自己多了一条「長波链 +1/+1」；清霜・浜波各形态同理，EO 多给 対空+1 回避+1，日文表里没有这一档。唯一要改的是 **長波改二補(743)' +
       '**：它在改造链上位于 長波改二 之上、日文表没有单列，按页首那句「一番下の改造段階が基準」应继承 長波改二 的 6/6/8——本方给 4/5/7、EO 给 5/6/7，' +
       '**两边都不对**，这是日文票支持第三值的一格。（本件是**部分裁决**，其余格见 PENDING 台账的注记）',
-    note: '長波改二補按日文原表归回長波改二档（上游把它落进了夕雲型通用档）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1491,7 +1491,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '上游把 Victorious 与 Ark Royal 并成一档（火力+1），日文把 Victorious 放在 火力+2 档、Ark Royal 单列 +1，' +
       'akashi 同款，EO 一致。',
-    note: '按日文原表把 Victorious 升到火力+2 档',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1510,7 +1510,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       '上游按舰级（Gambier Bay改型 ctype 83）把 Mk.II 那一档给了全级，于是 Gambier Bay(544) 与 Gambier Bay改(396)' +
       ' 也拿到 火力3 対空2 回避3。日文把 Mk.II 单列（它在改造链上位于 Gambier Bay改 之上），其余吃「Gambier Bay・Langley」的 火力+1 回避+1；akashi 同款（Gambier Bay Mk.II 一档、' +
       'アメリカ軽空母 火力+1 回避+1 一档），EO 一致。',
-    note: '按日文原表把 Mk.II 之下的两个形态退回 +1/+1 档',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1530,7 +1530,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     source: 'wikiwiki.jp/kancolle「Barracuda Mk.II」装備ボーナス表（页面 Last-modified 2026-07-27）',
     jp: '★無し~+1 Ark Royal・Victorious・Glorious(正規空母) 火力+2 雷装+3',
     why: '上游把 雷装+3 记成了 **対空+3**（栏搞错），日文与 akashi 都写 雷装+3，EO 一致。火力+2 两边相同。',
-    note: '按日文原表把对空改回雷装（上游记错了栏）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1554,7 +1554,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '第一门 Гангут 型日文给 火力+2 回避+1，上游写成 火力+1（把 2 门以后那档的增量当成了第一门）。akashi 的「Гангут 火力+2,+1,+1,+1 回避+1,+0,+0,+0」逐档一致，' +
       'EO 也一致。',
-    note: '按日文原表把第一门补回火力+2',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1576,7 +1576,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '上游的「朝霜」档只列到 朝霜改二(578)，漏了改造链更上一级的 **朝霜改二補(744)**，它掉进了驱逐通用档（対潜1 回避1）。按页首那句「一番下の改造段階が基準」，' +
       '744 继承「朝霜」档 火力+1 対潜+4 回避+3，EO 一致。',
-    note: '按日文原表把朝霜改二補归回朝霜档',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1592,7 +1592,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     source: 'wikiwiki.jp/kancolle「潜水艦後部魚雷発射管4門(初期型)」装備ボーナス表（页面 Last-modified 2026-08-10）',
     jp: 'Gato級 雷装+2／Salmon 雷装+1 回避+2',
     why: '上游把 Gato 級与 Salmon 级并成一条（雷装+2），日文分两档：Salmon 是 雷装+1 回避+2，EO 一致。',
-    note: '按日文原表把 Salmon 单列（雷装 1、回避 2）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1608,7 +1608,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     source: 'wikiwiki.jp/kancolle「潜水艦後部魚雷発射管4門(後期型)」装備ボーナス表（页面 Last-modified 2026-08-10）',
     jp: 'Gato級 雷装+2／Salmon 雷装+1 回避+2',
     why: '上游把 Gato 級与 Salmon 级并成一条（雷装+2），日文分两档：Salmon 是 雷装+1 回避+2，EO 一致。',
-    note: '按日文原表把 Salmon 单列（雷装 1、回避 2）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1630,7 +1630,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '日文那一行的对象里写着「※榛名改二乙/丙を除く」，上游把这个**排除**漏掉了，于是 593/954 也吃到 対空-2 回避-2 的罚。EO 那边这两格是空的（无加成）' +
       '，与日文一致。akashi 那张给 榛名改二乙/丙 的「対空+5 回避+4」与它上一行 大和型改二 的数完全相同，是它自己表格跨行合并的呈现事故，不作为同粒度反证。',
-    note: '按日文原表免除榛名改二乙/丙的罚（上游漏了「除く」）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1653,7 +1653,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       '扶桑改二 / 山城改二 / 矢矧改二 三格：日文与 akashi 都只给 **対潜+1**（没有回避），本方多给了 回避+1 与 対潜+1，EO 与日文一致。' +
       '另 3 格（雪風改・響改・時雨改）本方对——它们分别吃「他日本駆逐艦」与「時雨」档，EO 把 雪風改二/時雨改二 的高档往链下扩了。（本件是**部分裁决**，' +
       '其余格见 PENDING 台账的注记）',
-    note: '扶桑改二/山城改二/矢矧改二 按日文原表退回「対潜+1」（上游多给了回避与一点对潜）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1680,7 +1680,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       '本件与 322 / 237 / 323 同属日文表里那一组「瑞雲(六三四空/熟練)・瑞雲改二(六三四空)・同(熟練)・本装備」并列行，四件同值。伊勢型改二 那一行上游是对的（火力3 対空1 回避2）' +
       '，差的只有最上/三隈/矢矧/能代这 7 格。akashi 一致（能代改二 火力+4 対潜+1／矢矧改二/乙 火力+4 対空+1 対潜+1／最上改二/特 火力+4 対空+1）' +
       '。',
-    note: '按日文原表补齐（与 322 同族同值）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1718,7 +1718,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '上游把「21号/42号対空電探シナジー」那几笔（第 12–17 行）写成了无条件行，在 ★0・无协同 的共同分母上给 151/593/954 各凭空多出 火力/対空/回避/命中。' +
       '日文一手（akashi 同款：榛名改二乙 火力+5 対空+4 回避+3、榛名改二丙 +3 +3 +3）与 EO 逐格一致。',
-    note: '按日文原表退回单体档（上游把电探协同那几笔写成了无条件）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1741,7 +1741,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     why:
       '金剛改二(149)/榛名改二(151) 本方对（火力+2，EO 那边多给了 対空/命中）。改二丙系与榛名改二乙/丙 四格上游偏高：上游把「53cm連装魚雷★max 才给的 火力+1 雷装+4 命中+1」当成了无条件行（第 9–11 行）' +
       '，所以在 ★0・无协同 的共同分母上凭空多出 火力1 雷装1 命中1。日文一手与 EO 逐格一致。（本件是**部分裁决**，其余格见 PENDING 台账的注记）',
-    note: '按日文原表退回单体档（上游把鱼雷协同那几笔写成了无条件）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1757,7 +1757,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
     source: 'wikiwiki.jp/kancolle「Walrus」装備ボーナス表（页面 Last-modified 2026-08-13）',
     jp: '1機目 Nelson・Rodney 火力+6 対潜+3 索敵+5 回避+4 命中+2',
     why: '上游把 命中+2 整栏漏了，其余四栏逐格无误；日文与 akashi 都有 命中+2，EO 一致。',
-    note: '按日文原表补命中（上游漏了命中栏）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1790,7 +1790,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       '四格都是分档缺失：響改(235)・霞改二乙(470，在霞改二之上按页首规则继承)・春雨改二(975) 应在「初霜改二…」那一档（火力1 索敵2 回避3 命中2）' +
       '，藤波改二(981) 应在「玉波改二…」那一档（火力2 索敵1 回避2 命中3），上游把前三个丢进了「その他の日本駆逐艦」最低档、把藤波改二丢进了「夕雲型」档。' +
       'EO 逐格与日文一致。',
-    note: '按日文原表归回各自的档（上游三个形态掉进了驱逐通用档）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1814,7 +1814,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       '所以 228 该有 回避+2（本方漏了，EO 对）；而 磯風(167)/磯風改(320) 在 磯風乙改 之下、只吃「他陽炎型」火力+2，時雨(43)/時雨改(243)' +
       ' 吃「他白露型」火力+1——这 4 格本方是对的，EO 那边多给了 回避+2。陽炎型改二那 6 格因日文页表格与脚注互相打架，留在待裁。（本件是**部分裁决**，' +
       '其余格见 PENDING 台账的注记）',
-    note: '雪風改按日文原表补回避（「雪風」档从雪風起算，含雪風改）',
+    note: '加成数值按 wikiwiki 日文原表',
     decidedAt: '2026-08-22',
   },
   {
@@ -1843,7 +1843,7 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       '火力 +3 与 命中 +2 两栏，回避一栏没有箭头。三票合流——① 游戏装备预览箭头（准一手；' +
       '此处无协同、无档位，且不是孤证）② 日文表格列位 ③ EO 独立编码；脚注孤票出局。' +
       '★+2 未跨任何已知档位门槛，读到的即基础行。见 arbitration/user-verdict-529.md。',
-    note: '按用户游戏实测把这 6 格的 回避+2 改回 命中+2（日文页脚注写错了栏）',
+    note: '6 格加成按本地游戏实测值',
     decidedAt: '2026-08-22',
   },
 ])

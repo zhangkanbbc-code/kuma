@@ -203,12 +203,12 @@ export type QpBlockReason =
 
 export const QP_BLOCK_TEXT: Record<QpBlockReason, { label: string; how: string }> = {
   periodStale: {
-    label: '受领状态还停在上一周期',
-    how: '在游戏里打开一次任务页，或重新领取，计数就会恢复',
+    label: '领取状态仍为上一周期',
+    how: '请在游戏内打开一次任务页或重新领取，以恢复计数',
   },
   notReceived: {
-    label: '没看到它在遂行中',
-    how: '在游戏里领取并打开一次任务页即可',
+    label: '未确认任务处于进行中',
+    how: '请在游戏内领取任务并打开一次任务页',
   },
 }
 

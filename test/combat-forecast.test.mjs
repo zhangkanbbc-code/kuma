@@ -425,8 +425,8 @@ test('联合舰队的夜战只有第二舰队出手，空母与大破舰一律�
   assert.equal(mixed.factors.nightBlocked.carrier, 1)
   assert.equal(mixed.factors.nightBlocked.taiha, 1)
   // 说明栏要把「为什么只有 1 舰参加」讲清楚
-  const line = mixed.assumptions.find((l) => l.startsWith('夜战另算一套：'))
-  assert.match(line, /1 舰能出手/)
+  const line = mixed.assumptions.find((l) => l.startsWith('夜战单独计算：'))
+  assert.match(line, /1 舰可攻击/)
   assert.match(line, /空母 1/)
   assert.match(line, /大破 1/)
 })
@@ -497,10 +497,34 @@ test('弾着観測射撃：制空够 + 主砲+α + 水侦才吃，方向不能�
     enemyFormation: 1,
   })
   assert.equal(noAir.factors.spottingShips, 0, '制空没到优势/确保就不该发动')
-  // 说明栏要照实说这一项偏低——艦隊索敵補正上游没给定义
+  // 说明栏认这一项。2026-09-01 起 `艦隊索敵補正` 已按源文档实装（⌊√A+0.1A⌋），
+  // 原来那句「偏低」的挂账随之撤掉——留着就是在说一件已经不成立的事
   const counted = withSpot.assumptions.find((l) => l.startsWith('已计入：')) ?? ''
-  assert.match(counted, /弾着観測射撃 \/ 连击/)
-  assert.match(counted, /偏低/)
+  assert.match(counted, /弹着观测射击 \/ 连击/)
+  assert.doesNotMatch(counted, /偏低/)
+
+  // 艦隊索敵補正是**舰队级**的：同一艘舰、同一套配装，队里多一艘素索敵高的舰，
+  // 発動率就该往上走。这一条是判断「补正真的接进来了」的行为判据，
+  // 光看说明栏那句话有没有变是判不出来的（源码文本护栏的老毛病）。
+  const scoutFriend = ship({
+    mstId: 42, stype: 3, firepower: 40, torpedo: 0, asw: 0, baseLos: 60, equipment: [],
+  })
+  const withScout = forecastEncounter({
+    friendly: fleet([bb({ mstId: 1, equipment: [gun(), gun(), seaplane()] }), carrier, scoutFriend]),
+    enemy, enemyFormation: 1,
+  })
+  const withBlind = forecastEncounter({
+    friendly: fleet([
+      bb({ mstId: 1, equipment: [gun(), gun(), seaplane()] }),
+      carrier,
+      { ...scoutFriend, baseLos: 0 },
+    ]),
+    enemy, enemyFormation: 1,
+  })
+  assert.ok(
+    withScout.friendlyPressure > withBlind.friendlyPressure,
+    '队里多一艘素索敵高的舰，弾着観測射撃発動率该跟着上去',
+  )
 })
 
 test('先制对潜是额外一轮，判据与编队页同一套', () => {

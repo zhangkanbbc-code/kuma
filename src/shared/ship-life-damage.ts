@@ -28,12 +28,11 @@ export interface ShipLifeDamageText {
 
 const SCOPE = '出击与演习合计，按每场战斗结算逐场累加'
 const TAIHA_SCOPE =
-  '大破按每场收尾时 HP ≤ 25% 计；女神／要员发动过的也算——它们发动的前提就是先跌破了大破线'
+  '大破按每场结束时 HP ≤ 25% 计；女神／要员发动场次计入，发动前已达到大破'
 // 这条是「造成伤害」最容易被误读的地方：这个数天生就比战斗界面上看到的总输出小。
 const DEALT_SCOPE =
-  '只统计游戏给出了明确施加方的伤害：炮击、雷击、开幕对潜、夜战。\n' +
-  '航空战、基地航空与支援射击是阶段伤害，游戏不指明是哪一舰打的，因此不摊给任何人——\n' +
-  '空母的这个数会明显偏低，那是口径如此，不是漏记。'
+  '造成伤害仅含施加方明确的炮击、雷击、开幕对潜与夜战；\n' +
+  '航空战、基地航空及支援射击不计入单舰数据，空母数据可能偏低'
 
 export const shipLifeDamageText = (life: ShipLifeReport): ShipLifeDamageText => {
   const unknown = life.damageUnknownBattles
@@ -41,8 +40,8 @@ export const shipLifeDamageText = (life: ShipLifeReport): ShipLifeDamageText => 
   if (life.damageTrackedFrom == null) {
     const lead =
       unknown > 0
-        ? `这几项是后来才开始记的，本地留下的 ${unknown} 场战斗里没有伤害数据，说不出打了多少、挨了多少。\n下一次出击起开始累计。\n`
-        : '本地记录里她还没打过仗。\n'
+        ? `本地较早的 ${unknown} 场战斗无伤害数据 · 下次出击起累计\n`
+        : '本地暂无战斗记录\n'
     return {
       damage: unknown > 0 ? '—' : '0',
       taiha: unknown > 0 ? '—' : '0',
@@ -55,8 +54,8 @@ export const shipLifeDamageText = (life: ShipLifeReport): ShipLifeDamageText => 
   const since = dayText(life.damageTrackedFrom)
   const lead =
     unknown > 0
-      ? `自 ${since} 起记录；更早的 ${unknown} 场不可知，没有计入。\n`
-      : `自 ${since} 起记录，覆盖本地留下的全部战斗。\n`
+      ? `自 ${since} 起记录 · 不含更早的 ${unknown} 场\n`
+      : `自 ${since} 起记录 · 覆盖本地全部战斗\n`
   return {
     damage: life.damageTaken.toLocaleString(),
     taiha: `${life.taihaCount}`,

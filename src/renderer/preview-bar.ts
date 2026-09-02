@@ -215,7 +215,7 @@ const paint = () => {
   nameEl.title = info.label || '试听'
   toggleEl.textContent = info.playing ? '⏸' : '▶'
   toggleEl.setAttribute('aria-label', info.playing ? '暂停' : '继续播放')
-  toggleEl.title = info.playing ? '暂停' : '接着放'
+  toggleEl.title = info.playing ? '暂停' : '继续播放'
 
   const duration = seekableDuration(info.audio)
   const at = currentTimeOf(info.audio)

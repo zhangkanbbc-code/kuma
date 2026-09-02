@@ -807,8 +807,8 @@ const RESET_SOON: Record<string, [kind: 'daily' | 'weekly' | 'monthly' | 'quarte
 }
 
 const QUICK_FILTERS: Record<string, { label: string; test: (r: QRow) => boolean }> = {
-  screw: { label: '给改修资材的', test: (r) => /改修资材|改修資材/.test(r.memo) },
-  blueprint: { label: '给图纸 / 详报的', test: (r) => /设计图|設計図|详报|詳報/.test(r.memo) },
+  screw: { label: '奖励改修资材', test: (r) => /改修资材|改修資材/.test(r.memo) },
+  blueprint: { label: '奖励图纸 / 详报', test: (r) => /设计图|設計図|详报|詳報/.test(r.memo) },
   choice: { label: '有自选奖励', test: (r) => /以下奖励[二三四五六七八九]选一/.test(r.memo) },
   shipReward: { label: '有舰娘奖励', test: (r) => rewardShips(r).length > 0 },
   tracked: { label: '支持精确计数', test: (r) => Boolean(qp?.trackers[r.id]) },
@@ -828,7 +828,7 @@ const QUICK_FILTERS: Record<string, { label: string; test: (r: QRow) => boolean 
   doable: {
     // 「当前编成可直接做」：主进程用计数时的同一道条件门（qp:check-fleet）实时判定，
     // 所以这里的「能做」与实际会不会计数是同一口径。
-    label: '当前编成可直接做',
+    label: '当前编成满足条件',
     test: (r) => {
       if (!isObservedActive(r)) return false
       const hit = fleetCheck[r.id]
@@ -938,7 +938,7 @@ const FLAG_TEXT = (flag: number) => (flag === 2 ? '≥80%' : flag === 1 ? '≥50
 
 const progressHtml = (row: QRow) => {
   if (isInferredCompleted(row)) {
-    return `<span class="q-prog" title="后续任务已经解锁，可确认这项单次前置任务曾经完成"><span class="pb"><i style="width:100%;background:linear-gradient(90deg,#3f806b,var(--ok))"></i></span>
+    return `<span class="q-prog" title="完成依据：后续任务已解锁"><span class="pb"><i style="width:100%;background:linear-gradient(90deg,#3f806b,var(--ok))"></i></span>
       <span class="pt"><span>链上确认</span><span>100%</span></span></span>`
   }
   if (!row.observed) return '<span class="q-prog"><span class="pt"><span>资料</span><span>—</span></span></span>'
@@ -951,7 +951,7 @@ const progressHtml = (row: QRow) => {
   if (precise) {
     const paused = row.observed.state === 1
     const baseTip = paused
-      ? '任务已取消，进度仍保存在本机；重新领取后继续计数'
+      ? '任务已取消 · 进度本地保留 · 重新领取后继续计数'
       : `游戏显示 ${FLAG_TEXT(flag)}`
     // 多子项任务的条按子项分段，各段填自己的完成率——「2/4 项」数的是填满的段，
     // 条和文字才是同一句话。整条画平均完成率时，90% 的条配「2/4 项」看着像自相矛盾
@@ -969,7 +969,7 @@ const progressHtml = (row: QRow) => {
       : baseTip
     return `<span class="q-prog" title="${esc(tip)}">${bar}
       <span class="pt"><span>${paused ? '已保留' : precise.floored ? '下限校正' : '本地计数'}${
-        precise.approx ? '<span title="部分条件无法核对，计数可能偏多">≈</span>' : ''
+        precise.approx ? '<span title="部分条件无法核对 · 计数为估算">≈</span>' : ''
       }</span><span>${esc(precise.text)}</span></span></span>`
   }
   if (row.observed.state === 1) {
@@ -980,9 +980,9 @@ const progressHtml = (row: QRow) => {
   // 否则用户只看到一条不动的进度条，分不清是坏了还是本来就没在计
   const tracker = qp?.trackers[row.id]
   const why = !qp
-    ? '精确计数还在准备中'
+    ? '精确计数尚未就绪'
     : !tracker
-      ? '还没有这条任务的判定资料，无法精确计数'
+      ? '暂无当前任务判定资料 · 无法精确计数'
       : tracker.blocked
         ? `${QP_BLOCK_TEXT[tracker.blocked].label} · ${QP_BLOCK_TEXT[tracker.blocked].how}`
         : ''
@@ -1001,18 +1001,18 @@ const rowHtml = (row: QRow) => {
   const verdict = ghost ? questVerdicts().get(row.id) : undefined
   let tag =
     verdict?.status === 'done'
-      ? `<span class="st-tag done" title="前置都满足却不在任务表里 · 判为已交付">✓ ${verdict.cyclic ? '本期已完成' : '已完成'}</span>`
+      ? `<span class="st-tag done" title="前置任务已完成 · 当前任务不在任务列表 · 推定已交付">✓ ${verdict.cyclic ? '本期已完成' : '已完成'}</span>`
       : verdict?.status === 'locked'
-        ? `<span class="st-tag lock" title="${esc(`还差前置：${verdict.missingPre.join('、')}`)}">未解锁</span>`
+        ? `<span class="st-tag lock" title="${esc(`缺少前置：${verdict.missingPre.join('、')}`)}">未解锁</span>`
         : '<span class="st-tag lock">任务资料</span>'
   if (inferredCompleted) {
-    tag = '<span class="st-tag done" title="由已解锁的后续任务反推">✓ 已完成</span>'
+    tag = '<span class="st-tag done" title="根据已解锁后续任务推定">✓ 已完成</span>'
   } else if (observed?.state === 3) tag = '<span class="st-tag done">✓ 领取奖励</span>'
   else if (isObservedActive(row)) {
     const precise = qpOf(row)
     tag =
       precise && precise.pct >= 100
-        ? '<span class="st-tag" style="color:var(--gold);border-color:#4a3f22" title="本地计数已完成；打开任务界面后由游戏确认">预计完成</span>'
+        ? '<span class="st-tag" style="color:var(--gold);border-color:#4a3f22" title="本地计数已完成 · 打开任务界面后由游戏确认">估算完成</span>'
         : '<span class="st-tag" style="color:var(--accent);border-color:#2a4a5e">进行中</span>'
   } else if (observed?.state === 1) {
     tag = qpOf(row)
@@ -1488,7 +1488,7 @@ const qpTaskLabel = (task: QpTask, options: { bare?: boolean } = {}): string => 
         ? '完成演习（胜负不限）'
         : `演习 ${QP_RANK_NAME[task.rank] ?? '?'} 胜`
     case 'action':
-      return options.bare ? esc(task.label) : `${esc(task.label)}（本地动作计数）`
+      return options.bare ? esc(task.label) : `${esc(task.label)} · 本地动作计数`
   }
 }
 
@@ -1626,18 +1626,18 @@ const blockedHtml = (tracker: QpState['trackers'][number]): string => {
   // 「没有可计数动作」是结构事实（tasks 为空），不必绕主进程；
   // 受领门那两种才必须取引擎的结论。
   if (!tracker.tasks.length) {
-    return '<div class="counter-why plain"><b>这条没有可计数的动作</b></div>'
+    return '<div class="counter-why plain"><b>暂无可计数动作</b></div>'
   }
   if (!tracker.blocked) return ''
   const { label, how } = QP_BLOCK_TEXT[tracker.blocked]
-  return `<div class="counter-why why"><b>现在不会计数：${esc(label)}</b><span>${esc(how)}</span></div>`
+  return `<div class="counter-why why"><b>当前不计数：${esc(label)}</b><span>${esc(how)}</span></div>`
 }
 
 // 完全没有计数器时说清是哪一种「没有」。判定资料还没到位就说「没有这条的资料」，
 // 是把「我还没查」写成了「没有」。
 const noCounterHtml = (row: QRow): string => {
   const body = !qp
-    ? '<div class="d-note">精确计数还在准备中</div>'
+    ? '<div class="d-note">精确计数尚未就绪</div>'
     : '<div class="counter-why why"><b>无法精确计数：暂无这条任务的判定资料</b></div>'
   return `<section class="q-section q-counter"><h4>计数器</h4>${body}</section>`
 }
@@ -1648,20 +1648,20 @@ const noCounterHtml = (row: QRow): string => {
 const fleetCheckPendingHtml = (row: QRow, what: string): string => {
   if (isObservedActive(row)) {
     return fleetCheckFailed
-      ? `<div class="d-note">上一次读取${what}没有成功</div>`
-      : `<div class="d-note">正在读取${what}……</div>`
+      ? `<div class="d-note">${what}读取失败 · 打开游戏任务页后重试</div>`
+      : `<div class="d-note">${what}读取中</div>`
   }
   // 「没领取」也得先有根据：任务页一次都没同步过时，那是不知道，不是没领
   if (!row.observed && mg.questActiveTs == null) {
     return '<div class="d-note">尚未从游戏任务页同步过这条任务的领取情况</div>'
   }
-  return '<div class="d-note">这条任务当前没有领取</div>'
+  return '<div class="d-note">当前任务未领取</div>'
 }
 
 // 有旧结论时也要说一句它可能过时——读取失败不清空数据，但也不能装作是新的
 const fleetCheckStaleHtml = (): string =>
   fleetCheckFailed
-    ? '<div class="d-note">最近一次读取当前编成没有成功，下面仍是上一次成功的结果。</div>'
+    ? '<div class="d-note">当前编成读取失败 · 显示上次成功结果 · 打开游戏任务页后重试</div>'
     : ''
 
 // 详情里的精确进度分解（每个子任务一行 + 编成条件摘要）
@@ -1679,7 +1679,7 @@ const qpDetailHtml = (row: QRow): string => {
     const n = Math.min(cap, Math.max(local, floors[slot] ?? 0))
     const done = local >= cap
     const alternatives = entries.map(({ task }) => qpTaskLabel(task)).join(' 或 ')
-    return `<div class="d-ent"><span class="k" style="color:${done ? 'var(--ok)' : 'var(--dim)'}">${done ? '✓' : '◌'}</span>${alternatives} <b style="font-family:var(--mono);color:${done ? 'var(--gold)' : 'var(--text)'}">${floored ? '≥' : ''}${n}/${cap}</b>${floored && serverFloor ? ` <small>游戏自报 ${FLAG_TEXT(serverFloor.flag)}</small>` : ''}</div>`
+    return `<div class="d-ent"><span class="k" style="color:${done ? 'var(--ok)' : 'var(--dim)'}">${done ? '✓' : '◌'}</span>${alternatives} <b style="font-family:var(--mono);color:${done ? 'var(--gold)' : 'var(--text)'}">${floored ? '≥' : ''}${n}/${cap}</b>${floored && serverFloor ? ` <small>游戏进度 ${FLAG_TEXT(serverFloor.flag)}</small>` : ''}</div>`
   })
   // 「本地计数」四字已在列表行的条上，这里不再重复口径，只留「源」与游戏自报档
   const counterMeta = [
@@ -1690,14 +1690,14 @@ const qpDetailHtml = (row: QRow): string => {
     .join(' · ')
   const paused =
     row.observed?.state === 1
-      ? '<div class="counter-paused">任务当前未领取，重新领取后在原进度上继续</div>'
+      ? '<div class="counter-paused">当前任务未领取 · 重新领取后继续原进度</div>'
       : ''
   // 「该怎么办」交给 blockedHtml 说（它拿的是真正的门），这里只陈述事实
   const syncNote = mg.questActiveTs != null
-    ? `<div class="d-note">受领状态确认于 ${fmtTime(mg.questActiveTs)}</div>`
-    : '<div class="d-note">尚未从游戏任务页同步过受领状态。</div>'
+    ? `<div class="d-note">领取状态确认于 ${fmtTime(mg.questActiveTs)}</div>`
+    : '<div class="d-note">领取状态尚未从游戏任务页同步</div>'
   const partial = tracker.partial
-    ? '<div class="counter-paused">这条任务另有非计数条件（准备资源等），计数满不代表可交付。</div>'
+    ? '<div class="counter-paused">另有非计数条件 · 计数完成不等于可交付</div>'
     : ''
   const counter = tracker.tasks.length
     ? `<section class="q-section q-counter"><h4>计数器</h4>
@@ -1708,8 +1708,8 @@ const qpDetailHtml = (row: QRow): string => {
   const goal = tracker.fleetGoal
     ? `<section class="q-section q-fleet-goal"><h4>编成检查</h4>
         <div class="d-note"><span class="credit-mark" title="${esc(
-          '同一艘舰一般不重复计入两个条目，「含旗舰」类条目除外——旗舰同时计入它所属的那一类。\n' +
-            '具名舰未写形态的（如「时雨」）任意形态都算；写明形态的（如「白露改」）按资料注明的形态认定，备注「改二也可」之类的列举会一并认。',
+          '同一舰娘不重复计入多个条目；「含旗舰」条目中旗舰同时计入所属类别；\n' +
+            '具名舰未注明形态时，各形态均计入；注明形态时仅计资料列举形态',
         )}">口径</span></div>
         ${
           fleetCheck[row.id]?.diffs?.length
@@ -1725,7 +1725,7 @@ const qpDetailHtml = (row: QRow): string => {
     : ''
   const stock = tracker.stockGoals?.length
     ? `<section class="q-section q-stock-goal"><h4>持有条件
-        <span class="credit-mark" title="满足只表示备齐，交付以游戏为准">口径</span></h4>
+        <span class="credit-mark" title="持有条件仅表示备齐">口径</span></h4>
         ${tracker.stockGoals.map((item) => {
           const current = qpStockCurrent(item)
           const ok = current != null && current >= item.count
@@ -1733,7 +1733,7 @@ const qpDetailHtml = (row: QRow): string => {
             ? '尚未同步'
             : ok
               ? `${current.toLocaleString()} / ${item.count.toLocaleString()} ✓`
-              : `${current.toLocaleString()} / ${item.count.toLocaleString()} · 还差 ${(item.count - current).toLocaleString()}`
+              : `${current.toLocaleString()} / ${item.count.toLocaleString()} · 缺 ${(item.count - current).toLocaleString()}`
           return `<div class="d-ent"><span class="k" style="color:${ok ? 'var(--ok)' : 'var(--dim)'}">${ok ? '✓' : '◌'}</span>${qpStockLabel(item)} <b style="font-family:var(--mono);color:${ok ? 'var(--gold)' : 'var(--text)'}">${status}</b></div>`
         }).join('')}
       </section>`
@@ -2094,9 +2094,9 @@ const questChainHtml = (row: QRow): string => {
   return `<section class="q-section q-chain">
     <h4>任务链${questPreSourceNoteHtml(lib.get(row.id)?.preInfo)}</h4>
     <div class="quest-chain-tree">
-      ${hasBefore ? lane('要先完成', 'before', tree.before) : ''}
+      ${hasBefore ? lane('前置任务', 'before', tree.before) : ''}
       <div class="chain-tree-current"><span>当前</span>${questChainNode(current, inferred, 'me')}</div>
-      ${hasAfter ? lane('完成后可接', 'after', tree.after) : ''}
+      ${hasAfter ? lane('后续任务', 'after', tree.after) : ''}
     </div>
     <div class="chain-tree-foot">
       <div class="chain-tree-legend"><span class="done">已完成</span><span class="active">进行中</span><span class="available">尚未领取</span><span>状态未同步</span></div>
@@ -2124,7 +2124,7 @@ const detailHtml = (row: QRow) => {
             : '尚未领取'
           : '任务资料'
   const inferredNote = isInferredCompleted(row)
-    ? '<section class="q-section"><h4>完成依据</h4><div class="d-note">这项单次任务已由下游任务的解锁状态反向确认完成。</div></section>'
+    ? '<section class="q-section"><h4>完成依据</h4><div class="d-note">推定已完成 · 依据后续任务解锁状态</div></section>'
     : ''
   const counter = qpDetailHtml(row) || noCounterHtml(row)
   const chain = questChainHtml(row)
@@ -2140,7 +2140,7 @@ const detailHtml = (row: QRow) => {
       <section class="q-section q-bilingual">
         <h4>任务说明</h4>
         <div class="q-zh"><b>${entityNameHtml('quest', row.id, row.name || row.observed?.title || `任务 ${row.id}`)}</b>
-          ${row.desc ? `<p>${taskProseHtml(row.desc, row.code)}</p>` : '<p class="dim">中文资料暂未收录任务说明。</p>'}
+          ${row.desc ? `<p>${taskProseHtml(row.desc, row.code)}</p>` : '<p class="dim">中文资料暂未收录任务说明</p>'}
         </div>
         ${
           hasOriginal
@@ -2178,7 +2178,7 @@ const render = () => {
   if (!rows.length) {
     forgetCommittedHtml(pane, 'qn') // 这一支绕开 commitPaneHtml，记忆不能留着
     pane.innerHTML = `<div class="pane-waiting">
-      正在等待任务数据……在游戏中打开一次任务页面即可同步进行中的任务。</div>`
+      尚未同步任务数据 · 打开游戏任务页后同步</div>`
     return
   }
   const filtered = applyFilters(rows)
@@ -2371,7 +2371,7 @@ const render = () => {
             <button class="schip gold${state.status === 'done' ? ' on' : ''}" data-status="done">${statusLabelOf('done')} <b>${done}</b></button>
             <button class="schip${state.status === 'unaccepted' ? ' on' : ''}" data-status="unaccepted">${statusLabelOf('unaccepted')} <b>${unaccepted}</b></button>
             <button class="schip${state.status === 'completed' ? ' on' : ''}" data-status="completed"
-              title="由已解锁后续任务反推的单次任务">${statusLabelOf('completed')} <b>${completed}</b></button>
+              title="根据已解锁后续任务推定已完成的单次任务">${statusLabelOf('completed')} <b>${completed}</b></button>
             <button class="schip${state.status === 'current' ? ' on' : ''}" data-status="current"
               title="曾经从游戏任务页同步到本机的任务">${statusLabelOf('current')} <b>${current}</b></button>
             <button class="schip${state.status === 'all' ? ' on' : ''}" data-status="all">${statusLabelOf('all')} <b>${rows.length}</b></button>
@@ -2386,7 +2386,7 @@ const render = () => {
       ${headHtml}
       <div class="q-work${selected ? ' drawer-open' : ''}">
         <div class="main">
-          <div class="list">${filtered.map(rowHtml).join('') || '<div class="q-empty">没有符合当前筛选条件的任务</div>'}</div>
+          <div class="list">${filtered.map(rowHtml).join('') || '<div class="q-empty">暂无符合当前筛选条件的任务</div>'}</div>
           <div class="foot">
             <span>${qp?.packCredit ? `<span class="credit-mark" title="${esc(qp.packCredit)}">源</span>` : '任务计数规则尚未就绪'}</span>
             <span style="margin-left:auto">显示 ${filtered.length} / ${rows.length}</span>
@@ -2511,9 +2511,9 @@ registerEntityRoute('quest', {
       typeLabel: `任务 · ${entry?.code ?? ''} ${periodLabel}`,
       media: media ? `<span class="q-rew">${media}</span>` : undefined,
       lines: [
-        entry?.desc ? esc(entry.desc) : '（中文资料库尚未收录）',
+        entry?.desc ? esc(entry.desc) : '中文资料库尚未收录',
         inferredCompleted
-          ? '✓ 已完成 · 由后续任务解锁状态确认'
+          ? '推定已完成 · 依据后续任务解锁状态'
           : observed
           ? observed.state === 3
             ? '✓ 已完成，待领取'

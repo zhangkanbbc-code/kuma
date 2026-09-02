@@ -28,6 +28,12 @@ const {
 } = sections
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
+
+test('运行诊断在版本读取失败时警告并显示失败标签', () => {
+  const source = fs.readFileSync(path.join(ROOT, 'src', 'renderer', 'modules', 'yu.ts'), 'utf8')
+  assert.match(source, /console\.warn\('\[kanso\] 版本读取失败', error\)/)
+  assert.match(source, /kumaVersion === '版本读取失败'\s*\? '版本读取失败'/)
+})
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8')
 
 /** 两种形态：发行版（默认）与调试态 */

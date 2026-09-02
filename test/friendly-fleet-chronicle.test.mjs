@@ -289,7 +289,7 @@ const seenRecord = () =>
 
 test('两层都有内容时并列显示，谁也不顶替谁', () => {
   const html = renderFriendlySection([seenRecord()], [packFleet], { 553: { name: '伊勢改二' } })
-  assert.ok(html.includes('你遇到的友军'), '本地实测层要在')
+  assert.ok(html.includes('本地遭遇友军'), '本地实测层要在')
   assert.ok(html.includes('友军编成资料'), '随包资料层也要在')
   assert.ok(html.includes('op-friend seen'), '实测行')
   assert.ok(/<div class="op-friend">/.test(html), '资料行')
@@ -298,7 +298,7 @@ test('两层都有内容时并列显示，谁也不顶替谁', () => {
 
 test('只有本地实测时：显示实测，不拿「还没有资料」盖掉它', () => {
   const html = renderFriendlySection([seenRecord()], [])
-  assert.ok(html.includes('你遇到的友军'))
+  assert.ok(html.includes('本地遭遇友军'))
   assert.ok(!html.includes('友军编成资料'), '资料层空就整层不出现')
   assert.ok(!html.includes('这个难度暂无友军编成资料'))
 })

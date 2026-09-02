@@ -182,7 +182,7 @@ export const firstEncounterLineHtml = (kind: 'drop' | 'kill', mstId: number): st
   // 而不是「第一次」，别让它冒充里程碑，也别装作什么都没有。
   const earliest = kind === 'drop' ? earliestDropRecord(mstId) : earliestKillRecord(mstId)
   if (earliest) {
-    return `<span class="first-line none">最早的一条：<b>${esc(placeText(earliest))}</b> · ${esc(dayText(earliest.ts))}（更早的不可知）</span>`
+    return `<span class="first-line none">最早记录：<b>${esc(placeText(earliest))}</b> · ${esc(dayText(earliest.ts))} · 更早记录缺失</span>`
   }
-  return `<span class="first-line none">${kind === 'drop' ? '遭遇志里没有它的掉落记录' : '暂无击沉记录'}</span>`
+  return `<span class="first-line none">${kind === 'drop' ? '遭遇志暂无该舰掉落记录' : '暂无击沉记录'}</span>`
 }

@@ -63,6 +63,10 @@ import { buildDailyMaterials, type DailyMaterial } from '../../shared/material-h
 import { mapAreaOf, mapCodeOf } from '../../shared/map-id'
 import { PERSONAL_RATE_MIN_SAMPLES } from '../../shared/statistics'
 import {
+  isUseitemFullSyncPath,
+  resolveUseitemCause,
+} from '../../shared/useitem-cause'
+import {
   handleBattleReplayDetailClick,
   renderBattleReplayDetail,
 } from './di'
@@ -129,7 +133,6 @@ const clampRangeDays = (days: unknown) => {
   return RANGE_OPTIONS.includes(value) ? value : 30
 }
 const DAY_MS = 24 * 3600 * 1000
-const CAUSE_WINDOW_MS = 120000
 const WIN_RANKS = new Set(['S', 'A', 'B'])
 const FORMATION: Record<number, string> = {
   1: '单纵阵',
@@ -382,7 +385,7 @@ const nodeMapSvgHtml = (map: number): string => {
         .filter(Boolean)
         .join(' ')
       const tip = [
-        isStart ? '出击起点' : battles ? `你在此打过 ${battles} 战` : '尚无本地战斗记录',
+        isStart ? '出击起点' : battles ? `本地点位战斗 ${battles} 次` : '尚无本地战斗记录',
         isBoss ? 'Boss 点' : '',
       ]
         .filter(Boolean)
@@ -415,7 +418,7 @@ const officialRecordHtml = (): string => {
   if (!record) {
     return `<section class="shi-official-record empty">
       <header><div><b>游戏官方生涯统计</b><span>服务器永久累计</span></div></header>
-      <p>返港一次就自动同步；更完整的一份，打开游戏内「戦績表示」页补齐</p>
+      <p>官方统计尚未同步 · 返港或打开游戏「戦績表示」页后同步</p>
     </section>`
   }
   const airBase = record.airBaseMaintenance.length
@@ -563,7 +566,7 @@ const resourceViewHtml = (): string => {
               ${lineChart(series, meta.color)}
               ${cells}
             </div></div>`
-          : '<div class="shi-empty">这个区间暂无记录</div>'
+          : '<div class="shi-empty">当前区间暂无记录</div>'
       }
     </div>
     <button class="shi-primary" data-open-resource-chart>打开独立大图</button>
@@ -652,7 +655,7 @@ const practiceViewHtml = (): string => {
 }
 
 const nodeTimelineHtml = (): string => {
-  if (!selectedNode) return '<div class="shi-empty">选择一个节点</div>'
+  if (!selectedNode) return '<div class="shi-empty">尚未选择节点</div>'
   const key = `${selectedNode.map}:${selectedNode.cell}`
   if (nodeLoadingKey === key) return '<div class="shi-empty">正在读取该点的长期记录……</div>'
   if (selectedNodeReport?.entries.length) {
@@ -692,10 +695,10 @@ const nodeTimelineHtml = (): string => {
       .join('')
   }
   if (nodeLoadFailed) {
-    return `<div class="shi-empty">该点的记录读取失败。
+    return `<div class="shi-empty">记录读取失败 ·
       <button class="pf-btn" data-shi-node="${key}">重试</button></div>`
   }
-  return '<div class="shi-empty">该点没有可读取的记录。</div>'
+  return '<div class="shi-empty">暂无可读取记录</div>'
 }
 
 // 海图、点选、芯片共用同一张「当前图」：出击快照必须跟这张图走，不能在「全部海图」时混进别的海域。
@@ -736,7 +739,7 @@ const nodeBattlesBlock = (): { title: string; list: string } | null => {
   return {
     // 遭遇志留着、快照被清掉的点很常见，空态只报「这里没有可回放的」，不摆成故障。
     title: rows.length ? `${head} · ${rows.length} 场 · 点击复盘` : `${head} · 0 场`,
-    list: list || '<div class="shi-empty">这一点暂无可回放快照</div>',
+    list: list || '<div class="shi-empty">当前点暂无可回放快照</div>',
   }
 }
 
@@ -948,40 +951,45 @@ const CAUSE_LABEL: Record<string, string> = {
   '/kcsapi/api_req_member/itemuse': '使用或兑换道具',
   '/kcsapi/api_req_quest/clearitemget': '领取任务奖励',
   '/kcsapi/api_req_member/get_event_selected_reward': '领取活动选择奖励',
+  '/kcsapi/api_req_member/get_incentive': '领取登录或活动奖励',
   '/kcsapi/api_req_mission/result': '远征归来',
   '/kcsapi/api_req_sortie/battleresult': '出击战果',
   '/kcsapi/api_req_combined_battle/battleresult': '联合舰队战果',
+  '/kcsapi/api_req_map/start': '出击途中获得',
+  '/kcsapi/api_req_map/next': '出击途中获得',
+  '/kcsapi/api_dmm_payment/paycheck': '购买道具',
+  '/kcsapi/api_req_member/payitemuse': '购买道具',
   '/kcsapi/api_req_kousyou/remodel_slot': '改修工厂',
   '/kcsapi/api_req_kaisou/remodeling': '舰娘改造',
-  '/kcsapi/api_req_kaisou/slotset_ex': '补强增设开孔',
-  '/kcsapi/api_req_kaisou/hangar_expand': '使用格納庫増設',
+  '/kcsapi/api_req_kaisou/open_exslot': '补强增设开孔',
+  '/kcsapi/api_req_kaisou/hangar_expand': '格纳库扩容',
+  '/kcsapi/api_req_furniture/buy': '购买家具',
+  '/kcsapi/api_req_kaisou/marriage': '舰娘誓约',
+  '/kcsapi/api_req_map/anchorage_repair': '紧急泊地修理',
 }
-// actionEvents 由主进程按 ts ASC 取出（ledger.queryActionEvents 的 ORDER BY），
-// 所以「窗口右端」二分即可：原先每渲染一行都从头线扫，攒满一年是每行十几万次比较。
-const lastActionAtOrBefore = (ts: number): ActionEvent | null => {
-  let lo = 0
-  let hi = actionEvents.length - 1
-  let found = -1
-  while (lo <= hi) {
-    const mid = (lo + hi) >> 1
-    if (actionEvents[mid].ts <= ts) {
-      found = mid
-      lo = mid + 1
-    } else {
-      hi = mid - 1
-    }
+const actionsInLastSyncWindow = (ts: number): ActionEvent[] => {
+  let start = 0
+  for (let index = 0; index < actionEvents.length; index += 1) {
+    const event = actionEvents[index]
+    if (event.ts >= ts) break
+    if (isUseitemFullSyncPath(event.path)) start = index + 1
   }
-  return found >= 0 ? actionEvents[found] : null
+  return actionEvents
+    .slice(start)
+    .filter((event) => event.ts <= ts && !isUseitemFullSyncPath(event.path))
 }
 const causeOf = (change: UseitemHistoryChange): string => {
+  // 新行与 v12 回填行都带 cause 属性；值为 NULL 就是按同一算法确实解释不了。
+  // 只有旧主进程送来的行连这个属性都没有，才在渲染层用共享函数现算。
+  if (Object.prototype.hasOwnProperty.call(change, 'cause')) {
+    return change.cause ? (CAUSE_LABEL[change.cause] ?? '其他游戏操作') : '未识别对应操作'
+  }
   // 还没拉到事件账本时不能说「没找到」——那是把「还没查」报告成「查过了，没有」。
   if (!actionEventsLoaded) return '正在读取记录……'
-  const best = lastActionAtOrBefore(change.ts)
-  if (best && best.ts >= change.ts - CAUSE_WINDOW_MS) {
-    return CAUSE_LABEL[best.path] ?? '其他游戏操作'
-  }
-  if (actionEarliest != null && change.ts < actionEarliest) return '那段记录已清理'
-  return '未找到邻近操作'
+  const cause = resolveUseitemCause(change, actionsInLastSyncWindow(change.ts))
+  if (cause) return CAUSE_LABEL[cause] ?? '其他游戏操作'
+  if (actionEarliest != null && change.ts < actionEarliest) return '所选期间记录已清理'
+  return '未识别对应操作'
 }
 
 // ---- 本机氪金记录 ----
@@ -1019,12 +1027,12 @@ const payFormReject = (
   ts: number,
   count: number,
 ): string => {
-  if (!payitemCatalog.length) return '课金商品目录还没同步'
-  if (!item) return '先选一件道具'
-  if (!Number.isFinite(ts)) return '日期没填完整'
+  if (!payitemCatalog.length) return '课金商品目录尚未同步'
+  if (!item) return '尚未选择道具'
+  if (!Number.isFinite(ts)) return '日期未填写完整'
   if (ts < PAY_MIN_TS) return '日期早于游戏开服（2013-01-01）'
   if (ts > Date.now() + DAY_MS) return '日期不能超过明天'
-  if (!Number.isInteger(count) || count < 1 || count > 99) return '数量要在 1–99 之间'
+  if (!Number.isInteger(count) || count < 1 || count > 99) return '数量范围 1–99'
   return ''
 }
 const payFormHtml = (): string => {
@@ -1048,7 +1056,7 @@ const payFormHtml = (): string => {
     <button class="shi-pay-cancel" data-shi-pay-cancel>取消</button>
     ${
       payFormError
-        ? `<i class="shi-pay-error" style="color:var(--bad);font-style:normal;font-size:9px">没记上：${esc(payFormError)}</i>`
+        ? `<i class="shi-pay-error" style="color:var(--bad);font-style:normal;font-size:9px">记录失败 · 请检查：${esc(payFormError)}</i>`
         : ''
     }
   </div>`
@@ -1061,7 +1069,7 @@ const payLogPanelHtml = (): string => {
   const stock = mg.payitems
   const stockEntries = stock ? Object.entries(stock.items) : []
   const stockHtml = !stock
-    ? `<div class="shi-pay-stock"><small>已购未用</small><i>尚未同步 · 在 kuma 里开一次游戏内道具商店</i></div>`
+    ? `<div class="shi-pay-stock"><small>已购未用</small><i>尚未同步 · 打开游戏道具商店后同步</i></div>`
     : `<div class="shi-pay-stock"><small>已购未用</small>${
         stockEntries.length
           ? stockEntries
@@ -1072,7 +1080,7 @@ const payLogPanelHtml = (): string => {
                   }</span>`,
               )
               .join('')
-          : '<i>没有已购未用的课金道具</i>'
+          : '<i>暂无已购未用课金道具</i>'
       }<time>同步于 ${fmtTime(stock.ts)}</time></div>`
   const rows = payLog
     .map((row) => {
@@ -1103,15 +1111,15 @@ const payLogPanelHtml = (): string => {
   return `<section class="shi-panel shi-pay">
     <h3>本机氪金记录
       <span class="shi-pay-total" title="点数按商店定价折算">${
-        payLog.length ? `累计 ${spentPoints.toLocaleString()} 点（≈日元） · ${payLog.filter((r) => r.kind !== 'use').length} 笔` : ''
+        payLog.length ? `累计 ${spentPoints.toLocaleString()} 点（估算日元） · ${payLog.filter((r) => r.kind !== 'use').length} 笔` : ''
       }</span>
-      <button class="shi-pay-add" data-shi-pay-add title="补记一笔 kuma 之外的氪金">＋ 补记</button>
+      <button class="shi-pay-add" data-shi-pay-add title="补记账外氪金">＋ 补记</button>
     </h3>
     ${stockHtml}
     ${payFormHtml()}
     ${payDelError ? `<div class="shi-note" style="color:var(--bad)">${esc(payDelError)}</div>` : ''}
     <div class="shi-pay-rows">${
-      rows || '<div class="shi-empty">暂无记录 · 此前的可用「补记」登记</div>'
+      rows || '<div class="shi-empty">暂无记录 · 可补记既有消费</div>'
     }</div>
   </section>`
 }
@@ -1166,7 +1174,7 @@ const itemViewHtml = (): string => {
     })
     .join('')
   return `<div class="shi-view">
-    <div class="shi-view-head"><div><b>特殊道具积攒与兑换</b><span>特殊道具永久累计 · 原因为推断</span></div>
+    <div class="shi-view-head"><div><b>特殊道具积攒与兑换</b><span>特殊道具永久累计 · 原因推定</span></div>
       <div class="shi-item-filter"><button type="button" class="${
         hideFurnitureBox ? 'on' : ''
       }" data-shi-hide-furniture>隐藏家具箱</button></div>
@@ -1298,7 +1306,7 @@ const factoryViewHtml = (): string => {
   }
   if (factoryKind === 'ship' && factoryStats.unmatchedShipResults) {
     caveats.push(
-      `${factoryStats.unmatchedShipResults} 次领取找不到对应的建造记录`,
+      `${factoryStats.unmatchedShipResults} 次领取缺少对应建造记录`,
     )
   }
   return `<div class="shi-view">
@@ -1386,7 +1394,7 @@ const overviewHtml = (): string => {
 }
 
 const bodyHtml = () => {
-  if (loading) return '<div class="shi-loading">正在整理本地账本……</div>'
+  if (loading) return '<div class="shi-loading">本地账本读取中</div>'
   // 读不出来要说读不出来。摆一堆「还没有记录」等于把故障报告成事实。
   if (loadFailed) {
     return `<div class="shi-empty">本地账本读取失败
@@ -1496,7 +1504,7 @@ const openReviewBattle = async (id: number) => {
     const snapshot = await queryBattleSnapshot(id)
     if (generation !== battleLoadGeneration) return
     if (snapshot) selectedBattle = snapshot
-    else selectedBattleError = '这场战斗的记录已清理'
+    else selectedBattleError = '本战记录已清理'
   } catch (error) {
     if (generation !== battleLoadGeneration) return
     selectedBattleError = '战斗记录读取失败'
@@ -1535,7 +1543,7 @@ const battleDrawerHtml = (): string => {
   const body = selectedBattle
     ? ''
     : `<div class="shi-battle-placeholder">${esc(
-        selectedBattleError || '正在读取这场战斗的本地记录……',
+        selectedBattleError || '本战本地记录读取中',
       )}</div>`
   return `<aside class="shi-battle-drawer">
     <header><div><b>${esc(title)}</b><span>回顾内复盘</span></div>
@@ -1555,7 +1563,7 @@ const render = () => {
     `<div class="shi-app${selectedBattle || selectedBattleLoadingId || selectedBattleError ? ' battle-open' : ''}">
       <header class="shi-head"><div><b>回顾</b></div>${viewTabsHtml()}</header>
       <div class="shi-stage"><main class="shi-body">${bodyHtml()}</main>${battleDrawerHtml()}</div>
-      <footer class="shi-foot">${lastRefresh ? `同步于 ${fmtTime(lastRefresh)}` : '等待读取'}</footer>
+      <footer class="shi-foot">${lastRefresh ? `同步于 ${fmtTime(lastRefresh)}` : '尚未读取'}</footer>
     </div>`,
     () => {
       // 宿主必须在这个回调**内部**接回：还原紧跟回调之后跑，那时它若还没回到树上，
@@ -1771,7 +1779,7 @@ registerModule({
         // 在表里根本不出现，看着像「记上了又自己没了」。
         const reject = payFormReject(item, ts, count)
         if (reject || !item) {
-          payFormError = reject || '先选一件道具'
+          payFormError = reject || '尚未选择道具'
           render()
           return
         }

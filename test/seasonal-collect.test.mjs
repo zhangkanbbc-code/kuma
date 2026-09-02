@@ -82,7 +82,7 @@ test('主数据里没有「这是当季版」这个标记——界面不冒充�
   // 采集钮同一条纪律：它取回的是「此刻挂在这个槽位上的那一段」，
   // **不主张**那就是这一行这一句——由字节对账说话。
   const take = ji.slice(ji.indexOf('const seasonalTakeHtml'), ji.indexOf('const seasonalVoiceHtml'))
-  assert.match(take, /这个槽位上现在挂的那段音频/)
+  assert.match(take, /获取当前槽位音频/)
   // 「它对不对得上这一行，这里不做承诺」是防守性免责，按 2026-08-26 文案清扫裁定
   //（族 2）删。要防的事完全由下面这条反向断言守住，而且它才是真判据：
   // 措辞只要一主张归属就红，比钉一句免责话更硬。
@@ -116,7 +116,7 @@ test('给不给采集钮：槽位推不出来不摆，已经有实物也不摆',
   const take = ji.slice(ji.indexOf('const seasonalTakeHtml'), ji.indexOf('const seasonalVoiceHtml'))
   assert.match(take, /if \(!isPlayableVoiceId\(slot\)\) return ''/)
   assert.match(take, /if \(!voicePathname\(mstId, slot\)\) \{/)
-  assert.match(take, /这一形态的音轨信息待同步/)
+  assert.match(take, /当前形态音轨尚未同步/)
 })
 
 test('季节台词区铺开时不发请求：采集钮上只有槽位参数，地址是点下去才算的', () => {
@@ -213,10 +213,11 @@ test('取回来之后的四种结论都是事实陈述，「和已有的一样�
   const ji = stripComments(src('renderer/modules/ji.ts'))
   // 2026-08-23 全组按「短句 + 解释挪进悬停」重写过一遍（用户：大量解释语句不该
   // 摆在玩家一眼扫过的位置）。钉的是**语义**：「一样」仍旧是一句陈述，不是失败。
-  assert.match(ji, /same: '与档案里那份相同'/)
-  assert.match(ji, /new: '取到新的一份，已入档'/)
+  assert.match(ji, /same: '与现有档案一致'/)
+  assert.match(ji, /new: '已获取并归档新音频'/)
   const texts = ji.slice(ji.indexOf('COLLECT_OUTCOME_TEXT'), ji.indexOf('const collectOutcomeHtml'))
-  assert.equal(/失败|出错了|没能收到/.test(texts), false, '取现值的结论写成了抱怨文案')
+  assert.equal(/出错了|没能收到/.test(texts), false, '取现值的结论写成了抱怨文案')
+  assert.match(texts, /error: '获取失败 · 可重试'/)
   // 一眼扫过的那一行只留结论；说不清的成因挂悬停（COLLECT_OUTCOME_TITLE），不在行里铺开
   const body = texts.slice(texts.indexOf('{') + 1, texts.indexOf('}'))
   const lines = [...body.matchAll(/^\s*\w+: '([^']*)',$/gm)].map((match) => match[1])
@@ -321,7 +322,7 @@ test('扩展行的名字：有耳测证据才挂名分，没有就中性，且�
   assert.equal(neutral.name, '另一份实物')
   // 中性名不许写成某一季，也不许写抱怨文案
   assert.equal(/季节|盛夏|圣诞|失败|缺/.test(neutral.name), false)
-  assert.match(neutral.note, /没有依据可断/)
+  assert.match(neutral.note, /所属季节不明/)
   // 文字位是一根短横：这一行不主张任何台词（与骨架行同族）
   assert.equal(VARIANT_TEXT_DASH, '—')
 })

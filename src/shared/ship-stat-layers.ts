@@ -58,8 +58,8 @@ const modernizableRow = (
       ? `装备给予 ${equipGiven > 0 ? '+' : ''}${equipGiven}（装备原始值 ${equipRaw}${
           extra ? `，套装/改修★ ${extra > 0 ? '+' : ''}${extra}` : ''
         }）`
-      : '装备未给这一项加成',
-    modRemain ? `近代化改修还可 +${modRemain} → 上限 ${max}` : `近代化改修已满（上限 ${max}）`,
+      : '装备对此项无加成',
+    modRemain ? `近代化改修余量 +${modRemain} → 上限 ${max}` : `近代化改修已满（上限 ${max}）`,
   ].join('\n')
   return {
     label,
@@ -79,7 +79,7 @@ const luckRow = (ship: PlayerShip, mst: MasterShip): InstanceStatRow => {
     bare: ship.lucky,
     segments: [{ value: remain ? ship.lucky + remain : null, kind: 'mod' }],
     tip: `目前裸值 ${ship.lucky}（装备不改运）\n${
-      remain ? `近代化改修还可 +${remain} → 上限 ${mst.maxLuck}` : `近代化改修已满（上限 ${mst.maxLuck}）`
+      remain ? `近代化改修余量 +${remain} → 上限 ${mst.maxLuck}` : `近代化改修已满（上限 ${mst.maxLuck}）`
     }`,
   }
 }
@@ -145,11 +145,11 @@ const growthStatRow = (
         `目前裸值 ${bare}（未装备，面板即一手裸值${kyouka ? `，含改修 ${kyouka}` : ''}）`,
         remain == null
           ? max99 <= 0
-            ? '成长余量：这一实例快照缺 Lv99 上限一手值，算不出'
-            : '成长余量：初始值暂缺社区资料，婚后斜率算不出'
+            ? '成长余量：当前记录缺少 Lv99 上限，无法计算'
+            : '成长余量：暂缺初始值，无法计算婚后成长'
           : remain
-            ? `到 Lv${capLv} 还可长约 +${remain}`
-            : `已到 Lv${capLv} 成长值`,
+            ? `至 Lv${capLv} 估算可成长 +${remain}`
+            : `已达 Lv${capLv} 成长上限`,
         growText,
       ].join('\n'),
     }
@@ -163,8 +163,8 @@ const growthStatRow = (
       tip: [
         `面板 ${panel}（含装备）`,
         max99 <= 0
-          ? '这一实例快照缺 Lv99 上限一手值，裸值拆不出来'
-          : '初始值暂缺社区资料，裸值/装备给予拆不出来',
+          ? '当前记录缺少 Lv99 上限，无法拆分裸值'
+          : '暂缺初始值，无法拆分裸值与装备加成',
       ].join('\n'),
     }
   }
@@ -181,13 +181,13 @@ const growthStatRow = (
       { value: remain ? panel + remain : null, kind: ship.lv > 99 ? 'over99' : 'grow' },
     ],
     tip: [
-      `目前裸值约 ${bare}（成长估算${kyouka ? ` + 改修 ${kyouka}` : ''}，误差 ±1）`,
+      `估算裸值 ${bare}（成长计算${kyouka ? ` + 改修 ${kyouka}` : ''} · 误差 ±1）`,
       equipGiven
         ? `装备给予 ${equipGiven > 0 ? '+' : ''}${equipGiven}（装备原始值 ${equipRaw}${
             equipGiven - equipRaw ? '，其余为套装加成或估算误差' : ''
           }）`
-        : '装备未给这一项加成',
-      remain ? `到 Lv${capLv} 还可长约 +${remain}` : `已到 Lv${capLv} 成长值`,
+        : '装备对此项无加成',
+      remain ? `至 Lv${capLv} 估算可成长 +${remain}` : `已达 Lv${capLv} 成长上限`,
       growText,
     ].join('\n'),
   }

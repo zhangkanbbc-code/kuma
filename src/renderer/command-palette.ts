@@ -92,8 +92,8 @@ const renderList = () => {
   if (!listEl) return
   if (!items.length) {
     listEl.innerHTML = input?.value.trim()
-      ? '<div class="cp-empty">没有匹配的舰娘 / 装备 / 任务 / 远征</div>'
-      : '<div class="cp-empty">输入名字，回车直达。支持中文名与日文原名。</div>'
+      ? '<div class="cp-empty">暂无匹配的舰娘 / 装备 / 任务 / 远征</div>'
+      : '<div class="cp-empty">输入名称后按回车打开 · 支持中文名及日文原名</div>'
     return
   }
   listEl.innerHTML = items

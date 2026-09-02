@@ -13,7 +13,7 @@ import {
   initUiZoom,
   masterShipName,
   mg,
-  openBattleInMainWindow,
+  openBattleReplayWindow,
   queryBossKills,
   queryMasterRaw,
   queryShipLife,
@@ -113,7 +113,7 @@ const heroHtml = (report: ShipLifeReport | null): string => {
     )
   } else if (report?.trackingSince) {
     pills.push(
-      `<span class="pill" title="从账本第一条记录数起">记录 <b>${Math.max(0, Math.floor((Date.now() - report.trackingSince) / DAY_MS))}</b> 天</span>`,
+      `<span class="pill" title="起算于账本第一条记录">已记录 <b>${Math.max(0, Math.floor((Date.now() - report.trackingSince) / DAY_MS))}</b> 天</span>`,
     )
   }
   // 誓约那天在账本记账之前的，就只挂一枚牌、不带日期——没有的东西不显示，
@@ -121,7 +121,7 @@ const heroHtml = (report: ShipLifeReport | null): string => {
   if (marriage) {
     pills.push(`<span class="pill vow">誓约 <b>${esc(fmtDate(marriage.ts))}</b></span>`)
   } else if (vowed) {
-    pills.push('<span class="pill vow" title="越过 Lv99 就是结过誓约">誓约</span>')
+    pills.push('<span class="pill vow" title="Lv > 99 判定为已誓约">誓约</span>')
   }
 
   // 「加入镇守府」那一条在就写它；不在就什么都不写——页脚已经摆着记录起点。
@@ -142,7 +142,7 @@ const heroHtml = (report: ShipLifeReport | null): string => {
       <div class="hero-name"><b>${esc(name)}</b>${yomi ? `<span class="yomi">${esc(yomi)}</span>` : ''}</div>
       <div class="hero-pills">${pills.join('')}</div>
       ${originLine}
-      ${ship ? '' : '<div class="hero-line quiet">已离开仓库</div>'}
+      ${ship ? '' : '<div class="hero-line quiet">当前未持有</div>'}
       ${report ? kpisHtml(report) : ''}
     </div>
   </header>`
@@ -204,14 +204,14 @@ const groupKills = (entries: ShipBossKillEntry[]): BossKillGroup[] => {
 /** 展开着的那几组（记敌旗舰 mstId）。见 toggleKillGroup 那一段说明它为什么活在渲染之外。 */
 const expandedBosses = new Set<number>()
 
-/** 组里的一场：日期 / 海域点位 / 评级，点了让主窗口打开这一场的复盘。 */
+/** 组里的一场：日期 / 海域点位 / 评级，点了在独立窗口打开这一场的复盘。 */
 const killBattleHtml = (entry: ShipBossKillEntry): string => {
   const where = placeText(entry.map, entry.cell)
   const jumpable = entry.snapshotId != null
   return `<button class="kill-battle${jumpable ? ' jump' : ''}"${
     jumpable
-      ? ` data-battle="${entry.snapshotId}" title="打开这一场的复盘"`
-      : ' disabled title="这一场的战斗快照已不在本地"'
+      ? ` data-battle="${entry.snapshotId}" title="打开本战复盘"`
+      : ' disabled title="本战快照已清理"'
   }>
     <time>${esc(fmtDate(entry.ts))}</time>
     <span class="where">${esc(where)}</span>
@@ -241,7 +241,7 @@ const killsHtml = (): string => {
   const groups = groupKills(kills)
   const body = groups.length
     ? groups.map(killGroupHtml).join('')
-    : `<div class="empty" title="航空战、基地航空与支援射击的最后一击没有单舰归属，不摊给任何一艘">暂无 Boss 终结记录</div>`
+    : `<div class="empty" title="航空战、基地航空与支援射击的最后一击无单舰归属">暂无 Boss 终结记录</div>`
   // 「场」仍是这一栏的口径（合并只是摆法），组数跟在后面，省得读者拿 6 去数 3 行。
   return `<div class="col kills">
     <div class="col-h"><b>击杀簿</b><span class="cnt">${
@@ -251,9 +251,9 @@ const killsHtml = (): string => {
   </div>`
 }
 
-/** 履历里那一场的标题：点了让主窗口打开复盘（这扇窗自己没有复盘视图）。 */
+/** 履历里那一场的标题：点了在独立窗口打开复盘。 */
 const battleLink = (snapshotId: number, titleText: string) =>
-  `<button class="replay-jump" data-battle="${snapshotId}">${esc(titleText)}</button>`
+  `<button class="replay-jump" data-battle="${snapshotId}" title="打开本战复盘">${esc(titleText)}</button>`
 
 const timelineHtml = (report: ShipLifeReport): string => {
   const rows = report.events
@@ -264,7 +264,7 @@ const timelineHtml = (report: ShipLifeReport): string => {
   const capped = report.events.length >= EVENT_LIMIT
   return `<div class="col">
     <div class="col-h"><b>履历</b><span class="cnt"${
-      capped ? ` title="账本这个查询的上限是 ${EVENT_LIMIT} 条"` : ''
+      capped ? ` title="最多显示 ${EVENT_LIMIT} 条"` : ''
     }>${capped ? '最近 ' : ''}${report.events.length} 条</span></div>
     <div class="col-body">${
       rows ? `<div class="life-timeline">${rows}</div>` : '<div class="empty">暂无履历记录</div>'
@@ -292,7 +292,7 @@ const render = () => {
     <main>${killsHtml()}${timelineHtml(life)}</main>
     <footer>
       <span>${esc(
-        life.trackingSince ? `自 ${fmtDate(life.trackingSince)} 起记录` : '等待下一次舰队同步',
+        life.trackingSince ? `自 ${fmtDate(life.trackingSince)} 起记录` : '舰队数据尚未再次同步',
       )}</span>
       <span class="sp"></span>
       <span>舰娘 ID ${rosterId}</span>
@@ -329,7 +329,7 @@ root.addEventListener('click', (event) => {
   if (!jump) return
   const snapshotId = Number(jump.dataset.battle)
   if (!Number.isInteger(snapshotId) || snapshotId <= 0) return
-  void openBattleInMainWindow(snapshotId)
+  void openBattleReplayWindow(snapshotId)
 })
 
 const refresh = async () => {
@@ -357,7 +357,7 @@ const refresh = async () => {
 const start = async () => {
   initUiZoom()
   if (!Number.isInteger(rosterId) || rosterId <= 0) {
-    root.innerHTML = '<div class="fatal">没有指定舰娘</div>'
+    root.innerHTML = '<div class="fatal">尚未指定舰娘</div>'
     return
   }
   // 立绘/横幅的取图口径与主窗口一致：本地缓存优先，缓存里没有才回退游戏自己的
@@ -382,5 +382,5 @@ const start = async () => {
 
 void start().catch((error) => {
   console.error('[kanso] ship life window failed', error)
-  root.innerHTML = '<div class="fatal">人生记录加载失败</div>'
+  root.innerHTML = '<div class="fatal">人生记录加载失败 · 请重试</div>'
 })

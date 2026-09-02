@@ -89,7 +89,7 @@ const writeBackupBundle = async (destination: string) => {
       sqliteSha256: await sha256File(sqliteTemp),
       config: config.snapshot(),
     }), 'utf8')
-    if (metadata.length > MAX_BACKUP_META) throw new Error('配置数据异常过大，无法写入备份')
+    if (metadata.length > MAX_BACKUP_META) throw new Error('配置数据体积异常，无法写入备份')
     const header = Buffer.alloc(BACKUP_MAGIC.length + 4)
     BACKUP_MAGIC.copy(header)
     header.writeUInt32BE(metadata.length, BACKUP_MAGIC.length)

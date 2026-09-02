@@ -205,7 +205,7 @@ const breakdownHtml = () => {
     .filter((d) => d.value !== 0)
     .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
   if (!rows.length) {
-    return `${scope}<div class="placeholder">近 7 日这项资源没有变动</div>`
+    return `${scope}<div class="placeholder">近 7 日暂无资源变动</div>`
   }
   const max = Math.max(...rows.map((r) => Math.abs(r.value)))
   const net = rows.reduce((sum, r) => sum + r.value, 0)
@@ -248,7 +248,7 @@ const activityLedgerHtml = (): string => {
           ${materialIconHtml(MATERIAL_ICON_BY_INDEX[idx], { className: 'sm', title: TILE_META[idx].label })}
           <i>${value > 0 ? '+' : ''}${value === 0 ? '—' : fmtK(value)}</i>
         </span>`).join('')}</div>`
-    : `<div class="placeholder">活动开始前没有资源记录</div>`
+    : `<div class="placeholder">活动开始前暂无资源记录</div>`
 
   const categoryRows = activityDeltas
     .map((row) => ({
@@ -353,9 +353,9 @@ const targetsHtml = () => {
     } else {
       verdict = `<span class="tg-bad">${
         st.rate == null
-          ? '24h 记录不足，暂无法预估'
+          ? '24h 记录不足 · 暂无法估算'
           : st.rate < 0
-            ? '▼ 下降中 · 按当前趋势无法达到目标'
+            ? '▼ 下降中 · 当前趋势低于目标所需'
             : '速率不足，暂无法预估'
       }</span>`
     }
@@ -446,7 +446,7 @@ const strategicIds = (): number[] => {
 }
 
 const strategicHtml = () => {
-  if (!useitemMst.length) return '<div class="placeholder">正在加载游戏道具数据……</div>'
+  if (!useitemMst.length) return '<div class="placeholder">道具数据加载中</div>'
   const rows: string[] = []
   for (const id of strategicIds()) {
     const hit = useitemMst.find((u) => u.id === id)!
@@ -499,7 +499,7 @@ const strategicHtml = () => {
 const readinessHtml = () => {
   const targets = getTargets()
   const list = TARGET_ORDER.map((idx) => targetStatus(idx, targets[idx] ?? 0)).filter(Boolean) as TargetStatus[]
-  if (!list.length) return '<div class="placeholder">等待资源数据……</div>'
+  if (!list.length) return '<div class="placeholder">尚未同步资源数据</div>'
   const ok = list.filter((s) => s.done).length
   const pct = Math.round((ok / list.length) * 100)
   const rows = list
@@ -584,7 +584,7 @@ const eoSenkaLabelHtml = (note: string): string => {
  * （port 报文走的是覆盖式快照），月初到记账日之间那段补不回来。
  */
 const senkaHtml = (): string => {
-  if (!senka) return '<div class="scard"><div class="h">战果</div><div class="l">正在读取战果账……</div></div>'
+  if (!senka) return '<div class="scard"><div class="h">战果</div><div class="l">战果账读取中</div></div>'
   const fmt = (value: number) => (value >= 100 ? value.toFixed(0) : value.toFixed(2))
   const monthLabel = senkaMonthLabel(senka.monthStart)
   const rows = senka.entries
@@ -639,7 +639,7 @@ const senkaHtml = (): string => {
         ? `<div class="senka-cal-tag" title="大数字 = 官方校准值 + 此后新增">已按官方值校准 ${fmtMonthDay(senka.calibration.ts)} · 基准 ${senka.calibration.value.toLocaleString()}</div>`
         : ''
     }
-    ${rows || '<div class="l">本月暂无新的一笔</div>'}
+    ${rows || '<div class="l">本月暂无新增战果</div>'}
     ${
       senka.entries.length > 6
         ? `<div class="senka-more" data-act="senka-more">${senkaOpen ? '收起' : `展开全部 ${senka.entries.length} 笔`}</div>`
@@ -670,7 +670,7 @@ const QUEST_PERIOD_LABEL: Record<QuestPeriodKind, string> = {
 }
 
 /**
- * 「kuma 自己数满了、账里却没有领取记录」的战果任务——**只提示，不入账**。
+ * 「kuma 自己数满了、账里却暂无领取记录」的战果任务——**只提示，不入账**。
  *
  * 2026-09-01 第二次收紧（用户抓的残留）。f3543a3 把**入账**换成了硬证据，
  * 但这张提示单还是由推断填的（前置满足 + 不在任务表 = 已交付），于是他那五条
@@ -743,9 +743,9 @@ let senkaDelError = ''
 
 const SENKA_ADD_REJECT: Record<string, string> = {
   'no-senka': '任务资料库里查不到固定战果',
-  'already-booked': '本期已经记过',
-  'no-evidence': '账本没有接受这一笔',
-  failed: '账本没有接受这一笔',
+  'already-booked': '本期已记录',
+  'no-evidence': '该笔未写入账本',
+  failed: '该笔未写入账本',
 }
 
 /**
@@ -753,7 +753,7 @@ const SENKA_ADD_REJECT: Record<string, string> = {
  * 之前交过的任务账本里不可能有证据）。
  *
  * 形态照氪金记录那族的手动补记（shi 的 pay_log）：手动行带记号、只有手动行可删、
- * 删除两步确认。选单里「本期已记」的置灰——判据由主进程给（与入账共用同一个
+ * 删除两步确认。选单里「本期已记录」的置灰——判据由主进程给（与入账共用同一个
  * 去重窗口），选不中也就手滑不了。
  */
 const questSenkaBlockHtml = (
@@ -779,7 +779,7 @@ const questSenkaBlockHtml = (
       (option) =>
         `<option value="${option.id}"${option.taken ? ' disabled' : ''}>${esc(option.code)}「${esc(
           option.name,
-        )}」 +${option.senka}${option.taken ? ' · 本期已记' : ''}</option>`,
+        )}」 +${option.senka}${option.taken ? ' · 本期已记录' : ''}</option>`,
     )
     .join('')
   const form = !senkaAddOpen
@@ -792,7 +792,7 @@ const questSenkaBlockHtml = (
             : '<i class="sd-pend">暂无可补记的任务</i>'
         }
         <button class="sd-cal-btn ghost" data-act="senka-quest-add-cancel">取消</button>
-      </div>${senkaAddError ? `<div class="sd-note2 bad">没记上：${esc(senkaAddError)}</div>` : ''}`
+      </div>${senkaAddError ? `<div class="sd-note2 bad">记录失败 · 请检查：${esc(senkaAddError)}</div>` : ''}`
   return `<div class="sd-block">
     <div class="sd-h">本月任务战果
       <button class="sd-cal-btn ghost sd-qadd-open" data-act="senka-quest-add-open" title="补记一笔账外的任务战果">＋ 补记</button>
@@ -816,7 +816,7 @@ const senkaDetailBodyHtml = (): string => {
     .sort((a, b) => a.id - b.id)
     .map(({ id, value }) => {
       const done = clearedEo.has(id)
-      return `<span class="sd-eo${done ? ' done' : ''}" title="${done ? '本战果月已记' : '本战果月还没记到'}">${
+      return `<span class="sd-eo${done ? ' done' : ''}" title="${done ? '本战果月已记录' : '本战果月尚未记录'}">${
         done ? '✓' : '◌'
       } ${elink('map', id, mapCodeOf(id))} <b>${value}</b></span>`
     })
@@ -853,17 +853,17 @@ const senkaDetailBodyHtml = (): string => {
                 ({ id, value }) =>
                   `<div class="sd-check-row"><span>${eoSenkaLabelHtml(`${id}`)} <b>+${value}</b></span><i class="sd-pend">定位不到本月</i></div>`,
               )
-              .join('')}<div class="sd-note2">本月在别的设备打过的话，开一次游戏的出击海域选择页</div>`
+              .join('')}<div class="sd-note2">其他设备本月出击：打开游戏出击海域选择页同步</div>`
           : ''
       }
       ${
         questMisses.length
-          ? `<div class="sd-check-group">计数已满、但本月没有领取记录的战果任务：</div>${questMisses
+          ? `<div class="sd-check-group">计数已满但本月暂无领取记录的战果任务：</div>${questMisses
               .map((q) => {
                 const periodLabel = QUEST_PERIOD_LABEL[q.periodKind]
-                return `<div class="sd-check-row"><span><i class="sd-period">${periodLabel}</i>${questSenkaLabelHtml(`${q.id}`)} <b>+${q.senka}</b></span><i class="sd-pend" title="本期计数已满 · 本月无领奖报文">没有领取记录</i></div>`
+                return `<div class="sd-check-row"><span><i class="sd-period">${periodLabel}</i>${questSenkaLabelHtml(`${q.id}`)} <b>+${q.senka}</b></span><i class="sd-pend" title="本期计数已满 · 本月无领奖报文">暂无领取记录</i></div>`
               })
-              .join('')}<div class="sd-note2">交过的可在「本月任务战果」补记</div>`
+              .join('')}<div class="sd-note2">已交付任务可在「本月任务战果」补记</div>`
           : ''
       }
       <div class="sd-recount">
@@ -885,12 +885,12 @@ const senkaDetailBodyHtml = (): string => {
       <div class="sd-h">实际校准</div>
       ${
         cal
-          ? `<div class="sd-cal-now">${fmtDateTime(cal.ts)} 校准为 <b>${cal.value.toLocaleString()}</b> · 此后账内 +${fmt(cal.gainedSince)} → 当前约 <b class="cur">${fmt(cal.current)}</b></div>${
+          ? `<div class="sd-cal-now">${fmtDateTime(cal.ts)} 校准为 <b>${cal.value.toLocaleString()}</b> · 此后账内 +${fmt(cal.gainedSince)} → 当前估算 <b class="cur">${fmt(cal.current)}</b></div>${
               cal.current - senka.total > 0.5
                 ? `<div class="sd-note2">比账内估算多 ${fmt(cal.current - senka.total)}</div>`
-                : '<div class="sd-note2">与账内估算基本一致</div>'
+                : '<div class="sd-note2">与账内估算一致</div>'
             }`
-          : '<div class="sd-note2" title="之后总值 = 校准值 + 此后账内新增，不用再进排名页对表；过战果月自动失效">到游戏「戦績表示 → ランキング」抄下官方战果填入</div>'
+          : '<div class="sd-note2" title="当前总值 = 校准值 + 此后账内新增 · 战果月结束后失效">到游戏「戦績表示 → ランキング」抄下官方战果填入</div>'
       }
       <div class="sd-cal-row">
         <input class="sd-cal-input" type="number" min="0" step="1" placeholder="排名页看到的战果值"
@@ -913,7 +913,7 @@ const senkaDetailBodyHtml = (): string => {
       </div>
       ${
         carry && !carry.complete
-          ? '<div class="sd-note">实际值只会更高</div>'
+          ? '<div class="sd-note">账内估算未含窗口外记录</div>'
           : ''
       }
     </div>
@@ -967,7 +967,7 @@ const addManualQuestSenka = async (questId: number) => {
   }
   // 补进去了就收表单；被挡回来的留着表单，玩家改选一条即可
   if (reason === 'booked') senkaAddOpen = false
-  else senkaAddError = SENKA_ADD_REJECT[reason] ?? '账本没有接受这一笔'
+  else senkaAddError = SENKA_ADD_REJECT[reason] ?? '该笔未写入账本'
   await loadSenkaQuestOptions()
   await refreshSenkaDetail()
 }
@@ -998,7 +998,7 @@ const openSenkaDetail = () => {
   senkaDetailEl.className = 'senka-detail-host'
   senkaDetailEl.innerHTML = `<div class="sd-back"></div>
     <div class="sd-panel">
-      <div class="sd-head"><b>战果详情</b><span>${monthLabel} 月</span><span class="sd-x" title="关闭 (Esc)">✕</span></div>
+      <div class="sd-head"><b>战果详情</b><span>${monthLabel} 月</span><span class="sd-x" title="关闭（Esc）">✕</span></div>
       <div class="sd-body">${senkaDetailBodyHtml()}</div>
     </div>`
   document.body.appendChild(senkaDetailEl)
@@ -1059,7 +1059,7 @@ const openSenkaDetail = () => {
       const pick = senkaDetailEl!.querySelector<HTMLSelectElement>('.sd-qadd-pick')
       const questId = Number(pick?.value)
       if (!Number.isInteger(questId) || questId <= 0) {
-        senkaAddError = '先选一条任务'
+        senkaAddError = '尚未选择任务'
         void refreshSenkaDetail()
         return
       }
@@ -1302,7 +1302,7 @@ const refresh = async () => {
 }
 
 // ---- 资源/材料实体（15 稿注册表）----
-// 单击 → 资源统计并高亮对应磁贴；右键 → 收支分解 / 给它的任务 / 储备目标
+// 单击 → 资源统计并高亮对应磁贴；右键 → 收支分解 / 提供该资源的任务 / 储备目标
 
 const focusMaterial = (idx: number) => {
   activateModule('zi')
@@ -1362,7 +1362,7 @@ registerEntityRoute('material', {
       idx <= 3
         ? { label: '收支分解 · 按来源', run: () => focusMaterial(idx) }
         : { label: '收支分解', disabled: true, hint: '仅燃弹钢铝有分类记账' },
-      { label: '给它的任务', run: () => searchInManager(meta?.label ?? '') },
+      { label: '提供该资源的任务', run: () => searchInManager(meta?.label ?? '') },
       {
         label: `补充${meta?.label ?? '资源'}的远征`,
         run: () => focusExpeditionsForResource(idx),

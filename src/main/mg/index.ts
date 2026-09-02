@@ -936,7 +936,7 @@ ipcMain.handle('mg:ledger-clear-month', (_event, input: unknown) => {
   return ledger.clearLedgerMonth(month)
 })
 
-// 道具履历（05 稿）：某道具的持有数变化时间线
+// 道具履历（05 稿）：某道具的持有数变化时间线，含 v12 落账时归好的 cause path
 ipcMain.handle('mg:useitem-history', (_event, itemId: number, limit?: number) =>
   ledger.queryUseitemHistory(itemId | 0, limit ?? 60),
 )
@@ -968,7 +968,7 @@ ipcMain.handle('mg:pay-log-remove', (_event, id: unknown) =>
   typeof id === 'number' && Number.isInteger(id) ? ledger.removeManualPayLog(id) : false,
 )
 
-// 道具履历的「变动原因」：变动时刻附近做过什么操作（归因是推断，不是记录）
+// 旧版道具行的「变动原因」回算：返回操作与 useitem 全量边界。
 // 时刻是毫秒（~1.7e12），绝不能用 | 0 截断成 int32
 ipcMain.handle('mg:action-events', (_event, fromTs: unknown, toTs: unknown) => ({
   events:

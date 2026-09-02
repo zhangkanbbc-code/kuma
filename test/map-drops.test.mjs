@@ -411,10 +411,10 @@ test('点位悬停只加悬停，不改「本机确认」那一行的结构', ()
 test('本机确认掉落与离线目录并列显示，不合并成一份名单', () => {
   const di = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
   const ji = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
-  // 出击卡：与旁边的敌方编队卡同一个排法（你的实测 → 确认目录）
+  // 出击卡：与旁边的敌方编队卡同一个排法（本地实测 → 确认目录）
   const card = di.slice(di.indexOf('const dropPoolCardHtml'))
   assert.ok(
-    card.indexOf('你的实测') < card.indexOf('确认目录'),
+    card.indexOf('本地实测') < card.indexOf('确认目录'),
     '出击卡的掉落两段顺序该与敌方编队卡一致',
   )
   // 批次 4 起还要把 (图, 点) 传进去——本机确认层要按限定期窗口判「这条还算不算当下的线索」

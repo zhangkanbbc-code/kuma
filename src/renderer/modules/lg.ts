@@ -108,7 +108,7 @@ const EVENTS: EventDef[] = [
   { id: 'quest', label: '任务完成 · 待领取', note: '同时完成时合并通知', sev: 'gold', icon: '✓', jump: 'qn', jumpLabel: '任务面板' },
   { id: 'pracRefresh', label: '演习刷新前未打完', note: '刷新前 30 分钟 · 按上次打开演习页时的记录', sev: 'warn', icon: '⚔', jump: 'lg', jumpLabel: '通知记录', refLabel: '抬头 · 演习' },
   { id: 'resource', label: '资源阈值', note: '', sev: 'warn', icon: '⚠', jump: 'zi', jumpLabel: '资源统计' },
-  { id: 'condRecover', label: '疲劳预计已恢复', note: '后台估算 · 恢复至 30 · 按舰队', sev: 'ok', icon: '✦', jump: 'ru', jumpLabel: '编队展示' },
+  { id: 'condRecover', label: '疲劳估算已恢复', note: '后台估算 · 恢复至 30 · 按舰队', sev: 'ok', icon: '✦', jump: 'ru', jumpLabel: '编队展示' },
   { id: 'questReset', label: '重置前任务未清', note: '日/周/月同规则 · 重置前 2 小时', sev: 'warn', icon: '⏰', jump: 'qn', jumpLabel: '任务面板' },
   { id: 'newShip', label: '新舰入库', note: '首次入库 · 提醒上锁', sev: 'gold', icon: '★', jump: 'ji', jumpLabel: '舰娘图鉴', na: ['system', 'sound'] },
   { id: 'damecon', label: '应急修理发动', note: '同一舰同一战只报一次', sev: 'ok', icon: '修', jump: 'di', jumpLabel: '战斗详情', refLabel: '战斗详情' },
@@ -683,7 +683,7 @@ const showPowerupResultToast = (result: PowerupResultCue) => {
           </span>`
         })
         .join('')
-    : '<span class="powerup-empty">强化已生效 · 本次没有属性提升明细</span>'
+    : '<span class="powerup-empty">本次暂无属性提升明细 · 强化已生效</span>'
 
   const el = document.createElement('div')
   el.className = 'lg-toast ok powerup-result'
@@ -924,7 +924,7 @@ const sendNoticePush = (
         if (result?.deferred) return 'deferred'
         // skipped = 总开关没开 / 地址还没填。那也不是失败
         if (result?.ok || result?.skipped) return 'sent'
-        markPushFailed(notice, result?.message || '推送失败（未回报原因）')
+        markPushFailed(notice, result?.message || '推送失败 · 未返回原因')
         return 'failed'
       },
     )
@@ -1165,9 +1165,9 @@ const notify = (
  */
 export const runNotificationDemo = () => {
   const demo: NotifyPresentation = { demo: true }
-  notify('newShip', '测试 · 新舰入库：矶风', '请确认已上锁 · 金色横幅需手动关闭', undefined, demo)
+  notify('newShip', '测试 · 新舰入库：矶风', '新舰锁定确认 · 金色横幅需手动关闭', undefined, demo)
   setTimeout(
-    () => notify('expedition', '测试 · 远征返港', '普通提醒示例（按当前通知规则显示）', undefined, demo),
+    () => notify('expedition', '测试 · 远征返港', '普通提醒示例 · 按当前通知规则显示', undefined, demo),
     450,
   )
   setTimeout(() => notify('taiha', '测试 · 大破警告', '红色横幅需手动关闭', undefined, demo), 900)
@@ -1337,7 +1337,7 @@ const tickDetect = () => {
       fireOnce(`prac-${pracReset}`, () =>
         notify(
           'pracRefresh',
-          `演习还剩 ${remain} 场未打`,
+          `演习未完成 ${remain} 场`,
           `刷新前 30 分钟（记录时间 ${fmtTm(mg.practice!.ts)}）`,
           { type: 'practice', id: 'current' },
         ),
@@ -1370,7 +1370,7 @@ const tickDetect = () => {
     const { tired, ready, readyTs } = condRecoveryInfo(deck.id)
     if (tired && ready && readyTs > 0 && readyTs <= now) {
       fireOnce(`cond-${deck.id}-${readyTs}`, () =>
-        notify('condRecover', `第${deck.id}舰队 疲劳预计已恢复`, `士气估算已恢复至 ${FATIGUE_READY_COND}`, {
+        notify('condRecover', `第${deck.id}舰队 疲劳估算已恢复`, `士气估算已恢复至 ${FATIGUE_READY_COND}`, {
           type: 'fleet',
           id: deck.id,
         }),
@@ -1475,7 +1475,7 @@ const detectQuestComplete = () => {
     )
     if (complete) {
       questNotified.add(id)
-      notify('quest', `任务预计完成 · 待领取`, `${entityNamePlain('quest', id, quest.title)}${tracker.approx ? ' · 部分条件为近似计算' : ''}`, {
+      notify('quest', `任务估算完成 · 待领取`, `${entityNamePlain('quest', id, quest.title)}${tracker.approx ? ' · 部分条件为估算' : ''}`, {
         type: 'quest',
         id,
       })
@@ -1496,7 +1496,7 @@ const detectNewShips = () => {
     notify(
       'newShip',
       `新舰入库：${names.slice(0, 3).join('、')}${fresh.length > 3 ? ` 等 ${fresh.length} 艘` : ''}`,
-      '请确认已上锁',
+      '新舰锁定确认',
       { type: 'mstShip', id: fresh[0] }, // 多舰时落到第一艘
     )
   }
@@ -1590,14 +1590,14 @@ const detectTaiha = () => {
     : verdict.tier === 'forced'
       ? [
           verdict.others.length
-            ? `旗舰${verdict.flagship}、${verdict.others.join('、')} 大破 — 本战结束后将强制返航`
-            : `旗舰${verdict.flagship}大破 — 本战结束后将强制返航`,
-          ' · 没有进击选项',
+            ? `旗舰${verdict.flagship}、${verdict.others.join('、')} 大破 · 本战结束后强制返航`
+            : `旗舰${verdict.flagship}大破 · 本战结束后强制返航`,
+          ' · 无进击选项',
         ]
       : verdict.tier === 'protected'
-        ? [`二队旗舰${verdict.escortFlagship}大破`, ' · 她不会被击沉，可以继续进击']
+        ? [`二队旗舰${verdict.escortFlagship}大破`, ' · 无击沉风险']
         : [
-            `${nameList(verdict.names)}大破 — 请撤退！`,
+            `${nameList(verdict.names)}大破 · 撤退`,
             verdict.names.length > 1 ? ` · ${verdict.names.join('、')}` : '',
           ]
   notify(
@@ -1669,8 +1669,8 @@ const dameconNotice = (
   // 「本场安全、进击危险」是这条通知唯一要传达的行动含义。女神回满血，
   // 继续进击的风险与常规无异；要員回两成通常仍是大破，再进击就是裸奔。
   const advice = goddess
-    ? '本场不会再被击沉 · 女神已消耗'
-    : `本场不会再被击沉 · 已消耗${tier === 'heavy' ? '，她仍是大破' : ''}`
+    ? '击沉保护已生效 · 女神已消耗'
+    : `击沉保护已生效 · 已消耗${tier === 'heavy' ? ' · 当前仍为大破' : ''}`
   return [
     'damecon',
     `${shipName} ${itemName}发动`,
@@ -1723,7 +1723,7 @@ const marriageNotice = (
     return [
       'marriage',
       'ケッコンカッコカリ',
-      '没能确认是哪一艘',
+      '舰娘身份未确认',
       undefined,
     ]
   }
@@ -1958,7 +1958,7 @@ const render = () => {
         <span class="lk" data-act="readall">全部已读</span>
       </div>
       <div class="c-list">${listHtml || '<div style="padding:30px 16px;color:var(--dim);font-size:12px;line-height:1.8">暂无通知</div>'}</div>
-      <div class="c-foot"><span class="lk" data-act="clear" title="删除账本里的全部通知历史，不影响规则与阈值">清空历史</span><span class="lk" data-act="test" title="只弹出来看效果，不写入通知历史，也不会推送到手机">▶ 测试通知</span></div>
+      <div class="c-foot"><span class="lk" data-act="clear" title="删除账本里的全部通知历史，不影响规则与阈值">清空历史</span><span class="lk" data-act="test" title="仅预览 · 不写入通知历史或发送手机推送">▶ 测试通知</span></div>
     </aside>
     <div class="right">
       ${toastPositionCardHtml()}

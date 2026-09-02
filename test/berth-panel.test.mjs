@@ -41,7 +41,7 @@ const HURT_A_BIT = { nowhp: 38, maxhp: 40, ndockTime: 22 * MIN }
 test('一支工作舰旗舰都没有时，只说状态，不解释机制', () => {
   reset({ fleets: [{ id: 1, ships: [{ id: 101, spec: DD, nowhp: 40, maxhp: 40 }] }] })
   const html = renderBerth()
-  assert.match(html, /没有工作舰当旗舰的舰队/)
+  assert.match(html, /暂无工作舰旗舰编队/)
   // 空态只说状态：不许顺手把「泊地修理是什么」在这儿讲一遍
   assert.ok(!html.includes('20 分'), '空态在解释机制')
   assert.ok(!html.includes('入渠'), '空态在解释机制')
@@ -60,7 +60,7 @@ test('旗舰不是工作舰的队根本不进这一页', () => {
       ] },
     ],
   })
-  assert.match(renderBerth(), /没有工作舰当旗舰的舰队/)
+  assert.match(renderBerth(), /暂无工作舰旗舰编队/)
 })
 
 // ---- ② 覆盖范围点亮到几号位 ----
@@ -106,7 +106,7 @@ test('覆盖数不会报得比队里的人还多', () => {
 
 // ---- ③ 逐舰短标 ----
 
-test('四种处境各挂各的短标，都是两三个字，没有长句', () => {
+test('四种处境各挂各的短标，没有长句', () => {
   reset({
     fleets: [akashiFleet({
       facilities: 4,
@@ -122,8 +122,8 @@ test('四种处境各挂各的短标，都是两三个字，没有长句', () =>
   })
   const html = renderBerth()
   const tags = [...html.matchAll(/class="bt-tag [^"]*">([^<]*)</g)].map((m) => m[1])
-  assert.deepEqual(tags, ['满血', '在修', '满血', '中破', '入渠'])
-  for (const tag of tags) assert.ok(tag.length <= 3, `短标「${tag}」太长了`)
+  assert.deepEqual(tags, ['耐久已满', '修理中', '耐久已满', '中破', '入渠'])
+  for (const tag of tags) assert.ok(tag.length <= 4, `短标「${tag}」太长了`)
 })
 
 // ---- ④ 20 分钟前后 ----
@@ -131,7 +131,7 @@ test('四种处境各挂各的短标，都是两三个字，没有长句', () =>
 test('不满 20 分钟：报还差几分 + 一根预热条，一个估算都不出现', () => {
   reset({ fleets: [akashiFleet({ facilities: 1, since: ago(8), followers: [HURT_A_BIT] })] })
   const html = renderBerth()
-  assert.match(html, /还差 12 分/)
+  assert.match(html, /缺 12 分/)
   assert.match(html, /class="bt-bar"/)
   assert.ok(!html.includes('停泊'))
   assert.ok(!html.includes('估算'), '预热期不许报估算')

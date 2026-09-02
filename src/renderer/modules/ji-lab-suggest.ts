@@ -107,7 +107,7 @@ const render = () => {
     ? ''
     : page.preview
       ? field.previewNote
-      : `只列前 ${LIMIT} 条，接着输入可缩小范围`
+      : `仅列前 ${LIMIT} 条 · 继续输入以缩小范围`
   const rows = items.length
     ? items
         .map(

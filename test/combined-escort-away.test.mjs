@@ -130,18 +130,18 @@ const 改修账本 = (over = {}) => ({
   ...over,
 })
 
-const 不在手边 = (over) => {
+const 当前不可用 = (over) => {
   const rows = todayRows(改修账本(over))
   assert.equal(rows.length, 1, '这份账本该正好出一条方案')
-  const hit = /不在手边 远征中 (\d+) · 出击中 (\d+) · <span[^>]*>入渠中 (\d+)</.exec(
+  const hit = /当前不可用 远征中 (\d+) · 出击中 (\d+) · <span[^>]*>入渠中 (\d+)</.exec(
     expandedOf(rows[0].html),
   )
-  assert.ok(hit, '展开层里找不到「不在手边」那一行')
+  assert.ok(hit, '展开层里找不到「当前不可用」那一行')
   return { mission: +hit[1], sortie: +hit[2], ndock: +hit[3] }
 }
 
 test('联合出击时，二队舰上的装备算「出击中」——不许当成手边能动用的', () => {
-  const 数 = 不在手边({
+  const 数 = 当前不可用({
     mg: { ...改修账本().mg, combinedFlag: 1, sortie: { active: true, practice: false, deckId: 1 } },
   })
   // 103 在二队（联合出击 → 出击中）、104 在三队（没出击 → 在手边）
@@ -151,19 +151,19 @@ test('联合出击时，二队舰上的装备算「出击中」——不许当�
 })
 
 test('联合但只是编队中：她在母港，装备照旧够得着', () => {
-  const 数 = 不在手边({ mg: { ...改修账本().mg, combinedFlag: 1, sortie: null } })
+  const 数 = 当前不可用({ mg: { ...改修账本().mg, combinedFlag: 1, sortie: null } })
   assert.equal(数.sortie, 0, '编队中被当成了出击中')
 })
 
 test('联合打演习不算出击：二队舰上的装备还在手边', () => {
-  const 数 = 不在手边({
+  const 数 = 当前不可用({
     mg: { ...改修账本().mg, combinedFlag: 1, sortie: { active: true, practice: true, deckId: 1 } },
   })
   assert.equal(数.sortie, 0, '演习被算成了出击')
 })
 
 test('非联合出击照旧只算具名那一队：一队出击不牵连二队', () => {
-  const 数 = 不在手边({
+  const 数 = 当前不可用({
     mg: { ...改修账本().mg, combinedFlag: 0, sortie: { active: true, practice: false, deckId: 3 } },
   })
   // 出击的是三队（104 在三队）；二队的 103 没被牵连
@@ -171,7 +171,7 @@ test('非联合出击照旧只算具名那一队：一队出击不牵连二队',
 })
 
 test('远征那一格不被联合带偏：二队在联合、三队在远征，两项各数各的', () => {
-  const 数 = 不在手边({
+  const 数 = 当前不可用({
     mg: {
       ...改修账本().mg,
       decks: [
@@ -244,7 +244,7 @@ test('通知本体没被改坏：文案与落点照旧', () => {
   const notices = detectCond({ fleets: 三支队, tired: [31], combinedFlag: 0, sortie: null })
   assert.equal(notices.length, 1)
   assert.equal(notices[0].eventId, 'condRecover')
-  assert.match(notices[0].title, /^第3舰队 疲劳预计已恢复$/)
+  assert.match(notices[0].title, /^第3舰队 疲劳估算已恢复$/)
   assert.deepEqual(notices[0].ref, { type: 'fleet', id: 3 })
 })
 

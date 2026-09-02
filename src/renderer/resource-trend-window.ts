@@ -99,7 +99,7 @@ const rowAt = (ts: number): MaterialRow | null => {
 
 const chartHtml = () => {
   if (history.length < 2) {
-    return '<div class="chart-empty">记录不足，暂不能画</div>'
+    return '<div class="chart-empty">记录不足 · 暂无图表</div>'
   }
   const X0 = 40
   const X1 = 600
@@ -285,7 +285,7 @@ const readoutHtml = (): string => {
     return `<div class="chart-readout sel">
       <span class="ro-k">框选 ${esc(fmtTime(from))} → ${esc(fmtTime(to))}<i>${esc(spanText)}</i></span>
       ${cells(end, start)}
-      <span class="ro-ops">${opText ? esc(opText) : '这段里没有记录到操作'}</span>
+      <span class="ro-ops">${opText ? esc(opText) : '当前区间暂无操作记录'}</span>
       <span class="ro-x" data-clear-selection>清除框选</span>
     </div>`
   }
@@ -296,7 +296,7 @@ const readoutHtml = (): string => {
       <span class="ro-k">${esc(fmtTime(row.ts))}<i>该时刻余额</i></span>${cells(row)}</div>`
   }
   return `<div class="chart-readout idle">
-    <span class="ro-k">把鼠标移到图上看某一刻的余额，横向拖动框选一段看净变化。</span></div>`
+    <span class="ro-k">悬停查看时点余额 · 横向拖动查看区间净变化</span></div>`
 }
 
 /**
@@ -437,7 +437,7 @@ const render = () => {
       <div class="chart-note">
         <span>${rangeNote}</span>
         ${netFuel != null ? `<span>${netLabel} <b style="color:var(--${netFuel >= 0 ? 'ok' : 'bad'})">${netFuel >= 0 ? '+' : ''}${fmtK(netFuel)}</b>（燃料）</span>` : ''}
-        ${chartEvents.length ? '<span class="event-key"><i></i>操作标记（悬停看明细）</span>' : ''}
+        ${chartEvents.length ? '<span class="event-key"><i></i>操作标记（悬停查看明细）</span>' : ''}
         ${activityAreaId ? '<span class="event-band-key"><i></i>活动统计区间</span>' : ''}
       </div>
     </div></div>`
@@ -509,5 +509,5 @@ const start = async () => {
 
 void start().catch((error) => {
   console.error('[kanso] resource trend window failed', error)
-  root.innerHTML = '<div class="loading">无法读取资源账本，请关闭窗口后重试。</div>'
+  root.innerHTML = '<div class="loading">资源账本读取失败 · 关闭窗口后重试</div>'
 })

@@ -90,7 +90,7 @@ const afterDayVsCombined = (escortHp) => {
 
 test('护卫六舰健在 → 说预计与敌护卫交战，且不再有「摸不到」那条尾巴', () => {
   const html = renderOutcomeBanner(afterDayVsCombined([40, 40, 40, 40, 40, 40]))
-  assert.ok(html.includes('夜战预计与敌护卫交战'))
+  assert.ok(html.includes('夜战估算与敌护卫交战'))
   assert.ok(html.includes('护卫剩余 6 舰'))
   assert.ok(!html.includes('摸不到'), '「主力夜战摸不到」是直译腔，已删')
   assert.ok(!html.includes('夜战只与敌护卫交战'), '旧的断言式口径不许回潮')
@@ -100,7 +100,7 @@ test('护卫只剩 1 舰小破 → 判别式 2.0 < 3，改说预计与主力交�
   // 用户当晚的实战局面：护卫队旗舰（position 0）小破未沉，其余五舰全灭。
   // 算分 = 旗舰存活 10 + 该舰小破 10 = 20（十分之一整数），未过阈值 30 → 打一队。
   const html = renderOutcomeBanner(afterDayVsCombined([30, 0, 0, 0, 0, 0]))
-  assert.ok(html.includes('敌护卫已残破 → 夜战预计与主力交战'))
+  assert.ok(html.includes('敌护卫已残破 · 夜战估算与主力交战'))
   assert.ok(html.includes('主力剩余合计 HP 360'), '给的是主力残存合计，不是全体')
   assert.ok(!html.includes('摸不到'))
   assert.ok(!html.includes('已歼灭'), '还有一艘活口，不能说歼灭')
@@ -108,9 +108,9 @@ test('护卫只剩 1 舰小破 → 判别式 2.0 < 3，改说预计与主力交�
 
 test('护卫全灭 → 仍是确定机制那一句，不挂「预计」', () => {
   const html = renderOutcomeBanner(afterDayVsCombined([0, 0, 0, 0, 0, 0]))
-  assert.ok(html.includes('敌护卫已歼灭 → 夜战将与主力交战'))
+  assert.ok(html.includes('敌护卫已歼灭 · 夜战将与主力交战'))
   assert.ok(html.includes('剩余合计 HP 360'))
-  assert.ok(!html.includes('预计与'), '全灭是确定机制，这一句不该降级成预计')
+  assert.ok(!html.includes('估算与'), '全灭是确定机制，这一句不该降级成估算')
 })
 
 test('敌方不是联合编成时那一支没动过', () => {
@@ -127,5 +127,5 @@ test('敌方不是联合编成时那一支没动过', () => {
       battle: battleOf({ kind: 'day', hasNight: false, eShips }),
     }),
   )
-  assert.ok(html.includes('进入夜战可继续追击（剩余敌舰合计 HP 360）'))
+  assert.ok(html.includes('夜战可攻击剩余敌舰（合计 HP 360）'))
 })

@@ -110,11 +110,11 @@ test('镖的判定端接的是分支口径,护卫空母用主数据 api_tais 落
   // 条件检查与规划器都不许再用摊平的单列表解析
   assert.doesNotMatch(bi, /parseComposition\(/)
   assert.match(bi, /parseCompositionBranches\(w\.composition, w\.escortText \?\? null\)/)
-  // 分支取失败最少的那支展示;多分支时明说「任一满足即可」。
+  // 分支取失败最少的那支展示；多分支时明说「满足任一组」。
   // 2026-08-26 文案清扫删了「按最接近的 X 列出」这句实现叙述(族 C),
   // 「取最接近的那一支」这件事本来就该钉挑选逻辑:失败项最少、同数再比未知项。
-  assert.match(bi, /任一满足即可/)
-  assert.match(bi, /都未满足/)
+  assert.match(bi, /满足任一组/)
+  assert.match(bi, /均未满足/)
   assert.match(
     bi,
     /right\.fails < left\.fails \|\|\s*\n?\s*\(right\.fails === left\.fails && right\.unknowns < left\.unknowns\)/,
@@ -123,7 +123,7 @@ test('镖的判定端接的是分支口径,护卫空母用主数据 api_tais 落
   assert.match(bi, /rows\.push\(\.\.\.best\.rows\)/)
   // 护卫空母判别:api_tais 只长在护卫空母身上,不是启发式
   assert.match(bi, /baseTais \?\? 0\) > 0/)
-  assert.match(bi, /1\+1 混搭不可/)
+  assert.match(bi, /不可 1\+1 混搭/)
 })
 
 const packFile = path.join(root, 'assets', 'lodes', 'wikiwiki-expedition.json')

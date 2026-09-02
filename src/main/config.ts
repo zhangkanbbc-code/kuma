@@ -119,7 +119,7 @@ class KansoConfig extends EventEmitter {
       throw new Error('备份中的配置结构无效')
     }
     const serialized = JSON.stringify(value)
-    if (serialized.length > 4 * 1024 * 1024) throw new Error('备份中的配置异常过大')
+    if (serialized.length > 4 * 1024 * 1024) throw new Error('备份中的配置数据体积异常')
     this.data = JSON.parse(serialized)
     this.save()
     this.emit('config.restore')

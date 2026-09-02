@@ -103,7 +103,7 @@ test('三种状态:全都遇过——整段缩成一行,一行编成都不剩', 
   const tally = catalogEncounterTally(local([1501], [1502]), comps)
   assert.equal(tally.seen, tally.total)
   assert.deepEqual(comps.map((one) => catalogCompUnseen(one, tally)), [false, false])
-  assert.equal(catalogTallyText(tally), '确认编成 2 种 · 都遇到过')
+  assert.equal(catalogTallyText(tally), '确认编成 2 种 · 全部已遇')
 })
 
 test('三种状态:计数行只有三款措辞,行尾无句号、零解释', () => {
@@ -112,12 +112,12 @@ test('三种状态:计数行只有三款措辞,行尾无句号、零解释', () 
     catalogTallyText(catalogEncounterTally(local([1501]), [comp([1501])])),
   ]
   for (const line of shapes) {
-    assert.match(line, /^确认编成 \d+ 种 · (已遇 \d+|都遇到过)$/, `多出来的措辞：${line}`)
+    assert.match(line, /^确认编成 \d+ 种 · (已遇 \d+|全部已遇)$/, `多出来的措辞：${line}`)
     assert.ok(!/[。，；]/.test(line), `计数行带了句读：${line}`)
   }
   // 「已遇 N」的 N 永远小于总量——等于总量时该说「都遇到过」
   const full = catalogEncounterTally(local([1501], [1502]), [comp([1501]), comp([1502])])
-  assert.ok(!catalogTallyText(full).includes('已遇'), '全遇过了还在说「已遇 N」')
+  assert.equal(catalogTallyText(full), '确认编成 2 种 · 全部已遇')
 })
 
 test('三种状态:目录里同一套舰列写了两遍时,计数与卡头总量对得上', () => {
@@ -177,11 +177,13 @@ test('文案:「目录 ✓」两三个字,无悬停无解释', () => {
 test('掉落卡的 ◆ 行不受这次改动影响', () => {
   // 「目录没收、自己却捞到过」是另一张卡（myDropsHtml）上的标记，与敌编成对照无关
   assert.match(di, /const beyond = !cataloged\.has\(ship\.mstId\)/)
-  assert.match(di, /<span class="dp-star" title="只有你自己的记录">◆<\/span>/)
+  assert.match(di, /<span class="dp-star" title="仅本地记录">◆<\/span>/)
 })
 
 test('样式:两个新元素都有落地的 CSS', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html =
+    fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8') +
+    fs.readFileSync(new URL('../src/renderer/assets/battle-replay.css', import.meta.url), 'utf8')
   assert.match(html, /\.mod-di \.nav-comp-tag \{/)
   assert.match(html, /\.mod-di \.nav-catalog-tally \{/)
   // 新样式引用 token，不写裸 hex

@@ -203,9 +203,9 @@ const renderInspector = () => {
   const observed = mg.quests[entry.id]
   const progress =
     observed?.progressFlag === 2
-      ? '游戏自报进度 80%+'
+      ? '游戏进度 80%+'
       : observed?.progressFlag === 1
-        ? '游戏自报进度 50%+'
+        ? '游戏进度 50%+'
         : ''
   const links = (items: FullQuest[], empty: string) =>
     items.length
@@ -222,7 +222,7 @@ const renderInspector = () => {
       ${progress ? `<small>${progress}</small>` : ''}
     </div>
     <div class="inspector-body">
-      <section><h3>任务说明</h3><p>${entry.desc ? esc(entry.desc) : '资料库未收录说明。'}</p></section>
+      <section><h3>任务说明</h3><p>${entry.desc ? esc(entry.desc) : '资料库尚未收录说明'}</p></section>
       ${entry.memo2 ? `<section><h3>补充说明</h3><p>${esc(entry.memo2)}</p></section>` : ''}
       <section><h3>全部前置${questPreSourceNoteHtml(entry.preInfo)}</h3><div class="relation-list">${links(parents, '无已知前置')}</div></section>
       <section><h3>直接后续</h3><div class="relation-list">${links(children, '无已知后续')}</div></section>
@@ -294,7 +294,7 @@ const render = () => {
       <div class="tree-scroll"><ul class="complete-tree">${
         visibleForest.length
           ? visibleForest.map((node) => renderTreeNode(node, 0, filtersActive)).join('')
-          : '<li class="tree-empty">没有符合当前筛选条件的任务</li>'
+          : '<li class="tree-empty">暂无符合当前筛选条件的任务</li>'
       }</ul></div>
       <aside id="tree-inspector"></aside>
     </main>
@@ -488,5 +488,5 @@ const load = async () => {
 
 void load().catch((error) => {
   console.error('[kanso] complete quest tree window failed', error)
-  root.innerHTML = '<div class="loading">完整任务树读取失败，请关闭窗口后重试。</div>'
+  root.innerHTML = '<div class="loading">完整任务树读取失败 · 关闭窗口后重试</div>'
 })

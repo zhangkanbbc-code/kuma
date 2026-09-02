@@ -113,7 +113,9 @@ test('the badge is withheld unless a real first can be established', () => {
   assert.doesNotMatch(badge, /记账之前你就已经有它了/, '记账起点免责句又回到界面上了')
   // 敌我两个标记必须真的不同——符号与配色都不能共用
   assert.match(badge, /kind === 'drop' \? '⚓' : '⚔'/)
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html =
+    fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8') +
+    fs.readFileSync(new URL('../src/renderer/assets/battle-replay.css', import.meta.url), 'utf8')
   assert.match(html, /\.first-mark\.drop \{[^}]*color: #8fd0ff/)
   // #ff9fae 已收编为 --abyss-ink（深海亮字 token），语义不变
   assert.match(html, /\.first-mark\.kill \{[^}]*color: var\(--abyss-ink\)/)
@@ -200,9 +202,9 @@ test('a first kill needs the sink mask to have covered every prior meeting', () 
 })
 
 test('sink-mask-less battles stay excluded on the write side too', () => {
-  // 遭遇志写入端与折叠端必须同口径：掩码来自 ship.sunk，演习不入志。
+  // 遭遇志写入端与任务计数共用真实击沉口径，演习不入志。
   const chronicle = fs.readFileSync(new URL('../src/main/mg/chronicle.ts', import.meta.url), 'utf8')
-  assert.match(chronicle, /battle\.eShips\.reduce\(\(mask, s, i\) => \(s\.sunk \? mask \| \(1 << i\) : mask\), 0\)/)
+  assert.match(chronicle, /isEnemyReallySunk\(ship\) \? mask \| \(1 << i\) : mask/)
   const combat = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
   assert.match(combat, /const firstKillMarkOf[\s\S]*?if \(b\.practice \|\| s\.practice \|\| b\.kind === 'baseDefense'\) return \(\) => ''/)
   assert.match(combat, /const firstKillMarkOf[\s\S]*?if \(!ship\.sunk \|\| marked\.has\(ship\.mstId\)\) return ''/)

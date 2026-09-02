@@ -133,7 +133,7 @@ export const limitedWindowCovers = (window: LimitedWindow, date: string): boolea
 export const limitedWindowText = (window: LimitedWindow) => {
   const head = `${window.label ? `【${window.label}】` : ''}${window.from.replaceAll('-', '/')}`
   if ((window.status ?? 'active_confirmed') === 'ended_undated' && window.until == null) {
-    return `${head} 起 · 已终了`
+    return `${head} 起 · 已结束`
   }
   return `${head}–${window.until ? window.until.replaceAll('-', '/') : '暂无截止日期'}`
 }

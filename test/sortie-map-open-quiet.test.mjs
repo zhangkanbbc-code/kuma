@@ -90,8 +90,8 @@ test('母港里打开活动图：札与陆航照常各出一段', () => {
   const { warn, toasts } = makeScene()
   warn(EVENT_AREA, 1_000_000)
   assert.equal(toasts.length, 1, '母港态该弹，这是这条提醒本来的用处')
-  assert.equal(toasts[0].title, '这是活动图：出击就会打札')
-  assert.match(toasts[0].detail, /第1舰队 2 艘未锁定 · 进去就会被打札/)
+  assert.equal(toasts[0].title, '活动海域 · 出击后永久打札')
+  assert.match(toasts[0].detail, /第1舰队 2 艘未锁定 · 出击后永久打札/)
   assert.match(toasts[0].detail, /基地航空 1 队未补给/)
 })
 
@@ -99,7 +99,7 @@ test('母港里只有陆航缺补给时，仍出陆航那一段', () => {
   const { warn, toasts } = makeScene({ untagged: 0 })
   warn(EVENT_AREA, 1_000_000)
   assert.equal(toasts.length, 1)
-  assert.equal(toasts[0].title, '这是活动图：基地航空队未就绪')
+  assert.equal(toasts[0].title, '活动海域 · 基地航空队未就绪')
   assert.equal(toasts[0].detail, '基地航空 1 队未补给')
 })
 
@@ -132,7 +132,7 @@ test('回港之后再打开海区，照常弹——而且不被出击途中那�
   // 故意落在 8 秒防抖窗口之内：被挡掉的那几声不该顺手把防抖也用掉
   warn(EVENT_AREA, 1_001_000)
   assert.equal(toasts.length, 1, '回港后重新打开海区，这条提醒该回来')
-  assert.equal(toasts[0].title, '这是活动图：出击就会打札')
+  assert.equal(toasts[0].title, '活动海域 · 出击后永久打札')
 })
 
 test('8 秒防抖仍在：一张图会取好几份资源，母港态下也只弹一次', () => {

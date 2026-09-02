@@ -261,7 +261,7 @@ const spentHtml = (areaId: number): string => {
   const days = Math.max(1, Math.round((Date.now() - period.firstSeenTs) / 86400000))
   return `<div class="ev-spent">
     <span class="k">活动期净变化</span>${cells}
-    <span class="sub9">自 ${fmtTime(period.firstSeenTs)} 起（约 ${days} 天）
+    <span class="sub9">自 ${fmtTime(period.firstSeenTs)} 起 · 已 ${days} 天
       <span class="credit-mark" title="含远征、任务与日常消耗">口径</span> ·
       ${elink('material', -1, '资源统计 →')}</span>
   </div>`
@@ -567,22 +567,22 @@ const TIER_HINT: Record<string, string> = {
 
 /** 目标档按钮。标签取短的，悬停给全名与该类的特効口径。 */
 const TARGET_TABS: ReadonlyArray<[LbasTargetKind, string, string]> = [
-  ['surface', '对舰', '水上舰：用雷装，不吃对地特効'],
-  ['land', '陆上', '没有具名特効的陆上型（飛行場姫・港湾棲姫 等）：用爆装，资料未给这一类的特効倍率'],
-  ['pillbox', '砲台', '砲台小鬼：基地航空特効 ×1.6（威力上限前）· 爆撃特効 ×1.55（上限后，只有陆攻与舰爆吃得到）'],
-  ['isolated', '離島', '離島棲姫：基地航空特効 ×1.18（威力上限前）· 爆撃特効 ×1.7（上限后，只有陆攻与舰爆吃得到）'],
-  ['supply', '集積地', '集積地棲姫：爆撃特効 ×2.1 后再加 +100（两项都在威力上限之后）'],
+  ['surface', '对舰', '水上舰：雷装计算 · 不适用对地特效'],
+  ['land', '陆上', '无具名特效的陆上型（飞行场姬、港湾栖姬等）· 爆装计算 · 暂无该类特效倍率'],
+  ['pillbox', '炮台', '炮台小鬼：基地航空特效 ×1.6（威力上限前）· 爆击特效 ×1.55（上限后，仅陆攻与舰爆适用）'],
+  ['isolated', '离岛', '离岛栖姬：基地航空特效 ×1.18（威力上限前）· 爆击特效 ×1.7（上限后，仅陆攻与舰爆适用）'],
+  ['supply', '集积地', '集积地栖姬：爆击特效 ×2.1 后加 +100（两项均在威力上限之后）'],
 ]
 
 /** 威力那一格的悬停拆解：基础 → 基地航空特効 → 爆撃特効，逐步给数。 */
 const powerHint = (slot: LbasSlotPick): string => {
   const d = slot.detail
-  if (d.power <= 0) return '这一格在本口径下打不动'
+  if (d.power <= 0) return '当前槽位 · 本口径无法造成有效伤害'
   const steps = [`基础 ${d.base.toFixed(1)}`]
   if (adviceTarget !== 'surface') {
     steps.push(`特効后 ${d.afterAirBonus}`)
     if (d.gotBombBonus > 1) steps.push(`爆撃特効 ×${d.gotBombBonus} → ${d.afterBombBonus}`)
-    else steps.push('不吃爆撃特効（只有陆攻与舰爆吃得到）')
+    else steps.push('不适用爆击特效（仅陆攻与舰爆适用）')
   }
   if (slot.plane.type2 === 47) steps.push('陆攻补正 ×1.8')
   if (d.capped) steps.push('已触威力上限，超出部分开方压缩')
@@ -592,7 +592,7 @@ const powerHint = (slot: LbasSlotPick): string => {
 
 const airAdviceHtml = (info: any, targetNeed: number | null, target: string | null): string => {
   const head = `<div class="ab-adv-h" data-air-advice="1">
-      <b>推荐搭配</b>
+      <b>搭配参考</b>
       <span class="ab-adv-x">${adviceOpen ? '收起 ↑' : '展开 →'}</span>
     </div>`
   if (!adviceOpen) return head
@@ -605,8 +605,8 @@ const airAdviceHtml = (info: any, targetNeed: number | null, target: string | nu
   ).join('')}</div>`
   if (!plan) {
     const why = targetNeed != null && target
-      ? `手上的机体凑不出能到 ${esc(target)}点的一队`
-      : '手上没有能用的攻击机'
+      ? `持有机体无法组成可达 ${esc(target)} 点的航空队`
+      : '暂无可用攻击机'
     return `${head}<div class="ab-adv">${modes}<div class="tnote">${why}</div></div>`
   }
   const rows = plan.slots
@@ -644,8 +644,8 @@ const airAdviceHtml = (info: any, targetNeed: number | null, target: string | nu
   // 命中不建模：上游自己写着「命中率…データ不足であり要検証」，没有公式可抄。
   // 与其编一个，不如把这条边界摆在玩家眼前。
   const caveat = adviceTarget === 'land'
-    ? '威力按各机种对陆口径算；这一档没有具名特効倍率可用，实战会更高。命中未计入。'
-    : '威力已按机种与该类目标的特効算过；命中未计入（尚无公开公式）。'
+    ? '各机种对陆口径 · 暂无具名特效倍率 · 命中未计入'
+    : '机种与目标特效已计入 · 命中未计入（尚无公开公式）'
   // 整队特効的两个数：吃到多少倍，以及「不把特効算进选法」时会是多少
   //（两套选法撞在一起时不摆对照——同一个数摆两遍不是信息）
   const bonusPart = plan.bonusGroups.length
@@ -658,7 +658,7 @@ const airAdviceHtml = (info: any, targetNeed: number | null, target: string | nu
   // 活动图但这一点没有陆航特効记载：说出来，别让空白冒充「查过了没有」
   const noBonus =
     !bonus && eventKeyOfInfo(info) ? '<i class="ab-adv-vs">本点无陆航特効</i>' : ''
-  const approx = plan.approx ? '<i class="ab-adv-vs">近似</i>' : ''
+  const approx = plan.approx ? '<i class="ab-adv-vs">推定</i>' : ''
   return `${head}<div class="ab-adv">
     ${modes}
     <div class="ab-adv-sum">半径 <b>${plan.radius}</b> · 打${esc(LBAS_TARGET_LABEL[adviceTarget])}一波 <b>${Math.round(plan.power)}</b>${bonusPart} · 配置 <b>铝 ${plan.bauxite}</b>${versus}${noBonus}${approx}</div>
@@ -727,7 +727,7 @@ const airBaseCardHtml = (info: any): string => {
       const gap = targetNeed == null ? null : squad.distance - targetNeed
       const reachHtml = target && targetNeed != null
         ? `<div class="ab-reach ${gap! >= 0 ? 'ok' : 'bad'}">
-            <b>${esc(target)}点</b>需半径 ${targetNeed} · ${gap! >= 0 ? `可以到达，航程多出 ${gap}` : `无法到达，还差 ${Math.abs(gap!)}`}
+            <b>${esc(target)}点</b>需半径 ${targetNeed} · ${gap! >= 0 ? `可达 · 航程余量 ${gap}` : `不可达 · 航程缺 ${Math.abs(gap!)}`}
           </div>`
         : ''
       // 玩家起的名字原样保留；游戏默认的「第N基地航空隊」不上屏——判定与锐共用
@@ -803,7 +803,7 @@ const ownedSpecialHtml = (
 ): string => {
   const exact = specials.filter((ship): ship is typeof ship & { id: number } => Boolean(ship.id))
   if (!exact.length) {
-    return '<div class="sub9">资料只有舰种与国籍倍率，没有点名到具体舰娘</div>'
+    return '<div class="sub9">资料仅含舰种与国籍倍率 · 无具体舰娘倍率</div>'
   }
   const exactByFamily = new Map<number, EventOperations['specialShips']>()
   for (const entry of exact) {
@@ -817,7 +817,7 @@ const ownedSpecialHtml = (
     const effects = exactByFamily.get(shipFamilyId(ship.shipId)) ?? []
     if (effects.length) matched.set(ship.id, effects)
   }
-  if (!matched.size) return '<div class="sub9">仓库里没有点名到的特效舰</div>'
+  if (!matched.size) return '<div class="sub9">持有舰娘中暂无具名特效舰</div>'
 
   const assigned = new Set<number>()
   const deckRows = mg.decks.flatMap((deck) => {
@@ -861,7 +861,7 @@ const ownedSpecialHtml = (
         }).join('')}</div>
       </details>`
     : ''
-  return `${deckRows.join('') || '<div class="sub9">四支舰队里没有特效舰</div>'}${reserveHtml}`
+  return `${deckRows.join('') || '<div class="sub9">当前四支舰队暂无特效舰</div>'}${reserveHtml}`
 }
 
 // 友军舰队一节。**两层并列不合并**（与镝的敌编成区同一口径，2026-08-22 拍板）：
@@ -937,7 +937,7 @@ const friendlyFleetsHtml = (
             : ''
         }`
       : ''
-  const seenHtml = layerHtml(seen, '你遇到的友军', 'op-friends-seen', seenRow)
+  const seenHtml = layerHtml(seen, '本地遭遇友军', 'op-friends-seen', seenRow)
   const packHtml = layerHtml(pack, '友军编成资料', 'op-friends', packRow)
   return seenHtml || packHtml
     ? `${seenHtml}${packHtml}`
@@ -1110,7 +1110,7 @@ const sallyRuleHtml = (info: any): string => {
     return `<span class="sr-chip${banned ? ' ban' : ''}" style="--tag:${sallyTagColor(tag)}">${body}</span>`
   }
   const grantRow = view.grants.length
-    ? `<div class="sr-row"><span class="sr-k">出击贴</span>${view.grants
+    ? `<div class="sr-row"><span class="sr-k">出击札</span>${view.grants
         .map((tag) => chip(tag, false))
         .join('')}</div>`
     : ''
@@ -1119,7 +1119,7 @@ const sallyRuleHtml = (info: any): string => {
     // 上游没确认是哪一枚，照原文摆一枚灰的，不并进正常名单
     ...view.unconfirmed.map(
       (text) =>
-        `<span class="sr-chip unk" title="${esc('wiki 未确认项，原文如此')}">${esc(text)}</span>`,
+        `<span class="sr-chip unk" title="${esc('wiki 未确认项 · 保留原文')}">${esc(text)}</span>`,
     ),
   ].join('')
   const banRow = banChips
@@ -1153,10 +1153,10 @@ const gaugeCardHtml = (info: any): string => {
       : gauge.required != null && gauge.required > 0
         ? // 扣血口径:条画剩余、数到 0/N 击破,与血条制/游戏内一致
           `<div class="gaug${gauge.cleared ? ' done' : ''}"><span class="k">击破计数</span><span class="bar"><i style="width:${gauge.cleared ? 0 : Math.round((Math.max(0, gauge.required - (gauge.defeated ?? 0)) / gauge.required) * 100)}%;background:linear-gradient(90deg,#a33448,var(--bad))"></i></span><span class="v">${gauge.cleared ? '✓ 击破' : `剩 ${Math.max(0, gauge.required - (gauge.defeated ?? 0))}/${gauge.required}`}</span></div>`
-        : '<div style="font-size:11px;color:var(--dim)">该图无血条数据</div>'
+        : '<div style="font-size:11px;color:var(--dim)">当前海图暂无血条数据</div>'
   return `<div class="card" style="--hc:var(--bad)">
     <div class="h"><b>血条阶段</b><span class="aux">难度 ${gauge.selectedRank ? RANK_NAME[gauge.selectedRank] : '未选'}
-      <span class="credit-mark" title="以游戏内提示为准">口径</span></span></div>
+      <span class="credit-mark" title="判定来源：游戏内提示">口径</span></span></div>
     ${bar}
     ${allowedFleets.length ? `<div class="fleet-allow"><span>可出击编成</span>${allowedFleets.map((label) => `<b>${esc(label)}</b>`).join('')}</div>` : ''}
     ${sallyRuleHtml(info)}
@@ -1193,7 +1193,7 @@ const gimmickCardHtml = (info: any): string => {
       <div class="h"><b>开路 · 破甲机关</b><span class="aux">当前难度 · ${completed}/${total} 已标记</span></div>
       <div class="gm-progress"><i style="width:${total ? (completed / total) * 100 : 0}%"></i></div>
       ${groups}
-      <div class="gnote2"><span class="credit-mark" title="最终完成状态仍以游戏内提示音和动画为准">口径</span></div>
+      <div class="gnote2"><span class="credit-mark" title="完成判定来源：游戏内提示音与动画">口径</span></div>
     </div>`
   }
   return `<div class="card" style="--hc:var(--evt)">
@@ -1236,7 +1236,7 @@ const campaignCardHtml = (campaign: SeasonalCampaign): string => {
     <div class="cq-stock">持有 <b>${campaign.stock}</b>${
       mg.useitemsTs ? `<span class="ts"> · 同步于 ${fmtTime(mg.useitemsTs)}</span>` : ''
     }</div>
-    ${groups || '<div class="gnote2">现役任务里没有点名该道具的</div>'}
+    ${groups || '<div class="gnote2">现役任务暂无该道具相关项</div>'}
   </div>`
 }
 
@@ -1263,7 +1263,7 @@ const render = () => {
     forgetCommittedHtml(pane, 'du') // 这一支绕开 commitPaneHtml，记忆不能留着
     pane.innerHTML = `<div class="du-empty">
       <div class="t">活动仪表盘</div>
-      <div class="d">当前没有限时活动海域</div>
+      <div class="d">暂无限时活动海域</div>
     </div>`
     return
   }

@@ -110,7 +110,7 @@ test('上游停更的包要说清真实含义，不是一句通用话打包收�
   assert.match(entry.upstreamNote, /644|后面三层|接住/, '停更说明没说清楚谁接住了新任务')
   // 渲染层要真的消费它，并保留通用兜底
   assert.match(yu, /consumedLodeOf\(row\.id\)\?\.upstreamNote/)
-  assert.match(yu, /那之后加入游戏的内容不会出现在这份资料里/)
+  assert.match(yu, /资料截止日期后新增内容未收录 · 游戏内与本地实测补充/)
 })
 
 test('wikiwiki-routing 没有被顺手退役：它有 kcwiki 顶不上的两个角色', () => {

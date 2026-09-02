@@ -9,8 +9,8 @@
 // **舰号、装备号、固定击坠与倍率一律照抄，不自行增删**——这种表两边各写一套之后，
 // 结论对不上时就分不清是抄错了还是游戏改了，只能整表重核。
 // 唯一的例外是上游明显没跟上游戏更新的条目：这时才补，且必须在那一条旁边写清
-// 「本地补充 + 出处 + 查证日期」，让偏离处一眼可数。搜「本地补充」，当前两处，都是 2026-08-07
-// 逐字比对 wikiwiki 原表后加的：Visby 的先制对潜、Fletcher 级对空CI 改按舰级收。
+// 「本地补充 + 出处 + 查证日期」，让偏离处一眼可数。搜「本地补充」，当前三处：
+// 2026-08-07 的 Visby 先制对潜、Fletcher 级对空CI 按舰级收，以及 2026-02-15 新增的 53 号。
 //
 // 诚实边界：这里回答的是「编成条件成立」，不是「一定会发动」——
 // - 对空CI 有发动率，且一场战斗每方只结算一艘；
@@ -60,6 +60,8 @@ const isAdvancedAARadar: EquipPredicate = (equip) => isRadar(equip) && equip.ant
 // 内置高射装置的高角炮：按 wikia 口径「单件高角炮对空 ≥ 8」认定
 const isBuiltinHighAngleMount: EquipPredicate = (equip) =>
   isHighAngleMount(equip) && equip.antiAir >= 8
+const isNinePlusHighAngleMount: EquipPredicate = (equip) =>
+  isHighAngleMount(equip) && equip.antiAir >= 9
 const isLargeCaliberMainGun = type2Is(3) // 大口径主炮
 const isType3Shell = type2Is(18) // 三式弹
 export const isAAFD = type2Is(36) // 高射装置
@@ -739,30 +741,72 @@ export const AACI_TABLE: readonly AaciEntry[] = [
     shipValid: isFubukiK2Family,
     equipsValid: allOf(hasAtLeast(is100mmTwinKai, 2), hasSome(isType94AAFD)),
   },
+  {
+    // ⚠ 本地补充：S3 当前总表新增 53 号；固定ボーナス 5? 按本表口径记为 +4，
+    // 倍率原表同样带问号为 1.6?。2026-02-15 查证：
+    // https://x.com/CC_jabberwock/status/2023061342756937820
+    id: 53,
+    fixed: 4,
+    modifier: 1.6,
+    scope: '飞龙改三',
+    condition: '对空≥9 的高角炮 + 高性能对空电探',
+    shipValid: isHiryuuK3,
+    equipsValid: allOf(hasSome(isNinePlusHighAngleMount), hasSome(isAdvancedAARadar)),
+  },
 ]
 
 const AACI_BY_ID = new Map(AACI_TABLE.map((entry) => [entry.id, entry]))
 
+// 精确顺序转录自 S3「対空カットイン優先度」表（2026-02-15）：
+// https://docs.google.com/spreadsheets/d/1agGoLv57g5eOXLXtNIKHRoBYy61OQYxibWP6Vi_DMuY/edit?gid=13450409#gid=13450409
+// 当前 1..53 全部是表内转录：53 条；规则推定：0 条。以后出现 S3 尚未收录的编号时，
+// 才排在这些有据者之后，按页面概括规则「固定击坠高者优先、相近时比较倍率」推定。
+export const AACI_PRIORITY: readonly number[] = [
+  38, 39, 40, 42, 41, 10, 43, 46, 11, 25, 48, 1, 34, 44, 26, 4, 2, 35, 36, 27, 45, 50, 49,
+  51, 52, 19, 21, 29, 53, 16, 14, 3, 5, 6, 28, 37, 33, 30, 8, 13, 15, 7, 20, 24, 32, 12, 31,
+  47, 17, 18, 22, 9, 23,
+]
+
+const AACI_PRIORITY_RANK = new Map(AACI_PRIORITY.map((id, rank) => [id, rank]))
+
 /** 按类型编号取条目。战斗侧只拿得到 api_air_fire 的 kind，靠它把数字翻成人话。 */
 export const aaciEntryOf = (id: number): AaciEntry | null => AACI_BY_ID.get(id) ?? null
 
-/** 装备条件也成立的全部条目（不做「一场只发动一条」的取舍）。 */
+/** 装备条件也成立的全部条目，还没有套舰娘专属排除规则。 */
 const availableAacis = (
   ship: SpecialAbilityShip,
   equips: readonly SpecialAbilityEquip[],
 ): AaciEntry[] => AACI_TABLE.filter((entry) => entry.shipValid(ship) && entry.equipsValid(equips))
 
+const aaciIsExcluded = (ship: SpecialAbilityShip, id: number): boolean =>
+  (isMayaK2(ship) && id === 13) || (isAkizukiClass(ship) && [5, 7, 8].includes(id))
+
 /**
- * 这一艘舰实际会结算的对空CI。
- *
- * 上游口径：先取固定击坠最高的一条（同分取 id 小的），再套几条特例
- * （鬼怒改二 / 皋月改二 / 文月改二会额外叠一条；霞改二乙、五十铃改二在同分时优先自己的专属条）。
+ * 排除舰娘专属禁用规则后，这一艘舰实际会按优先度逐项尝试的全部对空CI。
  */
 export const shipAacis = (
   ship: SpecialAbilityShip,
   equips: readonly SpecialAbilityEquip[],
+): AaciEntry[] =>
+  availableAacis(ship, equips)
+    .filter((entry) => !aaciIsExcluded(ship, entry.id))
+    .sort(
+      (left, right) =>
+        AACI_PRIORITY_RANK.get(left.id)! - AACI_PRIORITY_RANK.get(right.id)!,
+    )
+
+/**
+ * 旧式“只挑固定击坠最高一条”的展示结果。
+ *
+ * 上游口径：先取固定击坠最高的一条（同分取 id 小的），再套几条特例
+ * （鬼怒改二 / 皋月改二 / 文月改二会额外叠一条；霞改二乙、五十铃改二在同分时优先自己的专属条）。
+ */
+export const bestShipAacis = (
+  ship: SpecialAbilityShip,
+  equips: readonly SpecialAbilityEquip[],
 ): AaciEntry[] => {
-  const available = availableAacis(ship, equips)
+  // 旧实现从 id 升序表里取同固定击坠的首条；这里排回 id 顺序，避免优先度表改变旧展示。
+  const available = shipAacis(ship, equips).sort((left, right) => left.id - right.id)
   if (!available.length) return []
   const ids = new Set(available.map((entry) => entry.id))
   // 上游把这条变量叫 maxFixed，实际取到的是「固定击坠最高那条的 id」。

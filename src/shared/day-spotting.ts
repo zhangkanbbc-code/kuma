@@ -16,13 +16,32 @@
 //     連撃           主砲×2            1.2倍 × 2回  定数 130
 //
 //   発動率 = ⌈観測項⌉ ÷ 観測種別定数
-//     確保：観測項 = ⌊⌊√運+10⌋ + 0.7×(艦隊索敵補正 + 1.6×装備索敵値合計 + 10)⌋ + 旗艦補正
+//     確保：観測項 = ⌊⌊√運+10⌋ + 0.7×(艦隊索敵補正 + 1.6×装備索敵値合計) + 10⌋ + 旗艦補正
 //     優勢：観測項 = ⌊⌊√運+10⌋ + 0.6×(艦隊索敵補正 + 1.2×装備索敵値合計)⌋ + 旗艦補正
 //     旗艦補正 +15（随伴艦 +0）
+//     艦隊索敵補正 = ⌊√A + 0.1×A⌋
+//       A = Σ(艦娘の**素**索敵値) + Σ(水偵/水爆の装備索敵値 × ⌊√そのスロットの搭載機数⌋)
 //
-// **已知偏低，且是刻意的**：`艦隊索敵補正` 这一项，来源只说「艦隊の素索敵値合計が
-// 高いほど上昇」，没给出确切定义。这里按 0 处理——少算发动率，而不是编一个数出来。
-// 装備索敵値合計仍然逐舰照算，所以带水侦电探的舰照样吃得到大部分收益。
+// 2026-09-01 复查（wikiwiki「戦闘について」弾着観測射撃 + 其脚注 *14 指向的一手源文档
+// https://docs.google.com/document/d/1tqYyqzdc1RT_fYDKFMcUId0kOZHCdGpVsObm6yt-Yco ）
+// 改掉了此前三处，逐条记在这里：
+//
+//   ① `艦隊索敵補正` 不再按 0 算。2026-08-08 那次的注释写「来源只说『艦隊の素索敵値
+//      合計が高いほど上昇』，没给出确切定义」——**现在两处都给出了确切定义**（上面那行）。
+//      A 通常上百，⌊√A+0.1A⌋ 常在 20〜30+，乘 0.7 后是 +14〜21 点観測項，
+//      这是原来最大的一处系统性偏低。
+//
+//   ② **確保式里 `+10` 的位置，两处转写不一致**——这是分歧，不是定论：
+//        源文档（一手）  int( int(√運+10) + 0.7*(艦隊索敵補正 + 1.6*Σ装備索敵) + 10 )
+//        wikiwiki 转写   ⌊(⌊√運+10⌋ + 0.7×(艦隊索敵補正 + 1.6×Σ装備索敵 + 10)⌋
+//      前者的 +10 在 0.7 之外（净 +10），后者在括号内（净 +7），差 3 点観測項
+//      （对主主 CI 约 2 个百分点）。**本模块跟源文档**，两条理由：证据序上一手源文档
+//      高于 wikiwiki 转写；且 wikiwiki 那一行的括号本身不配平（`⌊(` 多一个左括号、
+//      无对应右括号），是转写排版事故的特征。这一处若日后被推翻，改的是下面 base 那一行。
+//
+//   ③ 判定顺序不再是「按倍率降序」的假定。源文档「判定順」段与 wikiwiki
+//      「上に記載されているものから順に判定していく」都写清了：
+//      **主主 > 主徹 > 主電 > 主副 > 連撃**。此前 主副 与 連撃 是反的。
 
 /** 观测种别。名字用中文，但条件与常数照抄原表。 */
 export type SpottingKind = 'mainMain' | 'mainAp' | 'mainRadar' | 'mainSecondary' | 'double'
@@ -39,16 +58,20 @@ export interface SpottingType {
 }
 
 /**
- * 按倍率从高到低排。同一艘舰可能同时满足多种（主砲2+徹甲弾 既能主主也能主徹），
- * 游戏是逐种掷骰的；本层按这个顺序依次条件掷骰。
- * **顺序本身是本模型的假定**——来源没写清优先级，写在说明栏里。
+ * **判定顺序照源文档**：主主 > 主徹 > 主電 > 主副 > 連撃（源文档注明「(api 大 > 小)」，
+ * wikiwiki 作「上に記載されているものから順に判定していく」）。
+ *
+ * 同一艘舰可能同时满足多种（主砲2+徹甲弾 既能主主也能主徹），游戏逐种掷骰，
+ * 本层按这个顺序依次条件掷骰。注意它**不是**倍率降序：連撃(1.2) 排在 主副(1.1) 之后。
+ * 2026-08-08 那版按倍率降序排、并自承「顺序是本模型的假定」，对「主砲2+副砲1」
+ * 这类配装算出来的期望倍率偏高。
  */
 export const SPOTTING_TYPES: readonly SpottingType[] = Object.freeze([
   { kind: 'mainMain', label: '主主 CI', multiplier: 1.5, attacks: 1, divisor: 150 },
   { kind: 'mainAp', label: '主徹 CI', multiplier: 1.3, attacks: 1, divisor: 140 },
   { kind: 'mainRadar', label: '主电 CI', multiplier: 1.2, attacks: 1, divisor: 130 },
-  { kind: 'double', label: '连击', multiplier: 1.2, attacks: 2, divisor: 130 },
   { kind: 'mainSecondary', label: '主副 CI', multiplier: 1.1, attacks: 1, divisor: 120 },
+  { kind: 'double', label: '连击', multiplier: 1.2, attacks: 2, divisor: 130 },
 ])
 
 // 装备分类。type2 取自本机 api_mst_slotitem_equiptype 实核：
@@ -75,10 +98,55 @@ export interface SpottingShip {
   /** 是否为该舰队旗舰（旗舰补正 +15） */
   flagship: boolean
   equipment: readonly SpottingEquip[]
+  /**
+   * `艦隊索敵補正`（⌊√A+0.1A⌋）。**舰队级**输入，由调用方用 fleetLosCorrectionOf
+   * 算好传进来——本层只看得见一艘舰，算不出整队的 A。
+   *
+   * 缺省 0 = 「这个调用方还拿不到整队素索敵」，与 2026-08-08 那版行为一致；
+   * 那是**少算**，不是「这支队补正为 0」。
+   */
+  fleetLosCorrection?: number
 }
 
 /** 旗舰补正。原文：旗艦は+15、随伴艦は+0。 */
 export const FLAGSHIP_BONUS = 15
+
+/** 算 `A` 用的舰队级视图：素索敵 + 各水偵/水爆槽的装備索敵与搭載機数。 */
+export interface SpottingFleetShip {
+  /**
+   * **素**索敵：不含任何装备。面板索敵逐件减回装備索敵即得
+   * （与 shared/fleet-los33 的「舰娘裸装索敌」同一口径）。
+   */
+  baseLos: number
+  equipment: readonly SpottingEquip[]
+}
+
+/**
+ * `A` = Σ(艦娘の素索敵値) + Σ(水偵/水爆の装備索敵値 × ⌊√搭載機数⌋)。
+ *
+ * 只有水偵/水爆进第二项——電探等其余装備的索敵**不算入 A**（它们已经在
+ * 各舰自己的「装備索敵値合計」那一项里）。空格（搭載0）自然贡献 0。
+ */
+export const fleetLosScoreOf = (ships: readonly SpottingFleetShip[]): number =>
+  ships.reduce(
+    (total, ship) =>
+      total +
+      Math.max(0, ship.baseLos) +
+      ship.equipment.reduce(
+        (sum, item) =>
+          SEAPLANE.has(item.type2)
+            ? sum + Math.max(0, item.los) * Math.floor(Math.sqrt(Math.max(0, item.planeCount)))
+            : sum,
+        0,
+      ),
+    0,
+  )
+
+/** 艦隊索敵補正 = ⌊√A + 0.1×A⌋。 */
+export const fleetLosCorrectionOf = (score: number): number => {
+  const a = Math.max(0, score)
+  return Math.floor(Math.sqrt(a) + 0.1 * a)
+}
 
 /**
  * 该舰这一场能不能发动观测射击的**种别清单**（已按掷骰顺序排好）。
@@ -122,16 +190,19 @@ export const spottingTypesOf = (
 }
 
 /**
- * 観測項。**艦隊索敵補正按 0 算**——来源没给出它的确切定义，
- * 少算发动率好过编一个数（见文件头）。
+ * 観測項。
+ *
+ * 確保档那个 `+ 10` 写在 `0.7 × (…)` **之外**——这是文件头 ② 记的分歧，
+ * 跟的是一手源文档；wikiwiki 的转写把它写在括号内（净 +7）。改口径就改这一行。
  */
 export const spottingScore = (ship: SpottingShip, airState: number): number => {
   const equipLos = ship.equipment.reduce((sum, item) => sum + Math.max(0, item.los), 0)
+  const fleetLos = Math.max(0, ship.fleetLosCorrection ?? 0)
   const luckTerm = Math.floor(Math.sqrt(Math.max(0, ship.luck)) + 10)
   const base =
     airState === 1
-      ? Math.floor(luckTerm + 0.7 * (1.6 * equipLos + 10))
-      : Math.floor(luckTerm + 0.6 * (1.2 * equipLos))
+      ? Math.floor(luckTerm + 0.7 * (fleetLos + 1.6 * equipLos) + 10)
+      : Math.floor(luckTerm + 0.6 * (fleetLos + 1.2 * equipLos))
   return base + (ship.flagship ? FLAGSHIP_BONUS : 0)
 }
 

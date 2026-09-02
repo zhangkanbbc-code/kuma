@@ -137,5 +137,5 @@ test('各组逐条列全，只有常驻组按 HUNT_STANDING_CAP 截并明说还�
   }
   // 常驻组是唯一的例外，且截了要说清还剩多少（二十多张图那种，列全没信息量）
   assert.match(huntSource, /standing\.slice\(0, HUNT_STANDING_CAP\)/, '常驻组的上限没了')
-  assert.match(huntSource, /还有 \$\{standing\.length - shownStanding\.length\} 艘未列出/, '常驻组截了却没说还剩多少')
+  assert.match(huntSource, /另有 \$\{standing\.length - shownStanding\.length\} 艘未列出/, '常驻组截了却没说还剩多少')
 })

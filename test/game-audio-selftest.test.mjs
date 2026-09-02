@@ -89,7 +89,7 @@ test('自检卡：读回来之后按帧摆出捕获计数、活源数与最近�
       '最近解的应该排在前面',
     )
     // 认出语音就报「通」——这正是那三条滑条要的结论
-    assert.match(html, /语音认得出来/)
+    assert.match(html, /语音识别正常/)
   })
 })
 
@@ -97,8 +97,8 @@ test('自检卡：解过音频却一条语音都没认出来时，明说这一�
   const mute = { ...FRAME, decodes: [{ path: '/kcs2/resources/se/241.mp3', category: 'other' }] }
   await withGamePage([mute], async () => {
     const html = await readOnce(mountDebug())
-    assert.match(html, /没有一条认成语音/)
-    assert.doesNotMatch(html, /语音认得出来/)
+    assert.match(html, /语音识别失败 · 播放一句台词后重读/)
+    assert.doesNotMatch(html, /语音识别正常/)
   })
 })
 
@@ -108,29 +108,29 @@ test('自检卡：一条都没解过时不下结论，只说该去做什么', as
     assert.match(html, /暂无音频解码记录/)
     // 既不报通也不报坏——没有证据就不下判断
     assert.doesNotMatch(html, /语音认得出来/)
-    assert.doesNotMatch(html, /没有一条认成语音/)
+    assert.doesNotMatch(html, /语音识别失败/)
   })
 })
 
 test('自检卡：一个帧都没装上钩子是真坏了，要当场说破', async () => {
   await withGamePage([], async () => {
     const html = await readOnce(mountDebug())
-    assert.match(html, /一个帧都没装上钩子/)
-    assert.match(html, /三条滑条都不会起作用/)
+    assert.match(html, /音频钩子未安装到任何帧/)
+    assert.match(html, /三条滑条暂不可用/)
   })
 })
 
 test('自检卡：游戏页还没挂上时说清是这个原因，不报成读取失败', async () => {
   await withGamePage('absent', async () => {
     const html = await readOnce(mountDebug())
-    assert.match(html, /游戏页还没挂上/)
+    assert.match(html, /游戏页面尚未加载 · 加载后重试/)
   })
 })
 
 test('自检卡：读取抛错就把原话摆出来，不吞掉', async () => {
   await withGamePage(new Error('Script failed to execute'), async () => {
     const html = await readOnce(mountDebug())
-    assert.match(html, /没读到/)
+    assert.match(html, /读取失败 · 请重试/)
     assert.match(html, /Script failed to execute/)
   })
 })
@@ -144,7 +144,7 @@ test('自检卡：多个帧各报各的，不合并成一份', async () => {
   }
   await withGamePage([FRAME, child], async () => {
     const html = await readOnce(mountDebug())
-    assert.match(html, /共 2 个/)
+    assert.match(html, /已安装钩子的帧：2 个/)
     assert.match(html, /\/kcs2\/gadget\.php/)
     assert.match(html, /XHR 42/)
     assert.match(html, /XHR 7/)

@@ -285,9 +285,9 @@ test('消费端读一手值：实验室判定输入、编队空格悬停、图�
 
   // 图鉴按形态展示：小字只在你自己那一艘上出现，且指名到 ID（不外推成形态属性）
   assert.match(ji, /const owned = ownedHangarExpansionOf\(shipState\.selectedForm, i\)/)
-  assert.match(ji, /你的 ID \$\{owned\.rosterId\} 这一艘/)
+  assert.match(ji, /舰娘 ID \$\{owned\.rosterId\}/)
   // 加法的两截都取 owned：页面上那个原量是 wiki 的初期搭载表，混着加会凑出假上限
-  assert.match(ji, /搭载上限 \$\{owned\.base\}\+\$\{owned\.extra\}（格納庫増設）/)
+  assert.match(ji, /搭载上限 \$\{owned\.base\}\+\$\{owned\.extra\}（格纳库增设）/)
   assert.doesNotMatch(ji, /搭载上限 \$\{load\[i\]\}/, '别拿 wiki 那个原量去凑加法')
   assert.match(ji, /含格納庫増設/)
   // 没有原量就不给孤零零的 +N

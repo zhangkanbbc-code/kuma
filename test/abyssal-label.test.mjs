@@ -84,11 +84,13 @@ test('镝的模糊命中按候选池匹配，绝不在运行时指认具体形�
   // 机制估算只吃精确档——模糊形态的耐久/装备不同，不拿猜的形态出数字
   assert.match(di, /const \{ exact: matched, fuzzy: fuzzyMatched \} = previewEncounterCandidates/)
   // 同上：措辞缩成「各形态耐久与装备不同」，「不出数」这件事仍要当场说清
-  assert.match(di, /前三舰只有模糊命中，各形态耐久与装备不同/)
+  assert.match(di, /前三舰仅模糊匹配 · 各形态耐久与装备不同/)
 })
 
 test('模糊 token 有独立视觉记号，与精确命中一眼分开', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html =
+    fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8') +
+    fs.readFileSync(new URL('../src/renderer/assets/battle-replay.css', import.meta.url), 'utf8')
   assert.match(html, /\.mod-di \.enemy-token\.fuzzy \{/)
   assert.match(html, /\.mod-di \.enemy-token\.fuzzy \.fz \{/)
 })

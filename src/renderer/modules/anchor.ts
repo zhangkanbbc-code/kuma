@@ -35,11 +35,11 @@ const renderReconciliation = () => {
           ? '演习'
           : `${mapCodeOf(record.map)}${record.cell > 0 ? ` · 节点 ${record.cell}` : ''}`
         const items = record.discrepancies.map((item) =>
-          `<span><b>${DISCREPANCY_LABEL[item.kind]}</b>${item.who ? ` ${esc(item.who)}` : ''} 我们 ${esc(`${item.ours}`)} · 游戏 ${esc(`${item.game}`)}</span>`,
+          `<span><b>${DISCREPANCY_LABEL[item.kind]}</b>${item.who ? ` ${esc(item.who)}` : ''} 本地 ${esc(`${item.ours}`)} · 游戏 ${esc(`${item.game}`)}</span>`,
         ).join('')
         return `<div class="reconcile-row"><time>${fmtTime(record.ts)}</time><strong>${esc(at)}</strong>${items}</div>`
       }).join('')
-    : '<div class="reconcile-empty">当前会话尚未发现派生值与游戏自报不一致。</div>'
+    : '<div class="reconcile-empty">当前会话暂无本地派生值与游戏返回值差异</div>'
 }
 
 const pushRow = (kind: 'req' | 'res' | 'err', pathName: string, ts: number, size?: number) => {
@@ -87,8 +87,7 @@ registerModule({
       </div>
       <ul id="event-log"></ul>
       <div id="empty-hint">
-        等待游戏自然产生请求……<br />
-        登录游戏后，这里会实时列出同步到的 /kcsapi 事件。
+        尚未产生游戏请求 · 登录后显示 /kcsapi 同步事件
       </div>`
     log = pane.querySelector('#event-log')
     countBadge = pane.querySelector('#event-count')

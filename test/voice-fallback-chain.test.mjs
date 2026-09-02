@@ -152,7 +152,7 @@ test('无名行补场合名（1–53 全段）：字幕表的空场合、wikiwik
   assert.equal(voiceFallbackScene(30, '〇〇〇〇时报'), '〇〇〇〇时报')
   // 08-23 用户实机点名要触发条件：1–29 与时报段同一对照表、同一置信度，一并补名
   //（第一版只补 30–53 的谨慎口径同日撤销）
-  assert.equal(voiceFallbackScene(1, ''), '入手/登入时')
+  assert.equal(voiceFallbackScene(1, ''), '获得/登录时')
   assert.equal(voiceFallbackScene(2, ''), '秘书舰1')
   assert.equal(voiceFallbackScene(26, ''), '装备')
   // 对照表外（54+）与无槽位的行照旧留空——「编号不代表场景」的适用面缩到这里

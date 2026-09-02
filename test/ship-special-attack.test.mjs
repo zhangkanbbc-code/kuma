@@ -4,7 +4,15 @@ import test from 'node:test'
 
 import abilityModule from '../dist/shared/ship-special-attack.js'
 
-const { AACI_TABLE, aaciEntryOf, openingAswOf, shipAaciCeiling, shipAacis } = abilityModule
+const {
+  AACI_PRIORITY,
+  AACI_TABLE,
+  aaciEntryOf,
+  bestShipAacis,
+  openingAswOf,
+  shipAaciCeiling,
+  shipAacis,
+} = abilityModule
 
 const ship = (over = {}) => ({
   mstId: 0,
@@ -32,13 +40,18 @@ const torpedoBomber = (asw = 0) => equip({ type2: 8, asw })
 const autogyro = (asw = 3) => equip({ type2: 25, asw })
 
 const idsOf = (subject, equips) => shipAacis(subject, equips).map((entry) => entry.id)
+const bestIdsOf = (subject, equips) => bestShipAacis(subject, equips).map((entry) => entry.id)
 
 // ---- 对空CI ----
 
-test('对空CI 表按 id 升序且不重号——挑「会发动的那条」时同击坠取小 id，靠的就是这个顺序', () => {
+test('对空CI 表与优先度表完整覆盖 1..53，且各自不重号', () => {
   const ids = AACI_TABLE.map((entry) => entry.id)
-  assert.deepEqual(ids, [...ids].sort((a, b) => a - b))
+  assert.deepEqual(ids, Array.from({ length: 53 }, (_, index) => index + 1))
   assert.equal(new Set(ids).size, ids.length)
+  assert.equal(new Set(AACI_PRIORITY).size, AACI_PRIORITY.length)
+  assert.deepEqual([...AACI_PRIORITY].sort((a, b) => a - b), ids)
+  assert.deepEqual(AACI_PRIORITY.slice(0, 5), [38, 39, 40, 42, 41])
+  assert.deepEqual(AACI_PRIORITY.slice(-5), [17, 18, 22, 9, 23])
 })
 
 test('每条对空CI 都要说得出适用范围和装备条件——界面上只有编号等于没说', () => {
@@ -47,16 +60,30 @@ test('每条对空CI 都要说得出适用范围和装备条件——界面上�
     assert.ok(entry.condition, `类型 ${entry.id} 缺装备条件`)
   }
   assert.equal(aaciEntryOf(9).condition, '高角炮 + 高射装置')
+  assert.deepEqual(
+    {
+      fixed: aaciEntryOf(53).fixed,
+      modifier: aaciEntryOf(53).modifier,
+      scope: aaciEntryOf(53).scope,
+      condition: aaciEntryOf(53).condition,
+    },
+    {
+      fixed: 4,
+      modifier: 1.6,
+      scope: '飞龙改三',
+      condition: '对空≥9 的高角炮 + 高性能对空电探',
+    },
+  )
   // 游戏新加的编号本地表里没有，照实返回空而不是拿相近的一条冒充
   assert.equal(aaciEntryOf(999), null)
   assert.equal(aaciEntryOf(0), null)
 })
 
-test('秋月型带两门高角炮加电探发动 1 号，只有高角炮时退到 3 号', () => {
+test('秋月型两门内置高射高角炮加电探会逐项尝试 1/2/3，排除通用 5/7/8', () => {
   const akizuki = ship({ ctype: 54, stype: 2 })
-  assert.deepEqual(idsOf(akizuki, [highAngle(), highAngle(), radar()]), [1])
-  assert.deepEqual(idsOf(akizuki, [highAngle(), highAngle()]), [3])
-  assert.deepEqual(idsOf(akizuki, [highAngle(), radar()]), [2])
+  const ids = idsOf(akizuki, [builtinHighAngle(), builtinHighAngle(), aaRadar(4)])
+  assert.deepEqual(ids, [1, 2, 3])
+  assert.equal(ids.some((id) => [5, 7, 8].includes(id)), false)
 })
 
 test('通用条目认舰种与格数：高角炮加高射装置是 9 号，只有一格的舰不发动', () => {
@@ -66,38 +93,52 @@ test('通用条目认舰种与格数：高角炮加高射装置是 9 号，只�
   assert.deepEqual(idsOf(ship({ stype: 13 }), [highAngle(), aaFireDirector()]), [])
 })
 
-test('摩耶改二的专属条优先于通用条', () => {
+test('摩耶改二排除 13 号，仍保留其余会逐项尝试的专属与通用候选', () => {
   const maya = ship({ mstId: 428, stype: 5, ctype: 8, slotNum: 4 })
-  assert.deepEqual(idsOf(maya, [highAngle(), cdmg(), aaRadar(4)]), [10])
-  assert.deepEqual(idsOf(maya, [highAngle(), cdmg()]), [11])
+  assert.deepEqual(
+    idsOf(maya, [builtinHighAngle(), cdmg(), machineGun(), aaRadar(4)]),
+    [10, 11, 8, 12],
+  )
+})
+
+test('旧式最好一条函数维持原有选择行为，供主行 chip 使用', () => {
+  const akizuki = ship({ ctype: 54, stype: 2 })
+  assert.deepEqual(bestIdsOf(akizuki, [highAngle(), highAngle(), radar()]), [1])
+  assert.deepEqual(bestIdsOf(akizuki, [highAngle(), highAngle()]), [3])
+  assert.deepEqual(bestIdsOf(akizuki, [highAngle(), radar()]), [2])
+
+  const maya = ship({ mstId: 428, stype: 5, ctype: 8, slotNum: 4 })
+  assert.deepEqual(bestIdsOf(maya, [highAngle(), cdmg(), aaRadar(4)]), [10])
+  assert.deepEqual(bestIdsOf(maya, [highAngle(), cdmg()]), [11])
 })
 
 test('鬼怒改二同时结算 19 与 20；带内置高射装置的高角炮会让 19 失效', () => {
   const kinu = ship({ mstId: 487, stype: 3, slotNum: 3 })
-  assert.deepEqual(idsOf(kinu, [highAngle(), cdmg()]), [19, 20])
-  assert.deepEqual(idsOf(kinu, [builtinHighAngle(), cdmg()]), [20])
+  assert.deepEqual(bestIdsOf(kinu, [highAngle(), cdmg()]), [19, 20])
+  assert.deepEqual(bestIdsOf(kinu, [builtinHighAngle(), cdmg()]), [20])
 })
 
 test('同击坠时专属条压过通用条：五十铃改二取 14，霞改二乙取 17', () => {
   const isuzu = ship({ mstId: 141, stype: 3, ctype: 20, slotNum: 3 })
   // 8 号（内置高角炮 + 对空电探）与 14 号同为固定击坠 4
-  assert.deepEqual(idsOf(isuzu, [builtinHighAngle(), machineGun(), aaRadar(4)]), [14])
+  assert.deepEqual(bestIdsOf(isuzu, [builtinHighAngle(), machineGun(), aaRadar(4)]), [14])
   const kasumi = ship({ mstId: 470, stype: 2, slotNum: 3 })
   // 9 号与 17 号同为固定击坠 2
-  assert.deepEqual(idsOf(kasumi, [highAngle(), machineGun(), aaFireDirector()]), [17])
+  assert.deepEqual(bestIdsOf(kasumi, [highAngle(), machineGun(), aaFireDirector()]), [17])
 })
 
 test('皋月改二在最优那条之外再叠一条 18', () => {
   const satsuki = ship({ mstId: 418, stype: 2, slotNum: 3 })
-  assert.deepEqual(idsOf(satsuki, [cdmg(), machineGun(), aaRadar(4)]), [12, 18])
-  assert.deepEqual(idsOf(satsuki, [cdmg()]), [18])
+  assert.deepEqual(bestIdsOf(satsuki, [cdmg(), machineGun(), aaRadar(4)]), [12, 18])
+  assert.deepEqual(bestIdsOf(satsuki, [cdmg()]), [18])
 })
 
 test('秋月型的 48 号要改造后形态才成立', () => {
   const kai = ship({ ctype: 54, kai: true, slotNum: 3 })
   const base = ship({ ctype: 54, kai: false, slotNum: 3 })
   const mount = () => equip({ mstId: 533, iconId: 16, antiAir: 11 }) // 10cm連装高角砲改+高射装置改
-  assert.deepEqual(idsOf(kai, [mount(), mount(), aaRadar(4)]), [48])
+  assert.deepEqual(idsOf(kai, [mount(), mount(), aaRadar(4)]), [48, 1, 2, 3])
+  assert.deepEqual(bestIdsOf(kai, [mount(), mount(), aaRadar(4)]), [48])
   assert.equal(idsOf(base, [mount(), mount(), aaRadar(4)]).includes(48), false)
 })
 

@@ -50,10 +50,16 @@ test('连开五格就扣五个，每一格各落一笔', () => {
   assert.equal(useitemLog().length, 5, '五格五笔——攒成一笔就说不清是哪一次开的')
 })
 
-test('已经开过的格不重复扣', () => {
+test('成功端点每次都扣：本地 slotEx 已滞后也不吞掉确定消费', () => {
   reset({ 7341: { mstId: 560, slotEx: -1 } }, { 64: 5 })
-  assert.deepEqual(feedOpenExslot(REAL_EXSLOT_POST), [])
-  assert.equal(useitems()[64], 5)
+  assert.deepEqual(feedOpenExslot(REAL_EXSLOT_POST), ['useitems'])
+  assert.equal(useitems()[64], 4)
+})
+
+test('中途启动认不出舰时仍按成功端点扣补强增设', () => {
+  reset({}, { 64: 1 })
+  assert.deepEqual(feedOpenExslot(REAL_EXSLOT_POST), ['useitems'])
+  assert.equal(useitems()[64], 0)
 })
 
 test('账上没有这件道具时不硬扣出负数，也不落空账', () => {

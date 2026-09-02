@@ -24,11 +24,20 @@
 //   · api_ctype 2 = 伊勢型：poi aapb.ts 注释；随包 kcwiki 装备加成表里 一式徹甲弾改
 //       的 `classes [2,6,19,26,37]` 对应日文原表那一行「金剛型…・扶桑型・伊勢型…」。
 //
-// 两票**不一致的一处**，照 poi 取舍并记在这里：wikiwiki 的 X 还加「装備ボーナスの
+// 有一处两边给的不一样，照 poi 取舍并记在这里：wikiwiki 的 X 还加「装備ボーナスの
 // 0.75倍」，poi 的素対空取「$ship 初始対空 + api_kyouka[2]」，不含任何装备加成。
-// 本模块随 poi 不含——要加得先有一份可信的逐舰装备加成，而那份加成自己还在逐条校正
-// （见 fit-bonus-corrections），拿它乘 0.75 只是把两层不确定叠一起。少掉的那截是
-// 装备加成的 0.75 倍，通常个位数。
+//
+// **2026-09-01 更正这一处的定性**：从前写成「两票不一致」，那不准确——这不是两家口径
+// 之争，是**一次有日期的游戏侧规格变更**加**一份过期的实现**：
+//   · wikiwiki「対空砲火」明写装備ボーナスの上昇分「2022/8/4アップデートで寄与する
+//     ようになりました」；
+//   · poi `views/utils/combat/aapb.ts` 文件头自记 `Last update Nov 27, 2021`，早于那次变更。
+// 所以 poi 在这一项上不是第二票，是过期；随它 ⇒ 系统性偏低，偏低量 =
+// 0.75 × Σ装備ボーナス(対空) ÷ 281 × 100，约每 3 点对空加成 ≈ 1 个百分点。
+//
+// **但取舍不变，代码不动**：要加得先有一份可信的逐舰装备加成，而那份加成自己还在逐条
+// 校正（见 fit-bonus-corrections），拿它乘 0.75 只是把两层不确定叠一起。这次只改这段
+// 定性措辞——把「两票不一致」这个错判据留在这里，日后有人会照它去找并不存在的第二票。
 //
 // wikiwiki 装备页另写「改修による発動率上昇は情報元のツイートが非公開となったため
 // 詳細不明」。不确定的是「一颗★换算成几个百分点」这句成品结论，不是系数本身——
@@ -75,6 +84,13 @@ export interface RocketBarrage {
   extraRocketBonus: number
   /** 伊勢型 +25 */
   iseBonus: number
+  /**
+   * 加重対空里由 ★ 贡献的那一截（Σ 改修係数 × √★，取整之前的原值）。
+   *
+   * 单独摘出来是给展示层判「这套配装的 ★ 到底动没动这个数」用的——电探那一档改修係数
+   * 是 0，插一根 ★10 电探照样是 0。发动率本身**已经**含了它，别再加一遍。
+   */
+  starContribution: number
 }
 
 /** 航空巡洋艦 / 航空戦艦 / 水上機母艦。三种空母走 kcs-domain 的 CARRIER_STYPES。 */
@@ -97,6 +113,16 @@ const equipWeightedAntiAir = (equip: RocketBarrageEquip): number => {
   return 0
 }
 
+/** 上面那一件里由 ★ 贡献的部分。两处必须同源，所以就地按同一批判据再取一次。 */
+const equipStarContribution = (equip: RocketBarrageEquip): number => {
+  const star = Math.sqrt(Math.max(0, equip.level))
+  if (star <= 0) return 0
+  if (isAAGun(equip)) return (equip.antiAir >= 8 ? 6 : 4) * star
+  if (isHighAngleMount(equip)) return (equip.antiAir >= 8 ? 3 : 2) * star
+  if (isAAFD(equip)) return 2 * star
+  return 0
+}
+
 /** 这艘舰在当前配装下的喷进弹幕发动率与构成明细。 */
 export const rocketBarrageOf = (
   ship: RocketBarrageShip,
@@ -113,6 +139,7 @@ export const rocketBarrageOf = (
     baseRate: null,
     extraRocketBonus: 0,
     iseBonus,
+    starContribution: 0,
   }
   if (!eligible || rocketCount === 0) return blank
 
@@ -127,5 +154,6 @@ export const rocketBarrageOf = (
     weightedAntiAir,
     baseRate,
     extraRocketBonus,
+    starContribution: equips.reduce((total, equip) => total + equipStarContribution(equip), 0),
   }
 }

@@ -382,12 +382,12 @@ const checkShips = (e: Exped, ships: PlayerShip[]): { rows: CheckRow[]; fails: n
       for (const req of branch.reqs) {
         if (req.wildcard) continue
         if (!req.types) {
-          branchRows.push({ mark: 'wait', text: `${esc(req.label)}（无法自动判定，见原文）`, cur: '' })
+          branchRows.push({ mark: 'wait', text: `${esc(req.label)}（判定资料缺失 · 见原文）`, cur: '' })
           continue
         }
         const { matched, ok, flagOk } = compReqStatus(req, view)
         let cur = `当前 <b>${matched}</b>`
-        if (req.homogeneous) cur += '（须同一舰种凑满，1+1 混搭不可）'
+        if (req.homogeneous) cur += '（同一舰种满足数量 · 不可 1+1 混搭）'
         if (req.flagship) cur += flagOk ? ' · 旗舰✓' : ' · 旗舰舰种不符'
         branchRows.push({
           mark: ok ? 'ok' : 'no',
@@ -414,12 +414,12 @@ const checkShips = (e: Exped, ships: PlayerShip[]): { rows: CheckRow[]; fails: n
         best.fails === 0
           ? {
               mark: 'ok',
-              text: `编成有 ${evaluated.length} 套可行口径，任一满足即可`,
+              text: `编成条件 ${evaluated.length} 组 · 满足任一组`,
               cur: `当前满足${tag}`,
             }
           : {
               mark: 'wait',
-              text: `编成有 ${evaluated.length} 套可行口径，都未满足`,
+              text: `编成条件 ${evaluated.length} 组 · 均未满足`,
               cur: '',
             },
       )
@@ -575,7 +575,7 @@ const slotsOf = (e: Exped): PlanSlot[] => {
     slots.unshift({ exped: e, role: '旗舰', flagship: true, accepts: (s) => s.lv >= flagLv })
   }
   while (slots.length < minShips) {
-    slots.push({ exped: e, role: '自由枠', flagship: false, accepts: () => true })
+    slots.push({ exped: e, role: '自由位', flagship: false, accepts: () => true })
   }
   return slots
 }
@@ -850,7 +850,7 @@ const jointPlanHtml = (current: Exped): string => {
         ${
           exped
             ? `<span class="jt-exp">${esc(`${exped.dispNo} ${expedName(exped)}`)}</span>
-               <button class="jt-x" data-joint-clear="${deck.id}" title="从联立里移除">×</button>`
+               <button class="jt-x" data-joint-clear="${deck.id}" title="从多队规划移除">×</button>`
             : '<span class="jt-none">未指定</span>'
         }
         <button class="jt-set${isCurrent ? ' on' : ''}" data-joint-set="${deck.id}"
@@ -859,7 +859,7 @@ const jointPlanHtml = (current: Exped): string => {
     })
     .join('')
 
-  let result = `<div class="jt-note">给两支以上空闲舰队各指定一条远征，这里一起凑</div>`
+  let result = `<div class="jt-note">多队合并规划 · 为两支以上空闲舰队指定远征</div>`
   if (assigned.length >= 2) {
     const plans = buildJointPlan(assigned)
     // 「这条要几个人」两处都要用，slotsOf 会重跑一遍条件解析——按舰队算一次收起来
@@ -879,14 +879,14 @@ const jointPlanHtml = (current: Exped): string => {
           .join('')
         const verdict =
           plan.picks.length < need
-            ? `<span class="pl-no">✗ 只凑到 ${plan.picks.length}/${need}</span>`
+            ? `<span class="pl-no">✗ 仅匹配 ${plan.picks.length}/${need}</span>`
             : plan.verdict.fails === 0
               ? '<span class="pl-ok">✓ 全条件满足</span>'
               : `<span class="pl-no">✗ 仍差 ${plan.verdict.fails} 项</span>`
         return `<div class="jt-plan">
           <div class="jt-plan-h"><b>第${plan.deck.id}舰队</b>
             <span>${esc(`${plan.exped.dispNo} ${expedName(plan.exped)}`)}</span>${verdict}</div>
-          <div class="jt-picks">${rows || '<span class="sub9">没有可用舰娘</span>'}</div>
+          <div class="jt-picks">${rows || '<span class="sub9">暂无可用舰娘</span>'}</div>
         </div>`
       })
       .join('')
@@ -899,14 +899,14 @@ const jointPlanHtml = (current: Exped): string => {
     //「这 3 支可以同时派出」和它上面三行「✗ 仍差 5 项」同框。
     const failing = plans.filter((p) => p.verdict.fails > 0)
     result += clash
-      ? '<div class="jt-note bad">方案里同一艘舰被派进了两支队，别照这份名单编成</div>'
+      ? '<div class="jt-note bad">方案不可用 · 存在舰娘冲突</div>'
       : shortfall.length
-        ? '<div class="jt-note bad">可用舰里凑不齐全部坑位。少派一队、或先解锁保护舰队</div>'
+        ? '<div class="jt-note bad">可用舰不足 · 减少并行舰队或解除舰队保护</div>'
         : failing.length
-          ? `<div class="jt-note bad">人是凑得出的，但${failing
-              .map((p) => `第${p.deck.id}舰队还差 ${p.verdict.fails} 项`)
-              .join('、')}。换成低门槛的远征、或少派一队再看</div>`
-          : `<div class="jt-note ok">这 ${plans.length} 支可以同时派出，条件全过、互不抢人。</div>`
+          ? `<div class="jt-note bad">可用舰足够但条件不足 · ${failing
+              .map((p) => `第${p.deck.id}舰队缺 ${p.verdict.fails} 项`)
+              .join('、')} · 选择低门槛远征或减少并行舰队</div>`
+          : `<div class="jt-note ok">${plans.length} 支可同时派出 · 条件满足 · 无舰娘冲突</div>`
   }
   return `<div class="sec"><div class="sec-h">多队联立<span class="aux">${free.length} 支舰队空闲</span></div>
     <div class="jt-slots">${slotRows}</div>
@@ -944,7 +944,7 @@ const planCardHtml = (e: Exped): string => {
   if (!plan) {
     return `<div class="sec"><div class="sec-h">推荐编队方案</div>
       ${plannerPrefsHtml()}
-      <div class="sub9">没有可用舰娘：可能在远征、入渠、大破，或被保护/排除了</div></div>`
+      <div class="sub9">暂无可用舰娘 · 远征、入渠、大破、舰队保护或手动排除</div></div>`
   }
   const { picks, verdict } = plan
   const drumNeed = e.wiki?.drumTotal ?? 0
@@ -970,9 +970,9 @@ const planCardHtml = (e: Exped): string => {
   const verdictLine =
     fails === 0
       ? `<span class="pl-ok">✓ 全条件满足</span>${
-          verdict.unknowns ? ` · <span class="sub9">另有 ${verdict.unknowns} 项无法自动判定，见条件原文</span>` : ''
+          verdict.unknowns ? ` · <span class="sub9">另有 ${verdict.unknowns} 项判定资料缺失 · 见条件原文</span>` : ''
         }`
-      : `<span class="pl-no">✗ 仍差 ${fails} 项</span> <span class="sub9">可用舰里凑不出</span>`
+      : `<span class="pl-no">✗ 缺 ${fails} 项</span> <span class="sub9">可用舰不足</span>`
   const drumLine = drumNeed
     ? `<div class="pl-note">运输桶需合计 ${drumNeed} · 库存 <b>${drums}</b>${
         drums >= drumNeed ? ' 够用 ✓' : ' <span class="pl-no">不足</span>'
@@ -982,7 +982,7 @@ const planCardHtml = (e: Exped): string => {
     ${plannerPrefsHtml()}
     <div class="pl-list">${rows}</div>
     <div class="pl-verdict">${verdictLine} · 闪光 <b>${kira}/${picks.length}</b>${
-      kira < picks.length ? '（大成功需全员闪光，可用演习/单场 MVP 补）' : ' 全员闪光 ✓'
+      kira < picks.length ? ' · 大成功需全员闪光 · 可用演习/单场 MVP 补' : ' 全员闪光 ✓'
     }</div>
     ${drumLine}
   </div>`
@@ -1092,7 +1092,7 @@ const fleetStatusHtml = (): string => {
   const decks = expeditionDecks()
   if (!decks.length) {
     return `<div class="gantt" aria-label="远征舰队状态">
-    <span class="g-empty">等待舰队数据（返港后刷新）</span>
+    <span class="g-empty">尚未同步舰队数据 · 返港后刷新</span>
   </div>`
   }
   // 紧凑态只留队号，状态移交悬停卡——三支队的数据是这块抬头最占地方的一段。
@@ -1354,12 +1354,12 @@ const expeditionHistoryHtml = (e: Exped): string => {
   // 后台换新完成后静默替换，不让面板塌一下。
   if (!report) {
     if (expeditionHistoryLoading.has(e.apiId)) {
-      return `<div class="sec"><div class="sec-h">远征记录</div><div class="sub9">正在读取本地结算记录……</div></div>`
+      return `<div class="sec"><div class="sec-h">远征记录</div><div class="sub9">本地结算记录读取中</div></div>`
     }
     // 读不出来 ≠ 没跑过。把故障说成「尚无记录」既是撒谎，也让人以为要再跑一次远征。
     if (expeditionHistoryFailed.has(e.apiId)) {
       return `<div class="sec"><div class="sec-h">远征记录</div>
-        <div class="sub9">结算记录读取失败，下次返港会再读一次</div></div>`
+        <div class="sub9">结算记录读取失败 · 返港后重试</div></div>`
     }
   }
   if (!report?.total) {
@@ -1389,7 +1389,7 @@ const expeditionHistoryHtml = (e: Exped): string => {
     : null
   const averageNetHtml = observedAverage
     ? `<div class="exp-h-net">
-        <div class="exp-h-net-head"><b>历史平均净收益</b><span>${supplyCost ? `按当前第${selectedDeck!.id}舰队补给成本估算` : '未选择舰队，仅显示实际总收益'}</span></div>
+        <div class="exp-h-net-head"><b>历史平均净收益</b><span>${supplyCost ? `按当前第${selectedDeck!.id}舰队补给成本估算` : '未选择舰队 · 仅显示实际总收益'}</span></div>
         <div class="exp-h-net-main">
           <span><small>成功时平均实际收益</small>${formatAverage(observedAverage)}</span>
           ${historicalNet ? `<span class="result"><small>扣除本队补给后</small>${formatAverage(historicalNet)}</span>` : ''}
@@ -1521,7 +1521,7 @@ const detailHtml = (e: Exped): string => {
       fails > 0
         ? `<b class="bad2">✗ 不可出发 — 差 ${fails} 项</b>`
         : unknowns > 0
-          ? `<b style="color:var(--warn)">✓ 可判定项全过 · ${unknowns} 项需对照原文</b>`
+          ? `<b style="color:var(--warn)">✓ 可判定项均满足 · ${unknowns} 项见原文</b>`
           : `<b style="color:var(--ok)">✓ 全条件满足</b>`
     checkSec = `<div class="sec">
       <div class="sec-h">条件检查<span class="sp"></span></div>
@@ -1535,11 +1535,11 @@ const detailHtml = (e: Exped): string => {
     const officialText = e.details
       ? `<div class="ck-row"><span class="mk wait">◌</span><span class="w">${esc(
           e.details.replace(/<br\s*\/?>/gi, ' '),
-        )}</span><span class="r">游戏自述原文</span></div>`
+        )}</span><span class="r">游戏条件原文</span></div>`
       : ''
     checkSec = `<div class="sec"><div class="sec-h">条件检查</div>
       ${officialText}
-      <div style="font-size:11.5px;color:var(--dim)">编成要求以上方游戏自述与游戏内提示为准</div></div>`
+      <div style="font-size:11.5px;color:var(--dim)">编成要求来源：游戏条件原文及游戏内提示</div></div>`
   }
 
   // 收益
@@ -1565,7 +1565,7 @@ const detailHtml = (e: Exped): string => {
           <span class="result">单次净值 燃${net.net[0]} / 弹${net.net[1]} / 钢${net.net[2]} / 铝${net.net[3]}</span>
           <span>折算每时 燃${net.hourly.fuel} / 弹${net.hourly.ammo} / 钢${net.hourly.steel} / 铝${net.hourly.baux}</span>
         </div>`
-      : '<div class="net-gain muted">所选舰队为空，暂时只能显示基础总收益。</div>'
+      : '<div class="net-gain muted">所选舰队为空 · 当前为基础总收益</div>'
     gainSec = `<div class="sec">
       <div class="sec-h">收益 <span class="aux">基础值 · 大成功 ×1.5（资源）</span></div>
       <div class="gains">
@@ -1575,8 +1575,8 @@ const detailHtml = (e: Exped): string => {
       ${netLine}
       <div class="gnote">
         ${items ? `奖励 <b>${items}</b> · ` : ''}${greatItems ? `大成功追加 <b class="up">${greatItems}</b> · ` : ''}
-        大発動艇 +5%/个（上限 20%）· 消费 燃料${Math.round(e.useFuel * 100)}% 弹药${Math.round(e.useBull * 100)}%。
-        净收益不计大发、内火艇与大成功加成。
+        大发动艇 +5%/个（上限 20%）· 消费 燃料${Math.round(e.useFuel * 100)}% 弹药${Math.round(e.useBull * 100)}% ·
+        净收益不计大发、内火艇与大成功加成
       </div>
     </div>`
   } else if (nativeRewardItems(e).length) {
@@ -1589,7 +1589,7 @@ const detailHtml = (e: Exped): string => {
 
   // 原文备注（条件复杂处以原文为准）
   const noteSec = w
-    ? `<div class="sec"><div class="sec-h">条件原文 <span class="aux">复杂条件以原文为准</span></div>
+    ? `<div class="sec"><div class="sec-h">条件原文 <span class="aux">复杂条件：见原文</span></div>
       <div style="font-size:11px;color:var(--sub);line-height:1.8;white-space:pre-line">${[
         w.composition ? `编成：${esc(w.composition)}` : '',
         w.escortText ? `要求：${esc(w.escortText)}` : '',
@@ -1632,7 +1632,7 @@ const detailHtml = (e: Exped): string => {
         ].join(' ｜ '),
       )}">源</span>
       <span class="credit-mark" style="margin-left:auto"
-        title="属性合计包含舰载机数值，可能与判定值略有差异">口径</span>
+        title="属性合计包含舰载机数值 · 与判定值口径不同">口径</span>
     </div>
     </div>`
 }
@@ -1668,7 +1668,7 @@ const expeditionQuestHtml = (e: Exped): string => {
     <div class="sec-h">进行中的任务</div>
     ${
       rows.join('') ||
-      '<div class="exp-quest-empty">当前没有已领取且明确要求这项远征的任务。</div>'
+      '<div class="exp-quest-empty">当前暂无已领取且明确要求该远征的任务</div>'
     }
   </div>`
 }
@@ -1680,7 +1680,7 @@ const render = () => {
   const expeds = allExpeds()
   if (!expeds.length) {
     forgetCommittedHtml(pane, 'bi') // 这一支绕开 commitPaneHtml，记忆不能留着
-    pane.innerHTML = '<div class="pane-waiting">等待游戏同步基础数据，进入母港后自动出现</div>'
+    pane.innerHTML = '<div class="pane-waiting">尚未同步基础数据 · 进入母港后显示</div>'
     return
   }
   let list = expeds
@@ -1808,7 +1808,7 @@ const render = () => {
 
   const resourceFocusHtml =
     state.resourceFocus != null && RESOURCE_FOCUS[state.resourceFocus]
-      ? `<div class="resource-focus">正在找：补充 <b>${entityTermHtml('material', state.resourceFocus, RESOURCE_FOCUS[state.resourceFocus].label)}</b> 的远征
+      ? `<div class="resource-focus">补充 <b>${entityTermHtml('material', state.resourceFocus, RESOURCE_FOCUS[state.resourceFocus].label)}</b> 的远征
               <span data-act="clear-resource-focus">清除</span></div>`
       : ''
 
@@ -1846,8 +1846,8 @@ const render = () => {
       <aside class="index">
         ${headHtml}
         ${fleetStatusHtml()}
-        <div class="elist">${list.map(listRowHtml).join('') || '<div style="padding:20px;color:var(--dim)">无匹配远征</div>'}</div>
-        <div class="index-foot">${referenceShips.length ? `按第${pickDeck()!.id}舰队满载补给估算 · 条件同队` : `显示每小时基础总收益 · 条件按${pickDeck() ? `第${pickDeck()!.id}舰队` : '—'}检查`}</div>
+        <div class="elist">${list.map(listRowHtml).join('') || '<div style="padding:20px;color:var(--dim)">暂无匹配远征</div>'}</div>
+        <div class="index-foot">${referenceShips.length ? `按第${pickDeck()!.id}舰队满载补给估算 · 条件同队` : `每小时基础总收益 · 按${pickDeck() ? `第${pickDeck()!.id}舰队` : '—'}检查条件`}</div>
       </aside>
       <main class="detail${detailWasOpen ? ' stable' : ''}">${selected ? detailHtml(selected) : ''}</main>
     </div>`

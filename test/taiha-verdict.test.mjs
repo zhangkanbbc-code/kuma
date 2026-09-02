@@ -166,8 +166,8 @@ const bannerFor = (indexes, count = 12, patch = {}) =>
 
 test('单舰队旗舰大破：说强制返航，不再让人去点不存在的撤退', () => {
   const html = bannerFor([0], 6)
-  assert.match(html, /旗舰我舰1大破 — 本战结束后将强制返航/)
-  assert.match(html, /没有进击选项/)
+  assert.match(html, /旗舰我舰1大破 · 本战结束后强制返航/)
+  assert.match(html, /无进击选项/)
   assert.match(html, /强制返航<\/span>/)
   // 游戏这时根本不给进击选项，红条那套劝退措辞在这儿是错的
   assert.doesNotMatch(html, /请选择撤退|建议撤退|继续前进可能被击沉/)
@@ -176,13 +176,13 @@ test('单舰队旗舰大破：说强制返航，不再让人去点不存在的�
 
 test('旗舰大破且同场还有别人：其余大破舰照样列名', () => {
   const html = bannerFor([0, 3], 6)
-  assert.match(html, /旗舰我舰1、我舰4 大破 — 本战结束后将强制返航/)
+  assert.match(html, /旗舰我舰1、我舰4 大破 · 本战结束后强制返航/)
 })
 
 test('只有联合二队旗舰大破：说她不会被击沉，不是红色警告', () => {
   const html = bannerFor([6])
   assert.match(html, /二队旗舰我舰7大破/)
-  assert.match(html, /她不会被击沉，可以继续进击/)
+  assert.match(html, /无击沉风险/)
   assert.match(html, /verdict v-warn/)
   assert.doesNotMatch(html, /请选择撤退|verdict v-red/)
 })
@@ -190,7 +190,7 @@ test('只有联合二队旗舰大破：说她不会被击沉，不是红色警�
 test('联合二队旗舰 + 一队僚舰同时大破：红条只列僚舰', () => {
   const html = bannerFor([2, 6])
   assert.match(html, /verdict v-red/)
-  assert.match(html, /我舰3 大破 — 请选择撤退！/)
+  assert.match(html, /我舰3 大破 · 击沉风险/)
   // 二队旗舰不会轰沉，把她写进「可能被击沉」就是错的决策信息
   assert.doesNotMatch(html, /我舰7/)
 })
@@ -198,7 +198,7 @@ test('联合二队旗舰 + 一队僚舰同时大破：红条只列僚舰', () =>
 test('单舰队第七位大破照旧是红条：遊撃部隊没有第二队', () => {
   const html = bannerFor([6], 7)
   assert.match(html, /verdict v-red/)
-  assert.match(html, /我舰7 大破 — 请选择撤退！/)
+  assert.match(html, /我舰7 大破 · 击沉风险/)
 })
 
 test('旗舰带女神时回到红条：这时真有得选', () => {
@@ -206,14 +206,14 @@ test('旗舰带女神时回到红条：这时真有得选', () => {
   fShips[0] = { ...fShips[0], hpEnd: 5, equipment: [{ mstId: 43, slot: 'ex' }] }
   const html = renderAlertBanner(sortieOf({ battle: battleOf({ fShips }) }))
   assert.match(html, /verdict v-red/)
-  assert.match(html, /我舰1 大破 — 请选择撤退！/)
+  assert.match(html, /我舰1 大破 · 击沉风险/)
   assert.doesNotMatch(html, /强制返航/)
 })
 
 test('Boss 战后一切降为战损陈述，分档不抢它的优先级', () => {
   const html = bannerFor([0], 6, { bossCell: 1, currentCell: 1 })
   assert.match(html, /Boss 战结束：我舰1 大破/)
-  assert.match(html, /本节点没有继续进击选择/)
+  assert.match(html, /本节点无进击选项/)
   assert.doesNotMatch(html, /强制返航|请选择撤退/)
 })
 
@@ -227,8 +227,8 @@ test('报文给了退避 offer：联合编成说护卫退避', () => {
   const html = dangerBannerWith(offerOf([2], [3]))
   assert.match(html, /继续前进可能被击沉 · 可下达护卫退避/)
   // 标题与角标不变，只有副行多说一句
-  assert.match(html, /我舰3 大破 — 请选择撤退！/)
-  assert.match(html, /建议撤退<\/span>/)
+  assert.match(html, /我舰3 大破 · 击沉风险/)
+  assert.match(html, />撤退<\/span>/)
 })
 
 test('报文给了退避 offer：单舰队说单舰退避', () => {
@@ -251,12 +251,12 @@ test('强制返航与二队旗舰两档不挂退避提示：那两档不是在�
   const forced = renderAlertBanner(
     sortieOf({ battle: { ...battleWithTaiha([0], 7), result: offerOf([0]) } }),
   )
-  assert.match(forced, /本战结束后将强制返航/)
+  assert.match(forced, /本战结束后强制返航/)
   assert.doesNotMatch(forced, /可下达/)
   const guarded = renderAlertBanner(
     sortieOf({ battle: { ...battleWithTaiha([6]), result: offerOf([6]) } }),
   )
-  assert.match(guarded, /她不会被击沉，可以继续进击/)
+  assert.match(guarded, /无击沉风险/)
   assert.doesNotMatch(guarded, /可下达/)
 })
 

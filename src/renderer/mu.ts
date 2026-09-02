@@ -476,7 +476,7 @@ const buildOverlay = () => {
   overlayHost.id = 'overlay-host'
   overlayHost.innerHTML = `<div class="ov-back"></div>
     <div class="ov-panel">
-      <div class="ov-head"><span class="ov-tabs"></span><span class="ov-x" title="关闭 (Esc)">✕</span></div>
+      <div class="ov-head"><span class="ov-tabs"></span><span class="ov-x" title="关闭（Esc）">✕</span></div>
       <div class="ov-body"></div>
     </div>`
   document.body.appendChild(overlayHost)
@@ -682,7 +682,7 @@ const buildRail = () => {
       tile.hidden = !moduleVisible(mod.id)
       tile.title = isOverlay(mod.id)
         ? `${name}\n单击弹出`
-        : `${name}\n单击切换，显示中再点=收起这一个模块 · 右键调整位置`
+        : `${name}\n单击切换显示 · 右键调整位置`
       tile.addEventListener('click', () => {
         if (isOverlay(mod.id)) {
           openOverlay(mod.id) // openOverlay 自带开关语义
@@ -884,7 +884,7 @@ const mountModule = (mod: KansoModule, pane: HTMLElement): boolean => {
     box.innerHTML =
       `<b>${escapeText(mod.title)} 装配失败</b>` +
       `<p>${escapeText(message)}</p>` +
-      `<small>其余模块不受影响。重试仍失败可在「设置 · 运行诊断」查看 crash.log</small>`
+      `<small>可重试 · 仍失败时打开「设置 · 运行诊断」查看 crash.log</small>`
     const retry = document.createElement('button')
     retry.textContent = '重试装配'
     retry.addEventListener('click', () => {

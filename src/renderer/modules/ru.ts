@@ -12,12 +12,13 @@ import {
 import {
   detectFleetSpecialAttacks,
   type FleetSpecialAttack,
+  type FleetSpecialAttackShip,
   type FleetSpecialAttackRole,
 } from '../../shared/fleet-special-attack'
 import {
+  bestShipAacis,
   openingAswOf,
   shipAaciCeiling,
-  shipAacis,
   type SpecialAbilityEquip,
   type SpecialAbilityShip,
 } from '../../shared/ship-special-attack'
@@ -75,9 +76,11 @@ import {
 import { activeEventTpRuleOf, eventTpTableOf } from '../../shared/event-tp-rules'
 import {
   estimatedCond,
+  FATIGUE_FULL_COND,
   FATIGUE_READY_COND,
   fatigueBand,
   fatigueReadyTs,
+  fleetFatigueEta,
   observedCond,
 } from '../fatigue'
 import { equipTypeIconHtml } from '../equip-icon'
@@ -117,6 +120,16 @@ import {
   type DeckBuilderDeck,
 } from '../../shared/deck-builder'
 import { saveTextFile, stampedFileName } from '../csv-export'
+import { fleetLosCorrectionOf, fleetLosScoreOf } from '../../shared/day-spotting'
+import {
+  fleetHasSearchlight,
+  procRateGroupsOf,
+  procRatesOf,
+  type ProcRateEntry,
+  type ProcRateEquip,
+  type ProcRateGroupView,
+  type ProcRateShip,
+} from '../../shared/special-proc-rate'
 
 import type { QpFleetCheck } from '../../shared/qp-types'
 
@@ -475,7 +488,7 @@ const noteLoadFailure = (kind: LoadKind, error: unknown) => {
 const loadFailHtml = (): string =>
   loadFailed.size
     ? `<span data-ru-retry style="margin-left:10px;color:var(--bad);cursor:pointer"
-        title="点一下重试">${[...loadFailed]
+        title="单击重试">${[...loadFailed]
         .map((kind) => LOAD_FAIL_LABEL[kind])
         .join('、')}读取失败 · 重试</span>`
     : ''
@@ -529,12 +542,12 @@ const TC_PLACEMENT_LABEL: Record<string, string> = {
 // 静态参考，不给数字——每场经验按敌编成浮动，没打过就没有诚实的数；
 // 这些图攒满样本后会自动出现在上面的实测行里。
 const COMMUNITY_LEVELING_SPOTS = [
-  '5-2 B/C 空袭点 · 旗舰固定 MVP，高效低耗',
-  '5-3 夜战点 · 中小型船性价比最高之一',
-  '7-1 反潜 · 小船低耗高经验',
-  '4-4 全图四战 · 可稳定周回',
-  '3-5 B-F 两战 · 高耗高收益',
-  '1-5 / 4-5 / 5-5 反潜 · 小船低耗',
+  '5-2 B/C 空袭点 · 旗舰固定 MVP',
+  '5-3 夜战点 · 中小型舰',
+  '7-1 反潜',
+  '4-4 全图四战',
+  '3-5 B-F 两战',
+  '1-5 / 4-5 / 5-5 反潜',
 ]
 
 const expRunsHtml = (deck: Deck, need: number, ship: PlayerShip): string => {
@@ -578,7 +591,7 @@ const expRunsHtml = (deck: Deck, need: number, ship: PlayerShip): string => {
     .slice(0, 6)
     .map(
       (row) =>
-        `${label(row)}：约 ${runs(need, row.p75, factorOf(row))}~${runs(need, row.p25, factorOf(row))} 场（中位 ${runs(need, row.median, factorOf(row))}）`,
+        `${label(row)}：估算 ${runs(need, row.p75, factorOf(row))}~${runs(need, row.p25, factorOf(row))} 场（中位 ${runs(need, row.median, factorOf(row))}）`,
     )
     .join('\n')
   const adjustments = [
@@ -590,9 +603,9 @@ const expRunsHtml = (deck: Deck, need: number, ship: PlayerShip): string => {
   // 数据行在前，方法论压成末尾一行「口径」——玩家每次要看的是场次和点位，
   // 换算方法看一遍就够（2026-08-19 用户点的调整：方法论每次都占一屏是冗余）
   const title = [
-    `${label(primary)}：多数情况 ${span} 场，中位 ${mid} 场。`,
+    `${label(primary)}：四分位 ${span} 场 · 中位 ${mid} 场`,
     adjustments.join(' · '),
-    others ? `\n其它常打的通常图点位：\n${others}` : '',
+    others ? `\n其他常用通常图点位：\n${others}` : '',
     `\n社区常用练级点：\n${COMMUNITY_LEVELING_SPOTS.join('\n')}`,
     `\n四分位 ${primary.p25}~${primary.p75} · 中位 ${primary.median} · ${primary.samples} 舰次 · 单场随敌编成浮动`,
   ]
@@ -617,10 +630,10 @@ const levelGapExpHtml = (deck: Deck, ship: PlayerShip, targetLevel: number): str
     targetLevel,
   )
   if (need == null) {
-    return `<span class="sd-exp dim" title="${esc(`还没有 Lv${targetLevel} 的经验数据`)}">经验待补</span>`
+    return `<span class="sd-exp dim" title="${esc(`暂无 Lv${targetLevel} 的经验数据`)}">经验资料暂缺</span>`
   }
   if (need <= 0) return ''
-  return `<span class="sd-exp">约 <b>${need.toLocaleString()}</b> 经验</span>${expRunsHtml(deck, need, ship)}`
+  return `<span class="sd-exp">估算 <b>${need.toLocaleString()}</b> 经验</span>${expRunsHtml(deck, need, ship)}`
 }
 
 // 下一改装（06 稿）：等级差 + 图纸需求（kcwiki 单基准）+ 直达图鉴改装链
@@ -663,7 +676,7 @@ const nextRemodelHtml = (deck: Deck, ship: PlayerShip) => {
     .join('')
   return `<div class="sd-foot">
     下一改装：<b>${entityNameHtml('ship', next.shipId, next.name, { compact: true })}</b> · Lv${next.level}
-    ${gap > 0 ? `<span class="sd-gap">还差 ${gap} 级</span>${levelGapExpHtml(deck, ship, next.level)}` : '<span class="sd-ok">等级已够 ✓</span>'}
+    ${gap > 0 ? `<span class="sd-gap">距改造等级 ${gap} 级</span>${levelGapExpHtml(deck, ship, next.level)}` : '<span class="sd-ok">等级已满足 ✓</span>'}
     ${
       needChips
         ? ` · <span class="sd-needs">消耗${needChips}</span>`
@@ -680,13 +693,23 @@ const specialAttackRole = (deck: Deck): FleetSpecialAttackRole => {
   return deck.id === 3 && fleetShips(deck).length === 7 ? 'strike' : 'normal'
 }
 
+const fleetSpecialAttackShipOf = (ship: PlayerShip): FleetSpecialAttackShip => {
+  const master = mg.master.ships[ship.shipId]
+  return {
+    name: master?.name ?? '',
+    stype: master?.stype ?? 0,
+    lv: ship.lv,
+    luck: ship.lucky,
+    hp: ship.nowhp,
+    hpMax: ship.maxhp,
+    equipment: procRateEquipsOf(ship),
+  }
+}
+
 const flagshipSpecialAttacks = (deck: Deck): FleetSpecialAttack[] =>
   detectFleetSpecialAttacks({
     role: specialAttackRole(deck),
-    ships: fleetShips(deck).map((ship) => ({
-      name: mg.master.ships[ship.shipId]?.name ?? '',
-      stype: mg.master.ships[ship.shipId]?.stype ?? 0,
-    })),
+    ships: fleetShips(deck).map(fleetSpecialAttackShipOf),
   })
 
 const specialAttackChipsHtml = (deck: Deck): string =>
@@ -739,7 +762,7 @@ const shipAbilityChipsHtml = (ship: PlayerShip): string => {
   const equips = abilityEquipsOf(ship)
   const chips: string[] = []
 
-  const aacis = shipAacis(subject, equips)
+  const aacis = bestShipAacis(subject, equips)
   if (aacis.length) {
     const best = Math.max(...aacis.map((aaci) => aaci.fixed))
     const ceiling = shipAaciCeiling(subject)
@@ -749,7 +772,7 @@ const shipAbilityChipsHtml = (ship: PlayerShip): string => {
         (aaci) =>
           `类型 ${aaci.id}：${aaci.condition}\n　适用 ${aaci.scope} · 固定击坠 ${aaci.fixed} · 加成 ×${aaci.modifier}`,
       ),
-      ceiling > best ? `这艘舰最高能到固定击坠 ${ceiling}，当前配装只到 ${best}` : '',
+      ceiling > best ? `舰型固定击坠上限 ${ceiling} · 当前配装 ${best}` : '',
     ]
       .filter(Boolean)
       .join('\n')
@@ -768,11 +791,168 @@ const shipAbilityChipsHtml = (ship: PlayerShip): string => {
       '可先制对潜（开幕对潜）',
       `依据：${oasw.basis}`,
       `当前对潜 ${subject.asw}`,
-      '该点有潜水舰时才打得出来',
+      '仅在潜水舰存在时发动',
     ].join('\n')
     chips.push(`<span class="ability-chip oasw" title="${esc(title)}">先制对潜</span>`)
   }
   return chips.join('')
+}
+
+// ---- 特殊效果发动概率（展开区的金框 pill）----
+//
+// 条目与置信度来自 shared/special-proc-rate。
+// 整排按实测宽度折叠；明细浮层挂在 body 上以避开面板裁切。
+
+/** 收纳态那一枚上的字。 */
+const PROC_RATE_FOLD_LABEL = '特殊效果发动概率'
+/** 悬停/钉住卡的标题。「推测」在标题上一次到位，逐行不再重复。 */
+const PROC_RATE_CARD_TITLE = '估算发动概率'
+/** 滞回死区：只吃亚像素与滚动条那一档的来回（同 METRICS_FOLD_HYSTERESIS） */
+const PROC_RATE_FOLD_HYSTERESIS = 6
+
+const procRateEquipsOf = (ship: PlayerShip): ProcRateEquip[] => {
+  const equips: ProcRateEquip[] = []
+  const ids = [...ship.slot, ship.slotEx]
+  ids.forEach((instId, index) => {
+    if (instId <= 0) return
+    const inst = mg.slotitems[instId]
+    const mst = inst ? mg.master.slotitems[inst.mstId] : undefined
+    if (!inst || !mst) return
+    equips.push({
+      mstId: inst.mstId,
+      type2: mst.type2,
+      iconId: mst.iconId,
+      name: mst.name,
+      antiAir: mst.tyku,
+      asw: mst.tais,
+      los: mst.saku,
+      houm: mst.houm,
+      saku: mst.saku,
+      largeSearchlight: mst.type2 === 42,
+      surfaceRadar: (mst.type2 === 12 || mst.type2 === 13) && mst.saku >= 5,
+      level: inst.level || 0,
+      // 搭载数取**当前**实际值：弾着観測射撃的前提之一是这一格搭载数 ≥1，
+      // 被打光的那一格就是发动不了。补强增设格（ids 的最后一位）落在 onslot 之外，
+      // 恒 0——它本来也装不了水侦。
+      planeCount: index < ship.onslot.length ? (ship.onslot[index] ?? 0) : 0,
+    })
+  })
+  return equips
+}
+
+const procRateShipOf = (ship: PlayerShip, flagship: boolean): ProcRateShip | null => {
+  const master = mg.master.ships[ship.shipId]
+  if (!master) return null
+  return {
+    mstId: ship.shipId,
+    name: master.name,
+    stype: master.stype,
+    ctype: master.ctype,
+    slotNum: master.slotNum,
+    kai: master.kai,
+    asw: ship.taisen,
+    level: ship.lv,
+    luck: ship.lucky,
+    hp: ship.nowhp,
+    hpMax: ship.maxhp,
+    flagship,
+    // 素対空要的是「不含装备」那个值：主数据初始対空 + 近代化改修
+    //（口径见 aa-rocket-barrage；拿面板対空减装备是反推，会把装备加成留在里面）
+    baseAntiAir: (master.baseTyku ?? 0) + (ship.kyouka[2] ?? 0),
+    equipment: procRateEquipsOf(ship),
+  }
+}
+
+/**
+ * 舰队级输入：艦隊索敵補正与「同队有没有探照灯」。
+ *
+ * 按**还在场的人**算，与抬头的制空/索敌33 同一口径（退避舰之后的节点不参战，
+ * 把她算进去等于给玩家看一支已经不存在的舰队）。
+ */
+const procRateFleetOf = (deck: Deck) => {
+  const ships = engagedShips(scopeShips(deck))
+  const equips = ships.map(procRateEquipsOf)
+  const losScore = fleetLosScoreOf(
+    ships.map((ship, index) => ({
+      // 素索敵 = 面板索敵逐件减回装備索敵（同 shared/fleet-los33 的「舰娘裸装索敌」）
+      baseLos: Math.max(
+        0,
+        ship.sakuteki - equips[index].reduce((sum, item) => sum + item.los, 0),
+      ),
+      equipment: equips[index],
+    })),
+  )
+  return {
+    losCorrection: fleetLosCorrectionOf(losScore),
+    searchlight: fleetHasSearchlight(equips),
+    role: specialAttackRole(deck),
+    ships: fleetShips(deck).map(fleetSpecialAttackShipOf),
+  }
+}
+
+/** pill 脸上那个数。置信度不够时是「?」——不是 0，也不是留白。 */
+const procRateFaceOf = (entry: ProcRateEntry): string =>
+  entry.rate === null ? '?' : `${entry.rate.toFixed(0)}%`
+
+const procRatePillHtml = (view: ProcRateGroupView): string => {
+  const entry = view.primary
+  return `<span class="pr-pill${entry.rate === null ? ' pr-unknown' : ''}" data-prkey="${esc(entry.id)}"
+    data-tip-title="${esc(`${entry.label} · ${PROC_RATE_CARD_TITLE}`)}"
+    data-tip="${esc(view.detail.join('\n'))}">${esc(entry.label)} <b>${procRateFaceOf(entry)}</b></span>`
+}
+
+const procRatesHtml = (deck: Deck, ship: PlayerShip): string => {
+  // 旗舰补正只认**各自舰队**的第一位：联合编成里第二舰队也有自己的旗舰
+  //（同 renderer/combat-forecast 的 friendlyShip）
+  const flagship = scopeFleets(deck).some((fleet) => fleet[0]?.id === ship.id)
+  const subject = procRateShipOf(ship, flagship)
+  if (!subject) return ''
+  const entries = procRatesOf(subject, procRateFleetOf(deck))
+  const groups = procRateGroupsOf(entries)
+  // 一条都发动不了的舰**什么都不多**：这一排本身就是「她能干什么」的答案
+  if (!groups.length) return ''
+  const foldTip = groups.flatMap((group) => group.foldLines).join('\n')
+  return `<div class="proc-rates" data-proc-fold>${groups
+    .map(procRatePillHtml)
+    .join('')}<span class="pr-pill pr-all pr-folded"
+      data-tip-title="${esc(PROC_RATE_CARD_TITLE)}"
+      data-tip="${esc(foldTip)}">${PROC_RATE_FOLD_LABEL}</span></div>`
+}
+
+/** 上一拍这一排收没收（滞回用）。键是舰娘 roster id——每一行各自量各自的。 */
+const procRateFolded = new Map<string, boolean>()
+
+/**
+ * 量一次、算一遍、整排收或整排放。
+ *
+ * 与 foldMetricsRow 同族：测量前先全部摊开，一次批量读宽度，不做「收一枚量一次」的
+ * 反复回流。行宽为 0 = 这一块还没显示（模块没激活 / 坞没展开），那时量出来的结论
+ * 是「全都放不下」，会把整排白收掉——不知道就先不动。
+ */
+const foldProcRateRow = (row: HTMLElement) => {
+  const pills = [...row.querySelectorAll<HTMLElement>('.pr-pill[data-prkey]')]
+  const all = row.querySelector<HTMLElement>('.pr-all')
+  if (!pills.length || !all) return
+  const avail = contentWidthOf(row)
+  if (avail <= 0) return
+  const key = row.closest<HTMLElement>('.ship')?.dataset.ship ?? ''
+  const wasFolded = procRateFolded.get(key) ?? false
+  for (const pill of pills) pill.classList.remove('pr-folded')
+  all.classList.remove('pr-folded')
+  const gap = parseFloat(getComputedStyle(row).columnGap) || 0
+  const width = pills.reduce((sum, pill) => sum + pill.getBoundingClientRect().width, 0)
+  // 亚像素余量 0.5：宽度是小数，别为 0.2px 白收掉整排。
+  // 滞回只在「上一拍收着、这一拍想摊开」的方向上加码——收起来则一到放不下就收，
+  // 两个阈值差出一条死区，临界宽度上不会来回翻。
+  const need = width + gap * Math.max(0, pills.length - 1) + (wasFolded ? PROC_RATE_FOLD_HYSTERESIS : 0)
+  const folded = need > avail + 0.5
+  for (const pill of pills) pill.classList.toggle('pr-folded', folded)
+  all.classList.toggle('pr-folded', !folded)
+  procRateFolded.set(key, folded)
+}
+
+const foldProcRates = (root: HTMLElement) => {
+  root.querySelectorAll<HTMLElement>('.proc-rates[data-proc-fold]').forEach(foldProcRateRow)
 }
 
 /**
@@ -799,6 +979,7 @@ const shipDetailHtml = (deck: Deck, ship: PlayerShip): string => {
     .join('')
   return `<div class="sd-eq">${detailRows || '<div class="sd-row" style="color:var(--dim)">暂无装备数据（返港后同步）</div>'}</div>
       ${shipStatsHtml(deck, ship)}
+      ${procRatesHtml(deck, ship)}
       ${repairQuoteHtml(ship)}
       ${nextRemodelHtml(deck, ship)}`
 }
@@ -821,6 +1002,11 @@ const fillShipDetail = (row: HTMLElement, rosterId: number) => {
     : mg.decks.find((d) => d.ships.includes(rosterId))
   if (!deck) return
   host.innerHTML = shipDetailHtml(deck, ship)
+  // 发动概率那一排的收纳要赶在 .open 的展开过渡开始之前定下来，否则会先看见
+  // 平铺溢出、下一帧才缩——那一下就是闪跳（同 render 里 foldMetrics 的位置）。
+  // 此刻这一行还没加 .open，但 .ship-detail 收起态与展开态的**横向** padding 一样，
+  // 量到的可用宽与展开后一致。
+  foldProcRates(host)
 }
 
 // 已经见过谁退避了。**只为动画服务**：退场态本身完全从 sortie 状态推导，
@@ -1171,40 +1357,40 @@ const sallyFlagHtml = (ships: PlayerShip[]): string => {
   // 按札分组的完整名单**铎里已经有了**，这里不重复列，只说这支队特有的那件事：
   // 有几艘无札的会被打札（不可逆），以及现在有几张图在查。
   const guide = eventGuideUrl()
-  const roster = '\n按札分组的完整名单见「活动」。'
+  const roster = '\n按札分组的完整名单见「活动」'
   // 取不到地址就整句不出——宁可少说一句，也不留一条送人去上期页面的死链
   const judge = guide
     ? `\n攻略表：${guide}`
     : ''
   const willTag = verdict.untagged
-    ? `\n${verdict.untagged} 艘无札 · 出击后会被打札，不可逆`
+    ? `\n${verdict.untagged} 艘无札 · 出击后永久打札`
     : ''
   const tail = verdict.untagged ? ` · ${verdict.untagged} 艘将被打札` : ''
 
   if (verdict.kind === 'checking') {
     return `<span class="ab-flag warn" data-sally-jump="1" title="${esc(
-      `${verdict.enforcing.map(mapCodeOf).join('、')} 正在查札。${willTag}\n${detail}${roster}${judge}`,
-    )}">${verdict.enforcing.length} 张图在查札${tail}</span>`
+      `札限制检查中：${verdict.enforcing.map(mapCodeOf).join('、')}${willTag}\n${detail}${roster}${judge}`,
+    )}">${verdict.enforcing.length} 张图札限制检查中${tail}</span>`
   }
   if (verdict.kind === 'unknown') {
     return `<span class="ab-flag warn" data-sally-jump="1" title="${esc(
-      `进一次活动海域选择页即可同步${willTag}${roster}${judge}`,
+      `札限制尚未同步 · 打开游戏活动海域选择页${willTag}${roster}${judge}`,
     )}">札限制未知${tail}</span>`
   }
   if (verdict.kind === 'free') {
     return `<span class="ab-flag ok" data-sally-jump="1" title="${esc(
-      `现在开着的活动图都不查札，这支队不受限：\n${detail}${roster}`,
+      `当前活动海域均无札限制 · 本队不受限\n${detail}${roster}`,
     )}">当前不查札</span>`
   }
   // 措辞用户 2026-08-11 点名要显化成整句;「期间限定」在直译黑名单里,
   // 按面板一贯口径写「限时活动海域」
   return `<span class="ab-flag warn" data-sally-jump="1" title="${esc(
-    `${verdict.all ? '全队都还没有札' : `${verdict.untagged} 艘还没有札`}` +
-      ` · 出击活动图后会被打札，不可逆${roster}`,
+    `${verdict.all ? '全队无札' : `${verdict.untagged} 艘无札`}` +
+      ` · 出击活动图后永久打札${roster}`,
   )}">${
     verdict.all
-      ? '全队未打札：出击限时活动海域将会被打札'
-      : `未打札的 ${verdict.untagged} 艘出击限时活动海域将会被打札`
+      ? '全队未打札 · 出击限时活动海域后永久打札'
+      : `${verdict.untagged} 艘未打札 · 出击限时活动海域后永久打札`
   }</span>`
 }
 
@@ -1308,7 +1494,7 @@ const verdictHtml = (deck: Deck) => {
     const sparkled = ships.length > 0 && ships.every((ship) => ship.cond >= 49)
     return `<div class="verdict ok"><span class="ic">✓</span>
       <span class="tx"><b>可以出击</b><span>全员就绪 · 补给满 · ${
-        sparkled ? '<b style="color:var(--gold)">状态已满</b>' : '无疲劳'
+        sparkled ? '<b style="color:var(--gold)">补给与士气已满</b>' : '无疲劳'
       }</span></span>${flags}</div>`
   }
   const readyAt = readyTs.length ? Math.max(...readyTs) : 0
@@ -1488,17 +1674,17 @@ const warnOnEventMapOpen = (areaId: number, ts: number): void => {
   if (!parts.length && !airBaseParts.length) return
   lastSallyCue = ts
   const detail = [
-    parts.length ? `${parts.join('、')} · 进去就会被打札` : '',
+    parts.length ? `${parts.join('、')} · 出击后永久打札` : '',
     airBaseParts.length ? airBaseParts.join('、') : '',
   ]
     .filter(Boolean)
     .join('；')
   showSortieReadinessToast(
     parts.length
-      ? '这是活动图：出击就会打札'
+      ? '活动海域 · 出击后永久打札'
       : eventArea
-        ? '这是活动图：基地航空队未就绪'
-        : '这个海区的基地航空队未就绪',
+        ? '活动海域 · 基地航空队未就绪'
+        : '当前海区 · 基地航空队未就绪',
     detail,
     1,
     false,
@@ -1632,7 +1818,7 @@ const airBaseViewHtml = (): string => {
   if (!bases.length) {
     return `<div class="ab-empty-state">
       <b>尚未同步基地航空队</b>
-      <span>请在游戏里打开一次出击海域选择页。</span>
+      <span>打开游戏出击海域选择页</span>
     </div>`
   }
   const byArea = new Map<number, AirBaseSquad[]>()
@@ -1970,7 +2156,7 @@ const airBaseHeaderHtml = (): string => {
   const red = bases.filter((squad) => squad.planes.some((plane) => plane.slotId > 0 && plane.cond >= 3)).length
   return `<div class="fleet-head airbase-head">
     <div class="fleet-ident"><b>基地航空队</b><small>${
-      mg.airBasesTs ? `同步于 ${fmtTime(mg.airBasesTs)}` : '等待游戏页面同步'
+      mg.airBasesTs ? `同步于 ${fmtTime(mg.airBasesTs)}` : '基地航空队尚未同步'
     }</small></div>
     ${metricsRowHtml('airbase', AIR_BASE_METRIC_FOLD_ORDER, [
       `<span class="mchip" data-mkey="areas">海域 <b>${areas}</b></span>`,
@@ -2054,7 +2240,7 @@ const metricsHtml = (deck: Deck) => {
         `${tpRule.scopeNote}\n` +
         `通用口径同队为 S ${tpGeneral.s} / A ${tpGeneral.a}（本图不适用）\n` +
         `B 胜及以下不结算`
-      : `运输量（TP）：S 胜 ${tp.s} / A 胜 ${tp.a}（= S×0.7 向下取整）· B 胜及以下不结算`) +
+      : `运输量（TP）：S 胜 ${tp.s} / A 胜 ${tp.a} · A 胜 = S 胜 ×0.7 向下取整 · B 胜及以下不结算`) +
     (tp.excludedShips ? `\n⚠ ${tp.excludedShips} 艘舰娘大破 · 到达扬陆点时大破的舰娘及其装备一律不计` : '')
 
   // 芯片顺序 = 摆出来的顺序；**收纳顺序**另有一份（FLEET_METRIC_FOLD_ORDER），
@@ -2108,7 +2294,7 @@ const fleetTabsHtml = (activeId: number) =>
         <span class="d ${warning ? 'warn' : 'air'}"></span>${entityTermHtml('fleet', AIR_BASE_TAB_ID, '基地航空队')}<span class="t">${bases.length}队</span></div>`
     })()}${(() => {
       const picked = sandboxDeck().ships.length
-      return `<div class="ftab sandbox${activeId === SANDBOX_TAB_ID ? ' on' : ''}" data-deck="${SANDBOX_TAB_ID}" title="试搭一套编成看指标">
+      return `<div class="ftab sandbox${activeId === SANDBOX_TAB_ID ? ' on' : ''}" data-deck="${SANDBOX_TAB_ID}" title="临时编成指标">
         <span class="d sand"></span>沙盘${picked ? `<span class="t">${picked}/${SANDBOX_CAP}</span>` : ''}</div>`
     })()}${(() => {
       // 泊地修理排在沙盘之后（2026-08-26 用户定的位置）
@@ -2161,7 +2347,7 @@ const sandboxPickerHtml = (): string => {
     .map((ship) => {
       const name = masterShipName(ship.shipId)
       const full = picked.size >= SANDBOX_CAP
-      return `<button class="sand-cand${full ? ' full' : ''}" data-sandbox-add="${ship.id}"${full ? ' disabled title="编成已满，先移除一艘"' : ''}>
+      return `<button class="sand-cand${full ? ' full' : ''}" data-sandbox-add="${ship.id}"${full ? ' disabled title="编成已满 · 移除一艘后可添加"' : ''}>
         ${shipThumbHtml(ship.shipId, name, {
           className: 'table',
           damaged: shipArtDamaged(ship.nowhp, ship.maxhp), // 与编成表同一档：同一艘舰两处不能一破一好
@@ -2174,7 +2360,7 @@ const sandboxPickerHtml = (): string => {
     .ships.map((rosterId) => {
       const ship = mg.ships[rosterId]
       const name = masterShipName(ship.shipId)
-      return `<button class="sand-chosen" data-sandbox-remove="${rosterId}" title="点击移出编成">
+      return `<button class="sand-chosen" data-sandbox-remove="${rosterId}" title="移出编成">
         ${esc(entityNamePlain('ship', ship.shipId, name))} <i>Lv${ship.lv}</i> <span class="x">×</span>
       </button>`
     })
@@ -2182,9 +2368,9 @@ const sandboxPickerHtml = (): string => {
   return `<div class="sand-picker">
     <div class="sand-row">
       <div class="search">⌕<input id="ru-sandbox-search" placeholder="搜在册舰加入沙盘" value="${esc(sandboxPick)}"></div>
-      <div class="sand-chosen-row">${chosen || '<span class="sand-empty">暂未选择</span>'}</div>
+      <div class="sand-chosen-row">${chosen || '<span class="sand-empty">尚未选择</span>'}</div>
     </div>
-    ${query ? `<div class="sand-cands">${chips || '<span class="sand-empty">没有匹配的舰</span>'}</div>` : ''}
+    ${query ? `<div class="sand-cands">${chips || '<span class="sand-empty">暂无匹配舰</span>'}</div>` : ''}
   </div>`
 }
 
@@ -2238,8 +2424,8 @@ const BERTH_HALT_LABEL = {
 } as const
 
 const BERTH_STATE_LABEL = {
-  repairing: '在修',
-  full: '满血',
+  repairing: '修理中',
+  full: '耐久已满',
   hurt: '中破',
   docked: '入渠',
 } as const
@@ -2274,7 +2460,7 @@ const berthFleetHtml = (deck: Deck, flag: PlayerShip, now: number): string => {
       ? '<span class="bt-idle">计时未知</span>'
       : warm
         ? `<span class="bt-on">停泊 ${Math.floor(elapsed / 60_000)} 分</span>`
-        : `<span class="bt-warm">还差 ${Math.ceil((BERTH_WARMUP_MS - elapsed) / 60_000)} 分</span>
+        : `<span class="bt-warm">缺 ${Math.ceil((BERTH_WARMUP_MS - elapsed) / 60_000)} 分</span>
            <span class="bt-bar"><i style="width:${(berthWarmupRatio(elapsed) * 100).toFixed(1)}%"></i></span>`
 
   const rows = ships
@@ -2336,9 +2522,31 @@ const berthViewHtml = (): string => {
     })
     .filter(Boolean)
   if (!blocks.length) {
-    return '<div class="bt-empty">没有工作舰当旗舰的舰队</div>'
+    return '<div class="bt-empty">暂无工作舰旗舰编队</div>'
   }
   return `<div class="bt-list">${blocks.join('')}</div>`
+}
+
+/**
+ * 抬头身份行末尾那格：全队的疲劳恢复时刻。
+ *
+ * 取所有舰至 49 的预计时刻最大值；存在缺锚点且未满 49 的舰时不显示。
+ * 到点状态由 tickTimers 的 [data-ready-ts] 更新。
+ */
+const fleetFatigueHtml = (deck: Deck): string => {
+  const ships = scopeShips(deck)
+  if (!ships.length) return '<small></small>'
+  const { ts, unknown } = fleetFatigueEta(ships, FATIGUE_FULL_COND)
+  if (ts == null) {
+    return unknown ? '<small></small>' : '<small>士气已回满</small>'
+  }
+  const last = ships
+    .filter((ship) => ship.cond < FATIGUE_FULL_COND && fatigueReadyTs(ship.id, FATIGUE_FULL_COND) === ts)
+    .map((ship) => entityNamePlain('ship', ship.shipId, masterShipName(ship.shipId)))[0]
+  const title = `全队预计回满至 ${FATIGUE_FULL_COND}${last ? ` · 最晚 ${last}` : ''}`
+  return `<small data-ready-ts="${ts}" data-ready-done="士气已回满" title="${esc(
+    title,
+  )}">预计回满 ${fmtTime(ts)}</small>`
 }
 
 const fleetHeaderHtml = (deck: Deck) => {
@@ -2359,7 +2567,7 @@ const fleetHeaderHtml = (deck: Deck) => {
   // 2026-08-18 用户指出后撤掉。
   const identity = `<div class="fleet-ident"><b>${entityTermHtml('fleet', deck.id, displayName)}</b>${
     combinedCustom || custom ? `<span>${combinedCustom || `「${entityTermHtml('fleet', deck.id, custom)}」`}</span>` : ''
-  }<small>${mg.lastPortTs ? `同步于 ${fmtTime(mg.lastPortTs)}` : ''}</small></div>`
+  }${fleetFatigueHtml(deck)}</div>`
   return `<div class="fleet-head">${identity}${
     deck.mission?.[0] > 0 ? '' : verdictHtml(deck)
   }${metricsHtml(deck)}${fleetQuestHtml(deck)}</div>`
@@ -2376,9 +2584,9 @@ const fleetQuestHtml = (deck: Deck): string => {
   const failedMark = fleetQuestFailed
     ? `<span class="more" title="${esc(
         matches.length
-          ? '编成任务读取失败，这几项是上一次读到的结果，可能已经过期'
-          : '编成任务读取失败',
-      )}">编成任务读取失败${matches.length ? ' · 这是上次的结果' : ''}</span>`
+          ? '编成任务读取失败 · 显示上次读取结果 · 返港后重试'
+          : '编成任务读取失败 · 返港后重试',
+      )}">编成任务读取失败${matches.length ? ' · 上次读取结果' : ''} · 返港后重试</span>`
     : ''
   if (!matches.length) {
     return failedMark ? `<div class="fleet-quests">${failedMark}</div>` : ''
@@ -2499,7 +2707,7 @@ const importedShipHtml = (ship: NonNullable<DeckBuilderDeck['fleets'][number]>['
       const label = entityNamePlain('equip', item.mstId, mst?.name ?? `装备 ${item.mstId}`)
       const have = Object.values(mg.slotitems).some((inst) => inst.mstId === item.mstId)
       return [
-        `<span class="dbio-eq${have ? '' : ' miss'}" title="${have ? '仓库里有这件' : '仓库里没有这件'}">${
+        `<span class="dbio-eq${have ? '' : ' miss'}" title="${have ? '当前持有' : '当前未持有'}">${
           index === ship.slots.length ? '增' : index + 1
         } ${esc(label)}${item.rf > 0 ? ` ★+${item.rf}` : ''}${item.mas ? ` 熟${item.mas}` : ''}</span>`,
       ]
@@ -2514,7 +2722,7 @@ const importedShipHtml = (ship: NonNullable<DeckBuilderDeck['fleets'][number]>['
 }
 
 const importedDeckHtml = (result: ReturnType<typeof parseDeckBuilder>) => {
-  if (result.error) return `<div class="dbio-err">读不出来：${esc(result.error)}</div>`
+  if (result.error) return `<div class="dbio-err">读取失败 · 请检查内容：${esc(result.error)}</div>`
   const deck = result.deck!
   const warn = result.warnings.length
     ? `<div class="dbio-warn">${result.warnings.map((w) => esc(w)).join('<br>')}</div>`
@@ -2529,7 +2737,7 @@ const importedDeckHtml = (result: ReturnType<typeof parseDeckBuilder>) => {
     .join('')
   return `${warn}<div class="dbio-imported">
     <div class="dbio-meta">司令部 Lv${deck.hqLv || '—'}</div>${fleets}</div>
-    <div class="dbio-note">「已持有 ✓」按形态比对，改造前后算不同形态</div>`
+    <div class="dbio-note">「已持有 ✓」按形态比对 · 改造前后分别计算</div>`
 }
 
 // 对话框写盘走 csv-export 的共用收口（与鉴的列表、仓库同一份）；
@@ -2549,7 +2757,7 @@ const saveDeckBuilderFile = async (deck: DeckBuilderDeck) => {
   // 只读权限、盘满、路径被占……写文件真会失败。默默什么都不发生的话，
   // 玩家只会以为自己没点中（对照上面「复制 JSON」失败时的 flash）。
   deckIo.flash =
-    outcome.status === 'failed' ? '存文件失败，可改用「复制 JSON」' : '已存为文件 ✓'
+    outcome.status === 'failed' ? '存文件失败 · 可使用「复制 JSON」' : '已存为文件 ✓'
   render()
 }
 
@@ -2703,7 +2911,7 @@ const bindFleetPanelDelegates = (
           rerender()
         })
         .catch(() => {
-          deckIo.flash = '复制失败，可改用「存为文件」'
+          deckIo.flash = '复制失败 · 可使用「存为文件」'
           rerender()
         })
       return
@@ -2899,7 +3107,7 @@ const render = (force = false) => {
   if (!mg.decks.length) {
     forgetCommittedHtml(pane, 'ru') // 这一支绕开 commitPaneHtml，记忆不能留着
     pane.innerHTML = `<div class="pane-waiting">
-      等待游戏同步编队数据 · 登录并返港一次</div>`
+      尚未同步编队数据 · 登录并返港一次</div>`
     return
   }
   if (mg.combinedFlag > 0 && activeFleetId === 2) activeFleetId = 1
@@ -2953,14 +3161,19 @@ const render = (force = false) => {
   // 度量收纳必须赶在这一帧画出去之前定下来（同步测量 + 同步套用），
   // 丢进 rAF 的话会先看见换行、下一帧才收起——那一下就是闪跳。
   foldMetrics(pane)
+  foldProcRates(pane)
   refreshMetricsFoldCard()
 }
 
 const tickTimers = () => {
   if (!pane || !pane.classList.contains('active')) return
   updateCountdowns(pane)
+  // 到点翻面的那一趟。默认词是裁决框的「全员已就绪」；抬头那格问的是另一件事
+  // （士气回没回满），所以按 data-cds-done 的同族做法，让挂牌自己带走终态词。
   pane.querySelectorAll<HTMLElement>('[data-ready-ts]').forEach((label) => {
-    if (Number(label.dataset.readyTs) <= Date.now()) label.textContent = '全员已就绪'
+    if (Number(label.dataset.readyTs) <= Date.now()) {
+      label.textContent = label.dataset.readyDone ?? '全员已就绪'
+    }
   })
   const minute = Math.floor(Date.now() / 60000)
   if (
@@ -3031,6 +3244,8 @@ registerModule({
       // 坞一宽窄，度量行能放几枚就变了——重量一次（同宽走缓存，不白算）。
       // 面板从隐藏到显示也走这里：那一刻 render 时行宽还是 0，收纳压根没算过。
       foldMetrics(pane)
+      // 展开着的行里那排发动概率同理：坞一变窄，平铺态就该缩成一枚
+      foldProcRates(pane)
     })
     paneResize.observe(pane)
     // 装配作用域退订：重试装配时不断开，旧 observer 会一直对着废弃的 pane 开工

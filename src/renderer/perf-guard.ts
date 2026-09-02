@@ -80,5 +80,5 @@ export const captureListenerSite = (): string => {
   const stack = new Error().stack ?? ''
   // 0: Error / 1: captureListenerSite / 2: 注册 API（onMgChange 等）/ 3: 真正的调用方
   const line = stack.split('\n')[3]?.trim() ?? ''
-  return line.replace(/^at\s+/, '').replace(/^.*[\\/](?=[^\\/]+:\d)/, '') || '(未知注册点)'
+  return line.replace(/^at\s+/, '').replace(/^.*[\\/](?=[^\\/]+:\d)/, '') || '未知注册点'
 }

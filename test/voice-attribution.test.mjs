@@ -44,7 +44,7 @@ test('形态码表：链首取「系列」，其后每一级取上一级的「�
 })
 
 test('槽位 → 中文场合名：时报走 30+小时，其余查实证对照表，认不出留空', () => {
-  assert.equal(voiceSceneOfSlot(1), '入手/登入时')
+  assert.equal(voiceSceneOfSlot(1), '获得/登录时')
   assert.equal(voiceSceneOfSlot(2), '秘书舰1')
   assert.equal(voiceSceneOfSlot(30), '时报 00:00')
   assert.equal(voiceSceneOfSlot(53), '时报 23:00')

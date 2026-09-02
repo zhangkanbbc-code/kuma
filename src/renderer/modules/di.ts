@@ -483,7 +483,7 @@ const isActiveBranchSpot = (mapKey: string, letter: string): boolean => {
   return activeBranchSpots.has(`${mapKey}:${letter}`)
 }
 const branchLabelOf = (s: SortieView, letter: string): string =>
-  isActiveBranchSpot(mapKeyOf(s), letter) ? '能动分歧(手选)' : '分歧点'
+  isActiveBranchSpot(mapKeyOf(s), letter) ? '能动分歧（手选）' : '分歧点'
 const mapKeyOf = (s: SortieView) => `${s.mapArea}-${s.mapNo}`
 const EVENT_DIFFICULTY_BY_RANK: Record<number, EventDifficulty> = {
   1: '丁',
@@ -498,6 +498,11 @@ const cellLetter = (s: SortieView, cell: number): string => {
   const route = fcdMap?.data?.[mapKeyOf(s)]?.route
   return route?.[cell]?.[1] ?? `${cell}`
 }
+
+export const battleReplayPlaceText = (snapshot: BattleSnapshot): string =>
+  snapshot.practice
+    ? '演习'
+    : `${mapCodeOf(snapshot.map)} ${cellLetter(snapshot.sortie, snapshot.cell)} 点`
 
 // ---- 分歧实测：这张图上，罗盘实际把你带去过哪几次 ----
 //
@@ -581,7 +586,7 @@ const branchTallyText = (state: RouteTallyState, letter: string): string => {
   if (state.failed) return '分歧实测读取失败'
   const entry = state.tally.get(letter)
   if (!entry?.total) return ''
-  return `你走过 ${entry.total} 次 · ${entry.to
+  return `本地通过 ${entry.total} 次 · ${entry.to
     .map((step) => `${step.letter} ${step.count}`)
     .join(' / ')}`
 }
@@ -738,10 +743,10 @@ const myDropsHtml = (
   if (!mine.ships.length) {
     return `<div class="l" style="color:var(--dim);font-size:10.5px">${
       mine.battles
-        ? `这一点打过 ${mine.battles} 战，还没捞到过舰娘${
+        ? `本地点位战斗 ${mine.battles} 次 · 暂无舰娘掉落${
             mine.sWinsWithoutDrop ? `（S 胜 ${mine.sWins} 次里 ${mine.sWinsWithoutDrop} 次空手）` : ''
           }`
-        : '当前点暂无你的掉落记录'
+        : '当前点暂无本地掉落记录'
     }</div>`
   }
   // ⑤-裁-2（2026-08-22 用户拍板）：限定期结束后**永不删除，只换语境**。
@@ -769,7 +774,7 @@ const myDropsHtml = (
         closed
           ? `<span class="dp-star dim" title="${esc(`限定期捞到 · ${limitedWindowText(closed)}`)}">◷</span>`
           : beyond
-            ? '<span class="dp-star" title="只有你自己的记录">◆</span>'
+            ? '<span class="dp-star" title="仅本地记录">◆</span>'
             : '<span class="dp-star dim">·</span>'
       }
       <span class="dp-nm">${elink('mstShip', ship.mstId, name)}</span>
@@ -784,12 +789,12 @@ const myDropsHtml = (
       ${mine.sWinsWithoutDrop ? `<span class="dp-flag empty">S 胜空手 ${mine.sWinsWithoutDrop}/${mine.sWins}</span>` : ''}
     </div>
     <div class="dp-list">${shown.map(rowHtml).join('')}</div>
-    ${more > 0 ? `<div class="l" style="color:var(--dim);font-size:10.5px">还捞到过其余 ${more} 种</div>` : ''}
+    ${more > 0 ? `<div class="l" style="color:var(--dim);font-size:10.5px">另有 ${more} 种</div>` : ''}
     ${
       past.length
         ? `<div class="l dp-past-h" style="color:var(--dim);font-size:10.5px">往期 · 限定期捞到 ${past.length} 种（窗口已结束）</div>
           <div class="dp-list dp-past">${shownPast.map(rowHtml).join('')}</div>
-          ${past.length > shownPast.length ? `<div class="l" style="color:var(--dim);font-size:10.5px">还有 ${past.length - shownPast.length} 种</div>` : ''}`
+          ${past.length > shownPast.length ? `<div class="l" style="color:var(--dim);font-size:10.5px">另有 ${past.length - shownPast.length} 种</div>` : ''}`
         : ''
     }`
 }
@@ -853,7 +858,7 @@ const confirmedDropPoolCardHtml = (
       ${limitedCount ? `<span class="dp-flag limited">限时掉落 ${limitedCount}</span>` : ''}
       ${
         node.allDifficulty
-          ? '<span class="dp-flag alldiff" title="这一点的确认目录不分难度，含全部难度的记录">不分难度</span>'
+          ? '<span class="dp-flag alldiff" title="确认目录包含全部难度">不分难度</span>'
           : ''
       }
       ${
@@ -895,7 +900,7 @@ const dropPoolCardHtml = (s: SortieView): string => {
     <div class="h"><b>当前点掉落</b><span class="r">${esc(letter)} 点 · ${
       confirmed ? `已确认 ${cataloged.size} 艘` : '本地资料待更新'
     }</span></div>
-    <div class="nav-sec">你的实测</div>
+    <div class="nav-sec">本地实测</div>
     ${myDropsHtml(s, cataloged, mapKey, letter)}
     <div class="nav-sec">确认目录</div>
     ${
@@ -1053,7 +1058,11 @@ const enemyName = (mstId: number) => {
  */
 const formationPill = optionalFormationText
 
-const trailHtml = (s: SortieView): string => {
+const trailHtml = (
+  s: SortieView,
+  currentSnapshot: BattleSnapshot | null,
+  trailIndex: readonly BattleSnapshotSummary[],
+): string => {
   if (s.practice) {
     const formation = s.battle ? formationPill(s.battle.eFormation) : ''
     const shortFormation = formation.replace(/阵$/, '')
@@ -1095,7 +1104,7 @@ const trailHtml = (s: SortieView): string => {
       // 走过的战斗点可点回放（2026-08-12 用户提议）：在本地战斗快照里找
       // 「本次出击时间窗内、同图同点」的那一场。上界卡 updatedTs + 5 分钟——
       // 只卡下界的话，回看旧出击时会把同图**后来那次**的快照错认进来。
-      const snap = battleHistory.find(
+      const snap = trailIndex.find(
         (entry) =>
           !entry.practice &&
           entry.map === trailMapId &&
@@ -1104,10 +1113,11 @@ const trailHtml = (s: SortieView): string => {
           entry.ts <= s.updatedTs + 300000,
       )
       // 正在实时显示的当前点、以及回放中正看着的那一场，不用再点
-      const replayable = snap && !(isCur && !replay) && replay?.id !== snap.id ? snap : null
+      const replayable =
+        snap && !(isCur && !currentSnapshot) && currentSnapshot?.id !== snap.id ? snap : null
       const title = `${nodeEventName(n)}${n.rank ? ` · ${n.rank}` : ''}${
         nodeBranches.length ? ` · ${branchLabelOf(s, letter)} → ${nodeBranches.join('/')}` : ''
-      }${tallyText ? `\n${tallyText}` : ''}${replayable ? '\n单击回顾这一战' : ''}`
+      }${tallyText ? `\n${tallyText}` : ''}${replayable ? '\n单击回顾本战' : ''}`
       return `<span class="${cls}"${replayable ? ` data-replay-id="${replayable.id}" role="button"` : ''} title="${esc(title)}">${esc(letter)}${rank}</span>`
     })
     .join('<span class="te done"></span>')
@@ -1134,7 +1144,7 @@ const trailHtml = (s: SortieView): string => {
       // 游戏口径:击破计数也画成扣血——剩余次数扣到 0/N 击破,不正着数
       // (2026-08-12 用户点名「不是 1/6 到 6/6,是 6/6 到 0/6」)
       const remain = Math.max(0, gauge.required - (gauge.defeated ?? 0))
-      gaugePill = `<span class="gpill" title="Boss 击破进度:剩 ${remain} 次,扣到 0 攻略">Boss <span class="gg"><i style="width:${Math.round((remain / gauge.required) * 100)}%"></i></span><b>${remain}/${gauge.required}</b></span>`
+      gaugePill = `<span class="gpill" title="Boss 击破进度：剩余 ${remain} 次 · 降至 0 后通关">Boss <span class="gg"><i style="width:${Math.round((remain / gauge.required) * 100)}%"></i></span><b>${remain}/${gauge.required}</b></span>`
     } else if (gauge.cleared) {
       gaugePill = `<span class="gpill" title="海域已攻略">攻略</span>`
     }
@@ -1213,14 +1223,14 @@ const blockedBossNightHtml = (s: SortieView, b: BattleView): string | null => {
     // （`s.active` 不在这里重复判：函数开头的守卫已经把非进行中的局面全挡掉了）
     const friendlyIncoming = isEventMapArea(s.mapArea) && mg.friendlyRequest?.flag === 1
     return `<div class="verdict v-warn"><span class="ic">夜</span><span class="tx">
-      <b>敌护卫仍有战力 — 夜战预计接触不到 ${flagshipName}</b>
-      <span>${friendlyIncoming ? '已开友军要請 · 友军先清残余' : '可不进夜战省弹药'}</span>
-    </span><span class="act">${friendlyIncoming ? '友军先行' : '可选择撤退'}</span></div>`
+      <b>敌护卫仍有战力 · 夜战估算无法攻击 ${flagshipName}</b>
+      <span>${friendlyIncoming ? '已开启友军请求 · 友军先清理残余' : '夜战将消耗弹药'}</span>
+    </span><span class="act">${friendlyIncoming ? '友军先行' : '撤退可用'}</span></div>`
   }
   // 打得到旗舰是斩杀决策的关键信息，不该只在「打不到」时才出声。
   return `<div class="verdict v-cyan"><span class="ic">夜</span><span class="tx">
-    <b>敌护卫已残破 — 夜战预计可直击 ${flagshipName}</b>
-    <span>进夜战有机会击破旗舰</span>
+    <b>敌护卫已残破 · 夜战估算可攻击 ${flagshipName}</b>
+    <span>夜战可攻击主力旗舰</span>
   </span><span class="act">夜战机会</span></div>`
 }
 
@@ -1305,7 +1315,7 @@ const alertBannerHtml = (s: SortieView): string => {
       if (atBoss) {
         return `<div class="verdict v-warn"><span class="ic">破</span><span class="tx">
           <b>Boss 战结束：${names} 大破</b>
-          <span>本节点没有继续进击选择</span>
+          <span>本节点无进击选项</span>
         </span><span class="act">战损提示</span></div>`
       }
       // 三档的判据与出处见 shared/taiha-verdict 头注：旗舰大破没有进击选项、
@@ -1320,21 +1330,21 @@ const alertBannerHtml = (s: SortieView): string => {
           ? `旗舰${esc(verdict.flagship)}、${verdict.others.map(esc).join('、')} 大破`
           : `旗舰${esc(verdict.flagship)}大破`
         return `<div class="verdict v-warn"><span class="ic">破</span><span class="tx">
-          <b>${who} — 本战结束后将强制返航</b>
-          <span>没有进击选项</span>
+          <b>${who} · 本战结束后强制返航</b>
+          <span>无进击选项</span>
         </span><span class="act">强制返航</span></div>`
       }
       if (verdict?.tier === 'protected') {
         return `<div class="verdict v-warn"><span class="ic">破</span><span class="tx">
           <b>二队旗舰${esc(verdict.escortFlagship)}大破</b>
-          <span>她不会被击沉，可以继续进击</span>
-        </span><span class="act">不会被击沉</span></div>`
+          <span>无击沉风险</span>
+        </span><span class="act">进击可用</span></div>`
       }
       if (verdict) {
         return `<div class="verdict v-red"><span class="ic">!</span><span class="tx">
-          <b>${verdict.names.map(esc).join('、')} 大破 — 请选择撤退！</b>
+          <b>${verdict.names.map(esc).join('、')} 大破 · 击沉风险</b>
           <span>继续前进可能被击沉${escapeOfferNoteOf(b)}</span>
-        </span><span class="act">建议撤退</span></div>`
+        </span><span class="act">撤退</span></div>`
       }
     }
   }
@@ -1379,7 +1389,7 @@ const headingBannerHtml = (s: SortieView): string => {
   const sub = node?.note
     ? esc(node.note)
     : isBattleNode
-      ? '等待战斗数据 · 敌编成资料见右栏'
+      ? '战斗数据尚未同步 · 敌编成资料见右栏'
       : '非战斗点 · 线路预测见右栏'
   return `<div class="verdict v-cyan">${headingArrowHtml(s, node?.cell)}<span class="tx">
     <b>前往 ${esc(letter)} 点 · ${esc(eventName)}</b>
@@ -1504,12 +1514,12 @@ const outcomeBannerHtml = (s: SortieView): string => {
   }
   if (isDamageOnlyBattle(b)) {
     return `<div class="verdict v-green"><span class="ic">☑</span><span class="tx">
-      <b>${esc(battleForecastLead(b))}预测 ${esc(predictedRank)}${p.sure ? '' : '（估算）'} — 我方损失 ${p.fGauge}%</b>
+      <b>${esc(battleForecastLead(b))}预测 ${esc(predictedRank)}${p.sure ? '' : '（估算）'} · 我方损失 ${p.fGauge}%</b>
     </span><span class="act">预测 ${esc(predictedRank)}</span></div>`
   }
   if (b.kind === 'airbattle') {
     return `<div class="verdict v-green"><span class="ic">☑</span><span class="tx">
-      <b>航空战预测 ${esc(predictedRank)}${p.sure ? '' : '（估算）'} — 敌方损失 ${p.eGauge}% · 我方损失 ${p.fGauge}%</b>
+      <b>航空战预测 ${esc(predictedRank)}${p.sure ? '' : '（估算）'} · 敌方损失 ${p.eGauge}% · 我方损失 ${p.fGauge}%</b>
     </span><span class="act">预测 ${esc(predictedRank)}</span></div>`
   }
   const sunkInfo = `${b.practice ? '击破判定' : '击沉'} ${p.eSunk}/${p.eCount}`
@@ -1524,11 +1534,11 @@ const outcomeBannerHtml = (s: SortieView): string => {
     if (b.hasNight || !isDayFlowBattle(b) || !remain.length) return ''
     const enemyCombined = b.eShips.some((ship) => ship.fleet === 'escort')
     if (!enemyCombined) {
-      return ` · 进入夜战可继续追击（剩余敌舰合计 HP ${remain.reduce((acc, x) => acc + x.hpEnd, 0)}）`
+      return ` · 夜战可攻击剩余敌舰（合计 HP ${remain.reduce((acc, x) => acc + x.hpEnd, 0)}）`
     }
     const escortRemain = remain.filter((ship) => ship.fleet === 'escort')
     if (!escortRemain.length) {
-      return ` · 敌护卫已歼灭 → 夜战将与主力交战（剩余合计 HP ${remain.reduce((acc, x) => acc + x.hpEnd, 0)}）`
+      return ` · 敌护卫已歼灭 · 夜战将与主力交战（剩余合计 HP ${remain.reduce((acc, x) => acc + x.hpEnd, 0)}）`
     }
     const target = enemyNightTargetOf(
       b.eShips
@@ -1542,13 +1552,13 @@ const outcomeBannerHtml = (s: SortieView): string => {
         })),
     )
     if (target === 'escort') {
-      return ` · 夜战预计与敌护卫交战（护卫剩余 ${escortRemain.length} 舰合计 HP ${escortRemain.reduce((acc, x) => acc + x.hpEnd, 0)}）`
+      return ` · 夜战估算与敌护卫交战（护卫剩余 ${escortRemain.length} 舰合计 HP ${escortRemain.reduce((acc, x) => acc + x.hpEnd, 0)}）`
     }
     const mainRemain = remain.filter((ship) => ship.fleet !== 'escort')
-    return ` · 敌护卫已残破 → 夜战预计与主力交战（主力剩余合计 HP ${mainRemain.reduce((acc, x) => acc + x.hpEnd, 0)}）`
+    return ` · 敌护卫已残破 · 夜战估算与主力交战（主力剩余合计 HP ${mainRemain.reduce((acc, x) => acc + x.hpEnd, 0)}）`
   })()
   return `<div class="verdict v-green"><span class="ic">☑</span><span class="tx">
-    <b>${esc(battleForecastLead(b))}预测 ${esc(predictedRank)}${p.sure ? '' : '（估算）'}${engagement ? ` · ${esc(engagement)}` : ''} — ${sunkInfo} · ${remainTxt}</b>
+    <b>${esc(battleForecastLead(b))}预测 ${esc(predictedRank)}${p.sure ? '' : '（估算）'}${engagement ? ` · ${esc(engagement)}` : ''} · ${sunkInfo} · ${remainTxt}</b>
     <span>敌方损失 ${p.eGauge}% · 我方损失 ${p.fGauge}%${nightHint}</span>
   </span><span class="act">预测 ${esc(predictedRank)}</span></div>`
 }
@@ -1557,7 +1567,7 @@ const outcomeBannerHtml = (s: SortieView): string => {
 // 表里没有的编号（游戏新加的）就照实只写编号——不认得就说不认得，不拿相近的一条冒充。
 const aaciDescribe = (kind: number | null | undefined) => {
   const id = Number(kind) || 0
-  const label = id > 0 ? `类型${id}` : '类型?'
+  const label = id > 0 ? `类型${id}` : '类型未知'
   const entry = id > 0 ? aaciEntryOf(id) : null
   if (!entry) {
     return {
@@ -1678,7 +1688,7 @@ const airlineHtml = (b: BattleView, s: SortieView): string => {
     ${air ? `<span class="kv">我方机损 <b class="${fLoss ? 'loss' : ''}">${fLoss}</b> · 敌机损 <b>${eWiped ? '全灭' : eLoss}</b></span>` : ''}
     ${detection ? `<span class="kv">${esc(detection)}</span>` : ''}
     ${b.smokeType > 0 ? `<span class="kv">烟幕 <b>Lv.${b.smokeType}</b></span>` : ''}
-    ${b.balloonCell === true ? `<span class="kv" title="此点位为阻塞气球生效格：双方装备的阻塞气球在本战斗生效（判据为战斗报文的格级旗标，推断级）">阻塞气球 <b>已触发</b></span>` : ''}
+    ${b.balloonCell === true ? `<span class="kv" title="此点位为阻塞气球生效格：双方装备的阻塞气球在本战斗生效（判据为战斗报文的格级旗标，推定）">阻塞气球 <b>已触发</b></span>` : ''}
     ${b.hasSupport ? `<span class="kv">支援舰队 <b>已到达</b></span>` : ''}
     ${nightContacts ? `<span class="kv">夜间触接 <b>${esc(nightContacts)}</b></span>` : ''}
   </div>`
@@ -1732,7 +1742,7 @@ const shipCombatMetricsHtml = (b: BattleView, side: 0 | 1, ship: BattleShipView)
 
 const battleEquipmentHtml = (b: BattleView, side: 0 | 1, ship: BattleShipView): string => {
   if (ship.equipment == null) {
-    return `<div class="bship-empty">没有当时的装备记录</div>`
+    return `<div class="bship-empty">暂无当时装备记录</div>`
   }
   const rows = ship.equipment
     .map((item) => {
@@ -1779,7 +1789,7 @@ const battleEquipmentHtml = (b: BattleView, side: 0 | 1, ship: BattleShipView): 
     hasPlanes && airStages.length
       ? `<div class="bship-note">舰队航空阶段合计 参战 ${total} · 损失 ${lost}</div>`
       : ''
-  return `${rows || '<div class="bship-empty">该舰没有装备。</div>'}${airNote}`
+  return `${rows || '<div class="bship-empty">该舰暂无装备</div>'}${airNote}`
 }
 
 /**
@@ -2216,14 +2226,14 @@ const resultStripHtml = (b: BattleView): string => {
   const status = b.result
     ? `${battleTypeLabel(b)} · 游戏结算`
     : p.sure
-      ? `${battleTypeLabel(b)} · 可以确定`
+      ? `${battleTypeLabel(b)} · 已确定`
       : `${battleForecastLead(b)}估算`
   const primaryMetric = damageOnly
     ? `<span class="rchip">我方损失 <b>${p.fGauge}%</b></span>`
     : aviationOnly
       ? `<span class="rchip">损害比 <b>敌 ${p.eGauge}% / 我 ${p.fGauge}%</b></span>`
       : `<span class="rchip">${sunkLabel} <b>${p.eSunk}/${p.eCount}</b></span>`
-  const rankSource = '最终以游戏结算为准'
+  const rankSource = '判定来源：游戏结算'
   // 「主力/护卫」前缀只在联合舰队才有意义——单舰队全队就是全队，
   // 挂个「主力」是无中生有的分类（2026-08-12 用户抓的实锤）
   const combined = b.fShips.some((ship) => ship.fleet === 'escort')
@@ -2776,7 +2786,7 @@ const logHtml = (b: BattleView, expanded: boolean): string => {
           : '',
         attack.simultaneous ? `<span class="tag9" style="color:var(--sub)">同时结算</span>` : '',
         repair
-          ? `<span class="tag9 repair">${repair === 43 ? '女神发动·满血复归' : '要员发动·20%复归'}</span>`
+          ? `<span class="tag9 repair">${repair === 43 ? '女神发动 · 耐久全满恢复' : '要员发动 · 耐久恢复 20%'}</span>`
           : '',
         sunk ? `<span class="tag9 sink">${b.practice ? '击破判定' : '沉'}</span>` : '',
         usedEquipment,
@@ -2810,7 +2820,7 @@ const logHtml = (b: BattleView, expanded: boolean): string => {
       stage: stage.order,
       action: Number.MAX_SAFE_INTEGER,
       html: `<div class="lrow stage-empty"><span class="ph ${phaseCls}">${esc(stage.label)}</span>
-        <span class="who">（该阶段无有效攻击）</span></div>`,
+        <span class="who">该阶段暂无有效攻击</span></div>`,
     })
   }
   rows.sort((a, b2) => a.stage - b2.stage || a.action - b2.action)
@@ -2818,7 +2828,7 @@ const logHtml = (b: BattleView, expanded: boolean): string => {
   const visible = rows.filter((r) => expanded || !r.dull)
   const toggle =
     dullCount > 0
-      ? `<span class="tg" data-act="log-toggle">${expanded ? '收起 miss/零伤' : `展开全部（含 miss/零伤 ${dullCount} 条）`}</span>`
+      ? `<span class="tg" data-act="log-toggle">${expanded ? '收起未命中/零伤' : `展开全部（含未命中/零伤 ${dullCount} 条）`}</span>`
       : ''
   // 每一行都是时间轴上的一个锚点：点它，上面的编队血条退回那一阶段结算完的样子。
   // 行的 html 由十几处 push 拼出来，统一在这里补属性——用 ^ 锚定，改了模板就不会
@@ -2879,7 +2889,7 @@ const logHtml = (b: BattleView, expanded: boolean): string => {
     .join('')
   return `<div class="log${selectedLogStage != null ? ' pinned' : ''}">
     <div class="log-h">战斗流水 · ${rows.length} 事件${pinned}${toggle}</div>
-    ${body || '<div class="lrow" style="color:var(--dim)">（无伤害事件）</div>'}
+    ${body || '<div class="lrow" style="color:var(--dim)">暂无伤害事件</div>'}
   </div>`
 }
 
@@ -3183,14 +3193,14 @@ const previewEncounterCandidatesHtml = (
   const chron = chronFor(s)
   if (chron.loading && !chron.encounters.length) {
     return {
-      html: '<div class="prebattle-match-note">正在匹配敌编成……</div>',
+      html: '<div class="prebattle-match-note">敌编成匹配中</div>',
       label: '前三舰匹配中',
     }
   }
   const { exact: candidates, fuzzy } = previewEncounterCandidatesOnce()
   if (!candidates.length && !fuzzy.length) {
     return {
-      html: '<div class="prebattle-match-note">前三舰未命中已知编成</div>',
+      html: '<div class="prebattle-match-note">前三舰未匹配到已知编成</div>',
       label: '前三舰估算',
     }
   }
@@ -3248,7 +3258,7 @@ const previewEncounterCandidatesHtml = (
             const name = mg.master.ships[id]?.name ?? `深海舰 ${id}`
             return `<span class="enemy-token">${shipThumbHtml(id, name, { className: 'battle', abyss: true })}${elink('abyssShip', id, name)}</span>`
           }
-          const tip = `同名同级共 ${pool.length} 个形态，wiki 标注「${label}」定不到具体形态，耐久/装备可能与实际有出入`
+          const tip = `同名同级共 ${pool.length} 个形态 · wiki 标注「${label}」· 具体形态未确定 · 耐久/装备按候选范围`
           return `<span class="enemy-token fuzzy" title="${esc(tip)}">${shipThumbHtml(pool[0], label, { className: 'battle', abyss: true })}${elink('abyssShip', pool[0], label)}<i class="fz">?</i></span>`
         })
         .join('')
@@ -3332,7 +3342,7 @@ const practiceOpponentPreviewHtml = (s: SortieView): string => {
       ${/* 演习也有夜战，也吃弾着観測与先制对潜 */ ''}
       ${nightForecastHtml(forecast.band, false)}
       ${forecastLayersHtml(s, forecast.band, null, [])}`
-    : `<div class="prebattle-model pending"><b>正在等待游戏基础数据与我方编成</b></div>`
+    : `<div class="prebattle-model pending"><b>尚未同步游戏基础数据或我方编成</b></div>`
   return `<div class="practice-preview-body">
     <section class="practice-preview-summary">
       <header>
@@ -3348,7 +3358,7 @@ const practiceOpponentPreviewHtml = (s: SortieView): string => {
     <div class="practice-preview-fleets">
       <section>
         <header><b>我方第一舰队</b></header>
-        <div class="practice-preview-roster">${friendlyRows || '<div class="practice-preview-empty">当前没有可用于演习的舰队数据</div>'}</div>
+        <div class="practice-preview-roster">${friendlyRows || '<div class="practice-preview-empty">当前暂无可用于演习的舰队数据</div>'}</div>
       </section>
       <section>
         <header><b>对手当前编成</b></header>
@@ -3406,7 +3416,7 @@ const preBattleMechanicHtml = (
       : null
   if (foreignKind) {
     return `<div class="prebattle-model pending">
-      <b>机制估算不出数：此点为${esc(foreignKind)}</b><span>敌编成与阵型候选见下方</span>
+      <b>暂无机制估算 · 当前点为${esc(foreignKind)}</b><span>敌编成与阵型候选见下方</span>
     </div>`
   }
   // 机制估算只吃精确档：模糊命中的各形态耐久/装备不同，拿猜的形态算出的
@@ -3434,12 +3444,12 @@ const preBattleMechanicHtml = (
         })
   if (!comps.length) {
     const reason = !previewIds.length
-      ? '没有这一点的完整敌编成'
+      ? '当前点暂无完整敌编成'
       : fuzzyMatched.length
-        ? '前三舰只有模糊命中，各形态耐久与装备不同'
+        ? '前三舰仅模糊匹配 · 各形态耐久与装备不同'
         : '前三舰未命中完整候选'
     return `<div class="prebattle-model pending">
-      <b>机制估算不出数：敌编成未定</b><span>${reason}</span>
+      <b>暂无机制估算 · 敌编成未定</b><span>${reason}</span>
     </div>`
   }
   // 活动特效倍卡与陆航都只在当前这一点生效，所以在这里组装上下文：
@@ -3542,7 +3552,7 @@ const practiceExpMetricHtml = (s: SortieView, opponent: PracticeOpponentPreview)
   )
   const withBonus = (value: number) => Math.floor(value * (1 + bonusPct / 100))
   const tip = [
-    bonusPct ? `练习巡洋舰 ${placement === 'both' ? '旗舰+随伴' : placement === 'flagship' ? '旗舰' : '随伴'} Lv${tcLevel} → +${bonusPct}%` : '队里没有练习巡洋舰',
+    bonusPct ? `练习巡洋舰 ${placement === 'both' ? '旗舰+随伴' : placement === 'flagship' ? '旗舰' : '随伴'} Lv${tcLevel} → +${bonusPct}%` : '当前编成无练习巡洋舰',
     '旗舰 ×1.5 · MVP ×2',
   ].join('\n')
   return `<div class="forecast-metric" title="${esc(tip)}">
@@ -3566,7 +3576,7 @@ const nightForecastHtml = (band: EncounterForecastBand, showTaiha = true): strin
   if (!nightAttackers) {
     return `<div class="night-forecast none" title="${esc(
       `当前编成无人能夜战${blocked.length ? `：${blocked.join(' / ')}` : ''}`,
-    )}"><b>追进夜战</b><span>无人能出手${blocked.length ? ` · ${blocked.join(' / ')}` : ''}</span></div>`
+    )}"><b>追进夜战</b><span>无可攻击舰${blocked.length ? ` · ${blocked.join(' / ')}` : ''}</span></div>`
   }
   const gain = band.night.sa.max - band.sa.max
   const risk = band.night.taiha.max - band.taiha.max
@@ -3574,9 +3584,9 @@ const nightForecastHtml = (band: EncounterForecastBand, showTaiha = true): strin
     <div class="night-head">
       <b>追进夜战</b>
       <span title="${esc(
-        `${nightAttackers} 舰能出手${blocked.length ? `；不参加：${blocked.join(' / ')}` : ''}\n` +
+        `${nightAttackers} 舰可攻击${blocked.length ? `；未参与：${blocked.join(' / ')}` : ''}\n` +
           '未计入夜战 CI 与夜间触接',
-      )}">${nightAttackers} 舰出手${blocked.length ? ` · 不参加 ${esc(blocked.join(' / '))}` : ''}</span>
+      )}">${nightAttackers} 舰可攻击${blocked.length ? ` · 未参与 ${esc(blocked.join(' / '))}` : ''}</span>
     </div>
     <div class="forecast-grid prebattle-grid mechanic night">
       <div class="forecast-metric"><span>B+胜率</span><b>${modelRangeText(band.night.bPlus)}</b><em>夜战后</em></div>
@@ -3585,7 +3595,7 @@ const nightForecastHtml = (band: EncounterForecastBand, showTaiha = true): strin
       }</em></div>
       ${showTaiha
         ? `<div class="forecast-metric${risk > 0 ? ' risk' : ''}"><span>大破率</span><b>${modelRangeText(band.night.taiha)}</b><em>${
-            risk > 0 ? `多挨一轮 +${risk}` : '不额外增加'
+            risk > 0 ? `较昼战增加 +${risk}` : '不额外增加'
           }</em></div>`
         // 演习 HP 最低保留 1、不存在真实击沉，所以这一格照该面板既有的口径一并不显示
         : '<div class="forecast-metric"><span>大破率</span><b>—</b><em>演习不结算战损</em></div>'}
@@ -3627,19 +3637,19 @@ const forecastLayersHtml = (
       }\n  ${row.reasons.join('\n  ')}`)
       .join('\n')
     chips.push(`<span class="fc-layer bonus${bonus.certain ? '' : ' unsure'}" title="${esc(
-      `${detail}\n\n${bonus.credit ?? '倍卡资料来源未标注'}${bonus.certain ? '' : '\n含暂估值'}`,
-    )}">活动特效倍卡 <b>${bonus.rows.length}</b> 舰${bonus.certain ? '' : ' · 含暂估'}</span>`)
+      `${detail}\n\n${bonus.credit ?? '倍卡资料来源未标注'}${bonus.certain ? '' : '\n含推定值'}`,
+    )}">活动特效倍卡 <b>${bonus.rows.length}</b> 舰${bonus.certain ? '' : ' · 含推定'}</span>`)
   }
 
   if (band.factors.spottingShips > 0) {
     chips.push(`<span class="fc-layer spot unsure" title="${esc(
-      '按熟练度最低档与索敌补正 0 计 · 已知偏低',
-    )}">弾着観測 <b>${band.factors.spottingShips}</b> 舰 · 偏低</span>`)
+      '熟练度按最低档 · 索敌补正按 0 计算',
+    )}">弹着观测 <b>${band.factors.spottingShips}</b> 舰</span>`)
   }
 
   if (band.factors.openingAswShips > 0) {
     chips.push(`<span class="fc-layer asw" title="${esc(
-      '该点有潜水舰时才产生输出',
+      '仅对潜水舰生效',
     )}">先制对潜 <b>${band.factors.openingAswShips}</b> 舰</span>`)
   }
 
@@ -3649,7 +3659,7 @@ const forecastLayersHtml = (
     const empty = dispatch.filter((row) => !row.slots)
     chips.push(`<span class="fc-layer lbas${empty.length ? ' unsure' : ''}" title="${esc(
       `${dispatch.map((row) => `${row.name} ${row.waves} 波 · ${row.slots} 格有机`).join('\n')}${
-        empty.length ? '\n有航空队全空，那几波不产生输出' : ''
+        empty.length ? '\n全空航空队波次不计输出' : ''
       }`,
     )}">基地航空 <b>${total}</b> 波</span>`)
   }
@@ -3699,7 +3709,7 @@ const preBattleIntelHtml = (s: SortieView): string => {
     exact && exact.total > 0
       ? `${matched.label} · 同前缀样本`
       : first?.shipIds?.length
-        ? `${matched.label} · 前缀暂无样本，采用该点整体`
+        ? `${matched.label} · 暂无前缀样本 · 使用当前点整体记录`
         : '该点整体记录'
   const fleets = previews
     .map((deck) => `<div class="prebattle-fleet">
@@ -3719,7 +3729,7 @@ const preBattleIntelHtml = (s: SortieView): string => {
     ${matched.html}
     ${routes}
     ${preBattleMechanicHtml(s, previewIds, previewEncounterCandidatesOnce)}
-    <div class="nav-sec">个人实测对照</div>
+    <div class="nav-sec">本地实测对照</div>
     <div class="forecast-grid prebattle-grid">
       ${forecastMetricHtml('B+胜率', sample.wins, sample.total)}
       ${forecastMetricHtml('S/A率', sample.saWins, sample.total)}
@@ -3748,7 +3758,7 @@ const catalogTallyFor = (
 const myCompsHtml = (s: SortieView, tally: CatalogEncounterTally): string => {
   const chron = chronFor(s)
   if (!chron.encounters.length) {
-    return `<div class="l" style="color:var(--dim);font-size:10.5px">当前点暂无你的遭遇记录</div>`
+    return `<div class="l" style="color:var(--dim);font-size:10.5px">当前点暂无本地遭遇记录</div>`
   }
   return chron.encounters
     .slice(0, 3)
@@ -3767,7 +3777,7 @@ const myCompsHtml = (s: SortieView, tally: CatalogEncounterTally): string => {
           inCatalog ? '<i class="nav-comp-tag">目录 ✓</i>' : ''
         }<span class="r">${e.count} 次 · 最近 ${fmtDate(e.lastTs)}</span></div>
         <div class="nav-comp-fleet">${names}</div>
-        ${ranks ? `<div class="nav-comp-air">你的评级 ${esc(ranks)}</div>` : ''}
+        ${ranks ? `<div class="nav-comp-air">本地评级 ${esc(ranks)}</div>` : ''}
       </div>`
     })
     .join('')
@@ -3883,7 +3893,7 @@ const navCardHtml = (s: SortieView): string => {
     <div class="h"><b>节点信息</b><span class="r">${esc(letter)} 点</span></div>
       <div class="l"><b>${esc(NODE_EVENT[node.eventId] ?? `事件${node.eventId}`)}</b> · 非战斗点${
         branches.length
-          ? ` · <b style="color:var(--warn)">${activeHere ? '能动分歧(手选去向)' : '分歧点'}</b> → ${esc(branches.join(' / '))}`
+          ? ` · <b style="color:var(--warn)">${activeHere ? '能动分歧（手选去向）' : '分歧点'}</b> → ${esc(branches.join(' / '))}`
           : ''
       }</div>
       ${tallyText ? `<div class="l" style="margin-top:3px">${esc(tallyText)}</div>` : ''}
@@ -3900,7 +3910,7 @@ const navCardHtml = (s: SortieView): string => {
     const confirmedNode = mapIntelNode(mapKey, letter, undefined, difficulty)!
     return `<div class="scard keep" style="--hc:#e08a97">
       <div class="h"><b>敌方编队</b><span class="r">${difficulty ? `${difficulty}难度 · ` : ''}${esc(letter)} 点 · 已确认 ${confirmedNode.enemyComps.length} 种</span></div>
-      <div class="nav-sec">你的实测</div>
+      <div class="nav-sec">本地实测</div>
       ${myCompsHtml(s, tally)}
       <div class="nav-sec">确认目录</div>
       ${confirmedEnemy}
@@ -3908,7 +3918,7 @@ const navCardHtml = (s: SortieView): string => {
   }
   return `<div class="scard keep" style="--hc:#e08a97">
     <div class="h"><b>敌方编队</b><span class="r">${esc(letter)} 点 · 本地资料待更新</span></div>
-    <div class="nav-sec">你的实测</div>
+    <div class="nav-sec">本地实测</div>
     ${myCompsHtml(s, tally)}
     <div class="nav-sec">确认目录</div>
     <div class="l" style="color:var(--dim)">尚未收录 ${esc(mapKey)}${difficulty ? ` ${difficulty}难度` : ''} ${esc(letter)} 点</div>
@@ -4138,9 +4148,13 @@ const replayTrailSortie = (snapshot: BattleSnapshot): SortieView => {
  * 把这张快照所属出击的完整航迹拉齐，就绪后调 rerender。
  * 两个宿主都走这里，rerender 各传各的（镝重画自己的面板，嵌入宿主重画自己那格）。
  */
-const ensureReplayRunTrail = (snapshot: BattleSnapshot, rerender: () => void) => {
+const ensureReplayRunTrail = (
+  snapshot: BattleSnapshot,
+  rerender: () => void,
+  trailIndex: readonly BattleSnapshotSummary[] = battleHistory,
+) => {
   if (runTrailFor(snapshot.id)) return // loading / ready / failed 都是落地态，不再重发
-  const siblings = battleHistory.filter(
+  const siblings = trailIndex.filter(
     (entry) => !entry.practice && entry.sortieId === snapshot.sortieId,
   )
   const last = siblings.reduce<BattleSnapshotSummary | null>(
@@ -4199,7 +4213,7 @@ const openBattleSnapshot = async (id: number) => {
     if (diPane) render(diPane)
   } catch (error) {
     console.warn('[kanso] 战斗快照读取失败', error)
-    replayOpenError = '战斗记录读取失败。'
+    replayOpenError = '战斗记录读取失败 · 请重试'
     activateModule('di')
     if (diPane) render(diPane)
   }
@@ -4215,7 +4229,7 @@ const practiceRosterHtml = (): string => {
   const snapshot = mg.practice
   if (!snapshot?.list?.length) {
     return `<div class="prac-card empty"><b>演习名簿</b>
-      <span>尚未同步：在游戏里打开一次演习页</span></div>`
+      <span>尚未同步 · 在游戏中打开一次演习页</span></div>`
   }
   const reset = nextJstTime([3, 15])
   // 快照属于本轮刷新周期才算数：演习一天刷两次（03:00 / 15:00 JST）
@@ -4241,10 +4255,10 @@ const practiceRosterHtml = (): string => {
     .join('')
   const record = mg.record
   const tally = record && (record.practiceWin || record.practiceLose)
-    ? `<span title="游戏官方生涯累计，打开战绩页时自然同步">生涯 ${record.practiceWin}胜${record.practiceLose}负${
+    ? `<span title="游戏官方生涯累计 · 打开战绩页后同步">生涯 ${record.practiceWin}胜${record.practiceLose}负${
         record.practiceRate != null ? ` · ${record.practiceRate}%` : ''
       }</span>`
-    : '<span class="dim" title="打开一次游戏的战绩页即可同步">生涯战绩未同步</span>'
+    : '<span class="dim" title="打开游戏战绩页后同步">生涯战绩未同步</span>'
   return `<div class="prac-card${fresh ? '' : ' stale'}">
     <div class="prac-head">
       <b>演习名簿</b>
@@ -4280,7 +4294,7 @@ const levelingGroupHtml = (title: string, rows: LevelingRow[]): string => {
   if (!rows.length) return ''
   const more =
     rows.length > LEVELING_ROWS_CAP
-      ? `<div class="lvl-more">还有 ${rows.length - LEVELING_ROWS_CAP} 艘</div>`
+      ? `<div class="lvl-more">另有 ${rows.length - LEVELING_ROWS_CAP} 艘</div>`
       : ''
   // 进阶分组置顶（2026-08-18 用户拍板）：排序已保证 收藏→进阶→初段，这里只在
   // 可见区间内标出「初段」分界——低级链尾船整组沉到线下，不筛掉、不藏内容
@@ -4355,12 +4369,12 @@ const practiceLevelingHtml = (): string => {
     ? `${levelingGroupHtml('单向改造', oneWay)}
        ${levelingGroupHtml('双向转换', reversible)}`
     : levelingFinalOnly
-      ? '<div class="lvl-none">这个筛选下没有匹配</div>'
-      : '<div class="lvl-none">仓库里的舰娘都到了下一段改造等级，没有练级缺口</div>'
+      ? '<div class="lvl-none">当前筛选暂无匹配项</div>'
+      : '<div class="lvl-none">暂无练级缺口 · 当前舰娘均已达到下一段改造等级</div>'
   const orderChip = (order: LevelingOrder, label: string, tip: string) =>
     `<i class="${levelingOrder === order ? 'on' : ''}" data-act="lvl-order" data-order="${order}" role="button" title="${tip}">${label}</i>`
   return `<div class="lvl-card">
-    <div class="lvl-head"><b>推荐练级</b>
+    <div class="lvl-head"><b>改造练级</b>
       <span class="lvl-order"><i class="fin${levelingFinalOnly ? ' on' : ''}" data-act="lvl-final" role="button" title="只看下一段改造就是链尾的">最终改造</i>${orderChip('level', '按等级', '按还差的等级数排，同差距等级高的在前')}${orderChip('exp', '按经验', '按还差的总经验排 · 不足一级也计入 · 无值排末')}</span>
     </div>
     ${body}
@@ -4379,6 +4393,7 @@ const renderBattlePane = (
   snapshot: BattleSnapshot | null,
   force = false,
   embedded = false,
+  trailIndex: readonly BattleSnapshotSummary[] = battleHistory,
 ) => {
   if (!force && !pane.classList.contains('active')) return
   adoptBattlePaneState(pane)
@@ -4396,20 +4411,24 @@ const renderBattlePane = (
     if (practicePreview) {
       applyPaneHtml(pane, 'di', `<div class="di-app practice-preview-mode${pane.clientWidth < 700 ? ' narrow' : ''}">
         <div class="battle-col">
-          ${trailHtml(s)}
+          ${trailHtml(s, snapshot, trailIndex)}
           ${verdictHtml(s)}
           ${practiceOpponentPreviewHtml(s)}
         </div>
       </div>`)
       return
     }
-    ensureChron(s, () => renderBattlePane(pane, snapshot, force, embedded))
+    ensureChron(s, () => renderBattlePane(pane, snapshot, force, embedded, trailIndex))
     // 嵌入宿主（史的复盘抽屉）就地换片走的是它自己的通道，不经过
     // openBattleSnapshot，完整航迹没人替它拉——于是抽屉里选了早节点，
     // 晚于这一战的点就从航迹上消失，只能往回走（跟 2026-08-12 判过的
     // 那条「单行道」同款）。镝自己仍由 openBattleSnapshot 触发，这里只补嵌入这一路。
     if (embedded && snapshot) {
-      ensureReplayRunTrail(snapshot, () => renderBattleReplayDetail(pane, snapshot))
+      ensureReplayRunTrail(
+        snapshot,
+        () => renderBattleReplayDetail(pane, snapshot, { trailIndex }),
+        trailIndex,
+      )
     }
     const identity = `${snapshot?.id ?? 'live'}:${s.startTs}:${s.battleCount}`
     if (identity !== battleExpansionIdentity) {
@@ -4460,12 +4479,12 @@ const renderBattlePane = (
                 ${embedded ? '' : '<button data-battle-live>返回实时</button>'}</div>`
             : ''
         }
-        ${trailHtml(snapshot ? replayTrailSortie(snapshot) : s)}
+        ${trailHtml(snapshot ? replayTrailSortie(snapshot) : s, snapshot, trailIndex)}
         ${verdictHtml(s)}
         ${bodyBattle ? airlineHtml(bodyBattle, s) : ''}
         ${bodyBattle ? arenaHtml(bodyBattle, s) : ''}
         ${bodyBattle ? resultStripHtml(bodyBattle) : ''}
-        ${bodyBattle ? logHtml(bodyBattle, logExpanded) : '<div class="log"><div class="log-h" style="color:var(--dim)">等待战斗</div></div>'}
+        ${bodyBattle ? logHtml(bodyBattle, logExpanded) : '<div class="log"><div class="log-h" style="color:var(--dim)">尚未发生战斗</div></div>'}
       </div>
       <aside class="sidebar">
          ${preBattleIntelHtml(s)}
@@ -4473,7 +4492,7 @@ const renderBattlePane = (
         ${navCardHtml(s)}
         ${dropPoolCardHtml(s)}
         ${dropCardHtml(s)}
-        <div class="note9"><span class="credit-mark" title="个人战绩保存在本地遭遇志 ｜ 已确认信息来自离线海域资料 ｜ 海图来自离线海图资料">源</span></div>
+        <div class="note9"><span class="credit-mark" title="本地战绩保存在遭遇志 ｜ 已确认信息来自离线海域资料 ｜ 海图来自离线海图资料">源</span></div>
       </aside>
     </div>`)
     // 没换 DOM 就没有「新元素」要拨：条子还是上一帧那批，动画不必重来
@@ -4527,9 +4546,17 @@ const render = (pane: HTMLElement, force = false) => {
 }
 
 // 回顾窗口复用镝的唯一一套战斗详情渲染，不切换坞位，也不把详情画到遮罩下。
-export const renderBattleReplayDetail = (pane: HTMLElement, snapshot: BattleSnapshot) => {
+export interface BattleReplayDetailOptions {
+  trailIndex?: readonly BattleSnapshotSummary[]
+}
+
+export const renderBattleReplayDetail = (
+  pane: HTMLElement,
+  snapshot: BattleSnapshot,
+  options?: BattleReplayDetailOptions,
+) => {
   initUsedEquipmentPopover()
-  renderBattlePane(pane, snapshot, true, true)
+  renderBattlePane(pane, snapshot, true, true, options?.trailIndex ?? battleHistory)
 }
 
 /**
@@ -4579,6 +4606,7 @@ const handleBattlePaneInteraction = (
   target: HTMLElement,
   rawRerender: () => void,
   allowLive: boolean,
+  currentSnapshot: BattleSnapshot | null,
   // 航迹节点点开另一场快照时走谁。镝自己走 openBattleSnapshot（切到镝、换 replay）；
   // 嵌入宿主传自己的，就地在宿主里换快照，不把工作区拽走。
   openSnapshot: (id: number) => void = openBattleSnapshot,
@@ -4667,7 +4695,7 @@ const handleBattlePaneInteraction = (
     return true
   }
   if (act === 'bd-tuck') {
-    const b = (replay?.sortie ?? mg.sortie)?.battle
+    const b = (currentSnapshot?.sortie ?? mg.sortie)?.battle
     if (!b || b.kind !== 'baseDefense') return true
     const key = baseDefenseFoldKey(b)
     if (expandedBaseDefense.has(key)) expandedBaseDefense.delete(key)
@@ -4796,15 +4824,27 @@ export const handleBattleReplayDetailClick = (
   pane: HTMLElement,
   snapshot: BattleSnapshot,
   target: HTMLElement,
-  options?: { openSnapshot?: (id: number) => void },
+  options?: BattleReplayDetailOptions & { openSnapshot?: (id: number) => void },
 ): boolean =>
   handleBattlePaneInteraction(
     pane,
     target,
-    () => renderBattleReplayDetail(pane, snapshot),
+    () => renderBattleReplayDetail(pane, snapshot, options),
     false,
+    snapshot,
     options?.openSnapshot ?? openBattleSnapshot,
   )
+
+export const bootstrapBattleReplay = (rerender: () => void) => {
+  initUsedEquipmentPopover()
+  void loadBattleHistory(false).then(rerender)
+  void Promise.all([loadFcd(), loadAbyssalStats(), loadRouting()])
+    .then(rerender)
+    .catch((error) => console.warn('[kanso] di: 矿脉包读取失败', error))
+  void initMapIntel().then(rerender)
+  void ensureFirstEncounters()
+  onFirstEncountersChange(rerender)
+}
 
 registerModule({
   id: 'di',
@@ -4812,9 +4852,8 @@ registerModule({
   order: 7,
   mount(pane) {
     diPane = pane
-    // 人生记录窗里点了某一场（击杀簿或履历时间轴）→ 主进程把主窗拿到前面，
-    // 再把快照 id 送到这里打开复盘。**必须在同步段注册**并挂退订：
-    // mount 中途抛错后点「重试装配」会再走一遍，不退订就是双注册（点一场开两次）。
+    registerBattleEntityRoutes()
+    // 同步注册并在卸载时退订，避免装配重试产生重复 listener。
     const openBattleFromShipLife = (_event: unknown, rawId: unknown) => {
       const id = Number(rawId)
       if (Number.isInteger(id) && id > 0) void openBattleSnapshot(id)
@@ -4847,14 +4886,7 @@ registerModule({
         title: firstTextTitle, // 段头只有「预测口径」四个字
       },
     ])
-    initUsedEquipmentPopover()
-    void loadBattleHistory()
-    void Promise.all([loadFcd(), loadAbyssalStats(), loadRouting()])
-      .then(() => render(pane))
-      .catch((error) => console.warn('[kanso] di: 矿脉包读取失败', error))
-    void initMapIntel().then(() => render(pane))
-    void ensureFirstEncounters()
-    onFirstEncountersChange(() => render(pane))
+    bootstrapBattleReplay(() => render(pane))
     render(pane, true)
     // 空闲态的演习名簿有刷新倒计时，得每秒走字
     onTick(() => {
@@ -4887,7 +4919,7 @@ registerModule({
     }).observe(pane)
     pane.addEventListener('click', (e) => {
       const target = e.target as HTMLElement
-      handleBattlePaneInteraction(pane, target, () => render(pane), true)
+      handleBattlePaneInteraction(pane, target, () => render(pane), true, replay)
     })
   },
   onShow() {
@@ -4895,57 +4927,59 @@ registerModule({
   },
 })
 
-registerEntityRoute('battle', {
-  colorClass: 'e-map',
-  open(ref) {
-    void openBattleSnapshot(Number(ref.id))
-  },
-  peek(ref) {
-    const entry = battleHistory.find((item) => item.id === Number(ref.id))
-    if (!entry) return null
-    return {
-      title: historyTitle(entry),
-      typeLabel: '本地战斗记录',
-      lines: [
-        fmtDateTime(entry.ts),
-        entry.practice ? '演习' : `${entry.isBoss ? 'Boss 战' : '通常战'} · 第 ${entry.battleNo} 战`,
-      ],
-      primary: '打开战斗复盘',
-    }
-  },
-})
+export const registerBattleEntityRoutes = () => {
+  registerEntityRoute('battle', {
+    colorClass: 'e-map',
+    open(ref) {
+      void openBattleSnapshot(Number(ref.id))
+    },
+    peek(ref) {
+      const entry = battleHistory.find((item) => item.id === Number(ref.id))
+      if (!entry) return null
+      return {
+        title: historyTitle(entry),
+        typeLabel: '本地战斗记录',
+        lines: [
+          fmtDateTime(entry.ts),
+          entry.practice ? '演习' : `${entry.isBoss ? 'Boss 战' : '通常战'} · 第 ${entry.battleNo} 战`,
+        ],
+        primary: '打开战斗复盘',
+      }
+    },
+  })
 
-registerEntityRoute('battleCurrent', {
-  colorClass: 'e-map',
-  open(ref) {
-    replay = null
-    activateModule('di')
-    if (!diPane) return
-    render(diPane)
-    const rosterId = ref.num
-    if (!Number.isFinite(rosterId)) return
-    requestAnimationFrame(() => {
-      const target = diPane?.querySelector<HTMLElement>(`[data-bship="${CSS.escape(`${rosterId}`)}"]`)
-      if (!target) return
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      target.classList.remove('focus')
-      requestAnimationFrame(() => target.classList.add('focus'))
-      setTimeout(() => target.classList.remove('focus'), 2200)
-    })
-  },
-  peek() {
-    const battle = mg.sortie?.battle
-    if (!battle) return null
-    return {
-      title: mg.sortie?.practice
-        ? '当前演习'
-        : `当前战斗 · ${mg.sortie?.mapArea ?? '?'}-${mg.sortie?.mapNo ?? '?'}`,
-      typeLabel: '实时战斗',
-      lines: [
-        `第 ${mg.sortie?.battleCount ?? 1} 战`,
-        battle.result?.rank ? `战果 ${battle.result.rank}` : '战斗进行中',
-      ],
-      primary: '打开实时战斗',
-    }
-  },
-})
+  registerEntityRoute('battleCurrent', {
+    colorClass: 'e-map',
+    open(ref) {
+      replay = null
+      activateModule('di')
+      if (!diPane) return
+      render(diPane)
+      const rosterId = ref.num
+      if (!Number.isFinite(rosterId)) return
+      requestAnimationFrame(() => {
+        const target = diPane?.querySelector<HTMLElement>(`[data-bship="${CSS.escape(`${rosterId}`)}"]`)
+        if (!target) return
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        target.classList.remove('focus')
+        requestAnimationFrame(() => target.classList.add('focus'))
+        setTimeout(() => target.classList.remove('focus'), 2200)
+      })
+    },
+    peek() {
+      const battle = mg.sortie?.battle
+      if (!battle) return null
+      return {
+        title: mg.sortie?.practice
+          ? '当前演习'
+          : `当前战斗 · ${mg.sortie?.mapArea ?? '?'}-${mg.sortie?.mapNo ?? '?'}`,
+        typeLabel: '实时战斗',
+        lines: [
+          `第 ${mg.sortie?.battleCount ?? 1} 战`,
+          battle.result?.rank ? `战果 ${battle.result.rank}` : '战斗进行中',
+        ],
+        primary: '打开实时战斗',
+      }
+    },
+  })
+}

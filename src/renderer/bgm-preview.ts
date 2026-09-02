@@ -42,16 +42,16 @@ export const bgmPreviewHtml = (bgmId: number, kind: 'port' | 'battle'): string =
     // 到这里说明：档案里没有、缓存里也没有，而现取又被钥里的开关关掉了。
     // 与语音格同一口径——如实说明原因，别让玩家对着一个点不响的按钮猜。
     const why = remoteArtState().enabled
-      ? '这一首本机还没有，游戏里响过一次就会存下来'
-      : '本机没有这一首；设置里「未缓存的立绘/语音从游戏资源服务器取」是关着的'
+      ? '本机暂无该曲 · 首次游戏播放后归档'
+      : '本机暂无该曲 · 远程获取已关闭'
     return `<span class="bgm-pv muted" title="${esc(why)}">${name}</span>`
   }
   const from = archived ? '档案实物 · 零联网 · ' : ''
   // 曲名提示只在**真没查到名字**时出——查到了还说「无官方曲名」就是自相矛盾
-  const hint = song ? '' : '这一首官方尚未公布曲名，只标编号 · '
+  const hint = song ? '' : '官方曲名尚未公布 · 仅显示编号 · '
   // data-bgm-label 是**给迷你播放条看的名字**。点下去那一刻曲名就在手上，
   // 不必让条子回头去认词条的文本（那份文本还带着 ♪ 与各种记号）。
-  return `<span class="bgm-pv${archived ? ' kept' : ''}" data-bgm-url="${esc(url)}" data-bgm-label="${name}" title="${from}${hint}试听（再点暂停，暂停后再点接着放）">♪ ${name}</span>`
+  return `<span class="bgm-pv${archived ? ' kept' : ''}" data-bgm-url="${esc(url)}" data-bgm-label="${name}" title="${from}${hint}试听 · 单击暂停 / 继续播放">♪ ${name}</span>`
 }
 
 let audio: HTMLAudioElement | null = null

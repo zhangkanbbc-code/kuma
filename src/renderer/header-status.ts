@@ -66,7 +66,7 @@ const bgmHtml = () => {
   // 槽位常驻（2026-08-16 用户定的）：没在播放也占着位置，
   // 音乐响起时顶栏不再整条右移。空闲态波形不动、整块压暗。
   if (!currentBgm) {
-    return `<span class="hs-bgm idle" title="当前没有识别到游戏 BGM">
+    return `<span class="hs-bgm idle" title="当前未识别游戏 BGM">
       <i aria-hidden="true"><b></b><b></b><b></b></i>
       <span>未在播放</span><strong></strong>
     </span>`
@@ -81,7 +81,7 @@ const bgmHtml = () => {
 }
 
 const resourcesHtml = () => {
-  if (!mg.materials) return '<span class="hs-muted">资源等待同步</span>'
+  if (!mg.materials) return '<span class="hs-muted">资源尚未同步</span>'
   return RESOURCE_ORDER.map(([idx, label, name]) => {
     const value = mg.materials![idx] ?? 0
     const state = idx === 7 && value < 50 ? ' bad' : idx === 5 && value >= 2700 ? ' warn' : ''
@@ -148,7 +148,7 @@ const EXP_CHIP_CLASS: Record<ExpeditionChipState, string> = {
 }
 
 const expeditionsHtml = () => {
-  if (!mg.decks.length) return '<span class="hs-muted">等待同步</span>'
+  if (!mg.decks.length) return '<span class="hs-muted">尚未同步</span>'
   const now = Date.now()
   return [2, 3, 4]
     .map((id) => {
@@ -182,7 +182,7 @@ const expeditionsHtml = () => {
           : `远征 ${deck.mission[1]}`
         const state = expeditionChipState(deck.mission[2], false, now)
         return `<span class="hs-chip exp${EXP_CHIP_CLASS[state]}" data-fleet="${id}" data-timer="mission:${id}"
-          title="${esc(`${canonical} · ${missionName}${state === 'back' ? ' · 已返港，去港口收' : ''} · 点击查看舰队`)}">
+          title="${esc(`${canonical} · ${missionName}${state === 'back' ? ' · 已返港 · 前往港口领取' : ''} · 点击查看舰队`)}">
           <i>${id}</i><b data-cds="${deck.mission[2]}" data-cds-done="返港">${fmtCountdownShort(deck.mission[2], '返港')}</b>
         </span>`
       }
@@ -215,7 +215,7 @@ const syncExpeditionChipStates = (root: HTMLElement) => {
 }
 
 const docksHtml = () => {
-  if (!mg.ndocks.length) return '<span class="hs-muted">等待同步</span>'
+  if (!mg.ndocks.length) return '<span class="hs-muted">尚未同步</span>'
   const used = mg.ndocks.filter((dock) => dock.shipId > 0)
   const total = mg.ndocks.length
   const rows = used
@@ -406,7 +406,7 @@ const render = () => {
   if (!host) return
   const player = mg.basic
     ? `<span class="hs-player" title="当前提督"><b>${esc(mg.basic.nickname)}</b><em>Lv ${mg.basic.level}</em></span>`
-    : '<span class="hs-player muted">等待登录</span>'
+    : '<span class="hs-player muted">尚未登录</span>'
   // 输出没变就整段不动 DOM（口径见 kernel commitPaneHtml）。顶栏是被动重渲最勤的一块
   // （basic/materials/decks/ndocks/ships/slotitems 任一变化都重建），
   // 而它上面全是可点的角标——按下与抬起之间换掉 DOM，那一次点击就不会发生。
@@ -614,7 +614,7 @@ registerEntityRoute('timer', {
     const [kind] = parseTimerRef(ref.id)
     const eventId = TIMER_EVENT[kind]
     return eventId
-      ? [{ label: '通知规则 · 为它设提醒', run: () => openNotifyRule(eventId) }]
+      ? [{ label: '通知规则 · 为该倒计时设提醒', run: () => openNotifyRule(eventId) }]
       : [{ label: '通知规则', disabled: true, hint: '该倒计时无对应通知事件' }]
   },
 })

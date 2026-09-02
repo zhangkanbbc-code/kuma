@@ -137,13 +137,13 @@ export const variantLabelOf = (evidence?: { seasonTitle?: string; observedAt?: s
     return {
       name: `${title}（耳测）`,
       evidenced: true,
-      note: `耳测台账 ${evidence?.observedAt ?? ''} 实测确认这个槽位上挂的是这一季的那一条`,
+      note: `${evidence?.observedAt ?? ''} 耳测确认：当前槽位为本季语音`,
     }
   }
   return {
     name: '另一份实物',
     evidenced: false,
-    note: '档案里同一位置还留着这一份字节。它属于哪一季没有依据可断，所以这里不主张文本',
+    note: '档案中保留同位置的另一份音频；所属季节不明，文本暂缺',
   }
 }
 

@@ -169,9 +169,9 @@ test('渲染路径：缺包段挂着让位判据，且带路三段照旧跟着�
   assert.match(local, /if \(!officialAbsent \|\| mapId <= 0\) return/)
   // ③ 挂牌措辞：说清这张图画的是什么；不写抱怨也不造紧迫感。
   // 「官方资料到位前的…会让位给官方资料」是解释实现，按 2026-08-26 文案清扫裁定
-  //（族 7）删；缩成「只画你自己走过的边」。「会让位」这条真行为不靠措辞守——
+  //（族 7）删；缩成「仅显示本地航迹边」。「会让位」这条真行为不靠措辞守——
   // 它的判据就是上面那个 officialAbsent 闸门（本测已钉），删了措辞照旧红。
-  assert.match(local, /只画你自己走过的边/)
+  assert.match(local, /仅显示本地航迹边/)
   assert.equal(/请更新|尽快|赶紧|遗憾|可惜/.test(local), false, '挂牌写了抱怨或催促')
   // ④ 拓扑一律由纯函数给，渲染层不自己算边
   assert.match(local, /const topo = localMapTopology\(chronicle, branches\)/)

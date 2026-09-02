@@ -165,9 +165,13 @@ test('会话不许换：换了 partition 就要玩家再登录一次 DMM，代�
 
 test('主窗关掉，开着的浏览窗跟着走', () => {
   const index = read('src/main/index.ts')
+  const closed = index.slice(
+    index.indexOf("win.on('closed'"),
+    index.indexOf('// DNS over HTTPS'),
+  )
   assert.match(
-    index,
-    /win\.on\('closed'[\s\S]{0,600}closeAllBrowseWindows\(\)/,
+    closed,
+    /closeAllBrowseWindows\(\)/,
     '主窗 closed 里没关浏览窗——留一扇在那儿就等不到 window-all-closed，应用关不掉',
   )
   assert.match(read('src/main/browse-window.ts'), /export const closeAllBrowseWindows/)

@@ -511,7 +511,7 @@ const repairSummaryHtml = (list: Row[]): string => {
         ? `全员就绪 <b>${repairDuration(plan.remainMs)}</b><i title="${esc(
             `${plan.slotCount} 渠并行估算${plan.queued ? ` · ${plan.queued} 艘排队等空渠` : ''}`,
           )}">${plan.slotCount} 渠并行${plan.queued ? ` · ${plan.queued} 艘排队` : ''}</i>`
-        : '没有可用入渠位'
+        : '暂无可用入渠位'
     }</span>
     <span class="rs-k">合计 <b>${fuel.toLocaleString()}</b> 燃 <b>${steel.toLocaleString()}</b> 钢</span>
     <span class="rs-k">全用桶需 <b>${list.length}</b> 个${
@@ -529,7 +529,7 @@ const rowHtml = (row: Row) => {
       `<span class="infleet" title="正在第${row.fleet.deckId}舰队${row.fleet.flagship ? '（旗舰）' : ''} · ${esc(row.fleet.name)}">${row.fleet.deckId}队${row.fleet.flagship ? '·旗' : ''}</span>`,
     )
   }
-  if (ship.lv === 99) badges.push('<span class="marry">Lv99 可结婚</span>')
+  if (ship.lv === 99) badges.push('<span class="marry">Lv99 可誓约</span>')
   if (ship.sallyArea > 0) badges.push(`<span class="sally">标签 ${ship.sallyArea}</span>`)
   if (row.dup) badges.push('<span class="dup">重复 · 未锁</span>')
   // 备注标签：玩家自己写在「这一艘的备注」里的 #xxx。摆在行上，筛出来的这几艘
@@ -566,7 +566,7 @@ const rowHtml = (row: Row) => {
     kaiHtml = `<span class="near">${esc(row.kai.next)} · 差 <b>${row.kai.gap}</b> 级${row.kai.expGap != null ? `<i class="exp" title="到改造等级还差的总经验">总${row.kai.expGap.toLocaleString()}</i>` : ''}</span>`
   } else if (row.kai.state === 'flip') {
     // 双向转换与单向缺口不是一回事，中性色 + ⇄ 标出来，别混进待办
-    kaiHtml = `<span class="flip" title="双向形态切换，到级后可来回换">⇄ ${esc(row.kai.next)} · 差 <b>${row.kai.gap}</b> 级${row.kai.expGap != null ? `<i class="exp" title="到转换等级还差的总经验">总${row.kai.expGap.toLocaleString()}</i>` : ''}</span>`
+    kaiHtml = `<span class="flip" title="双向形态切换 · 达到等级后可双向切换">⇄ ${esc(row.kai.next)} · 差 <b>${row.kai.gap}</b> 级${row.kai.expGap != null ? `<i class="exp" title="到转换等级还差的总经验">总${row.kai.expGap.toLocaleString()}</i>` : ''}</span>`
   }
   const modDots = row.modMax
     .map((maxed, i) => `<s class="${maxed ? ['f', 't', 'a', 'r'][i] : 'o'}"></s>`)
@@ -682,7 +682,7 @@ const lifeCardHtml = (row: Row | undefined): string => {
       ? '本地记录读取失败'
       : lifeLoading.has(row.ship.id)
         ? '正在读取本地记录……'
-        : '等待读取记录……'
+        : '记录读取中'
     return `<div class="pcard life-card"><div class="h"><b>人生记录</b>${lifeWindowButtonHtml(row.ship.id)}</div>
       <div class="life-empty">${state}</div></div>`
   }
@@ -757,14 +757,14 @@ const previewHtml = (row: Row) => {
     const req =
       row.kai.state === 'ready'
         ? `条件已满足 ✓${row.kai.blueprint ? `<br>${esc(row.kai.blueprint)}` : ''}`
-        : `${row.kai.state === 'flip' ? '双向转换 · ' : ''}还差 ${row.kai.gap} 级${row.kai.expGap != null ? ` · 总${row.kai.expGap.toLocaleString()}` : ''}`
+        : `${row.kai.state === 'flip' ? '双向转换 · ' : ''}距转换等级 ${row.kai.gap} 级${row.kai.expGap != null ? ` · 总${row.kai.expGap.toLocaleString()}` : ''}`
     chainHtml = `<span class="pv-node on">${entityNameHtml('ship', ship.shipId, name, { compact: true })}</span><span class="pv-arr">${req}</span>
       <span class="pv-node"${row.kai.state === 'ready' ? ' style="border-color:var(--ok);color:#a5e0bb"' : ''}>${esc(row.kai.next)}</span>`
   }
   return `
     ${shipThumbHtml(ship.shipId, name, { className: 'preview' })}
     <div class="pv-name">${elink('mstShip', ship.shipId, name)}<button class="pv-fav${isFavoriteRoster(ship.id) ? ' on' : ''}" data-act="fav-roster"
-      title="收藏我这一艘 · 临近改造里置顶">${isFavoriteRoster(ship.id) ? '★ 已收藏' : '☆ 收藏'}</button></div>
+      title="收藏当前舰娘 · 临近改造中置顶">${isFavoriteRoster(ship.id) ? '★ 已收藏' : '☆ 收藏'}</button></div>
     <div class="pv-yomi">${esc(row.mst?.api_yomi ?? '')}${(() => {
       const cls = wiki?.级别 ?? shipProfileByMst.get(ship.shipId)?.shipClass
       return Array.isArray(cls) ? ` · ${esc(cls[0])} ${cls[1]}号舰` : ''
@@ -799,7 +799,7 @@ const previewHtml = (row: Row) => {
       <span class="s">改修★合计 <b>${row.starSum}</b></span>
     </div>
     ${bonusLineHtml(ship)}
-    <label class="pv-personal"><span>这一艘的备注 · ID ${ship.id}</span>
+    <label class="pv-personal"><span>本舰备注 · ID ${ship.id}</span>
       <input id="qa-roster-note" maxlength="120" value="${esc(shipRosterNote(ship.id))}"
         placeholder="与图鉴共用 · 写 #标签 可进筛选"></label>
     ${(() => {
@@ -967,7 +967,7 @@ const detailHtml = (row: Row): string => {
   const name = masterShipName(row.ship.shipId)
   return `<div class="qa-detail${detailEnter ? ' enter' : ''}">
     <div class="dv-head">
-      <span class="back" data-act="dv-back" title="返回列表 (Esc)">← 返回列表</span>
+      <span class="back" data-act="dv-back" title="返回列表（Esc）">← 返回列表</span>
       <span class="crumb">${esc(row.typeCn)} › <b>${entityNameHtml('ship', row.ship.shipId, name, { compact: true })}</b></span>
       <span class="sp"></span>
       <span class="r" data-act="pv-open">在图鉴中打开 →</span>
@@ -1140,7 +1140,7 @@ const render = () => {
   if (!Object.keys(mg.ships).length || !mstShips.size) {
     forgetCommittedHtml(pane, 'qa') // 这一支绕开 commitPaneHtml，记忆不能留着
     pane.innerHTML = `<div class="pane-waiting">
-      等待游戏同步舰娘列表……</div>`
+      尚未同步舰娘列表</div>`
     return
   }
   const all = buildRows()
@@ -1180,7 +1180,7 @@ const render = () => {
   // 反过来「默认露着、放不下才藏」的话，量之前那一帧会先闪一枚「更多 0」。
   const tagMoreChip = state.tagsOpen
     ? '<span class="fchip ntag more on" data-ntag-more="1" title="标签收回一行">收起 ▴</span>'
-    : '<span class="fchip ntag more nt-folded" data-ntag-more="1" title="展开摆不下的标签">更多 <i>0</i> ▾</span>'
+    : '<span class="fchip ntag more nt-folded" data-ntag-more="1" title="展开其余标签">更多 <i>0</i> ▾</span>'
 
   const th = (key: string, label: string, extra = '') =>
     `<th class="${extra}${state.sortKey === key ? ' sort' : ''}" data-sort="${key}">${label}${state.sortKey === key ? (state.sortDir < 0 ? ' ▼' : ' ▲') : ''}</th>`
@@ -1228,10 +1228,10 @@ const render = () => {
           ${smartChip('leveling', '临近改造')}
           ${
             state.smart === 'leveling'
-              ? `<span class="fchip lvlsub${state.sortKey === 'kaigap' ? ' on' : ''}" data-lvlorder="kaigap" title="按还差的等级数排">按等级</span><span class="fchip lvlsub${state.sortKey === 'kaiexp' ? ' on' : ''}" data-lvlorder="kaiexp" title="按还差的总经验排">按经验</span><span class="fchip lvlsub${state.lvlFinal ? ' on' : ''}" data-lvlfinal="1" title="只看下一段改造就是链尾的">最终改造</span>`
+              ? `<span class="fchip lvlsub${state.sortKey === 'kaigap' ? ' on' : ''}" data-lvlorder="kaigap" title="按缺少等级排序">按等级</span><span class="fchip lvlsub${state.sortKey === 'kaiexp' ? ' on' : ''}" data-lvlorder="kaiexp" title="按缺少总经验排序">按经验</span><span class="fchip lvlsub${state.lvlFinal ? ' on' : ''}" data-lvlfinal="1" title="仅显示下一段改造为链尾的舰娘">最终改造</span>`
               : ''
           }
-          ${smartChip('marry', 'Lv99 待嫁', 'gold ')}
+          ${smartChip('marry', 'Lv99 待誓约', 'gold ')}
           ${smartChip('tired', '疲劳', 'warn ')}
           ${smartChip('dupe', '未锁重复')}
           ${smartChip('infleet', '在编')}
@@ -1506,7 +1506,7 @@ registerEntityRoute('ship', {
             : []),
           { label: '图鉴 · 改装链与资料', run: () => navigate({ type: 'mstShip', id: ship.shipId }) },
         ]
-      : [{ label: '舰娘图鉴', disabled: true, hint: '这艘舰娘已不在当前仓库' }]
+      : [{ label: '舰娘图鉴', disabled: true, hint: '当前未持有该舰娘' }]
   },
 })
 
@@ -1521,7 +1521,7 @@ registerEntityRoute('shipCapacity', {
       typeLabel: '容量',
       lines: [
         `当前 <b>${current}</b> / ${maximum || '—'}`,
-        maximum ? `剩余 <b>${Math.max(0, maximum - current)}</b> 格` : '等待返港后同步容量上限',
+        maximum ? `剩余 <b>${Math.max(0, maximum - current)}</b> 格` : '容量上限尚未同步 · 返港后同步',
       ],
       primary: '舰娘列表 · 清理视图',
     }

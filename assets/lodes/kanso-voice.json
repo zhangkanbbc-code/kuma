@@ -7,7 +7,7 @@
   "fetchedAt": "2026-08-22T13:55:43.240Z",
   "upstreamUpdatedAt": null,
   "license": "kuma 自行整理（第一方译文）",
-  "note": "其他资料都没有收录的那些形态的台词，由 kuma 自行翻译，附日文原文",
+  "note": "补充形态台词 · kuma 自译 · 附日文原文",
   "maintainerNote": [
    "2026-08-22 新建。**第一方译文层**：舰娘百科（kcwiki）与 poi-plugin-subtitle 都没有收录的形态，中文层整片是空的（吞武里、Gloire、Wasp、Dace、清霜改二、大泊……），玩家点开台词卷只看得到一片空白。这一层由 kuma 自行把这些形态的台词译成中文补上，日文原文列取自日文 Wiki 的逐字转写。",
    "⚠️ 日文这一列同日**补回来过一次**：建包时按任务域的口径把它挡在分发物外，当天重算法理后撤销——逐字转写的权利归游戏方，这一列与随包早就有的 kcwiki-voice 日文列、整份 subtitle-ja 同源同性质、同样的灰度，挡住它只会让台词卷变成半张对照表。播放键的判据在**编译期**判定后写进 basis：能与该形态的 subtitle-ja 逐字对上的记 key-confirmed；这一层覆盖的形态本地都没有 subtitle-ja，槽位由 wikiwiki 舰娘页的「场合」列推出，记 **wikiwiki-mapped**（给键，但与 key-confirmed 在数据上分得开——两者的实测错位率差一百倍，见 src/shared/voice-playback-observations.ts 的实测表）；同一槽位有两种以上候选文本记 ambiguous（不给键——至多只有一句是真的，宁可无键不播错句）。中文译文过一道标点体例归一（行尾不写句号、省略号后不许再接句号，见 src/shared/voice-text.ts），日文原样落盘不动。译文拿不准的行带 draft 标记，只给维护者看，界面上不标。",

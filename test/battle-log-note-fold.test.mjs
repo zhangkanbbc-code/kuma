@@ -13,7 +13,9 @@ import test from 'node:test'
 
 import { airOf, battleOf, renderLog, shipOf, stageOf } from './fixtures/render-di-battle.mjs'
 
-const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+const html =
+  fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8') +
+  fs.readFileSync(new URL('../src/renderer/assets/battle-replay.css', import.meta.url), 'utf8')
 
 const LONG_NAME = '摩耶改二·特设防空舰'
 const shipsNamed = (name) =>

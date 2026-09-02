@@ -83,7 +83,7 @@ test('view 摊出来的小标与尾注逐字固定', () => {
   }
   assert.equal(SALLY_RULE_FOOTNOTE_CD, FOOT_CD)
   assert.equal(SALLY_RULE_FOOTNOTE_B, FOOT_B)
-  assert.equal(SALLY_RULE_GENERAL_NOTE, '札随首次出击贴上，丙丁也贴，之后不能换不能摘')
+  assert.equal(SALLY_RULE_GENERAL_NOTE, '首次出击时附加札；丙、丁同样附加，之后不可更换或移除')
 })
 
 test('未确认项只在 62-4，且绝不混进正常名单', () => {
@@ -149,15 +149,18 @@ test('铎把札段挂进血条卡，两条渲染路径都挂——没同步血�
   assert.match(activity, /class="sr-chip/)
   assert.match(activity, /class="sr-foot"/)
   assert.match(activity, /title="\$\{esc\(SALLY_RULE_GENERAL_NOTE\)\}"/)
-  assert.match(activity, /wiki 未确认项，原文如此/)
+  assert.match(activity, /wiki 未确认项 · 保留原文/)
   // 文案从 shared 现取，别在渲染层再抄一份——抄了就会和数据层各说各的
   assert.doesNotMatch(activity, /丙丁不受限/)
   assert.doesNotMatch(activity, /乙以下不受限/)
   assert.doesNotMatch(activity, /札随首次出击贴上/)
 })
 
-test('札段的样式落在 index.html 里', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+test('札段的样式落在战斗复盘共享样式里', () => {
+  const html = fs.readFileSync(
+    new URL('../src/renderer/assets/battle-replay.css', import.meta.url),
+    'utf8',
+  )
   for (const cls of ['.mod-du .sally-rule', '.mod-du .sr-chip', '.mod-du .sr-chip.ban', '.mod-du .sr-chip.unk', '.mod-du .sr-foot']) {
     assert.ok(html.includes(cls), `缺样式 ${cls}`)
   }

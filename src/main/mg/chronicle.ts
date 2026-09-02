@@ -11,6 +11,7 @@ import * as store from './store'
 import { mapIdOf } from '../../shared/map-id'
 import { los33Of } from '../../shared/fleet-los33'
 import { friendlyFleetKey, parseFriendlyInfo } from '../../shared/friendly-fleet'
+import { isEnemyReallySunk } from '../../shared/enemy-sunk'
 
 const predictionScopeOf = (sortie: { mapArea: number; mapNo: number }) => {
   const state = store.getState()
@@ -203,9 +204,12 @@ export const onChronicleApi = (apiPath: string, body: any, _post: Record<string,
         battle.eShips.map((x) => x.mstId),
         rank,
         body.api_get_ship?.api_ship_id ?? null,
-        // 击沉掩码：eShips[i].sunk 已由战斗模型逐舰算好（含夜战），位 i 对应 comp[i]。
+        // 击沉掩码：战斗模型已逐舰算好真实沉没语义（含夜战），位 i 对应 comp[i]。
         // 演习没有真轰沉（sunk 仅作胜败判定），但演习本就不入遭遇志，这里到不了。
-        battle.eShips.reduce((mask, s, i) => (s.sunk ? mask | (1 << i) : mask), 0),
+        battle.eShips.reduce(
+          (mask, ship, i) => (isEnemyReallySunk(ship) ? mask | (1 << i) : mask),
+          0,
+        ),
         // 活动难度取自游戏下发的 api_selected_rank；常规海域没有这一项，留 null。
         // 甲乙丙丁的同名敌舰是不同的 mstId，不记下来就没法拿实测去核对资料包。
         store.getState().mapGauges?.[scope.map]?.selectedRank ?? null,
@@ -335,6 +339,10 @@ ipcMain.handle('chron:route-stats', (_event, map: number) => ledger.queryRouteSt
 
 ipcMain.handle('chron:battles', (_event, limit?: number) =>
   ledger.queryBattleSnapshots(typeof limit === 'number' ? limit : 40),
+)
+
+ipcMain.handle('chron:battle-run', (_event, sortieId: number) =>
+  ledger.queryBattleRun(Number(sortieId)),
 )
 
 ipcMain.handle('chron:battle', (_event, id: number) => ledger.queryBattleSnapshot(id | 0))

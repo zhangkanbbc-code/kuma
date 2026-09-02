@@ -14,25 +14,127 @@ import test from 'node:test'
 
 import {
   REAL_POST,
+  REAL_REMODEL_SLOT_BODY,
+  REAL_REMODEL_SLOT_POST,
   REMODEL_TS,
+  IMPROVE_266,
   ROW_AKAGI_K2_FROM_BOTAI,
   ROW_AKAGI_K2_FROM_KAI,
   ROW_RICHELIEU_DEUX,
   ROW_YAMATO_K2,
   costTable,
   feedRemodeling,
+  feedRemodelSlot,
+  feedOpenExslot,
+  feedHangarExpand,
   feedUseitemSync,
+  materials,
   reset,
+  slotitems,
   upgradeRowFrom,
   upgrades,
   useitemLog,
   useitems,
 } from './fixtures/store-remodel-cost.mjs'
-import { causeLabel, causeOf, causeWindowMs, load } from './fixtures/render-useitem-cause.mjs'
 
 // 那一晚的真持有数（账本 useitem_log 的 total 反推）：图纸 7、海外舰技术 6
 const STOCK = { 58: 7, 100: 6 }
 const RICHELIEU = { 3447: 392 } // 在籍 3447 = Richelieu改（mst 392）
+
+test('改修当场扣事实表里的特殊道具：更新路线消歧后扣炮熕资材与战斗详报', () => {
+  reset(
+    { 170: 498 },
+    {
+      useitems: { 75: 12, 78: 4, 94: 9 },
+      slotitems: { 4346: { mstId: 266, level: 10 } },
+      materials: [0, 0, 0, 0, 0, 0, 120, 98],
+      improveEntries: [IMPROVE_266],
+    },
+  )
+  const sections = feedRemodelSlot(REAL_REMODEL_SLOT_POST, REAL_REMODEL_SLOT_BODY)
+  assert.deepEqual(sections.sort(), ['materials', 'slotitems', 'useitems'])
+  assert.deepEqual(useitems(), { 75: 11, 78: 3, 94: 9 }, '不能把另一条更新路线的兵装资材扣掉')
+  assert.deepEqual(materials(), REAL_REMODEL_SLOT_BODY.api_after_material)
+  assert.deepEqual(slotitems()[4346], { id: 4346, mstId: 267, level: 0 })
+  assert.deepEqual(
+    useitemLog().map((one) => [one.ts, one.changes]),
+    [
+      [REMODEL_TS, [{ id: 75, delta: -1, total: 11 }]],
+      [REMODEL_TS, [{ id: 78, delta: -1, total: 3 }]],
+    ],
+  )
+})
+
+test('改修自扣后的下一次全量不重记；事实表没写这一档就不扣', () => {
+  reset(
+    { 170: 498 },
+    {
+      useitems: { 75: 12, 78: 4 },
+      slotitems: { 4346: { mstId: 266, level: 10 } },
+      improveEntries: [IMPROVE_266],
+    },
+  )
+  feedRemodelSlot(REAL_REMODEL_SLOT_POST, REAL_REMODEL_SLOT_BODY)
+  const afterSelfDeduct = useitemLog().length
+  feedUseitemSync({ 75: 11, 78: 3 })
+  assert.equal(useitemLog().length, afterSelfDeduct)
+
+  reset(
+    { 170: 498 },
+    {
+      useitems: { 75: 12, 78: 4 },
+      slotitems: { 4346: { mstId: 266, level: 10 } },
+      improveEntries: [{ eq_id: 266, improvement: [{ convert: { id_after: 267 }, costs: {} }] }],
+    },
+  )
+  assert.deepEqual(feedRemodelSlot(REAL_REMODEL_SLOT_POST, REAL_REMODEL_SLOT_BODY).sort(), [
+    'materials',
+    'slotitems',
+  ])
+  assert.deepEqual(useitems(), { 75: 12, 78: 4 })
+  assert.equal(useitemLog().length, 0)
+})
+
+test('普通改修失败没有更新后装备时，按二号舰认路线并照实扣特殊道具', () => {
+  reset(
+    { 170: 498 },
+    {
+      useitems: { 75: 12, 78: 4, 94: 9 },
+      slotitems: { 4346: { mstId: 266, level: 10 } },
+      improveEntries: [IMPROVE_266],
+    },
+  )
+  const body = {
+    api_remodel_flag: 0,
+    api_remodel_id: [266, 266],
+    api_after_material: [7869, 10346, 91671, 5915, 508, 52, 112, 90],
+    api_voice_ship_id: 0,
+    api_voice_id: 0,
+  }
+  const post = { ...REAL_REMODEL_SLOT_POST, api_certain_flag: '0' }
+  assert.deepEqual(feedRemodelSlot(post, body).sort(), ['materials', 'useitems'])
+  assert.deepEqual(useitems(), { 75: 11, 78: 3, 94: 9 })
+  assert.deepEqual(slotitems()[4346], { id: 4346, mstId: 266, level: 10 })
+})
+
+test('开补强增设槽与格纳库扩容都当场扣，随后全量不重记', () => {
+  reset(
+    { 7341: { mstId: 560, slotEx: 0 }, 939: 560 },
+    { useitems: { 64: 1, 105: 1 } },
+  )
+  assert.deepEqual(feedOpenExslot({ api_id: '7341' }).sort(), ['ships', 'useitems'])
+  assert.deepEqual(
+    feedHangarExpand(
+      { api_ship_id: '939', api_slot_pos: '4' },
+      { api_onslot_max: [18, 15, 15, 3, 0] },
+    ).sort(),
+    ['ships', 'useitems'],
+  )
+  assert.deepEqual(useitems(), { 64: 0, 105: 0 })
+  assert.equal(useitemLog().length, 2)
+  feedUseitemSync({ 64: 0, 105: 0 })
+  assert.equal(useitemLog().length, 2, '三端点自扣都必须成为下一次全量的对账基准')
+})
 
 test('改造当场扣道具：图纸 −1、海外舰最新技术 −2，且这两笔进账本', () => {
   reset(RICHELIEU, { useitems: STOCK, upgradeRows: [ROW_RICHELIEU_DEUX] })
@@ -146,39 +248,4 @@ test('消耗字段对应的道具编号', () => {
     ['armsMatCount', 75],
     ['techCount', 100],
   ])
-})
-
-// ---- 归因：自扣之后，「变动原因」自然对上 ----
-
-const REMODEL_PATH = '/kcsapi/api_req_kaisou/remodeling'
-const MISSION_PATH = '/kcsapi/api_req_mission/result'
-
-test('落账时刻＝改造时刻，变动原因认出「舰娘改造」', () => {
-  load([{ ts: REMODEL_TS, path: REMODEL_PATH, postBody: null }], REMODEL_TS - 86400_000)
-  assert.equal(causeOf({ ts: REMODEL_TS, delta: -1, total: 6 }), '舰娘改造')
-})
-
-// 这就是用户看见的那一幕：改造在 23:39:27，道具落在 23:44:51 的远征归来之后。
-test('等全量才落账的旧行为会认成「远征归来」——护栏钉住这个反例', () => {
-  const missionTs = REMODEL_TS + 322_000 // 23:44:49
-  load(
-    [
-      { ts: REMODEL_TS, path: REMODEL_PATH, postBody: null },
-      { ts: missionTs, path: MISSION_PATH, postBody: null },
-    ],
-    REMODEL_TS - 86400_000,
-  )
-  assert.equal(causeOf({ ts: missionTs + 2000, delta: -1, total: 6 }), '远征归来')
-  assert.equal(causeOf({ ts: REMODEL_TS, delta: -1, total: 6 }), '舰娘改造')
-})
-
-test('归因窗口只认 120 秒内的操作，远了就不硬认', () => {
-  assert.equal(causeWindowMs(), 120000)
-  load([{ ts: REMODEL_TS, path: REMODEL_PATH, postBody: null }], REMODEL_TS - 86400_000)
-  assert.equal(causeOf({ ts: REMODEL_TS + 120000, delta: -1, total: 6 }), '舰娘改造')
-  assert.equal(causeOf({ ts: REMODEL_TS + 120001, delta: -1, total: 6 }), '未找到邻近操作')
-})
-
-test('改造那条端点在归因表里', () => {
-  assert.equal(causeLabel()[REMODEL_PATH], '舰娘改造')
 })

@@ -102,7 +102,7 @@ const blockedAt = (mapArea) => {
   })
 }
 
-const NEW_LINE = '已开友军要請 · 友军先清残余'
+const NEW_LINE = '已开启友军请求 · 友军先清理残余'
 
 test('活动图 + 要請已开：副行改说友军，角标换成「友军先行」', () => {
   stageFriendlyRequest({ flag: 1, type: 0 })
@@ -110,32 +110,32 @@ test('活动图 + 要請已开：副行改说友军，角标换成「友军先�
   assert.match(html, new RegExp(NEW_LINE))
   assert.match(html, /友军先行<\/span>/)
   // 标题一律不动：改的是副行与角标
-  assert.match(html, /敌护卫仍有战力 — 夜战预计接触不到 戦艦棲姫/)
-  assert.equal(/可不进夜战省弹药/.test(html), false)
-  assert.equal(/可选择撤退/.test(html), false)
+  assert.match(html, /敌护卫仍有战力 · 夜战估算无法攻击 戦艦棲姫/)
+  assert.equal(/夜战将消耗弹药/.test(html), false)
+  assert.equal(/撤退可用/.test(html), false)
 })
 
 test('要請未开：维持原文案', () => {
   stageFriendlyRequest({ flag: 0, type: 0 })
   const html = renderBlockedBossNight(blockedAt(46))
-  assert.match(html, /可不进夜战省弹药/)
-  assert.match(html, /可选择撤退<\/span>/)
+  assert.match(html, /夜战将消耗弹药/)
+  assert.match(html, /撤退可用<\/span>/)
   assert.equal(html.includes(NEW_LINE), false)
 })
 
 test('要請状态未知：也维持原文案 —— 少说不错说', () => {
   stageFriendlyRequest(null)
   const html = renderBlockedBossNight(blockedAt(46))
-  assert.match(html, /可不进夜战省弹药/)
-  assert.match(html, /可选择撤退<\/span>/)
+  assert.match(html, /夜战将消耗弹药/)
+  assert.match(html, /撤退可用<\/span>/)
   assert.equal(html.includes(NEW_LINE), false)
 })
 
 test('常规图即便要請开着也不提友军：那是活动海域限定的机制', () => {
   stageFriendlyRequest({ flag: 1, type: 0 })
   const html = renderBlockedBossNight(blockedAt(5))
-  assert.match(html, /可不进夜战省弹药/)
-  assert.match(html, /可选择撤退<\/span>/)
+  assert.match(html, /夜战将消耗弹药/)
+  assert.match(html, /撤退可用<\/span>/)
   assert.equal(html.includes(NEW_LINE), false)
 })
 
@@ -154,7 +154,7 @@ test('判别式判「打得到旗舰」时不受要請影响：那一支本来�
     })),
   )
   const html = renderBlockedBossNight(s)
-  assert.match(html, /敌护卫已残破 — 夜战预计可直击 戦艦棲姫/)
+  assert.match(html, /敌护卫已残破 · 夜战估算可攻击 戦艦棲姫/)
   assert.match(html, /夜战机会<\/span>/)
   assert.equal(html.includes(NEW_LINE), false)
 })

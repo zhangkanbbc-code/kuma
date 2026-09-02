@@ -122,7 +122,7 @@ const plainText = (list: CrashRecord[]) =>
   list
     .map(
       (r) =>
-        `[${clockOf(r.lastTs)}] ${r.scope} ×${r.count}${r.benign ? '（已知噪音，非错误）' : ''}\n` +
+        `[${clockOf(r.lastTs)}] ${r.scope} ×${r.count}${r.benign ? ' · 已知噪音 · 非错误' : ''}\n` +
         `${r.message}\n${r.stack ?? '（无调用栈）'}`,
     )
     .join('\n\n')

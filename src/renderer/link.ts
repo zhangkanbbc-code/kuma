@@ -291,7 +291,7 @@ const tipHtml = (target: HTMLElement, pinned: boolean) => {
     pinned ? '<span class="pin-x" title="取消钉住">✕</span>' : ''
   }</div>
    <div class="p-s">${lines.map((line) => esc(line)).join('<br>')}</div>
-   ${pinned ? '' : '<div class="p-hint">单击=钉住（可拖动、可选中复制）</div>'}`
+   ${pinned ? '' : '<div class="p-hint">单击固定 · 支持拖动与复制</div>'}`
 }
 
 const hideTip = () => tipEl?.classList.remove('show')

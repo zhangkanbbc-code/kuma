@@ -11,7 +11,7 @@ import { BATTLESHIP_STYPES, CARRIER_STYPES, SUBMARINE_STYPES } from './kcs-domai
 import { antiLandBonus, landTargetKindOf } from './anti-land'
 import { nightAttackBlock, nightPower } from './night-battle'
 import type { NightBlockReason } from './night-battle'
-import { spottingMultiplier } from './day-spotting'
+import { fleetLosCorrectionOf, fleetLosScoreOf, spottingMultiplier } from './day-spotting'
 import { openingAswOf } from './ship-special-attack'
 import { landBaseWavePower } from './land-base-attack'
 import type { LandBaseWaveInput } from './land-base-attack'
@@ -61,6 +61,13 @@ export interface ForecastShip {
   kai?: boolean
   /** 是否为该舰队旗舰。弾着観測射撃的旗舰补正 +15 */
   flagship?: boolean
+  /**
+   * **素**索敵（不含任何装备）。弾着観測射撃的 `艦隊索敵補正` 要整队的素索敵合计。
+   *
+   * 可选：填不出来的适配层（深海舰没有这个概念、演习对手的素索敵也读不到）
+   * 就不填，那一支的補正按 0 算——**少算**発動率，不是「这支队补正为 0」。
+   */
+  baseLos?: number
   hp: number
   hpMax: number
   firepower: number
@@ -634,7 +641,12 @@ const nightOutput = (
  * 但**演习对手是玩家舰队**，制空在他手里时观测射击照发不误：
  * enemySpotting 打开后，敌方按镜像制空状态也走这一层（见 mirrorAirState）。
  */
-const spottingFactorOf = (ship: ForecastShip, airState: number): number =>
+const spottingFactorOf = (
+  ship: ForecastShip,
+  airState: number,
+  /** 该舰所属舰队的 `艦隊索敵補正`（见 fleetSpottingCorrection） */
+  fleetLosCorrection: number,
+): number =>
   spottingMultiplier(
     {
       hp: ship.hp,
@@ -646,9 +658,33 @@ const spottingFactorOf = (ship: ForecastShip, airState: number): number =>
         planeCount: item.planeCount,
         los: item.los,
       })),
+      fleetLosCorrection,
     },
     airState,
   ).expected
+
+/**
+ * 这支队的 `艦隊索敵補正` ⌊√A+0.1A⌋。
+ *
+ * 2026-09-01 补上：此前 day-spotting 把这一项 stub 成 0 并挂账「上游没给定义」，
+ * 而 wikiwiki 与其一手源文档现在都写清了（定义见 day-spotting 文件头）。
+ * 这是三处系统性偏低里最大的一处——A 通常上百，乘 0.7 后是 +14〜21 点観測項。
+ *
+ * `baseLos` 填不出来的舰（深海、演习对手）贡献 0，那一支照旧偏低。
+ */
+const fleetSpottingCorrection = (fleet: ForecastFleet): number =>
+  fleetLosCorrectionOf(
+    fleetLosScoreOf(
+      fleet.ships.map((ship) => ({
+        baseLos: ship.baseLos ?? 0,
+        equipment: ship.equipment.map((item) => ({
+          type2: item.type2,
+          planeCount: item.planeCount,
+          los: item.los,
+        })),
+      })),
+    ),
+  )
 
 /**
  * 先制对潜：判据本来就在 ship-special-attack（编队页一直在用）。
@@ -684,6 +720,8 @@ const fleetOutput = (
 ): number => {
   if (!attackers.ships.length || !defenders.ships.length) return 0
   const defender = averageDefender(defenders.ships)
+  // 舰队级，逐舰不变——摊在循环外算一次
+  const spottingCorrection = fleetSpottingCorrection(attackers)
   const hasSurfaceTarget = defenders.ships.some((ship) => !SUBMARINE_STYPES.has(ship.stype))
   const hasSubmarineTarget = defenders.ships.some((ship) => SUBMARINE_STYPES.has(ship.stype))
   const canReceiveTorpedo =
@@ -720,7 +758,7 @@ const fleetOutput = (
           antiLandFactorOf(attacker, defenders),
         ) *
         shellRounds(attackers, attacker, defenders) *
-        spottingFactorOf(attacker, airState)
+        spottingFactorOf(attacker, airState, spottingCorrection)
     }
     // 闭幕雷击独立于炮击目标池：对潜优先的舰照样对水面放雷（潜艇吃不到鱼雷）
     const canAttackWithTorpedo = attackers.combinedType <= 0 || fleetRole(attacker) === 'escort'
@@ -998,7 +1036,9 @@ export const forecastEncounter = (
     escortCount: friendly.ships.filter((ship) => fleetRole(ship) === 'escort').length,
     shipCount: friendly.ships.length,
     // 制空状态按 stateMin 判：熟练度按最低算出来的那个，宁可少算
-    spottingShips: friendly.ships.filter((ship) => spottingFactorOf(ship, stateMin) > 1).length,
+    spottingShips: friendly.ships.filter(
+      (ship) => spottingFactorOf(ship, stateMin, fleetSpottingCorrection(friendly)) > 1,
+    ).length,
     openingAswShips: friendly.ships.filter(hasOpeningAsw).length,
     nightAttackers: nightBlocks.filter((reason) => reason === null).length,
     nightBlocked: nightBlocks.reduce<Partial<Record<NightBlockReason, number>>>((acc, reason) => {
@@ -1075,11 +1115,11 @@ export const forecastAssumptions = (
   if (factors.landTargets > 0) {
     counted.push(`对地特攻（敌方 ${factors.landTargets} 个陆上型目标，含 cap 前/后两段）`)
   }
-  if (factors.bonusShips > 0) counted.push(`活动特效倍卡（${factors.bonusShips} 舰吃到，cap 后施加）`)
+  if (factors.bonusShips > 0) counted.push(`活动特效倍卡（${factors.bonusShips} 舰适用，cap 后施加）`)
   if (factors.landBaseWaves > 0) counted.push(`派向本点的基地航空队 ${factors.landBaseWaves} 波`)
   if (factors.spottingShips > 0) {
     counted.push(
-      `弾着観測射撃 / 连击（${factors.spottingShips} 舰按発動率取期望值；艦隊索敵補正未计，発動率偏低）`,
+      `弹着观测射击 / 连击（${factors.spottingShips} 舰按发动率计入期望值）`,
     )
   }
   if (factors.openingAswShips > 0) counted.push(`先制对潜 ${factors.openingAswShips} 舰（额外一轮）`)
@@ -1090,10 +1130,10 @@ export const forecastAssumptions = (
   })
   const nightText =
     factors.nightAttackers > 0
-      ? `夜战另算一套：${factors.nightAttackers} 舰能出手${
-          blocked.length ? `，不参加的 ${blocked.join(' / ')}` : ''
-        }；上限 360，不吃阵形与交战形态补正（警戒阵主力减半除外）`
-      : `夜战另算一套：当前编成无人能出手${blocked.length ? `（${blocked.join(' / ')}）` : ''}`
+      ? `夜战单独计算：${factors.nightAttackers} 舰可攻击${
+          blocked.length ? `；未参与：${blocked.join(' / ')}` : ''
+        }；上限 360，不受阵形与交战形态补正影响（警戒阵主力减半除外）`
+      : `夜战单独计算：当前编成无可攻击舰${blocked.length ? `（${blocked.join(' / ')}）` : ''}`
 
   return [
     `我方按${formationText}估算`,

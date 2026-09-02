@@ -6,7 +6,16 @@ import specialAttackModule from '../dist/shared/fleet-special-attack.js'
 
 const { detectFleetSpecialAttacks, specialAttackLabel } = specialAttackModule
 
-const ship = (name, stype = 9) => ({ name, stype })
+const ship = (name, stype = 9, over = {}) => ({
+  name,
+  stype,
+  lv: 99,
+  luck: 20,
+  hp: 80,
+  hpMax: 80,
+  equipment: [],
+  ...over,
+})
 const fillers = (count) => Array.from({ length: count }, (_, index) => ship(`水上舰${index}`, 2))
 const labels = (role, ships) =>
   detectFleetSpecialAttacks({ role, ships }).map((attack) => attack.label)
@@ -98,6 +107,24 @@ test('strike-force and submarine-tender composition rules are detected', () => {
     labels('normal', [ship('迅鯨改', 20), ship('伊13', 14), ship('伊14', 14)]),
     ['潜水舰队攻击'],
   )
+  assert.deepEqual(
+    labels('normal', [
+      ship('迅鯨改', 20, { lv: 29 }),
+      ship('伊13', 14),
+      ship('伊14', 14),
+    ]),
+    [],
+    '潜水母舰旗舰未到 Lv30 时不能发动',
+  )
+  assert.deepEqual(
+    labels('normal', [
+      ship('迅鯨改', 20, { lv: 30 }),
+      ship('伊13', 14),
+      ship('伊14', 14),
+    ]),
+    ['潜水舰队攻击'],
+    'Lv30 是可发动边界',
+  )
   for (const flagship of ['平安丸', '平安丸改']) {
     assert.deepEqual(
       labels('normal', [ship(flagship, 20), ship('伊13', 14), ship('伊14', 14)]),
@@ -123,6 +150,10 @@ test('fleet UI renders composition support only beside a flagship', () => {
   const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
   assert.match(source, /isFlag \? specialAttackChipsHtml\(deck\) : ''/)
   assert.match(source, /role: specialAttackRole\(deck\)/)
+  assert.match(source, /ships: fleetShips\(deck\)\.map\(fleetSpecialAttackShipOf\)/)
+  for (const field of ['lv', 'luck', 'hp', 'hpMax', 'houm', 'saku', 'largeSearchlight', 'surfaceRadar']) {
+    assert.match(source, new RegExp(`\\b${field}:`), `舰队特殊攻击视图缺 ${field}`)
+  }
   assert.match(source, /deck\.id === 1 \? 'combined-main' : 'combined-escort'/)
   assert.match(source, /触发阵型：\$\{attack\.formation\}/)
   assert.match(html, /\.fleet-skin \.special-attack-chip/)

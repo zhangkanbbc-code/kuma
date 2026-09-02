@@ -273,7 +273,7 @@ test('补发：正文前缀「修正：」，标题仍走原来那三档', () =>
   // 权威值到达，铭把 index 3 纠正成大破并推了一格
   const out = fight(1, [3], { corrections: 1 })
   assert.equal(out.length, 1)
-  assert.match(out[0].title, /我舰4大破 — 请撤退！/, '标题按三档沿用，不另起一套')
+  assert.match(out[0].title, /我舰4大破 · 撤退/, '标题按三档沿用，不另起一套')
   assert.ok(out[0].detail.startsWith('修正：'), `正文要以「修正：」开头，实际「${out[0].detail}」`)
   assert.match(out[0].detail, /3-5 第 1 战/)
 })
@@ -283,7 +283,7 @@ test('补发走的是同一套三档：旗舰被纠正成大破 → forced', () 
   returnToPort()
   const out = fight(1, [0], { corrections: 1 })
   assert.equal(out.length, 1)
-  assert.match(out[0].title, /旗舰我舰1大破 — 本战结束后将强制返航/)
+  assert.match(out[0].title, /旗舰我舰1大破 · 本战结束后强制返航/)
   assert.ok(out[0].detail.startsWith('修正：'))
 })
 
@@ -293,7 +293,7 @@ test('补发走的是同一套三档：二队旗舰被纠正成大破 → protec
   const out = fight(1, [6], { corrections: 1 })
   assert.equal(out.length, 1)
   assert.match(out[0].title, /二队旗舰我舰7大破/)
-  assert.match(out[0].detail, /她不会被击沉，可以继续进击/)
+  assert.match(out[0].detail, /无击沉风险/)
   assert.ok(out[0].detail.startsWith('修正：'))
 })
 

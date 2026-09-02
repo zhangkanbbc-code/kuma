@@ -6,9 +6,27 @@ export type FleetSpecialAttackRole =
   | 'combined-main'
   | 'combined-escort'
 
+export interface FleetSpecialAttackEquip {
+  /** 装备类别（api_type[2]） */
+  type2: number
+  /** 装备命中（api_houm） */
+  houm: number
+  /** 装备索敌（api_saku） */
+  saku: number
+  /** 大型探照灯（type2=42） */
+  largeSearchlight: boolean
+  /** 水上电探（小型／大型电探且索敌≥5） */
+  surfaceRadar: boolean
+}
+
 export interface FleetSpecialAttackShip {
   name: string
   stype: number
+  lv: number
+  luck: number
+  hp: number
+  hpMax: number
+  equipment: readonly FleetSpecialAttackEquip[]
 }
 
 export interface FleetSpecialAttackInput {
@@ -354,6 +372,7 @@ const submarineAttack = (input: FleetSpecialAttackInput): FleetSpecialAttack[] =
   const flagName = nameOf(input.ships[0])
   if (
     !SUBMARINE_TENDER_FLAGS.has(flagName) ||
+    (input.ships[0]?.lv ?? 0) < 30 ||
     !isSubmarine(input.ships[1]) ||
     !isSubmarine(input.ships[2])
   ) {
@@ -365,7 +384,7 @@ const submarineAttack = (input: FleetSpecialAttackInput): FleetSpecialAttack[] =
     phase: 'day',
     formation: '梯形阵或单横阵',
     detail:
-      '旗舰为指定潜水母舰且2、3号位为潜水舰；实际发动还需要对应阵形并消耗潜水舰补给物资',
+      '旗舰为 Lv30 以上的指定潜水母舰且2、3号位为潜水舰；实际发动还需要对应阵形并消耗潜水舰补给物资',
   }]
 }
 

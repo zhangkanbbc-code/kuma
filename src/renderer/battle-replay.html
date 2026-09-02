@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self' data: file: https: kanso-cache:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file: https: kanso-cache:; connect-src 'self' https:; object-src 'none'; base-uri 'none'"
+  >
+  <title>战斗复盘</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg0: #0d1318;
+      --bg1: #151c23;
+      --bg2: #1c252e;
+      --bg3: #232f3a;
+      --line: #2a3742;
+      --line-soft: #22303c;
+      --text: #e8eef4;
+      --sub: #93a4b3;
+      --dim: #75899a;
+      --accent: #4db8ff;
+      --accent-dim: #2a6f9e;
+      --accent-ink: #bfe6ff;
+      --accent-wash: #173040;
+      --gold: #e8c66a;
+      --ok: #67c98a;
+      --warn: #e8a04c;
+      --bad: #e06c75;
+      --air: #8fd694;
+      --night: #7e86f2;
+      --abyss-ink: #ff9fae;
+      --entity-ship: #83c9ff;
+      --entity-abyss: #ff8796;
+      --entity-equip: #79d4e8;
+      --entity-map: #86d29b;
+      --r-fuel: #8fb87a;
+      --scrollbar-track: #10171d;
+      --scrollbar-thumb: #334957;
+      --scrollbar-thumb-hover: #486476;
+      --scrollbar-thumb-active: #5c7b90;
+      --motion-fast: 150ms;
+      --motion-micro: 120ms;
+      --motion-view: 200ms;
+      --motion-ease: cubic-bezier(.2, .72, .22, 1);
+      --serif: 'Yu Mincho', 'MS Mincho', 'SimSun', serif;
+      --mono: 'Maple Mono NF CN', 'Cascadia Code', 'Consolas', monospace;
+      --sans: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    }
+    * {
+      margin: 0; padding: 0; box-sizing: border-box;
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+    ::-webkit-scrollbar-thumb {
+      background-color: var(--scrollbar-thumb); border: 2px solid var(--scrollbar-track);
+      border-radius: 8px; background-clip: content-box;
+    }
+    ::-webkit-scrollbar-thumb:hover { background-color: var(--scrollbar-thumb-hover); }
+    ::-webkit-scrollbar-thumb:active { background-color: var(--scrollbar-thumb-active); }
+    ::-webkit-scrollbar-corner { background: var(--scrollbar-track); }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: var(--bg0); color: var(--text);
+      font: 13px/1.5 var(--sans);
+    }
+    button { font: inherit; }
+    #battle-replay-root {
+      width: 100%; height: 100%; display: flex; flex-direction: column; min-width: 0;
+    }
+    #battle-replay-detail { flex: 1; min-width: 0; min-height: 0; display: flex; }
+    #battle-replay-status {
+      flex: none; padding: 6px 12px; border-bottom: 1px solid var(--line-soft);
+      background: var(--bg1); color: var(--dim); font-size: 10.5px;
+    }
+    #battle-replay-status.empty {
+      flex: 1; display: grid; place-items: center; border: 0; background: var(--bg0);
+      font-size: 11.5px;
+    }
+    #battle-replay-status[hidden], #battle-replay-detail[hidden] { display: none; }
+    .credit-mark {
+      display: inline-block; vertical-align: 1px; padding: 2px 3px;
+      border: 1px solid var(--line-soft); border-radius: 3px;
+      color: var(--dim); font-size: 8.5px; line-height: 1; cursor: help; user-select: none;
+    }
+
+    .equip-icon {
+      position: relative; width: 20px; height: 20px; flex: none; border-radius: 4px;
+      display: inline-grid; place-items: center; vertical-align: middle;
+      background: color-mix(in srgb, var(--bg3) 78%, transparent);
+    }
+    .equip-icon img {
+      width: 100%; height: 100%; display: block; object-fit: contain;
+      filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .28));
+    }
+    .equip-icon .equip-icon-game {
+      position: absolute; inset: 0; border-radius: inherit; background-repeat: no-repeat;
+      filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .28));
+    }
+    .equip-icon.abyss .equip-icon-game {
+      filter: sepia(.18) saturate(.72) hue-rotate(305deg) drop-shadow(0 1px 2px rgba(0, 0, 0, .35));
+    }
+    .equip-icon-fallback {
+      width: 100%; height: 100%; border-radius: inherit; display: none; place-items: center;
+      background: #9ab0c0; color: #0d1318; font-size: 9.5px; font-weight: 700;
+    }
+    .equip-icon.fallback .equip-icon-fallback { display: grid; }
+    .equip-icon.fallback img { display: none; }
+    .equip-icon.gun .equip-icon-fallback { background: #79c0ea; }
+    .equip-icon.ftr .equip-icon-fallback { background: var(--air); }
+    .equip-icon.bmb .equip-icon-fallback { background: var(--night); }
+    .equip-icon.tpb .equip-icon-fallback { background: #8fb8e0; }
+    .equip-icon.rdr .equip-icon-fallback { background: #7ac9b8; }
+    .equip-icon.rec .equip-icon-fallback { background: #e0c27a; }
+    .equip-icon-fallback.w2 { font-size: 8px; letter-spacing: -.5px; }
+    .equip-icon.xs { width: 15px; height: 15px; border-radius: 3px; background: transparent; }
+    .equip-icon.sm { width: 17px; height: 17px; }
+    .equip-icon.lg { width: 28px; height: 28px; background: transparent; }
+    .equip-icon.abyss img {
+      filter: sepia(.18) saturate(.72) hue-rotate(305deg) drop-shadow(0 1px 2px rgba(0, 0, 0, .35));
+    }
+    .equip-icon.exslot { border: 1.5px solid var(--gold); }
+    .ship-thumb {
+      position: relative; width: 44px; height: 20px; flex: none; overflow: hidden;
+      display: inline-grid; place-items: center; vertical-align: middle;
+      border: 1px solid var(--line); border-radius: 4px;
+      background: linear-gradient(145deg, #263645, #141d25);
+    }
+    .ship-thumb img {
+      width: 100%; height: 100%; display: block; object-fit: cover; object-position: 78% center;
+    }
+    .ship-thumb.avatar img { object-position: 68% center; }
+    .ship-thumb-fallback {
+      display: none; width: 100%; height: 100%; place-items: center;
+      color: var(--sub); font-family: var(--serif); font-size: 11px;
+    }
+    .ship-thumb.fallback .ship-thumb-fallback { display: grid; }
+    .ship-thumb.fallback img { display: none; }
+    .ship-thumb.abyss {
+      border-color: #5c2c38; background: linear-gradient(145deg, #321d25, #17151a);
+    }
+    .ship-thumb.abyss img { filter: saturate(.72) sepia(.08) hue-rotate(310deg); }
+    .ship-thumb.battle { width: 38px; height: 18px; margin-right: 5px; }
+    .ship-thumb.drop { width: 38px; height: 18px; margin-right: 6px; }
+
+    .el, .entity-term { color: var(--entity-color, var(--accent)); }
+    .entity-term { cursor: inherit; }
+    .l10n-name {
+      display: inline-flex !important; align-items: baseline; flex-wrap: wrap; column-gap: 4px;
+      min-width: 0; max-width: 100%; vertical-align: baseline;
+    }
+    .l10n-name > .l10n-primary { display: inline !important; min-width: 0; overflow-wrap: anywhere; }
+    .l10n-toggle {
+      flex: none; appearance: none; padding: 0 1px; border: 0;
+      border-bottom: 1px dotted var(--dim); background: transparent;
+      color: var(--dim); font: 8px/1.2 var(--sans); cursor: pointer; opacity: .58;
+    }
+    .l10n-name:hover > .l10n-toggle, .l10n-name.open > .l10n-toggle {
+      opacity: 1; color: var(--accent);
+    }
+    .l10n-name > .l10n-original {
+      display: none !important; flex: 1 0 100%; min-width: 0;
+      color: var(--dim); font: 9.5px/1.35 var(--sans); overflow-wrap: anywhere;
+    }
+    .l10n-name.open > .l10n-original { display: block !important; }
+    .l10n-name.compact > .l10n-original { font-size: 9px; }
+    .e-ship { --entity-color: var(--entity-ship); }
+    .e-abys { --entity-color: var(--entity-abyss); }
+    .e-equip { --entity-color: var(--entity-equip); }
+    .e-map { --entity-color: var(--entity-map); }
+    .alv-icon { display: inline-block; width: 17px; height: 14px; vertical-align: -2px; }
+    .mod-di .beq-alv .alv-icon { width: 14px; height: 11px; vertical-align: -1px; }
+  </style>
+  <link rel="stylesheet" href="assets/battle-replay.css">
+</head>
+<body>
+  <div id="battle-replay-root">
+    <div id="battle-replay-status">复盘读取中</div>
+    <div id="battle-replay-detail" class="mod-di" hidden></div>
+  </div>
+  <script src="./battle-replay.js"></script>
+</body>
+</html>

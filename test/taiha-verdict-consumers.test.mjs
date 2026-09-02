@@ -46,7 +46,7 @@ test('同一出击内二队旗舰连续两场大破：protected 只发一次', (
   const first = fightBattle(1, [6])
   assert.equal(first.length, 1)
   assert.match(first[0].title, /二队旗舰我舰7大破/)
-  assert.match(first[0].detail, /她不会被击沉，可以继续进击/)
+  assert.match(first[0].detail, /无击沉风险/)
   // 第二场她还在大破名单里，但说的还是同一件事——不再发
   assert.deepEqual(fightBattle(2, [6]), [])
   // 第三、第四场同理，不是「只挡一次」
@@ -60,7 +60,7 @@ test('第二场新增危险舰：danger 照发，不被 protected 那道闸带�
   assert.equal(fightBattle(1, [6]).length, 1) // protected
   const escalated = fightBattle(2, [2, 6])
   assert.equal(escalated.length, 1)
-  assert.match(escalated[0].title, /我舰3大破 — 请撤退！/)
+  assert.match(escalated[0].title, /我舰3大破 · 撤退/)
   // 二队旗舰受保护，不该被写进「可能被击沉」的名单
   assert.doesNotMatch(escalated[0].title, /我舰7/)
 })
@@ -72,7 +72,7 @@ test('danger 档每场都发：那一档每场都有真实的进击/撤退决策
   for (const battleCount of [1, 2, 3]) {
     const out = fightBattle(battleCount, [2])
     assert.equal(out.length, 1, `第 ${battleCount} 战该发 danger`)
-    assert.match(out[0].title, /我舰3大破 — 请撤退！/)
+    assert.match(out[0].title, /我舰3大破 · 撤退/)
   }
 })
 
@@ -122,7 +122,7 @@ test('单舰队第七位大破不吃这道闸：非联合时她照常是 danger'
   // 7 舰遊撃部隊：全员 main，位 6 是自己那队的第七个人，每场都该照常喊
   const first = fightBattle(1, [6], { count: 7 })
   assert.equal(first.length, 1)
-  assert.match(first[0].title, /我舰7大破 — 请撤退！/)
+  assert.match(first[0].title, /我舰7大破 · 撤退/)
   assert.equal(fightBattle(2, [6], { count: 7 }).length, 1)
 })
 

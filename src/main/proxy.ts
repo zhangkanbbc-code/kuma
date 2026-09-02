@@ -77,7 +77,7 @@ export interface ProxyRuntimeStatus {
 
 let proxyStatus: ProxyRuntimeStatus = {
   state: 'applying',
-  description: '等待初始化',
+  description: '尚未初始化',
   message: '正在等待网络会话就绪',
   updatedAt: Date.now(),
 }
@@ -110,7 +110,7 @@ export const setProxyConfig = (): Promise<void> => {
       proxyStatus = {
         state: 'ok',
         description: resolved.description,
-        message: '已即时应用',
+        message: '已应用',
         updatedAt: Date.now(),
       }
       console.info(`[kanso] 代理已应用：${resolved.description}`)

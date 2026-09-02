@@ -178,7 +178,7 @@ const showLoadError = (code: number, description: string, url: string) => {
   overlayTitle.textContent = '游戏页面加载失败'
   overlayDetail.textContent =
     `${description} (${code})\n${url}\n\n` +
-    `需要代理时，在「设置 · 代理」中配置后重试`
+    `代理配置：设置 · 代理 · 配置后重试`
   overlayDetail.style.whiteSpace = 'pre-wrap'
   overlay.classList.add('visible')
 }
@@ -681,7 +681,7 @@ const startupFailed = (stage: string, error: unknown) => {
   recordCrash(`startup:${stage}`, error)
   const detail = error instanceof Error ? (error.stack ?? error.message) : String(error)
   overlayTitle.textContent = `启动失败：${stage}`
-  overlayDetail.textContent = '游戏画面不受影响 · 修好后重启 kuma'
+  overlayDetail.textContent = '游戏画面不受影响 · 修复后重启 kuma'
   overlayDetail.style.whiteSpace = 'pre-wrap'
   // 堆栈、账本位置、crash.log 是报障时才用得上的东西：收进折叠，别摆在玩家眼前。
   const more = document.createElement('details')
@@ -689,7 +689,7 @@ const startupFailed = (stage: string, error: unknown) => {
   const summary = document.createElement('summary')
   summary.textContent = '详细信息'
   const body = document.createElement('pre')
-  body.textContent = `${detail}\n\n账本与配置在 %APPDATA%\\kuma\\，本次错误已记入 crash.log。`
+  body.textContent = `${detail}\n\n账本与配置在 %APPDATA%\\kuma\\，本次错误已记入 crash.log`
   more.append(summary, body)
   overlayDetail.append(more)
   overlay.classList.add('visible')

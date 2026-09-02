@@ -271,11 +271,11 @@ const SMART_FILTERS: Record<string, { label: string; hint: string; test: (row: R
     hint: '闲置且未锁',
     test: (row) => row.spare,
   },
-  idle: { label: '闲置', hint: '没装在任何舰娘或基地航空队上（含已锁定的）', test: (row) => row.holder.kind === 'idle' },
-  unlocked: { label: '未锁', hint: '未锁定的全部，含正装在舰上的', test: (row) => !row.inst.locked },
+  idle: { label: '闲置', hint: '未装备于舰娘或基地航空队 · 含已锁定项', test: (row) => row.holder.kind === 'idle' },
+  unlocked: { label: '未锁', hint: '全部未锁定装备 · 含当前装备项', test: (row) => !row.inst.locked },
   dupe: {
     label: '重复',
-    hint: '同一款持有 2 件以上，且这一件闲置未锁',
+    hint: '同款持有 2 件以上 · 当前项闲置未锁定',
     test: (row) => row.sameMst > 1 && row.spare,
   },
   starred: { label: '已改修', hint: '★ 1 以上', test: (row) => row.inst.level > 0 },
@@ -490,7 +490,7 @@ const groupRowHtml = (group: Group) => {
       <span class="es-count"${
         filtered ? ` title="${esc(`持有 ${group.owned} 件，其中 ${group.rows.length} 件符合当前筛选`)}"` : ''
       }>${filtered ? `${group.rows.length}/${group.owned}` : `×${group.owned}`}</span>
-      ${group.rows.some((r) => isFavoriteEquipInstance(r.id)) ? '<i class="fav-mini" title="含收藏的那几件">★</i>' : ''}
+      ${group.rows.some((r) => isFavoriteEquipInstance(r.id)) ? '<i class="fav-mini" title="含收藏项">★</i>' : ''}
       ${group.exempt ? '<span class="es-exempt">不占容量</span>' : ''}
     </span></span></td>
     <td class="st cx">${starHtml(group.maxStar)}</td>
@@ -714,9 +714,9 @@ const renderFurniture = () => {
   const scopeAll = state.furnitureScope === 'all'
   let body: string
   if (!furnitureMst.length) {
-    body = '<div class="es-empty">等待游戏数据 · 登录一次即可</div>'
+    body = '<div class="es-empty">尚未同步游戏数据 · 登录后同步</div>'
   } else if (!scopeAll && !ownedKnown) {
-    body = '<div class="es-empty">等待家具持有清单 · 登录一次即可</div>'
+    body = '<div class="es-empty">尚未同步家具数据 · 登录后同步</div>'
   } else {
     body = FURNITURE_TYPE_LABELS.map(([label, jp], type) => {
       const all = furnitureMst.filter((f) => f.type === type)
@@ -866,7 +866,7 @@ const render = () => {
                   return groupRowHtml(group) + inner
                 })
                 .join('') ||
-              '<tr><td colspan="5" class="es-empty">没有符合条件的装备。</td></tr>'
+              '<tr><td colspan="5" class="es-empty">暂无符合条件的装备</td></tr>'
             }</tbody></table>
         </div>
         ${(() => {
@@ -1161,7 +1161,7 @@ registerEntityRoute('furniture', {
     const owned = mg.furnitures
     const placed = (mg.basic?.furnitureLayout ?? []).includes(f.id)
     const ownershipLine = !owned
-      ? '<span style="opacity:.6">持有情况未同步（登录游戏一次即可）</span>'
+      ? '<span style="opacity:.6">持有情况尚未同步 · 登录后同步</span>'
       : owned.includes(f.id)
         ? `<b style="color:var(--ok)">已持有</b>${placed ? ' · 布置中' : ''}`
         : '<span style="opacity:.75">未持有</span>'

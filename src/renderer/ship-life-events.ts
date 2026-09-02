@@ -116,7 +116,7 @@ export const lifeEventHtml = (
     // 同族的另一种一次性永久变化。点色借改造那一档金色，不新造样式。
     // 旧上限取不到就只写新上限，不写箭头——不拿主数据的原量冒充「原来是几」。
     tone = 'remodel'
-    title = '使用格納庫増設'
+    title = '格纳库扩容'
     const slot = detail.slot ?? '?'
     note =
       detail.before != null
@@ -142,10 +142,10 @@ export const lifeEventHtml = (
     tone = event.kind
     title =
       event.kind === 'scrap'
-        ? '离开仓库：拆解'
+        ? '拆解'
         : event.kind === 'material'
-          ? '离开仓库：被作为素材'
-          : '离开仓库：被击沉'
+          ? '作为改修素材'
+          : '击沉'
     note =
       event.kind === 'sunk'
         ? `${lifeMapName(event.map)}${lifeCellName(event.map, event.cell)}${event.isBoss ? ' · Boss 战' : ''}`

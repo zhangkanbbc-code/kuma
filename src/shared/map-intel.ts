@@ -168,7 +168,7 @@ export const catalogCompUnseen = (
  */
 export const catalogTallyText = (tally: CatalogEncounterTally): string | null => {
   if (!tally.seen) return null
-  const rest = tally.seen >= tally.total ? '都遇到过' : `已遇 ${tally.seen}`
+  const rest = tally.seen >= tally.total ? '全部已遇' : `已遇 ${tally.seen}`
   return `确认编成 ${tally.total} 种 · ${rest}`
 }
 

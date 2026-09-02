@@ -186,7 +186,9 @@ test('渲染：箭头有头有尾、长宽比拉得开 —— 转了才看得出
   // 形状本身要真的有「杆」和「头」两截：箭头那三点比箭杆宽
   assert.ok(/H9 V0\.5 L/.test(ARROW_SVG), '基准里那一笔不再是「箭杆收进箭头」的走法')
   // 渲染尺寸由样式给（14~16px 长、6~8px 宽那一档），别让它缩成一个点
-  const css = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const css =
+    fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8') +
+    fs.readFileSync(new URL('../src/renderer/assets/battle-replay.css', import.meta.url), 'utf8')
   const rule = /\.mod-di \.verdict \.ic \.arrow-svg \{([^}]*)\}/.exec(css)
   assert.ok(rule, '样式里没有箭头的尺寸规则')
   const px = (name) => Number(new RegExp(`${name}:\\s*(\\d+)px`).exec(rule[1])?.[1])

@@ -153,14 +153,14 @@ const sendPush = async (input: unknown): Promise<PushSendResult> => {
     body: clamp(raw.body, MAX_BODY),
   }
   if (!notification.title && !notification.body) {
-    return { ok: false, message: '推送内容为空，没有发送' }
+    return { ok: false, message: '推送内容为空 · 未发送' }
   }
 
   // 逐叶子读。整对象读会拿到 config 写叶子时留下的半份对象，
   // 于是「只推标题」这类默认开的项会静默变成关——那正是最不能出错的方向。
   const settings = readPushSettings((path, fallback) => config.get(path, fallback))
   if (!settings.enabled) {
-    return { ok: false, skipped: true, message: '手机推送未启用（设置里打开）' }
+    return { ok: false, skipped: true, message: '手机推送未启用 · 请在设置中开启' }
   }
   const prepared =
     settings.provider === 'bark'
@@ -181,7 +181,7 @@ const sendPush = async (input: unknown): Promise<PushSendResult> => {
       return {
         ok: false,
         deferred: true,
-        message: `在场中暂缓（键鼠空闲 ${Math.floor(idleSeconds)} 秒 · 门槛 ${settings.presenceIdleMinutes} 分）· 离开后补发`,
+        message: `检测到键鼠操作 · 暂缓推送（空闲 ${Math.floor(idleSeconds)} 秒 · 门槛 ${settings.presenceIdleMinutes} 分）· 达到空闲门槛后补发`,
       }
     }
   }

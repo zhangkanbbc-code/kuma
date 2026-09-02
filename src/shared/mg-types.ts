@@ -986,6 +986,8 @@ export interface UseitemHistoryChange {
   ts: number
   delta: number
   total: number
+  // v12 起主进程落账时写入 kcsapi path；属性缺席仅用于兼容旧 IPC 行。
+  cause?: string | null
 }
 
 // 分类记账：某来源在时间段内的净收支（8 项，与 materials 同序）

@@ -111,9 +111,9 @@ test('周历圆点点亮的正是资料里的那几天，别的六天原样暗�
 
 test('抬头只回答「今天能不能改」，不再报「N 套方案 · 每周安排 · 二号舰 · 消耗」', () => {
   const 周二 = improveCardHtml({ ...常规(), day: 2 })
-  assert.match(周二, /星期二 · 今天能改 ✓/)
+  assert.match(周二, /星期二 · 今日可改修 ✓/)
   const 周五 = improveCardHtml({ ...常规(), day: 5 })
-  assert.match(周五, /星期五 · 今天不能改 ✗/)
+  assert.match(周五, /星期五 · 今日不可改修 ✗/)
 })
 
 test('段名与折叠默认集对得上——改了名就得同步改，否则卡会静默变回折起', () => {
@@ -128,11 +128,11 @@ test('推满账收成两行：一行推满、一行连更新，储备对比跟�
   const sums = [...html.matchAll(/<div class="ak-sum"[^>]*>([\s\S]*?)<\/div>/g)].map(([, body]) => body)
   assert.equal(sums.length, 2, '推满账没收成两行')
   // ★4 起手：p1 还剩 2 次、p2 四次，共 6 次
-  assert.match(sums[0], /推满 <b>★4→★max<\/b> 还要 <b>6<\/b> 次/)
+  assert.match(sums[0], /升至 <b>★4→★max<\/b> · 还需 <b>6<\/b> 次/)
   // 开发 3×2 + 4×4 = 22（确保 4×2 + 6×4 = 32）；储备 400 够，给 ✓
   assert.match(sums[0], /22 <i>\(32\)<\/i>/)
   assert.match(sums[0], /<i class="ok"[^>]*>✓<\/i>/)
-  assert.match(sums[1], /连更新一起算/)
+  assert.match(sums[1], /含更新消耗/)
   // 连更新那一行是整条路线：开发 22+10=32（确保 32+12=44）
   assert.match(sums[1], /32 <i>\(44\)<\/i>/)
 })
@@ -140,8 +140,8 @@ test('推满账收成两行：一行推满、一行连更新，储备对比跟�
 test('储备不够时说得出还差多少，通常与确保分开说', () => {
   const 紧 = { ...常规(), materials: { 6: 25, 7: 5 } }
   const html = improveCardHtml(紧)
-  assert.match(html, /<i class="warn">储备 25 · 确保还差 7<\/i>/)
-  assert.match(html, /<i class="bad">储备 5 · 还差 \d+<\/i>/)
+  assert.match(html, /<i class="warn">储备 25 · 确保消耗缺 7<\/i>/)
+  assert.match(html, /<i class="bad">储备 5 · 普通消耗缺 \d+<\/i>/)
 })
 
 test('多套方案消耗相同 → 共用一张表，二号舰各占一行，不给更新的那组写「更新不可」', () => {
@@ -211,17 +211,17 @@ test('同一组里几个更新目标各有各的价钱 → 一个目标一行，
   assert.equal(countOf(html, '<table class="mats"'), 1)
   assert.match(html, /★max 更新 → 12\.7cm連装砲C型改三/)
   assert.match(html, /★max 更新 → 12\.7cm連装砲D型改二/)
-  // 「连更新一起算」也跟着分目标，别把两笔账混成一笔
-  assert.equal(countOf(html, '连更新一起算'), 2)
+  // 「含更新消耗」也跟着分目标，别把两笔账混成一笔
+  assert.equal(countOf(html, '含更新消耗'), 2)
 })
 
 test('没给日程的方案保留告警句，位置就在它该在的那一行', () => {
   const setup = 常规()
   setup.eo.improvement = [{ basis: '整理参照', helpers: [], costs: { p1, p2 } }]
   const html = improveCardHtml(setup)
-  // 2026-08-26 文案清扫按拟稿缩成「资料没给日程与二号舰」（去掉解释本页机制的后半句）。
+  // 09-02 文案审计改成「资料未收录改修日程与二号舰」。
   // 位置与告警形制不变——钉的正是「它就在那一行，且仍是 ak-warn」。
-  assert.match(html, /<div class="ak-row"><span class="ak-warn">资料没给日程与二号舰/)
+  assert.match(html, /<div class="ak-row"><span class="ak-warn">资料未收录改修日程与二号舰/)
 })
 
 test('整件都没有更新路线时说一句，不在每一行重复', () => {
@@ -230,7 +230,7 @@ test('整件都没有更新路线时说一句，不在每一行重复', () => {
   delete setup.eo.improvement[0].costs.conv
   const html = improveCardHtml(setup)
   assert.equal(countOf(html, '更新不可'), 0, '没有更新路线的件被说成了「更新不可」')
-  assert.match(html, /这件没有更新路线，★max 就是终点/)
+  assert.match(html, /当前装备无更新路线 · ★max 为终点/)
 })
 
 test('逐星加成默认折起，来源角标挂在它自己的抬头旁', () => {
@@ -272,7 +272,7 @@ test('没收录与不可改修分得开，形制随新骨架', () => {
   assert.equal(countOf(未收录, 'style="'), 0)
   const 不可改 = improveCardHtml({ equip: 装备[1], equips: 装备, eo: null, uncovered: false })
   assert.match(不可改, /改修工厂<span class="aux">不可改修/)
-  assert.match(不可改, /改修表里没有它，这件不可改修/)
+  assert.match(不可改, /改修表暂无当前装备 · 不可改修/)
 })
 
 test('素材那一行报的是手上真能吞进去的件数（闲置且没上锁）', () => {

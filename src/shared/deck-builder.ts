@@ -178,14 +178,14 @@ const parseShip = (raw: unknown): DeckBuilderShip | null => {
 export const parseDeckBuilder = (input: string): DeckBuilderParseResult => {
   const warnings: string[] = []
   let text = `${input ?? ''}`.trim()
-  if (!text) return { deck: null, error: '没有内容可读', warnings }
+  if (!text) return { deck: null, error: '暂无可读取内容', warnings }
   // 载入链接：把 predeck 参数取出来
   const fromUrl = text.match(/[?&]predeck=([^&#\s]+)/)
   if (fromUrl) {
     try {
       text = decodeURIComponent(fromUrl[1])
     } catch (_e) {
-      return { deck: null, error: '这条链接里的 predeck 参数解不开（URL 编码可能被截断）', warnings }
+      return { deck: null, error: '链接中的 predeck 参数无法解析（URL 编码可能不完整）', warnings }
     }
   }
   let raw: unknown
@@ -197,8 +197,8 @@ export const parseDeckBuilder = (input: string): DeckBuilderParseResult => {
   if (!raw || typeof raw !== 'object') return { deck: null, error: '内容不是一个 JSON 对象', warnings }
   const obj = raw as Record<string, unknown>
   const version = numOf(obj.version)
-  if (version == null) warnings.push('这段数据没写 version，按 v4 解析')
-  else if (version !== 4) warnings.push(`这段数据标的是 version ${version}，kuma 按 v4 解析，字段可能对不上`)
+  if (version == null) warnings.push('数据未注明 version · 按 v4 解析')
+  else if (version !== 4) warnings.push(`数据版本为 ${version} · 当前按 v4 解析 · 字段可能不兼容`)
 
   const fleets: (DeckBuilderFleet | null)[] = []
   for (let f = 1; f <= MAX_FLEETS; f++) {
@@ -213,10 +213,10 @@ export const parseDeckBuilder = (input: string): DeckBuilderParseResult => {
     fleets.push(ships.some(Boolean) ? { ships } : null)
   }
   if (!fleets.some(Boolean)) {
-    return { deck: null, error: '没读到任何舰队（f1–f4 都是空的）', warnings }
+    return { deck: null, error: '未读取到舰队（f1–f4 均为空）', warnings }
   }
   const hqLv = numOf(obj.hqlv)
-  if (hqLv == null) warnings.push('没写司令部等级，相关加成的推算可能不准')
+  if (hqLv == null) warnings.push('未注明司令部等级 · 相关加成推定值可能存在误差')
   return { deck: { hqLv: hqLv == null ? 0 : Math.round(hqLv), fleets }, error: null, warnings }
 }
 

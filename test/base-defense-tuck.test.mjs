@@ -211,7 +211,7 @@ test('主体四段都走 bodyBattle，没有一段还直接吃着 b', () => {
     assert.ok(di.includes(`bodyBattle ? ${seg}`), `${seg} 没接上收纳判据`)
   }
   // 流水那一格的 else 支就是航行态那句占位——「收纳后与无空袭一致」靠的正是它
-  assert.match(di, /bodyBattle \? logHtml\(bodyBattle, logExpanded\) : '<div class="log">.*等待战斗/)
+  assert.match(di, /bodyBattle \? logHtml\(bodyBattle, logExpanded\) : '<div class="log">.*尚未发生战斗/)
   for (const stale of ['b ? airlineHtml(b, s)', 'b ? arenaHtml(b, s)', 'b ? resultStripHtml(b)']) {
     assert.ok(!di.includes(stale), `${stale} 还在，这一段没跟着让位`)
   }

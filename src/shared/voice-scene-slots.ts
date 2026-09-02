@@ -47,7 +47,7 @@ export interface VoiceSceneSlot {
 }
 
 export const VOICE_SCENE_SLOTS: Record<string, VoiceSceneSlot> = {
-  Intro: { slot: 1, scene: '入手/登入时' },
+  Intro: { slot: 1, scene: '获得/登录时' },
   Sec1: { slot: 2, scene: '秘书舰1' },
   Sec2: { slot: 3, scene: '秘书舰2' },
   Sec3: { slot: 4, scene: '秘书舰3' },

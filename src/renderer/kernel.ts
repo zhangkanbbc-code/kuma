@@ -236,7 +236,7 @@ const removeFrom = <T>(list: T[], item: T) => {
 // 慢分发归因：注册时捕获调用点（监听器全是匿名箭头，cb.name 一律为空），
 // perf-guard 计时超阈值时按这个定位是哪个模块吃掉了时间。
 const listenerSites = new WeakMap<object, string>()
-const siteOf = (cb: object): string => listenerSites.get(cb) ?? '(未知注册点)'
+const siteOf = (cb: object): string => listenerSites.get(cb) ?? '未知注册点'
 
 export const onMgChange = (cb: PatchListener) => {
   listenerSites.set(cb, captureListenerSite())
@@ -559,6 +559,10 @@ export const openQuestTreeWindow = (questId?: number): Promise<void> =>
 export const openShipLifeWindow = (rosterId: number): Promise<void> =>
   ipcRenderer.invoke('window:ship-life', rosterId)
 
+/** 人生记录窗 → 战斗复盘窗：全局复用一扇，已打开时在原窗换片。 */
+export const openBattleReplayWindow = (snapshotId: number): Promise<void> =>
+  ipcRenderer.invoke('window:battle-replay', snapshotId)
+
 /** 人生记录窗 → 主窗：把这一场战斗的复盘打开（跨窗，与任务树那条同一套骨架）。 */
 export const openBattleInMainWindow = (snapshotId: number): Promise<void> =>
   ipcRenderer.invoke('window:ship-life-battle', snapshotId)
@@ -588,7 +592,7 @@ export const focusQuestInMainWindow = (questId: number): Promise<void> =>
 export const queryUseitemHistory = (
   itemId: number,
   limit = 60,
-): Promise<{ ts: number; delta: number; total: number }[]> =>
+): Promise<{ ts: number; delta: number; total: number; cause: string | null }[]> =>
   ipcRenderer.invoke('mg:useitem-history', itemId, limit)
 
 export const queryRecentUseitemChanges = (limit = 200): Promise<UseitemHistoryChange[]> =>
@@ -625,7 +629,7 @@ export const markNoticesRead = (ids: number[] | 'all'): Promise<void> =>
 
 export const clearNotices = (): Promise<void> => ipcRenderer.invoke('mg:notify-clear')
 
-// 时间窗内的操作类事件（道具履历归因用）。earliest = 账本最早一条，
+// 时间窗内的操作事件与 useitem 全量边界（旧道具行归因用）。earliest = 账本最早一条，
 // 早于它的变动无原因可考（events 可被清理，useitem_log 是永久表，两者会错位）
 export const queryActionEvents = (
   fromTs: number,
@@ -734,6 +738,9 @@ export const queryBossKills = (
 
 export const queryBattleSnapshots = (limit = 40): Promise<BattleSnapshotSummary[]> =>
   ipcRenderer.invoke('chron:battles', limit)
+
+export const queryBattleRun = (sortieId: number): Promise<BattleSnapshotSummary[]> =>
+  ipcRenderer.invoke('chron:battle-run', sortieId)
 
 export const queryBattleSnapshot = (id: number): Promise<BattleSnapshot | null> =>
   ipcRenderer.invoke('chron:battle', id)

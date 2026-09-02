@@ -12,9 +12,16 @@ import path from 'path'
 import { atomicWriteJsonSync } from '../atomic-json'
 import config from '../config'
 import { APPDATA_PATH } from '../env'
+import { getLode } from '../lode'
 import { upgradeBattleView } from './battle'
 import { aggregateFactoryStats } from './factory-stats'
 import { redactPostBody } from './post-body-redact'
+import {
+  overwriteQuestProgress,
+  planQuestProgressChanges,
+  recomputeSinkQuestProgress,
+  type QuestProgressChange,
+} from './quest-sink-replay'
 import {
   calculateSortieSupplyCost,
   mergeSortieSupplyCosts,
@@ -56,6 +63,11 @@ import {
   PAY_ITEM_USE_PATH,
   replayItemUseMaterialCategories,
 } from '../../shared/item-use-materials'
+import {
+  isUseitemFullSyncPath,
+  resolveUseitemCause,
+  type UseitemCauseAction,
+} from '../../shared/useitem-cause'
 import { mapIdOf } from '../../shared/map-id'
 import type { PayLogRow } from '../../shared/pay-log'
 import { bossKillAnomalyText, resolveBossKill } from '../../shared/boss-kill'
@@ -186,6 +198,7 @@ const SNAPSHOT_ONLY_PATHS = new Set([
 class Ledger {
   private db: any
   private closed = false
+  private lastRecordedEventId: number | null = null
   private pruneTimer: ReturnType<typeof setInterval>
 
   constructor() {
@@ -239,7 +252,8 @@ class Ledger {
         ts INTEGER NOT NULL,
         item_id INTEGER NOT NULL,
         delta INTEGER NOT NULL,
-        total INTEGER NOT NULL
+        total INTEGER NOT NULL,
+        cause TEXT
       );
       CREATE INDEX IF NOT EXISTS idx_useitem_ts ON useitem_log(ts);
       CREATE INDEX IF NOT EXISTS idx_useitem_id ON useitem_log(item_id);
@@ -480,6 +494,8 @@ class Ledger {
       // 手动补记标记（2026-09-01）：1 = 玩家自己补的一笔，NULL/0 = kuma 观测记的。
       // 只有手动行可删、且「重算任务战果」不碰它——口径与 pay_log 的 kind='manual' 同源。
       ['senka_log', 'manual', 'INTEGER'],
+      // 道具变化的归因端点。NULL = 按符号与可消耗性仍解释不了，不拿最近操作硬填。
+      ['useitem_log', 'cause', 'TEXT'],
     ]) {
       try {
         this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`)
@@ -495,7 +511,10 @@ class Ledger {
     if (previousVersion < 9) this.backfillShipJoinOriginsV9()
     if (previousVersion < 10) this.backfillBossKillsV10()
     if (previousVersion < 11) this.revokeUnevidencedQuestSenkaV11()
-    this.db.exec('PRAGMA user_version = 11')
+    if (previousVersion < 12) this.backfillUseitemCausesV12()
+    const questProgressV13 =
+      previousVersion >= 13 ? true : this.recomputeCarrierSinkProgressV13() != null
+    this.db.exec(`PRAGMA user_version = ${questProgressV13 ? 13 : 12}`)
     this.prune()
     // 每天顺手清一次陈账
     this.pruneTimer = setInterval(() => this.prune(), 24 * 3600 * 1000)
@@ -531,6 +550,7 @@ class Ledger {
     ts: number,
     secretaryMst: number | null = null,
   ) => {
+    this.lastRecordedEventId = null
     try {
       const snapshotOnly = SNAPSHOT_ONLY_PATHS.has(apiPath)
       if (snapshotOnly) {
@@ -546,25 +566,51 @@ class Ledger {
           }
         })
       }
-      this.db
+      const result = this.db
         .prepare(
           'INSERT INTO events (ts, method, path, body, post_body, secretary_mst) VALUES (?, ?, ?, ?, ?, ?)',
         )
         .run(ts, method, apiPath, snapshotOnly ? null : body, redactPostBody(postBody), secretaryMst)
+      this.lastRecordedEventId = Number(result.lastInsertRowid) || null
     } catch (e) {
       console.warn('[kanso] mg: ledger record failed', e)
     }
+  }
+
+  private actionsSinceLastUseitemSync = (): UseitemCauseAction[] => {
+    const endId = this.lastRecordedEventId
+    if (!(endId && endId > 0)) return []
+    const previousSync = this.db
+      .prepare(
+        `SELECT id FROM events
+         WHERE id < ? AND path IN (
+           '/kcsapi/api_get_member/useitem',
+           '/kcsapi/api_get_member/require_info'
+         )
+         ORDER BY id DESC LIMIT 1`,
+      )
+      .get(endId) as { id: number } | undefined
+    if (!previousSync) return []
+    return this.db
+      .prepare(
+        `SELECT ts, path, post_body AS postBody FROM events
+         WHERE id > ? AND id <= ? ORDER BY id ASC`,
+      )
+      .all(previousSync.id, endId) as UseitemCauseAction[]
   }
 
   // 道具变化：只写真正变了的项（调用方负责 diff）
   logUseitems = (ts: number, changes: { id: number; delta: number; total: number }[]) => {
     if (!changes.length) return
     try {
+      const actions = this.actionsSinceLastUseitemSync()
       const stmt = this.db.prepare(
-        'INSERT INTO useitem_log (ts, item_id, delta, total) VALUES (?, ?, ?, ?)',
+        'INSERT INTO useitem_log (ts, item_id, delta, total, cause) VALUES (?, ?, ?, ?, ?)',
       )
       this.runBatch(changes.length, () => {
-        for (const c of changes) stmt.run(ts, c.id, c.delta, c.total)
+        for (const c of changes) {
+          stmt.run(ts, c.id, c.delta, c.total, resolveUseitemCause(c, actions))
+        }
       })
     } catch (e) {
       console.warn('[kanso] mg: useitem log failed', e)
@@ -682,8 +728,8 @@ class Ledger {
     }
   }
 
-  // 时间窗内的「操作类」事件，供道具履历归因用。
-  // 只排掉纯观测路径（进港/同步/列表刷新那些，它们只是把结果报回来，不是原因本身）。
+  // 时间窗内的操作事件与 useitem 全量边界，供旧道具行按「两次全量之间」归因。
+  // 其余纯观测路径仍排掉；两条全量路径必须保留，否则渲染层会退回固定毫秒窗。
   // 注意 events 是可清理的滚动表，被清掉那段的变动查不到原因——调用方要如实说明，不能当「无原因」。
   // api_token（游戏会话凭据）入账时已替换成占位（v6 起，含存量抹除）；
   // 这里再兜一道——渲染层按自家威胁模型不该见到凭据，即使来源是异常写入的旧行。
@@ -693,7 +739,13 @@ class Ledger {
         .prepare(
           `SELECT ts, path, post_body AS postBody FROM events
            WHERE ts >= ? AND ts <= ?
-             AND path NOT LIKE '/kcsapi/api_get_member/%'
+             AND (
+               path NOT LIKE '/kcsapi/api_get_member/%'
+               OR path IN (
+                 '/kcsapi/api_get_member/useitem',
+                 '/kcsapi/api_get_member/require_info'
+               )
+             )
              AND path NOT LIKE '/kcsapi/api_port/%'
              AND path NOT LIKE '/kcsapi/api_start2/%'
            ORDER BY ts ASC`,
@@ -1177,6 +1229,145 @@ class Ledger {
     }
   }
 
+  /**
+   * v12：给既有道具变化回填归因端点。
+   *
+   * 真窗口由两次 useitem 全量之间的 events 划定：遇到下一次全量时，先用此前累积的
+   * 动作解释同一时刻落下的差值，再清空窗口。这样返港全量紧跟 battleresult 时，
+   * 负数会跳过只产出奖励的战果，继续认到窗口内真正能消费该道具的动作。
+   *
+   * 只更新算出 path 的 NULL 行；解释不了的继续留 NULL。已经有 cause 的行不重写，
+   * 因此迁移重跑是空操作。
+   */
+  private backfillUseitemCausesV12 = (): {
+    total: number
+    resolved: number
+    unresolved: number
+  } => {
+    try {
+      const changes = this.db
+        .prepare(
+          `SELECT rowid AS id, ts, item_id AS itemId, delta
+           FROM useitem_log WHERE cause IS NULL ORDER BY ts ASC, rowid ASC`,
+        )
+        .all() as { id: number; ts: number; itemId: number; delta: number }[]
+      if (!changes.length) return { total: 0, resolved: 0, unresolved: 0 }
+      const events = this.db
+        .prepare(
+          `SELECT id, ts, path, post_body AS postBody
+           FROM events ORDER BY ts ASC, id ASC`,
+        )
+        .all() as (UseitemCauseAction & { id: number })[]
+      const resolved: { id: number; cause: string }[] = []
+      let actions: UseitemCauseAction[] = []
+      let hasSyncBoundary = false
+      let eventAt = 0
+      let changeAt = 0
+      while (changeAt < changes.length) {
+        const ts = changes[changeAt].ts
+        while (eventAt < events.length && events[eventAt].ts < ts) {
+          const event = events[eventAt++]
+          if (isUseitemFullSyncPath(event.path)) {
+            actions = []
+            hasSyncBoundary = true
+          } else if (hasSyncBoundary) actions.push(event)
+        }
+        let syncAtThisTs = false
+        while (eventAt < events.length && events[eventAt].ts === ts) {
+          const event = events[eventAt++]
+          if (isUseitemFullSyncPath(event.path)) syncAtThisTs = true
+          else actions.push(event)
+        }
+        while (changeAt < changes.length && changes[changeAt].ts === ts) {
+          const change = changes[changeAt++]
+          const cause = hasSyncBoundary ? resolveUseitemCause(change, actions) : null
+          if (cause) resolved.push({ id: change.id, cause })
+        }
+        if (syncAtThisTs) {
+          actions = []
+          hasSyncBoundary = true
+        }
+      }
+      const update = this.db.prepare(
+        `UPDATE useitem_log SET cause = ? WHERE rowid = ? AND cause IS NULL`,
+      )
+      this.runBatch(resolved.length, () => {
+        for (const row of resolved) update.run(row.cause, row.id)
+      })
+      const stats = {
+        total: changes.length,
+        resolved: resolved.length,
+        unresolved: changes.length - resolved.length,
+      }
+      console.log(
+        `[kanso] mg: ledger v12 — 道具归因回算 ${stats.total} 行，` +
+          `写回 ${stats.resolved}，暂无对应操作 ${stats.unresolved}`,
+      )
+      return stats
+    } catch (error) {
+      console.warn('[kanso] mg: ledger v12 useitem cause backfill failed', error)
+      return { total: 0, resolved: 0, unresolved: 0 }
+    }
+  }
+
+  /**
+   * v13：用本期 events 与生产任务引擎重算敌空母击沉任务。
+   *
+   * 旧 sinkEnemy 只看 hpEnd<=0，会把对潜空袭里 `"N/A"` 落成的后方空母算作击沉。
+   * 这里从各任务当前周期起点重放受领/放弃/交付与战斗结算，最终值直接覆盖
+   * quest_progress；不拿现值做减法，所以迁移重复执行仍得到同一份账。
+   */
+  private recomputeCarrierSinkProgressV13 = (): QuestProgressChange[] | null => {
+    try {
+      const snapshot = this.loadSnapshot('/kcsapi/api_start2/getData')
+      const masterRaw = snapshot ? (snapshot.body as any)?.api_data ?? snapshot.body : null
+      if (!masterRaw) throw new Error('缺 api_start2 快照')
+      const events = this.db
+        .prepare(
+          `SELECT id, ts, path, body, post_body AS postBody
+           FROM events ORDER BY ts ASC, id ASC`,
+        )
+        .all()
+      const battles = this.db
+        .prepare(
+          `SELECT id, ts, map, cell, snapshot
+           FROM battle_snapshots WHERE practice = 0 ORDER BY ts ASC, id ASC`,
+        )
+        .all()
+      const replay = recomputeSinkQuestProgress({
+        targetQuestIds: [211, 217, 220],
+        events,
+        battles,
+        now: Date.now(),
+        masterRaw,
+        getLode,
+      })
+      if (replay.eligibleQuestIds.join(',') !== '211,217,220') {
+        throw new Error(`目标任务规则不符：${replay.eligibleQuestIds.join(',') || '无'}`)
+      }
+      if (replay.failedQuestIds.length) {
+        console.warn(
+          `[kanso] mg: ledger v13 — 保留回算失败任务的原进度 quests=${replay.failedQuestIds.join(',')}`,
+        )
+      }
+      const changes = planQuestProgressChanges(this.db, replay)
+      overwriteQuestProgress(this.db, changes)
+      console.log(
+        '[kanso] mg: ledger v13 — 敌空母击沉任务回算：' +
+          changes
+            .map((change) =>
+              `${change.questId} ${change.oldValue}→${change.newValue}` +
+              `（${change.diff >= 0 ? '+' : ''}${change.diff}）`,
+            )
+            .join('，'),
+      )
+      return changes
+    } catch (error) {
+      console.warn('[kanso] mg: ledger v13 carrier sink quest replay failed', error)
+      return null
+    }
+  }
+
   // 任务领域快照曾经只 merge 页面，可能残留幽灵 state=2。
   // 启动时从原始账本中找最近一次“全部/进行中”权威响应重建，不依赖旧 domain.json。
   loadLatestAuthoritativeQuestList = (): {
@@ -1449,8 +1640,15 @@ class Ledger {
   queryUseitemHistory = (itemId: number, limit = 60) => {
     try {
       return this.db
-        .prepare('SELECT ts, delta, total FROM useitem_log WHERE item_id = ? ORDER BY ts DESC LIMIT ?')
-        .all(itemId | 0, limit | 0) as { ts: number; delta: number; total: number }[]
+        .prepare(
+          'SELECT ts, delta, total, cause FROM useitem_log WHERE item_id = ? ORDER BY ts DESC LIMIT ?',
+        )
+        .all(itemId | 0, limit | 0) as {
+        ts: number
+        delta: number
+        total: number
+        cause: string | null
+      }[]
     } catch (e) {
       console.warn('[kanso] mg: useitem history query failed', e)
       throw e
@@ -1461,7 +1659,7 @@ class Ledger {
     try {
       return this.db
         .prepare(
-          `SELECT item_id AS itemId, ts, delta, total
+          `SELECT item_id AS itemId, ts, delta, total, cause
            FROM useitem_log
            ORDER BY ts DESC
            LIMIT ?`,
@@ -1471,6 +1669,7 @@ class Ledger {
         ts: number
         delta: number
         total: number
+        cause: string | null
       }[]
     } catch (error) {
       console.warn('[kanso] mg: recent useitem changes query failed', error)
@@ -2469,6 +2668,35 @@ class Ledger {
       }))
     } catch (error) {
       console.warn('[kanso] mg: battle snapshot list failed', error)
+      throw error
+    }
+  }
+
+  queryBattleRun = (sortieId: number): BattleSnapshotSummary[] => {
+    try {
+      return (
+        this.db
+          .prepare(
+            `SELECT id, ts, sortie_id AS sortieId, battle_no AS battleNo,
+                    map, cell, rank, is_boss AS isBoss, practice
+             FROM battle_snapshots
+             WHERE sortie_id=?
+             ORDER BY ts ASC, battle_no ASC, id ASC`,
+          )
+          .all(sortieId) as any[]
+      ).map((row) => ({
+        id: Number(row.id),
+        ts: Number(row.ts),
+        sortieId: Number(row.sortieId),
+        battleNo: Number(row.battleNo),
+        map: Number(row.map),
+        cell: Number(row.cell),
+        rank: row.rank == null ? null : `${row.rank}`,
+        isBoss: row.isBoss === 1,
+        practice: row.practice === 1,
+      }))
+    } catch (error) {
+      console.warn('[kanso] mg: battle run snapshot list failed', error)
       throw error
     }
   }

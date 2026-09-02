@@ -127,7 +127,7 @@ test('三维带装备但初始值缺资料：裸值照实标缺，面板画 equi
   const los = rowOf(rows, '索敌')
   assert.equal(los.bare, null)
   assert.deepEqual(los.segments, [{ value: 30, kind: 'equip' }])
-  assert.match(los.tip, /拆不出来/)
+  assert.match(los.tip, /无法拆分裸值/)
 })
 
 test('对潜：改修点（kyouka[6]）计入裸值', () => {

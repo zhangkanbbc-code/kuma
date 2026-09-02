@@ -15,6 +15,9 @@ import {
   syntheticPoiPack,
   syntheticQuestPack,
 } from './fixtures/quest-lodes.mjs'
+import battleModule from '../dist/main/mg/battle.js'
+
+const { mergeNight, parseBattle } = battleModule
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-quest-counter-rules-'))
 const output = path.join(tempDir, 'quest-counter-rules.cjs')
@@ -123,6 +126,10 @@ globalThis.__qpSnapshot = {
       { api_id: 2002, api_name: '澳艦A', api_stype: 9, api_soku: 5, api_sortno: 8, api_sort_id: 38501 },
       { api_id: 900, api_name: '敵空母A', api_stype: 11, api_sortno: 0 },
       { api_id: 901, api_name: '敵空母B', api_stype: 7, api_sortno: 0 },
+      { api_id: 1530, api_name: '潜水ヨ級', api_stype: 13, api_sortno: 0 },
+      { api_id: 1532, api_name: '潜水カ級', api_stype: 13, api_sortno: 0 },
+      { api_id: 1776, api_name: '空母ヲ級', api_stype: 11, api_sortno: 0 },
+      { api_id: 2310, api_name: '軽母ヌ級 elite', api_stype: 7, api_sortno: 0 },
     ],
     api_mst_slotitem: [
       { api_id: 10, api_name: '零式艦戦21型', api_type: [0, 0, 6, 0] },
@@ -147,7 +154,11 @@ globalThis.__qpStore = {
       210: { no: 210, state: 2, type: 1, category: 2, title: '十场战斗', progressFlag: 1 },
       211: { no: 211, state: 2, type: 1, category: 2, title: '击沉敌方空母', progressFlag: 0 },
       214: { no: 214, state: 2, type: 2, category: 2, title: 'あ号作战', progressFlag: 0 },
+      217: { no: 217, state: 1, type: 0, category: 2, title: '击沉敌方空母！', progressFlag: 0 },
+      220: { no: 220, state: 1, type: 2, category: 2, title: 'い号作战', progressFlag: 0 },
       226: { no: 226, state: 2, type: 2, category: 2, title: '南西诸岛制海权', progressFlag: 0 },
+      228: { no: 228, state: 1, type: 2, category: 2, title: '海上护卫战', progressFlag: 0 },
+      230: { no: 230, state: 1, type: 1, category: 2, title: '压制敌方潜水舰！', progressFlag: 0 },
       410: { no: 410, state: 2, type: 1, category: 4, title: '南方运输', progressFlag: 0 },
       504: { no: 504, state: 2, type: 1, category: 6, title: '舰队酒保节', progressFlag: 1 },
       626: { no: 626, state: 2, type: 4, category: 6, title: '零战任务', progressFlag: 0 },
@@ -186,9 +197,9 @@ globalThis.__qpStore = {
     battle: {
       prediction: { perfect: false },
       eShips: [
-        { mstId: 900, hpEnd: 0 },
-        { mstId: 901, hpEnd: -2 },
-        { mstId: 900, hpEnd: 1 },
+        { mstId: 900, hpEnd: 0, sunk: true },
+        { mstId: 901, hpEnd: -2, sunk: true },
+        { mstId: 900, hpEnd: 1, sunk: false },
       ],
     },
   },
@@ -450,6 +461,167 @@ test('model conversion scraps count only while the secretary equipment gate is s
 test('sortie results add every enemy sunk in the audited stypes', () => {
   engine.onQuestApi('/kcsapi/api_req_sortie/battleresult', { api_win_rank: 'B' }, {})
   assert.deepEqual(globalThis.__qpHandlers['qp:get']().progress[211], [2])
+})
+
+const fieldCoverage = JSON.parse(
+  fs.readFileSync(new URL('./fixtures/battle-field-coverage.json', import.meta.url), 'utf8'),
+)
+const subAirRaidFixture = fieldCoverage.find((entry) => entry.name === 'sortie-battle-sub-air-raid')
+assert.ok(subAirRaidFixture, 'fixture 里没有真实对潜空袭报文 #29731')
+const battleContext = {
+  fleetShips: (deckId) =>
+    Array.from({ length: 6 }, (_unused, index) => ({
+      rosterId: deckId * 100 + index,
+      mstId: deckId * 100 + index,
+      name: `D${deckId}-${index + 1}`,
+      lv: 1,
+      nowHp: 50,
+      maxHp: 50,
+      equipments: [],
+    })),
+  masterName: (mstId) => `E${mstId}`,
+  combinedType: () => 0,
+}
+const parseSubAirRaid = (mutate) => {
+  const raw = structuredClone(subAirRaidFixture.battle)
+  mutate?.(raw)
+  return parseBattle(subAirRaidFixture.path, raw, battleContext, 0)
+}
+const setOnlyActive = (...questIds) => {
+  const states = new Map(
+    Object.values(globalThis.__qpStore.player.quests).map((quest) => [quest.no, quest.state]),
+  )
+  const battle = globalThis.__qpStore.sortie.battle
+  for (const quest of Object.values(globalThis.__qpStore.player.quests)) {
+    quest.state = questIds.includes(quest.no) ? 2 : 1
+  }
+  return () => {
+    for (const quest of Object.values(globalThis.__qpStore.player.quests)) {
+      quest.state = states.get(quest.no)
+    }
+    globalThis.__qpStore.sortie.battle = battle
+  }
+}
+const progressDelta = (questId, run) => {
+  const before = globalThis.__qpHandlers['qp:get']().progress[questId]?.[0] ?? 0
+  run()
+  return (globalThis.__qpHandlers['qp:get']().progress[questId]?.[0] ?? 0) - before
+}
+
+test('真报文 #29731：受领 Bw2 后，mst 2310 后方轻母不增长', () => {
+  const restore = setOnlyActive(220)
+  try {
+    engine.onQuestApi('/kcsapi/api_req_quest/start', {}, { api_quest_id: '220' })
+    globalThis.__qpStore.sortie.battle = parseSubAirRaid()
+    assert.equal(
+      progressDelta(220, () =>
+        engine.onQuestApi('/kcsapi/api_req_sortie/battleresult', { api_win_rank: 'S' }, {})),
+      0,
+    )
+  } finally {
+    restore()
+  }
+})
+
+test('同场 Bw5/Bd8 照常计入三条真实击沉潜艇', () => {
+  const restore = setOnlyActive(228, 230)
+  try {
+    engine.onQuestApi('/kcsapi/api_req_quest/start', {}, { api_quest_id: '228' })
+    engine.onQuestApi('/kcsapi/api_req_quest/start', {}, { api_quest_id: '230' })
+    globalThis.__qpStore.sortie.battle = parseSubAirRaid()
+    const before228 = globalThis.__qpHandlers['qp:get']().progress[228]?.[0] ?? 0
+    const before230 = globalThis.__qpHandlers['qp:get']().progress[230]?.[0] ?? 0
+    engine.onQuestApi('/kcsapi/api_req_sortie/battleresult', { api_win_rank: 'S' }, {})
+    assert.equal((globalThis.__qpHandlers['qp:get']().progress[228]?.[0] ?? 0) - before228, 3)
+    assert.equal((globalThis.__qpHandlers['qp:get']().progress[230]?.[0] ?? 0) - before230, 3)
+  } finally {
+    restore()
+  }
+})
+
+test('普通战中真正击沉的 stype 7/11 敌空母仍各增长一次', () => {
+  const restore = setOnlyActive(220)
+  try {
+    for (const mstId of [901, 900]) {
+      globalThis.__qpStore.sortie.battle = {
+        prediction: { perfect: false },
+        eShips: [{ mstId, hpEnd: 0, sunk: true, unattackable: false }],
+      }
+      assert.equal(
+        progressDelta(220, () =>
+          engine.onQuestApi('/kcsapi/api_req_sortie/battleresult', { api_win_rank: 'B' }, {})),
+        1,
+      )
+    }
+  } finally {
+    restore()
+  }
+})
+
+test('两条 "N/A" 后方空母都不计入击沉任务', () => {
+  const restore = setOnlyActive(220)
+  try {
+    globalThis.__qpStore.sortie.battle = parseSubAirRaid((battle) => {
+      battle.api_ship_ke = [...battle.api_ship_ke, 1776]
+      battle.api_ship_lv = [...battle.api_ship_lv, 1]
+      battle.api_e_nowhps = [...battle.api_e_nowhps, 'N/A']
+      battle.api_e_maxhps = [...battle.api_e_maxhps, 'N/A']
+      battle.api_eSlot = [...battle.api_eSlot, [-1, -1, -1, -1, -1]]
+      battle.api_eParam = [...battle.api_eParam, [0, 0, 0, 0]]
+    })
+    assert.equal(
+      globalThis.__qpStore.sortie.battle.eShips.filter((ship) => ship.unattackable).length,
+      2,
+    )
+    assert.equal(
+      progressDelta(220, () =>
+        engine.onQuestApi('/kcsapi/api_req_sortie/battleresult', { api_win_rank: 'S' }, {})),
+      0,
+    )
+  } finally {
+    restore()
+  }
+})
+
+test('昼转夜合并后 unattackable 仍不计入击沉任务', () => {
+  const restore = setOnlyActive(220)
+  try {
+    const day = parseSubAirRaid()
+    globalThis.__qpStore.sortie.battle = mergeNight(
+      day,
+      {
+        api_deck_id: 3,
+        api_f_nowhps: day.fShips.map((ship) => ship.hpEnd),
+        api_e_nowhps: [0, 0, 0, 'N/A'],
+      },
+      battleContext,
+      1,
+    )
+    assert.equal(globalThis.__qpStore.sortie.battle.hasNight, true)
+    assert.equal(globalThis.__qpStore.sortie.battle.eShips[3].unattackable, true)
+    assert.equal(
+      progressDelta(220, () =>
+        engine.onQuestApi('/kcsapi/api_req_sortie/battleresult', { api_win_rank: 'S' }, {})),
+      0,
+    )
+  } finally {
+    restore()
+  }
+})
+
+test('对潜空袭的 S 胜照常推进 Bw1 的 S 胜轴', () => {
+  const restore = setOnlyActive(214)
+  try {
+    globalThis.__qpStore.sortie.battle = parseSubAirRaid()
+    const before = (
+      globalThis.__qpHandlers['qp:get']().progress[214] ?? [0, 0, 0, 0]
+    ).slice()
+    engine.onQuestApi('/kcsapi/api_req_sortie/battleresult', { api_win_rank: 'S' }, {})
+    const after = globalThis.__qpHandlers['qp:get']().progress[214]
+    assert.equal((after[3] ?? 0) - (before[3] ?? 0), 1)
+  } finally {
+    restore()
+  }
 })
 
 test('battle results count B victories but not C defeats for generic sortie wins', () => {

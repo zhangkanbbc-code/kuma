@@ -112,7 +112,7 @@ const di = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.
 
 test('镝的掉落卡:合算层那一枚 chip 文案与判据都在,且挂在 allDifficulty 上', () => {
   assert.match(di, /node\.allDifficulty/)
-  assert.match(di, /class="dp-flag alldiff" title="这一点的确认目录不分难度，含全部难度的记录">不分难度</)
+  assert.match(di, /class="dp-flag alldiff" title="确认目录包含全部难度">不分难度</)
   // 确认目录段与「你的实测」段必须用同一份目录，否则会出现
   // 「目录里列着、实测那边却不打勾」——两处都得是 nodeDropCatalog
   assert.equal(di.match(/nodeDropCatalog\(mapKey, letter, undefined, difficulty\)/g).length, 2)

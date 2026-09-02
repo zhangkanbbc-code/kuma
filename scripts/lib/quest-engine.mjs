@@ -63,6 +63,10 @@ const bundle = async (entry, name, stubs = {}) => {
 export const loadQuestEngine = () =>
   bundle('src/main/mg/quest-counter.ts', 'quest-counter')
 
+/** v13 迁移与维护者脚本共用的敌空母击沉任务回放核。 */
+export const loadQuestSinkReplay = () =>
+  bundle('src/main/mg/quest-sink-replay.ts', 'quest-sink-replay')
+
 /** 线上那套归约器：回放要靠它把 sortie/编成/库存还原成事件发生当时的样子。 */
 export const loadStore = () =>
   bundle('src/main/mg/store.ts', 'store', {

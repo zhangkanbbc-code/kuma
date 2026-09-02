@@ -59,7 +59,7 @@ export const NTFY_DEFAULT_SERVER = ''
  * 只写到**服务器**——`checkNtfyServer` 会把 `https://ntfy.sh/我的频道` 判成错
  *（频道名是另一格），示例要是把那个错法演示一遍就成了帮倒忙。
  */
-export const NTFY_SERVER_PLACEHOLDER = '例：https://ntfy.sh，自架的填自己的'
+export const NTFY_SERVER_PLACEHOLDER = '例：https://ntfy.sh；自建服务请填写对应地址'
 
 /**
  * 在场门槛的空闲分钟数区间。下限 1 分：再短就会在打字的换行间隙里判成「离开」；
@@ -250,7 +250,7 @@ const parseHttpUrl = (raw: unknown): URL | null => {
  */
 export const checkBarkEndpoint = (raw: unknown): PushTargetCheck => {
   const input = `${raw ?? ''}`.trim()
-  if (!input) return { value: null, error: '还没填 Bark 推送地址', empty: true }
+  if (!input) return { value: null, error: '尚未填写 Bark 推送地址', empty: true }
   const parsed = parseHttpUrl(input)
   if (!parsed) {
     return { value: null, error: 'Bark 地址必须是 https:// 或 http:// 开头的完整 URL', empty: false }
@@ -259,7 +259,7 @@ export const checkBarkEndpoint = (raw: unknown): PushTargetCheck => {
   if (!segments.length) {
     return {
       value: null,
-      error: '地址里缺设备码：用 Bark App 首页给的那一整条，形如 https://api.day.app/xxxxxxxx',
+      error: '地址缺少设备码：请粘贴 Bark App 首页提供的完整地址，例如 https://api.day.app/xxxxxxxx',
       empty: false,
     }
   }
@@ -274,20 +274,20 @@ export const checkBarkEndpoint = (raw: unknown): PushTargetCheck => {
  */
 export const checkNtfyServer = (raw: unknown, topic?: unknown): PushTargetCheck => {
   const input = `${raw ?? ''}`.trim()
-  if (!input) return { value: null, error: '还没填 ntfy 服务器地址', empty: true }
+  if (!input) return { value: null, error: '尚未填写 ntfy 服务器地址', empty: true }
   const parsed = parseHttpUrl(input)
   if (!parsed) {
     return { value: null, error: 'ntfy 服务器地址必须是 https:// 或 http:// 开头', empty: false }
   }
   if (parsed.search || parsed.hash) {
-    return { value: null, error: 'ntfy 服务器地址不该带 ? 或 # 参数', empty: false }
+    return { value: null, error: 'ntfy 服务器地址不得包含 ? 或 # 参数', empty: false }
   }
   const segments = parsed.pathname.split('/').filter(Boolean)
   const wanted = `${topic ?? ''}`.trim()
   if (wanted && segments.at(-1) === wanted) {
     return {
       value: null,
-      error: '服务器地址里已经带上频道名了：这一格只填到服务器（如 https://ntfy.sh），频道名填下面那格',
+      error: '服务器地址已包含频道名；本字段仅填写服务器地址（如 https://ntfy.sh），频道名请填写下一字段',
       empty: false,
     }
   }
@@ -301,7 +301,7 @@ export const checkNtfyServer = (raw: unknown, topic?: unknown): PushTargetCheck 
 /** ntfy 频道名。官方限制 [-_A-Za-z0-9]、最长 64 */
 export const checkNtfyTopic = (raw: unknown): PushTargetCheck => {
   const input = `${raw ?? ''}`.trim()
-  if (!input) return { value: null, error: '还没填频道名（点「生成频道名」现取一个）', empty: true }
+  if (!input) return { value: null, error: '尚未填写频道名 · 点击「生成频道名」生成', empty: true }
   if (input.length > NTFY_TOPIC_MAX) {
     return { value: null, error: `频道名最长 ${NTFY_TOPIC_MAX} 个字符`, empty: false }
   }

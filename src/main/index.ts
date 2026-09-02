@@ -128,6 +128,9 @@ app.setAppUserModelId('moe.kanso')
 let mainWindow: BrowserWindow | null = null
 let resourceTrendWindow: BrowserWindow | null = null
 let questTreeWindow: BrowserWindow | null = null
+let battleReplayWindow: BrowserWindow | null = null
+let battleReplaySnapshotId = 0
+let battleReplayReady = false
 // 人生记录窗：**一艘一扇**，按在籍 id 记账。同一艘再点是把那扇拿到前面来
 //（多开同一艘等于凭空造出两份互不同步的同一条时间轴）；换一艘才开新的一扇。
 const shipLifeWindows = new Map<number, BrowserWindow>()
@@ -371,7 +374,122 @@ const openShipLifeWindow = (rawRosterId: unknown) => {
 ipcMain.handle('window:ship-life', (_event, rawRosterId: unknown) =>
   openShipLifeWindow(rawRosterId),
 )
-// 人生记录窗里点了击杀簿/履历的某一场 → 主窗聚焦并打开那场复盘（与任务树同一套骨架）
+
+const openBattleReplayWindow = (rawSnapshotId: unknown, sender: Electron.WebContents) => {
+  const snapshotId = Number(rawSnapshotId)
+  if (!Number.isInteger(snapshotId) || snapshotId <= 0) return
+  battleReplaySnapshotId = snapshotId
+  if (battleReplayWindow && !battleReplayWindow.isDestroyed()) {
+    if (battleReplayReady) {
+      if (battleReplayWindow.isMinimized()) battleReplayWindow.restore()
+      battleReplayWindow.webContents.send('battle-replay:open', snapshotId)
+      battleReplayWindow.show()
+      battleReplayWindow.focus()
+    }
+    return
+  }
+
+  const saved = config.get('kanso.battleReplayWindow', {}) as {
+    x?: number
+    y?: number
+    width?: number
+    height?: number
+    isMaximized?: boolean
+  }
+  const senderWindow = BrowserWindow.fromWebContents(sender)
+  const senderBounds = senderWindow && !senderWindow.isDestroyed() ? senderWindow.getBounds() : null
+  const display = senderBounds
+    ? screen.getDisplayMatching(senderBounds)
+    : screen.getPrimaryDisplay()
+  const workArea = display.workArea
+  const minWidth = Math.min(860, workArea.width)
+  const minHeight = Math.min(560, workArea.height)
+  const width = Math.min(
+    workArea.width,
+    Math.max(minWidth, saved.width ?? Math.min(workArea.width, 1280)),
+  )
+  const height = Math.min(
+    workArea.height,
+    Math.max(minHeight, saved.height ?? Math.min(workArea.height, 820)),
+  )
+  const savedFitsDisplay =
+    saved.x != null &&
+    saved.y != null &&
+    saved.x >= workArea.x &&
+    saved.y >= workArea.y &&
+    saved.x + width <= workArea.x + workArea.width &&
+    saved.y + height <= workArea.y + workArea.height
+  let x: number
+  let y: number
+  if (savedFitsDisplay) {
+    x = saved.x!
+    y = saved.y!
+  } else {
+    x = senderBounds
+      ? senderBounds.x + 32
+      : workArea.x + Math.floor((workArea.width - width) / 2)
+    y = senderBounds
+      ? senderBounds.y + 32
+      : workArea.y + Math.floor((workArea.height - height) / 2)
+  }
+  x = Math.max(workArea.x, Math.min(x, workArea.x + workArea.width - width))
+  y = Math.max(workArea.y, Math.min(y, workArea.y + workArea.height - height))
+
+  const replayWindow = new BrowserWindow({
+    x,
+    y,
+    width,
+    height,
+    minWidth,
+    minHeight,
+    title: '战斗复盘',
+    icon: appIcon,
+    backgroundColor: '#0d1318',
+    show: false,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+      backgroundThrottling: false,
+      spellcheck: false,
+    },
+  })
+  battleReplayWindow = replayWindow
+  battleReplayReady = false
+  electronRemote.enable(replayWindow.webContents)
+  replayWindow.setMenu(null)
+  replayWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  replayWindow.webContents.on('will-navigate', (event) => event.preventDefault())
+  replayWindow.once('ready-to-show', () => {
+    battleReplayReady = true
+    if (battleReplaySnapshotId !== snapshotId) {
+      replayWindow.webContents.send('battle-replay:open', battleReplaySnapshotId)
+    }
+    replayWindow.show()
+    if (saved.isMaximized) replayWindow.maximize()
+  })
+  replayWindow.loadFile(path.join(ROOT, 'dist', 'renderer', 'battle-replay.html'), {
+    query: { snapshot: `${snapshotId}` },
+  })
+  replayWindow.on('close', () => {
+    if (replayWindow.isDestroyed()) return
+    config.set('kanso.battleReplayWindow', {
+      ...replayWindow.getNormalBounds(),
+      isMaximized: replayWindow.isMaximized(),
+    })
+  })
+  replayWindow.on('closed', () => {
+    if (battleReplayWindow === replayWindow) {
+      battleReplayWindow = null
+      battleReplayReady = false
+    }
+  })
+}
+
+ipcMain.handle('window:battle-replay', (event, rawSnapshotId: unknown) =>
+  openBattleReplayWindow(rawSnapshotId, event.sender),
+)
+
+// 旧版人生记录窗 → 主窗的兼容入口；当前独立窗已改走 window:battle-replay。
 ipcMain.handle('window:ship-life-battle', (_event, rawSnapshotId: unknown) => {
   const snapshotId = Number(rawSnapshotId)
   if (!Number.isInteger(snapshotId) || snapshotId <= 0 || !mainWindow || mainWindow.isDestroyed()) {
@@ -592,6 +710,9 @@ app.on('ready', () => {
     }
     if (questTreeWindow && !questTreeWindow.isDestroyed()) {
       questTreeWindow.close()
+    }
+    if (battleReplayWindow && !battleReplayWindow.isDestroyed()) {
+      battleReplayWindow.close()
     }
     // 人生记录窗同理（可能开着好几扇）：主窗没了它们不该把应用留在后台——
     // 窗口全关才有 window-all-closed → app.quit()，留一扇在那儿等于关不掉。

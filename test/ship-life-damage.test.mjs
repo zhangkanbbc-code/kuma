@@ -56,12 +56,12 @@ test('有说不出的场次时，数字要标成只覆盖一部分，并说清�
   assert.equal(partial.partial, true)
   assert.equal(partial.damage, (4720).toLocaleString())
   assert.equal(partial.dealt, (31840).toLocaleString())
-  assert.match(partial.title, /更早的 37 场不可知/)
+  assert.match(partial.title, /不含更早的 37 场/)
   assert.match(partial.title, /起记录/)
   // 两栏口径不同，说明必须各写各的：造成伤害那栏得讲清航空/基地/支援不摊给个人
-  assert.match(partial.dealtTitle, /更早的 37 场不可知/)
-  assert.match(partial.dealtTitle, /航空战、基地航空与支援射击/)
-  assert.doesNotMatch(partial.title, /航空战、基地航空与支援射击/)
+  assert.match(partial.dealtTitle, /不含更早的 37 场/)
+  assert.match(partial.dealtTitle, /航空战、基地航空及支援射击/)
+  assert.doesNotMatch(partial.title, /航空战、基地航空及支援射击/)
 })
 
 test('全程都记着的时候不加「部分」', () => {
@@ -69,7 +69,7 @@ test('全程都记着的时候不加「部分」', () => {
     report({ damageTaken: 120, taihaCount: 1, damageTrackedFrom: 1754500000000 }),
   )
   assert.equal(full.partial, false)
-  assert.match(full.title, /覆盖本地留下的全部战斗/)
+  assert.match(full.title, /覆盖本地全部战斗/)
 })
 
 test('「一场都没记过」与「真的没打过仗」不能显示成同一个 0', () => {

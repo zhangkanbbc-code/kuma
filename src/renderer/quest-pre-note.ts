@@ -17,26 +17,26 @@ export const questPreSourceNoteHtml = (info: MergedQuestPre | undefined): string
   const parts: string[] = []
   if (info.source === 'arbitrated') {
     // 三源硬裁决：只说「按哪一份判」；逐条依据留在 basis 台账里不外显
-    parts.push('按三方核对后的结论判定')
+    parts.push('三方资料核对结论')
     if (info.dangling.length) {
-      parts.push(`已失效的码 ${info.dangling.join('、')} 按「未同步」处理`)
+      parts.push(`失效任务码 ${info.dangling.join('、')} · 状态记为「未同步」`)
     }
   } else {
     if (info.source === 'wikiwiki') {
-      parts.push('主资料没有这条的前置，采用另一份资料')
+      parts.push('主资料无前置记录 · 使用补充资料')
     }
     if (info.dangling.length) {
       parts.push(
         info.source === 'merged'
           ? `已失效的码 ${info.dangling.join('、')}，现行链取自另一份资料`
-          : `已失效的码 ${info.dangling.join('、')} 按「未同步」处理`,
+          : `失效任务码 ${info.dangling.join('、')} · 状态记为「未同步」`,
       )
     }
     if (info.conflict && info.wwPre) {
       parts.push(
         `一份为 ${info.scnPre.join('+') || '无'}，另一份为 ${info.wwPre.join('+') || '无'}${
           info.wwUncertain ? '（后者自标待查证）' : ''
-        }，此处按前者判定`,
+        } · 采用前者结论`,
       )
     }
   }

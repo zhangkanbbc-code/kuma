@@ -249,7 +249,7 @@ export const buildQuestAvailability = (
 export const QUEST_AVAILABILITY_LABEL: Record<QuestAvailability, string> = {
   claimable: '可领奖',
   active: '进行中',
-  open: '可以接',
+  open: '可领取',
   done: '已完成',
   locked: '未解锁',
   unknown: '未同步',

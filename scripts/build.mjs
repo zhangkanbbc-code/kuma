@@ -66,6 +66,7 @@ await build({
     'resource-trend': path.join(root, 'src', 'renderer', 'resource-trend-window.ts'),
     'quest-tree': path.join(root, 'src', 'renderer', 'quest-tree-window.ts'),
     'ship-life': path.join(root, 'src', 'renderer', 'ship-life-window.ts'),
+    'battle-replay': path.join(root, 'src', 'renderer', 'battle-replay-window.ts'),
     browse: path.join(root, 'src', 'renderer', 'browse-window.ts'),
   },
   outdir: rendererOut,
@@ -101,6 +102,10 @@ cpSync(
 cpSync(
   path.join(root, 'src', 'renderer', 'ship-life.html'),
   path.join(rendererOut, 'ship-life.html'),
+)
+cpSync(
+  path.join(root, 'src', 'renderer', 'battle-replay.html'),
+  path.join(rendererOut, 'battle-replay.html'),
 )
 cpSync(path.join(root, 'src', 'renderer', 'browse.html'), path.join(rendererOut, 'browse.html'))
 rmSync(path.join(rendererOut, 'assets'), { recursive: true, force: true })

@@ -39,7 +39,7 @@ const REMODEL_COSTS = sliceBetween(
   storeSource,
   'const REMODEL_USEITEM_COSTS: [keyof MasterShipUpgrade, number][] = [',
   '\n// api_mst_ship 的成长属性是',
-  '改造消耗表与改造行反查',
+  '改造与改修的道具消耗查表',
 )
 const APPLY_USEITEMS = sliceBetween(
   storeSource,
@@ -68,16 +68,34 @@ const REMODELING = asReducer(
   "'/kcsapi/api_req_kaisou/remodeling': (_body, post, ts) => {",
   '改造 reducer',
 )
+const REMODEL_SLOT = asReducer(
+  'remodelSlot',
+  "'/kcsapi/api_req_kousyou/remodel_slot': (body, post, ts) => {",
+  '改修 reducer',
+)
+const OPEN_EXSLOT = asReducer(
+  'openExslot',
+  "'/kcsapi/api_req_kaisou/open_exslot': (_body, post, ts) => {",
+  '补强增设开孔 reducer',
+)
+const HANGAR_EXPAND = asReducer(
+  'hangarExpand',
+  "'/kcsapi/api_req_kaisou/hangar_expand': (body, post, ts) => {",
+  '格纳库增设 reducer',
+)
 
 const HARNESS = `
 type Section = string
 type MgState = any
 type MasterShipUpgrade = any
+type SlotitemInstance = any
 
 export const state: any = {
-  player: { ships: {}, useitems: {} },
+  player: { ships: {}, useitems: {}, slotitems: {}, materials: null },
   master: { ships: {}, upgrades: {} },
 }
+let improveEntries: any[] = []
+const getLode = (id: string) => id === 'equip-improve' ? { data: improveEntries } : null
 
 // 落账本是真代码里的副作用，这里只记一笔好让护栏看得见它被调过。
 export const useitemLog: any[] = []
@@ -90,6 +108,22 @@ ${UPGRADES_BLOCK}
   return upgrades
 }
 
+const toMaterials = (body: any) => [...body]
+const applySlotitemInventoryMutation = (
+  inventory: Record<number, any>,
+  _path: string,
+  body: any,
+) => {
+  const after = body?.api_after_slot
+  if (!after?.api_id) return false
+  inventory[Number(after.api_id)] = {
+    id: Number(after.api_id),
+    mstId: Number(after.api_slotitem_id),
+    level: Number(after.api_level) || 0,
+  }
+  return true
+}
+
 ${REMODEL_COSTS}
 
 ${APPLY_USEITEMS}
@@ -98,7 +132,14 @@ ${INCREMENT_USEITEM}
 
 ${REMODELING}
 
-export { applyUseitems, upgradeRowFrom, REMODEL_USEITEM_COSTS }
+${REMODEL_SLOT}
+
+${OPEN_EXSLOT}
+
+${HANGAR_EXPAND}
+
+export const setImproveEntries = (entries: any[]) => { improveEntries = entries }
+export { applyUseitems, upgradeRowFrom, REMODEL_USEITEM_COSTS, remodelSlotUseitemCosts }
 `
 
 const bundle = (() => {
@@ -123,24 +164,41 @@ const loaded = createRequire(import.meta.url)(bundle)
  * 从零摆一局。
  *
  * @param ships    在籍舰现状：`{ [rosterId]: mstId }`（改造前的形态）
- * @param options  `useitems` 道具持有；`upgradeRows` 主数据 api_mst_shipupgrade 的原始行
+ * @param options  道具、装备与改修改造事实
  */
 export const reset = (ships = {}, options = {}) => {
   loaded.state.player.ships = {}
   for (const [id, mstId] of Object.entries(ships)) {
-    loaded.state.player.ships[+id] = { id: +id, shipId: mstId }
+    loaded.state.player.ships[+id] =
+      typeof mstId === 'object'
+        ? { id: +id, shipId: mstId.mstId, slotEx: mstId.slotEx ?? 0 }
+        : { id: +id, shipId: mstId }
   }
   // 拷一份：归约会当场改这张表，直接挂调用方的对象会把护栏之间的局面串起来
   loaded.state.player.useitems = { ...(options.useitems ?? {}) }
+  loaded.state.player.slotitems = Object.fromEntries(
+    Object.entries(options.slotitems ?? {}).map(([id, item]) => [
+      +id,
+      { id: +id, mstId: item.mstId, level: item.level ?? 0 },
+    ]),
+  )
+  loaded.state.player.materials = options.materials ? [...options.materials] : null
   loaded.state.master.upgrades = loaded.buildUpgrades({
     api_mst_shipupgrade: options.upgradeRows ?? [],
   })
+  loaded.setImproveEntries(options.improveEntries ?? [])
   loaded.useitemLog.length = 0
 }
 
 /** 喂一条改造报文，走真归约。 */
 export const feedRemodeling = (post, body = REAL_BODY, ts = REMODEL_TS) =>
   loaded.remodeling(body, post, ts)
+export const feedRemodelSlot = (post, body, ts = REMODEL_TS) =>
+  loaded.remodelSlot(body, post, ts)
+export const feedOpenExslot = (post, ts = REMODEL_TS) =>
+  loaded.openExslot({}, post, ts)
+export const feedHangarExpand = (post, body, ts = REMODEL_TS) =>
+  loaded.hangarExpand(body, post, ts)
 
 /** 喂一份道具全量下发（api_get_member/useitem 的 api_data 形状）。 */
 export const feedUseitemSync = (counts, ts = REMODEL_TS + 300_000) =>
@@ -151,9 +209,67 @@ export const feedUseitemSync = (counts, ts = REMODEL_TS + 300_000) =>
 
 export const useitems = () => loaded.state.player.useitems
 export const useitemLog = () => loaded.useitemLog
+export const slotitems = () => loaded.state.player.slotitems
+export const materials = () => loaded.state.player.materials
 export const upgrades = () => loaded.state.master.upgrades
 export const upgradeRowFrom = (mstId) => loaded.upgradeRowFrom(mstId)
 export const costTable = () => loaded.REMODEL_USEITEM_COSTS
+
+/** 2026-09-02 15:42:43：12cm30連装噴進砲改二 ★max → 改三。 */
+export const REAL_REMODEL_SLOT_POST = {
+  api_token: '<REDACTED>',
+  api_verno: '1',
+  api_id: '170',
+  api_slot_id: '4346',
+  api_certain_flag: '1',
+}
+export const REAL_REMODEL_SLOT_BODY = {
+  api_remodel_flag: 1,
+  api_remodel_id: [266, 267],
+  api_after_material: [7869, 10346, 91671, 5915, 508, 52, 108, 86],
+  api_voice_ship_id: 498,
+  api_voice_id: 10,
+  api_after_slot: {
+    api_id: 4346,
+    api_slotitem_id: 267,
+    api_locked: 0,
+    api_level: 0,
+  },
+  api_use_slot_id: [16194, 16897],
+}
+export const IMPROVE_266 = {
+  eq_id: 266,
+  improvement: [
+    {
+      convert: { id_after: 267, lvl_after: 0 },
+      helpers: [{ ship_ids: [490, 498], days: [3, 4, 5, 6] }],
+      costs: {
+        p1: { consumable: [] },
+        p2: { consumable: [] },
+        conv: {
+          consumable: [
+            { id: 75, eq_count: 1 },
+            { id: 78, eq_count: 1 },
+          ],
+        },
+      },
+    },
+    {
+      convert: { id_after: 470, lvl_after: 0 },
+      helpers: [{ ship_ids: [961], days: [3, 4, 5, 6] }],
+      costs: {
+        p1: { consumable: [] },
+        p2: { consumable: [] },
+        conv: {
+          consumable: [
+            { id: 75, eq_count: 1 },
+            { id: 94, eq_count: 1 },
+          ],
+        },
+      },
+    },
+  ],
+}
 
 /**
  * 账本 events 的真样本（api_token 已脱敏）：2026-08-28 23:39:27 的那次改造，

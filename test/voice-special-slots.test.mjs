@@ -118,7 +118,7 @@ test('裸编号槽位有场合名，且不侵占混淆段那张实证对照表',
   assert.equal(voiceSceneOfSlot(918), '夜战特殊（Graf）二')
   assert.equal(voiceSceneOfSlot(54), '', '表外编号不许凭空得到名字')
   // 混淆段那张表一个字都没动
-  assert.equal(voiceSceneOfSlot(1), '入手/登入时')
+  assert.equal(voiceSceneOfSlot(1), '获得/登录时')
   assert.equal(voiceSceneOfSlot(24), '结婚')
   assert.equal(voiceSceneOfSlot(30), '时报 00:00')
   assert.equal(voiceSceneOfSlot(53), '时报 23:00')

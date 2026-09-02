@@ -115,7 +115,7 @@ export const sallyMapRuleOf = (
 }
 
 /** 通则一句话，挂在段标题的悬停上。wikiwiki 原文的中文转述，逐字固定。 */
-export const SALLY_RULE_GENERAL_NOTE = '札随首次出击贴上，丙丁也贴，之后不能换不能摘'
+export const SALLY_RULE_GENERAL_NOTE = '首次出击时附加札；丙、丁同样附加，之后不可更换或移除'
 
 /** 甲乙两档都查札时的尾注 */
 export const SALLY_RULE_FOOTNOTE_CD = '丙丁不受限 · 支援舰队不贴札'

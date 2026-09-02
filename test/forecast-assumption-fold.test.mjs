@@ -26,7 +26,9 @@ import {
 import { sectionIsOpen, toggleSectionFold } from './fixtures/section-fold-logic.mjs'
 
 const { forecastAssumptions } = forecastModule
-const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+const html =
+  fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8') +
+  fs.readFileSync(new URL('../src/renderer/assets/battle-replay.css', import.meta.url), 'utf8')
 
 const 段名 = '预测口径'
 
@@ -115,12 +117,12 @@ test('展开层逐句钉：七条里那几句要害逐字都在', () => {
     '雷击只计护卫队，对普通敌舰队的航空战只计主力队',
     '已计入：',
     '对地特攻（敌方 3 个陆上型目标，含 cap 前/后两段）',
-    '活动特效倍卡（4 舰吃到，cap 后施加）',
+    '活动特效倍卡（4 舰适用，cap 后施加）',
     '派向本点的基地航空队 2 波',
-    '弾着観測射撃 / 连击（5 舰按発動率取期望值；艦隊索敵補正未计，発動率偏低）',
+    '弹着观测射击 / 连击（5 舰按发动率计入期望值）',
     '先制对潜 2 舰（额外一轮）',
-    '夜战另算一套：5 舰能出手，不参加的 空母 2 / 大破 1',
-    '上限 360，不吃阵形与交战形态补正（警戒阵主力减半除外）',
+    '夜战单独计算：5 舰可攻击；未参与：空母 2 / 大破 1',
+    '上限 360，不受阵形与交战形态补正影响（警戒阵主力减半除外）',
     '未计入：夜战CI、夜间触接、旗舰特殊攻击（一斉射等）、烟幕、支援舰队、友军舰队',
     '大破风险逐舰按被选中概率、当前HP和装甲承伤聚合',
   ]) {

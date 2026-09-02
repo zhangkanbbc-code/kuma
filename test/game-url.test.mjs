@@ -147,7 +147,7 @@ test('填坏了：如实说一声用不上，但装 webview 那侧仍拿得到�
   const card = cardOf(yu)
   // 他填的字还在框里——被悄悄改回默认的话，他会以为没保存上，然后再填一遍
   assert.match(card, /data-game-url value="play\.games\.dmm\.com\/game\/kancolle"/)
-  assert.match(card, /<div class="ystatus bad">这条不是 http \/ https 网址，游戏页仍按默认那条加载<\/div>/)
+  assert.match(card, /<div class="ystatus bad">网址无效 · 游戏页使用默认地址<\/div>/)
   // 而真正要加载的那条仍然打得开
   assert.equal(normalizeGameUrl(yu.configOf(GAME_URL_CONFIG_KEY)), DEFAULT_GAME_URL)
 })

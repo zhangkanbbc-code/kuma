@@ -13,7 +13,7 @@ const UI_QUERIES = [
   'queryActionEvents', 'queryFactoryStats', 'queryUseitemSummary', 'queryUseitemHistory',
   'queryRecentUseitemChanges', 'queryDeltaSummary', 'queryMaterials', 'queryMaterialWindow',
   'queryExpeditionHistory',
-  'queryBattleSnapshots', 'queryBattleSnapshot', 'queryShipLife', 'queryBossKills',
+  'queryBattleSnapshots', 'queryBattleRun', 'queryBattleSnapshot', 'queryShipLife', 'queryBossKills',
   'queryShipMemorial',
   'queryEventArchives', 'abyssSeenMaps', 'queryShipDropSites', 'abyssKillStats',
   'queryEncountersAt', 'queryNodeHistoryIndex', 'queryNodeHistory', 'queryRouteStats',

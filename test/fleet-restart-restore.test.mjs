@@ -178,13 +178,13 @@ test('回灌之后顶栏第一帧就是倒计时芯片，不是「等待同步�
   const { deck3Done, deck4Done } = playTheEvening(now)
   const persisted = domainSnapshot()
 
-  // 冷启动、什么都没回灌时，顶栏本来就该说「等待同步」
+  // 冷启动、什么都没回灌时，顶栏本来就该说「尚未同步」
   coldBoot()
-  assert.match(renderExpeditions(), /等待同步/)
+  assert.match(renderExpeditions(), /尚未同步/)
 
   hydrateFromDomain(persisted)
   const html = renderExpeditions()
-  assert.doesNotMatch(html, /等待同步/, '回灌之后不该再有「等待同步」')
+  assert.doesNotMatch(html, /尚未同步/, '回灌之后不该再有「尚未同步」')
   // 芯片挂的绝对完成时刻就是每秒 updateCountdowns 读的那个数
   assert.equal(expeditionChipCds(3), deck3Done)
   assert.equal(expeditionChipCds(4), deck4Done)
@@ -218,11 +218,11 @@ test('顶栏入渠 / 建造两格同样在回灌后就有内容', () => {
   const persisted = domainSnapshot()
 
   coldBoot()
-  assert.match(renderDocks(), /等待同步/)
+  assert.match(renderDocks(), /尚未同步/)
   assert.equal(renderBuildDocks(), '', '一个坞都没有时建造那格整段不出现')
 
   hydrateFromDomain(persisted)
-  assert.doesNotMatch(renderDocks(), /等待同步/)
+  assert.doesNotMatch(renderDocks(), /尚未同步/)
   assert.match(renderDocks(), new RegExp(`data-cds="${done}"`))
   assert.match(renderBuildDocks(), new RegExp(`data-cds="${done}"`))
 })

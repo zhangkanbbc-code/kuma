@@ -37,12 +37,12 @@ const WATCHED_KEYS = ['master', 'materials', 'ships', 'decks', 'ndocks', 'kdocks
 const renderFreshness = () => {
   const el = pane.querySelector<HTMLElement>('.mg-freshness')!
   if (!mg.lastPortTs) {
-    el.textContent = '尚无返港记录——登录游戏并返港一次即可'
+    el.textContent = '暂无返港记录 · 登录并返港后同步'
     el.className = 'mg-freshness'
     return
   }
   const stale = Date.now() - mg.lastPortTs > 30 * 60 * 1000
-  el.textContent = `最近返港：${fmtTime(mg.lastPortTs)}${stale ? '（可能已过期）' : ''}`
+  el.textContent = `最近返港：${fmtTime(mg.lastPortTs)}${stale ? ' · 显示上次返港记录' : ''}`
   el.className = `mg-freshness${stale ? ' stale' : ''}`
 }
 
@@ -54,7 +54,7 @@ const renderMaterials = () => {
     box,
     'materials',
     !mg.materials
-      ? '<span style="color:var(--dim)">等待游戏自然提供</span>'
+      ? '<span style="color:var(--dim)">尚未同步游戏数据</span>'
       : mg.materials
           .map((v, i) => `<div class="mat-tile"><small>${entityTermHtml('material', i, MAT_LABELS[i])}</small><b>${v.toLocaleString()}</b></div>`)
           .join(''),
@@ -64,7 +64,7 @@ const renderMaterials = () => {
 const renderDecks = () => {
   const box = pane.querySelector<HTMLElement>('.mg-decks')!
   if (!mg.decks.length) {
-    applyPaneHtml(box, 'decks', '<span style="color:var(--dim)">等待游戏自然提供</span>')
+    applyPaneHtml(box, 'decks', '<span style="color:var(--dim)">尚未同步游戏数据</span>')
     return
   }
   const html = mg.decks
@@ -103,7 +103,7 @@ const renderDecks = () => {
 const renderNdocks = () => {
   const box = pane.querySelector<HTMLElement>('.mg-ndocks')!
   if (!mg.ndocks.length) {
-    applyPaneHtml(box, 'ndocks', '<span style="color:var(--dim)">等待游戏自然提供</span>')
+    applyPaneHtml(box, 'ndocks', '<span style="color:var(--dim)">尚未同步游戏数据</span>')
     return
   }
   const html = mg.ndocks
@@ -127,7 +127,7 @@ const renderNdocks = () => {
 const renderKdocks = () => {
   const box = pane.querySelector<HTMLElement>('.mg-kdocks')!
   if (!mg.kdocks.length) {
-    applyPaneHtml(box, 'kdocks', '<span style="color:var(--dim)">等待游戏自然提供</span>')
+    applyPaneHtml(box, 'kdocks', '<span style="color:var(--dim)">尚未同步游戏数据</span>')
     return
   }
   const html = mg.kdocks
@@ -162,13 +162,13 @@ const renderGrowthGate = () => {
   if (!box) return
   const report = growthGateReport()
   if (!report.packed) {
-    applyPaneHtml(box, 'growth-gate', '<span style="color:var(--dim)">成长端点包还没到</span>')
+    applyPaneHtml(box, 'growth-gate', '<span style="color:var(--dim)">成长端点包尚未加载</span>')
     return
   }
   const { pass, fail, unverified, noEndpoint } = report.tally
   const head =
     `<div class="mg-sim-note">过闸 ${pass} · <b>禁用 ${fail}</b> · 未验 ${unverified} · 缺端点 ${noEndpoint}` +
-    `（未验 = 这个形态你手上每一艘都装着东西，没有空装备的样本可验；照常出数但界面标软一档）</div>`
+    ` · 未验证 = 当前形态暂无无装备样本 · 读数标为推定</div>`
   const rows = report.failures
     .map(
       (one) =>
@@ -184,7 +184,7 @@ const renderGrowthGate = () => {
     'growth-gate',
     head +
       (rows ||
-        '<span style="color:var(--dim)">没有残差：验得到的每一格都与端点表对得上</span>'),
+        '<span style="color:var(--dim)">已验证项与端点表一致</span>'),
   )
 }
 
@@ -409,12 +409,12 @@ const SIM_ACTIONS: [string, string, () => void][] = [
   ['taiha', '大破横幅', () => simPatch([simShipAt(0, 0.2)])],
   [
     'crew',
-    '应急修理 · 要員(42)',
+    '应急修理 · 要员（42）',
     // 要員回两成耐久，人仍在大破线上——所以这一下同时也满足大破判据，
     // 两条横幅会一起挂着。这正是要看的那个场面（谁在上面）。
     () => simPatch([{ ...simShipAt(0, 0.2), repairItemUsed: 42 }]),
   ],
-  ['goddess', '应急修理 · 女神(43)', () => simPatch([{ ...simShipAt(1, 1), repairItemUsed: 43 }])],
+  ['goddess', '应急修理 · 女神（43）', () => simPatch([{ ...simShipAt(1, 1), repairItemUsed: 43 }])],
   [
     'both',
     '两档绿同屏',

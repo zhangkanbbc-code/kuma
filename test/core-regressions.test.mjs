@@ -22,6 +22,21 @@ import voiceSlots from '../dist/shared/voice-scene-slots.js'
 import gameAudioModule from '../assets/preload/game-audio.js'
 import { abyssVoiceMstIdFromKey } from '../scripts/lib/kcwiki-voice.mjs'
 
+const rendererIndexHtml = fs.readFileSync(
+  new URL('../src/renderer/index.html', import.meta.url),
+  'utf8',
+)
+const battleReplayCss = fs.readFileSync(
+  new URL('../src/renderer/assets/battle-replay.css', import.meta.url),
+  'utf8',
+)
+// 原有样式护栏继续按主页面的真实级联顺序检查；共享文件在 link 原位展开，
+// 不把「仍写在 index.html 内联」误当成视觉规则本身。
+const rendererSource = rendererIndexHtml.replace(
+  '  <link rel="stylesheet" href="assets/battle-replay.css">\n',
+  `<style>\n${battleReplayCss}</style>\n`,
+)
+
 const { atomicWriteJsonSync } = atomicJson
 const {
   parseBaseDefenseBattle,
@@ -868,7 +883,7 @@ test('判定依据面板：空袭点的完全胜利行读承伤点数，A 行不
 
 test('battle result conditions live inside the judgment chip without a duplicate sidebar card', () => {
   const renderer = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(renderer, /<details class="rchip rank-card">/)
   assert.match(renderer, /<div class="rank-detail">/)
   assert.match(renderer, /b\.practice \? '对手旗舰击破' : '敌旗舰沉'/)
@@ -1064,7 +1079,7 @@ test('battle ship loadouts preserve friendly instances and enemy master-backed p
 
 test('battle ship rows expand into linked equipment, loadout, and honest air-loss details', () => {
   const renderer = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   const types = fs.readFileSync(new URL('../src/shared/mg-types.ts', import.meta.url), 'utf8')
 
   assert.match(types, /export interface BattleEquipmentView/)
@@ -1079,7 +1094,7 @@ test('battle ship rows expand into linked equipment, loadout, and honest air-los
   // 旧复盘没有装备快照时必须走空态，不能回落到现在的母港编成倒填。
   // 纪律本身在代码里，所以钉实现（早退分支）＋钉空态还在说「没有」。
   assert.match(renderer, /if \(ship\.equipment == null\)/)
-  assert.match(renderer, /没有当时的装备记录/)
+  assert.match(renderer, /暂无当时装备记录/)
   assert.match(renderer, /data-battle-side="\$\{side\}"/)
   assert.match(renderer, /expandedBattleShips/)
   assert.match(renderer, /shipRow && !target\.closest\('\.el'\)/)
@@ -1123,7 +1138,7 @@ test('battle views retain final parameters, used equipment, enemy touch, and squ
   assert.equal(view.air.touchE, 1501)
 
   const renderer = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(renderer, /air\.touchE > 0/)
   assert.match(renderer, /attack\.equipmentMstIds/)
   assert.match(renderer, /data-used-equipment="\$\{attack\.equipmentMstIds\.join\(','\)\}">装备详情/)
@@ -1863,7 +1878,7 @@ test('battle categories keep air raids, air battles, radar fire, and night trans
   assert.match(renderer, /const basis = damageOnly/)
   assert.match(renderer, /'S（完全胜利）：我方零承伤'/)
   assert.match(renderer, /'E：我方损失达到 80%'/)
-  assert.match(renderer, /const rankSource = '最终以游戏结算为准'/)
+  assert.match(renderer, /const rankSource = '判定来源：游戏结算'/)
   assert.match(renderer, /return '拂晓战'/)
   assert.match(renderer, /return '开幕夜战'/)
 })
@@ -1972,7 +1987,7 @@ test('combat renderer keeps zero-damage CI visible and does not use a fixed phas
 
 test('combined night UI distinguishes escort combat from a withdrawn or unavailable fleet', () => {
   const source = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(source, /const nightEngagementOf = \(battle: BattleView\)/)
   assert.match(source, /battle\.activeDeck\?\.\[0\]/)
   assert.match(source, /敌护卫仍有战力 → 护卫交战/)
@@ -1985,18 +2000,18 @@ test('combined night UI distinguishes escort combat from a withdrawn or unavaila
 
 test('boss decision UI warns when surviving enemy escorts make the main flagship unreachable at night', () => {
   const source = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(source, /const blockedBossNightHtml = \(s: SortieView, b: BattleView\)/)
   // 交战对象不再是「二队还有活口就打不到」，改走 shared 的算分判别式
   // （出处与免责见 shared/enemy-night-target 头注）。三个出口的**行为**钉在
   // test/enemy-night-target.test.mjs，这里只钉「确实接了那一份，没有回退成全灭判定」。
   assert.match(source, /const escortAlive = escort\.filter\(\(ship\) => ship\.hpEnd > 0/)
   assert.match(source, /enemyNightTargetOf\(/)
-  assert.match(source, /夜战预计接触不到/)
-  assert.match(source, /可不进夜战省弹药/)
+  assert.match(source, /夜战估算无法攻击/)
+  assert.match(source, /夜战将消耗弹药/)
   assert.match(html, /\.mod-di \.verdict\.v-warn/)
   // 打得到旗舰那一面也要有话说，且用的是另一套配色
-  assert.match(source, /夜战预计可直击/)
+  assert.match(source, /夜战估算可攻击/)
   assert.match(html, /\.mod-di \.verdict\.v-cyan/)
 })
 
@@ -2036,7 +2051,7 @@ test('map catalog consumes and refreshes its permanent local chronicle aggregate
   const chronicle = fs.readFileSync(new URL('../src/main/mg/chronicle.ts', import.meta.url), 'utf8')
   const catalog = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
   const combat = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
 
   assert.match(types, /export interface MapChronicleReport/)
   assert.match(ledger, /queryMapChronicle = \(map: number\): MapChronicleReport/)
@@ -2081,7 +2096,7 @@ test('forecast risk includes formation and engagement while compact logs and dro
   const combat = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
   const review = fs.readFileSync(new URL('../src/renderer/modules/shi.ts', import.meta.url), 'utf8')
   const ownership = fs.readFileSync(new URL('../src/renderer/ship-ownership.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
 
   assert.match(model, /const defaultFriendlyFormation = /)
   assert.match(model, /natural: 0\.45, saiun: 0\.45/)
@@ -2135,7 +2150,7 @@ test('a taiha warning no longer swallows the battle result and its drop', () => 
   // 曾经的行为：verdictHtml 里大破分支直接 return，把后面整条战果条连同掉落一起替换掉，
   // 于是「Boss 战大破 + 捞到船」这种最该看清的时刻，掉落反而只剩右栏一张卡。
   const combat = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
 
   // 警告与战果各占一槽，verdictHtml 把两者拼起来而不是二选一
   assert.match(combat, /const verdictHtml = \(s: SortieView\): string =>\s*`\$\{alertBannerHtml\(s\)\}\$\{outcomeBannerHtml\(s\)\}`/)
@@ -2165,9 +2180,10 @@ test('弾着観測射撃与先制对潜接进预测，两处「已知偏低」�
   assert.match(spot, /multiplier: 1\.5, attacks: 1, divisor: 150/)
   assert.match(spot, /multiplier: 1\.2, attacks: 2, divisor: 130/, '連撃是 1.2 倍打两次')
   assert.match(spot, /FLAGSHIP_BONUS = 15/)
-  // 艦隊索敵補正上游没给定义，按 0 处理并**说出来**；不许偷偷编一个
+  // 艦隊索敵補正 2026-09-01 已按源文档实装（⌊√A+0.1A⌋，行为判据在
+  // day-spotting.test.mjs 与 combat-forecast.test.mjs 里），旧的「未计，偏低」挂账随之撤掉
   assert.match(spot, /艦隊索敵補正/)
-  assert.match(model, /艦隊索敵補正未计，発動率偏低/)
+  assert.doesNotMatch(model, /艦隊索敵補正未计/)
 
   // 先制对潜直接复用编队页那套判据，不许在预测里另写一份
   assert.match(model, /import \{ openingAswOf \} from '\.\/ship-special-attack'/)
@@ -2186,22 +2202,94 @@ test('弾着観測射撃与先制对潜接进预测，两处「已知偏低」�
   assert.doesNotMatch(model, /已知的偏低/)
 
   // 制空按 stateMin 判：熟练度按最低算出来的那个，宁可少算
-  assert.match(model, /spottingFactorOf\(ship, stateMin\)/)
+  assert.match(model, /spottingFactorOf\(ship, stateMin, fleetSpottingCorrection\(friendly\)\)/)
+  // 艦隊索敵補正要的**素**索敵由适配层反推（面板索敵减回装備索敵），漏了就静默按 0 算
+  assert.match(adapter, /baseLos: Math\.max\(/)
   // 适配层要把新字段喂进来，否则判据静默失效
   assert.match(adapter, /iconId: master\.iconId/)
   assert.match(adapter, /los: master\.saku/)
   assert.match(adapter, /ctype: master\?\.ctype/)
   assert.match(adapter, /roster\[0\] === ship\.id/, '旗舰补正只认各自舰队的第一位')
 
-  assert.match(combat, /fc-layer spot[\s\S]{0,600}弾着観測/)
+  assert.match(combat, /fc-layer spot[\s\S]{0,600}弹着观测/)
   assert.match(combat, /fc-layer asw[\s\S]{0,400}先制对潜/)
+})
+
+test('特殊效果发动概率:编队展开区的金框 pill,双形态由实测宽度定', () => {
+  // 2026-09-01 用户拍板的形态：编队（ru）展开详情数据带之后一排金框 pill，
+  // 宽度够就平铺、不够整排缩成一枚「特殊效果发动概率」，悬停展开明细卡、点击钉住。
+  // **发动率本身的行为判据在 test/special-proc-rate.test.mjs**（真跑纯函数），
+  // 这里只钉「接线没断」——各族没有各写一套、浮层没有就地挂、收纳不是按档位切。
+  const fleet = fs.readFileSync(new URL('../src/renderer/modules/ru.ts', import.meta.url), 'utf8')
+  const lab = fs.readFileSync(new URL('../src/renderer/modules/ji-lab.ts', import.meta.url), 'utf8')
+  const html = rendererSource
+
+  // 判定与发动率一律走共享层，编队页不许自己算一套
+  assert.match(fleet, /from '\.\.\/\.\.\/shared\/special-proc-rate'/)
+  assert.match(fleet, /procRatesOf\(subject, procRateFleetOf\(deck\)\)/)
+  // 原始条目先按 group 合并，再一族映射一枚 pill；窄态同样从族视图逐族展开
+  assert.match(fleet, /const groups = procRateGroupsOf\(entries\)/)
+  assert.match(fleet, /groups\s*\n\s*\.map\(procRatePillHtml\)/)
+  assert.doesNotMatch(fleet, /entries\s*\n\s*\.map\(procRatePillHtml\)/)
+  assert.match(fleet, /groups\.flatMap\(\(group\) => group\.foldLines\)/)
+  // AACI 条件所需的完整舰视图要喂进共享层，缺任一项都会静默漏候选
+  for (const field of ['name: master.name', 'slotNum: master.slotNum', 'kai: master.kai', 'asw: ship.taisen']) {
+    assert.ok(fleet.includes(field), `编队概率视图缺 ${field}`)
+  }
+  // 组合实验室的夜战与对空CI发动率都取同一份结论（两处分叉过一次就再也对不上）
+  assert.match(lab, /nightEntriesOf,/)
+  assert.match(lab, /aaciEntriesOf,/)
+  assert.match(lab, /const entries = aaciEntriesOf\(/)
+  assert.doesNotMatch(lab, /shipAacis\(/)
+  // 摆在数据带（shipStatsHtml）之后
+  assert.match(fleet, /\$\{shipStatsHtml\(deck, ship\)\}\s*\n\s*\$\{procRatesHtml\(deck, ship\)\}/)
+  // 悬停卡走 link.ts 的富提示：它挂在 body 上（面板既裁 overflow 又带 transform 包含块），
+  // 且点击即钉住——不许在面板里就地 absolute 一个浮层
+  assert.match(fleet, /data-tip-title=/)
+  assert.match(fleet, /PROC_RATE_CARD_TITLE/)
+  // 阈值按**量出来的宽度**，不是按坞宽档位（.narrow 之类）切
+  assert.match(fleet, /const foldProcRateRow/)
+  assert.match(fleet, /contentWidthOf\(row\)/)
+  assert.doesNotMatch(fleet, /narrow[\s\S]{0,80}pr-folded/)
+  // 三处触发：整段重渲、坞宽变化、点开某一行
+  assert.match(fleet, /foldMetrics\(pane\)\s*\n\s*foldProcRates\(pane\)/)
+  assert.match(fleet, /host\.innerHTML = shipDetailHtml\(deck, ship\)\s*\n(?:\s*\/\/[^\n]*\n)*\s*foldProcRates\(host\)/)
+  // 兜底样式：这一排永远只占一行，量得晚了宁可裁一截也不许换行去偷展开卡的高度
+  assert.match(html, /\.fleet-skin \.proc-rates \{[^}]*flex-wrap: nowrap[^}]*\}/s)
+  assert.match(html, /\.fleet-skin \.pr-pill\.pr-folded \{ display: none; \}/)
+})
+
+test('编队主行概率片只在折叠态显示，展开后由发动率 pill 接管', () => {
+  const fleet = fs.readFileSync(new URL('../src/renderer/modules/ru.ts', import.meta.url), 'utf8')
+  const html = rendererSource
+
+  // 三类片都常驻主行：折叠态直接显示；展开/折叠只沿用既有 .open 局部 class 补丁，
+  // 不重渲这一行，也不在两条渲染函数里各写一份状态判断。
+  assert.match(
+    fleet,
+    /\}\$\{isFlag \? specialAttackChipsHtml\(deck\) : ''\}\$\{shipAbilityChipsHtml\(ship\)\}<span>/,
+  )
+  assert.match(fleet, /row\.classList\.toggle\('open'\)/)
+
+  // 展开后只隐去旗舰特殊攻击与对空 CI；visibility 保留主行原占位，行高不会跳。
+  const expandedRule =
+    /\.fleet-skin \.ship\.open \.special-attack-chip,\s*\n\s*\.fleet-skin \.ship\.open \.ability-chip\.aaci \{([^}]*)\}/s.exec(
+      html,
+    )
+  assert.ok(expandedRule, '展开态没有同时接管特殊攻击片与对空 CI 片')
+  assert.match(expandedRule[1], /visibility:\s*hidden/, '展开态仍能看见概率类主行片')
+  assert.doesNotMatch(expandedRule[1], /display:\s*none/, '隐藏概率片不该改变主行占位')
+
+  // 先制对潜不属于概率 pill 族，必须继续走基础可见样式，不得卷进展开态选择器。
+  assert.match(fleet, /class="ability-chip oasw"/)
+  assert.doesNotMatch(expandedRule[0], /\.ability-chip\.oasw/)
 })
 
 test('夜战与昼战并列摆着，口径按 wikiwiki 抄录不照搬昼战那套', () => {
   const model = fs.readFileSync(new URL('../src/shared/combat-forecast.ts', import.meta.url), 'utf8')
   const night = fs.readFileSync(new URL('../src/shared/night-battle.ts', import.meta.url), 'utf8')
   const combat = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
 
   // 上限 360，不是昼战那三个；基本攻击力没有昼战炮击的 +5 常数
   assert.match(night, /export const NIGHT_CAP = 360/)
@@ -2228,7 +2316,7 @@ test('夜战与昼战并列摆着，口径按 wikiwiki 抄录不照搬昼战那�
 
   assert.match(combat, /const nightForecastHtml = /)
   assert.match(combat, /追进夜战/)
-  assert.match(combat, /无人能出手/, '编成里没人能夜战时要照实说，不能显示一个空的 0%')
+  assert.match(combat, /无可攻击舰/, '编成里没人能夜战时要照实说，不能显示一个空的 0%')
   assert.match(html, /\.mod-di \.night-forecast \{/)
 })
 
@@ -2236,7 +2324,7 @@ test('预测的三层加成要挂到面板上说清来源，不能只体现为�
   const model = fs.readFileSync(new URL('../src/shared/combat-forecast.ts', import.meta.url), 'utf8')
   const adapter = fs.readFileSync(new URL('../src/renderer/combat-forecast.ts', import.meta.url), 'utf8')
   const combat = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
 
   // 说明文字由 factors 生成，不写死——模型多接一层就自动多一行
   assert.match(model, /export const forecastAssumptions = /)
@@ -2325,7 +2413,7 @@ test('resource trends use calendar-day tiles, a rolling ETA rate, cutoff baselin
   const trend = fs.readFileSync(new URL('../src/renderer/resource-trend-window.ts', import.meta.url), 'utf8')
   const main = fs.readFileSync(new URL('../src/main/index.ts', import.meta.url), 'utf8')
   const build = fs.readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(ledger, /ts = \(SELECT MAX\(ts\) FROM material_log WHERE ts < \?\)/)
   assert.match(renderer, /today\.setHours\(0, 0, 0, 0\)/)
   assert.match(renderer, /queryMaterialHistory\(todayStart\)/)
@@ -2416,7 +2504,7 @@ test('opening the expedition screen follows the bottom 远征 tab and restores o
 
 test('基地航空队的就绪只看真会出门的队，且不把舰队的「可以出击」染红', () => {
   const fleet = fs.readFileSync(new URL('../src/renderer/modules/ru.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
 
   assert.match(fleet, /const airBaseReadiness = /)
   // 待機/退避/休息中的队本来就不出门，算进来这行会常年亮着，最后被当噪音无视
@@ -2497,7 +2585,7 @@ test('基地航空队的就绪只看真会出门的队，且不把舰队的「�
 
 test('header status replaces the removed admiral room and fleet sidebar', () => {
   const index = fs.readFileSync(new URL('../src/renderer/index.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   const header = fs.readFileSync(new URL('../src/renderer/header-status.ts', import.meta.url), 'utf8')
   const modules = fs.readFileSync(new URL('../src/renderer/mu.ts', import.meta.url), 'utf8')
   const fleet = fs.readFileSync(new URL('../src/renderer/modules/ru.ts', import.meta.url), 'utf8')
@@ -2531,7 +2619,7 @@ test('入渠芯片点开的是在修的那艘舰，而计时定位的锚原地�
   const links = fs.readFileSync(new URL('../src/renderer/link.ts', import.meta.url), 'utf8')
   const roster = fs.readFileSync(new URL('../src/renderer/modules/qa.ts', import.meta.url), 'utf8')
   const notices = fs.readFileSync(new URL('../src/renderer/modules/lg.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   const docks = header.match(/const docksHtml = \(\) => \{[\s\S]*?\n\}/)?.[0] ?? ''
   assert.ok(docks, 'docksHtml 应还在，且仍是一个顶层箭头函数')
 
@@ -2582,7 +2670,7 @@ test('入渠芯片点开的是在修的那艘舰，而计时定位的锚原地�
 test('顶栏远征芯片按在外/归来/未补给三态上色，且归来跟着倒计时归零那一拍翻', () => {
   const header = fs.readFileSync(new URL('../src/renderer/header-status.ts', import.meta.url), 'utf8')
   const fleet = fs.readFileSync(new URL('../src/renderer/modules/ru.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   const bundle = fs.readFileSync(new URL('../dist/renderer/index.js', import.meta.url), 'utf8')
 
   // ---- ① 三态判定本身：从编译产物里切出来真跑，不比对源码文本 ----
@@ -2667,7 +2755,7 @@ test('header shows the actual requested BGM before the admiral name without mist
   const store = fs.readFileSync(new URL('../src/main/mg/store.ts', import.meta.url), 'utf8')
   const header = fs.readFileSync(new URL('../src/renderer/header-status.ts', import.meta.url), 'utf8')
   const renderer = fs.readFileSync(new URL('../src/renderer/index.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   const bgm = fs.readFileSync(new URL('../src/shared/kcs-bgm.ts', import.meta.url), 'utf8')
 
   assert.match(bgm, /\/bgm\\\/\(port\|battle\)\\\//)
@@ -2682,7 +2770,7 @@ test('header shows the actual requested BGM before the admiral name without mist
   // 「来源是真实资源请求、不是 fanfare 猜的」这条纪律由上面 kcs-bgm / resource /
   // broadcaster / store 四条各自守住，UI 文案不必再复述一遍；这里只钉两态都有 title，
   // 即「没识别到」要明说没识别到，不留空。
-  assert.match(header, /title="当前没有识别到游戏 BGM"/)
+  assert.match(header, /title="当前未识别游戏 BGM"/)
   assert.match(header, /正在播放 · \$\{name\}/)
   assert.match(renderer, /initHeaderStatus\(broadcaster\)/)
   assert.match(html, /#header-status \.hs-bgm/)
@@ -2732,7 +2820,7 @@ test('fleet view stays complete during expeditions and only hints forward remode
   const counter = fs.readFileSync(new URL('../src/main/mg/quest-counter.ts', import.meta.url), 'utf8')
   const remodel = fs.readFileSync(new URL('../src/renderer/remodel.ts', import.meta.url), 'utf8')
   const modules = fs.readFileSync(new URL('../src/renderer/mu.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.doesNotMatch(fleet, /expeditionView|expExpanded|kcwiki-expedition/)
   // 旧钉写的是 `export const fleetViewHtml`。那个 export 是已删模块留下的口，
   // 全仓再没有第二个消费者，现已收回成模块内部函数——**这条守卫要的从来不是
@@ -2792,7 +2880,7 @@ test('fleet view collapses combined fleets and keeps all land-base areas as a fi
   const store = fs.readFileSync(new URL('../src/main/mg/store.ts', import.meta.url), 'utf8')
   const main = fs.readFileSync(new URL('../src/main/mg/index.ts', import.meta.url), 'utf8')
   const types = fs.readFileSync(new URL('../src/shared/mg-types.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
 
   assert.match(fleet, /const AIR_BASE_TAB_ID = 0/)
   assert.match(fleet, /\.filter\(\(deck\) => !\(mg\.combinedFlag > 0 && deck\.id === 2\)\)/)
@@ -2837,7 +2925,7 @@ test('fleet view collapses combined fleets and keeps all land-base areas as a fi
 
 test('map thumbnails stay readable and expose map codes plus live gauge progress', () => {
   const catalog = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(catalog, /const mapThumbOverlayHtml = \(info: any\): string =>/)
   assert.match(catalog, /class="map-thumb-code"/)
   assert.match(catalog, /gauge\.hpNow != null && gauge\.hpMax != null/)
@@ -2864,7 +2952,7 @@ test('roster ships keep permanent instance-level life records and expose them in
   const tracker = fs.readFileSync(new URL('../src/main/mg/ship-life.ts', import.meta.url), 'utf8')
   const main = fs.readFileSync(new URL('../src/main/mg/index.ts', import.meta.url), 'utf8')
   const roster = fs.readFileSync(new URL('../src/renderer/modules/qa.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(ledger, /CREATE TABLE IF NOT EXISTS ship_life_state/)
   assert.match(ledger, /CREATE TABLE IF NOT EXISTS ship_life_events/)
   assert.match(ledger, /queryShipLife = \(rosterId: number/)
@@ -2941,7 +3029,7 @@ test('practice defeat judgments never become real ship losses and same-name side
 
 test('quest rows keep stable progress, reward, and status columns', () => {
   const quest = fs.readFileSync(new URL('../src/renderer/modules/qn.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(html, /\.mod-qn \.q-rew \{ flex: 0 0 81px; width: 81px;/)
   assert.match(html, /\.mod-qn \.st-tag \{ flex: 0 0 68px; width: 68px;/)
   assert.match(quest, /class="q-work\$\{selected \? ' drawer-open' : ''\}"/)
@@ -2975,7 +3063,7 @@ test('quest rows keep stable progress, reward, and status columns', () => {
   // 算法边界（只沿前置链、不认同级旁支）由 quest-chain-tree.test.mjs
   //「complete quest inference follows only observed downstream prerequisites」行为守住，
   // 这里只钉那句用户可见的推定依据。
-  assert.match(quest, /已由下游任务的解锁状态反向确认完成/)
+  assert.match(quest, /推定已完成 · 依据后续任务解锁状态/)
   assert.match(quest, /const questChainNode = \(/)
   assert.match(quest, /elinkHtml\(\s*'quest',\s*entry\.id,/)
   assert.match(quest, /buildQuestChainTree\(current, lib\.values\(\), \{/)
@@ -3001,7 +3089,7 @@ test('complete quest tree opens in a bounded independent window and returns to t
   const build = fs.readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8')
   const kernel = fs.readFileSync(new URL('../src/renderer/kernel.ts', import.meta.url), 'utf8')
   const quest = fs.readFileSync(new URL('../src/renderer/modules/qn.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   const tree = fs.readFileSync(new URL('../src/renderer/quest-tree-window.ts', import.meta.url), 'utf8')
   const treeHtml = fs.readFileSync(new URL('../src/renderer/quest-tree.html', import.meta.url), 'utf8')
   const model = fs.readFileSync(new URL('../src/renderer/quest-chain-tree.ts', import.meta.url), 'utf8')
@@ -3018,9 +3106,9 @@ test('complete quest tree opens in a bounded independent window and returns to t
   assert.match(html, /\.mod-qn\.narrow \.quest-tree-open\s*\{[^}]*order:\s*1/)
   assert.match(quest, /void openQuestTreeWindow\(state\.selected \?\? undefined\)/)
   assert.match(quest, /data-quest-tree-here/)
-  assert.match(quest, /要先完成/)
-  assert.match(quest, /完成后可接/)
-  assert.match(quest, /chain-tree-current[\s\S]*lane\('完成后可接'/)
+  assert.match(quest, /前置任务/)
+  assert.match(quest, /后续任务/)
+  assert.match(quest, /chain-tree-current[\s\S]*lane\('后续任务'/)
   assert.match(html, /\.mod-qn \.chain-deeper/)
   assert.match(kernel, /ipcRenderer\.invoke\('window:quest-tree', questId \?\? 0\)/)
   assert.match(main, /title: 'kuma · 完整任务树'/)
@@ -3055,7 +3143,7 @@ test('fleet instance navigation and resource charts keep exact, bounded, honest 
   const trend = fs.readFileSync(new URL('../src/renderer/resource-trend-window.ts', import.meta.url), 'utf8')
   const trendHtml = fs.readFileSync(new URL('../src/renderer/resource-trend.html', import.meta.url), 'utf8')
   const ledger = fs.readFileSync(new URL('../src/main/mg/ledger.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(fleet, /registerEntityRoute\('fleetShip'/)
   assert.match(fleet, /const focusFleetShip = \(rosterId: number\)/)
   assert.match(fleet, /estimatedCond\(ship\.id, FATIGUE_READY_COND\)/)
@@ -3064,7 +3152,7 @@ test('fleet instance navigation and resource charts keep exact, bounded, honest 
   // 聚合行为本身由上一行的 markerBuckets 守住，图例不必再复述机制；
   // 图例要守的是「这些点不是全部，明细得悬停看」——钉这句提示还在。
   assert.match(trend, /const markerBuckets = new Map/)
-  assert.match(trend, /操作标记（悬停看明细）/)
+  assert.match(trend, /操作标记（悬停查看明细）/)
   assert.match(resources, /活动期间账号收支/)
   // 2026-08-26 文案清扫：「不等同于活动本身的消耗」这半句免责删了，口径本体缩短后仍在悬停里
   assert.match(resources, /期初期末差额，含远征、任务与日常操作/)
@@ -3090,7 +3178,7 @@ test('ship collection notes remain instance-safe and the roster caches only deri
   const personal = fs.readFileSync(new URL('../src/renderer/ship-personal.ts', import.meta.url), 'utf8')
   const catalog = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
   const roster = fs.readFileSync(new URL('../src/renderer/modules/qa.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(personal, /favoriteRoots: number\[\]/)
   assert.match(personal, /rosterNotes: Record<string, string>/)
   assert.match(personal, /离籍后 ID 备注保留/)
@@ -3119,7 +3207,7 @@ test('ship collection notes remain instance-safe and the roster caches only deri
 })
 
 test('every compact module releases fixed child widths instead of hard-cropping the dock', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(
     html,
     /@container jidrawer \(max-width: 540px\) \{[\s\S]*?\.mod-ji \.d-head, \.mod-ji \.detail \{[^}]*min-width: 0/,
@@ -3142,7 +3230,7 @@ test('every compact module releases fixed child widths instead of hard-cropping 
 })
 
 test('intentional view switches animate without making live data refreshes flash', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   const modules = fs.readFileSync(new URL('../src/renderer/mu.ts', import.meta.url), 'utf8')
   const kernel = fs.readFileSync(new URL('../src/renderer/kernel.ts', import.meta.url), 'utf8')
   const links = fs.readFileSync(new URL('../src/renderer/link.ts', import.meta.url), 'utf8')
@@ -3198,7 +3286,7 @@ test('intentional view switches animate without making live data refreshes flash
 })
 
 test('interaction audit keeps toggles, countdowns, routes, and hidden refreshes coherent', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   const links = fs.readFileSync(new URL('../src/renderer/link.ts', import.meta.url), 'utf8')
   const modules = fs.readFileSync(new URL('../src/renderer/mu.ts', import.meta.url), 'utf8')
   const kernel = fs.readFileSync(new URL('../src/renderer/kernel.ts', import.meta.url), 'utf8')
@@ -3224,7 +3312,10 @@ test('interaction audit keeps toggles, countdowns, routes, and hidden refreshes 
   assert.match(header, /data-cds-done="已刷新"/)
   assert.match(fleet, /data-cds-done="已恢复"/)
   assert.match(fleet, /data-ready-ts=/)
-  assert.match(fleet, /label\.textContent = '全员已就绪'/)
+  // 终态词随挂牌走（与 kernel 的 data-cds-done 同族）：裁决框仍是默认的「全员已就绪」，
+  // 抬头那格的疲劳恢复时刻自带「士气已回满」。两处共用同一趟 tick，不许各起定时器。
+  assert.match(fleet, /label\.textContent = label\.dataset\.readyDone \?\? '全员已就绪'/)
+  assert.match(fleet, /data-ready-done="士气已回满"/)
   assert.match(fleet, /远征 \$\{deck\.mission\[1\]\} 即将返港/)
   assert.match(kernel, /export const nextWeeklyReset =/)
   assert.match(kernel, /export const nextMonthlyReset =/)
@@ -3262,7 +3353,7 @@ test('interaction audit keeps toggles, countdowns, routes, and hidden refreshes 
 })
 
 test('global entity links use distinct semantic colors and matching peek highlights', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   const localization = fs.readFileSync(new URL('../src/renderer/localization.ts', import.meta.url), 'utf8')
   const links = fs.readFileSync(new URL('../src/renderer/link.ts', import.meta.url), 'utf8')
   const expected = {
@@ -3406,7 +3497,7 @@ test('nationality is one shared exact dimension across quests and catalog', () =
 })
 
 test('every renderer window uses the same dark scrollbar palette', () => {
-  const main = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const main = rendererSource
   const trend = fs.readFileSync(new URL('../src/renderer/resource-trend.html', import.meta.url), 'utf8')
   const questTree = fs.readFileSync(new URL('../src/renderer/quest-tree.html', import.meta.url), 'utf8')
   const shipLife = fs.readFileSync(new URL('../src/renderer/ship-life.html', import.meta.url), 'utf8')
@@ -3441,7 +3532,7 @@ test('every renderer window uses the same dark scrollbar palette', () => {
 test('ship catalog groups sister ships and task links expose complete owned-aware entities', () => {
   const catalog = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
   const quest = fs.readFileSync(new URL('../src/renderer/modules/qn.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(catalog, /root\.api_ctype !== shipState\.classFilter/)
   assert.match(catalog, /const rootsOfClass = \(ctype: number\)/)
   assert.match(catalog, /class="sister-head\$\{collapsible \? ' toggle'/)
@@ -3511,7 +3602,7 @@ test('roster is an independent section inside the catalog instead of a duplicate
   const roster = fs.readFileSync(new URL('../src/renderer/modules/qa.ts', import.meta.url), 'utf8')
   const host = fs.readFileSync(new URL('../src/renderer/mu.ts', import.meta.url), 'utf8')
   const index = fs.readFileSync(new URL('../src/renderer/index.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8')
   assert.match(catalog, /type Book = 'ship' \| 'roster' \| 'equip'/)
   assert.match(catalog, /\['roster', '列表'\]/)
@@ -3571,7 +3662,7 @@ test('battle results retain bounded local replay snapshots linked from ship life
     new URL('../src/renderer/ship-life-window.ts', import.meta.url),
     'utf8',
   )
-  assert.match(lifeWindow, /openBattleInMainWindow\(snapshotId\)/)
+  assert.match(lifeWindow, /openBattleReplayWindow\(snapshotId\)/)
 })
 
 test('review node history remains independently browsable after the current sortie ends', () => {
@@ -3579,7 +3670,7 @@ test('review node history remains independently browsable after the current sort
   const ledger = fs.readFileSync(new URL('../src/main/mg/ledger.ts', import.meta.url), 'utf8')
   const chronicle = fs.readFileSync(new URL('../src/main/mg/chronicle.ts', import.meta.url), 'utf8')
   const review = fs.readFileSync(new URL('../src/renderer/modules/shi.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(types, /export interface NodeHistoryReport/)
   assert.match(ledger, /queryNodeHistoryIndex = \(/)
   assert.match(ledger, /queryNodeHistory = \(/)
@@ -3616,7 +3707,7 @@ test('review node history remains independently browsable after the current sort
 test('map catalog owns full-route planning while combat keeps only the current encounter', () => {
   const battle = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
   const catalog = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.doesNotMatch(battle, /queryLode\('kcwiki-routing'\)/)
   assert.doesNotMatch(battle, /routeCardHtml/)
   assert.match(battle, /preBattleMechanicHtml/)
@@ -3632,14 +3723,14 @@ test('equipment catalog offers a complete today-first improvement view', () => {
   const kernel = fs.readFileSync(new URL('../src/renderer/kernel.ts', import.meta.url), 'utf8')
   const store = fs.readFileSync(new URL('../src/main/mg/store.ts', import.meta.url), 'utf8')
   const types = fs.readFileSync(new URL('../src/shared/mg-types.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(catalog, /data-equip-mode="today">今日改修/)
   assert.match(catalog, /for \(const \[variant, imp\] of \(eo\.improvement \?\? \[\]\)\.entries\(\)\)/)
   assert.doesNotMatch(catalog, /const imp = eo\.improvement\[0\]/)
   // 「锁定装备不会计入素材」是游戏规则复述，按文案清扫裁定（族 3）删。
   // 同一枚「口径」角标护的另半句是真口径，改钉它，语义不放松。
   assert.match(catalog, /普通消耗用于可行性判断，确保成功时以上限为准/)
-  assert.match(catalog, /当前编成可直接做/)
+  assert.match(catalog, /满足当前编成条件/)
   assert.match(catalog, /需明石任第一舰队旗舰/)
   assert.match(catalog, /helpers 为空的少数条目代表日程资料缺失/)
   assert.match(catalog, /: '未改修'/)
@@ -3663,14 +3754,14 @@ test('equipment catalog offers a complete today-first improvement view', () => {
   assert.match(catalog, /improvementMaterialLink\(6, '开发资材'\)/)
   assert.match(catalog, /improvementMaterialLink\(7, '改修资材'\)/)
   assert.match(catalog, /Array\.from\(\{ length: 10 \}/)
-  assert.match(catalog, /各列是达到该星级后的累计提升，不是单次增量/)
+  assert.match(catalog, /各列为达到该星级后的累计提升/)
   assert.match(html, /\.mod-ji \.improve-star-table/)
   assert.match(html, /\.mod-ji \.equip-holder-more/)
 })
 
 test('roster marks fleet membership and keeps it fresh across deck changes', () => {
   const roster = fs.readFileSync(new URL('../src/renderer/modules/qa.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   // 在编反查：编队位 -1 是空位，旗舰是第 0 位
   // 2026-08-25：队名改走 fleetLabel（默认「第N艦隊」归一成中文，自定义名原样）
   assert.match(roster, /const label = fleetLabel\(deck\)/)
@@ -3703,7 +3794,7 @@ test('furniture ownership flows from require_info into stock view and quest rewa
   // 仓库装饰品视图：两轴切换 + 家具实体路由；未同步时如实说、不下「没有」的结论
   assert.match(stock, /data-es-view="furniture"/)
   assert.match(stock, /registerEntityRoute\('furniture'/)
-  assert.match(stock, /持有情况未同步/)
+  assert.match(stock, /持有情况尚未同步/)
   // 任务奖励识别：只从奖励文本认家具；mg.furnitures 为 null 时不标灰
   assert.match(quests, /matchedEntities\(furnitureNameIndex, taskEntityMemoText\(row\.memo\), 4\)/)
   assert.match(quests, /mg\.furnitures\s*\? availabilityWrap\(mg\.furnitures\.includes\(entry\.id\)/)
@@ -3714,7 +3805,7 @@ test('furniture ownership flows from require_info into stock view and quest rewa
 test('catalog keeps a five-layer back/forward history instead of prev-next stepping', () => {
   const catalog = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
   const kernel = fs.readFileSync(new URL('../src/renderer/kernel.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   // 双栈的账在 nav-history.test.mjs 里编译真模块跑；这里只钉接线不被误删
   assert.match(catalog, /const JI_NAV_DEPTH = 5/)
   assert.match(catalog, /const jiNav = createNavHistory<JiNavLocation>\(JI_NAV_DEPTH\)/)
@@ -3737,7 +3828,7 @@ test('item catalog treats current inventory as a filter instead of a collection 
   const store = fs.readFileSync(new URL('../src/main/mg/store.ts', import.meta.url), 'utf8')
   const main = fs.readFileSync(new URL('../src/main/mg/index.ts', import.meta.url), 'utf8')
   const kernel = fs.readFileSync(new URL('../src/renderer/kernel.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(catalog, /cat === 'owned' \? ''/)
   // 道具页不给收藏率（活动道具会回收，凑不齐是常态）。解释那半句按文案清扫
   // 裁定（族 3 玩家常识）删了，但「不给收藏率」这条行为不变：钉住页脚只报
@@ -3890,7 +3981,7 @@ test('settings report live network health and provide verified ledger backup and
   const settings = fs.readFileSync(new URL('../src/renderer/modules/yu.ts', import.meta.url), 'utf8')
   assert.match(proxy, /ipcMain\.handle\('yu:proxy-status'/)
   // 「无需重启」是残检批清掉的防守尾巴（族 A）：钉热切换的状态串本体，并反钉尾巴回潮
-  assert.match(proxy, /已即时应用/)
+  assert.match(proxy, /已应用/)
   assert.doesNotMatch(proxy, /无需重启/)
   assert.match(login, /ipcMain\.handle\('yu:login-health'/)
   assert.match(login, /lastFlushedAt/)
@@ -3911,7 +4002,7 @@ test('new ships and taiha use manually dismissed top banners with persistent fra
   const notices = fs.readFileSync(new URL('../src/renderer/modules/lg.ts', import.meta.url), 'utf8')
   const settings = fs.readFileSync(new URL('../src/renderer/modules/yu.ts', import.meta.url), 'utf8')
   const config = fs.readFileSync(new URL('../src/main/config.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   const bannerSource = notices.slice(
     notices.indexOf('const showEventBanner'),
     notices.indexOf('let log: Notice[]'),
@@ -3953,7 +4044,7 @@ test('new ships and taiha use manually dismissed top banners with persistent fra
   assert.doesNotMatch(bannerSource, /setTimeout/)
   assert.match(notices, /entityNamePlain\('ship', id, original\)/)
   assert.match(notices, /`新舰入库：\$\{names\.slice\(0, 3\)\.join\('、'\)\}/)
-  assert.match(notices, /'请确认已上锁'/)
+  assert.match(notices, /'新舰锁定确认'/)
   // 「新舰」按谱系判断（持有初霜改二后再捞到初霜不算新舰）这条纪律没变，
   // 但基线本体搬去了 ship-first-owned——首见志要的是同一个判定，不该两处各存一份。
   assert.match(notices, /const fresh = observeOwnedShips\(\)/)
@@ -4039,7 +4130,7 @@ test('boss taiha stays a normal notice and battle hint without a retreat banner'
   assert.match(notices, /atBoss \? \{ banner: false, priority: 'normal' \} : undefined/)
   assert.match(notices, /presentation\.priority === 'normal'[\s\S]*sev: 'warn'[\s\S]*locked: false/)
   assert.match(combat, /if \(atBoss\) \{[\s\S]*Boss 战结束：\$\{names\} 大破/)
-  assert.match(combat, /本节点没有继续进击选择/)
+  assert.match(combat, /本节点无进击选项/)
   const bossBranch = combat.match(/if \(atBoss\) \{[\s\S]*?\n      \}/)?.[0] ?? ''
   assert.doesNotMatch(bossBranch, /请选择撤退|建议撤退/)
 })
@@ -4128,7 +4219,7 @@ test('successful modernization emits an exact split-column result without fabric
   const main = fs.readFileSync(new URL('../src/main/mg/index.ts', import.meta.url), 'utf8')
   const kernel = fs.readFileSync(new URL('../src/renderer/kernel.ts', import.meta.url), 'utf8')
   const notices = fs.readFileSync(new URL('../src/renderer/modules/lg.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(main, /webContents\.send\('mg:powerup-result', result\)/)
   assert.match(kernel, /ipcRenderer\.on\('mg:powerup-result', onPowerupResultCue\)/)
   assert.match(notices, /onPowerupResult\(showPowerupResultToast\)/)
@@ -4211,7 +4302,7 @@ test('authoritative quest tabs replace ghost active tasks and retain the server 
   assert.match(counter, /repairContradictedCompleteProgress\(\)/)
   assert.match(main, /reconcileQuestProgress\(\)/)
   assert.match(renderer, /mg\.questExecCount \?\?/)
-  assert.match(renderer, /受领状态确认于/)
+  assert.match(renderer, /领取状态确认于/)
 })
 
 test('ship life records only API-confirmed remodels and folds their equipment transition', () => {
@@ -4358,7 +4449,7 @@ test('daily decision links form a resource, expedition, quest, fleet, and event-
   const expedition = fs.readFileSync(new URL('../src/renderer/modules/bi.ts', import.meta.url), 'utf8')
   const resources = fs.readFileSync(new URL('../src/renderer/modules/zi.ts', import.meta.url), 'utf8')
   const fleet = fs.readFileSync(new URL('../src/renderer/modules/ru.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
 
   assert.match(activity, /GIMMICK_PROGRESS_KEY = 'du\.gimmick-progress\.v1'/)
   assert.match(activity, /intel\?\.revision/)
@@ -4384,14 +4475,14 @@ test('daily decision links form a resource, expedition, quest, fleet, and event-
 
 test('event planning matches owned special ships and checks one selected air target without flooding every node', () => {
   const activity = fs.readFileSync(new URL('../src/renderer/modules/du.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(activity, /AIR_TARGET_KEY = 'du\.air-targets\.v1'/)
   assert.match(activity, /data-air-target=/)
   // 2026-08-26 文案清扫：「默认取资料中最远点」缩成「最远点」（族 7 UI 自我解说）。
   // 要守的是「没手选时用的是哪一支」这个分支本体，连同分支一起钉，比钉措辞硬。
   assert.match(activity, /airTargets\[airTargetKey\(info\)\] \? '手动选择' : '最远点'/)
-  assert.match(activity, /可以到达，航程多出/)
-  assert.match(activity, /无法到达，还差/)
+  assert.match(activity, /可达 · 航程余量/)
+  assert.match(activity, /不可达 · 航程缺/)
   assert.match(activity, /const shipFamilyId = \(mstId: number\)/)
   assert.match(activity, /elink\('ship', rosterId/)
   // 这段诚实性交代 2026-08-26 整句删了（族 2 自证清白）。它守的是
@@ -4413,7 +4504,7 @@ test('closed events leave the activity module, remain dated in maps, and central
   const review = fs.readFileSync(new URL('../src/renderer/modules/shi.ts', import.meta.url), 'utf8')
   const store = fs.readFileSync(new URL('../src/main/mg/store.ts', import.meta.url), 'utf8')
   const ledger = fs.readFileSync(new URL('../src/main/mg/ledger.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(host, /export const setModuleVisible = \(id: string, visible: boolean\)/)
   // 2026-08-12 起坞位过滤走 displayed = moduleVisible(存在) 且未被用户搁置
   assert.match(host, /g\.mods\.filter\(displayed\)/)
@@ -4449,7 +4540,7 @@ test('expedition planning protects fleets, excludes instances, estimates net yie
   const ledger = fs.readFileSync(new URL('../src/main/mg/ledger.ts', import.meta.url), 'utf8')
   const main = fs.readFileSync(new URL('../src/main/mg/index.ts', import.meta.url), 'utf8')
   const expedition = fs.readFileSync(new URL('../src/renderer/modules/bi.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(types, /export interface ExpeditionHistoryReport/)
   assert.match(ledger, /CREATE TABLE IF NOT EXISTS expedition_history/)
   assert.match(ledger, /logExpeditionResult = \(/)
@@ -4516,7 +4607,7 @@ test('departed roster ids are archived by explicit cause and remain readable fro
   const store = fs.readFileSync(new URL('../src/main/mg/store.ts', import.meta.url), 'utf8')
   const main = fs.readFileSync(new URL('../src/main/mg/index.ts', import.meta.url), 'utf8')
   const catalog = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(ledger, /idx_ship_life_terminal/)
   assert.match(ledger, /WHERE kind IN \('scrap', 'material', 'sunk'\)/)
   assert.match(ledger, /queryShipMemorial = \(rawMstIds: number\[\]\)/)
@@ -4528,8 +4619,8 @@ test('departed roster ids are archived by explicit cause and remain readable fro
   assert.match(main, /ipcMain\.handle\('mg:ship-memorial'/)
   assert.match(catalog, /<div class="sec-h">收容库/)
   assert.match(catalog, /拆解 <b>\$\{report\.scrapped\}/)
-  assert.match(catalog, /被作为素材 <b>\$\{report\.materials\}/)
-  assert.match(catalog, /被击沉 <b>\$\{report\.sunk\}/)
+  assert.match(catalog, /作为改修素材 <b>\$\{report\.materials\}/)
+  assert.match(catalog, />击沉 <b>\$\{report\.sunk\}/)
   assert.match(html, /\.mod-ji \.mem-entry\.sunk/)
 })
 
@@ -4784,7 +4875,7 @@ test('quest details link expedition API ids and give inventory-aware choice rewa
   const notices = fs.readFileSync(new URL('../src/renderer/modules/lg.ts', import.meta.url), 'utf8')
   const types = fs.readFileSync(new URL('../src/shared/mg-types.ts', import.meta.url), 'utf8')
   const qpTypes = fs.readFileSync(new URL('../src/shared/qp-types.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(quest, /elink\('expedition', task\.missionId,/)
   assert.doesNotMatch(quest, /elink\('expedition', mg\.master\.missions\[task\.missionId\]\?\.dispNo/)
   // 奖励串的切段与逐项解析 2026-08-28 搬去了 shared/quest-reward（钦 require 了
@@ -4804,7 +4895,7 @@ test('quest details link expedition API ids and give inventory-aware choice rewa
   assert.match(quest, /只比较当前实际持有量/)
   assert.match(quest, /年任 · 每年/)
   // 2026-08-26 文案清扫：「保存在本机」这句自证删了，「重新领取后接着数」这件事照钉
-  assert.match(quest, /任务当前未领取，重新领取后在原进度上继续/)
+  assert.match(quest, /当前任务未领取 · 重新领取后继续原进度/)
   assert.match(counter, /annualMonth: questAnnualMonth\(resetNote\)/)
   assert.match(counter, /questPeriodKey\(period, now, tracker\.annualMonth\)/)
   assert.match(counter, /仅交付清/)
@@ -4834,20 +4925,20 @@ test('quest details link expedition API ids and give inventory-aware choice rewa
   // 引擎还在装载就说「规则库未收录」，是把「我还没查」写成了「没有」。
   // 两句必须各自存在、且说的不是同一件事（「还没查」≠「查了没有」）；
   // 「计数引擎 / 规则库」这两个施工者词已按裁定换成用户语，钉法照旧一句一钉。
-  assert.match(quest, /精确计数还在准备中/)
+  assert.match(quest, /精确计数尚未就绪/)
   assert.match(quest, /无法精确计数：暂无这条任务的判定资料/)
   assert.match(quest, /const blockedHtml = /)
   assert.match(quest, /QP_BLOCK_TEXT\[tracker\.blocked\]/)
   assert.doesNotMatch(quest, /本地没有这条任务的计数器/)
   assert.match(qpTypes, /periodStale/)
   assert.match(qpTypes, /notReceived/)
-  assert.match(qpTypes, /受领状态还停在上一周期/)
-  assert.match(qpTypes, /在游戏里领取并打开一次任务页即可/)
-  assert.match(quest, /受领状态确认于 \$\{fmtTime\(mg\.questActiveTs\)\}/)
+  assert.match(qpTypes, /领取状态仍为上一周期/)
+  assert.match(qpTypes, /请在游戏内领取任务并打开一次任务页/)
+  assert.match(quest, /领取状态确认于 \$\{fmtTime\(mg\.questActiveTs\)\}/)
   // 「艦素在线时领取、取消会即时同步」是实现自述，2026-08-26 按族 C 删了。
   // 这一格要守的是「新鲜度说得出来」，由上一行的时间戳钉着；改钉那句不许回潮。
   assert.doesNotMatch(quest, /(?:艦素|kuma)在线时领取/, 'qn: 受领同步的实现自述又回来了')
-  assert.match(quest, /这条任务另有非计数条件（准备资源等），计数满不代表可交付/)
+  assert.match(quest, /另有非计数条件 · 计数完成不等于可交付/)
   assert.match(types, /questsTs: number \| null/)
   assert.match(types, /questActiveTs: number \| null/)
   assert.match(store, /state\.player\.questsTs = ts/)
@@ -4874,7 +4965,7 @@ test('quest details link expedition API ids and give inventory-aware choice rewa
 
 test('game header keeps repair docks ahead of optional capacity and compacts before clipping', () => {
   const header = fs.readFileSync(new URL('../src/renderer/header-status.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   const expeditionAt = header.indexOf('<span class="hs-label">远</span>')
   const dockAt = header.indexOf('<span class="hs-label">渠</span>')
   const capacityAt = header.indexOf('${capacityHtml()}', dockAt)
@@ -4887,7 +4978,7 @@ test('game header keeps repair docks ahead of optional capacity and compacts bef
 
 test('battle trail abbreviates trailing state and never exposes a horizontal scrollbar', () => {
   const battle = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   // 2026-08-25：阵形改走 optionalFormationText，「没有阵形」从 null 变成空串，
   // 于是这里的可选链也跟着退掉。守的仍是同一件事——胶囊上的名字要短形化。
   assert.match(battle, /formation\.replace\(\/阵\$\/, ''\)/)
@@ -4904,7 +4995,7 @@ test('game voice requests show Chinese-first UI captions and directional battle 
   const subtitle = fs.readFileSync(new URL('../src/renderer/voice-subtitle.ts', import.meta.url), 'utf8')
   const abyssNames = fs.readFileSync(new URL('../src/renderer/abyssal-name.ts', import.meta.url), 'utf8')
   const renderer = fs.readFileSync(new URL('../src/renderer/index.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   const catalog = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
 
   assert.match(resource, /details\.webContentsId === gameWebContentsId/)
@@ -5047,7 +5138,7 @@ test('localization lodes accept bounded bilingual entities and reject HTML-shape
 })
 
 test('ship banner thumbnails keep the subject in frame', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   // 默认档 2026-09-01 从贴右（100%）左移到 78%：脸在原图 x≈143，贴右会把它推到框左侧
   // 并切掉半张。78% 是「脸完整入框、左侧不进徽章也不进杂物」那一档，徽章右缘 x≈58。
   // 往回改成 right/100% 或往左越过 74%，这条就该红。
@@ -5207,7 +5298,7 @@ test('装备立绘栏摆的是各种拆分，标签不能张冠李戴', () => {
 
 test('expedition fleet status rows include a real fuel and ammo supply check', () => {
   const source = fs.readFileSync(new URL('../src/renderer/modules/bi.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(source, /ship\.fuel < master\.fuelMax/)
   assert.match(source, /ship\.bull < master\.bullMax/)
   // 状态本体抽成 deckStatusHtml：甘特条与紧凑态的悬停卡共用一份，
@@ -5282,7 +5373,7 @@ test('user-facing renderer copy consistently uses 返港 terminology', () => {
 })
 
 test('periodic element rail stays hidden until the left edge is hovered', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(html, /main\s*\{[^}]*position:\s*relative;[^}]*padding-left:\s*7px;/)
   assert.match(html, /#element-rail\s*\{[^}]*position:\s*absolute;[^}]*width:\s*7px;/)
   assert.match(html, /#element-rail:hover\s*\{[^}]*width:\s*44px;/)
@@ -5303,7 +5394,7 @@ test('player-facing copy avoids stiff Japanese calques', () => {
     // 「摸不到」同族同日：追击提示里的「主力夜战摸不到」——肢体隐喻当军语用，
     // 而且那句话本身还在重复前半句已经说过的事。正字示范是用完整军语作主体
     //（「敌主力舰队」），别拿够得到/摸不到/碰得着这类词代替。
-    /所持|在籍|入手|推定|泛用|周历|未观测|回港|轰沉|现编成|报酬|遂行中|任务所|在途|在泊|低练|图鉴新登录|制空値|勝利条件|係数|輸送物資量|二番舰|期间限定|未实装|未受领|非公式|个人实绩|够得到|摸不到/
+    /所持|在籍|入手|泛用|周历|未观测|回港|轰沉|现编成|报酬|遂行中|任务所|在途|在泊|低练|图鉴新登录|制空値|勝利条件|係数|輸送物資量|二番舰|期间限定|未受领|非公式|个人实绩|够得到|摸不到/
   while (pending.length) {
     const dir = pending.pop()
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -5380,7 +5471,7 @@ test('retrospective module consolidates local histories without duplicating deta
 test('retrospective module is reachable from the top bar and responds to narrow panes', () => {
   const index = fs.readFileSync(new URL('../src/renderer/index.ts', import.meta.url), 'utf8')
   const host = fs.readFileSync(new URL('../src/renderer/mu.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(index, /import '\.\/modules\/shi'/)
   assert.match(host, /\['shi', '回顾'\]/)
   assert.match(host, /OVERLAY_MODULES = \['shi', 'lg', 'yu', 'mgstate', 'anchor'\]/)
@@ -5400,7 +5491,7 @@ test('diagnostic status, event log, and DevTools stay out of the normal top bar'
   const index = fs.readFileSync(new URL('../src/renderer/index.ts', import.meta.url), 'utf8')
   const host = fs.readFileSync(new URL('../src/renderer/mu.ts', import.meta.url), 'utf8')
   const links = fs.readFileSync(new URL('../src/renderer/link.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
 
   assert.match(host, /DIAGNOSTIC_MODULES = new Set\(\['mgstate', 'anchor'\]\)/)
   assert.match(host, /DEBUG_UI = process\.env\.KANSO_DEBUG_UI === '1'/)
@@ -5420,7 +5511,7 @@ test('diagnostic status, event log, and DevTools stay out of the normal top bar'
 test('review battle replays open in a local side drawer instead of the covered combat module', () => {
   const review = fs.readFileSync(new URL('../src/renderer/modules/shi.ts', import.meta.url), 'utf8')
   const combat = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(review, /elink\('battle', row\.id,[^\n]+, 'shi'\)/)
   assert.match(review, /queryBattleSnapshot\(id\)/)
   assert.match(review, /event\.stopPropagation\(\)/)
@@ -5436,7 +5527,7 @@ test('review battle replays open in a local side drawer instead of the covered c
   )
   assert.doesNotMatch(review, /activateModule\('di'\)/)
   assert.match(combat, /export const renderBattleReplayDetail/)
-  assert.match(combat, /renderBattlePane\(pane, snapshot, true, true\)/)
+  assert.match(combat, /renderBattlePane\(pane, snapshot, true, true, options\?\.trailIndex \?\? battleHistory\)/)
   assert.match(html, /\.mod-shi \.shi-stage \{[\s\S]*display: flex;[\s\S]*overflow: hidden;/)
   assert.match(html, /\.mod-shi \.shi-battle-drawer \{[\s\S]*border-left:/)
 })
@@ -5581,10 +5672,9 @@ test('official lifetime record stays sanitized, normalized, and separate from lo
   // 2026-08-17 起返港自带简版（胜负实时），完整版仍靠战绩页；不补零口径不变
   // 08-24 文案清洗把逐项枚举压成一句（一眼扫过的位置只留动作），语义不变：
   // 返港自动同步，更完整的一份仍靠游戏内战绩页。
-  assert.match(review, /返港一次就自动同步/)
+  assert.match(review, /官方统计尚未同步 · 返港或打开游戏/)
   // 指路必须与游戏菜单逐字对上：游戏里写的是「戦績表示」，不许简中化（同 zi.ts:846）
-  assert.match(review, /「戦績表示」页补齐/)
-  assert.doesNotMatch(review, /战绩表示/, 'shi: 指路又被简中化了，玩家照着找不到菜单')
+  assert.match(review, /「戦績表示」页后同步/)
   // 末句设计辩解已删；2026-08-26「与下方本机明细分开计，不混算」也按族 2 删了。
   // 「不拿本地记录冒充生涯数据」这条纪律本来就是代码行为——没拿到官方战绩就整段
   // 走空态，绝不用本机 90 日明细顶上。它一直由下面这个分支护栏真正守着。
@@ -5608,7 +5698,7 @@ test('local purchase ledger observes payitem packets, persists forever, and only
   const kernel = fs.readFileSync(new URL('../src/renderer/kernel.ts', import.meta.url), 'utf8')
   const review = fs.readFileSync(new URL('../src/renderer/modules/shi.ts', import.meta.url), 'utf8')
   const payShared = fs.readFileSync(new URL('../src/shared/pay-log.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
 
   // 解析层：认不出的报文形状必须返回 null（当空清单会造假购买），首观测不造记录
   assert.match(payShared, /return null\s*\n\s*\}/)
@@ -5706,7 +5796,7 @@ test('fleet equip strip shows empty slots with capacity hover and marks an open 
   // 2026-08-19 用户点的：空装备格也要占位（悬停看该格搭载数）；
   // 补强增设开了没装用小标记（api_slot_ex 的 -1 = 开了没装，0 = 未开）
   const fleet = fs.readFileSync(new URL('../src/renderer/modules/ru.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(fleet, /class="equip-icon eq-empty" title="第 \$\{i \+ 1\} 格 · 空\$\{capText\}"/)
   // 扩过的格写「原量+增量（道具正名）」：原量来自主数据 maxEq，增量是格納庫増設抬高的
   // 部分；没扩过的格照旧只写一个数。拼出来的 title 长什么样由 hangar-expand 那组
@@ -5766,7 +5856,7 @@ test('practice opponent selection immediately opens a legacy-safe prebattle fore
   const store = fs.readFileSync(new URL('../src/main/mg/store.ts', import.meta.url), 'utf8')
   const forecast = fs.readFileSync(new URL('../src/renderer/combat-forecast.ts', import.meta.url), 'utf8')
   const combat = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
 
   assert.match(types, /export interface PracticeOpponentPreview/)
   assert.match(types, /practiceOpponent\?: PracticeOpponentPreview \| null/)
@@ -5829,7 +5919,7 @@ test('舰娘列表点行进入整面板接管的单独界面，不是行下展�
   // 用户 2026-08-11 当场否掉下接式：「我不是说进入单独界面显示吗？怎么还是
   // 下接式的」。宽窄两种版式一律接管：列表与详情二选一渲染，返回键成对。
   const roster = fs.readFileSync(new URL('../src/renderer/modules/qa.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   // 渲染分支：选中即整面板换成详情页，列表分支里不再有任何预览挂点
   assert.match(roster, /const detailRow = all\.find\(\(r\) => r\.ship\.id === state\.selected\)/)
   assert.match(roster, /commitPaneHtml\(pane, 'qa', detailHtml\(detailRow\)\)/)
@@ -5872,7 +5962,7 @@ test('演习名簿与建造坞不再只活在悬停文本里', () => {
   const combat = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
   const header = fs.readFileSync(new URL('../src/renderer/header-status.ts', import.meta.url), 'utf8')
   const notices = fs.readFileSync(new URL('../src/renderer/modules/lg.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
 
   // 演习名簿摆在镝的空闲态：五个对手要看得到军衔/等级/旗舰/打没打
   assert.match(combat, /const practiceRosterHtml = /)
@@ -5952,7 +6042,7 @@ test('托盘只做入口，不改默认的退出语义、也不自己判定未�
   assert.match(tray, /config\.get\('kanso\.tray\.closeToTray', false\)/)
   assert.match(tray, /config\.get\('kanso\.tray\.minimizeToTray', false\)/)
   assert.match(settings, /'kanso\.tray\.closeToTray'/)
-  assert.match(settings, /默认关：点 ✕ 就是退出/)
+  assert.match(settings, /关闭：✕ 退出程序 · 开启：✕ 收起窗口，托盘菜单退出/)
 
   // 托盘让进程在窗口关闭后继续活着；冒烟就永远等不到退出
   assert.match(tray, /if \(process\.env\.KANSO_SMOKE \|\| !trayEnabled\(\)\) return/)
@@ -6063,7 +6153,7 @@ test('远征编成不再先到先得，多队一起凑', () => {
   assert.match(planner, /const clash = picked\.length !== new Set\(picked\)\.size/)
   // 「人凑得出」不等于「条件过得了」——只查前者会让尾注和逐队判定自相矛盾
   assert.match(planner, /const failing = plans\.filter\(\(p\) => p\.verdict\.fails > 0\)/)
-  assert.match(planner, /条件全过、互不抢人/)
+  assert.match(planner, /条件满足 · 无舰娘冲突/)
 
   // 旗舰仍必须落在首位（判定按 ships\[0\] 认旗舰）
   assert.match(planner, /const flagIdx = picks\.findIndex\(\(p\) => p\.role === '旗舰'\)/)
@@ -6094,7 +6184,7 @@ test('编成能与社区格式互通，但导入只作对照（审计 C5）', ()
 
   // 读不出来就明说，不返回空编成冒充成功
   assert.match(codec, /error: '不是合法的 JSON/)
-  assert.match(codec, /没读到任何舰队/)
+  assert.match(codec, /未读取到舰队/)
 
   // 载入链接带着用户的编成数据：只进剪贴板，不主动打开外部站点
   assert.match(codec, /只把它放进剪贴板/)
@@ -6170,8 +6260,8 @@ test('札只报事实，不替玩家判「能不能进」', () => {
   // 「无关」这件事改钉结构：无札艘数的挂牌尾巴与 willTag 都不看 verdict.kind，
   // 查札/不查札/未知三支都照挂——比钉那句括注硬。
   assert.match(fleet, /const tail = verdict\.untagged \? ` · \$\{verdict\.untagged\} 艘将被打札` : ''/)
-  assert.match(fleet, /const willTag = verdict\.untagged\s*\n\s*\? `\\n\$\{verdict\.untagged\} 艘无札 · 出击后会被打札，不可逆`/)
-  assert.match(fleet, /不可逆/)
+  assert.match(fleet, /const willTag = verdict\.untagged\s*\n\s*\? `\\n\$\{verdict\.untagged\} 艘无札 · 出击后永久打札`/)
+  assert.match(fleet, /永久打札/)
 
   // 按札分组的名单铎里已经有了，锐不重复列，只给跳转
   assert.match(fleet, /按札分组的完整名单见「活动」/)
@@ -6200,8 +6290,8 @@ test('札只报事实，不替玩家判「能不能进」', () => {
   // 陆航跟札同一刻、同一个「点进去之前最后能改」的窗口，写进同一条 toast;
   // 但按**摊开的海区**取数——常规 6/7 区驻队也该提醒,别的区缺补给不掺和
   assert.match(sally, /airBaseReadiness\(areaId\)/, '陆航该按摊开的海区跟札一起挂在开图上')
-  // 只说「会被打札」，不说「进不去」——后者要按阶段对照攻略表，游戏不下发那份对照
-  assert.match(sally, /进去就会被打札/)
+  // 只说「出击后永久打札」，不说「进不去」——后者要按阶段对照攻略表，游戏不下发那份对照
+  assert.match(sally, /出击后永久打札/)
   assert.doesNotMatch(sally, /进不去|不能出击|禁止/)
   assert.match(fleet, /addListener\('kancolle\.map\.open'/)
 
@@ -6284,7 +6374,7 @@ test('矿脉清单与源码实际读取一致，健康度分清「没装」与�
   assert.match(health, /return Number\.isFinite\(stamp\) \? [^:]+ : null/)
   assert.match(health, /ageDays: daysSince\(meta\.fetchedAt\)/)
   assert.match(health, /upstreamAgeDays: daysSince\(meta\.upstreamUpdatedAt\)/)
-  assert.match(settings, /当作未知，不按「刚更新」算/)
+  assert.match(settings, /更新状态未知/)
 
   // 健康度要看**装配之后**那份目录，不是某一个包的原文。
   // 底座 map-intel 永不随包：拿它当判据会在玩家那份产物上报出「常规海域 0/0」，
@@ -6317,7 +6407,7 @@ test('编队行的札标记与铎同一套配色，且只在活动期出现', ()
   const tag = fs.readFileSync(new URL('../src/renderer/sally-tag.ts', import.meta.url), 'utf8')
   const fleet = fs.readFileSync(new URL('../src/renderer/modules/ru.ts', import.meta.url), 'utf8')
   const event = fs.readFileSync(new URL('../src/renderer/modules/du.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
 
   // 配色只有一份：两处各写一份，同一个札在两个面板里会是两种颜色，没法对照
   assert.match(tag, /export const TAG_COLORS = \[/)
@@ -6336,7 +6426,7 @@ test('编队行的札标记与铎同一套配色，且只在活动期出现', ()
   // 无札要和「已有札」明确分开——出击就会被打上，且不可逆
   assert.match(tag, /sally-mark none/)
   assert.match(html, /\.fleet-skin \.sally-mark\.none/)
-  assert.match(tag, /不可逆/)
+  assert.match(tag, /永久获得对应阶段札/)
 
   // 札名（2026-08-22 起）：游戏一个字都不下发，名字来自第一方每期手录的小表。
   // 表里没有就照旧只显示号——这条回退不许被「顺手编一个」替掉。
@@ -6350,7 +6440,7 @@ test('编队行的札标记与铎同一套配色，且只在活动期出现', ()
 })
 
 test('装备表定列宽，「锁」不会被长舰名挤出框外', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   // auto 布局下「所在」会被长舰名撑开，把最右的「锁」推出可视区——
   // 而那一列恰恰是清理时最要看的。实测 178~437px 全宽度都不出框。
   assert.match(html, /\.mod-es \.es-table \{ width: 100%; min-width: \d+px; table-layout: fixed;/)
@@ -6370,7 +6460,7 @@ test('装备表定列宽，「锁」不会被长舰名挤出框外', () => {
 })
 
 test('工作区那条 main 规则不许写成裸元素选择器', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   const shi = fs.readFileSync(new URL('../src/renderer/modules/shi.ts', import.meta.url), 'utf8')
   const bi = fs.readFileSync(new URL('../src/renderer/modules/bi.ts', import.meta.url), 'utf8')
   // 模块自己也用语义化 <main>，裸 main { display:flex; padding-left:7px } 会泼进去：
@@ -6395,12 +6485,12 @@ test('引用的 CSS 变量必须真有定义，别靠裸 hex 兜底', () => {
   // 于是它一直画的是那个裸 hex，且与面板基色 --bg1(#151c23) 并不相等：改主题时
   // 这一块不会跟着走。同型的还有任务类别 A 的 `var(--cA, #67c98a)`（值恰好等于 --ok）。
   // 这类缺陷不会报错、也不会在肉眼下露馅，只能靠「引用必须有定义」这条结构判据兜住。
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   const dir = new URL('../src/renderer/', import.meta.url)
   const walk = (base) =>
     fs.readdirSync(base, { withFileTypes: true }).flatMap((entry) => {
       const child = new URL(entry.name + (entry.isDirectory() ? '/' : ''), base)
-      return entry.isDirectory() ? walk(child) : /\.(ts|html)$/.test(entry.name) ? [child] : []
+      return entry.isDirectory() ? walk(child) : /\.(ts|html|css)$/.test(entry.name) ? [child] : []
     })
   const sources = walk(dir).map((url) => fs.readFileSync(url, 'utf8'))
   const defined = new Set()
@@ -6419,7 +6509,7 @@ test('引用的 CSS 变量必须真有定义，别靠裸 hex 兜底', () => {
 })
 
 test('度量行：宽档与裁决共线一行，窄档才堆叠', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   // 2026-08-21 用户分两步拍板，最终态是**紧凑优先**：
   //   第一步授权把 `.metrics` 从 `flex:2 1 320px` 改成 `flex:1 1 100%`（独占一行），
   //   图的是行宽关于面板宽单调、不再有「加宽反而变窄」的悬崖；
@@ -6449,7 +6539,7 @@ test('度量行：宽档与裁决共线一行，窄档才堆叠', () => {
 })
 
 test('宽面板不留死角：钥设置居中、铎索引列随面板长、铃规则卡吃满右栏', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   const lg = fs.readFileSync(new URL('../src/renderer/modules/lg.ts', import.meta.url), 'utf8')
 
   // 钥：760px 是正文可读行宽，但左贴边会在 1280 浮层里空出 519px 纯黑，
@@ -6473,7 +6563,7 @@ test('宽面板不留死角：钥设置居中、铎索引列随面板长、铃�
 })
 
 test('横滚的标签条一律留细滚动条，不藏', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   // 鉴的书页标签把滚动条藏了（scrollbar-width:none + ::-webkit-scrollbar:none），
   // 窄档最后一卷被推出可视区且零提示（实测 340px 面板溢出 68px）；
   // 锐的页签行同样横滚，却是 scrollbar-width:thin。统一到锐那一形态。
@@ -6484,7 +6574,7 @@ test('横滚的标签条一律留细滚动条，不藏', () => {
 })
 
 test('顶栏按钮是一族：形态只写一遍，弹窗组不再自成一套', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   // 弹窗组（.ov-btn：回顾/通知/设置）与动作组（专注/截图/刷新）并排站在同一条顶栏里，
   // 却分两次写出来，漂出四项差异：高 22/25.1、圆角 4/3、内边距 0-9/3-10、字色 --sub/--text，
   // 外加动作组漏了 font-family:inherit 整组落回 Arial。两组的 hover 完全一致，
@@ -6505,7 +6595,7 @@ test('顶栏按钮是一族：形态只写一遍，弹窗组不再自成一套',
 })
 
 test('镝的敌我两队不上下堆叠（2026-08-20 用户看过效果后否决：太占位置）', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   // 舰名在窄容器里会被压到只剩 5.6px，「把敌队换行到我方下面」是很自然的修法，
   // 也确实能修好——但他试过，原话「太占位置了」。这条挡的是「下一个人重新想到同一个主意」。
   assert.doesNotMatch(html, /\.mod-di \.arena \{[^}]*flex-direction: column/)
@@ -6517,7 +6607,7 @@ test('镝的敌我两队不上下堆叠（2026-08-20 用户看过效果后否决
 })
 
 test('镝的舰名不被伤害列的常驻空位挤死（余量流向文字，行内解决）', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   const di = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
 
   // 一、伤害列不为极端值常驻留位：宽度跟这一侧**实际打出的位数**走，上限五位
@@ -6551,7 +6641,7 @@ test('镝的舰名不被伤害列的常驻空位挤死（余量流向文字，�
 })
 
 test('编队抬头不抢编队区的高度', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   const fleet = fs.readFileSync(new URL('../src/renderer/modules/ru.ts', import.meta.url), 'utf8')
   // 陆航与札两条挂牌并排共占一行。各占一行的话裁决框就三行高，
   // 实测（993px 面板）会让抬头从 57px 涨到 91px，编队区从 197 掉到 161。
@@ -6607,7 +6697,7 @@ test('装备仓库三级收拢，每级都把已装备的排在前', () => {
 
 test('装备预览只在点了实例时出现，且星级按档汇总', () => {
   const stock = fs.readFileSync(new URL('../src/renderer/modules/equip-stock.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   // 原来展开一款就自动选中第一件，这块面板于是一冒出来就关不掉
   // previewHtml 判断与渲染共用一次调用（它每次都全表 filter，双调是白付一遍）
   assert.match(stock, /const preview = previewHtml\(\)[\s\S]{0,80}<aside class="es-side">/)
@@ -6617,7 +6707,7 @@ test('装备预览只在点了实例时出现，且星级按档汇总', () => {
 })
 
 test('装备仓库三级在视觉上分得开', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   // 原来款没设底色（透明＝bg0）而实例正好也是 bg0，父子同色分不出层级。
   // 现在明度成阶梯：款 bg2 > 档 bg1 > 实例 bg0。
   assert.match(html, /\.mod-es \.es-group td \{ background: var\(--bg2\);/)
@@ -6751,7 +6841,7 @@ test('图鉴说明文只转述，不自作翻译；缺数据要明说是缺', ()
   //（掉落口径 / 敌编成口径 / 战斗估算口径 / 照录出处，族 4 与族 8），
   // 比收进折叠更彻底：不再有「摊在正文」的风险。护栏跟着收紧——
   // 长口径说明要么不在，要么必须在折叠里，绝不许直接摊在一眼位。
-  for (const long of ['怎么读这几行', '往期 · 限定期捞到']) {
+  for (const long of ['读数口径', '往期 · 限定期捞到']) {
     const at = catalog.indexOf(long)
     assert.ok(at > 0, `找不到「${long}」`)
     const before = catalog.slice(Math.max(0, at - 260), at)
@@ -6794,7 +6884,7 @@ test('图鉴说明文只转述，不自作翻译；缺数据要明说是缺', ()
   // 只要有人往这一页塞正文或改成内嵌，下面两条就红。
   assert.match(catalog, /const shipWikiLinksHtml/)
   assert.match(catalog, /class="wiki-links">/)
-  assert.match(catalog, /这一形态没有可查的外站条目。/)
+  assert.match(catalog, /当前形态暂无外站条目/)
   // kancolle.wikia.com 是退役域名，只靠一层重定向活着
   assert.match(catalog, /kancolle\\\.wikia\\\.com/)
   assert.match(catalog, /kancolle\.fandom\.com/)
@@ -7517,7 +7607,7 @@ test('折叠机制：状态按标题记，且 MutationObserver 不能自激', ()
 })
 
 test('折叠三角不能被各模块原有的色条压掉', () => {
-  const css = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const css = rendererSource
   const at = css.indexOf('.mod-ji .sec-h {')
   assert.ok(at > 0, '找不到分组标题样式')
   const rule = css.slice(at, css.indexOf('}', at))
@@ -8178,9 +8268,9 @@ test('捞船清单：分组按「会不会消失」而不是「有没有日期�
   assert.ok(fn.includes('e.days != null && e.days <= HUNT_SOON_DAYS'), '「快关门」组的判据松了')
   assert.ok(!fn.includes('资料未写截止日'), 'null 是如实记录，不该说成资料没写')
   // ③ 活动结束的那批一条都不删，只换语境
-  assert.ok(fn.includes('活动已结束 · 这些掉点现在捞不到'), '活动结束的那批被删掉了')
+  assert.ok(fn.includes('活动已结束 · 对应掉落当前不可获取'), '活动结束的那批被删掉了')
   // 截断要说出来
-  assert.ok(fn.includes('还有 ${standing.length - shownStanding.length} 艘未列出'), '常驻组截断没写明')
+  assert.ok(fn.includes('另有 ${standing.length - shownStanding.length} 艘未列出'), '常驻组截断没写明')
 })
 
 test('改修预算：分档单价乘次数，通常/确保双单价不混成范围', async () => {
@@ -8273,7 +8363,7 @@ test('改修预算栏要摆出次数与口径，不只给一个合计数字', as
 
   // 次数要能核对：分档次数摆在推满那一行的悬停里
   const 一件 = sumsOf(卡([['1', { level: 0 }]], { 6: 9999, 7: 9999 }))
-  assert.match(一件[0].body, /还要 <b>10<\/b> 次/, '没给推满还要几次')
+  assert.match(一件[0].body, /还需 <b>10<\/b> 次/, '没给升至 ★max 还需几次')
   assert.match(一件[0].attrs, /★0-5 档 6 次、★6-9 档 4 次/, '没交代这 10 次是怎么分档的')
 
   // **算一件**，不是把持有的全推满：97 件全推满会报出「968 次」，吓人且没有决策价值
@@ -8284,23 +8374,23 @@ test('改修预算栏要摆出次数与口径，不只给一个合计数字', as
 
   // 起点取手上**最高但未满**的那件：那才是会拿去推的那一件
   const 混合 = sumsOf(卡([['1', { level: 0 }], ['2', { level: 9 }]], { 6: 9999, 7: 9999 }))
-  assert.match(混合[0].body, /推满 <b>★9→★max<\/b> 还要 <b>1<\/b> 次/, '起点没取最高未满的那件')
+  assert.match(混合[0].body, /升至 <b>★9→★max<\/b> · 还需 <b>1<\/b> 次/, '起点没取最高未满的那件')
 
   // 通常/确保是两种打法，不是范围：储备判定按两侧分三档说
   const 够 = 一件[0].body
   assert.match(够, /<i class="ok"[^>]*>✓<\/i>/, '储备够也得说一句')
-  assert.match(够, /title="储备 9999，全程确保也够"/, '「确保侧也够」这一档没了')
+  assert.match(够, /title="储备 9999 · 确保消耗充足"/, '「确保侧也够」这一档没了')
   const 中间 = sumsOf(卡([['1', { level: 0 }]], { 6: 46, 7: 9999 }))[0].body
-  assert.match(中间, /储备 46 · 确保还差 \d+/, '「够通常打、确保不够」这一档没了')
+  assert.match(中间, /储备 46 · 确保消耗缺 \d+/, '「够通常打、确保不够」这一档没了')
   const 不够 = sumsOf(卡([['1', { level: 0 }]], { 6: 3, 7: 9999 }))[0].body
-  assert.match(不够, /储备 3 · 还差 \d+/, '「通常也不够」这一档没了')
+  assert.match(不够, /储备 3 · 普通消耗缺 \d+/, '「通常也不够」这一档没了')
   // 库存拿不到时不能装作够
   assert.match(sumsOf(卡([['1', { level: 0 }]], undefined))[0].body, /库存未同步/, '缺少库存未知这一档')
 
   // 推满那一笔**不含更新**；要不要更新是另一个决定，另起一行给整条路线的合计
   assert.equal(一件.length, 2, '「连更新一起算」那一行不在了')
   assert.match(一件[0].body, /<b>44 <i>\(66\)<\/i><\/b>/, '推满那一笔混进了更新的消耗')
-  assert.match(一件[1].body, /连更新一起算[\s\S]*<b>74 <i>\(116\)<\/i><\/b>/, '整条路线的合计不对')
+  assert.match(一件[1].body, /含更新消耗[\s\S]*<b>74 <i>\(116\)<\/i><\/b>/, '整条路线的合计不对')
 })
 
 test('等级经验表从在籍舰反推，查不到就说查不到、绝不插值', async () => {
@@ -8338,13 +8428,13 @@ test('「还差 N 级」算不出经验时要说明原因，不静默留白', ()
   const at = ru.indexOf('const levelGapExpHtml')
   assert.ok(at > 0, '没有经验缺口那半句')
   const fn = ru.slice(at, ru.indexOf('\n// 下一改装', at))
-  assert.ok(fn.includes('经验待补'), '算不出时该有可见的占位而不是空白')
+  assert.ok(fn.includes('经验资料暂缺'), '算不出时该有可见的占位而不是空白')
   // 原来还钉着「矿脉未就绪 / 矿脉里没这一级」的分支与「实测出…会自动补上」三句。
   // 那三句已按裁定压成一条 title——「不静默留白」这条纪律由上一行的占位守住，
   // 这里改钉：占位必须带上说明为什么没有的 title，且这条 title 不许把
   // 矿脉/包/实测这类施工者词摊给玩家。
   assert.ok(
-    fn.includes('title="${esc(`还没有 Lv${targetLevel} 的经验数据`)}"'),
+    fn.includes('title="${esc(`暂无 Lv${targetLevel} 的经验数据`)}"'),
     '占位没有说明「没有的是哪一级的数据」',
   )
   assert.ok(!/矿脉|包内|实测/.test(fn), '算不出的说明里不该出现施工者词')
@@ -8527,7 +8617,7 @@ test('捞船清单可点筛选，且能退出', () => {
 
 test('预测区间配微条，大破用另一种色', () => {
   const ji = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.ok(ji.includes('const rangeBarHtml'), '没有微条')
   assert.ok(ji.includes("rangeBarHtml(band?.taiha, 'risk')"), '大破没走风险色')
   assert.ok(ji.includes("rangeBarHtml(band?.bPlus, 'good')"), 'B+ 没配微条')
@@ -8537,7 +8627,7 @@ test('预测区间配微条，大破用另一种色', () => {
 })
 
 test('色板：次级文字可读，实体色两两分得开', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   const varOf = (name) => {
     const hit = html.match(new RegExp('--' + name + ':\\s*(#[0-9a-fA-F]{6})'))
     assert.ok(hit, `找不到 --${name}`)
@@ -8866,7 +8956,7 @@ test('血条跟着流水走：满格恒为最大血，选中哪一阶段就显�
   assert.match(di, /lastBarFlipIdentity/, '实时推进的重渲染丢了动画路径')
 
   // 虚条是红斜杠，空段不着色（底轨即空）
-  const htmlSrc = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const htmlSrc = rendererSource
   const ghostRule = htmlSrc.slice(htmlSrc.indexOf('.mod-di .hpx .bar .dl'))
   assert.match(
     ghostRule.slice(0, ghostRule.indexOf('}')),
@@ -8894,7 +8984,7 @@ test('血条跟着流水走：满格恒为最大血，选中哪一阶段就显�
   // 换一场、或本场结算落定时回到跟随；实时观战期间不重置
   assert.match(di, /const stageIdentity = `\$\{identity\}:\$\{b\?\.result \? 'done' : 'live'\}`/)
 
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(html, /\.mod-di \.hpx \.bar > span \{ transition: width var\(--motion-view\)/)
   const reduced = html.slice(html.indexOf('@media (prefers-reduced-motion: reduce)'))
   assert.ok(
@@ -8997,7 +9087,7 @@ test('有关任务标出做没做完，且「不在表里」只在拿到全量�
   const kernel = fs.readFileSync(new URL('../src/renderer/kernel.ts', import.meta.url), 'utf8')
   const quests = fs.readFileSync(new URL('../src/renderer/modules/qn.ts', import.meta.url), 'utf8')
   const atlas = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
 
   // 只有 tab 0「全部」是全量（实测一次给 118 条，不分页）。分类页当全集，
   // 会把没翻到的任务统统判成「不能接」——所以这个前提必须单独记一个时刻。
@@ -9030,14 +9120,14 @@ test('有关任务标出做没做完，且「不在表里」只在拿到全量�
   // 它们是从「不在任务表里」与前置状态推出来的，其余几档是任务表直接给的，
   // 一并标成推断反而是新的不实陈述。
   assert.match(atlas, /const inferred = status === 'done' \|\| status === 'locked'/)
-  assert.match(atlas, /\$\{inferred \? '<i>推断<\/i>' : ''\}/)
+  assert.match(atlas, /\$\{inferred \? '<i>推定<\/i>' : ''\}/)
   assert.match(html, /\.mod-ji \.q-st i \{/, 'chip 上那枚「推断」没有样式，会跟状态词一样大')
   //
   // 护栏保住的是这批文案背后**真正**要防的事，而且这一层比措辞更硬：
   // 没拿到全量任务表之前，不许把「没见过」解读成「已完成」——
   // 判定入口只有 questsFullTs 非空这一条路，空的时候必须走那条可执行动作的分支。
   assert.match(atlas, /mg\.questsFullTs == null/)
-  assert.match(atlas, /状态判不出：先打开一次游戏任务的「全部」页/)
+  assert.match(atlas, /任务状态无法判定 · 打开游戏任务「全部」页后同步/)
 
   // 周期任务的「已完成」只是本期，下期还会回来
   assert.match(atlas, /本期已完成/)
@@ -9120,9 +9210,9 @@ test('任务前置链双源合并:钦与完整任务树同一份口径,分歧要
   // (进 title),失效码仍按「未同步」处理。原先钉的三句原文已不存在,改钉新文案。
   assert.match(note, /⚖ 前置资料有分歧/, '分歧必须常驻可见,不许静默吞掉')
   assert.match(note, /title="\$\{esc\(parts\.join\(' · '\)\)\}"/, '分歧内容要收进悬停,不许丢')
-  assert.match(note, /已失效的码/)
-  assert.match(note, /按「未同步」处理/)
-  assert.match(note, /此处按前者判定/)
+  assert.match(note, /失效任务码/)
+  assert.match(note, /状态记为「未同步」/)
+  assert.match(note, /采用前者结论/)
   assert.doesNotMatch(quests, /前置资料有分歧/, '文案该 import,不该复制')
   assert.doesNotMatch(tree, /前置资料有分歧/, '文案该 import,不该复制')
   // 2026-08-20 第二批文案清扫：分歧要让人看见，但「是哪个 wiki 说的」不进发布侧。
@@ -9164,7 +9254,7 @@ test('装备的「可获取途径」把几张正方向的表反查过来，查�
   // 清扫裁定（族 4）删了。要防的事没变——不许把「本地没查到」渲染成一个
   // 看起来完整的空清单，所以钉的是「查不到时走的是另一条空态分支」这条行为。
   assert.match(atlas, /if \(!blocks\.length\) \{/)
-  assert.match(atlas, /本地没有这件装备的获取渠道/)
+  assert.match(atlas, /暂无本地获取渠道资料/)
 
   // 同一艘舰带两件同型装备只算一艘；同一件源装备多条更新路径只列一次
   assert.ok(rule.includes('const out = new Set<number>()'), '初期携带没有按舰去重')
@@ -9191,7 +9281,7 @@ test('周期任务不当「前置没做完」的证据——一张当期快照�
 
 test('各队走向速览：一队一行并排比，判别沿用现成的带路引擎', () => {
   const atlas = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
 
   // 下面那张「可达路线」一次只答一支队（要切 tab），而玩家要做的判断是队与队之间的
   assert.match(atlas, /const fleetOutlookHtml = /)
@@ -9275,7 +9365,7 @@ test('分歧实测从账本一路接到界面，不再是只写不读的一张�
 
 test('出击海图：搬走右栏那张卡，浮层挂在 body 下', () => {
   const di = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
 
   // seaCardHtml 已经画得更全（当前点光环 / 可选点 / 节点类型着色 / 节点摘要 / 来源署名），
   // 另画一张既重复又更简陋。展开的就是它本人。
@@ -9780,7 +9870,7 @@ test('导出成文件只剩一份：转义/BOM/文件名戳收口，反馈仍归
   const stock = read('../src/renderer/modules/equip-stock.ts')
   assert.match(stock, /flashExportBadge\(outcome\.status === 'failed' \? '导出失败 ✗'/)
   const fleet = read('../src/renderer/modules/ru.ts')
-  assert.match(fleet, /outcome\.status === 'failed' \? '存文件失败，可改用「复制 JSON」'/)
+  assert.match(fleet, /outcome\.status === 'failed' \? '存文件失败 · 可使用「复制 JSON」'/)
   // 用户自己按取消不算失败：三处都得先把 canceled 摘出去，别报成「导出失败」
   for (const [rel, what] of exporters) {
     assert.match(read(rel), /if \(outcome\.status === 'canceled'\) return/, `${what} 把取消当成了失败`)
@@ -10040,7 +10130,7 @@ test('受损语音弹幕按播放时刻血量分四档，通知弹窗默认锚�
   assert.match(subtitle, /return 'light'/)
   assert.match(subtitle, /if \(worst == null\) return null/)
   assert.match(subtitle, /dmg-\$\{tone\}/)
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   for (const tone of ['light', 'mid', 'heavy', 'sunk']) {
     assert.match(
       html,
@@ -10061,7 +10151,7 @@ test('通关阵容:打赢过 Boss 的编成聚合进海域图鉴,作个人带路
   const ledger = fs.readFileSync(new URL('../src/main/mg/ledger.ts', import.meta.url), 'utf8')
   const chron = fs.readFileSync(new URL('../src/main/mg/chronicle.ts', import.meta.url), 'utf8')
   const atlas = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   // 只列赢过的;签名解析失败的行不冒充数据
   assert.match(ledger, /filter\(\(agg\) => agg\.wins > 0\)/)
   // 展示按舰组合并组:签名带等级,练级会把同一套船拆成一行一级(滨波实锤);
@@ -10141,7 +10231,7 @@ test('通关阵容:打赢过 Boss 的编成聚合进海域图鉴,作个人带路
     atlas,
     /if \(\(mapChronicleGeneration\.get\(mapId\) \?\? 0\) === generation\) \{\s*\n\s*mapClearFleetsErrors\.set\(mapId, generation\)/,
   )
-  assert.match(atlas, /到 Boss 率来自这套编成在本图的全部出击/)
+  assert.match(atlas, /到 Boss 率：当前编成本图全部出击/)
   assert.match(html, /\.mod-ji \.map-clear-fleets \.cf-row/)
 })
 
@@ -10190,7 +10280,7 @@ test('联合舰队夜战追击提示与 Boss 警告同走一份判别式', () =>
   // 2026-08-26 抬头换了：原来数「还剩几艘」，但艘数并不决定交战对象——
   // 判别式按损伤算分（shared/enemy-night-target），且它是暂定式、有例外观测，
   // 所以措辞降为「预计」。艘数不再出现在文案里，这里跟着钉新抬头。
-  assert.match(combat, /敌护卫仍有战力 — 夜战预计接触不到 \$\{flagshipName\}/)
+  assert.match(combat, /敌护卫仍有战力 · 夜战估算无法攻击 \$\{flagshipName\}/)
 })
 
 test('三维端点换源：运行时只认第一方汇编包，wikiwiki-ship-max 退成维护者侧选票', () => {
@@ -10268,7 +10358,7 @@ test('列表详情预览的实例属性条：三层拆解 + 与图鉴共用渲�
   const roster = fs.readFileSync(new URL('../src/renderer/modules/qa.ts', import.meta.url), 'utf8')
   const bars = fs.readFileSync(new URL('../src/renderer/stat-bars.ts', import.meta.url), 'utf8')
   const catalog = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   // 条条渲染单一出处：ji 与 qa 都从 stat-bars 导入，不再各留一份
   assert.match(bars, /export const statRowLayered/)
   // 装备给予写成「+N」增量（现在就在身上的），→ 只留给强化/成长的未来态
@@ -10370,7 +10460,7 @@ test('任务自选奖励：识别数对不上声明数时按原文兜底，别�
   const reward = fs.readFileSync(new URL('../src/shared/quest-reward.ts', import.meta.url), 'utf8')
   const upgrade = fs.readFileSync(new URL('../src/shared/kcwiki-upgrade.ts', import.meta.url), 'utf8')
   const match = fs.readFileSync(new URL('../src/renderer/task-entity-match.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   // 完备性口径：文本自带的「N选一」声明数；识别少了、或压根没自报，都按原文补 raw 项
   assert.match(reward, /const hanCount = \(han: string \| undefined\)/)
   assert.match(reward, /declared: hanCount\(hit\[1\]\)/)
@@ -10493,7 +10583,7 @@ test('掉落抓取以主数据名表为权威，出击中的编队不再被「�
   assert.match(verdictBody, /大破进击有被击沉风险/)
   const sortieAt = verdictBody.indexOf('if (onSortie && sortie)')
   assert.ok(sortieAt >= 0 && sortieAt < verdictBody.indexOf("class=\"verdict ok\""), '出击分支要先于就绪裁决')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(html, /\.fleet-skin \.verdict\.sortie \{/)
 })
 
@@ -10523,7 +10613,7 @@ test('装备类别图标优先游戏图集，陆航归属按大分類逐件判�
   const icon = fs.readFileSync(new URL('../src/renderer/equip-icon.ts', import.meta.url), 'utf8')
   const images = fs.readFileSync(new URL('../src/renderer/kcs-image.ts', import.meta.url), 'utf8')
   const category = fs.readFileSync(new URL('../src/renderer/equip-category.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   // 图集：游戏一手图形经 provider 注入；独立小窗没接线时仍是 SVG → 文字
   assert.match(icon, /setEquipIconSpriteProvider/)
   assert.match(icon, /class="equip-icon-game"/)
@@ -10752,7 +10842,7 @@ test('出击面板战型名看 api_event_kind:夜战点不写「通常战」,昼
   assert.match(battle, /nodeEventName\(n\) : \(NODE_EVENT\[n\.eventId\] \?\? ''\)/)
   // 机制估算是昼战流程模型:夜战/航空战/空袭/雷达点明说不出数,不给误导性胜率;
   // 敌联合(kind 5)走模型自己的主力/护卫分段,不拦
-  assert.match(battle, /机制估算不出数：此点为/)
+  assert.match(battle, /暂无机制估算 · 当前点为/)
   assert.match(battle, /arrivedNode\.eventKind !== 5/)
   assert.match(battle, /NODE_BATTLE_KIND\[arrivedNode\.eventKind\] \?\? null/)
 })
@@ -10770,7 +10860,7 @@ test('多子项任务进度条分段画:条与「N/M 项」同口径,tooltip 逐
   assert.match(quests, /\$\{part\.label\} \$\{part\.now\}\/\$\{part\.cap\}/)
   // 单子项任务的整条画法不变
   assert.match(quests, /<span class="pb"><i style="width:\$\{Math\.max\(3, precise\.pct\)\}%">/)
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(html, /\.pb\.seg b\.ok i/)
 })
 
@@ -10800,7 +10890,7 @@ test('任务行的条件行顶掉正文:两半都与抽屉同源,不另占一行
   assert.match(body, /<span class="plain q-need"/)
   // 官方介绍在详情抽屉照旧全文可见
   assert.match(quests, /row\.desc \? `<p>\$\{taskProseHtml\(row\.desc, row\.code\)\}<\/p>`/)
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   // 只改字色,行高与省略照 .plain 那一份走(不许自带 margin/行高把行撑高)
   assert.match(html, /\.mod-qn \.q-nm \.plain\.q-need \{ color: [^}]*\}/)
   assert.doesNotMatch(html, /\.q-need[^{]*\{[^}]*(margin|line-height|font-size)/)
@@ -10992,7 +11082,7 @@ test('海域进度条一律「剩余」语义:画剩余、数到 0/N 击破,通�
   assert.doesNotMatch(catalog, /击破 \$\{gauge\.defeated/)
   // 「扣式」(2026-08-17 用户点名):图鉴缩略图上 EO 的个位数击破改离散格,
   // 一颗一扣、剩几颗亮几颗;>9 次与血条制退回连续条,已攻略仍是绿满条
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(catalog, /if \(!gauge\.cleared && gauge\.required <= 9\)/)
   assert.match(catalog, /i < remain \? ' class="on"' : ''/)
   assert.match(catalog, /map-thumb-gauge count pips/)
@@ -11029,7 +11119,7 @@ test('交战前敌情候选按舰列合并:本地/目录同编成不再拆成重
 
 test('建造剧透收在顶栏预览卡:带舰娘小头像,建造中与完成待领同门,不上游戏画面', () => {
   const header = fs.readFileSync(new URL('../src/renderer/header-status.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   const main = fs.readFileSync(new URL('../src/main/mg/index.ts', import.meta.url), 'utf8')
   // 剧透门:钥的开关 + 建造中/完成待领一视同仁;头像走预览卡 media 槽
   assert.match(header, /const spoiled = isBuildSpoilerEnabled\(\) && dock\.state >= 2 && dock\.createdShipId > 0/)
@@ -11052,18 +11142,18 @@ test('Boss 点判定按字母不按 bosscell 边号:多入边 Boss 不再挂幽�
 })
 
 test('当前点即 Boss 亮红光环;编队全员闪闪给金字「状态已满」', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   const fleet = fs.readFileSync(new URL('../src/renderer/modules/ru.ts', import.meta.url), 'utf8')
   // .tn.boss 声明在 .tn.cur 之后,同权重把当前点高亮盖成暗红——cur.boss 合成样式补亮
   assert.match(html, /\.mod-di \.tn\.cur\.boss \{ border-color: var\(--enemy\)/)
   // 全员 cond≥49(游戏キラ阈值)→ 金色「状态已满」;有一人不到就照旧「无疲劳」
   assert.match(fleet, /ships\.every\(\(ship\) => ship\.cond >= 49\)/)
-  assert.match(fleet, /<b style="color:var\(--gold\)">状态已满<\/b>/)
+  assert.match(fleet, /<b style="color:var\(--gold\)">补给与士气已满<\/b>/)
 })
 
 test('航迹条走过的点按遭遇类型分色;能动分歧不再冒充普通分歧点', () => {
   const battle = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   // 类型全部来自罗盘事件(eventId/eventKind),夜战点用 kind 细分,不推测
   assert.match(battle, /n\.eventKind === 2 \|\| n\.eventKind === 3 \|\| n\.eventKind === 7/)
   assert.match(html, /\.mod-di \.tn\.night\.done \{ border-color: var\(--night\)/)
@@ -11231,7 +11321,7 @@ test('推荐练级:临近改造排前,单向与双向(可逆)分列,已到级/�
   // 表格分界行:只在按等级/按经验正序时插(换别的表头排序组不连续,不硬插)
   assert.match(roster, /lvl-tier-row/)
   assert.match(roster, /state\.sortDir === 1/)
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(html, /\.mod-di \.lvl-tier \{/)
   assert.match(html, /\.mod-qa \.lvl-tier-row td \{/)
   // 纯函数层:进阶行先于初段行,收藏仍最优先(哪怕收藏的是初段船)
@@ -11256,7 +11346,8 @@ test('组合实验室挂在装备卷第三模式:只读模拟,复用共享判定
   assert.match(catalog, /\['catalog', 'today', 'lab'\]\.includes\(mode\)/)
   assert.match(lab, /from '\.\.\/\.\.\/shared\/night-cutin'/)
   assert.match(lab, /from '\.\.\/\.\.\/shared\/day-spotting'/)
-  assert.match(lab, /openingAswOf,\s*\n\s*shipAacis/)
+  assert.match(lab, /openingAswOf,\s*\n\s*shipAaciCeiling/)
+  assert.match(lab, /aaciEntriesOf,/)
   // 装备候选按可装备规则过滤,不列这艘舰装不上的
   assert.match(lab, /shipCanEquipItem\(mstRaw, ship\.shipId, id\)/)
 })
@@ -11267,7 +11358,7 @@ test('游戏画面等比包含:区域比 5:3 矮时留黑边,不裁游戏底部'
   // 内容比可视区高,底下就切了。宽度显式取「区宽」与「区高×5/3」的小者
   // (cqw/cqh 需要 game-area 开 container-type:size),已在 Chromium 实测:
   // 900×300 容器 → 500×300,400×600 容器 → 400×240,两向都只留黑边。
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(html, /#game-area \{[^}]*container-type: size/s)
   assert.match(html, /#game-wrapper \{ width: min\(100cqw, calc\(100cqh \* \(1200 \/ 720\)\)\); aspect-ratio: 1200 \/ 720/)
 })
@@ -11277,7 +11368,7 @@ test('顶栏状态条吃满中段剩余宽度,不再定宽居中被裁右侧', (
   // min(1080px,56vw) 的定宽装不下,最右被 overflow:hidden 裁掉。
   // 改成普通 flex 成员(flex:1 1 0 + min-width:0),中段剩多少用多少;
   // 原来的 .spacer 撑位与状态条抢配额,必须一并去掉。
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(html, /#header-status \{\s*flex: 1 1 0; min-width: 0;/)
   assert.doesNotMatch(html, /header \.spacer/)
   assert.doesNotMatch(html, /<span class="spacer">/)
@@ -11298,7 +11389,7 @@ test('导航条单击显示中的模块只收那一个,不再收起整个坞', (
   // 一起消失。改成「搁置」语义:只从坞里摘掉这一页,导航条元素块保留(变暗)
   // 作为唯一恢复入口;链接跳转到被搁置的模块时自动唤回;搁置名单随布局持久化。
   const mu = fs.readFileSync(new URL('../src/renderer/mu.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(mu, /shelveModule\(mod\.id\)/)
   assert.doesNotMatch(mu, /setCollapsed\(dockOfModule\(mod\.id\), true\)/)
   // 搁置状态要随布局存档、并在装配对账时清掉未知 id
@@ -11316,7 +11407,7 @@ test('窄框战斗行:徽记(初/展开箭头)永不裁切,空间不够让名字
   // 2026-08-12 用户实锤:窄框下排在名字后面的徽记被裁——.nm 整体 overflow:hidden,
   // 长名把它们顶出可视区。名字截一半仍认得出,徽记裁掉就丢信息。
   //（旗/★MVP 同日按用户要求撤掉:旗舰永远第一行、MVP 结果条已有,行内是重复信息）
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(html, /\.mod-di \.brow \.nm > \* \{ flex: 0 0 auto; \}/)
   assert.match(html, /\.mod-di \.brow \.nm > \.el \{ flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; \}/)
 })
@@ -11328,7 +11419,7 @@ test('战斗行网格不再溢出容器:血条先让宽,名字靠省略号收场
   // 2026-08-21 伤害列改成按内容收（min-content 跟着 .dmg 的 ch 宽），
   // 血条列的上限从死的 86px 改成 min(86px, 42%)——轨道形状变了，这里跟着按语义重写，
   // 挡的还是同一件事：三列下限装得进 181px、能让宽的是后两列、名字列的下限不许被调低。
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   // 伤害列最宽的情形＝五位数；等宽字体下 1ch = 6.3px（10.5px Maple Mono 实测）
   const DMG_MAX_FLOOR = 5 * 6.3
   const track = /minmax\((\d+)px, 1fr\) (min-content) minmax\((\d+)px, min\((\d+)px, (\d+)%\)\)/
@@ -11381,7 +11472,7 @@ test('结算后的 MVP 与基本经验只在结果条一处,舰名紧跟「MVP�
   // 联合舰队也同理,然后把这个放在这个地方空着的地方,后面的经验也同理,
   // 上面就可以空一部分区域出来」。横幅因此收成单行。
   const battle = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
 
   // 唯一展示位在结果条:两枚 rchip,舰名在「MVP」之后的同一枚芯片里;
   // 联合舰队的两条各自裹一层 span,好让 CSS 把「主力 X」整体禁掉折行
@@ -11435,10 +11526,13 @@ test('航迹节点单击回顾:打过的点接本地战斗快照回放', () => {
   // 上界必须卡 updatedTs——只卡下界会把同图**后来那次出击**的快照错认进来。
   // 正在实时显示的当前点与回放中正看着的那场不再挂点击。
   const battle = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(battle, /entry\.ts >= s\.startTs/)
   assert.match(battle, /entry\.ts <= s\.updatedTs \+ 300000/)
-  assert.match(battle, /snap && !\(isCur && !replay\) && replay\?\.id !== snap\.id/)
+  assert.match(
+    battle,
+    /snap && !\(isCur && !currentSnapshot\) && currentSnapshot\?\.id !== snap\.id/,
+  )
   assert.match(battle, /data-replay-id="\$\{replayable\.id\}" role="button"/)
   // 2026-08-20：换片走一个可替换的通道，默认仍是 openBattleSnapshot——
   // 镝自己（live 宿主）一字未变，仍是「切到镝 + 换 replay」；
@@ -11456,7 +11550,10 @@ test('航迹节点单击回顾:打过的点接本地战斗快照回放', () => {
   // sortie,节点只到当时位置,直接拿来画航迹回放就成了单行道,后面的点回不去
   // (2026-08-12 用户实锤)。实时同 run 用 mg.sortie;否则取同 run 编号最大的
   // 快照,且必须绑 sortieId,嵌入式面板不许拿错 run 的路径。
-  assert.match(battle, /trailHtml\(snapshot \? replayTrailSortie\(snapshot\) : s\)/)
+  assert.match(
+    battle,
+    /trailHtml\(snapshot \? replayTrailSortie\(snapshot\) : s, snapshot, trailIndex\)/,
+  )
   // 2026-08-20:单例 replayRunTrail 改成按快照 id 键控的小缓存——它有两个宿主
   // (镝面板 / 史的复盘抽屉),单例只在镝那条路上赋值,抽屉里那条单行道原样复发。
   // 原意「必须绑 sortieId」照钉,只是换成缓存条目上的那一层。
@@ -11531,7 +11628,7 @@ test('道具「可兑换列表」:固定手录+矿脉历年合流,兑换所得�
   assert.match(atlas, /\$\{friendlyEquips\.size\}:\$\{useitemMst\.size\}:\$\{friendlyShips\.size\}/)
   assert.match(atlas, /for \(const ship of friendlyShips\.values\(\)\)[\s\S]{0,220}!exchangeNameIndex\.has\(name\)[\s\S]{0,120}kind: 'mstShip', id: Number\(ship\.api_id\)/)
   assert.match(atlas, /\.replace\(\/（\/g, '\('\)\.replace\(\/）\/g, '\)'\)/)
-  assert.match(atlas, /装备\/道具\/舰娘名可点/)
+  assert.match(atlas, /装备\/道具\/舰娘名称可打开详情/)
   // 同类补漏:建造参考的備考(「まるゆ狙い」这类点名别的舰)走同一套索引联实体
   assert.match(atlas, /<span class="br-note">\$\{exchangeGetsHtml\(note\)\}/)
   // 索引随主数据规模重建:首开道具页时装备表可能没就绪,一次性缓存会让装备名
@@ -11547,7 +11644,7 @@ test('道具「可兑换列表」:固定手录+矿脉历年合流,兑换所得�
   // 有数据才有区块:固定/兑换选项/历年三种,历年按年倒序
   assert.match(atlas, /if \(!hand && !lodeEntry\) return ''/)
   assert.match(atlas, /历年兑换<span class="aux">按年倒序/)
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
   assert.match(html, /\.mod-ji \.iex-row \{/)
   // 活动史類(節分の豆/南瓜/てるてる坊主/Xmas 盒):詳細格式五花八门不硬拆,
   // 按年份+原文速览收录(2026-08-18 用户追问「南瓜/节分豆呢」后补齐——
@@ -11824,11 +11921,11 @@ test('手机推送：默认全关、目标可选（ntfy 默认 / Bark 次选）�
   assert.ok(pushCard.length > 0, '找不到推送配置卡')
   assert.doesNotMatch(pushCard, /家人/, '推送卡文案又出现了「家人」这类个人语境的措辞')
   assert.match(yu, /data-push-provider="\$\{id\}"/)
-  assert.match(yu, /手机上装 <b>ntfy<\/b>/)
-  assert.match(yu, /在 app 里 Subscribe/)
+  assert.match(yu, /<b>使用步骤<\/b>：① 安装 <b>ntfy<\/b>/)
+  assert.match(yu, /订阅同名频道/)
   // 服务器 2026-08-23 起没有预置值了，上手步骤必须把「自己填」这一步说出来，
   // 否则玩家照着走完三步却一条也收不到（框是空的，压根没有目标）
-  assert.match(yu, /下面填服务器与频道名/)
+  assert.match(yu, /填写服务器与频道名/)
   assert.match(yu, /placeholder="\$\{esc\(NTFY_SERVER_PLACEHOLDER\)\}"/, 'ntfy 服务器格又被填上默认值了')
   assert.match(yu, /data-act="push-gentopic"/)
   assert.match(yu, /data-act="push-genkey"/)
@@ -11838,15 +11935,15 @@ test('手机推送：默认全关、目标可选（ntfy 默认 / Bark 次选）�
   // ntfy 没有端到端加密这件事必须直说，而且那个开关要显式挂成不可用——
   // 静默忽略会让用户以为内容是加密的。
   // 2026-08-26 文案清扫撤了行内 <b> 强调（族 9），这句话本身照旧要在
-  assert.match(yu, /ntfy 没有端到端加密/)
-  assert.match(yu, /内容在服务器上是明文/)
-  assert.match(yu, /频道名就是口令/)
+  assert.match(yu, /'ntfy 不支持端到端加密'/)
+  assert.match(yu, /内容在服务器端为明文/)
+  assert.match(yu, /频道名即口令/)
   assert.match(
     yu,
     // 这条真正要钉的是后面那两个位置参数（value=false, disabled=true）；
     // 说明句的尾巴「不是被忽略了」已按裁定 §11 删，前半句照旧要在，
     // 所以正则只锁到句子开头，后面留活口。
-    /'ntfy 不提供端到端加密[^']*',\s*\n\s*false,\s*\n\s*true,/,
+    /'ntfy 不支持端到端加密[^']*',\s*\n\s*false,\s*\n\s*true,/,
     'ntfy 下的加密开关没被挂成不可用（disabled）',
   )
   // 「不会为此向游戏服务器多发一个请求」这句自证清白 2026-08-23 删了；剩下的那半句
@@ -11860,7 +11957,7 @@ test('手机推送：默认全关、目标可选（ntfy 默认 / Bark 次选）�
   )
   assert.match(yu, /immediate: true,/, '测试推送不该走在场门槛之外的别的口子')
   // 密钥这件事必须当面说清：备份会把它一起带走
-  assert.match(yu, /里面有密钥，备份时当账号资料保管/)
+  assert.match(yu, /config\.json<\/span> 包含密钥 · 备份时按账号资料保管/)
   // 只推标题默认开：取反时必须按默认值读，否则第一次点是「开→开」
   assert.match(
     yu,
@@ -11975,16 +12072,16 @@ test('推送在场门槛：判定在主进程、deferred 不出网、补发按�
   // 文案要说清判据（键鼠空闲）与补发行为（离开后按序补、带时间标记）。
   // 「判据是全系统键鼠空闲时间」这种施工者句式已按裁定换成第二人称的说法，
   // 语义（按你动没动键鼠判定）不变。
-  assert.match(yu, /你还在动键鼠时先不推/)
-  assert.match(yu, /按发生顺序补上/)
+  assert.match(yu, /检测到键鼠操作时暂缓推送/)
+  assert.match(yu, /按发生顺序补发/)
   // 「标题带时间标记」原来在铃这边也写了一遍，整段推送机制自白已删；
   // 同一条信息仍由钥的在场门槛说明承担，护栏跟着挪到 yu。
-  assert.match(yu, /标题带上「几分前」/)
+  assert.match(yu, /标题包含「几分前」/)
 })
 
 test('应急修理发动：绿色两档横幅，要員与女神分色分文案，与大破共存且压在它上面', () => {
   const lg = fs.readFileSync(new URL('../src/renderer/modules/lg.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
 
   // 42/43 这两个 id 已对真实 api_start2 主数据核实（2026-08-20：42 応急修理要員、
   // 43 応急修理女神）。这里钉的是「两档按 43 分岔」，不是凭记忆写的数字。
@@ -12023,9 +12120,9 @@ test('应急修理发动：绿色两档横幅，要員与女神分色分文案�
   // 风险在「继续进击」。不许写成「夜战有击沉风险」——那是错的。
   // 2026-08-26 文案清扫把「（含夜战）」的括注与「第二道保险」的拟物删了，
   // 三条口径本体一条不少：本场不沉 / 已消耗 / 要員发动后她仍是大破。
-  assert.match(lg, /本场不会再被击沉 · 女神已消耗/)
-  assert.match(lg, /本场不会再被击沉 · 已消耗/)
-  assert.match(lg, /tier === 'heavy' \? '，她仍是大破' : ''/)
+  assert.match(lg, /击沉保护已生效 · 女神已消耗/)
+  assert.match(lg, /击沉保护已生效 · 已消耗/)
+  assert.match(lg, /tier === 'heavy' \? ' · 当前仍为大破' : ''/)
   assert.doesNotMatch(lg, /夜战有击沉风险/)
   assert.doesNotMatch(lg, /夜战.{0,8}击沉风险/, '把「夜战还会沉」写进文案了，机制上是错的')
   // 破损档从我们自己算出的 hpEnd 读，不照抄规则文本（battle.ts 目前对要員一律 20%，
@@ -12062,7 +12159,7 @@ test('ケッコンカッコカリ：一手信号是 path 到达，认不出也�
   const mgIndex = fs.readFileSync(new URL('../src/main/mg/index.ts', import.meta.url), 'utf8')
   const shipLife = fs.readFileSync(new URL('../src/main/mg/ship-life.ts', import.meta.url), 'utf8')
   const store = fs.readFileSync(new URL('../src/main/mg/store.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
 
   // ① 一手信号：主进程按 path 发 cue，不靠渲染层去推「谁的 lv 从 99 跳到 100」
   assert.match(mgIndex, /const MARRIAGE_PATH = '\/kcsapi\/api_req_kaisou\/marriage'/)
@@ -12096,7 +12193,7 @@ test('ケッコンカッコカリ：一手信号是 path 到达，认不出也�
   // 「报文」这类施工者词与「所以不指名」这半句 UI 自述已按发布侧文案裁定删掉；
   // 2026-08-26 再把文学腔的前半句（「镇守府迎来一场婚礼」）删掉——庆祝由标题承担。
   // 守卫本意不变：认不出时如实说没确认是哪一艘，绝不猜一艘。
-  assert.match(notice, /'没能确认是哪一艘'/)
+  assert.match(notice, /'舰娘身份未确认'/)
   assert.match(notice, /rosterId != null \? \{ type: 'ship', id: rosterId \} : undefined/)
   // 「· 已记入她的人生记录」2026-08-26 按族 7 整句删了（落账与否玩家不必被告知）。
   // 原守卫是「认不出时不许声称落账」；现在两支都不声称，护栏跟着收紧成一律不许。
@@ -12139,7 +12236,7 @@ test('ケッコンカッコカリ：一手信号是 path 到达，认不出也�
   assert.match(reduced, /body\.lg-frame-pink::before/, '粉框的呼吸动画没进 reduce 名单')
 
   // ⑦ 人生记录：新增 kind 与 remodel 同族，且**两处显示都得有自己的分支**——
-  // 两个 copy 函数的最后一支都是兜底 else（写死「离开仓库：被击沉」），
+  // 两个 copy 函数的最后一支都是击沉兜底，
   // 漏了分支就会把婚事显示成这艘舰沉了。
   assert.match(shipLife, /kind: 'marriage'/)
   assert.ok(
@@ -12148,15 +12245,15 @@ test('ケッコンカッコカリ：一手信号是 path 到达，认不出也�
     '婚礼落账排在 syncShipStates 之后了：基线已跟到 Lv100，「当时等级」就说不出来了',
   )
   assert.match(shipLife, /detail: \{ level: prior\?\.level \?\? null \}/, '拿婚后的等级冒充「当时等级」')
-  for (const [name, rel, marker] of [
+  for (const [name, rel, marker, fallback] of [
     // 履历行 2026-08-31 从 qa 挪进 ship-life-events（在籍列表与人生记录弹窗共用一份）
-    ['履历行', '../src/renderer/ship-life-events.ts', "event.kind === 'marriage'"],
-    ['ji', '../src/renderer/modules/ji.ts', "event.kind === 'marriage'"],
+    ['履历行', '../src/renderer/ship-life-events.ts', "event.kind === 'marriage'", "event.kind === 'sunk'"],
+    ['ji', '../src/renderer/modules/ji.ts', "event.kind === 'marriage'", "'击沉',"],
   ]) {
     const src = fs.readFileSync(new URL(rel, import.meta.url), 'utf8')
     assert.ok(src.includes(marker), `${name} 没给 marriage 事件写分支——会落进兜底的「被击沉」`)
     assert.ok(
-      src.indexOf(marker) < src.indexOf('离开仓库：被击沉'),
+      src.indexOf(marker) < src.indexOf(fallback),
       `${name} 的 marriage 分支排在兜底之后了`,
     )
     assert.match(src, /ケッコンカッコカリ · 当时 Lv \$\{detail\.level \?\? '\?'\}/)
@@ -12167,7 +12264,7 @@ test('ケッコンカッコカリ：一手信号是 path 到达，认不出也�
 
 test('婚礼台词的字幕按语音槽位精确匹配，不靠时间窗，也不粘在下一句上', () => {
   const subtitle = fs.readFileSync(new URL('../src/renderer/voice-subtitle.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
 
   // ① 判据是槽位 24（ケッコンカッコカリ），不是「婚礼报文后 N 秒内该舰的字幕」。
   // 槽位天然只作用于开口的那一艘，也就没有「窗口漂到别人头上」这种失效模式。
@@ -12204,7 +12301,7 @@ test('友方被击沉：艦素界面失色到返港，游戏画面不动，编�
   )
   const settings = fs.readFileSync(new URL('../src/renderer/modules/yu.ts', import.meta.url), 'utf8')
   const config = fs.readFileSync(new URL('../src/main/config.ts', import.meta.url), 'utf8')
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const html = rendererSource
 
   // ① 判据从状态推导，且三处共用一份（行为口径的护栏在 test/sortie-mourning.test.mjs）
   assert.match(kernel, /export const sortieSunkShips = \(\): SortieSunkShip\[\] => mourningShipsOf\(mg\.sortie\)/)
@@ -12411,7 +12508,7 @@ test('发布侧不挂出处署名与标尺声明，但口径与诚实标注一�
   // 「实际值可能再多 0～3」、「未计入鬼怒改二等单舰特殊加成」——族 3 玩家常识）。
   // 「防连坐」这条纪律本身不放松：口径半句照钉，估算标注/空态/读数前提换成这批之后
   // 仍在的锚点继续钉。
-  assert.match(battle, /最终以游戏结算为准/)
+  assert.match(battle, /判定来源：游戏结算/)
   assert.match(battle, /p\.sure \? '' : '（估算）'/)
   assert.match(battle, /本地资料待更新/)
   assert.match(fleet, /到达扬陆点时大破的舰娘及其装备一律不计/)
@@ -12463,10 +12560,10 @@ test('第三批：严谨说明只在折叠/悬停里，停更与新鲜度只在�
     // 剩下的都是真读数前提，宿主仍必须是折叠或悬停：本条的语义没放松，
     // 反而多钉了三处这次新收进悬停的（下面后三条），防它们哪天又摊回常驻。
     ['ji', catalog, [
-      /title="以你装备后的实际面板为准"/,
-      /lodeCreditMark\([\s\S]{0,80}?'百分比是匿名实测频率，非游戏硬规则；确定带路以下方规则与实际罗盘为准'/,
+      /title="以本地装备后面板为准"/,
+      /lodeCreditMark\([\s\S]{0,80}?'匿名实测频率 · 非游戏硬规则；确定带路条件见下方规则及实际罗盘'/,
       // 2026-08-22 反推扩到七项，这句口径跟着重写（宿主仍是悬停，不许挪回常驻）
-      /title="回避\/对潜\/索敌按成长端点与等级插值算；主炮适重与命中不进面板，反推不出">口径<\/span>/,
+      /title="回避\/对潜\/索敌按成长端点与等级插值；主炮适重与命中不进面板，无法推定">口径<\/span>/,
       /title="普通消耗用于可行性判断，确保成功时以上限为准">口径<\/span>/,
       // 这次新收进悬停的三处
       /title="差值就是这一件（含改修★）的加成"/,
@@ -12480,19 +12577,19 @@ test('第三批：严谨说明只在折叠/悬停里，停更与新鲜度只在�
     ]],
     ['du', event, [
       /title="「某难度追加」是在共通之上的追加份">口径<\/span>/,
-      /title="以游戏内提示为准">口径<\/span>/,
+      /title="判定来源：游戏内提示">口径<\/span>/,
       /title="含远征、任务与日常消耗">口径<\/span>/,
-      /title="最终完成状态仍以游戏内提示音和动画为准">口径<\/span>/,
+      /title="完成判定来源：游戏内提示音与动画">口径<\/span>/,
     ]],
     ['bi', expedition, [
       /title="示例编成不代表成功条件或最优方案">口径<\/span>/,
-      /title="属性合计包含舰载机数值，可能与判定值略有差异">口径<\/span>/,
+      /title="属性合计包含舰载机数值 · 与判定值口径不同">口径<\/span>/,
     ]],
     // qn 这三条 2026-08-26 第三批清扫：前两条缩短后仍住在悬停里（照钉，措辞跟着改），
     // 第三条「这一格只显示游戏自报的粗档」是能力边界表白，整句根除，改钉下方 doesNotMatch
     ['qn', quests, [
       /title="只比较当前实际持有量">口径<\/span>/,
-      /title="满足只表示备齐，交付以游戏为准">口径<\/span>/,
+      /title="持有条件仅表示备齐">口径<\/span>/,
     ]],
     // shi 这两句 2026-08-26 从「收进悬停」升级成「整句根除」（族 2 自证清白 / 族 6），
     // 所以不再有可钉的宿主——改成下面更紧的 doesNotMatch：任何位置都不许再出现
@@ -12560,10 +12657,10 @@ test('第三批：严谨说明只在折叠/悬停里，停更与新鲜度只在�
 
   // ---- ① 单短标注与当下状态照旧常驻（这一改最容易被顺手连坐）----
   // 2026-08-26 文案清扫撤了行内 <b> 强调（族 9），空态本身照旧常驻
-  assert.match(catalog, /加成表暂未收录这件装备/) // 空态
-  assert.match(catalog, /加成表里没有指名这艘舰的条目。/) // 空态
+  assert.match(catalog, /加成表尚未收录当前装备/) // 空态
+  assert.match(catalog, /加成表暂无本舰条目/) // 空态
   assert.match(battle, /记录已过期/) // 状态词
   assert.match(event, /<span class="mst lk">未同步<\/span>/) // 状态词
-  assert.match(quests, /部分条件无法核对，计数可能偏多/) // 推定标注（本来就在悬停里）
-  assert.match(resource, /活动开始前没有资源记录/) // 空态诚实语（2026-08-26 缩成这一句，空态本身照旧常驻）
+  assert.match(quests, /部分条件无法核对 · 计数为估算/) // 估算标注（本来就在悬停里）
+  assert.match(resource, /活动开始前暂无资源记录/) // 空态诚实语
 })

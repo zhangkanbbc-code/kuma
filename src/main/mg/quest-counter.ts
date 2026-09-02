@@ -43,6 +43,7 @@ import {
 import { localizeShipNationWords } from '../../shared/ship-nation-name'
 import { localizeShipTypeWords } from '../../shared/ship-type-name'
 import { USEITEM_MATERIAL_INDEX } from '../../shared/useitem-stock'
+import { isEnemyReallySunk } from '../../shared/enemy-sunk'
 
 import type { QuestPeriodKind } from '../../shared/quest-period'
 import type { ShipProperNameIndex } from '../../shared/ship-proper-name'
@@ -1145,7 +1146,9 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
             if (isBoss) bump(t, i)
           } else if (task.kind === 'sinkEnemy') {
             const sunk = (sortie.battle?.eShips ?? []).filter(
-              (ship) => ship.hpEnd <= 0 && task.stypes.includes(master.stype.get(ship.mstId) ?? -1),
+              (ship) =>
+                isEnemyReallySunk(ship) &&
+                task.stypes.includes(master.stype.get(ship.mstId) ?? -1),
             ).length
             if (sunk > 0) bump(t, i, sunk)
           } else if (task.kind === 'mapFirstClear') {

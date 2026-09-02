@@ -101,7 +101,7 @@ test('折叠态只答三个问题：改什么、谁当助手、多少消耗—�
   assert.doesNotMatch(folded, /12\.7cm連装砲<\/a>/, '素材装备被塞回折叠态了')
   assert.doesNotMatch(folded, /素材/)
   // 状态标签还在，四态文案没动
-  assert.match(folded, /<span class="today-status ok">现在可做<\/span>/)
+  assert.match(folded, /<span class="today-status ok">今日可改修<\/span>/)
   // 字号分档靠类名，三档各有各的钩子
   for (const cls of ['ti-stage', 'ti-helper', 'ti-cost']) {
     assert.ok(folded.includes(`class="${cls}"`), `缺 .${cls}`)
@@ -120,7 +120,7 @@ test('展开层回答「这几件同款现在都在哪」：分布、装备/空�
   const more = expandedOf(一行().html)
   assert.match(more, /持有 5 · ★0 ×3 · ★4 ×1 · ★max ×1/, '各星级持有分布不对')
   assert.match(more, /装备中 3 · 空闲 2/, '装备/未装备数不对')
-  assert.match(more, /不在手边 远征中 1 · 出击中 1 · <span[^>]*>入渠中 1</, '「不在手边」三项没数对')
+  assert.match(more, /当前不可用 远征中 1 · 出击中 1 · <span[^>]*>入渠中 1</, '「当前不可用」三项没数对')
 })
 
 test('三种「不在手边」各数各的，不许把远征的算进出击', () => {
@@ -138,7 +138,7 @@ test('三种「不在手边」各数各的，不许把远征的算进出击', ()
       sortie: null,
     },
   })
-  assert.match(expandedOf(都回来了.html), /不在手边 远征中 0 · 出击中 0 · <span[^>]*>入渠中 0</)
+  assert.match(expandedOf(都回来了.html), /当前不可用 远征中 0 · 出击中 0 · <span[^>]*>入渠中 0</)
   // 演习不算出击：sortie.practice 的队伍上的舰照旧在手边
   const 演习中 = 一行({
     mg: { ...账本().mg, sortie: { active: true, practice: true, deckId: 3 }, ndocks: [] },
@@ -151,11 +151,11 @@ test('入渠那一格单挂一枚记号，说清现在按哪边算', () => {
   const more = expandedOf(一行().html)
   const untested = /<span class="ti-untested" title="([^"]*)">/.exec(more)
   assert.ok(untested, '入渠中那一格没有可悬停的说明')
-  // 2026-08-26 文案清扫按拟稿缩成「入渠中的舰按不在手边计」：
+  // 09-02 文案审计改成「入渠舰计入当前不可用」：
   // 「入渠中的舰不能换装」是游戏规则复述（族 3），「还没实测」是防守性自述（族 2），
   // 两句都删。要守的那件事没变，而且它比措辞更硬——这一格必须单独挂 ti-untested
   // 这枚记号（与远征/出击那两格不同待遇），且当场说清现在按哪边算。
-  assert.match(untested[1], /按不在手边计/, '没交代现在按哪边算')
+  assert.match(untested[1], /计入当前不可用/, '没交代现在按哪边算')
   assert.match(more, /class="ti-untested"/, '入渠那一格没被单独标出来')
 })
 

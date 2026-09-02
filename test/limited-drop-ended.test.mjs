@@ -165,7 +165,7 @@ test('ended_undated 是断言、end_pending 是缺席，只有前者敢说「已
 
 test('措辞：已终了的窗口不许再说「暂无截止日期」', () => {
   const ended = win({ status: 'ended_undated', label: '年の瀬' })
-  assert.equal(limitedWindowText(ended), '【年の瀬】2024/12/26 起 · 已终了')
+  assert.equal(limitedWindowText(ended), '【年の瀬】2024/12/26 起 · 已结束')
   assert.ok(!limitedWindowText(ended).includes('暂无截止日期'), '已终了却说成「还没定截止日」')
   // 没有截止日的**在掉**窗口，措辞一个字都不许变（老口径）
   assert.equal(limitedWindowText(win({ label: '年の瀬' })), '【年の瀬】2024/12/26–暂无截止日期')
@@ -361,8 +361,8 @@ test('捞船单子：已终了的不进可捞计数，另起一组换语境', ()
     '已终了的被并进了可捞计数——她们实际无路可捞',
   )
   // 换语境不是删条目：得有独立的一组把她们摆出来
-  assert.ok(plan.includes('限定期已终了 · 这些掉点现在捞不到'), '已终了那一组的标题没了')
-  assert.ok(plan.includes('（限定·已终了）'), '掉点后缀「（限定·已终了）」没了')
+  assert.ok(plan.includes('限定期已结束 · 对应掉落当前不可获取'), '已结束那一组的标题没了')
+  assert.ok(plan.includes('（限定·已结束）'), '掉点后缀「（限定·已结束）」没了')
   assert.ok(plan.includes('（限定中）'), '还在掉的限定没标「（限定中）」')
   // 悬停要给批次名与起始日，出处落在窗口本身
   assert.ok(
@@ -374,7 +374,7 @@ test('捞船单子：已终了的不进可捞计数，另起一组换语境', ()
 test('图鉴掉点：已终了的另起灰显行，不混进「确认掉落海域」的计数', () => {
   const block = ji.slice(ji.indexOf('const confirmedDropHtml'), ji.indexOf('const shipDropHtml'))
   assert.ok(block.includes('endedDropSitesOf'), '图鉴那一路没取已终了的掉点')
-  assert.ok(block.includes('（限定·已终了）'), '图鉴的掉点后缀没了')
+  assert.ok(block.includes('（限定·已结束）'), '图鉴的掉点后缀没了')
   assert.ok(block.includes('cd-row ended'), '已终了的行没挂灰显的类')
   // 「N 处」说的是还能去的那些，已终了的不许并进这个数
   assert.ok(block.includes('${ordered.length} 处'), '确认掉落海域的计数取数变了')

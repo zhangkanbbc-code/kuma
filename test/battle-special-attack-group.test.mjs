@@ -18,7 +18,9 @@ import test from 'node:test'
 
 import { battleOf, renderLog, shipOf, stageOf } from './fixtures/render-di-battle.mjs'
 
-const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+const html =
+  fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8') +
+  fs.readFileSync(new URL('../src/renderer/assets/battle-replay.css', import.meta.url), 'utf8')
 
 // 账本里那一场：62-5，大和改二重两舰齐射，620 打沉駆逐ロ級、1089 落在泊地水鬼身上。
 const OURS = ['大和改二重', '武蔵改二', '俾斯麦drei']

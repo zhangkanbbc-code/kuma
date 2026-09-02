@@ -76,6 +76,7 @@ const friendlyShip = (
   // 从此刻往后的预计战斗；已经发生的战斗绝不能按 battleCount 重扣一次。
   // 全图规划从母港满补给出发时传路线深度；临战预测必须传 0。
   const futureSortieCost = Math.max(0, futureBattleDepth) * 20
+  const equipment = friendlyEquipment(ship)
   return {
     role,
     mstId: ship.shipId,
@@ -98,7 +99,10 @@ const friendlyShip = (
     condition: ship.cond,
     fuelRate: Math.max(0, pct(ship.fuel, master?.fuelMax ?? 0) - futureSortieCost),
     ammoRate: Math.max(0, pct(ship.bull, master?.bullMax ?? 0) - futureSortieCost),
-    equipment: friendlyEquipment(ship),
+    // 素索敵 = 面板索敵逐件减回装備索敵（同 shared/fleet-los33 的「舰娘裸装索敌」）。
+    // 弾着観測射撃的 `艦隊索敵補正` 要它；主数据不含成长后的索敵，只能这么反推。
+    baseLos: Math.max(0, ship.sakuteki - equipment.reduce((sum, item) => sum + item.los, 0)),
+    equipment,
   }
 }
 
@@ -799,7 +803,7 @@ export const eventBonusFleetSummary = (
         multiplier: bonus.multiplier,
         certain: bonus.certain,
         reasons: bonus.applied.map(
-          (entry) => `${entry.scope}·${entry.key} ×${entry.value}${entry.certain ? '' : '（暂估）'}`,
+          (entry) => `${entry.scope}·${entry.key} ×${entry.value}${entry.certain ? '' : '（推定）'}`,
         ),
       })
     }

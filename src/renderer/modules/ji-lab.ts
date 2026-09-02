@@ -39,7 +39,6 @@ import { nightBasePower } from '../../shared/night-battle'
 import { spottingMultiplier, type SpottingShip } from '../../shared/day-spotting'
 import {
   openingAswOf,
-  shipAacis,
   shipAaciCeiling,
   ROCKET_LAUNCHER_K2_MST_ID,
   type SpecialAbilityEquip,
@@ -50,6 +49,12 @@ import {
   type RocketBarrageEquip,
   type RocketBarrageShip,
 } from '../../shared/aa-rocket-barrage'
+import {
+  aaciEntriesOf,
+  nightEntriesOf,
+  PROC_RATE_UNKNOWN_NOTE,
+  type ProcRateEquip,
+} from '../../shared/special-proc-rate'
 
 export const labHost = document.createElement('div')
 labHost.className = 'ji-lab'
@@ -200,7 +205,7 @@ const missingEquipNoteHtml = (): string => {
   if (!missing.length) return ''
   return `<div class="lab-note">有 ${missing.length} 件装备查不到（${esc(
     missing.map(({ mstId }) => `ID ${mstId}`).join('、'),
-  )}），这几格按空算</div>`
+  )}）· 对应槽位按空位计算</div>`
 }
 
 const nightHtml = (stype: number, stats: ReturnType<typeof adjustedStats>) => {
@@ -213,6 +218,23 @@ const nightHtml = (stype: number, stats: ReturnType<typeof adjustedStats>) => {
   }))
   const ship = shipOf(state.rosterId)!
   const kinds = nightCutinsOf(stype, equips)
+  // 発動率与编队页取同一份结论（shared/special-proc-rate），不在这里另算一遍。
+  // 实验室没有编成，所以拿不到「同队有没有探照灯」——那一项按无算，是**少算**。
+  const rates = new Map(
+    nightEntriesOf(
+      {
+        ...specialShipView(stats.asw),
+        level: ship.lv,
+        luck: ship.lucky,
+        hp: ship.nowhp,
+        hpMax: ship.maxhp,
+        flagship: state.flagship,
+        baseAntiAir: 0,
+        equipment: entries.map(procRateEquipOf),
+      },
+      { searchlight: false },
+    ).map((entry) => [entry.id, entry] as const),
+  )
   const base = nightBasePower({
     // 联合舰队第一舰队不参加夜战、警戒阵主力减半——两条都要「这艘在哪支舰队第几阵形」
     // 才判得了，实验室是单舰只读模拟，没有编成也没有阵形。按第二舰队（escort）算
@@ -229,19 +251,28 @@ const nightHtml = (stype: number, stats: ReturnType<typeof adjustedStats>) => {
     // 魚雷 1.2√★）。原来写死 level:0，各格填了 ★ 也不进基本攻击力。
     equipment: entries.map(({ master, level }) => ({ type2: master.type2, level })),
   })
+  const rateHtml = (kind: (typeof kinds)[number]) => {
+    // 発動率只挂在**真会进判定**的种别上：被更高倍率盖住的那几条根本不掷骰
+    const entry = kind.rolled ? rates.get(`night-${kind.id}`) : undefined
+    if (!entry) return ''
+    return entry.rate === null
+      ? ` · <i title="${esc(PROC_RATE_UNKNOWN_NOTE)}">?</i>`
+      : ` · ${entry.rate.toFixed(0)}%`
+  }
   const rows = kinds.length
     ? kinds
         .map(
           (kind) => `<div class="lab-row${kind.rolled ? '' : ' off'}" title="${esc(kind.basis)}">
-        <b>${esc(kind.label)}</b><span class="mono">${kind.multiplier} 倍 × ${esc(kind.attacks)} 回</span>
+        <b>${esc(kind.label)}</b><span class="mono">${kind.multiplier} 倍 × ${esc(kind.attacks)} 回${rateHtml(kind)}</span>
         <span class="tag">${kind.rolled ? '参与判定' : '被更高倍率覆盖'}</span></div>`,
         )
         .join('')
-    : '<div class="lab-none">当前组合没有夜战特殊攻击（通常攻击 1.0 倍 × 1 回）</div>'
+    : '<div class="lab-none">暂无夜战特殊攻击 · 通常攻击 1.0 倍 × 1 回</div>'
   return `<div class="lab-card"><div class="h"><b>夜战特殊攻击</b>
       <span class="aux" title="火力 + 雷装 + 改修强化值（主砲/副砲/三式弾/徹甲弾/高射装置/探照灯 √★，魚雷 1.2√★）">夜战基本攻击力 ${Math.floor(base)}</span></div>
     ${rows}
-    <div class="lab-note">种别判定不看 ★；★ 只进上面的基本攻击力</div>
+    <div class="lab-note">种别判定不看 ★，改修只计入基本攻击力</div>
+    <div class="lab-note">发动率按运 ${ship.lucky} · Lv ${ship.lv} · ${state.flagship ? '旗舰 +15' : '随伴 +0'} 算</div>
   </div>`
 }
 
@@ -269,7 +300,7 @@ const spottingHtml = (stats: ReturnType<typeof adjustedStats>) => {
   }
   const block = (label: string, airState: number) => {
     const outcome = spotting(airState)
-    if (!outcome.rolls.length) return `<div class="lab-row off"><b>${label}</b><span>不满足前提（需主砲 + 有搭载数的水侦/水爆，且非大破）</span></div>`
+    if (!outcome.rolls.length) return `<div class="lab-row off"><b>${label}</b><span>前提不足 · 需主炮、有搭载数的水侦/水爆且非大破</span></div>`
     return `<div class="lab-row"><b>${label}</b><span class="mono">期望 ${outcome.expected.toFixed(2)} 倍</span></div>${outcome.rolls
       .map(
         (roll) => `<div class="lab-sub"><span>${esc(roll.type.label)}</span>
@@ -309,6 +340,29 @@ const specialEquipView = ({ mstId, master }: EquipEntry): SpecialAbilityEquip =>
   asw: master.tais,
 })
 
+/** 発動率层吃的装备视图：上面那套再加名字、命中、索敌、装备标志、★与搭载数。 */
+const procRateEquipOf = (entry: EquipEntry): ProcRateEquip => {
+  const ship = shipOf(state.rosterId)!
+  const shipMaster = masterShipOf(ship.shipId)
+  return {
+    ...specialEquipView(entry),
+    name: entry.master.name,
+    los: entry.master.saku,
+    houm: entry.master.houm,
+    saku: entry.master.saku,
+    largeSearchlight: entry.master.type2 === 42,
+    surfaceRadar:
+      (entry.master.type2 === 12 || entry.master.type2 === 13) && entry.master.saku >= 5,
+    level: entry.level,
+    // 与昼观测那张卡同一口径：常规槽吃这一格的实际上限（格納庫増設扩过就读实例
+    // 一手值），补强增设格恒 0
+    planeCount:
+      entry.index < (shipMaster?.slotNum ?? 0)
+        ? hangarSlotCapacity(ship.id, entry.index, shipMaster?.maxEq[entry.index] ?? 0)
+        : 0,
+  }
+}
+
 const specialEquips = (): SpecialAbilityEquip[] => virtualEquipMasters().map(specialEquipView)
 
 /** 喷进弹幕的入参 = 对空CI 那套装备视图再加改修星（RocketBarrageEquip 本来就带 level）。 */
@@ -317,23 +371,27 @@ const barrageEquips = (): RocketBarrageEquip[] =>
 
 const aaciHtml = (stats: ReturnType<typeof adjustedStats>) => {
   const shipView = specialShipView(stats.asw)
-  const equips = specialEquips()
-  const entries = shipAacis(shipView, equips)
+  const entries = aaciEntriesOf({
+    ...shipView,
+    equipment: virtualEquipMasters().map(procRateEquipOf),
+  })
   const ceiling = shipAaciCeiling(shipView)
+  const best = entries.length ? Math.max(...entries.map((entry) => entry.aaci.fixed)) : 0
   const rows = entries.length
     ? entries
         .map(
-          (entry) => `<div class="lab-row" title="${esc(entry.condition)}">
-        <b>对空CI 类型 ${entry.id}</b><span class="mono">固定击坠 +${entry.fixed} · 倍率 ${entry.modifier}</span>
-        <span class="tag">${esc(entry.scope)}</span></div>`,
+          (entry) => `<div class="lab-row" title="${esc(entry.detail.join('\n'))}">
+        <b>对空CI 类型 ${entry.aaci.id}</b><span class="mono">固定击坠 +${entry.aaci.fixed} · 倍率 ${entry.aaci.modifier}</span>
+        <span class="mono">发动率 ${entry.rate === null ? '?' : `${entry.rate.toFixed(0)}%`}</span>
+        <span class="tag">${esc(entry.aaci.scope)}</span></div>`,
         )
         .join('')
     : '<div class="lab-none">当前组合不发动对空 CI</div>'
   const notes = [
-    entries.length && ceiling > Math.max(...entries.map((entry) => entry.fixed))
-      ? `这艘舰按舰型上限还有固定击坠 ${ceiling} 的组合，当前配装没吃满`
+    entries.length && ceiling > best
+      ? `舰型固定击坠上限 ${ceiling} · 当前配装 ${best}`
       : '',
-    '对空 CI 的成立条件不看 ★，填了改修也不多出一条',
+    '对空 CI 的成立条件不看 ★，改修不会影响实际概率',
   ].filter(Boolean)
   return `<div class="lab-card"><div class="h"><b>对空 CI</b></div>${rows}
     <div class="lab-note">${notes.join('<br>')}</div></div>`
@@ -388,7 +446,7 @@ const barrageHtml = () => {
   const capped = outcome.rate > 100
   const notes = [
     capped ? `公式值 ${outcome.rate.toFixed(1)}%，按 100% 封顶显示` : '',
-    '加重对空按各格填的 ★ 算：吃改修的是机铳 / 高角炮 / 高射装置，电探那一档没有改修项，填了也不动',
+    '加重对空计入机铳、高角炮及高射装置的 ★ · 电探无改修项',
   ].filter(Boolean)
   return `${head}
     <div class="lab-row"><b>发动率</b><span class="mono">${capped ? '100.0' : outcome.rate.toFixed(1)}%</span></div>
@@ -544,13 +602,13 @@ const shipEntries = (): SuggestEntry[] => {
 
 const SHIP_FIELD: SuggestField = {
   entries: shipEntries,
-  previewNote: `等级最高的 ${SUGGEST_PREVIEW} 艘，输入舰名接着找`,
-  emptyText: '仓库里没有匹配的舰娘',
+  previewNote: `等级最高的 ${SUGGEST_PREVIEW} 艘，输入舰名以查找其他`,
+  emptyText: '暂无匹配的持有舰娘',
 }
 const EQUIP_FIELD: SuggestField = {
   entries: equipEntries,
-  previewNote: `这艘舰能装的前 ${SUGGEST_PREVIEW} 件，输入名字接着找`,
-  emptyText: '没有匹配的装备（只列这艘舰装得上的）',
+  previewNote: `这艘舰能装的前 ${SUGGEST_PREVIEW} 件，输入装备名以查找其他`,
+  emptyText: '暂无匹配的可装备项',
 }
 /** 这个输入框归哪一份候选管；两个都不是就不是联想框（★ 选择器等） */
 const suggestFieldOf = (target: EventTarget | null): SuggestField | null => {
@@ -564,7 +622,7 @@ const labHtml = (): string => {
   if (!ship) {
     return `<div class="lab-head">
         <b>组合实验室</b>
-        <span class="aux">选一艘仓库舰娘，摆装备看她能发动哪些 CI</span>
+        <span class="aux">从持有舰娘选取，给她装备查看 CI 发动及其概率</span>
       </div>
       <div class="lab-pick"><span class="k">舰娘</span>
         <input id="ji-lab-ship" placeholder="输入舰名检索仓库…" autocomplete="off"></div>`
@@ -574,12 +632,12 @@ const labHtml = (): string => {
   alignSlots()
   const master = masterShipOf(ship.shipId)
   const stats = adjustedStats()
-  return `<div class="lab-head" title="虚拟装备的改修星按各格填的算，熟练度一律按未熟练">
+  return `<div class="lab-head" title="改修星采用各槽输入值 · 熟练度统一按未熟练计算">
       <b>组合实验室</b>
     </div>
     <div class="lab-pick"><span class="k">舰娘</span>
       <input id="ji-lab-ship" autocomplete="off" value="${esc(`${entityNamePlain('ship', ship.shipId, masterShipName(ship.shipId))} Lv${ship.lv} #${ship.id}`)}">
-      <span class="x" data-lab-ship-clear title="清空舰娘与虚拟槽，重新选一艘">✕</span>
+      <span class="x" data-lab-ship-clear title="清空舰娘与虚拟槽">✕</span>
       <span class="lab-ship-meta">${elinkHtml('ship', ship.id, entityNameHtml('ship', ship.shipId, masterShipName(ship.shipId), { compact: true }))}
         <span class="mono">Lv${ship.lv} · 火${stats.firepower} 雷${stats.torpedo} 空${stats.antiAir} 潜${stats.asw} 索${stats.los} 运${ship.lucky}</span>
         <button data-lab-reset title="装回这艘舰当前的真实配装">还原实装</button></span>

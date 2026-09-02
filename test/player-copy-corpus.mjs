@@ -158,6 +158,100 @@ const collectFromTs = (file, layer) => {
   return found
 }
 
+/**
+ * 结构性闸门用的整句语料。与上面的历史判例语料不同，这一路把模板插值还原为
+ * `〔插值〕` 后再判断，并把调用、属性与函数宿主一并带出，供确认框/悬停/空态豁免。
+ */
+const collectStructuralFromTs = (file, layer) => {
+  const text = fs.readFileSync(file, 'utf8')
+  const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+  const found = []
+  const lineOf = (pos) => {
+    let line = 1
+    for (let i = 0; i < pos && i < text.length; i++) if (text.charCodeAt(i) === 10) line++
+    return line
+  }
+  const inLedgerField = (node) => {
+    if (layer === 'renderer') return false
+    let cur = node.parent
+    for (let depth = 0; cur && depth < 10; depth++, cur = cur.parent) {
+      if (ts.isPropertyAssignment(cur) && LEDGER_KEYS.has(cur.name.getText(sf))) return true
+    }
+    return false
+  }
+  const isDebugGated = (node) => {
+    const body = node.body
+    if (!body || !ts.isBlock(body)) return false
+    const first = body.statements[0]
+    if (!first || !ts.isIfStatement(first)) return false
+    const cond = first.expression
+    return (
+      ts.isPrefixUnaryExpression(cond) &&
+      cond.operator === ts.SyntaxKind.ExclamationToken &&
+      /DEBUG_UI/.test(cond.operand.getText(sf))
+    )
+  }
+  const contextOf = (node) => {
+    const calls = []
+    const properties = []
+    const functions = []
+    let cur = node.parent
+    for (let depth = 0; cur && depth < 14; depth++, cur = cur.parent) {
+      if (ts.isCallExpression(cur)) calls.push(cur.expression.getText(sf))
+      if (ts.isPropertyAssignment(cur)) properties.push(cur.name.getText(sf).replace(/^['"]|['"]$/g, ''))
+      if (ts.isFunctionDeclaration(cur) || ts.isMethodDeclaration(cur)) {
+        if (cur.name) functions.push(cur.name.getText(sf))
+      } else if (
+        (ts.isArrowFunction(cur) || ts.isFunctionExpression(cur)) &&
+        ts.isVariableDeclaration(cur.parent) &&
+        cur.parent.name
+      ) {
+        functions.push(cur.parent.name.getText(sf))
+      }
+    }
+    return { calls, properties, functions }
+  }
+  const add = (node, raw) => {
+    const value = stripSqlComments(raw)
+    if (!CJK.test(value) || REGEX_SOURCE.test(value) || inLedgerField(node)) return
+    found.push({
+      file: rel(file),
+      line: lineOf(node.getStart(sf)),
+      text: value,
+      layer,
+      ...contextOf(node),
+    })
+  }
+  const visit = (node) => {
+    if (ts.isCallExpression(node) && DEV_CALL.test(node.expression.getText(sf))) return
+    if (
+      (ts.isFunctionDeclaration(node) ||
+        ts.isArrowFunction(node) ||
+        ts.isFunctionExpression(node) ||
+        ts.isMethodDeclaration(node)) &&
+      isDebugGated(node)
+    ) {
+      return
+    }
+    if (ts.isTemplateExpression(node)) {
+      add(
+        node,
+        node.head.text +
+          node.templateSpans.map((span) => `〔插值〕${span.literal.text}`).join(''),
+      )
+      for (const span of node.templateSpans) visit(span.expression)
+      return
+    }
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+      add(node, node.text ?? '')
+      return
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return found
+}
+
 /** html 按行取（行号天然精确）；HTML 注释与 CSS 块注释按空格抹掉，行号不动。 */
 const collectFromHtml = (file) => {
   const text = fs
@@ -195,6 +289,7 @@ const collectFromLodes = () => {
 
 /** 一趟全量解析约 1.4 秒，同一次 `node --test` 里会被多条断言反复要——缓一份。 */
 let cached = null
+let structuralCached = null
 
 export const collectPlayerCopy = () => {
   if (cached) return cached
@@ -217,4 +312,29 @@ export const collectPlayerCopy = () => {
 
   cached = { tierA, tierB }
   return cached
+}
+
+export const collectStructuralPlayerCopy = () => {
+  if (structuralCached) return structuralCached
+  const tierA = []
+  for (const file of walk(path.join(ROOT, 'src/renderer'), ['.ts'])) {
+    tierA.push(...collectStructuralFromTs(file, 'renderer'))
+  }
+  for (const row of walk(path.join(ROOT, 'src/renderer'), ['.html']).flatMap(collectFromHtml)) {
+    tierA.push({ ...row, calls: [], properties: [], functions: [] })
+  }
+  for (const row of collectFromLodes()) {
+    tierA.push({ ...row, calls: [], properties: ['note'], functions: [] })
+  }
+
+  const tierB = []
+  for (const file of walk(path.join(ROOT, 'src/main'), ['.ts'])) {
+    tierB.push(...collectStructuralFromTs(file, 'main'))
+  }
+  for (const file of walk(path.join(ROOT, 'src/shared'), ['.ts'])) {
+    tierB.push(...collectStructuralFromTs(file, 'shared'))
+  }
+
+  structuralCached = { tierA, tierB }
+  return structuralCached
 }

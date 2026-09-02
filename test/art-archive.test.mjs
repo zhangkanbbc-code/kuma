@@ -488,7 +488,7 @@ test('空状态是陈述不是催促，「已收藏」那个词也退出档案�
     assert.equal(ji.includes(gone), false, `催促式空状态回潮了：${gone}`)
   }
   // 中性版本要在（语音侧）
-  assert.match(ji, /title="档案里没有这一句"/)
+  assert.match(ji, /title="档案暂无该台词"/)
   // 「已收藏」只许留给**用户自己的收藏**（★ 那个功能），不许再出现在档案语境里
   for (const line of ji.split('\n')) {
     if (!line.includes('已收藏')) continue
@@ -509,7 +509,7 @@ test('那句与回退现实相悖的说明已经删掉——它写在可能刚�
     assert.equal(ji.includes(gone), false, `失实说明回潮了：${gone}`)
   }
   // 画廊尾巴那句说明只说得实的事：那几张来自本机档案、只读本机文件
-  assert.match(ji, /来自立绘档案，官方现在放的不是它们/)
+  assert.match(ji, /来自立绘档案 · 非当前官方版本/)
 })
 
 test('深海侧的遭遇事实行：拔收藏格时没跟着走，措辞也不越界', () => {

@@ -57,14 +57,14 @@ test('载入链接里的 predeck 参数也能直接粘贴', () => {
 })
 
 test('读不出来时明说读不出来，不返回空编成冒充成功', () => {
-  assert.match(parseDeckBuilder('').error, /没有内容/)
+  assert.match(parseDeckBuilder('').error, /暂无可读取内容/)
   assert.match(parseDeckBuilder('随便一段文字').error, /不是合法的 JSON/)
-  assert.match(parseDeckBuilder('[1,2,3]').error, /不是一个 JSON 对象|没读到任何舰队/)
-  assert.match(parseDeckBuilder('{"version":4,"hqlv":1}').error, /没读到任何舰队/)
+  assert.match(parseDeckBuilder('[1,2,3]').error, /不是一个 JSON 对象|未读取到舰队/)
+  assert.match(parseDeckBuilder('{"version":4,"hqlv":1}').error, /未读取到舰队/)
   // 读得出来但可疑的，照实挂出来，不静默
   const other = parseDeckBuilder('{"version":3,"hqlv":1,"f1":{"s1":{"id":"1","lv":1,"items":{}}}}')
   assert.equal(other.error, null)
-  assert.ok(other.warnings.some((w) => /version 3/.test(w)))
+  assert.ok(other.warnings.some((w) => /数据版本为 3/.test(w)))
   const noHq = parseDeckBuilder('{"version":4,"f1":{"s1":{"id":"1","lv":1,"items":{}}}}')
   assert.ok(noHq.warnings.some((w) => /司令部等级/.test(w)))
 })
