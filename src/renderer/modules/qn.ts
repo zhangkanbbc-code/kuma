@@ -15,8 +15,7 @@ import {
   lodeCreditMark,
   mg,
   onMgChange,
-  deferWhileComposing,
-  deferWhilePressed,
+  deferPassive,
   forgetCommittedHtml,
   onFilterInput,
   onQpChange,
@@ -218,7 +217,7 @@ const scheduleFleetCheck = () => {
   if (checkTimer) clearTimeout(checkTimer)
   checkTimer = setTimeout(() => {
     void refreshFleetCheck().then(() => {
-      if (pane?.classList.contains('active')) render()
+      if (pane?.classList.contains('active')) deferPassive(pane, 'qn', render)
     })
   }, 350)
 }
@@ -2857,7 +2856,7 @@ registerModule({
     // 与 qp 取回没有先后关系，挪到同步阶段注册即可。
     onQpChange(() => {
       quickCountEpoch += 1
-      if (pane.classList.contains('active')) render()
+      if (pane.classList.contains('active')) deferPassive(pane, 'qn', render)
     })
     // 任务行只负责打开侧栏；详情内按钮与实体链接各自处理。
     pane.addEventListener('click', (e) => {
@@ -2922,7 +2921,7 @@ registerModule({
         }
       }
       await refreshFleetCheck()
-      render()
+      deferPassive(pane, 'qn', render)
     })()
     onMgChange((keys) => {
       // 主数据换了（首次落地、或活动开幕的新 start2）→ 九张反查索引整体重建。
@@ -2930,7 +2929,7 @@ registerModule({
       // 活动新海域也永远认不出来。
       if (keys.includes('master')) {
         void refreshEntityIndexes().then((rebuilt) => {
-          if (rebuilt && pane.classList.contains('active')) render()
+          if (rebuilt && pane.classList.contains('active')) deferPassive(pane, 'qn', render)
         })
       }
       // 编成变了 / 任务变了 → 重判「当前编成可直接做」
@@ -2945,7 +2944,8 @@ registerModule({
       ) {
         // 用户正按在这块面板上就让到抬起之后：按下与抬起之间换掉 DOM，click 不会发生。
         // 正在用输入法打字同理，让到组合结束：换掉 DOM 会把组合会话一起换没。
-        if (!deferWhilePressed(pane, 'qn', render) && !deferWhileComposing(pane, 'qn', render)) render()
+        // 持续滚动时也让到安静窗之后，免得滚动中的 DOM 被替换。
+        deferPassive(pane, 'qn', render)
       }
     })
     let lastQuickFilterMinute = -1
@@ -2956,7 +2956,7 @@ registerModule({
       const minute = Math.floor(Date.now() / 60000)
       if (state.quick === 'resetSoon' && minute !== lastQuickFilterMinute) {
         lastQuickFilterMinute = minute
-        render()
+        deferPassive(pane, 'qn', render)
       }
     })
   },

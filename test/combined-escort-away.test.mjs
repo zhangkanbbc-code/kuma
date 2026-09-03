@@ -16,6 +16,11 @@ import test from 'node:test'
 import { availableShipIds, reset } from './fixtures/render-combined-escort.mjs'
 import { expandedOf, todayRows } from './fixtures/render-today-improve.mjs'
 import { detectCond, notifiedDeckIds } from './fixtures/lg-cond-recovery.mjs'
+import {
+  readinessToasts,
+  resetRuFleetBehavior,
+  sallyWarningParts,
+} from './fixtures/ru-fleet-behavior.mjs'
 
 const SORTIE = { active: true, practice: false, deckId: 1 }
 
@@ -32,13 +37,40 @@ const 四队各一艘 = {
   ships: { 11: {}, 21: {}, 22: {}, 31: {}, 41: {}, 90: {} },
 }
 
-test('联合编成时，二队的舰不进远征候选池——方案不许去拆随伴舰队', () => {
+test('联合出击时，一二队的舰都不进远征候选池——人在海上就不能拿来凑方案', () => {
   reset({ ...四队各一艘, combinedFlag: 1, sortie: SORTIE })
   const pool = availableShipIds()
-  assert.ok(!pool.includes(21) && !pool.includes(22), `二队的舰还在候选池里：${pool}`)
-  // 别的队一个都不许误伤：一队虽然也在联合里，但她本来就是「出击中的舰照旧列出」
-  // 那一档（这次不动那条口径），三四队更是完全无关
-  for (const id of [11, 31, 41, 90]) {
+  // 09-03 口径：在海上的舰不进候选池，联合与否一样。
+  for (const id of [11, 21, 22]) {
+    assert.ok(!pool.includes(id), `第 ${id} 舰还在候选池里：${pool}`)
+  }
+  for (const id of [31, 41, 90]) {
+    assert.ok(pool.includes(id), `第 ${id} 舰被误剔出候选池了`)
+  }
+})
+
+test('非联合一队自己出击时，一队舰不进候选池，其余照旧可用', () => {
+  reset({
+    ...四队各一艘,
+    combinedFlag: 0,
+    sortie: { active: true, practice: false, deckId: 1 },
+  })
+  const pool = availableShipIds()
+  assert.ok(!pool.includes(11), `出击中的一队舰还在候选池里：${pool}`)
+  for (const id of [21, 22, 31, 41, 90]) {
+    assert.ok(pool.includes(id), `第 ${id} 舰被误剔出候选池了`)
+  }
+})
+
+test('非联合三队自己出击时，三队舰不进候选池，其余照旧可用', () => {
+  reset({
+    ...四队各一艘,
+    combinedFlag: 0,
+    sortie: { active: true, practice: false, deckId: 3 },
+  })
+  const pool = availableShipIds()
+  assert.ok(!pool.includes(31), `出击中的三队舰还在候选池里：${pool}`)
+  for (const id of [11, 21, 22, 41, 90]) {
     assert.ok(pool.includes(id), `第 ${id} 舰被误剔出候选池了`)
   }
 })
@@ -253,4 +285,46 @@ test('还没恢复到点的队不响——联合这条判据没把「够不够�
     detectCond({ fleets: 三支队, tired: [31], stillTired: [11, 21], combinedFlag: 0, sortie: null }),
   )
   assert.deepEqual(decks, [3])
+})
+
+// ---------------------------------------------------------------- ④ 出击前就绪与札提醒
+
+test('出击画面就绪提醒：非联合第3舰队正在海上时跳过，只报仍在港的第4舰队', () => {
+  resetRuFleetBehavior({
+    fleets: [{ id: 3 }, { id: 4 }],
+    sortie: { active: true, practice: false, deckId: 3 },
+  })
+  const notices = readinessToasts()
+  assert.equal(notices.length, 1)
+  assert.doesNotMatch(notices[0].detail, /第3舰队/)
+  assert.match(notices[0].detail, /第4舰队/)
+})
+
+test('出击画面就绪提醒：联合出击的一二队都跳过，只报仍在港的第3舰队', () => {
+  resetRuFleetBehavior({
+    fleets: [{ id: 1 }, { id: 2 }, { id: 3 }],
+    combinedFlag: 1,
+    sortie: SORTIE,
+  })
+  const notices = readinessToasts()
+  assert.equal(notices.length, 1)
+  assert.doesNotMatch(notices[0].detail, /联合舰队/)
+  assert.match(notices[0].detail, /第3舰队/)
+})
+
+test('札提醒：非联合第3舰队正在海上时不进 warnings，只报仍在港的第4舰队', () => {
+  resetRuFleetBehavior({
+    fleets: [{ id: 3 }, { id: 4 }],
+    sortie: { active: true, practice: false, deckId: 3 },
+  })
+  assert.deepEqual(sallyWarningParts(), ['第4舰队 1 艘未锁定'])
+})
+
+test('札提醒：联合出击的一二队都不进 warnings，只报仍在港的第3舰队', () => {
+  resetRuFleetBehavior({
+    fleets: [{ id: 1 }, { id: 2 }, { id: 3 }],
+    combinedFlag: 1,
+    sortie: SORTIE,
+  })
+  assert.deepEqual(sallyWarningParts(), ['第3舰队 1 艘未锁定'])
 })

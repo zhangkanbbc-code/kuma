@@ -27,16 +27,19 @@ import {
   naturalRegenCap,
   prepareMaterialHistory,
 } from '../../shared/material-history'
-import { addManualSenkaQuest, clearAutoBookedSenkaQuests, commitPaneHtml, deferWhileComposing, deferWhilePressed, esc, fmtDateTime, fmtK, fmtMonthDay, fmtTime, mg, onMgChange, queryLode, queryQp, querySenka, querySenkaQuestOptions, queryDeltaSummary, queryEventSortieCosts, queryMaterialHistory, queryMasterRaw, queryUseitemSummary, removeManualSenkaQuest, uiGet, uiSet } from '../kernel'
+import { addManualSenkaQuest, clearAutoBookedSenkaQuests, commitPaneHtml, deferPassive, esc, fmtDateTime, fmtK, fmtMonthDay, fmtTime, mg, onMgChange, queryLode, queryQp, querySenka, querySenkaQuestOptions, queryDeltaSummary, queryEventSortieCosts, queryMaterialHistory, queryMasterRaw, queryUseitemSummary, removeManualSenkaQuest, uiGet, uiSet } from '../kernel'
 import { mapCodeOf } from '../../shared/map-id'
 import { hasEventMaps } from '../../shared/event-area'
+import { sortieJustEnded } from '../../shared/passive-refresh'
 import { MATERIAL_ICON_BY_INDEX, materialIconHtml, useItemIconHtml } from '../entity-art'
 import { elink, navigate, registerEntityRoute } from '../link'
 import { bilingualNameHtml, entityNameHtml, entityNamePlain, entityTermHtml, entityTermTrustedHtml } from '../localization'
 import { activateModule, isModuleAvailable, registerModule } from '../mu'
+import { timedRun } from '../perf-guard'
 import { focusExpeditionsForResource } from './bi'
 import { demandedUseitemIds, onUseitemDemandReady, useitemDemand } from './ji'
 import { searchInManager } from './qn'
+import { materialCues, onMaterialCueChange, type MaterialCue } from '../material-deltas'
 
 const TILE_ORDER = [0, 1, 2, 3, 5, 4, 6, 7]
 const TILE_META: Record<number, { label: string; ch: string; color: string }> = {
@@ -65,67 +68,10 @@ let highlightTile: number | null = null // 从别处跳进来时高亮的磁贴�
 let queryTimer: ReturnType<typeof setTimeout> | null = null
 let dayRolloverTimer: ReturnType<typeof setTimeout> | null = null
 let refreshGeneration = 0
+let refreshPending = false
+let lastRefresh = 0
+let previousSortie: unknown | null = null
 let loadError: string | null = null
-type MaterialDeltaCue = {
-  delta: number
-  phase: 'active' | 'leaving'
-  holdTimer: ReturnType<typeof setTimeout> | null
-  removeTimer: ReturnType<typeof setTimeout> | null
-}
-const MATERIAL_DELTA_HOLD_MS = 2400
-const MATERIAL_DELTA_FADE_MS = 420
-const materialDeltaCues = new Map<number, MaterialDeltaCue>()
-let materialBaseline: number[] | null = null
-
-const queueMaterialDelta = (idx: number, delta: number) => {
-  const cue = materialDeltaCues.get(idx) ?? {
-    delta: 0,
-    phase: 'active' as const,
-    holdTimer: null,
-    removeTimer: null,
-  }
-  if (cue.holdTimer) clearTimeout(cue.holdTimer)
-  if (cue.removeTimer) clearTimeout(cue.removeTimer)
-  cue.delta += delta
-  cue.phase = 'active'
-  cue.holdTimer = null
-  cue.removeTimer = null
-  if (cue.delta === 0) {
-    materialDeltaCues.delete(idx)
-    return
-  }
-  materialDeltaCues.set(idx, cue)
-  cue.holdTimer = setTimeout(() => {
-    if (materialDeltaCues.get(idx) !== cue) return
-    cue.phase = 'leaving'
-    cue.holdTimer = null
-    render()
-    cue.removeTimer = setTimeout(() => {
-      if (materialDeltaCues.get(idx) !== cue) return
-      materialDeltaCues.delete(idx)
-      render()
-    }, MATERIAL_DELTA_FADE_MS)
-  }, MATERIAL_DELTA_HOLD_MS)
-}
-
-// 只比较已建立基线后的实时变化：首次载入/重启回灌只记基线，不冒充刚发生的收支。
-const observeMaterialChanges = () => {
-  const current = mg.materials
-  if (!Array.isArray(current) || current.length < 8) {
-    materialBaseline = null
-    return
-  }
-  if (materialBaseline) {
-    for (let idx = 0; idx < 8; idx++) {
-      const before = Number(materialBaseline[idx])
-      const after = Number(current[idx])
-      if (Number.isFinite(before) && Number.isFinite(after) && after !== before) {
-        queueMaterialDelta(idx, after - before)
-      }
-    }
-  }
-  materialBaseline = [...current]
-}
 
 // 活动区判据 / 自然回复上限 / 曲线取数：与独立资源趋势窗共用
 // shared/material-history 那一份（原先两边各写一份，同一段时间两个答案）
@@ -162,16 +108,38 @@ const todayDelta = (idx: number): number | null => windowDelta(todayHistory, tod
 // 储备目标仍按完整近 24h 速度外推，避免凌晨的短自然日窗口放大 ETA 波动。
 const rollingDayRate = (idx: number): number | null => windowDelta(rollingDayHistory, rollingDayHasBaseline, idx)
 
-const materialDeltaCueHtml = (idx: number) => {
-  const cue = materialDeltaCues.get(idx)
+const TILE_GLOW_CLASSES = ['glow-up', 'glow-down', 'leaving'] as const
+
+const syncTileGlow = () => {
+  if (!pane) return
+  const cues = materialCues()
+  pane.querySelectorAll<HTMLElement>('.tile[data-resource]').forEach((tile) => {
+    const cue = cues.get(Number(tile.dataset.resource))
+    const target = cue
+      ? [`glow-${cue.delta > 0 ? 'up' : 'down'}`, ...(cue.phase === 'leaving' ? ['leaving'] : [])]
+      : []
+    const current = TILE_GLOW_CLASSES.filter((className) => tile.classList.contains(className))
+    if (current.length === target.length && current.every((className) => target.includes(className))) return
+    tile.classList.remove(...TILE_GLOW_CLASSES)
+    if (cue) {
+      tile.style.setProperty('--glow-elapsed', `${Math.max(0, Date.now() - cue.phaseAt)}ms`)
+      tile.classList.add(...target)
+    } else {
+      tile.style.removeProperty('--glow-elapsed')
+    }
+  })
+}
+
+const materialDeltaCueHtml = (cue: MaterialCue | undefined) => {
   if (!cue || cue.delta === 0) return ''
   const positive = cue.delta > 0
   const sign = positive ? '+' : '−'
   return `<span class="live-delta ${positive ? 'up' : 'dn'}${cue.phase === 'leaving' ? ' leaving' : ''}" title="刚刚 ${sign}${Math.abs(cue.delta).toLocaleString()}">${sign}${Math.abs(cue.delta).toLocaleString()}</span>`
 }
 
-const tileHtml = (idx: number) => {
+const tileHtml = (idx: number, cues: ReadonlyMap<number, MaterialCue>) => {
   const meta = TILE_META[idx]
+  const cue = cues.get(idx)
   const value = mg.materials?.[idx]
   const delta = todayDelta(idx)
   let trend = delta == null
@@ -191,7 +159,7 @@ const tileHtml = (idx: number) => {
       status = '<span class="st low">低于阈值 50</span>'
     }
   }
-  return `<div class="tile${highlightTile === idx ? ' hl' : ''}"><div class="h"><span class="ic" style="background:${meta.color}">${materialIconHtml(MATERIAL_ICON_BY_INDEX[idx], { title: meta.label })}</span>${entityTermHtml('material', idx, meta.label)}${materialDeltaCueHtml(idx)}</div>
+  return `<div class="tile${highlightTile === idx ? ' hl' : ''}" data-resource="${idx}"><div class="h"><span class="ic" style="background:${meta.color}">${materialIconHtml(MATERIAL_ICON_BY_INDEX[idx], { title: meta.label })}</span>${entityTermHtml('material', idx, meta.label)}${materialDeltaCueHtml(cue)}</div>
     <div class="v">${value != null ? value.toLocaleString() : '—'}</div>
     <div class="s">${value != null ? trend : ''}${status}</div></div>`
 }
@@ -1092,9 +1060,11 @@ const openSenkaDetail = () => {
 // 校准写入后：重查战果（主进程组装校准段）→ 弹窗换块 + 主卡重渲
 const refreshSenkaDetail = async () => {
   senka = await querySenka()
-  const body = senkaDetailEl?.querySelector('.sd-body')
-  if (body) body.innerHTML = senkaDetailBodyHtml()
-  render()
+  deferPassive(pane, 'zi:senka', () => {
+    const body = senkaDetailEl?.querySelector('.sd-body')
+    if (body) body.innerHTML = senkaDetailBodyHtml()
+    render()
+  })
 }
 
 document.addEventListener('keydown', (e) => {
@@ -1103,6 +1073,7 @@ document.addEventListener('keydown', (e) => {
 
 const render = (force = false) => {
   if (!pane || (!force && !pane.classList.contains('active'))) return
+  const cues = materialCues()
   // 输出没变就整段不动 DOM（口径见 kernel commitPaneHtml）
   const html = `<div class="zi-app">
       <div class="main">
@@ -1112,7 +1083,7 @@ const render = (force = false) => {
                 <button class="zi-retry" data-act="zi-retry">重试</button></div>`
             : ''
         }
-        <div class="tiles">${TILE_ORDER.map(tileHtml).join('')}</div>
+        <div class="tiles">${TILE_ORDER.map((idx) => tileHtml(idx, cues)).join('')}</div>
       </div>
       <aside class="side">
         <div class="scard"><div class="h">收支分解<span class="aux">近 7 日 · 单项按来源</span></div>
@@ -1131,7 +1102,10 @@ const render = (force = false) => {
       </aside>
     </div>`
   // 没换 DOM 就不能重绑：逐元素监听还在老元素上，再绑一遍就是监听叠加
-  if (!commitPaneHtml(pane, 'zi', html)) return
+  if (!commitPaneHtml(pane, 'zi', html)) {
+    syncTileGlow()
+    return
+  }
 
   pane.querySelector<HTMLElement>('[data-act="senka-more"]')?.addEventListener('click', () => {
     senkaOpen = !senkaOpen
@@ -1191,19 +1165,46 @@ const render = (force = false) => {
     })
   })
   pane.querySelector<HTMLElement>('[data-open-du]')?.addEventListener('click', () => activateModule('du'))
+  syncTileGlow()
+}
+
+const renderPassiveChange = () => {
+  if (!pane?.classList.contains('active')) {
+    refreshPending = true
+    return
+  }
+  // 用户正按在这块面板上就让到抬起之后（按下与抬起之间换掉 DOM，click 不会发生）；
+  // 正在用输入法打字同理，让到组合结束——换掉 DOM 会把组合会话一起换没。
+  // 持续滚动时也让到安静窗之后，免得滚动中的 DOM 被替换。
+  deferPassive(pane, 'zi', render)
 }
 
 // 出击中 ships 每次伤害回写都会 patch，锱只从里面数几件装备实例（女神行）。
 // 跟着每条 patch 整块重渲染是白付账，350ms 去抖只认最后一次（qn 的同一手法）。
 let shipsRenderTimer: ReturnType<typeof setTimeout> | null = null
 const scheduleShipsRender = () => {
+  if (!pane?.classList.contains('active')) {
+    refreshPending = true
+    return
+  }
   if (shipsRenderTimer) clearTimeout(shipsRenderTimer)
   shipsRenderTimer = setTimeout(() => {
     shipsRenderTimer = null
-    if (pane && deferWhilePressed(pane, 'zi', () => render())) return
-    if (pane && deferWhileComposing(pane, 'zi', () => render())) return
-    render()
+    if (!pane.classList.contains('active')) {
+      refreshPending = true
+      return
+    }
+    deferPassive(pane, 'zi', render)
   }, 350)
+}
+
+const runPassiveRefresh = () => {
+  if (!pane?.classList.contains('active')) {
+    refreshPending = true
+    return
+  }
+  refreshPending = false
+  void refresh()
 }
 
 // 跨自然日重排：磁贴统计的是「今日 00:00 至现在」，过了零点必须自己重查一次。
@@ -1213,7 +1214,7 @@ const scheduleDayRollover = (now: number) => {
   if (dayRolloverTimer) clearTimeout(dayRolloverTimer)
   const nextDay = new Date(now)
   nextDay.setHours(24, 0, 0, 0)
-  dayRolloverTimer = setTimeout(() => void refresh(), Math.max(1000, nextDay.getTime() - Date.now() + 100))
+  dayRolloverTimer = setTimeout(runPassiveRefresh, Math.max(1000, nextDay.getTime() - Date.now() + 100))
 }
 
 const refresh = async () => {
@@ -1247,45 +1248,11 @@ const refresh = async () => {
     console.warn('[kanso] 资源账本读取失败', error)
     loadError = `${(error as Error)?.message ?? error}`
     scheduleDayRollover(now)
-    render()
+    deferPassive(pane, 'zi', render)
     return
   }
   if (generation !== refreshGeneration) return
-  loadError = null
   const [todayRows, rollingDayRows, dl, flow, activeRows, activeDeltaRows, activeSortieCostRows, senkaRows, questLode] = rows
-  if (!senkaQuestNames && questLode?.data) {
-    senkaQuestNames = new Map()
-    for (const [idStr, raw] of Object.entries<any>(questLode.data)) {
-      const id = parseInt(idStr, 10)
-      if (id > 0) {
-        senkaQuestNames.set(id, {
-          code: `${raw.code ?? '?'}`,
-          name: `${raw.name ?? ''}`,
-          // 固定战果值与周期口径顺手解析（自检要对照「战果任务是否完成」）
-          senka: questFixedSenka([raw.memo, raw.memo2].filter(Boolean).join(' | ')),
-          periodKind: questPeriodFromCode(`${raw.code ?? ''}`, `${raw.memo2 ?? ''}`),
-          annualMonth: questAnnualMonth(`${raw.memo2 ?? ''}`),
-        })
-      }
-    }
-  }
-  const naturalDay = prepareHistory(todayRows, todayStart, now)
-  const rollingDay = prepareHistory(rollingDayRows, rollingDayStart, now)
-  const activePrepared = active
-    ? prepareHistory(activeRows, active[1].firstSeenTs, now)
-    : { rows: [] as MaterialRow[], hasBaseline: false, observedStart: null }
-  todayHistory = naturalDay.rows
-  todayHasBaseline = naturalDay.hasBaseline
-  rollingDayHistory = rollingDay.rows
-  rollingDayHasBaseline = rollingDay.hasBaseline
-  deltas = normalizeDeltaCategories(dl)
-  activityAreaId = active?.[0] ?? 0
-  activityHistory = activePrepared.rows
-  activityHistoryHasBaseline = activePrepared.hasBaseline
-  activityDeltas = normalizeDeltaCategories(activeDeltaRows)
-  activitySortieCosts = activeSortieCostRows
-  itemFlow = new Map(flow.map((r) => [r.id, r]))
-  senka = senkaRows
   // 账外差值不在这里补：EO 与任务的补记都在主进程 mg:senka 那一次查账里按
   // 账本存着的观测完成了，渲染层只负责把补不了的那几笔照实列出来（不入账）。
   // 自检那张单子还要读钦的精确计数——取不到就不列任务（拿不到观测就不说话）。
@@ -1297,8 +1264,45 @@ const refresh = async () => {
     }
     if (generation !== refreshGeneration) return
   }
-  render()
-  scheduleDayRollover(now)
+  timedRun('async:zi', () => {
+    loadError = null
+    if (!senkaQuestNames && questLode?.data) {
+      senkaQuestNames = new Map()
+      for (const [idStr, raw] of Object.entries<any>(questLode.data)) {
+        const id = parseInt(idStr, 10)
+        if (id > 0) {
+          senkaQuestNames.set(id, {
+            code: `${raw.code ?? '?'}`,
+            name: `${raw.name ?? ''}`,
+            // 固定战果值与周期口径顺手解析（自检要对照「战果任务是否完成」）
+            senka: questFixedSenka([raw.memo, raw.memo2].filter(Boolean).join(' | ')),
+            periodKind: questPeriodFromCode(`${raw.code ?? ''}`, `${raw.memo2 ?? ''}`),
+            annualMonth: questAnnualMonth(`${raw.memo2 ?? ''}`),
+          })
+        }
+      }
+    }
+    const naturalDay = prepareHistory(todayRows, todayStart, now)
+    const rollingDay = prepareHistory(rollingDayRows, rollingDayStart, now)
+    const activePrepared = active
+      ? prepareHistory(activeRows, active[1].firstSeenTs, now)
+      : { rows: [] as MaterialRow[], hasBaseline: false, observedStart: null }
+    todayHistory = naturalDay.rows
+    todayHasBaseline = naturalDay.hasBaseline
+    rollingDayHistory = rollingDay.rows
+    rollingDayHasBaseline = rollingDay.hasBaseline
+    deltas = normalizeDeltaCategories(dl)
+    activityAreaId = active?.[0] ?? 0
+    activityHistory = activePrepared.rows
+    activityHistoryHasBaseline = activePrepared.hasBaseline
+    activityDeltas = normalizeDeltaCategories(activeDeltaRows)
+    activitySortieCosts = activeSortieCostRows
+    itemFlow = new Map(flow.map((r) => [r.id, r]))
+    senka = senkaRows
+    lastRefresh = Date.now()
+    deferPassive(pane, 'zi', render)
+    scheduleDayRollover(now)
+  })
 }
 
 // ---- 资源/材料实体（15 稿注册表）----
@@ -1312,7 +1316,7 @@ const focusMaterial = (idx: number) => {
   render()
   setTimeout(() => {
     highlightTile = null
-    if (pane?.classList.contains('active')) render()
+    if (pane?.classList.contains('active')) deferPassive(pane, 'zi', render)
   }, 2200)
 }
 
@@ -1378,41 +1382,45 @@ registerModule({
   order: 3,
   mount(el) {
     pane = el
-    observeMaterialChanges()
+    previousSortie = mg.sortie
+    onMaterialCueChange(() => {
+      renderPassiveChange()
+      syncTileGlow()
+    })
     new ResizeObserver(() => {
       pane.classList.toggle('narrow', pane.clientWidth < 700)
     }).observe(pane)
     // 战略道具按名字匹配主数据（不硬编 id）；活动海图在不在也从这份里读
     void queryMasterRaw().then((raw) => {
       applyMaster(raw)
-      render()
+      deferPassive(pane, 'zi', render)
     })
     // 队列需求来自鉴的改造反查，矿脉是异步加载的——建好了再重画一次
-    onUseitemDemandReady(() => render())
+    onUseitemDemandReady(() => deferPassive(pane, 'zi', render))
     onMgChange((keys) => {
+      const sortieEnded = sortieJustEnded(previousSortie, mg.sortie)
+      previousSortie = mg.sortie
       // 资源/道具变动后要重查账本（3 秒去抖，连续变动只查一次）；其余只重画
-      if (keys.includes('materials')) observeMaterialChanges()
       // 主数据换了一版就重取一份：活动海图的进出（＝活动准备度卡的开关）只写在这里，
       // kernel 已在派发之前把 queryMasterRaw 的缓存作废，这里拿到的一定是新的。
       if (keys.includes('master')) {
         void queryMasterRaw().then((raw) => {
           applyMaster(raw)
-          // 同下面那条：按下与抬起之间换掉 DOM，click 不会发生；组合中换掉 DOM 则断输入法
-          if (!deferWhilePressed(pane, 'zi', () => render()) && !deferWhileComposing(pane, 'zi', () => render())) render()
+          // 同下面那条：按下与抬起之间换掉 DOM，click 不会发生；组合中换掉 DOM 则断输入法。
+          // 持续滚动时也让到安静窗之后，免得滚动中的 DOM 被替换。
+          deferPassive(pane, 'zi', render)
         })
       }
       if (keys.includes('eventAreas')) {
-        void refresh()
-      } else if (keys.some((k) => ['materials', 'useitems', 'sortie', 'kdocks'].includes(k))) {
+        runPassiveRefresh()
+      } else if (sortieEnded || keys.some((k) => ['materials', 'useitems', 'kdocks'].includes(k))) {
         if (queryTimer) clearTimeout(queryTimer)
-        queryTimer = setTimeout(() => void refresh(), keys.includes('sortie') ? 500 : 3000)
+        queryTimer = setTimeout(runPassiveRefresh, sortieEnded ? 500 : 3000)
       }
-      // sortie 不在直接重渲染名单里：上面那条 500ms 去抖 refresh 走完就会 render，
-      // 出击中每个节点重复画两遍等于白付一次全量重建。
+      // sortie 不在直接重渲染名单里：出击途中每个节点都推这把键，查账和重画都没有新事实；
+      // 只在上面的纯判据认出返港时用 500ms 查一次，否则会让活动出击消耗卡停在上上次。
       if (keys.some((k) => ['materials', 'useitems', 'slotitems', 'master', 'basic', 'eventAreas'].includes(k))) {
-        // 用户正按在这块面板上就让到抬起之后（按下与抬起之间换掉 DOM，click 不会发生）；
-        // 正在用输入法打字同理，让到组合结束——换掉 DOM 会把组合会话一起换没
-        if (!deferWhilePressed(pane, 'zi', () => render()) && !deferWhileComposing(pane, 'zi', () => render())) render()
+        renderPassiveChange()
       } else if (keys.includes('ships')) {
         scheduleShipsRender()
       }
@@ -1420,5 +1428,10 @@ registerModule({
     render(true)
     void refresh()
   },
-  onShow: () => void refresh(),
+  onShow: () => {
+    if (refreshPending || Date.now() - lastRefresh > 30000) {
+      refreshPending = false
+      void refresh()
+    }
+  },
 })

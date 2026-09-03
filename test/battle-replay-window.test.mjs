@@ -22,6 +22,15 @@ const sliceBetween = (source, from, to, label) => {
   return source.slice(start, end)
 }
 
+const ruleBody = (css, selector) => {
+  const start = css.indexOf(`${selector} {`)
+  assert.ok(start >= 0, `找不到 ${selector} 规则`)
+  const bodyStart = css.indexOf('{', start) + 1
+  const end = css.indexOf('}', bodyStart)
+  assert.ok(end > bodyStart, `${selector} 规则没有闭合`)
+  return css.slice(bodyStart, end)
+}
+
 const bundleHarness = (t, name, source) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `kanso-${name}-`))
   const entry = path.join(dir, `${name}.ts`)
@@ -211,6 +220,40 @@ test('main renderer keeps battle replay styles at the original cascade position 
   assert.match(css, /#di-used-equipment-popover/)
 })
 
+test('only wide replay hosts scroll the full battle column while narrow mode keeps one page scrollbar', () => {
+  const css = read('src/renderer/assets/battle-replay.css')
+  const battleCol = ruleBody(css, '.mod-di .battle-col')
+  const log = ruleBody(css, '.mod-di .log')
+  const replayBattleCol = ruleBody(
+    css,
+    '.mod-di:where(.shi-battle-detail, #battle-replay-detail) .battle-col',
+  )
+  const replayLog = ruleBody(
+    css,
+    '.mod-di:where(.shi-battle-detail, #battle-replay-detail) .log',
+  )
+  const narrowApp = ruleBody(css, '.mod-di .di-app.narrow')
+  const narrowBattleCol = ruleBody(css, '.mod-di .di-app.narrow .battle-col')
+  const narrowLog = ruleBody(css, '.mod-di .di-app.narrow .log')
+
+  assert.match(battleCol, /overflow:\s*hidden/)
+  assert.doesNotMatch(battleCol, /overflow-y:\s*auto/)
+  assert.match(log, /flex:\s*1(?:[;\s]|$)/)
+  assert.match(log, /overflow-y:\s*auto/)
+  assert.doesNotMatch(log, /max-height/)
+
+  assert.match(replayBattleCol, /overflow-y:\s*auto/)
+  assert.match(replayLog, /flex:\s*none/)
+  assert.match(replayLog, /max-height:\s*46vh/)
+
+  assert.match(narrowApp, /overflow-y:\s*auto/)
+  assert.match(narrowBattleCol, /overflow:\s*visible/)
+  assert.match(narrowBattleCol, /flex:\s*none/)
+  assert.match(narrowLog, /max-height:\s*none/)
+  assert.match(narrowLog, /overflow:\s*visible/)
+  assert.match(narrowLog, /flex:\s*none/)
+})
+
 test('build emits the standalone battle replay page, bundle, and shared stylesheet', () => {
   const build = read('scripts/build.mjs')
   assert.match(
@@ -289,6 +332,7 @@ test('standalone replay keeps one root, swaps snapshots in place, and pins the m
   assert.match(page, /catch \(error\) \{[\s\S]*?showStatus\(failedText\)/)
   assert.match(page, /queryBattleRun[\s\S]*?catch\(\(error\) => \{[\s\S]*?showStatus\(trailFailedText\)/)
   assert.match(page, /if \(!currentSnapshot\) \{\s*detail\.hidden = true/)
+  assert.match(page, /const next = detail\.clientWidth < 700/)
   assert.match(page, /if \(next === narrow\) return/)
   assert.doesNotMatch(page, /onMgChange/)
   assert.doesNotMatch(page, /initLink|initModules|registerEntityRoute/)

@@ -31,6 +31,8 @@ const STUBS = {
     }
     export const debugApplyPatch = (patch: unknown) => { ((globalThis as any).__patches ??= []).push(patch) }
     export const debugEmitMarriage = (cue: unknown) => { ((globalThis as any).__cues ??= []).push(cue) }
+    export const combinedEscortState = (_deckId: number) => null
+    export const deckOnSortie = (_deckId: number) => false
     export const fleetLabel = (_deck: any) => ({ canonical: '第一舰队', custom: '' })
     export const fmtCountdown = (_t: number) => '00:00'
     export const fmtTime = (t: number) => 'T' + t

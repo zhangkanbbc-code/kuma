@@ -1,5 +1,7 @@
 // 完整任务树独立窗口：只读 quests-scn 与铭的任务状态，不创建游戏 webview。
 import {
+  commitPaneHtml,
+  deferPassive,
   esc,
   focusQuestInMainWindow,
   initKernel,
@@ -182,20 +184,17 @@ const renderTreeNode = (view: VisibleNode, depth: number, filtersActive: boolean
     return `<li><div class="tree-line leaf"><i class="leaf-mark">•</i>${line}</div>${relations}</li>`
   }
   const opened = filtersActive || onPath || (!focusPath.size && (depth === 0 || priority))
-  return `<li><details data-tree-code="${esc(node.entry.code)}"${opened ? ' open' : ''}>
+  return `<li><details data-tree-code="${esc(node.entry.code)}" data-keep="${esc(node.entry.code)}"${opened ? ' open' : ''}>
     <summary><span class="twisty"></span>${line}<span class="child-count">${children.length}</span></summary>
     ${relations}
     <ul>${children.map((child) => renderTreeNode(child, depth + 1, filtersActive)).join('')}</ul>
   </details></li>`
 }
 
-const renderInspector = () => {
-  const panel = root.querySelector<HTMLElement>('#tree-inspector')
-  if (!panel) return
+const inspectorHtml = (): string => {
   const entry = byId.get(selectedId)
   if (!entry) {
-    panel.innerHTML = '<div class="inspector-empty">点击树中的任务查看说明</div>'
-    return
+    return '<div class="inspector-empty">点击树中的任务查看说明</div>'
   }
   const status = statusOf(entry)
   const statusMeta = STATUS_META[status]
@@ -215,7 +214,7 @@ const renderInspector = () => {
     .map((code) => byCode.get(code))
     .filter((item): item is FullQuest => !!item)
   const children = childrenByCode.get(entry.code) ?? []
-  panel.innerHTML = `<div class="inspector-head">
+  return `<div class="inspector-head">
       <span><code>${esc(entry.code)}</code><i style="--category:${category?.color ?? 'var(--dim)'}">${category?.label ?? '其他'} · ${periodOf(entry.code)}任</i></span>
       <b>${esc(entry.name)}</b>
       <em style="--state:${statusMeta.color}">${statusMeta.label}</em>
@@ -228,6 +227,11 @@ const renderInspector = () => {
       <section><h3>直接后续</h3><div class="relation-list">${links(children, '无已知后续')}</div></section>
     </div>
     <button class="open-main" data-open-main="${entry.id}">在「任务」中打开 →</button>`
+}
+
+const renderInspector = () => {
+  const panel = root.querySelector<HTMLElement>('#tree-inspector')
+  if (panel) panel.innerHTML = inspectorHtml()
 }
 
 // 游戏一开任务所（questlist 补丁）就全量重绘：不留状态的话，翻到中部的滚动、
@@ -245,19 +249,6 @@ const render = () => {
   revealTick = false
   lastRenderSignature = signature
   focusPath = new Set(pathCodesToQuest(forest, selectedId))
-  const prevScroll = keepView ? root.querySelector<HTMLElement>('.tree-scroll')?.scrollTop : undefined
-  const prevSearchEl = root.querySelector<HTMLInputElement>('#tree-search')
-  const searchFocused = !!prevSearchEl && document.activeElement === prevSearchEl
-  const searchSelection: [number, number] = [
-    prevSearchEl?.selectionStart ?? 0,
-    prevSearchEl?.selectionEnd ?? 0,
-  ]
-  const prevOpen = new Map<string, boolean>()
-  if (keepView) {
-    root
-      .querySelectorAll<HTMLDetailsElement>('details[data-tree-code]')
-      .forEach((node) => prevOpen.set(node.dataset.treeCode!, node.open))
-  }
   const visibleForest = forest
     .map(filterNode)
     .filter((node): node is VisibleNode => !!node)
@@ -269,7 +260,7 @@ const render = () => {
     ]),
   )
   const categories = Object.entries(CATEGORY_META)
-  root.innerHTML = `<div class="tree-app">
+  const html = `<div class="tree-app">
     <header>
       <div class="title"><b>完整任务树</b></div>
       <label class="search">⌕<input id="tree-search" placeholder="搜索编号、名称或说明" value="${esc(search)}"></label>
@@ -296,27 +287,18 @@ const render = () => {
           ? visibleForest.map((node) => renderTreeNode(node, 0, filtersActive)).join('')
           : '<li class="tree-empty">暂无符合当前筛选条件的任务</li>'
       }</ul></div>
-      <aside id="tree-inspector"></aside>
+      <aside id="tree-inspector">${inspectorHtml()}</aside>
     </main>
     <footer>${lodeMeta ? `<span class="credit-mark" title="${esc(lodeCredit(lodeMeta))}">源</span>` : '任务资料未加载'}
       <span class="credit-mark" title="状态只使用本机已同步记录；未同步不等于未完成">口径</span></footer>
   </div>`
-  if (prevOpen.size) {
-    root.querySelectorAll<HTMLDetailsElement>('details[data-tree-code]').forEach((node) => {
-      const was = prevOpen.get(node.dataset.treeCode!)
-      if (was != null) node.open = was
-    })
-  }
-  if (prevScroll != null) {
+  commitPaneHtml(root, 'quest-tree', html)
+  if (!keepView) {
+    // 筛选变化与主动定位原本靠“不保存”让树滚回顶部；统一视图态总会还原，
+    // 所以提交之后显式归零，保住同一个 keepView 语义。
     const scroller = root.querySelector<HTMLElement>('.tree-scroll')
-    if (scroller) scroller.scrollTop = prevScroll
+    if (scroller) scroller.scrollTop = 0
   }
-  if (searchFocused) {
-    const next = root.querySelector<HTMLInputElement>('#tree-search')
-    next?.focus()
-    next?.setSelectionRange(searchSelection[0], searchSelection[1])
-  }
-  renderInspector()
   // 冒烟用的装配账：**「渲染跑完了」和「渲染出了节点」是两件事**。
   // 缺 quests-scn 时零节点是正确的降级（目录本来就是空的），不是故障；
   // 而渲染中途崩掉同样是零节点。只数节点分不开这两种，所以这里把两件事分开记：
@@ -481,7 +463,7 @@ const load = async () => {
       quests,
       Object.values(mg.quests).map((quest) => quest.no),
     )
-    render()
+    deferPassive(root, 'quest-tree', render)
   })
   render()
 }

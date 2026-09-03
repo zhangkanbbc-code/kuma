@@ -5,9 +5,9 @@
 // 源码文本却长得人畜无害——把 `combinedEscortState(d.id)` 那一项从 filter 里删掉、
 // 或者把 sortie 分支和 formed 分支的文案对调，正则匹配一条也拦不住，界面却已经在骗人了。
 //
-// 判定本体 `combinedEscortState` **引真的那一份**（从 kernel.ts 原样切走），不打桩：
-// 桩一写成「联合就算出击」，「编队中/出击中」两态的分界就在测试里被抹平了，
-// 而那条分界正是这次要守的东西。
+// 判定本体 `deckOnSortie` / `combinedEscortState` **引真的那一份**
+// （从 kernel.ts 原样切走），不打桩：桩一写成「联合就算出击」，「编队中/出击中」
+// 两态的分界就在测试里被抹平了；单队具名出击也必须由同一份真判据兜住。
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -23,6 +23,7 @@ const read = (...rel) => fs.readFileSync(path.join(ROOT, ...rel), 'utf8').replac
 const kernel = read('src', 'renderer', 'kernel.ts')
 const header = read('src', 'renderer', 'header-status.ts')
 const bi = read('src', 'renderer', 'modules', 'bi.ts')
+const mgstate = read('src', 'renderer', 'modules', 'mgstate.ts')
 
 const cutFrom = (src, from, to, label) => {
   const start = src.indexOf(from)
@@ -35,15 +36,15 @@ const cutFrom = (src, from, to, label) => {
 // ---- 判定本体（真的，不打桩）----
 const ESCORT_STATE = cutFrom(
   kernel,
-  "export type CombinedEscortState = 'sortie' | 'formed'",
+  'export const deckOnSortie =',
   null,
-  '内核的 combinedEscortState',
+  '内核的 deckOnSortie / combinedEscortState',
 )
 
 // ---- 顶栏远征芯片：三态判定 + class 表 + 整个 expeditionsHtml ----
 const HEADER_CHIPS = cutFrom(
   header,
-  "type ExpeditionChipState = 'away' | 'back' | 'unsupplied' | 'idle'",
+  "type HeaderFoldGroup = 'expedition' | 'dock' | 'build'",
   '\n// 「在外 → 归来」发生在倒计时归零那一刻',
   '顶栏远征芯片 expeditionsHtml',
 )
@@ -66,9 +67,29 @@ const BI_GANTT = cutFrom(
 // 远征规划的舰候选池：队号那头剔干净了，舰这头也得剔——否则方案会去拆随伴舰队。
 const BI_POOL = cutFrom(
   bi,
-  '// 可用池：排除远征在途、入渠中、大破',
+  '// 可用池：排除远征在途、出击中、入渠中、大破',
   '\n// 取舍顺序：闲置优先',
   '铉的 availableShips',
+)
+const BI_CONDITION = cutFrom(
+  bi,
+  '  // 条件检查',
+  '\n  // 收益',
+  '铉的条件检查',
+)
+
+// ---- 铭：状态面板的舰队区 ----
+const MG_DECKS = cutFrom(
+  mgstate,
+  'const renderDecks = () => {',
+  '\nconst renderNdocks = ',
+  '铭的舰队状态面板',
+)
+const MG_WATCHED_KEYS = cutFrom(
+  mgstate,
+  'const WATCHED_KEYS =',
+  '\n\nconst renderFreshness',
+  '铭的状态面板更新观察键',
 )
 
 const HARNESS = `
@@ -93,7 +114,19 @@ export const plannerPrefs: any = { protectedDeckIds: [], excludedRosterIds: [] }
 const esc = (s: unknown) => \`\${s ?? ''}\`.replace(/[&<>"']/g, (c) => \`&#\${c.charCodeAt(0)};\`)
 const fmtCountdownShort = (_ts: number, done = '') => done || '0:00:00'
 const entityNamePlain = (_kind: string, _id: number, name: string) => name
+const entityNameHtml = (_kind: string, _id: number, name: string) => name
+const entityTermHtml = (_kind: string, _id: number, name: string) => name
 const fleetLabel = (deck: any) => ({ canonical: \`第\${deck.id}舰队\`, custom: null })
+const masterShipName = (id: number) => \`舰娘 #\${id}\`
+const elink = (_kind: string, _id: number, label: string) => label
+const checkExpedition = (_e: any, _deck: Deck) => ({ rows: [], fails: 0, unknowns: 0 })
+let lastDeckHtml = ''
+const pane: any = { querySelector: () => ({}) }
+const applyPaneHtml = (_box: any, key: string, html: string) => {
+  if (key === 'decks') lastDeckHtml = html
+}
+${MG_WATCHED_KEYS}
+const watchesMgKey = (key: string) => WATCHED_KEYS.includes(key)
 // 未补给：由夹具直接摆布（真判定是锐的 isUnsupplied，与这条守卫无关）
 export const unsuppliedDeckIds = new Set<number>()
 const fleetHasUnsupplied = (deck: any) => unsuppliedDeckIds.has(deck.id)
@@ -109,8 +142,28 @@ ${HEADER_CHIPS}
 ${BI_DECKS}
 ${BI_GANTT}
 ${BI_POOL}
+const renderConditionCheck = (e: any, deck: Deck): string => {
+  const w = e.wiki
+${BI_CONDITION}
+  return checkSec
+}
+${MG_DECKS}
+const renderedDecksHtml = () => lastDeckHtml
 
-export { expeditionsHtml, deckStatusHtml, fleetStatusHtml, freeDecks, expeditionChipState, availableShips }
+export {
+  expeditionsHtml,
+  foldGroupHtml,
+  foldGroupDetailHtml,
+  deckStatusHtml,
+  fleetStatusHtml,
+  freeDecks,
+  expeditionChipState,
+  availableShips,
+  renderConditionCheck,
+  renderDecks,
+  renderedDecksHtml,
+  watchesMgKey,
+}
 `
 
 const loaded = (() => {
@@ -172,6 +225,18 @@ export const setBiCompact = (on) => {
 export const FOUR_IDLE_FLEETS = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }]
 
 export const renderHeaderChips = () => loaded.expeditionsHtml()
+export const renderFoldGroup = (group, label, title, detailHtml) =>
+  loaded.foldGroupHtml(group, label, title, detailHtml)
+export const copiedFoldDetail = (groupHtml) => {
+  const hit = /<span class="hs-group-detail">([\s\S]*)<\/span>\s*<\/span>$/.exec(groupHtml)
+  assert.ok(hit, `折叠组里找不到详情容器\n${groupHtml}`)
+  return loaded.foldGroupDetailHtml({
+    querySelector(selector) {
+      assert.equal(selector, '.hs-group-detail')
+      return { innerHTML: hit[1] }
+    },
+  })
+}
 export const renderGantt = () => loaded.fleetStatusHtml()
 /** 一支队的状态本体：常规态摆在甘特条里，紧凑态摆进悬停卡——同一份 */
 export const renderDeckStatus = (deckId) =>
@@ -180,6 +245,18 @@ export const renderDeckStatus = (deckId) =>
 export const freeDeckIds = () => loaded.freeDecks().map((d) => d.id)
 /** 铉的远征方案能拿来凑队的那些舰（在籍 id） */
 export const availableShipIds = () => loaded.availableShips().map((s) => s.id)
+/** 铉的条件检查区：运行真模板，只把与尾句无关的条件判定固定成全满足。 */
+export const conditionCheckHtml = (deckId) =>
+  loaded.renderConditionCheck(
+    { wiki: {} },
+    loaded.mg.decks.find((d) => d.id === deckId),
+  )
+/** 铭的舰队状态面板。 */
+export const statusPanelHtml = () => {
+  loaded.renderDecks()
+  return loaded.renderedDecksHtml()
+}
+export const statusPanelWatches = (key) => loaded.watchesMgKey(key)
 
 /**
  * 从顶栏产物里把某一枚芯片整段抠出来。

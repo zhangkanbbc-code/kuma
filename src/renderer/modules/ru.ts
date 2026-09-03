@@ -35,6 +35,7 @@ import {
 
 import {
   combinedEscortState,
+  deckOnSortie,
   esc,
   fleetLabel,
   fmtCountdown,
@@ -47,8 +48,7 @@ import {
   escapedInSortie,
   isSunkInSortie,
   commitPaneHtml,
-  deferWhileComposing,
-  deferWhilePressed,
+  deferPassive,
   forgetCommittedHtml,
   onFilterInput,
   onMgChange,
@@ -483,7 +483,7 @@ const LOAD_FAIL_LABEL: Record<LoadKind, string> = {
 const noteLoadFailure = (kind: LoadKind, error: unknown) => {
   console.warn(`[kanso] 编队 ${LOAD_FAIL_LABEL[kind]}读取失败`, error)
   loadFailed.add(kind)
-  render()
+  deferPassive(pane, 'ru', render)
 }
 const loadFailHtml = (): string =>
   loadFailed.size
@@ -1543,7 +1543,8 @@ const warnSortieReadiness = (ts: number) => {
   const warnings: { deckId: number; label: string; detail: string; critical: boolean }[] = []
   for (const deck of mg.decks) {
     if (deck.mission?.[0] > 0 || !fleetShips(deck).length) continue
-    // 联合舰队由第1舰队代表，两队只合并判定一次。
+    // 自己出击的队在这里跳过；联合随伴二队由下一行跳过，海上的都不提醒。
+    if (deckOnSortie(deck.id)) continue
     if (inCombined(deck) && deck.id === 2) continue
     let taiha = 0, chuuha = 0, unsupplied = 0, docked = 0, tired = 0
     // 同 verdictHtml：已退避的舰不再进计数
@@ -1614,7 +1615,7 @@ onSortieScreen(warnSortieReadiness)
 onSortieScreen(() => {
   if (atMapSelect) return
   atMapSelect = true
-  render()
+  deferPassive(pane, 'ru', render)
 })
 
 /**
@@ -1654,6 +1655,8 @@ const warnOnEventMapOpen = (areaId: number, ts: number): void => {
   if (eventArea) {
     for (const deck of mg.decks) {
       if (deck.mission?.[0] > 0 || !fleetShips(deck).length) continue
+      // 自己出击的队在这里跳过；联合随伴二队由下一行跳过，海上的都不提醒。
+      if (deckOnSortie(deck.id)) continue
       if (inCombined(deck) && deck.id === 2) continue
       const verdict = currentSallyVerdict(scopeShips(deck))
       const untagged = verdict.kind === 'none' ? 0 : verdict.untagged
@@ -2616,13 +2619,13 @@ const scheduleFleetQuestCheck = () => {
         if (generation !== fleetQuestGeneration) return // 已经有更新的一次在路上
         fleetQuestCheck = result
         fleetQuestFailed = false
-        if (pane?.classList.contains('active')) render()
+        if (pane?.classList.contains('active')) deferPassive(pane, 'ru', render)
       })
       .catch((error) => {
         if (generation !== fleetQuestGeneration) return
         console.warn('[kanso] 编队任务反查失败', error)
         fleetQuestFailed = true
-        if (pane?.classList.contains('active')) render()
+        if (pane?.classList.contains('active')) deferPassive(pane, 'ru', render)
       })
   }, 250)
 }
@@ -2758,7 +2761,7 @@ const saveDeckBuilderFile = async (deck: DeckBuilderDeck) => {
   // 玩家只会以为自己没点中（对照上面「复制 JSON」失败时的 flash）。
   deckIo.flash =
     outcome.status === 'failed' ? '存文件失败 · 可使用「复制 JSON」' : '已存为文件 ✓'
-  render()
+  deferPassive(pane, 'ru', render)
 }
 
 const deckIoHtml = (deck: Deck | null): string => {
@@ -2908,11 +2911,11 @@ const bindFleetPanelDelegates = (
         .writeText(payload)
         .then(() => {
           deckIo.flash = act === 'copy-json' ? '已复制 JSON ✓' : '已复制链接 ✓'
-          rerender()
+          deferPassive(root, 'ru:deckio', rerender)
         })
         .catch(() => {
           deckIo.flash = '复制失败 · 可使用「存为文件」'
-          rerender()
+          deferPassive(root, 'ru:deckio', rerender)
         })
       return
     } else if (act === 'save') {
@@ -2964,17 +2967,20 @@ registerEntityRoute('fleet', {
     const { canonical, custom } = fleetLabel(deck)
     const ships = fleetShips(deck)
     const onExpedition = deck.mission?.[0] > 0
+    // 联合第 2 舰队与自己出击的队先判，再看远征位与待命态；
+    // 顶栏那枚芯片刚说她在出击，两处不能对不上。
     const escort = combinedEscortState(id)
+    const onSortie = deckOnSortie(id)
     return {
       title: custom ? `${canonical}「${custom}」` : canonical,
       typeLabel: '舰队',
       lines: [
-        // 联合第 2 舰队先判：她的 mission 恒为 0，不摘出去这张卡就写「N 艘待命」——
-        // 而顶栏那枚芯片刚说她在出击，两处对不上（2026-08-27 同一族的漏判）。
         escort
           ? escort === 'sortie'
             ? `${ships.length} 艘随联合舰队出击中`
             : `${ships.length} 艘已编入联合舰队`
+          : onSortie
+            ? `${ships.length} 艘出击中`
           : onExpedition
             ? deck.mission[2] <= Date.now()
               ? `远征 ${deck.mission[1]} 即将返港`
@@ -3032,7 +3038,7 @@ const loadKcwikiShips = () => {
       for (const entry of Object.values<any>(lode.data)) {
         if (entry?.ID) kcwikiByMst.set(entry.ID, entry)
       }
-      render()
+      deferPassive(pane, 'ru', render)
     })
     .catch((error) => noteLoadFailure('kcwiki', error))
 }
@@ -3052,7 +3058,7 @@ const loadMasterNames = () => {
           .filter((u: any) => Number.isFinite(Number(u?.api_id)))
           .map((u: any) => [Number(u.api_id), `${u.api_name ?? ''}`]),
       )
-      render()
+      deferPassive(pane, 'ru', render)
     })
     .catch((error) => noteLoadFailure('master', error))
 }
@@ -3067,7 +3073,7 @@ const retryFailedLoads = () => {
     else {
       // 手动重试不受冷却限制——是玩家自己点的
       expSamplesRetryAfter = 0
-      ensureExpSamples(() => render(true))
+      ensureExpSamples(() => deferPassive(pane, 'ru', () => render(true)))
     }
   }
 }
@@ -3089,10 +3095,9 @@ const scheduleRender = () => {
     renderScheduled = false
     if (!pane?.classList.contains('active')) return
     // 用户正按在这块面板上就让到抬起之后（按下与抬起之间换掉 DOM，click 不会发生）；
-    // 正在用输入法打字同理，让到组合结束——换掉 DOM 会把组合会话一起换没
-    if (deferWhilePressed(pane, 'ru', () => render())) return
-    if (deferWhileComposing(pane, 'ru', () => render())) return
-    render()
+    // 正在用输入法打字同理，让到组合结束——换掉 DOM 会把组合会话一起换没。
+    // 持续滚动时也让到安静窗之后，免得滚动中的 DOM 被替换。
+    deferPassive(pane, 'ru', render)
   })
 }
 
@@ -3101,8 +3106,8 @@ const render = (force = false) => {
   // 疲劳观测点不在这里记：写入方是铃（lg.ts），它无条件装配、
   // 按 ships 补丁记账，并且用 lastPortTs 而不是 Date.now() 锚定，比这里准。
   // 等级经验表：矿脉包为主，自己手上的舰实测为校（只增不减，跨会话累积）
-  ensureLevelExpLode(() => render(true))
-  ensureExpSamples(() => render(true))
+  ensureLevelExpLode(() => deferPassive(pane, 'ru', () => render(true)))
+  ensureExpSamples(() => deferPassive(pane, 'ru', () => render(true)))
   observeLevelExp()
   if (!mg.decks.length) {
     forgetCommittedHtml(pane, 'ru') // 这一支绕开 commitPaneHtml，记忆不能留着
@@ -3220,7 +3225,7 @@ registerModule({
       // 挂牌不吃这个信号(它每游戏会话每区只响一次,当判据必聋);
       // 只驱动一次性 toast,换区时重画一次保 toast 前后界面一致
       warnOnEventMapOpen(event.areaId, event.ts)
-      if (changed) render()
+      if (changed) deferPassive(pane, 'ru', render)
     }
     broadcaster.addListener('kancolle.map.open', onMapOpen)
     // 这条监听住在**主进程**，装配失败重试时不退掉就永远留在那边：
@@ -3232,11 +3237,11 @@ registerModule({
     // 先把它装上——鉴/镝/铎没进坞的布局下那份目录就是空的，链接会静默消失。
     // initMapIntel 自带 initPromise 去重，重复调用是幂等的。
     void initMapIntel().then(() => {
-      if (pane?.isConnected) render()
+      if (pane?.isConnected) deferPassive(pane, 'ru', render)
     })
     // 成长三维的端点包：编队详情的蓝字加成里那三项靠它出行（拉不到就只出四项）
     ensureShipStatsLode(() => {
-      if (pane?.isConnected) render()
+      if (pane?.isConnected) deferPassive(pane, 'ru', render)
     })
     initMetricsFoldCard()
     const paneResize = new ResizeObserver(() => {

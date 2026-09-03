@@ -7,6 +7,7 @@
 // 属性合计含舰载机数值（与 wiki 判定口径略有出入），页脚有注。
 import {
   combinedEscortState,
+  deckOnSortie,
   esc,
   exitWithMotion,
   fmtCountdownShort,
@@ -15,8 +16,7 @@ import {
   masterShipName,
   mg,
   commitPaneHtml,
-  deferWhileComposing,
-  deferWhilePressed,
+  deferPassive,
   forgetCommittedHtml,
   onFilterInput,
   onMgChange,
@@ -494,7 +494,7 @@ const shipWhere = (ship: PlayerShip): string => {
   return deck ? `第${deck.id}舰队` : '闲置'
 }
 
-// 可用池：排除远征在途、入渠中、大破、联合编成的第 2 舰队
+// 可用池：排除远征在途、出击中、入渠中、大破、联合编成的第 2 舰队
 const availableShips = (): PlayerShip[] => {
   const busy = new Set<number>()
   const protectedShips = new Set<number>()
@@ -503,8 +503,12 @@ const availableShips = (): PlayerShip[] => {
     // 联合第 2 舰队的舰与远征在途的舰同档：她的 mission 恒为 0，不摘出去，
     // 凑出来的方案就是「把随伴舰队拆开去跑远征」——那支队游戏里根本派不出去，
     // 而 freeDecks 那头已经不给她列队号了，这头再把她的舰凑进来是自相矛盾。
-    // 出击与否都摘（与 freeDecks 同一裁定）。
-    if (deck.mission?.[0] > 0 || combinedEscortState(deck.id)) {
+    // 出击与否都摘（与 freeDecks 同一裁定）；自己出击中的队同理，人在海上。
+    if (
+      combinedEscortState(deck.id) ||
+      deckOnSortie(deck.id) ||
+      deck.mission?.[0] > 0
+    ) {
       deck.ships.filter((id) => id > 0).forEach((id) => busy.add(id))
     }
     if (plannerPrefs.protectedDeckIds.includes(deck.id)) {
@@ -995,12 +999,17 @@ const runningDeckOf = (apiId: number): Deck | undefined =>
 
 const expeditionDecks = (): Deck[] => mg.decks.filter((d) => d.id >= 2)
 
-// 「空闲舰队」＝没在远征、**且不是联合编成的第 2 舰队**。
-// 后半条不加的话，联合编成时二队会被推荐去派远征——游戏里根本不许，
-// 而「多队联立」还会拿她凑进「这 N 支可以同时派出」，等于给出一份派不出去的名单。
-// 出击与否都剔：编队中的她一样不可派（2026-08-27 用户裁）。
+// 「空闲舰队」＝不是联合编成的第 2 舰队、没在出击、没在远征。
+// 联合编成时二队不能单独派远征，却会因 mission 恒为 0 被误列为空闲；
+// 多队联立再拿她凑进「这 N 支可以同时派出」，就是一份派不出去的名单。
+// 出击与否都剔；自己出击中的队也不是空闲，人在海上。
 const freeDecks = (): Deck[] =>
-  expeditionDecks().filter((d) => !(d.mission?.[0] > 0) && !combinedEscortState(d.id))
+  expeditionDecks().filter(
+    (d) =>
+      !combinedEscortState(d.id) &&
+      !deckOnSortie(d.id) &&
+      !(d.mission?.[0] > 0),
+  )
 
 const pickDeck = (): Deck | null => {
   const decks = expeditionDecks()
@@ -1041,7 +1050,7 @@ const deckSupplyState = (deck: Deck): DeckSupplyState => {
 
   const needing = new Set([...fuelLow, ...ammoLow]).size
   if (needing) {
-    const when = deck.mission?.[0] > 0 ? '返港后需补给' : '缺补给'
+    const when = deckOnSortie(deck.id) || deck.mission?.[0] > 0 ? '返港后需补给' : '缺补给'
     return {
       kind: 'low',
       label: '补',
@@ -1072,12 +1081,15 @@ const EXPEDITION_DIFFICULTY = ['', 'E', 'D', 'C', 'B', 'A', 'S', 'S+']
 // 免得哪天改了一处、两边说法对不上。
 const deckStatusHtml = (deck: Deck): string => {
   const busy = deck.mission?.[0] > 0
-  // 联合第 2 舰队优先于远征位判定：她的 mission 恒为 0，不先摘出去就是一行「待命」，
-  // 而这条甘特条正是用来一眼看「谁还能派」的——那一行会直接把人骗过去。
+  // 联合第 2 舰队与自己出击的队都要先于远征位判定；前者 mission 恒为 0，
+  // 两者不先摘出去，甘特条都会把正在海上的队写成「待命」。
   const escort = combinedEscortState(deck.id)
+  const onSortie = deckOnSortie(deck.id)
   let status: string
   if (escort) {
     status = `<span class="g-idle">${escort === 'sortie' ? '出击中' : '编队中'}</span>`
+  } else if (onSortie) {
+    status = '<span class="g-idle">出击中</span>'
   } else if (busy) {
     const returnTs = deck.mission[2]
     const dispNo = mg.master.missions[deck.mission[1]]?.dispNo ?? deck.mission[1]
@@ -1466,7 +1478,9 @@ const ensureExpeditionHistory = (missionId: number) => {
     })
     .finally(() => {
       expeditionHistoryLoading.delete(missionId)
-      if (pane?.classList.contains('active') && state.selected === missionId) render()
+      if (pane?.classList.contains('active') && state.selected === missionId) {
+        deferPassive(pane, 'bi', render)
+      }
     })
 }
 
@@ -1497,17 +1511,20 @@ const detailHtml = (e: Exped): string => {
       .map((d) => {
         const busy = d.mission?.[0] > 0
         const runNo = busy ? (mg.master.missions[d.mission[1]]?.dispNo ?? d.mission[1]) : null
-        // 联合第 2 舰队跟「远征中」一样挂 busy：她同样不是可以拿来对条件的那支队。
-        // 不挂的话这枚芯片会显示「待命」还亮着可选，点下去就在给一支派不出的队做条件检查。
+        // 联合第 2 舰队与自己出击的队跟「远征中」一样挂 busy：都不是能拿来对条件的队。
+        // 不先判，这枚芯片会显示「待命」还亮着可选，点下去就是给一支派不出的队做检查。
         const escort = combinedEscortState(d.id)
+        const onSortie = deckOnSortie(d.id)
         const note = escort
           ? escort === 'sortie'
             ? '随联合舰队出击中'
             : '已编入联合舰队'
-          : busy
-            ? `远征 ${runNo} 执行中`
-            : '待命'
-        return `<span class="fs${d.id === deck.id ? ' on' : ''}${busy || escort ? ' busy' : ''}" data-deck="${d.id}">第${d.id}舰队<i>${note}</i></span>`
+          : onSortie
+            ? '出击中'
+            : busy
+              ? `远征 ${runNo} 执行中`
+              : '待命'
+        return `<span class="fs${d.id === deck.id ? ' on' : ''}${busy || escort || onSortie ? ' busy' : ''}" data-deck="${d.id}">第${d.id}舰队<i>${note}</i></span>`
       })
       .join('')
     const ck = rows
@@ -1527,7 +1544,13 @@ const detailHtml = (e: Exped): string => {
       <div class="sec-h">条件检查<span class="sp"></span></div>
       <div class="fsel">${fsel}</div>
       <div class="ck">${ck || '<div class="ck-row"><span class="mk ok">✓</span><span class="w">无特殊条件</span><span class="r"></span></div>'}</div>
-      <div class="ck-sum">检查结果：${verdict}${deck.mission?.[0] > 0 ? ' · <span style="color:var(--warn)">该舰队正在远征，返港后可用</span>' : ''}</div>
+      <div class="ck-sum">检查结果：${verdict}${
+        deck.mission?.[0] > 0
+          ? ' · <span style="color:var(--warn)">该舰队正在远征，返港后可用</span>'
+          : deckOnSortie(deck.id) || combinedEscortState(deck.id) === 'sortie'
+            ? ' · <span style="color:var(--warn)">该舰队正在出击，返港后可用</span>'
+            : ''
+      }</div>
     </div>`
   } else if (!w) {
     // 事实包没有这条(常设支援远征 S1/S2、活动临时远征都在此列)——
@@ -2088,10 +2111,10 @@ registerModule({
         (raw?.data?.api_mst_useitem ?? []).map((item: any) => [item.api_id, item.api_name]),
       )
       savePlannerPrefs()
-      render()
+      deferPassive(pane, 'bi', render)
     })()
     onQpChange(() => {
-      if (pane.classList.contains('active')) render()
+      if (pane.classList.contains('active')) deferPassive(pane, 'bi', render)
     })
     onMgChange((keys) => {
       if (keys.includes('decks')) {
@@ -2108,8 +2131,9 @@ registerModule({
       if (keys.some((k) => ['master', 'decks', 'ships', 'slotitems', 'ndocks', 'quests'].includes(k)) && pane.classList.contains('active')) {
         if (keys.includes('decks') || keys.includes('ships')) savePlannerPrefs()
         // 用户正按在这块面板上就让到抬起之后（按下与抬起之间换掉 DOM，click 不会发生）；
-        // 正在用输入法打字同理，让到组合结束——换掉 DOM 会把组合会话一起换没
-        if (!deferWhilePressed(pane, 'bi', render) && !deferWhileComposing(pane, 'bi', render)) render()
+        // 正在用输入法打字同理，让到组合结束——换掉 DOM 会把组合会话一起换没。
+        // 持续滚动时也让到安静窗之后，免得滚动中的 DOM 被替换。
+        deferPassive(pane, 'bi', render)
       }
     })
     onTick(() => {

@@ -39,6 +39,7 @@ export interface CompleteQuestTreeNode {
 const byStableOrder = (left: QuestChainEntry, right: QuestChainEntry) =>
   left.id - right.id || left.code.localeCompare(right.code)
 
+// 游戏任务表里存在的任务由游戏状态决定，不计入推断完成。
 export const inferCompletedQuestCodes = (
   entries: Iterable<QuestChainEntry>,
   observedQuestIds: Iterable<number>,
@@ -59,9 +60,14 @@ export const inferCompletedQuestCodes = (
       walk(prerequisite)
     }
   }
-  for (const id of observedQuestIds) {
+  const observedIds = [...observedQuestIds]
+  for (const id of observedIds) {
     const entry = byId.get(id)
     if (entry) walk(entry.code)
+  }
+  for (const id of observedIds) {
+    const entry = byId.get(id)
+    if (entry) inferred.delete(entry.code)
   }
   return inferred
 }

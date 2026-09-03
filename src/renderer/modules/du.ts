@@ -8,7 +8,7 @@ import type { MaterialRow } from '../../shared/mg-types'
 import { fleetAirPower } from '../fleet-calc'
 import { equipTypeIconHtml } from '../equip-icon'
 import { MATERIAL_ICON_BY_INDEX, materialIconHtml, shipThumbHtml } from '../entity-art'
-import { commitPaneHtml, esc, fleetLabel, fmtDate, fmtDateTime, fmtK, fmtTime, forgetCommittedHtml, lodeCredit, mg, onMgChange, queryFriendlyFleets, queryLode, queryMasterRaw, queryMaterialWindow, uiGet, uiSet } from '../kernel'
+import { commitPaneHtml, deferPassive, esc, fleetLabel, fmtDate, fmtDateTime, fmtK, fmtTime, forgetCommittedHtml, lodeCredit, mg, onMgChange, queryFriendlyFleets, queryLode, queryMasterRaw, queryMaterialWindow, uiGet, uiSet } from '../kernel'
 import type { LodeMeta } from '../kernel'
 import { cachedEventBonusLode, eventKeyOf, loadEventBonusLode } from '../combat-forecast'
 import { airBaseCustomName } from '../../shared/air-base-name'
@@ -190,9 +190,11 @@ const refreshSpent = async (areaId: number) => {
 }
 
 // 去抖/补跑共用的一次重算：查完只在面板可见时重渲。
-const reloadSpentAndRender = (areaId: number) => {
+const reloadSpentAndRender = (areaId: number, passive: boolean) => {
   void refreshSpent(areaId).then(() => {
-    if (pane.classList.contains('active')) render()
+    if (!pane.classList.contains('active')) return
+    if (passive) deferPassive(pane, 'du', render)
+    else render()
   })
 }
 
@@ -228,7 +230,7 @@ const ensureFriendlyFleets = (mapId: number, difficulty: number) => {
     })
     .finally(() => {
       if (friendlyPendingScope === scope) friendlyPendingScope = ''
-      if (pane.classList.contains('active')) render()
+      if (pane.classList.contains('active')) deferPassive(pane, 'du', render)
     })
 }
 
@@ -1281,7 +1283,7 @@ const render = () => {
     spentFailedAreaId !== areaId &&
     mg.eventAreas[areaId]
   ) {
-    reloadSpentAndRender(areaId)
+    reloadSpentAndRender(areaId, false)
   }
   commitPaneHtml(pane, 'du', `<div class="du-app${pane.clientWidth < 700 ? ' narrow' : ''}">
       ${heroHtml(maps)}
@@ -1376,7 +1378,7 @@ registerModule({
       planeGroups = ((groups as any)?.data ?? null) as PlaneGroupTable | null
       planeGroupsMeta = ((groups as any)?.meta ?? null) as LodeMeta | null
       syncModuleVisibility()
-      render()
+      deferPassive(pane, 'du', render)
     })()
     onMgChange((keys) => {
       // 一份 patch 常常同时带好几段（回港一次就是 basic/materials/ships/decks/
@@ -1394,7 +1396,7 @@ registerModule({
             spentDirty = true
             return
           }
-          reloadSpentAndRender(areaId)
+          reloadSpentAndRender(areaId, true)
         }, 3000)
       }
       if (keys.includes('master')) {
@@ -1402,7 +1404,7 @@ registerModule({
         void (async () => {
           applyMasterAreas(await queryMasterRaw())
           syncModuleVisibility()
-          render()
+          deferPassive(pane, 'du', render)
         })()
         return
       }
@@ -1419,7 +1421,7 @@ registerModule({
         ) &&
         pane.classList.contains('active')
       ) {
-        render()
+        deferPassive(pane, 'du', render)
       }
     })
     render()
@@ -1431,7 +1433,7 @@ registerModule({
     if (spentDirty) {
       spentDirty = false
       const areaId = eventMaps()[0]?.api_maparea_id
-      if (areaId) reloadSpentAndRender(areaId)
+      if (areaId) reloadSpentAndRender(areaId, false)
     }
     render()
   },

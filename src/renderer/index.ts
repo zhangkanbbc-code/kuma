@@ -240,6 +240,13 @@ new ResizeObserver(() => applyZoomDebounced()).observe(gameWrapper)
 new ResizeObserver(() => applyGameLayout()).observe(gameArea)
 
 // ---- 头部按钮 ----
+const moreBtn = $('#btn-more')
+const headerActions = $('#header-actions')
+document.addEventListener('click', (e) => {
+  if (moreBtn.contains(e.target as Node)) headerActions.classList.toggle('open')
+  else headerActions.classList.remove('open')
+})
+
 $('#btn-reload').addEventListener('click', () => {
   webview?.reload()
 })
@@ -392,6 +399,10 @@ const syncFocusBtn = (on: boolean) => {
 }
 focusBtn.addEventListener('click', () => syncFocusBtn(toggleFocus()))
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    headerActions.classList.remove('open')
+    return
+  }
   if (e.key === 'F9') {
     e.preventDefault()
     syncFocusBtn(toggleFocus())

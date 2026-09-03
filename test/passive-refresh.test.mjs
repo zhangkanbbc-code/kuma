@@ -4,7 +4,11 @@ import test from 'node:test'
 
 import viewStateModule from '../dist/shared/view-state.js'
 
-const { scrollUntouchedSince } = viewStateModule
+const {
+  isProgrammaticScrollEcho,
+  passiveDeferReason,
+  scrollUntouchedSince,
+} = viewStateModule
 
 const read = (rel) => fs.readFileSync(new URL(`../src/${rel}`, import.meta.url), 'utf8')
 
@@ -192,7 +196,7 @@ test('输出没变就不换 DOM，且没换 DOM 就不重绑', () => {
     ['ji', /if \(!committed\) \{/],
     ['qn', /if \(!commitPaneHtml\(pane, 'qn', html\)\) return/],
     ['ru', /if \(!commitPaneHtml\(pane, 'ru', html\)\) return/],
-    ['zi', /if \(!commitPaneHtml\(pane, 'zi', html\)\) return/],
+    ['zi', /if \(!commitPaneHtml\(pane, 'zi', html\)\) \{\s+syncTileGlow\(\)\s+return\s+\}/],
     ['qa', /if \(!commitPaneHtml\(pane, 'qa', html\)\) return/],
     // bi 比别人多一步：紧凑态的编队悬停卡在「没换 DOM」那条路上也要重画一次
     //（那时甘特条只剩队号，「远征跑完返港」逐字节闸门根本看不出来），所以闸门结果
@@ -211,7 +215,8 @@ test('输出没变就不换 DOM，且没换 DOM 就不重绑', () => {
 
 test('指针按下期间的被动重渲让到抬起之后（否则那一次 click 不会发生）', () => {
   const kernel = read('renderer/kernel.ts')
-  assert.match(kernel, /export const deferWhilePressed = \(/)
+  assert.match(kernel, /const deferWhilePressed = \(/)
+  assert.doesNotMatch(kernel, /export const deferWhilePressed = \(/, '旧闸门只留在内核内部')
   // 只推迟落在**这块面板上**的按下，别的面板照常更新
   assert.match(kernel, /if \(!pressedTarget \|\| !root\.contains\(pressedTarget\)\) return false/)
   // 必须封顶：按住不放不能把界面永久冻在旧状态；pointerup 收不到时也要补跑
@@ -220,20 +225,21 @@ test('指针按下期间的被动重渲让到抬起之后（否则那一次 clic
   assert.match(kernel, /document\.addEventListener\('pointercancel', releasePointer, true\)/)
   // 补渲要再排一个任务：click 在 pointerup → mouseup **之后**才派发，
   // 在 pointerup 里就换 DOM 那一次点击照样被吞（实测过，加这一拍才送达）
-  assert.match(kernel, /if \(deferredRenders\.size\) setTimeout\(flushDeferredRenders, 0\)/)
-  // 用上它的模块（镝与铃是未卜先知/通知，要实时，刻意不进这张表）
+  assert.match(kernel, /if \(passiveDeferred\.size\) setTimeout\(flushPassiveDeferred, 0\)/)
+  // 用上统一提交口的模块（镝与铃是未卜先知/通知，要实时，刻意不进这张表）
   // equip-stock 2026-08-31 补进来：它的被动重渲（主数据到货）会把搜索框换掉，
-  // 与七个老模块同一条链，产品人拍板两道闸门一起接。
-  for (const mod of ['ji', 'qn', 'ru', 'zi', 'qa', 'bi', 'shi', 'equip-stock']) {
-    assert.match(read(`renderer/modules/${mod}.ts`), /deferWhilePressed\(/, `${mod} 应当让出按下期间的被动重渲`)
+  // 与七个老模块同一条链，产品人拍板三道闸门一起接；铎也补进同一条链。
+  for (const mod of ['ji', 'qn', 'ru', 'zi', 'qa', 'bi', 'shi', 'equip-stock', 'du']) {
+    assert.match(read(`renderer/modules/${mod}.ts`), /deferPassive\(/, `${mod} 应当让出按下期间的被动重渲`)
   }
   for (const mod of ['di', 'lg']) {
     assert.doesNotMatch(
       read(`renderer/modules/${mod}.ts`),
-      /deferWhilePressed\(/,
+      /deferPassive\(/,
       `${mod} 是未卜先知/通知模块，实时优先，不进推迟名单`,
     )
   }
+  // 铃的排除是拍过板的口径；镝是未卜先知要实时。第三道闸门也一样排除。
 })
 
 // ---- 2026-08-31：搜索框用不了微软输入法（玩家实报）----
@@ -247,7 +253,8 @@ test('指针按下期间的被动重渲让到抬起之后（否则那一次 clic
 
 test('输入法组合期间不换 DOM，组合结束再补做那次过滤', () => {
   const kernel = read('renderer/kernel.ts')
-  assert.match(kernel, /export const deferWhileComposing = \(/)
+  assert.match(kernel, /const deferWhileComposing = \(/)
+  assert.doesNotMatch(kernel, /export const deferWhileComposing = \(/, '旧闸门只留在内核内部')
   assert.match(kernel, /export const onFilterInput = \(/)
   assert.match(kernel, /export const isComposingIn = \(/)
   // 只让出落在**这块面板里**的组合，别的面板照常更新
@@ -311,19 +318,20 @@ test('输入即过滤的搜索框一律走 onFilterInput，不留裸 input 监�
 test('被动重渲也要让开组合：游戏推一条报文不该把正在打的字打断', () => {
   // 玩家打字那一秒里刚好收到一条报文，面板照样会 innerHTML 重建——
   // 症状与主动那条一模一样，只是偶发，更难复现
-  for (const mod of ['ji', 'qn', 'ru', 'zi', 'qa', 'bi', 'shi', 'equip-stock']) {
+  for (const mod of ['ji', 'qn', 'ru', 'zi', 'qa', 'bi', 'shi', 'equip-stock', 'du']) {
     assert.match(
       read(`renderer/modules/${mod}.ts`),
-      /deferWhileComposing\(/,
+      /deferPassive\(/,
       `${mod} 的被动重渲应当让出输入法组合期`,
     )
   }
   // 铃维持当年那条拍板排除（通知要实时）：它那两格是数字阈值且走 change，
-  // 主动路径本来就不经过组合；这里连同上面那条 deferWhilePressed 的排除一起钉住，
+  // 主动路径本来就不经过组合；这里连同上面统一提交口的排除一起钉住，
+  // 第三道闸门也一样排除，
   // 免得日后有人「顺手补齐」把拍过板的口径改掉。
   assert.doesNotMatch(
     read('renderer/modules/lg.ts'),
-    /deferWhileComposing\(/,
+    /deferPassive\(/,
     '铃的排除是拍过板的口径，要改得产品人再拍',
   )
 })
@@ -357,4 +365,569 @@ test('输入框上的回车/方向键要放过输入法那一下', () => {
   assert.match(catalog, /if \(e\.isComposing\) return\s*\n\s*if \(e\.key === 'Enter' && \(e\.ctrlKey/)
   assert.match(catalog, /if \(e\.isComposing\) return\s*\n\s*if \(e\.key === 'Enter'\) input\.blur\(\)/)
   assert.match(read('renderer/modules/qa.ts'), /if \(e\.isComposing\) return\s*\n\s*if \(e\.key === 'Enter'\) rosterNote\.blur\(\)/)
+})
+
+// ---- 2026-09-03：主游戏加载数据时滚动仍会被被动重画打断（玩家实报）----
+//
+// 08-21 的输出/按下闸门与 08-31 的组合闸门只守住 onMgChange 同步入口，
+// 且没有覆盖滚轮与触摸板惯性期。本轮给 kernel 增加滚动安静窗、统一被动提交口，
+// 并压掉 withViewStateKept / applyScrollProfile 写回 scrollTop 后的可信 scroll 回声。
+
+const passiveCase = (overrides = {}) => ({
+  composing: false,
+  pressed: false,
+  pressedAt: 0,
+  scrolling: false,
+  scrollAt: 0,
+  since: 1_000,
+  now: 1_000,
+  quietMs: 600,
+  capMs: 700,
+  scrollCapMs: 5_000,
+  ...overrides,
+})
+
+test('停下 599ms 仍在滚动安静窗内', () => {
+  assert.equal(
+    passiveDeferReason(passiveCase({ scrolling: true, scrollAt: 1_000, now: 1_599 })),
+    'scrolling',
+  )
+})
+
+test('连续滚动会续期 600ms 安静窗', () => {
+  const beforeRenewal = passiveDeferReason(
+    passiveCase({ scrolling: true, scrollAt: 1_000, now: 1_599 }),
+  )
+  const afterRenewal = passiveDeferReason(
+    passiveCase({ scrolling: true, scrollAt: 1_230, now: 1_240 }),
+  )
+  assert.equal(beforeRenewal, 'scrolling')
+  assert.equal(afterRenewal, 'scrolling')
+})
+
+test('停下 601ms 后不再推迟', () => {
+  assert.equal(
+    passiveDeferReason(passiveCase({ scrolling: true, scrollAt: 1_000, now: 1_601 })),
+    null,
+  )
+})
+
+test('滚动持续续期时一项等待 4.9s 仍推迟', () => {
+  assert.equal(
+    passiveDeferReason(
+      passiveCase({ scrolling: true, scrollAt: 5_899, since: 1_000, now: 5_900 }),
+    ),
+    'scrolling',
+  )
+})
+
+test('滚动持续续期时一项等待 5.1s 后放行', () => {
+  assert.equal(
+    passiveDeferReason(
+      passiveCase({ scrolling: true, scrollAt: 6_099, since: 1_000, now: 6_100 }),
+    ),
+    null,
+  )
+})
+
+test('输入法组合不受 700ms 被动推迟封顶', () => {
+  assert.equal(
+    passiveDeferReason(passiveCase({ composing: true, since: 1_000, now: 9_000 })),
+    'composing',
+  )
+})
+
+test('指针按下封顶从 pressedAt 算而不是从新条目的 since 算', () => {
+  assert.equal(
+    passiveDeferReason(
+      passiveCase({ pressed: true, pressedAt: 1_000, since: 1_699, now: 1_699 }),
+    ),
+    'pressed',
+  )
+  assert.equal(
+    passiveDeferReason(
+      passiveCase({ pressed: true, pressedAt: 1_000, since: 1_700, now: 1_700 }),
+    ),
+    null,
+  )
+})
+
+test('只有新鲜且位置一致的程序化滚动标记才算回声', () => {
+  const mark = { top: 500, left: 12, at: 1_000 }
+  assert.equal(isProgrammaticScrollEcho({ top: 500.4, left: 12 }, mark, 1_200), true)
+  assert.equal(isProgrammaticScrollEcho({ top: 502, left: 12 }, mark, 1_200), false)
+  assert.equal(isProgrammaticScrollEcho({ top: 500, left: 12 }, mark, 1_251), false)
+  assert.equal(isProgrammaticScrollEcho({ top: 500, left: 12 }, undefined, 1_200), false)
+})
+
+test('滚动安静窗与独立封顶只在 kernel 定值并传给纯判据', () => {
+  const kernel = read('renderer/kernel.ts')
+  assert.match(kernel, /const SCROLL_QUIET_MS = 600/)
+  assert.match(kernel, /const SCROLL_DEFER_CAP = 5000/)
+  assert.match(kernel, /const PRESS_DEFER_CAP = 700/)
+  assert.match(kernel, /quietMs: SCROLL_QUIET_MS/)
+  assert.match(kernel, /capMs: PRESS_DEFER_CAP/)
+  assert.match(kernel, /scrollCapMs: SCROLL_DEFER_CAP/)
+  assert.match(kernel, /SCROLL_DEFER_CAP - \(now - entry\.since\)/)
+})
+
+test('wheel 与 scroll 都由 document 捕获阶段统一登记，wheel 显式 passive', () => {
+  const kernel = read('renderer/kernel.ts')
+  assert.match(
+    kernel,
+    /document\.addEventListener\(\s*'wheel',\s*recordScrollActivity,\s*\{\s*capture: true,\s*passive: true\s*\}\s*\)/,
+  )
+  assert.match(kernel, /document\.addEventListener\(\s*'scroll',\s*recordScrollActivity,\s*true\s*\)/)
+})
+
+test('滚动安静窗只登记可信事件', () => {
+  const kernel = read('renderer/kernel.ts')
+  const start = kernel.indexOf('const recordScrollActivity')
+  const end = kernel.indexOf('// 抬起之后', start)
+  assert.ok(start >= 0 && end > start, '找不到滚动登记函数边界')
+  const handler = kernel.slice(start, end)
+  assert.match(handler, /if \(!event\.isTrusted\) return/)
+  assert.ok(
+    handler.indexOf('isTrusted') < handler.indexOf('scrollTarget ='),
+    '可信事件判断必须先于滚动状态登记',
+  )
+})
+
+test('三种推迟原因共用一个队列且补跑会重新判闸门', () => {
+  const kernel = read('renderer/kernel.ts')
+  const start = kernel.indexOf('const passiveDeferred')
+  const end = kernel.indexOf('// ---- 第三道闸门：中文输入法组合期间不换 DOM ----', start)
+  assert.ok(start >= 0 && end > start, '找不到被动推迟机制边界')
+  const mechanism = kernel.slice(start, end)
+  const queueAllocations = [
+    ...mechanism.matchAll(
+      /const\s+passiveDeferred\s*=\s*new Map/g,
+    ),
+  ]
+  assert.equal(queueAllocations.length, 1, '三种原因只能有一份实际队列')
+
+  const flushStart = mechanism.indexOf('const flushPassiveDeferred')
+  const flushEnd = mechanism.indexOf('const recordScrollActivity', flushStart)
+  assert.ok(flushStart >= 0 && flushEnd > flushStart, '找不到统一补跑函数边界')
+  assert.match(
+    mechanism.slice(flushStart, flushEnd),
+    /passiveDeferReason\(/,
+    '补跑必须重新调用纯判据，不能无条件执行',
+  )
+})
+
+test('kernel 已导出统一被动提交口 deferPassive', () => {
+  assert.match(read('renderer/kernel.ts'), /export const deferPassive = \(/)
+})
+
+test('九个模块的异步回程与 qp 回调都从统一被动提交口落地', () => {
+  const cut = (source, from, to, label) => {
+    const start = source.indexOf(from)
+    assert.ok(start >= 0, `${label}：找不到起点`)
+    const end = source.indexOf(to, start + from.length)
+    assert.ok(end > start, `${label}：找不到终点`)
+    return source.slice(start, end)
+  }
+  const expect = (source, from, to, needle, symptom) => {
+    const body = cut(source, from, to, symptom)
+    assert.match(body, needle, symptom)
+  }
+
+  const ji = read('renderer/modules/ji.ts')
+  expect(
+    ji,
+    'const scheduleRender = () => {',
+    'const rosterHost =',
+    /deferPassive\(pane, 'ji', render\)/,
+    '鉴的 rAF 被动合帧若直画，按下、组合或滚动中仍会换掉整棵图鉴 DOM',
+  )
+  expect(
+    ji,
+    "if (keys.includes('master')) {",
+    '} else if (jiBookNeedsRender(keys, activeBook)) {',
+    /deferPassive\(pane, 'ji', render\)/,
+    '鉴的主数据回程若直画，资料到货会绕过三道闸门',
+  )
+  const jiMountData = cut(
+    ji,
+    'onFirstEncountersChange(() => {',
+    '    onMgChange((keys) => {',
+    '鉴的装配期资料回程',
+  )
+  assert.equal(
+    (jiMountData.match(/deferPassive\(pane, 'ji', render\)/g) ?? []).length,
+    6,
+    '鉴的首次遭遇、属性端点、点位字母、道具兑换、语音包与整链收尾都必须过闸',
+  )
+  const jiPatches = cut(ji, '    onMgChange((keys) => {', '  onShow:', '鉴的补丁订阅')
+  assert.equal(
+    (jiPatches.match(/deferPassive\(pane, 'ji', render\)/g) ?? []).length,
+    1,
+    '鉴的主数据回程必须过闸',
+  )
+  assert.equal(
+    (jiPatches.match(/refreshStockViewIfEquipmentChanged\(\)/g) ?? []).length,
+    1,
+    '装备数据补丁必须先过仓库自己的归属签名，不能直接让行缓存失效',
+  )
+  assert.equal((jiPatches.match(/refreshStockView\(\)/g) ?? []).length, 1, '家具与 basic 仍照旧直刷')
+  const jiArchives = cut(ji, 'const loadEventArchives = () => {', '// ---- 图鉴导航历史', '鉴的活动归档回程')
+  assert.equal(
+    (jiArchives.match(/deferPassive\(pane, 'ji', render\)/g) ?? []).length,
+    2,
+    '鉴的活动归档成功与失败回程都必须过闸',
+  )
+
+  const qn = read('renderer/modules/qn.ts')
+  expect(
+    qn,
+    'onQpChange(() => {',
+    '// 任务行只负责打开侧栏',
+    /deferPassive\(pane, 'qn', render\)/,
+    '钦的 qp 计数回调若直画，游戏推数时会吞掉正在发生的点击或组合',
+  )
+  expect(
+    qn,
+    'const scheduleFleetCheck = () => {',
+    'const entityAliases =',
+    /refreshFleetCheck\(\)\.then\(\(\) => \{[\s\S]*?deferPassive\(pane, 'qn', render\)/,
+    '钦的舰队检查回程若直画，350ms 去抖之后仍会绕过统一提交口',
+  )
+  const qnPatches = cut(qn, '    onMgChange((keys) => {', '    let lastQuickFilterMinute', '钦的补丁订阅')
+  assert.equal(
+    (qnPatches.match(/deferPassive\(pane, 'qn', render\)/g) ?? []).length,
+    2,
+    '钦的主数据索引回程与 onMgChange 主分支都必须过闸',
+  )
+  expect(
+    qn,
+    '    void (async () => {',
+    '    onMgChange((keys) => {',
+    /deferPassive\(pane, 'qn', render\)/,
+    '钦的装配期资料链收尾若直画，会在资料到货时绕过统一提交口',
+  )
+  expect(
+    qn,
+    "if (state.quick === 'resetSoon'",
+    '  onShow:',
+    /deferPassive\(pane, 'qn', render\)/,
+    '钦的即将重置跨分钟整页重画必须过闸',
+  )
+
+  const ru = read('renderer/modules/ru.ts')
+  const ruFleetCheck = cut(
+    ru,
+    'const scheduleFleetQuestCheck = () => {',
+    'const fleetDivisionHtml =',
+    '锐的编成任务回程',
+  )
+  assert.equal(
+    (ruFleetCheck.match(/deferPassive\(pane, 'ru', render\)/g) ?? []).length,
+    2,
+    '锐的编成任务成功与失败两条回程都必须过闸，否则其中一条仍会在滚动中直画',
+  )
+  expect(
+    ru,
+    'const scheduleRender = () => {',
+    'const render = (force = false) => {',
+    /deferPassive\(pane, 'ru', render\)/,
+    '锐的 rAF 被动合帧若直画，最后一拍仍会绕过统一提交口',
+  )
+  const ruMountData = cut(ru, '    void initMapIntel().then(() => {', '    initMetricsFoldCard()', '锐的装配期资料回程')
+  assert.equal(
+    (ruMountData.match(/deferPassive\(pane, 'ru', render\)/g) ?? []).length,
+    2,
+    '锐的海域情报与舰船属性资料到货回程都必须过闸',
+  )
+  expect(
+    ru,
+    'const saveDeckBuilderFile = async',
+    'const deckIoHtml =',
+    /deferPassive\(pane, 'ru', render\)/,
+    '锐的文件保存回程若直画，系统对话框回来时会绕过统一提交口',
+  )
+  const ruClipboard = cut(ru, 'navigator.clipboard', '      return', '锐的剪贴板回程')
+  assert.equal(
+    (ruClipboard.match(/deferPassive\(root, 'ru:deckio', rerender\)/g) ?? []).length,
+    2,
+    '锐的剪贴板成功与失败反馈都必须过闸',
+  )
+
+  const zi = read('renderer/modules/zi.ts')
+  const ziRefresh = cut(zi, 'const refresh = async () => {', '// ---- 资源/材料实体', '锱的八路账本回程')
+  assert.equal(
+    (ziRefresh.match(/deferPassive\(pane, 'zi', render\)/g) ?? []).length,
+    2,
+    '锱的八路账本成功与失败回程都必须过闸，否则进海图、进下一点或战报到达仍会卡滚动',
+  )
+  expect(
+    zi,
+    'const scheduleShipsRender = () => {',
+    '// 跨自然日重排',
+    /deferPassive\(pane, 'zi', render\)/,
+    '锱的 ships 350ms 合帧若直画，战斗报文到达那一拍仍会卡滚动',
+  )
+  const ziMountData = cut(zi, '    void queryMasterRaw().then((raw) => {', '    render(true)', '锱的装配与补丁回程')
+  assert.equal(
+    (ziMountData.match(/deferPassive\(pane, 'zi', render\)/g) ?? []).length,
+    3,
+    '锱的装配主数据、改造需求订阅与 master 补丁回程都必须过闸',
+  )
+  expect(
+    zi,
+    'const refreshSenkaDetail = async () => {',
+    "document.addEventListener('keydown'",
+    /deferPassive\(pane, 'zi:senka', \(\) => \{/,
+    '锱的战果详情查询回程必须连同弹窗换块一起过闸',
+  )
+
+  const qa = read('renderer/modules/qa.ts')
+  expect(
+    qa,
+    'const loadLife = async (rosterId: number) => {',
+    '// 详情页的进场动画',
+    /deferPassive\(pane, 'qa', render\)/,
+    '舰娘列表的人生记录回程若直画，详情资料到货会绕过统一提交口',
+  )
+  const qaInit = cut(qa, '  void (async () => {', '/** 由「鉴」的列表分区挂载', '舰娘列表的装配与订阅')
+  assert.equal(
+    (qaInit.match(/deferPassive\(pane, 'qa', render\)/g) ?? []).length,
+    4,
+    '舰娘列表的装配链、master 回程、补丁主分支与跨完工时刻重画都必须过闸',
+  )
+
+  const bi = read('renderer/modules/bi.ts')
+  expect(
+    bi,
+    'onQpChange(() => {',
+    'onMgChange((keys) => {',
+    /deferPassive\(pane, 'bi', render\)/,
+    '镖的 qp 计数回调若直画，远征页会在输入或滚动中重建',
+  )
+  const biMountData = cut(bi, '    void (async () => {', '    onTick(() => {', '镖的装配与订阅')
+  assert.equal(
+    (biMountData.match(/deferPassive\(pane, 'bi', render\)/g) ?? []).length,
+    3,
+    '镖的装配链、qp 回调与 onMgChange 主分支都必须过闸',
+  )
+
+  const shi = read('renderer/modules/shi.ts')
+  const shiRefresh = cut(shi, 'const refresh = async', 'const scheduleRefresh =', '史的 11 个候选查询回程')
+  assert.equal(
+    (shiRefresh.match(/deferPassive\(pane, 'shi', render\)/g) ?? []).length,
+    3,
+    '史的 loading、失败与成功三条整页重画都必须过闸',
+  )
+  const shiSubscriptions = cut(shi, '    onMgChange((keys) => {', '    render()', '史的补丁与资料订阅')
+  assert.equal(
+    (shiSubscriptions.match(/deferPassive\(pane, 'shi(?::refresh)?', (?:scheduleRefresh|render)\)/g) ?? []).length,
+    2,
+    '史的 onMgChange 与首次遭遇订阅都必须过闸',
+  )
+  expect(
+    shi,
+    'const selectNode = async',
+    'const battleDrawerTitle =',
+    /deferPassive\(pane, 'shi:node', paintNodeSelection\)/,
+    '史的节点账本回程必须让开正在发生的点击、组合与滚动',
+  )
+  expect(
+    shi,
+    'const openReviewBattle = async',
+    'const closeReviewBattle =',
+    /deferPassive\(pane, 'shi', render\)/,
+    '史的战斗快照回程必须过闸，点击当下的 loading 首画仍同步',
+  )
+
+  const stock = read('renderer/modules/equip-stock.ts')
+  expect(
+    stock,
+    'export const refreshStockView = () => {',
+    '// 任务奖励等处家具链接的落点',
+    /deferPassive\(pane, 'es', render\)/,
+    '装备仓库的公开刷新入口若直画，鉴的补丁回调会绕过统一提交口',
+  )
+  const stockLoads = cut(stock, 'const renderIfFurnitureView = () => {', 'let pane: HTMLElement | null', '装备仓库的主数据回程')
+  assert.equal(
+    (stockLoads.match(/deferPassive\(host, 'es', render\)/g) ?? []).length,
+    2,
+    '装备仓库的家具 waiter 与装备类别名回程都必须过闸',
+  )
+
+  const du = read('renderer/modules/du.ts')
+  expect(
+    du,
+    "if (keys.some((k) => k === 'quests' || k === 'useitems')) {",
+    '  onShow:',
+    /deferPassive\(pane, 'du', render\)/,
+    '铎的 onMgChange 主分支若直画，活动页会完全绕过三道闸门',
+  )
+  expect(
+    du,
+    'const reloadSpentAndRender =',
+    '// ---- 你遇到的友军',
+    /if \(passive\) deferPassive\(pane, 'du', render\)/,
+    '铎的资源账本回程若直画，3 秒去抖结束后仍会绕过统一提交口',
+  )
+  expect(
+    du,
+    'const ensureFriendlyFleets =',
+    '/** 只认当前 scope 的记录',
+    /deferPassive\(pane, 'du', render\)/,
+    '铎的友军遭遇志回程若直画，资料到货会绕过统一提交口',
+  )
+  const duData = cut(du, '    void (async () => {', '  onShow:', '铎的装配与补丁回程')
+  assert.equal(
+    (duData.match(/deferPassive\(pane, 'du', render\)/g) ?? []).length,
+    3,
+    '铎的装配链、master 回程与 onMgChange 主分支都必须过闸',
+  )
+})
+
+test('每把被动提交键只对应一件要做的事', () => {
+  const modulesUrl = new URL('../src/renderer/modules/', import.meta.url)
+  const files = [
+    ...fs.readdirSync(modulesUrl).filter((name) => name.endsWith('.ts')).sort().map((name) => `modules/${name}`),
+    'quest-tree-window.ts',
+    'resource-trend-window.ts',
+  ]
+  const calls = []
+
+  const readCallArguments = (source, openAt) => {
+    const args = []
+    let start = openAt + 1
+    let paren = 0
+    let bracket = 0
+    let brace = 0
+    let quote = ''
+    let lineComment = false
+    let blockComment = false
+
+    for (let i = start; i < source.length; i += 1) {
+      const char = source[i]
+      const next = source[i + 1]
+      if (lineComment) {
+        if (char === '\n') lineComment = false
+        continue
+      }
+      if (blockComment) {
+        if (char === '*' && next === '/') {
+          blockComment = false
+          i += 1
+        }
+        continue
+      }
+      if (quote) {
+        if (char === '\\') i += 1
+        else if (char === quote) quote = ''
+        continue
+      }
+      if (char === '/' && next === '/') {
+        lineComment = true
+        i += 1
+        continue
+      }
+      if (char === '/' && next === '*') {
+        blockComment = true
+        i += 1
+        continue
+      }
+      if (char === "'" || char === '"' || char === '`') {
+        quote = char
+        continue
+      }
+      if (char === '(') paren += 1
+      else if (char === '[') bracket += 1
+      else if (char === '{') brace += 1
+      else if (char === ')' && paren === 0 && bracket === 0 && brace === 0) {
+        args.push(source.slice(start, i).trim())
+        return args
+      } else if (char === ')') paren -= 1
+      else if (char === ']') bracket -= 1
+      else if (char === '}') brace -= 1
+      else if (char === ',' && paren === 0 && bracket === 0 && brace === 0) {
+        args.push(source.slice(start, i).trim())
+        start = i + 1
+      }
+    }
+    return null
+  }
+
+  for (const file of files) {
+    const source = read(`renderer/${file}`)
+    let cursor = 0
+    while ((cursor = source.indexOf('deferPassive(', cursor)) >= 0) {
+      const openAt = cursor + 'deferPassive'.length
+      const args = readCallArguments(source, openAt)
+      const line = source.slice(0, cursor).split(/\r?\n/).length
+      assert.ok(args && args.length === 3, `${file}:${line} 的 deferPassive 实参无法识别`)
+      const keyMatch = args[1].match(/^(['"])([^'"]+)\1$/)
+      assert.ok(keyMatch, `${file}:${line} 的 deferPassive key 必须是字符串字面量`)
+      const key = keyMatch[2]
+      const run = args[2].replace(/\s+/g, ' ').trim()
+      const identifier = run.match(/^[$A-Z_a-z][$\w]*$/)?.[0]
+      // ru 的 render(true) 只绕过 inactive 早退，渲染内容与 render 相同。
+      const forcedRuRender = file === 'modules/ru.ts' && key === 'ru' && run === '() => render(true)'
+        ? 'render'
+        : null
+      // 多语句匿名回调无法借名字证明同一性，按源码位置各算一种。
+      const kind = identifier ?? forcedRuRender ?? `匿名回调@${file}:${line}`
+      calls.push({ file, line, key, run, kind })
+      cursor += 'deferPassive('.length
+    }
+  }
+
+  const byKey = new Map()
+  for (const call of calls) {
+    const entries = byKey.get(call.key) ?? []
+    entries.push(call)
+    byKey.set(call.key, entries)
+  }
+  for (const [key, entries] of byKey) {
+    const kinds = new Set(entries.map((entry) => entry.kind))
+    assert.equal(
+      kinds.size,
+      1,
+      [
+        `deferPassive key '${key}' 对应了 ${kinds.size} 种 run：`,
+        ...entries.map((entry) => `  ${entry.file}:${entry.line} ${entry.run}`),
+        '同一把键下有两个不同的重画函数，滚动/按下/组合期间它们会互相顶掉，被顶掉的那次永远不会发生，且不报错',
+      ].join('\n'),
+    )
+  }
+})
+
+test('kernel 每处程序化滚动写回都在读回实际位置后打标记', () => {
+  const kernel = read('renderer/kernel.ts')
+  const markerStart = kernel.indexOf('const markProgrammaticScroll')
+  const applyStart = kernel.indexOf('export const applyScrollProfile')
+  const applyEnd = kernel.indexOf('// ---- 「换完 DOM、还原滚动之前」', applyStart)
+  const restoreStart = kernel.indexOf('const restore = (onlyIfUntouched: boolean)')
+  const restoreEnd = kernel.indexOf('// 次序即判据', restoreStart)
+  assert.ok(markerStart >= 0 && applyStart > markerStart, '找不到程序化滚动标记函数')
+  const marker = kernel.slice(markerStart, applyStart)
+  assert.match(marker, /top: el\.scrollTop/)
+  assert.match(marker, /left: el\.scrollLeft/)
+
+  const apply = kernel.slice(applyStart, applyEnd)
+  const hitEnd = apply.indexOf('} else if')
+  const zeroStart = hitEnd
+  assert.ok(hitEnd > 0, '找不到滚动剖面的命中/归零两分支')
+  assert.match(apply.slice(0, hitEnd), /markProgrammaticScroll\(el\)/)
+  assert.match(apply.slice(zeroStart), /markProgrammaticScroll\(el\)/)
+
+  assert.ok(restoreStart >= 0 && restoreEnd > restoreStart, '找不到 withViewStateKept 的 restore')
+  const restore = kernel.slice(restoreStart, restoreEnd)
+  assert.ok(
+    restore.indexOf('written.set(el') < restore.indexOf('markProgrammaticScroll(el)'),
+    'restore 必须先读回实际滚动位置，再打程序化标记',
+  )
+})
+
+test('timedRun 导出并复用同步分发的慢耗时阈值', () => {
+  const perf = read('renderer/perf-guard.ts')
+  const start = perf.indexOf('export const timedRun')
+  const end = perf.indexOf('export const timedEach', start)
+  assert.ok(start >= 0 && end > start, '找不到 timedRun 边界')
+  assert.match(perf.slice(start, end), /SLOW_DISPATCH_MS/)
 })

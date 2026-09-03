@@ -38,7 +38,7 @@ export const installPerfLogging = (windowOf: () => BrowserWindow | null) => {
     log.append(
       'renderer',
       entry.scope,
-      `分发耗时 ${Math.round(entry.ms)}ms${typeof entry.detail === 'string' && entry.detail ? ` · 大头：${entry.detail}` : ''}`,
+      `${entry.scope === 'longtask' ? '长任务' : '分发耗时'} ${Math.round(entry.ms)}ms${typeof entry.detail === 'string' && entry.detail ? ` · 大头：${entry.detail}` : ''}`,
     )
   })
 

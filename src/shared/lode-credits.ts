@@ -131,6 +131,7 @@ export const LODE_CREDIT_SOURCES: readonly LodeCreditSource[] = [
       'equip-improve',
       'equip-aa-evasion',
       'event-plane-groups',
+      'event-lifecycle',
     ],
   },
 ]

@@ -2,6 +2,8 @@
 import type { MaterialRow } from '../shared/mg-types'
 
 import {
+  commitPaneHtml,
+  deferPassive,
   esc,
   fmtK,
   fmtTime,
@@ -422,7 +424,7 @@ const render = () => {
     ? `${RANGES[rangeIdx][0]}净增`
     : `已记录 ${fmtSpan(observedMs)}净增`
 
-  root.innerHTML = `<div class="trend-head">
+  const html = `<div class="trend-head">
       <span class="trend-title"><b>资源增减折线图</b><small>本地记录</small></span>
       <div class="range-strip">${RANGES.map(([label], index) =>
         `<button class="rchip${index === rangeIdx ? ' on' : ''}" data-range="${index}">${label}</button>`).join('')}</div>
@@ -442,6 +444,8 @@ const render = () => {
       </div>
     </div></div>`
 
+  // DOM 没换时准星/选区已经在原位，逐元素监听也仍在；再绑一遍只会叠加。
+  if (!commitPaneHtml(root, 'trend', html)) return
   wireChartPointer()
   // 整块重建之后把准星/选区的位置补回去，否则切量程或切系列会把框选抹掉
   paintPointer()
@@ -463,7 +467,7 @@ const render = () => {
   })
 }
 
-const refresh = async () => {
+const refresh = async (passive = false) => {
   const currentGeneration = ++generation
   const now = Date.now()
   const rangeStart = now - RANGES[rangeIdx][1]
@@ -490,12 +494,13 @@ const refresh = async () => {
   historyObservedStart = prepared.observedStart
   chartEvents = actions.events.filter((event) => Boolean(ACTION_MARKERS[event.path]))
   activityAreaId = active?.[0] ?? 0
-  render()
+  if (passive) deferPassive(root, 'trend', render)
+  else render()
 }
 
 const scheduleRefresh = () => {
   if (refreshTimer) clearTimeout(refreshTimer)
-  refreshTimer = setTimeout(() => void refresh(), 500)
+  refreshTimer = setTimeout(() => void refresh(true), 500)
 }
 
 const start = async () => {

@@ -557,6 +557,19 @@
     ]
   },
   {
+    "id": "event-lifecycle",
+    "name": "活动生命周期（第一方登记）",
+    "source": "kuma 第一方登记表",
+    "license": "第一方产物",
+    "bundle": true,
+    "selfFetch": false,
+    "parser": "event-lifecycle",
+    "note": "活动开始与结束日期，来自官方公告",
+    "maintainerNote": [
+      "由 npm run lodes:event-lifecycle 从 scripts/map-intel-events.json 生成，零网络；结束日只在官方公告后填，活动结束改 status 为 ended 后重新生成"
+    ]
+  },
+  {
     "id": "kcwiki-localization",
     "name": "全域实体简中译名（日文原文并存）",
     "source": "zh.kcwiki 各原始模块 + KC3Kai/kc3-translations + kcwikizh/kcwiki-quest-data + 游戏主数据",

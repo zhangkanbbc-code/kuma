@@ -23,6 +23,7 @@ assets/lodes/*.json
 !assets/lodes/equip-aa-evasion.json
 !assets/lodes/equip-improve.json
 !assets/lodes/event-bonus.json
+!assets/lodes/event-lifecycle.json
 !assets/lodes/event-plane-groups.json
 !assets/lodes/kanso-voice.json
 !assets/lodes/kcwiki-bgm.json

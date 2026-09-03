@@ -19,6 +19,7 @@ const DEPS = [
   'mg',
   'activeAreasNow',
   'fleetShips',
+  'deckOnSortie',
   'inCombined',
   'currentSallyVerdict',
   'scopeShips',
@@ -56,6 +57,13 @@ const cutWarnBody = () => {
   return body
 }
 
+const cutDeckOnSortie = () => {
+  const bundle = read('dist/renderer/index.js')
+  const hit = /\bvar deckOnSortie = ([^;]+);/.exec(bundle)
+  assert.ok(hit, '编译产物里找不到 kernel 的 deckOnSortie')
+  return new Function('mg', `return ${hit[1]}`)
+}
+
 const EVENT_AREA = 62
 
 /**
@@ -75,6 +83,7 @@ const makeScene = ({ sortie = null, untagged = 2, short = 1, red = 0 } = {}) => 
     mg,
     () => new Set([EVENT_AREA]),
     (deck) => deck.ships ?? [],
+    cutDeckOnSortie()(mg),
     () => false,
     () => ({ kind: 'event', untagged }),
     (deck) => deck.ships ?? [],

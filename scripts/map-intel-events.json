@@ -6,10 +6,10 @@
     "mapAreaId": 62,
     "wikiPage": "反撃！第三十一戦隊の戦い",
     "kcwikiPage": "2026年夏季活动",
-    "lifecycleSourceUrl": "https://x.com/KanColle_STAFF/with_replies",
+    "lifecycleSourceUrl": "https://x.com/KanColle_STAFF/status/2095347759301964029",
     "openedAt": "2026-07-08T21:59:00+09:00",
-    "until": null,
-    "endNote": "官方 2026-07-29 公告：因令和8年熊本地震，作战完了期限由「来月下旬」延至「九月上旬」——只有档期没有日期，所以 until 仍是 null。等官方给出具体日期再填 until 并把 status 改成 ended，然后跑 npm run lodes:map-intel-event-end",
+    "until": "2026-09-10",
+    "endNote": "官方 2026-09-03 公告 9/10 11:00 JST 维护开始即作战完了；活动真正结束后再把 status 改 ended 并跑 npm run lodes:map-intel-event-end",
     "status": "active",
     "mapNamesZh": {
       "1": "九州近海/南西诸岛近海",

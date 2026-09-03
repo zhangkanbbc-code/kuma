@@ -2,7 +2,7 @@
 //   主进程侧 —— store.ts 的 domainSnapshot / hydrateDomain、三个换算器、applyDeckUpdates，
 //               以及真正会改这三样的那几个 reducer；
 //   渲染侧   —— header-status.ts 的 expeditionsHtml / docksHtml / buildDocksHtml，
-//               外加 kernel.ts 里真的 fmtCountdownShort 与 combinedEscortState。
+//               外加 kernel.ts 里真的 fmtCountdownShort、deckOnSortie 与 combinedEscortState。
 //
 // ⚠️ **不许直接 import store.ts**：那个文件一 import 就会打开用户的真账本并跑迁移。
 //
@@ -108,13 +108,13 @@ const FMT_SHORT = cutFrom(
 )
 const ESCORT_STATE = cutFrom(
   kernel,
-  "export type CombinedEscortState = 'sortie' | 'formed'",
+  'export const deckOnSortie =',
   null,
-  '内核的 combinedEscortState',
+  '内核的 deckOnSortie / combinedEscortState',
 )
 const HEADER_CHIPS = cutFrom(
   header,
-  "type ExpeditionChipState = 'away' | 'back' | 'unsupplied' | 'idle'",
+  "type HeaderFoldGroup = 'expedition' | 'dock' | 'build'",
   '\n// 「在外 → 归来」发生在倒计时归零那一刻',
   '顶栏远征芯片 expeditionsHtml',
 )

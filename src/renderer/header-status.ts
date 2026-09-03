@@ -4,6 +4,7 @@ import {
   applyPaneHtml,
   esc,
   combinedEscortState,
+  deckOnSortie,
   fleetLabel,
   fmtCountdown,
   fmtCountdownShort,
@@ -26,6 +27,10 @@ import { isBuildSpoilerEnabled, openNotifyRule } from './modules/lg'
 import { fleetHasUnsupplied } from './modules/ru'
 import { type KcsBgmCue } from '../shared/kcs-bgm'
 import { bgmNameOf, ensureBgmNames } from './bgm-names'
+import { materialCues, onMaterialCueChange } from './material-deltas'
+import { headerFitStage } from '../shared/header-fit'
+
+const HEADER_FIT_TOLERANCE_PX = 2
 
 const RESOURCE_ORDER: [number, string, string][] = [
   [0, '燃', '燃料'],
@@ -40,6 +45,9 @@ const RESOURCE_ORDER: [number, string, string][] = [
 
 let host: HTMLElement | null = null
 let currentBgm: KcsBgmCue | null = null
+let foldPopoverEl: HTMLElement | null = null
+let foldPopoverGroup: HeaderFoldGroup | null = null
+let foldHideTimer: ReturnType<typeof setTimeout> | null = null
 
 interface BgmBroadcaster {
   currentBgm?: KcsBgmCue | null
@@ -51,8 +59,19 @@ interface BgmBroadcaster {
 
 const fitHeader = () => {
   if (!host) return
-  host.classList.remove('compact')
-  if (host.scrollWidth > host.clientWidth) host.classList.add('compact')
+  host.classList.remove('compact', 'folded')
+  const regular = { scrollWidth: host.scrollWidth, clientWidth: host.clientWidth }
+  if (headerFitStage(regular, regular, HEADER_FIT_TOLERANCE_PX) === 'fit') {
+    refreshFoldPopover()
+    return
+  }
+  host.classList.add('compact')
+  void host.offsetWidth
+  const compact = { scrollWidth: host.scrollWidth, clientWidth: host.clientWidth }
+  if (headerFitStage(regular, compact, HEADER_FIT_TOLERANCE_PX) === 'folded') {
+    host.classList.add('folded')
+  }
+  refreshFoldPopover()
 }
 
 const fmtShort = (value: number) =>
@@ -78,6 +97,28 @@ const bgmHtml = () => {
     <i aria-hidden="true"><b></b><b></b><b></b></i>
     <span>正在播放</span><strong>${esc(name)}</strong>
   </span>`
+}
+
+const RESOURCE_GLOW_CLASSES = ['glow-up', 'glow-down', 'leaving'] as const
+
+const syncResourceGlow = () => {
+  if (!host) return
+  const cues = materialCues()
+  host.querySelectorAll<HTMLElement>('.hs-res[data-resource]').forEach((resource) => {
+    const cue = cues.get(Number(resource.dataset.resource))
+    const target = cue
+      ? [`glow-${cue.delta > 0 ? 'up' : 'down'}`, ...(cue.phase === 'leaving' ? ['leaving'] : [])]
+      : []
+    const current = RESOURCE_GLOW_CLASSES.filter((className) => resource.classList.contains(className))
+    if (current.length === target.length && current.every((className) => target.includes(className))) return
+    resource.classList.remove(...RESOURCE_GLOW_CLASSES)
+    if (cue) {
+      resource.style.setProperty('--glow-elapsed', `${Math.max(0, Date.now() - cue.phaseAt)}ms`)
+      resource.classList.add(...target)
+    } else {
+      resource.style.removeProperty('--glow-elapsed')
+    }
+  })
 }
 
 const resourcesHtml = () => {
@@ -114,6 +155,29 @@ const capacityHtml = () => {
   }
   return rows.length ? `<span class="hs-group capacity"><span class="hs-label">库</span>${rows.join('')}</span>` : ''
 }
+
+type HeaderFoldGroup = 'expedition' | 'dock' | 'build'
+
+const HEADER_FOLD_CHIP_CLASS: Record<HeaderFoldGroup, string> = {
+  expedition: 'exp',
+  dock: 'dock',
+  build: 'build',
+}
+
+const foldGroupHtml = (
+  group: HeaderFoldGroup,
+  label: string,
+  title: string,
+  detailHtml: string,
+) => `<span class="hs-group" data-group="${group}">
+  <span class="hs-label">${label}</span>
+  <span class="hs-chip hs-fold-chip ${HEADER_FOLD_CHIP_CLASS[group]}" data-group="${group}"
+    title="${esc(title)}">${label}</span>
+  <span class="hs-group-detail">${detailHtml}</span>
+</span>`
+
+const foldGroupDetailHtml = (group: HTMLElement): string =>
+  group.querySelector<HTMLElement>('.hs-group-detail')!.innerHTML
 
 // 远征芯片三态（2026-08-21 用户拍板：「在外一个颜色，归来一个颜色，未补给一个颜色」）。
 // 优先级自上而下，互斥：
@@ -155,10 +219,8 @@ const expeditionsHtml = () => {
       const deck = mg.decks.find((entry) => entry.id === id)
       if (!deck) return ''
       const { canonical } = fleetLabel(deck)
-      // 联合编成的第 2 舰队要先摘出去：游戏里她不能单独派远征，mission 恒为 0，
-      // 落到下面的远征分支只会被判成「空闲」——而她要么正随第 1 舰队在海上，
-      // 要么被锁在编成里动不了，两样都不是「空闲」（2026-08-27 用户报的正是这个）。
-      // 判据在内核的 combinedEscortState，五处消费面共用一份。
+      // 联合第 2 舰队先摘出去：她的 mission 恒为 0，落到远征分支只会被判成空闲。
+      // 自己具名出击的队同样要先判，最后才看远征位与空闲态。
       const escort = combinedEscortState(id)
       if (escort) {
         // 出击中沿用远征「在外」那一枚（--dock 边框 + 同色队号）：都是「这支队在外面」，
@@ -173,6 +235,12 @@ const expeditionsHtml = () => {
             }${unsupplied ? ' · 队内有舰未补给' : ''} · 点击查看舰队`,
           )}">
           <i>${id}</i><em>${escort === 'sortie' ? '出击中' : '编队中'}</em>
+        </span>`
+      }
+      if (deckOnSortie(id)) {
+        return `<span class="hs-chip exp on sortie" data-fleet="${id}"
+          title="${esc(`${canonical} · 出击中 · 点击查看舰队`)}">
+          <i>${id}</i><em>出击中</em>
         </span>`
       }
       if (deck.mission?.[0] > 0) {
@@ -203,11 +271,8 @@ const expeditionsHtml = () => {
 // 下一次全量渲染产出的串必然不同——文字已经是「返港」——不会被误判成没变）。
 const syncExpeditionChipStates = (root: HTMLElement) => {
   const now = Date.now()
-  // `:not(.combined)` 不是可有可无：联合第 2 舰队的「出击中」也戴着 `.on`，但她没有
-  // `[data-cds]`，进来会被算成 returnAt=0 → 'idle'。今天的后果只是 toggle('back', false)
-  // 这一下空转（她本来就没有 .back），可下一次给这里加态就会真咬人——而且咬得很隐蔽：
-  // 输出闸门记的是「上次生成的字符串」，这条路改的是 classList，全量重渲不会把它改回来。
-  root.querySelectorAll<HTMLElement>('.hs-chip.exp.on:not(.combined)').forEach((chip) => {
+  // 只有带倒计时的芯片才有「在外 / 归来」可翻。
+  root.querySelectorAll<HTMLElement>('.hs-chip.exp.on:has([data-cds])').forEach((chip) => {
     const raw = chip.querySelector<HTMLElement>('[data-cds]')?.dataset.cds
     const state = expeditionChipState(raw ? parseInt(raw, 10) : 0, false, now)
     chip.classList.toggle('back', state === 'back')
@@ -299,10 +364,14 @@ const buildDocksHtml = () => {
       ),
     ),
   ].join('')
-  return `<span class="hs-group"><span class="hs-label">建</span>
-    <span class="hs-count" title="建造坞使用数">${busy.length + ready.length}/${open.length}</span>${
+  return foldGroupHtml(
+    'build',
+    '建',
+    '建造 · 悬停展开',
+    `<span class="hs-count" title="建造坞使用数">${busy.length + ready.length}/${open.length}</span>${
       rows || '<span class="hs-chip build"><em>空闲</em></span>'
-    }</span>`
+    }`,
+  )
 }
 
 // 建造坞预览卡。抬头那格只放得下一个数字，真正有用的几件事都在这里：
@@ -402,6 +471,80 @@ const practiceHtml = () => {
   </span>`
 }
 
+const syncFoldChipStates = () => {
+  if (!host) return
+  for (const group of host.querySelectorAll<HTMLElement>('.hs-group[data-group]')) {
+    const fold = group.querySelector<HTMLElement>(':scope > .hs-fold-chip')!
+    const detail = group.querySelector<HTMLElement>(':scope > .hs-group-detail')!
+    const kind = group.dataset.group as HeaderFoldGroup
+    const active =
+      kind === 'expedition'
+        ? !!detail.querySelector('.hs-chip.exp.on')
+        : kind === 'dock'
+          ? !!detail.querySelector('.hs-chip.dock.on')
+          : !!detail.querySelector('.hs-chip.build.on')
+    fold.classList.toggle('on', active)
+    fold.classList.toggle('back', kind === 'expedition' && !!detail.querySelector('.hs-chip.exp.on.back'))
+  }
+}
+
+function cancelFoldHide() {
+  if (!foldHideTimer) return
+  clearTimeout(foldHideTimer)
+  foldHideTimer = null
+}
+
+function closeFoldPopover() {
+  cancelFoldHide()
+  foldPopoverEl?.remove()
+  foldPopoverEl = null
+  foldPopoverGroup = null
+}
+
+function scheduleFoldHide() {
+  cancelFoldHide()
+  foldHideTimer = setTimeout(closeFoldPopover, 150)
+}
+
+function placeFoldPopover(groupName: HeaderFoldGroup) {
+  if (!host?.classList.contains('folded')) {
+    closeFoldPopover()
+    return
+  }
+  const anchor = host.querySelector<HTMLElement>(`.hs-fold-chip[data-group="${groupName}"]`)
+  const group = anchor?.closest<HTMLElement>('.hs-group[data-group]')
+  if (!anchor || !group) {
+    closeFoldPopover()
+    return
+  }
+  if (!foldPopoverEl) {
+    foldPopoverEl = document.createElement('div')
+    foldPopoverEl.className = 'header-fold-pop'
+    foldPopoverEl.addEventListener('mouseenter', cancelFoldHide)
+    foldPopoverEl.addEventListener('mouseleave', scheduleFoldHide)
+    foldPopoverEl.addEventListener('click', (event) => handleHeaderClick(event.target as HTMLElement))
+    document.body.appendChild(foldPopoverEl)
+  }
+  foldPopoverGroup = groupName
+  foldPopoverEl.dataset.group = groupName
+  foldPopoverEl.style.visibility = 'hidden'
+  foldPopoverEl.innerHTML = foldGroupDetailHtml(group)
+  const rect = anchor.getBoundingClientRect()
+  const width = foldPopoverEl.offsetWidth
+  const height = foldPopoverEl.offsetHeight
+  let left = rect.left
+  let top = rect.bottom + 6
+  if (left + width > window.innerWidth - 8) left = window.innerWidth - width - 8
+  if (top + height > window.innerHeight - 8) top = Math.max(8, rect.top - height - 6)
+  foldPopoverEl.style.left = `${Math.max(8, left)}px`
+  foldPopoverEl.style.top = `${Math.max(8, top)}px`
+  foldPopoverEl.style.visibility = 'visible'
+}
+
+function refreshFoldPopover() {
+  if (foldPopoverGroup) placeFoldPopover(foldPopoverGroup)
+}
+
 const render = () => {
   if (!host) return
   const player = mg.basic
@@ -412,12 +555,14 @@ const render = () => {
   // 而它上面全是可点的角标——按下与抬起之间换掉 DOM，那一次点击就不会发生。
   const changed = applyPaneHtml(host, 'header-status', `${bgmHtml()}${player}
     <span class="hs-group resources">${resourcesHtml()}</span>
-    <span class="hs-group"><span class="hs-label">远</span>${expeditionsHtml()}</span>
-    <span class="hs-group"><span class="hs-label">渠</span>${docksHtml()}</span>
+    ${foldGroupHtml('expedition', '远', '远征 · 悬停展开', expeditionsHtml())}
+    ${foldGroupHtml('dock', '渠', '入渠 · 悬停展开', docksHtml())}
     ${buildDocksHtml()}
     ${practiceHtml()}
     ${capacityHtml()}`)
   if (changed) fitHeader()
+  syncResourceGlow()
+  syncFoldChipStates()
 }
 
 const focusHeaderTimer = (raw: string) => {
@@ -433,6 +578,54 @@ const focusHeaderPractice = () => {
   focusHeaderTimer('practice:current')
 }
 
+function handleHeaderClick(target: HTMLElement) {
+  const folded = target.closest<HTMLElement>('.hs-fold-chip[data-group]')
+  if (folded) {
+    const group = folded.dataset.group as HeaderFoldGroup
+    closeFoldPopover()
+    activateModule(group === 'expedition' ? 'bi' : group === 'dock' ? 'ji' : 'shi')
+    return
+  }
+  const resource = target.closest<HTMLElement>('[data-resource]')
+  if (resource) {
+    navigate({ type: 'material', id: parseInt(resource.dataset.resource!, 10) })
+    return
+  }
+  const capacity = target.closest<HTMLElement>('[data-capacity]')
+  if (capacity) {
+    navigate({
+      type: capacity.dataset.capacity === 'ship' ? 'shipCapacity' : 'equipCapacity',
+      id: 'current',
+    })
+    return
+  }
+  const fleet = target.closest<HTMLElement>('[data-fleet]')
+  if (fleet) {
+    navigate({ type: 'fleet', id: parseInt(fleet.dataset.fleet!, 10) })
+    return
+  }
+  const practice = target.closest<HTMLElement>('[data-practice]')
+  if (practice) {
+    focusHeaderPractice()
+    openNotifyRule('pracRefresh')
+    return
+  }
+  // timer 自指是**最低优先级**的落点：芯片只要还有实体身份（`.el`），点击就归实体路由。
+  //
+  // 这道闸门非有不可，因为两条监听都会收到同一次点击：全局 EntityLink 的点击挂在
+  // document 上，而这一条挂在 #header-status。冒泡由内向外——header 先吃到，
+  // 于是不拦就是两条**都**跑：先把芯片自己闪一遍（focusHeaderTimer 自指），
+  // 再打开实体视图。建造中的建造坞芯片（.el + data-timer 并存）此前正是如此，
+  // 只是自指那一下发生在已经要跳走的芯片上，不显眼所以没被发现；入渠芯片改成
+  // 实体链接后会撞上同一处，索性一并理顺，两种芯片共用这一条规则。
+  //
+  // 反向做法（在这里 stopPropagation 让 header 独吞）不行：link.ts 的 document 点击
+  // 还兼着「点别处收起右键菜单」，掐掉冒泡会把那个收口一起掐了。
+  if (target.closest('.el')) return
+  const timer = target.closest<HTMLElement>('[data-timer]')
+  if (timer) navigate({ type: 'timer', id: timer.dataset.timer! })
+}
+
 export const initHeaderStatus = (broadcaster?: BgmBroadcaster) => {
   host = document.querySelector<HTMLElement>('#header-status')
   if (!host) return
@@ -443,56 +636,36 @@ export const initHeaderStatus = (broadcaster?: BgmBroadcaster) => {
     currentBgm = cue
     render()
   })
-  new ResizeObserver(fitHeader).observe(host)
-  host.addEventListener('click', (event) => {
-    const target = event.target as HTMLElement
-    const resource = target.closest<HTMLElement>('[data-resource]')
-    if (resource) {
-      navigate({ type: 'material', id: parseInt(resource.dataset.resource!, 10) })
-      return
-    }
-    const capacity = target.closest<HTMLElement>('[data-capacity]')
-    if (capacity) {
-      navigate({
-        type: capacity.dataset.capacity === 'ship' ? 'shipCapacity' : 'equipCapacity',
-        id: 'current',
-      })
-      return
-    }
-    const fleet = target.closest<HTMLElement>('[data-fleet]')
-    if (fleet) {
-      navigate({ type: 'fleet', id: parseInt(fleet.dataset.fleet!, 10) })
-      return
-    }
-    const practice = target.closest<HTMLElement>('[data-practice]')
-    if (practice) {
-      focusHeaderPractice()
-      openNotifyRule('pracRefresh')
-      return
-    }
-    // timer 自指是**最低优先级**的落点：芯片只要还有实体身份（`.el`），点击就归实体路由。
-    //
-    // 这道闸门非有不可，因为两条监听都会收到同一次点击：全局 EntityLink 的点击挂在
-    // document 上，而这一条挂在 #header-status。冒泡由内向外——header 先吃到，
-    // 于是不拦就是两条**都**跑：先把芯片自己闪一遍（focusHeaderTimer 自指），
-    // 再打开实体视图。建造中的建造坞芯片（.el + data-timer 并存）此前正是如此，
-    // 只是自指那一下发生在已经要跳走的芯片上，不显眼所以没被发现；入渠芯片改成
-    // 实体链接后会撞上同一处，索性一并理顺，两种芯片共用这一条规则。
-    //
-    // 反向做法（在这里 stopPropagation 让 header 独吞）不行：link.ts 的 document 点击
-    // 还兼着「点别处收起右键菜单」，掐掉冒泡会把那个收口一起掐了。
-    if (target.closest('.el')) return
-    const timer = target.closest<HTMLElement>('[data-timer]')
-    if (timer) navigate({ type: 'timer', id: timer.dataset.timer! })
+  new ResizeObserver(fitHeader).observe(host.closest('header')!)
+  host.addEventListener('click', (event) => handleHeaderClick(event.target as HTMLElement))
+  host.addEventListener('mouseover', (event) => {
+    const folded = (event.target as HTMLElement).closest<HTMLElement>('.hs-fold-chip[data-group]')
+    if (!folded) return
+    cancelFoldHide()
+    placeFoldPopover(folded.dataset.group as HeaderFoldGroup)
+  })
+  host.addEventListener('mouseout', (event) => {
+    const folded = (event.target as HTMLElement).closest<HTMLElement>('.hs-fold-chip[data-group]')
+    if (!folded || folded.contains(event.relatedTarget as Node | null)) return
+    scheduleFoldHide()
+  })
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && foldPopoverEl) closeFoldPopover()
   })
   onMgChange((keys) => {
-    if (keys.some((key) => ['basic', 'materials', 'decks', 'ndocks', 'ships', 'slotitems', 'master', 'practice'].includes(key))) {
+    if (keys.some((key) => ['basic', 'materials', 'decks', 'ndocks', 'kdocks', 'ships', 'slotitems', 'master', 'practice', 'sortie'].includes(key))) {
       render()
     }
   })
+  onMaterialCueChange(syncResourceGlow)
   onTick(() => {
     updateCountdowns(host!)
     syncExpeditionChipStates(host!)
+    if (foldPopoverEl) {
+      updateCountdowns(foldPopoverEl)
+      syncExpeditionChipStates(foldPopoverEl)
+    }
+    syncFoldChipStates()
   })
   render()
 }

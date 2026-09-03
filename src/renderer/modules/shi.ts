@@ -19,8 +19,7 @@ import {
   jstHourOf,
   mg,
   commitPaneHtml,
-  deferWhileComposing,
-  deferWhilePressed,
+  deferPassive,
   forgetCommittedHtml,
   onMgChange,
   openResourceTrendWindow,
@@ -63,15 +62,20 @@ import { buildDailyMaterials, type DailyMaterial } from '../../shared/material-h
 import { mapAreaOf, mapCodeOf } from '../../shared/map-id'
 import { PERSONAL_RATE_MIN_SAMPLES } from '../../shared/statistics'
 import {
+  missingReviewQueries,
+  reviewQueriesFor,
+  type ReviewQuery,
+  type ReviewView,
+} from '../../shared/passive-refresh'
+import {
   isUseitemFullSyncPath,
   resolveUseitemCause,
 } from '../../shared/useitem-cause'
+import { timedRun } from '../perf-guard'
 import {
   handleBattleReplayDetailClick,
   renderBattleReplayDetail,
 } from './di'
-
-type ReviewView = 'overview' | 'resources' | 'factory' | 'practice' | 'nodes' | 'events' | 'items'
 
 interface UseitemSummary {
   id: number
@@ -195,6 +199,8 @@ let lastRefresh = 0
 let refreshGeneration = 0
 let refreshTimer: ReturnType<typeof setTimeout> | null = null
 let refreshPending = false // 不可见期间攒下的变更，onShow 时一次补
+const loadedReviewQueries = new Set<ReviewQuery>()
+let scheduledReviewQueries: Set<ReviewQuery> | null = new Set()
 let enterNextView = false
 let selectedBattle: BattleSnapshot | null = null
 let selectedBattleLoadingId = 0
@@ -1482,7 +1488,7 @@ const selectNode = async (map: number, cell: number) => {
     if (nodeLoadingKey === key) nodeLoadFailed = true
   } finally {
     if (nodeLoadingKey === key) nodeLoadingKey = ''
-    paintNodeSelection()
+    deferPassive(pane, 'shi:node', paintNodeSelection)
   }
 }
 
@@ -1512,7 +1518,7 @@ const openReviewBattle = async (id: number) => {
   } finally {
     if (generation !== battleLoadGeneration) return
     selectedBattleLoadingId = 0
-    render()
+    deferPassive(pane, 'shi', render)
   }
 }
 
@@ -1531,6 +1537,10 @@ const closeReviewBattle = () => {
 const battleDetailHost = document.createElement('div')
 battleDetailHost.className = 'shi-battle-detail mod-di'
 battleDetailHost.setAttribute('data-shi-battle-detail', '')
+new ResizeObserver(() => {
+  const app = battleDetailHost.querySelector('.di-app')
+  if (app) app.classList.toggle('narrow', battleDetailHost.clientWidth < 700)
+}).observe(battleDetailHost)
 
 const battleDrawerHtml = (): string => {
   if (!selectedBattle && !selectedBattleLoadingId && !selectedBattleError) return ''
@@ -1552,6 +1562,13 @@ const battleDrawerHtml = (): string => {
   </aside>`
 }
 
+// 08-21「已知闸门失效面」：HTML 内嵌时钟文本会让输出闸门次次失效；
+// 时间文本只由这个更新器填写，不进入整页渲染串。
+const paintSyncStamp = () => {
+  const stamp = pane?.querySelector<HTMLElement>('[data-shi-sync]')
+  if (stamp) stamp.textContent = lastRefresh ? `同步于 ${fmtTime(lastRefresh)}` : '尚未读取'
+}
+
 const render = () => {
   if (!pane) return
   const enter = enterNextView
@@ -1563,7 +1580,7 @@ const render = () => {
     `<div class="shi-app${selectedBattle || selectedBattleLoadingId || selectedBattleError ? ' battle-open' : ''}">
       <header class="shi-head"><div><b>回顾</b></div>${viewTabsHtml()}</header>
       <div class="shi-stage"><main class="shi-body">${bodyHtml()}</main>${battleDrawerHtml()}</div>
-      <footer class="shi-foot">${lastRefresh ? `同步于 ${fmtTime(lastRefresh)}` : '尚未读取'}</footer>
+      <footer class="shi-foot"><span data-shi-sync></span></footer>
     </div>`,
     () => {
       // 宿主必须在这个回调**内部**接回：还原紧跟回调之后跑，那时它若还没回到树上，
@@ -1575,6 +1592,7 @@ const render = () => {
       }
     },
   )
+  paintSyncStamp()
   // 复盘宿主的内容不在史生成的 HTML 里（它是持久节点），跳过整块重建时也得让它自己跟上
   if (!committed) {
     if (selectedBattle) renderBattleReplayDetail(battleDetailHost, selectedBattle)
@@ -1583,114 +1601,138 @@ const render = () => {
   if (enter) pane.querySelector<HTMLElement>('.shi-view')?.classList.add('enter')
 }
 
-const refresh = async () => {
+const refresh = async (requestedQueries?: readonly ReviewQuery[]) => {
   const generation = ++refreshGeneration
   const now = Date.now()
   // 「全部」档（rangeDays = 0）没有固定起点：传 0 让账本从最早一条给起，
   // 第一天是哪天要等它把 since 回来才知道（下面 dailyMaterials 那一行）。
   const materialSince = rangeDays ? rangeStart(now) : 0
   loading = !lastRefresh
-  if (loading) render()
+  if (loading) deferPassive(pane, 'shi', render)
   // 操作事件账本只有「道具」视图的原因栏读得到，其余视图连着拉是纯浪费
   // （全量、数 MB 起，还得跨进程序列化），而 refresh 是出击中高频键触发的。
   // 在这个视图上时每次 refresh 都跟着更新；离开就不再拉，手上那份留着不删——
   // 下次回来先按旧的显示，新的到了再静默换上。
-  const wantActions = activeView === 'items'
+  const wanted = new Set(requestedQueries ?? reviewQueriesFor(activeView))
   // 账本查询失败不再被下层吞成空数组：读不出来就说读不出来，
   // 否则整页会摆出一堆「还没有记录」，把故障说成事实。
   let rows
   try {
     rows = await Promise.all([
-      queryDailyMaterialHistory(materialSince, now),
-      queryBattleSnapshots(500),
-      queryNodeHistoryIndex(600),
-      queryEventArchives(),
-      queryFactoryStats(now - 90 * DAY_MS),
-      queryUseitemSummary(0),
-      queryRecentUseitemChanges(240),
-      wantActions ? queryActionEvents(now - 90 * DAY_MS, now) : Promise.resolve(null),
-      queryMasterRaw(),
-      queryLode('poi-fcd-map').catch(() => null),
-      queryPayLog(),
+      wanted.has('materials') ? queryDailyMaterialHistory(materialSince, now) : Promise.resolve(undefined),
+      wanted.has('battles') ? queryBattleSnapshots(500) : Promise.resolve(undefined),
+      wanted.has('nodes') ? queryNodeHistoryIndex(600) : Promise.resolve(undefined),
+      wanted.has('events') ? queryEventArchives() : Promise.resolve(undefined),
+      wanted.has('factory') ? queryFactoryStats(now - 90 * DAY_MS) : Promise.resolve(undefined),
+      wanted.has('useitems') ? queryUseitemSummary(0) : Promise.resolve(undefined),
+      wanted.has('itemChanges') ? queryRecentUseitemChanges(240) : Promise.resolve(undefined),
+      wanted.has('actions') ? queryActionEvents(now - 90 * DAY_MS, now) : Promise.resolve(undefined),
+      wanted.has('master') ? queryMasterRaw() : Promise.resolve(undefined),
+      wanted.has('map') ? queryLode('poi-fcd-map').catch(() => null) : Promise.resolve(undefined),
+      wanted.has('payLog') ? queryPayLog() : Promise.resolve(undefined),
     ])
   } catch (error) {
     if (generation !== refreshGeneration) return
     console.warn('[kanso] 回顾数据读取失败', error)
     loadFailed = true
     loading = false
-    render()
+    deferPassive(pane, 'shi', render)
     return
   }
   if (generation !== refreshGeneration) return
-  loadFailed = false
   const [materials, snapshots, nodes, archives, factory, summaries, changes, actions, master, fcd, payRows] = rows
-  // 起点用账本回来的那一个，不在这里另算：「全部」档的第一天由账本最早一条定，
-  // 而它必须与主进程查日初基线用的是同一个数。一条记录都没有就只画今天这一格。
-  const start = materials.since ?? localDayStart(now)
-  dailyMaterials = buildDailyMaterials(materials.rows, start, now, mg.materials)
-  battles = snapshots
-  nodeIndex = nodes
-  eventArchives = archives as EventArchive[]
-  factoryStats = factory
-  useitemSummary = summaries as UseitemSummary[]
-  if (selectedItemId && !useitemSummary.some((row) => row.id === selectedItemId)) selectedItemId = 0
-  itemChanges = changes
-  if (actions) {
-    actionEvents = actions.events
-    actionEarliest = actions.earliest
-    actionEventsLoaded = true
-  }
-  fcdMapData = fcd?.data ?? null
-  // 选中的日卡还在不在，判据必须跟日卡自己的分组同一把尺（演习＝JST 日）
-  if (selectedPracticeDay != null && !battles.some((row) => row.practice && jstDayStart(row.ts) === selectedPracticeDay)) {
-    selectedPracticeDay = null
-  }
-  if (selectedNodeMap != null && !nodeIndex.some((node) => node.map === selectedNodeMap)) {
-    selectedNodeMap = null
-  }
-  if (selectedResourceDay != null && !dailyMaterials.some((day) => day.start === selectedResourceDay)) {
-    selectedResourceDay = null
-  }
-  payLog = payRows as PayLogRow[]
-  // 下面五张派生表只随主数据变。queryMasterRaw 在 kernel 里是模块级缓存，
-  // start2 更新（invalidateMasterRaw）之前一直是同一个对象——身份没变就不必把
-  // ~1600 项舰船/道具再 filter/map 一遍，而 refresh 是高频键触发的。
-  if (master !== masterDerivedFrom) {
-    masterDerivedFrom = master
-    // 补记表单的商品目录（主数据 api_mst_payitem，32 件，含点数定价）
-    payitemCatalog = (master?.data?.api_mst_payitem ?? [])
-      .filter((item: any) => Number(item?.api_id) > 0 && `${item?.api_name ?? ''}`.trim())
-      .map((item: any) => ({
-        id: Number(item.api_id),
-        name: `${item.api_name}`.trim(),
-        price: Number.isFinite(Number(item.api_price)) && Number(item.api_price) > 0 ? Number(item.api_price) : null,
-      }))
-    useitemNames = new Map(
-      (master?.data?.api_mst_useitem ?? [])
-        .filter((item: any) => Number(item?.api_id) > 0)
-        .map((item: any) => [Number(item.api_id), `${item.api_name ?? `道具 #${item.api_id}`}`]),
-    )
-    // 课金道具多与 useitem 同名（母港拡張=53），按名字反查即可复用道具图标管线
-    useitemIdByName = new Map([...useitemNames].map(([id, name]) => [name, id]))
-    shipNames = new Map(
-      (master?.data?.api_mst_ship ?? [])
-        .filter((ship: any) => Number(ship?.api_id) > 0)
-        .map((ship: any) => [Number(ship.api_id), `${ship.api_name ?? `#${ship.api_id}`}`]),
-    )
-    mapAreaNames = new Map(
-      (master?.data?.api_mst_maparea ?? [])
-        .filter((area: any) => Number(area?.api_id) > 0)
-        .map((area: any) => [Number(area.api_id), `${area.api_name ?? `海域区 ${area.api_id}`}`]),
-    )
-  }
-  loading = false
-  lastRefresh = Date.now()
-  render()
+  timedRun('async:shi', () => {
+    loadFailed = false
+    if (materials) {
+      // 起点用账本回来的那一个，不在这里另算：「全部」档的第一天由账本最早一条定，
+      // 而它必须与主进程查日初基线用的是同一个数。一条记录都没有就只画今天这一格。
+      const start = materials.since ?? localDayStart(now)
+      dailyMaterials = buildDailyMaterials(materials.rows, start, now, mg.materials)
+      if (selectedResourceDay != null && !dailyMaterials.some((day) => day.start === selectedResourceDay)) {
+        selectedResourceDay = null
+      }
+    }
+    if (snapshots) {
+      battles = snapshots
+      // 选中的日卡还在不在，判据必须跟日卡自己的分组同一把尺（演习＝JST 日）
+      if (selectedPracticeDay != null && !battles.some((row) => row.practice && jstDayStart(row.ts) === selectedPracticeDay)) {
+        selectedPracticeDay = null
+      }
+    }
+    if (nodes) {
+      nodeIndex = nodes
+      if (selectedNodeMap != null && !nodeIndex.some((node) => node.map === selectedNodeMap)) {
+        selectedNodeMap = null
+      }
+    }
+    if (archives) eventArchives = archives as EventArchive[]
+    if (factory) factoryStats = factory
+    if (summaries) {
+      useitemSummary = summaries as UseitemSummary[]
+      if (selectedItemId && !useitemSummary.some((row) => row.id === selectedItemId)) selectedItemId = 0
+    }
+    if (changes) itemChanges = changes
+    if (actions) {
+      actionEvents = actions.events
+      actionEarliest = actions.earliest
+      actionEventsLoaded = true
+    }
+    if (fcd !== undefined) fcdMapData = fcd?.data ?? null
+    if (payRows) payLog = payRows as PayLogRow[]
+    // 下面五张派生表只随主数据变。queryMasterRaw 在 kernel 里是模块级缓存，
+    // start2 更新（invalidateMasterRaw）之前一直是同一个对象——身份没变就不必把
+    // ~1600 项舰船/道具再 filter/map 一遍，而 refresh 是高频键触发的。
+    if (master !== undefined && master !== masterDerivedFrom) {
+      masterDerivedFrom = master
+      // 补记表单的商品目录（主数据 api_mst_payitem，32 件，含点数定价）
+      payitemCatalog = (master?.data?.api_mst_payitem ?? [])
+        .filter((item: any) => Number(item?.api_id) > 0 && `${item?.api_name ?? ''}`.trim())
+        .map((item: any) => ({
+          id: Number(item.api_id),
+          name: `${item.api_name}`.trim(),
+          price: Number.isFinite(Number(item.api_price)) && Number(item.api_price) > 0 ? Number(item.api_price) : null,
+        }))
+      useitemNames = new Map(
+        (master?.data?.api_mst_useitem ?? [])
+          .filter((item: any) => Number(item?.api_id) > 0)
+          .map((item: any) => [Number(item.api_id), `${item.api_name ?? `道具 #${item.api_id}`}`]),
+      )
+      // 课金道具多与 useitem 同名（母港拡張=53），按名字反查即可复用道具图标管线
+      useitemIdByName = new Map([...useitemNames].map(([id, name]) => [name, id]))
+      shipNames = new Map(
+        (master?.data?.api_mst_ship ?? [])
+          .filter((ship: any) => Number(ship?.api_id) > 0)
+          .map((ship: any) => [Number(ship.api_id), `${ship.api_name ?? `#${ship.api_id}`}`]),
+      )
+      mapAreaNames = new Map(
+        (master?.data?.api_mst_maparea ?? [])
+          .filter((area: any) => Number(area?.api_id) > 0)
+          .map((area: any) => [Number(area.api_id), `${area.api_name ?? `海域区 ${area.api_id}`}`]),
+      )
+    }
+    for (const query of wanted) loadedReviewQueries.add(query)
+    loading = false
+    lastRefresh = Date.now()
+    paintSyncStamp()
+    deferPassive(pane, 'shi', render)
+  })
 }
 
-const scheduleRefresh = () => {
+const scheduleRefresh = (queries?: readonly ReviewQuery[]) => {
+  if (queries) {
+    if (scheduledReviewQueries) {
+      for (const query of queries) scheduledReviewQueries.add(query)
+    }
+  } else {
+    scheduledReviewQueries = null
+  }
   if (refreshTimer) clearTimeout(refreshTimer)
-  refreshTimer = setTimeout(() => void refresh(), 450)
+  refreshTimer = setTimeout(() => {
+    refreshTimer = null
+    const requested = scheduledReviewQueries ? [...scheduledReviewQueries] : undefined
+    scheduledReviewQueries = new Set()
+    void refresh(requested)
+  }, 450)
 }
 
 registerModule({
@@ -1733,12 +1775,12 @@ registerModule({
       const view = target.closest<HTMLElement>('[data-shi-view]')
       if (view) {
         activeView = view.dataset.shiView as ReviewView
+        const missing = missingReviewQueries(activeView, loadedReviewQueries)
         uiSet('shi.view', activeView)
         enterNextView = true
         render()
-        // 「道具」的原因栏要事件账本，而那份只在这个视图上才拉：进来补一次
-        // （走去抖，免得连点标签连发查询；进场动画也能跑完）。
-        if (activeView === 'items') scheduleRefresh()
+        // 当前视图缺的表进来补一次（走去抖，免得连点标签连发查询；进场动画也能跑完）。
+        if (missing.length) scheduleRefresh(missing)
         return
       }
       const range = target.closest<HTMLElement>('[data-shi-range]')
@@ -1793,7 +1835,7 @@ registerModule({
           .then((id) => {
             if (id == null) {
               payFormError = '日期或数量超出允许范围'
-              render()
+              deferPassive(pane, 'shi', render)
               return
             }
             payFormOpen = false
@@ -1803,7 +1845,7 @@ registerModule({
           .catch((error) => {
             console.warn('[kanso] 回顾补记氪金失败', error)
             payFormError = '写入失败'
-            render()
+            deferPassive(pane, 'shi', render)
           })
         return
       }
@@ -1828,7 +1870,7 @@ registerModule({
           .catch((error) => {
             console.warn('[kanso] 回顾删除补记失败', error)
             payDelError = '删除失败'
-            render()
+            deferPassive(pane, 'shi', render)
           })
         return
       }
@@ -1942,24 +1984,21 @@ registerModule({
           ['materials', 'useitems', 'sortie', 'eventAreas', 'master', 'kdocks', 'slotitems', 'ships', 'record', 'payitems'].includes(key),
         )
       ) {
-        // 一次 refresh 是 9 个账本查询 + 整页 innerHTML 重建。出击中 materials/ships
+        // 一次 refresh 最多有 11 个账本查询槽。出击中 materials/ships
         // 频繁变化，浮层根本没打开也全套跑一遍是纯浪费——不可见就攒脏标记，
         // 打开时（onShow）一次补上。（ji/qa/du 同款守卫，这里曾是唯一漏网）
         // 用户正按在这块面板上就让到抬起之后（按下与抬起之间换掉 DOM，click 不会发生）
-        // 正在用输入法打字也让路：换掉 DOM 会把组合会话一起换没
+        // 正在用输入法打字也让路：换掉 DOM 会把组合会话一起换没。
+        // 持续滚动时也让到安静窗之后，免得滚动中的 DOM 被替换。
+        loadedReviewQueries.clear()
         if (pane.classList.contains('active')) {
-          if (
-            !deferWhilePressed(pane, 'shi', scheduleRefresh) &&
-            !deferWhileComposing(pane, 'shi', scheduleRefresh)
-          ) {
-            scheduleRefresh()
-          }
+          deferPassive(pane, 'shi:refresh', scheduleRefresh)
         } else refreshPending = true
       }
     })
     void ensureFirstEncounters()
     onFirstEncountersChange(() => {
-      if (pane.classList.contains('active')) render()
+      if (pane.classList.contains('active')) deferPassive(pane, 'shi', render)
       else refreshPending = true
     })
     render()

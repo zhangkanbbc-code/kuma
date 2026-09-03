@@ -13,8 +13,7 @@ import {
   masterShipName,
   mg,
   commitPaneHtml,
-  deferWhileComposing,
-  deferWhilePressed,
+  deferPassive,
   forgetCommittedHtml,
   onFilterInput,
   onMgChange,
@@ -182,12 +181,12 @@ const buildRows = (): Row[] => {
   // 「总xxxx」经验差要等级经验表；矿脉包到手后重算重渲（表未就绪时留空，不猜）
   ensureLevelExpLode(() => {
     invalidateRowCache()
-    render()
+    deferPassive(pane, 'qa', render)
   })
   // 收藏置顶要链根表；同款「就绪后重算重渲」节奏
   ensureFavoriteRoots(() => {
     invalidateRowCache()
-    render()
+    deferPassive(pane, 'qa', render)
   })
   const countByMst = new Map<number, number>()
   for (const ship of Object.values(mg.ships)) {
@@ -933,7 +932,7 @@ const loadLife = async (rosterId: number) => {
   const generation = lifeGeneration
   // 履历里的图/点要写成玩家认的字母，字母表到手后重渲一次（没到手先写 `#号`）
   ensureMapCellLetters(() => {
-    if (pane?.isConnected) render()
+    if (pane?.isConnected) deferPassive(pane, 'qa', render)
   })
   // 「手上这份是不是最新代」取代「有没有数据」当去重条件——数据现在不会被清空了
   if (lifeLoaded.get(rosterId) === generation || lifeLoading.has(rosterId)) return
@@ -955,7 +954,7 @@ const loadLife = async (rosterId: number) => {
   } finally {
     lifeLoading.delete(rosterId)
   }
-  if (state.selected === rosterId && pane?.isConnected) render()
+  if (state.selected === rosterId && pane?.isConnected) deferPassive(pane, 'qa', render)
 }
 
 // 详情页的进场动画只在用户主动打开时放一次；mg 数据推着的重渲染不再重播
@@ -1413,7 +1412,7 @@ const wireDetail = (row: Row) => {
     // 刚认出来的标签摆到框下面，输入链上的三道闸门一根都没碰。
     // 但要走推迟闸门：change 是被 mousedown 的失焦带出来的，此刻按下与抬起
     // 之间——直接换 DOM 会把玩家正点着的那颗按钮的 click 吃掉。
-    if (!deferWhilePressed(pane, 'qa', render)) render()
+    deferPassive(pane, 'qa', render)
   })
   rosterNote?.addEventListener('keydown', (e) => {
     // 组合中的回车是敲定候选那一下（实测它照样带 isComposing），
@@ -1574,7 +1573,7 @@ const initializeRosterView = () => {
     // 三维初始值走第一方 ship-stats 汇编包（与面板反推共用 fleet-calc 那一份，不各拉各的）
     await ensureShipStatsLode()
     invalidateRowCache()
-    if (pane?.isConnected) render()
+    if (pane?.isConnected) deferPassive(pane, 'qa', render)
   })()
   onMgChange((keys) => {
     if (keys.includes('master')) {
@@ -1583,7 +1582,7 @@ const initializeRosterView = () => {
       void loadMasterShips().then((rebuilt) => {
         if (!rebuilt) return
         invalidateRowCache()
-        if (pane?.isConnected) render()
+        if (pane?.isConnected) deferPassive(pane, 'qa', render)
       })
     }
     // decks 也要作废行缓存：在编标注读的是编队反查表，改编成后不作废就是旧账
@@ -1601,8 +1600,9 @@ const initializeRosterView = () => {
       keys.some((k) => ['ships', 'slotitems', 'ndocks', 'decks', 'basic', 'master', 'sortie'].includes(k))
     ) {
       // 用户正按在这块面板上就让到抬起之后（按下与抬起之间换掉 DOM，click 不会发生）；
-      // 正在用输入法打字同理，让到组合结束——换掉 DOM 会把组合会话一起换没
-      if (!deferWhilePressed(pane, 'qa', render) && !deferWhileComposing(pane, 'qa', render)) render()
+      // 正在用输入法打字同理，让到组合结束——换掉 DOM 会把组合会话一起换没。
+      // 持续滚动时也让到安静窗之后，免得滚动中的 DOM 被替换。
+      deferPassive(pane, 'qa', render)
     }
   })
   // 行内的入渠倒计时（data-cd）原本永不刷新：qa 没有 onTick，而抬头状态条的
@@ -1620,7 +1620,7 @@ const initializeRosterView = () => {
       return Number.isFinite(at) && at > lastCountdownTick && at <= now
     })
     lastCountdownTick = now
-    if (crossed) render()
+    if (crossed) deferPassive(pane, 'qa', render)
     else updateCountdowns(pane)
   })
 }

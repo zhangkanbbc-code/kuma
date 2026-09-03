@@ -7,6 +7,7 @@
 //   node scripts/quest-progress-recompute.mjs --db <副本绝对路径>
 //   node scripts/quest-progress-recompute.mjs --db <副本绝对路径> --write
 //   node scripts/quest-progress-recompute.mjs --db <副本绝对路径> --quest 220,211,217
+//   --now <ISO 或毫秒>
 import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
@@ -55,6 +56,13 @@ if (!targetQuestIds.length) {
   console.error(`--quest 没有合法任务号：${questText}`)
   process.exit(2)
 }
+const nowText = option('now')
+let now = Date.now()
+if (nowText !== undefined) {
+  now = Date.parse(nowText)
+  if (Number.isNaN(now)) now = Number(nowText)
+  if (!Number.isFinite(now)) throw new Error(`--now 不是合法的 ISO 时刻或毫秒：${nowText}`)
+}
 const write = flag('write')
 const dataDir = path.dirname(dbPath)
 process.env.KANSO_DATA_DIR = dataDir
@@ -97,7 +105,7 @@ try {
     targetQuestIds,
     events,
     battles,
-    now: Date.now(),
+    now,
     masterRaw: masterRawOf(masterSnapshot),
     getLode: (id) => lodes[id] ?? null,
   })
@@ -115,7 +123,7 @@ try {
 
   console.log(`模式：${write ? 'write（最终值覆盖）' : 'dry-run（只读，不写）'}`)
   console.log(`账本副本：${dbPath}`)
-  console.log(`回算时刻：${new Date().toISOString()}`)
+  console.log(`回算时刻：${new Date(now).toISOString()}`)
   console.log('任务  old  new  diff')
   for (const change of changes) {
     const diff = change.diff >= 0 ? `+${change.diff}` : `${change.diff}`

@@ -2228,14 +2228,20 @@ const mediawikiUpdatedAt = async (apiUrl) => {
 
 const only = process.argv.find((arg) => arg.startsWith('--only='))?.slice('--only='.length)
 const force = process.argv.includes('--force')
-const selectedSources = only
+const requestedSources = only
   ? sources.filter((source) => source.id === only)
   : sources.filter(
       (source) =>
         !source.manualImport ||
         (source.id === 'kcnav-routing' && Boolean(process.env.KANSO_KCNAV_EXPORT)),
     )
-if (only && !selectedSources.length) throw new Error(`未知矿脉包：${only}`)
+if (only && !requestedSources.length) throw new Error(`未知矿脉包：${only}`)
+const selectedSources = requestedSources.filter(
+  (source) => Boolean(source.url) || source.selfFetch === true,
+)
+if (only && !selectedSources.length) {
+  throw new Error(`${only} 由独立生成器维护，不走 lodes:fetch`)
+}
 if (!only) {
   for (const source of sources.filter((entry) => entry.manualImport && !selectedSources.includes(entry))) {
     console.log(`[lodes] skip: ${source.id}（需要显式离线导入）`)

@@ -15,14 +15,18 @@ import test from 'node:test'
 
 import {
   FOUR_IDLE_FLEETS,
+  availableShipIds,
   chipClass,
   chipLabel,
   chipTitle,
+  conditionCheckHtml,
   freeDeckIds,
   renderDeckStatus,
   renderGantt,
   reset,
   setBiCompact,
+  statusPanelHtml,
+  statusPanelWatches,
 } from './fixtures/render-combined-escort.mjs'
 
 const SORTIE = { active: true, practice: false, deckId: 1 }
@@ -216,4 +220,158 @@ test('紧凑态移交的是摆法不是判定：悬停卡里那句仍然分得�
   // 常规态与紧凑态读的是同一份，两边永远说同一句话
   setBiCompact(false)
   assert.match(renderGantt(), new RegExp(renderDeckStatus(2).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+})
+
+// ---- ⑤ 非联合舰队自己出击 ----
+
+test('非联合第3舰队自己出击：顶栏写「出击中」', () => {
+  reset({
+    fleets: FOUR_IDLE_FLEETS,
+    sortie: { active: true, practice: false, deckId: 3 },
+  })
+  assert.equal(chipLabel(3), '出击中')
+  assert.match(chipTitle(3), /出击中/)
+  assert.match(chipTitle(3), /点击查看舰队/)
+  assert.match(chipClass(3), /\bon\b/)
+  assert.match(chipClass(3), /\bsortie\b/)
+  assert.doesNotMatch(chipClass(3), /\bback\b/)
+  assert.doesNotMatch(chipClass(3), /\bcombined\b/)
+  assert.equal(chipLabel(2), '空闲')
+  assert.equal(chipLabel(4), '空闲')
+})
+
+test('非联合第4舰队自己出击：只翻第4舰队', () => {
+  reset({
+    fleets: FOUR_IDLE_FLEETS,
+    sortie: { active: true, practice: false, deckId: 4 },
+  })
+  assert.equal(chipLabel(4), '出击中')
+  assert.equal(chipLabel(3), '空闲')
+})
+
+test('非联合第2舰队自己出击：同样写「出击中」且不进空闲清单', () => {
+  reset({
+    fleets: FOUR_IDLE_FLEETS,
+    sortie: { active: true, practice: false, deckId: 2 },
+  })
+  assert.equal(chipLabel(2), '出击中')
+  assert.deepEqual(freeDeckIds(), [3, 4])
+})
+
+test('出击舰队不进空闲清单，甘特条与紧凑态状态都写「出击中」', () => {
+  reset({
+    fleets: FOUR_IDLE_FLEETS,
+    sortie: { active: true, practice: false, deckId: 3 },
+  })
+  assert.deepEqual(freeDeckIds(), [2, 4])
+  const html = renderGantt()
+  assert.match(html, /<span class="k">3舰<\/span><span class="g-idle">出击中<\/span>/)
+  assert.match(html, /<span class="k">2舰<\/span><span class="g-idle">待命<\/span>/)
+  assert.match(html, /<span class="k">4舰<\/span><span class="g-idle">待命<\/span>/)
+  assert.match(renderDeckStatus(3), /出击中/)
+})
+
+test('远征规划不会拿正在海上的舰凑队', () => {
+  reset({
+    fleets: [
+      { id: 1 },
+      { id: 2 },
+      { id: 3, ships: [301, 302] },
+      { id: 4, ships: [401] },
+    ],
+    sortie: { active: true, practice: false, deckId: 3 },
+    ships: { 301: {}, 302: {}, 401: {} },
+  })
+  assert.deepEqual(availableShipIds(), [401])
+})
+
+test('演习不算单队出击：第3舰队仍空闲且可派', () => {
+  reset({
+    fleets: FOUR_IDLE_FLEETS,
+    sortie: { active: true, practice: true, deckId: 3 },
+  })
+  assert.equal(chipLabel(3), '空闲')
+  assert.ok(freeDeckIds().includes(3))
+})
+
+test('sortie.active 落下后，非联合第3舰队恢复空闲', () => {
+  reset({
+    fleets: FOUR_IDLE_FLEETS,
+    sortie: { active: false, practice: false, deckId: 3 },
+  })
+  assert.equal(chipLabel(3), '空闲')
+  assert.ok(freeDeckIds().includes(3))
+})
+
+test('非联合舰队出击中不看补给：人在海上不挂未补给色', () => {
+  reset({
+    fleets: [{ id: 1 }, { id: 2 }, { id: 3, unsupplied: true }, { id: 4 }],
+    sortie: { active: true, practice: false, deckId: 3 },
+  })
+  assert.equal(chipLabel(3), '出击中')
+  assert.doesNotMatch(chipClass(3), /\bunsupplied\b/)
+})
+
+// ---- ⑥ 铉的条件检查尾句 ----
+
+test('非联合第3舰队出击中：条件检查尾句写正在出击', () => {
+  reset({
+    fleets: FOUR_IDLE_FLEETS,
+    sortie: { active: true, practice: false, deckId: 3 },
+  })
+  assert.match(conditionCheckHtml(3), /该舰队正在出击，返港后可用/)
+  assert.doesNotMatch(conditionCheckHtml(3), /该舰队正在远征/)
+})
+
+test('联合随伴第2舰队出击中：条件检查尾句同样写正在出击', () => {
+  reset({ fleets: FOUR_IDLE_FLEETS, combinedFlag: 1, sortie: SORTIE })
+  assert.match(conditionCheckHtml(2), /该舰队正在出击，返港后可用/)
+})
+
+test('远征中的舰队：条件检查尾句保留正在远征', () => {
+  reset({
+    fleets: [{ id: 3, mission: [1, 5, Date.now() + 1000, 0] }],
+  })
+  assert.match(conditionCheckHtml(3), /该舰队正在远征，返港后可用/)
+  assert.doesNotMatch(conditionCheckHtml(3), /该舰队正在出击/)
+})
+
+test('空闲舰队：条件检查结果没有在外尾句', () => {
+  reset({ fleets: [{ id: 3 }] })
+  const html = conditionCheckHtml(3)
+  assert.doesNotMatch(html, /该舰队正在出击/)
+  assert.doesNotMatch(html, /该舰队正在远征/)
+})
+
+// ---- ⑦ 铭的状态面板徽记 ----
+
+test('非联合出击中的舰队：状态面板挂出击中徽记', () => {
+  reset({
+    fleets: [{ id: 3 }],
+    sortie: { active: true, practice: false, deckId: 3 },
+  })
+  assert.match(statusPanelHtml(), /<span class="deck-badge">出击中<\/span>/)
+  assert.doesNotMatch(statusPanelHtml(), /<span class="deck-badge">远征中<\/span>/)
+})
+
+test('联合随伴第2舰队：状态面板挂出击中徽记', () => {
+  reset({ fleets: [{ id: 2 }], combinedFlag: 1, sortie: SORTIE })
+  assert.match(statusPanelHtml(), /<span class="deck-badge">出击中<\/span>/)
+})
+
+test('远征中的舰队：状态面板保留远征中徽记', () => {
+  reset({
+    fleets: [{ id: 3, mission: [1, 5, Date.now() + 1000, 0] }],
+  })
+  assert.match(statusPanelHtml(), /<span class="deck-badge">远征中<\/span>/)
+  assert.doesNotMatch(statusPanelHtml(), /<span class="deck-badge">出击中<\/span>/)
+})
+
+test('空闲舰队：状态面板不挂在外徽记', () => {
+  reset({ fleets: [{ id: 3 }] })
+  assert.doesNotMatch(statusPanelHtml(), /<span class="deck-badge">(?:出击|远征)中<\/span>/)
+})
+
+test('状态面板监听出击状态补丁，出海与返港会刷新徽记', () => {
+  assert.equal(statusPanelWatches('sortie'), true)
 })

@@ -526,6 +526,25 @@ const validData = {
       },
     },
   },
+  'event-lifecycle': {
+    schemaVersion: 1,
+    events: [
+      {
+        mapAreaId: 62,
+        name: '反撃！第三十一戦隊の戦い',
+        nameZh: '反击！第三十一战队之战',
+        from: '2026-07-08',
+        until: '2026-09-10',
+        status: 'active',
+        phases: [
+          { openedAt: '2026-07-08T21:59:00+09:00', maps: [1, 2, 3] },
+          { openedAt: '2026-07-19T02:03:00+09:00', maps: [4, 5] },
+        ],
+        mapNamesZh: { 1: '九州近海' },
+        operationNamesZh: { 1: '第三十一战队驱逐舰的出击' },
+      },
+    ],
+  },
   'event-bonus': {
     events: {
       E4: {
@@ -591,6 +610,19 @@ const validData = {
 }
 
 const invalidData = {
+  'event-lifecycle': {
+    schemaVersion: 1,
+    events: [
+      {
+        mapAreaId: 62.5,
+        name: 'test event',
+        from: '2026-07-08',
+        until: null,
+        status: 'active',
+        phases: [{ openedAt: '2026-07-08T21:59:00+09:00', maps: [1] }],
+      },
+    ],
+  },
   // 同一件装备落进两个 C 组：上游不会这么分，出现了就是解析错位
   //（kcwiki 那张表的 `|}` 表尾漏算就会正好造成这种错位），整包拦下而不是带病加载
   'event-plane-groups': {
@@ -889,20 +921,22 @@ const invalidData = {
   },
 }
 
-test('source manifest, validators, and fixtures cover the same 44 lode packs', () => {
+test('source manifest, validators, and fixtures cover the same 45 lode packs', () => {
   // 包分两类，**合起来**才是校验器与夹具要覆盖的全集：
-  //  · 抓来的（scripts/lode-sources.json 逐条列出，`lodes:fetch` 会遍历它）；
-  //  · 第一方手工台账（FIRST_PARTY_LODE_IDS）——抓不回来，所以不能进那份清单
-  //    （fetch-lodes 会逐条遍历，没有 url 的条目会炸）。
+  //  · 来源登记（scripts/lode-sources.json）：抓来的包与独立生成器包；
+  //  · 第一方手工台账（FIRST_PARTY_LODE_IDS）：没有独立生成器的旧台账不进来源登记。
   // 少写一边的后果不是报错，而是新包**没有校验器**却照样被加载。
   const expected = Object.keys(validData).sort()
   const sourceIds = lodeSources.map((source) => source.id)
-  assert.equal(expected.length, 44)
+  assert.equal(expected.length, 45)
   assert.equal(new Set(sourceIds).size, sourceIds.length, 'source manifest contains duplicate ids')
   for (const id of FIRST_PARTY_LODE_IDS) {
-    assert.ok(!sourceIds.includes(id), `${id} 是手工台账，不该进抓取清单`)
+    const registered = lodeSources.find((source) => source.id === id)
+    if (registered) {
+      assert.equal(registered.selfFetch, false, `${id} 是独立生成器包，通用抓取必须跳过`)
+    }
   }
-  assert.deepEqual([...sourceIds, ...FIRST_PARTY_LODE_IDS].sort(), expected)
+  assert.deepEqual([...new Set([...sourceIds, ...FIRST_PARTY_LODE_IDS])].sort(), expected)
   assert.deepEqual([...SUPPORTED_LODE_IDS].sort(), expected)
   assert.deepEqual(Object.keys(invalidData).sort(), expected)
   for (const id of expected) {

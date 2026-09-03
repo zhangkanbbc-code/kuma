@@ -241,6 +241,7 @@ const replayOneQuest = (
   )
   const realNow = Date.now
   let failed = false
+  let counts: number[] | null = null
   try {
     for (const row of input.events) {
       if (row.ts < periodStart || row.body == null) continue
@@ -320,13 +321,14 @@ const replayOneQuest = (
     }
     Date.now = () => input.now
     withoutQuestInfoLogs(() => engine.resetExpired(input.now))
+    counts = engine.state().progress[questId] ?? null
   } finally {
     Date.now = realNow
   }
   return {
     progress: {
       questId,
-      counts: engine.state().progress[questId] ?? null,
+      counts,
       updated,
       periodStart,
     },

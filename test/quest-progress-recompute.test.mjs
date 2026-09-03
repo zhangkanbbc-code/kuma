@@ -388,10 +388,19 @@ test('维护者脚本默认只读 dry-run，--write 才覆盖同一副本', (t) 
   const before = progressRows(db)
 
   const script = path.join(ROOT, 'scripts', 'quest-progress-recompute.mjs')
-  const dry = spawnSync(process.execPath, [script, '--db', file, '--quest', '220,211,217'], {
-    cwd: ROOT,
-    encoding: 'utf8',
-  })
+  const dry = spawnSync(
+    process.execPath,
+    [
+      script,
+      '--db',
+      file,
+      '--quest',
+      '220,211,217',
+      '--now',
+      new Date(NOW).toISOString(),
+    ],
+    { cwd: ROOT, encoding: 'utf8' },
+  )
   assert.equal(dry.status, 0, dry.stderr)
   assert.match(dry.stdout, /模式：dry-run（只读，不写）/)
   assert.match(dry.stdout, /211\s+9\s+1\s+-8/)
@@ -405,7 +414,16 @@ test('维护者脚本默认只读 dry-run，--write 才覆盖同一副本', (t) 
 
   const written = spawnSync(
     process.execPath,
-    [script, '--db', file, '--quest', '220,211,217', '--write'],
+    [
+      script,
+      '--db',
+      file,
+      '--quest',
+      '220,211,217',
+      '--write',
+      '--now',
+      new Date(NOW).toISOString(),
+    ],
     { cwd: ROOT, encoding: 'utf8' },
   )
   assert.equal(written.status, 0, written.stderr)
@@ -512,6 +530,8 @@ test('ledger 构造器在临时 SQLite 真跑 v13，升版、覆盖与重跑幂�
     delete require.cache[require.resolve(outfile)]
     return require(outfile).default
   }
+  const realNow = Date.now
+  Date.now = () => NOW
   const firstLedger = loadLedger()
   firstLedger.closeDatabase()
   const afterFirstDb = new DatabaseSync(file)
@@ -524,6 +544,7 @@ test('ledger 构造器在临时 SQLite 真跑 v13，升版、覆盖与重跑幂�
   afterFirstDb.exec('PRAGMA user_version = 12')
   afterFirstDb.close()
 
+  Date.now = () => NOW
   const secondLedger = loadLedger()
   secondLedger.closeDatabase()
   const afterSecondDb = new DatabaseSync(file, { readOnly: true })
@@ -532,6 +553,7 @@ test('ledger 构造器在临时 SQLite 真跑 v13，升版、覆盖与重跑幂�
   afterSecondDb.close()
 
   t.after(() => {
+    Date.now = realNow
     delete globalThis.__questV13Lodes
     fs.rmSync(dir, { recursive: true, force: true })
   })

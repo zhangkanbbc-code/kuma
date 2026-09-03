@@ -34,8 +34,7 @@ import {
   masterShipName,
   mg,
   commitPaneHtml,
-  deferWhileComposing,
-  deferWhilePressed,
+  deferPassive,
   onFilterInput,
   onMgChange,
   queryMasterRaw,
@@ -52,6 +51,7 @@ import type { SlotitemInstance } from '../../shared/mg-types'
 import { compareDisplayNames } from '../../shared/name-order'
 import { equipHolderMap } from '../../shared/equipped-slots'
 import type { OccupiedHolder } from '../../shared/equipped-slots'
+import { equipStockSignature } from '../../shared/equip-stock-signature'
 
 // 「被谁占着」那两档住在 shared（三处判据的唯一出处）；仓库卷自己多一档「闲置」。
 type Holder = { kind: 'idle' } | OccupiedHolder
@@ -113,8 +113,9 @@ const renderIfFurnitureView = () => {
   const host = pane
   if (!host?.isConnected || state.view !== 'furniture') return
   // 用户正按在这块面板上就让到抬起之后（按下与抬起之间换掉 DOM，click 不会发生）；
-  // 正在用输入法打字同理，让到组合结束——换掉 DOM 会把搜索框连同组合会话一起换没
-  if (!deferWhilePressed(host, 'es', render) && !deferWhileComposing(host, 'es', render)) render()
+  // 正在用输入法打字同理，让到组合结束——换掉 DOM 会把搜索框连同组合会话一起换没。
+  // 持续滚动时也让到安静窗之后，免得滚动中的 DOM 被替换。
+  deferPassive(host, 'es', render)
 }
 
 const loadFurnitureMst = () => {
@@ -181,8 +182,8 @@ const loadEquipTypeNames = () => {
     equipTypeNames = new Map(list.map((t: any) => [t.api_id, t.api_name]))
     const host = pane
     if (!host?.isConnected) return
-    // 同上：按下期间与输入法组合期间都不换 DOM
-    if (!deferWhilePressed(host, 'es', render) && !deferWhileComposing(host, 'es', render)) render()
+    // 同上：按下期间与输入法组合期间都不换 DOM，持续滚动时也让到安静窗之后。
+    deferPassive(host, 'es', render)
   })()
 }
 
@@ -221,8 +222,13 @@ const buildHolders = (): Map<number, OccupiedHolder> =>
   equipHolderMap(Object.values(mg.ships), mg.airBases)
 
 let rowCache: Row[] | null = null
-export const invalidateStockRows = () => {
+let rowCacheSignature = equipStockSignature(Object.values(mg.ships), mg.airBases, mg.slotitems)
+const invalidateStockRowsIfEquipmentChanged = (): boolean => {
+  const next = equipStockSignature(Object.values(mg.ships), mg.airBases, mg.slotitems)
+  if (next === rowCacheSignature) return false
+  rowCacheSignature = next
   rowCache = null
+  return true
 }
 
 // 航空类别集合（熟练度列的判据）：**装配期按主数据算一次**，渲染只查表。
@@ -240,6 +246,7 @@ const airborneTypesNow = (): ReadonlySet<number> => {
 
 const buildRows = (): Row[] => {
   if (rowCache) return rowCache
+  rowCacheSignature = equipStockSignature(Object.values(mg.ships), mg.airBases, mg.slotitems)
   const holders = buildHolders()
   const countByMst = new Map<number, number>()
   for (const inst of Object.values(mg.slotitems)) {
@@ -1089,6 +1096,7 @@ const stockFoldingWired = new WeakSet<HTMLElement>()
 
 export const mountStockView = (element: HTMLElement) => {
   pane = element
+  invalidateStockRowsIfEquipmentChanged()
   if (!stockFoldingWired.has(element)) {
     stockFoldingWired.add(element)
     // 装饰品按家具类别分组，组头接可折叠（**默认全展开**，与图鉴各卷目录同一口径）。
@@ -1128,7 +1136,17 @@ export const mountStockView = (element: HTMLElement) => {
 }
 
 export const refreshStockView = () => {
-  if (pane?.isConnected) render()
+  if (pane?.isConnected) deferPassive(pane, 'es', render)
+}
+
+/**
+ * slotitems / ships / airBases 只是「数据可能变了」：先用行缓存自己的失效键复核。
+ * 相同就不作废、不重画；不同才让仓库与鉴的装备占用缓存一起换代。
+ */
+export const refreshStockViewIfEquipmentChanged = (): boolean => {
+  if (!invalidateStockRowsIfEquipmentChanged()) return false
+  refreshStockView()
+  return true
 }
 
 // 任务奖励等处家具链接的落点：装饰品视图 + 高亮那一件（未持有则出横幅行）

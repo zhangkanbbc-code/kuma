@@ -30,9 +30,17 @@ import type {
 import type { QpFleetCheck, QpState } from '../shared/qp-types'
 import { mourningShipsOf } from '../shared/sortie-mourning'
 import { escapedShipsOf } from '../shared/sortie-escape'
-import { detailsKey, focusSelector, runViewRestore, scrollUntouchedSince, settlersToRun } from '../shared/view-state'
+import {
+  detailsKey,
+  focusSelector,
+  isProgrammaticScrollEcho,
+  passiveDeferReason,
+  runViewRestore,
+  scrollUntouchedSince,
+  settlersToRun,
+} from '../shared/view-state'
 import { safeEach } from './crash-guard'
-import { captureListenerSite, timedEach } from './perf-guard'
+import { captureListenerSite, timedEach, timedRun } from './perf-guard'
 
 const { ipcRenderer } = require('electron')
 const kernelConfig = require('@electron/remote').require('./config')
@@ -955,6 +963,19 @@ export const captureScrollProfile = (root: HTMLElement): ScrollProfile => {
 // 按剖面**整体**还原：剖面里没有的滚动容器归零。历史还原要的是「离开时的样子」，
 // 不归零的话，本次导航前的滚动会借同名键（各卷目录同构）漏进回来的那一页。
 // 同步套用一次，再补一帧：抽屉宽度过渡/容器形态切换会在布局后触发滚动锚定。
+const programmaticScrollMarks = new WeakMap<
+  HTMLElement,
+  { top: number; left: number; at: number }
+>()
+
+const markProgrammaticScroll = (el: HTMLElement): void => {
+  programmaticScrollMarks.set(el, {
+    top: el.scrollTop,
+    left: el.scrollLeft,
+    at: Date.now(),
+  })
+}
+
 export const applyScrollProfile = (root: HTMLElement, profile: ScrollProfile) => {
   const apply = () => {
     const seen = new Map<string, number>()
@@ -963,9 +984,11 @@ export const applyScrollProfile = (root: HTMLElement, profile: ScrollProfile) =>
       if (hit) {
         el.scrollTop = hit.top
         el.scrollLeft = hit.left
+        markProgrammaticScroll(el)
       } else if (el.scrollTop > 0 || el.scrollLeft > 0) {
         el.scrollTop = 0
         el.scrollLeft = 0
+        markProgrammaticScroll(el)
       }
     })
   }
@@ -1089,6 +1112,7 @@ export const withViewStateKept = (root: HTMLElement, mutate: () => void) => {
       el.scrollLeft = hit.left
       // 写回读到的实际值：内容还没撑开时 scrollTop 会被浏览器夹住，记下夹后的数才对得上
       written.set(el, { top: el.scrollTop, left: el.scrollLeft })
+      markProgrammaticScroll(el)
     })
   }
   // 次序即判据，写在 shared/view-state 的 VIEW_RESTORE_ORDER 上（那里能脱开 DOM 测）：
@@ -1178,23 +1202,132 @@ const rememberPaneHtml = (root: HTMLElement, key: string, html: string) => {
   else committedHtml.set(root, new Map([[key, html]]))
 }
 
+// 700ms 沿用 2026-08-21 已实测的按下推迟封顶。
 // 指针按下的落点与时刻。用捕获阶段登记：模块自己的 handler 里 stopPropagation 也拦不住。
 const PRESS_DEFER_CAP = 700
+// ---- 被动提交闸门：滚动安静窗 ----
+//
+// wheel/scroll 只登记玩家动作落在哪块面板，真正是否推迟统一交给 deferPassive 判。
+// Chromium 的滚轮锁存约 500ms（工程值，未在本机实测），安静窗取 600ms 长过它；
+// 正在滚的面板可以等，所以滚动中的被动补画独立封顶为 5000ms。
+const SCROLL_QUIET_MS = 600
+const SCROLL_DEFER_CAP = 5000
 let pressedTarget: Node | null = null
 let pressedAt = 0
-const deferredRenders = new Map<string, () => void>()
+let scrollTarget: Node | null = null
+let scrollAt = 0
 
-const flushDeferredRenders = () => {
-  if (!deferredRenders.size) return
-  const pending = [...deferredRenders.values()]
-  deferredRenders.clear()
-  for (const run of pending) {
+type PassiveDeferredEntry = {
+  root: HTMLElement
+  run: () => void
+  since: number
+}
+
+// 三种推迟原因共用一个队列；同键覆盖 run/root，since 保留第一次等待的时刻。
+const passiveDeferred = new Map<string, PassiveDeferredEntry>()
+let passiveFlushTimer: ReturnType<typeof setTimeout> | null = null
+
+const passiveInputFor = (root: HTMLElement, since: number, now: number) => ({
+  composing: isComposingIn(root),
+  pressed: !!pressedTarget && root.contains(pressedTarget),
+  pressedAt,
+  scrolling: !!scrollTarget && root.contains(scrollTarget),
+  scrollAt,
+  since,
+  now,
+  quietMs: SCROLL_QUIET_MS,
+  capMs: PRESS_DEFER_CAP,
+  scrollCapMs: SCROLL_DEFER_CAP,
+})
+
+const passiveRetryDelay = (
+  reason: 'composing' | 'pressed' | 'scrolling',
+  entry: PassiveDeferredEntry,
+  now: number,
+): number | null => {
+  if (reason === 'composing') return null
+  if (reason === 'pressed') return PRESS_DEFER_CAP - (now - pressedAt)
+  return Math.min(
+    SCROLL_QUIET_MS - (now - scrollAt),
+    SCROLL_DEFER_CAP - (now - entry.since),
+  )
+}
+
+const schedulePassiveFlush = () => {
+  if (passiveFlushTimer !== null) {
+    clearTimeout(passiveFlushTimer)
+    passiveFlushTimer = null
+  }
+  if (!passiveDeferred.size) return
+
+  const now = Date.now()
+  let delay = Number.POSITIVE_INFINITY
+  for (const entry of passiveDeferred.values()) {
+    const reason = passiveDeferReason(passiveInputFor(entry.root, entry.since, now))
+    if (reason === null) {
+      delay = 0
+      break
+    }
+    const remaining = passiveRetryDelay(reason, entry, now)
+    if (remaining !== null) delay = Math.min(delay, Math.max(0, remaining))
+  }
+  if (!Number.isFinite(delay)) return
+  passiveFlushTimer = setTimeout(() => {
+    passiveFlushTimer = null
+    flushPassiveDeferred()
+  }, delay)
+}
+
+const queuePassive = (root: HTMLElement, key: string, run: () => void, now: number) => {
+  const since = passiveDeferred.get(key)?.since ?? now
+  passiveDeferred.set(key, { root, run, since })
+  schedulePassiveFlush()
+}
+
+const flushPassiveDeferred = () => {
+  if (passiveFlushTimer !== null) {
+    clearTimeout(passiveFlushTimer)
+    passiveFlushTimer = null
+  }
+  if (!passiveDeferred.size) return
+
+  const now = Date.now()
+  for (const [key, entry] of [...passiveDeferred.entries()]) {
+    // 每次补跑都重判三道闸门：一种动作结束时，另一种仍可能挡着这块面板。
+    const reason = passiveDeferReason(passiveInputFor(entry.root, entry.since, now))
+    if (reason !== null) continue
+    passiveDeferred.delete(key)
     try {
-      run()
+      timedRun(`passive:${key}`, entry.run)
     } catch (_error) {
       /* 一个模块补渲失败不拦其余——与 safeEach 同一纪律 */
     }
   }
+  schedulePassiveFlush()
+}
+const recordScrollActivity = (event: Event) => {
+  if (!event.isTrusted) return
+  const now = Date.now()
+  const target = event.target
+  if (event.type === 'scroll' && target instanceof HTMLElement) {
+    const mark = programmaticScrollMarks.get(target)
+    if (
+      isProgrammaticScrollEcho(
+        { top: target.scrollTop, left: target.scrollLeft },
+        mark,
+        now,
+      )
+    ) {
+      // 一枚标记只压一次回声，后续可信 scroll 重新按玩家动作登记。
+      programmaticScrollMarks.delete(target)
+      return
+    }
+  }
+  // isTrusted 不足以排除程序化滚动：scrollTop/Left 写回派发的 scroll 同样可信，
+  // false 只说明事件来自 dispatchEvent；所以上面还要核对位置标记。
+  scrollTarget = target as Node | null
+  scrollAt = now
+  if (passiveDeferred.size) schedulePassiveFlush()
 }
 
 // 抬起之后**再排一个任务**才补渲。在 pointerup 里就换 DOM 还是白搭：
@@ -1202,7 +1335,7 @@ const flushDeferredRenders = () => {
 // （实测：只挂 pointerup 时合成点击照样被吞，加了这一拍才送达）。
 const releasePointer = () => {
   pressedTarget = null
-  if (deferredRenders.size) setTimeout(flushDeferredRenders, 0)
+  if (passiveDeferred.size) setTimeout(flushPassiveDeferred, 0)
 }
 
 if (typeof document !== 'undefined') {
@@ -1216,29 +1349,24 @@ if (typeof document !== 'undefined') {
   )
   document.addEventListener('pointerup', releasePointer, true)
   document.addEventListener('pointercancel', releasePointer, true)
+  // scroll 不冒泡；捕获阶段才能在 document 一处收全后代滚动，
+  // 也不受模块 handler 里 stopPropagation 影响。
+  document.addEventListener('wheel', recordScrollActivity, { capture: true, passive: true })
+  document.addEventListener('scroll', recordScrollActivity, true)
 }
 
 /**
  * 用户正按在这块面板上时，把这次**被动**重渲推迟到手指抬起来。
  * 返回 true = 已经排队，调用方本次直接返回。用户自己点出来的渲染不要走这里。
  */
-export const deferWhilePressed = (root: HTMLElement, key: string, run: () => void): boolean => {
+const deferWhilePressed = (root: HTMLElement, key: string, run: () => void): boolean => {
   if (!pressedTarget || !root.contains(pressedTarget)) return false
-  const heldFor = Date.now() - pressedAt
+  const now = Date.now()
+  const heldFor = now - pressedAt
   if (heldFor >= PRESS_DEFER_CAP) return false
-  deferredRenders.set(key, run)
   // pointerup 可能永远不来（指针捕获被别处抢走、窗口失焦）——封顶补跑一次，
   // 界面不会因为一次没收到的抬起就冻在旧状态。
-  setTimeout(() => {
-    if (deferredRenders.get(key) === run) {
-      deferredRenders.delete(key)
-      try {
-        run()
-      } catch (_error) {
-        /* 同上 */
-      }
-    }
-  }, PRESS_DEFER_CAP - heldFor)
+  queuePassive(root, key, run, now)
   return true
 }
 
@@ -1259,26 +1387,12 @@ export const deferWhilePressed = (root: HTMLElement, key: string, run: () => voi
 // 正是这里要防的那一下。焦点离开正在组合的框再兜一次底，免得漏掉的 compositionend
 // 把面板永久冻在旧状态。
 let composingIn: Node | null = null
-const composingDeferred = new Map<string, () => void>()
-
-const flushComposingDeferred = () => {
-  if (!composingDeferred.size) return
-  const pending = [...composingDeferred.values()]
-  composingDeferred.clear()
-  for (const run of pending) {
-    try {
-      run()
-    } catch (_error) {
-      /* 一个模块补渲失败不拦其余——与 safeEach 同一纪律 */
-    }
-  }
-}
 
 const endComposition = () => {
   composingIn = null
   // 与按下那道闸门同理，补渲再排一个任务：组合结束这一拍浏览器自己还要收尾
   // （compositionend 之后还有 keyup），换 DOM 让给它做完。
-  if (composingDeferred.size) setTimeout(flushComposingDeferred, 0)
+  if (passiveDeferred.size) setTimeout(flushPassiveDeferred, 0)
 }
 
 if (typeof document !== 'undefined') {
@@ -1309,10 +1423,31 @@ export const isComposingIn = (root: HTMLElement): boolean => {
  * 排队的是渲染函数本身而不是那一份 HTML：组合结束后重跑一次是照当时的状态全量重画，
  * 不会把组合期间攒下的其他变化落下。
  */
-export const deferWhileComposing = (root: HTMLElement, key: string, run: () => void): boolean => {
+const deferWhileComposing = (root: HTMLElement, key: string, run: () => void): boolean => {
   if (!isComposingIn(root)) return false
-  composingDeferred.set(key, run)
+  queuePassive(root, key, run, Date.now())
   return true
+}
+
+/**
+ * 把这一次被动重画交给统一提交口：没有闸门挡着就立刻跑；否则按 key 排队，
+ * 同键只留最后一份，等动作安静后补跑。调用方交出后不再自行调用 run。
+ * 玩家自己点出来的主动渲染不走这里。
+ */
+export const deferPassive = (root: HTMLElement, key: string, run: () => void): void => {
+  if (deferWhilePressed(root, key, run)) return
+  if (deferWhileComposing(root, key, run)) return
+  const now = Date.now()
+  const since = passiveDeferred.get(key)?.since ?? now
+  const reason = passiveDeferReason(passiveInputFor(root, since, now))
+  if (reason === null) {
+    passiveDeferred.delete(key)
+    schedulePassiveFlush()
+    timedRun(`passive:${key}`, run)
+    return
+  }
+  passiveDeferred.set(key, { root, run, since })
+  schedulePassiveFlush()
 }
 
 /**
@@ -1494,19 +1629,18 @@ export const fleetLabel = (deck: Deck): { canonical: string; custom: string | nu
   return { canonical, custom: isDefault ? null : deck.name }
 }
 
-// 联合编成里的第 2 舰队（随伴舰队）。
-//
-// 她是「无远征 = 空闲」这条推断唯一会翻车的一格：联合编成下游戏不允许第 2 舰队
-// 单独派远征，所以她的 `deck.mission` 恒为 [0,0,0,0]——凡是只看 mission 位的地方
-// 都会把她读成「空闲/待命/可派」，而实际上她要么正随第 1 舰队在海上，要么被锁在
-// 编成里动不了。2026-08-27 用户报的顶栏「联合出击中却显示空闲」就是这条。
-//
-// 判据集中在这里而不是各处各写一遍：消费面有五处（顶栏芯片、铉的甘特条与舰队
-// 选择芯片、铉的空闲舰队清单、锐的舰队悬停卡），散着写就是散着漏。
-//
-// 「出击中」排除演习（与 ru.ts fleetTabsHtml 的 onSortie 同一判据）：演习不是出击，
-// 联合编成照样只是「编队中」。sortie.deckId 恒为 1——联合出击由第 1 舰队具名，
-// 第 2 舰队不会自己出现在 deckId 上，这正是各处漏判她的原因。
+// 这是「这支队自己具名出击」的唯一判据，含游击部队第 3 舰队及任何单队出击。
+// 联合出击由第 1 舰队具名，所以联合时它对第 1 舰队为 true、对第 2 舰队为 false，
+// 第 2 舰队靠 combinedEscortState；演习不算出击。
+// 消费面是顶栏芯片、铉的候选池/空闲清单/甘特条/选择芯片/补给时机、锐的悬停卡，
+// 判据只写这一份，免得散着写就是散着漏。
+export const deckOnSortie = (deckId: number): boolean =>
+  !!mg.sortie?.active && !mg.sortie.practice && mg.sortie.deckId === deckId
+
+// 联合编成的第 2 舰队不能从 deck.mission 看出占用态：游戏不允许她单独派远征，
+// 所以 mission 恒为 0，实际上她却可能正随第 1 舰队在海上，或被锁在联合编成里。
+// 联合出击由第 1 舰队具名，第 2 舰队不会自己出现在 deckId 上。
+// 2026-08-27 用户报的顶栏「联合出击中却显示空闲」就是这条。
 export type CombinedEscortState = 'sortie' | 'formed'
 
 export const combinedEscortState = (deckId: number): CombinedEscortState | null => {

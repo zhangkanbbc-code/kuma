@@ -83,6 +83,7 @@ import {
   effectiveEquipCategory,
 } from '../../shared/equip-high-angle'
 import { equippedSlotIds } from '../../shared/equipped-slots'
+import { jiBookNeedsRender } from '../../shared/ji-book-deps'
 import { ALL_SHIP_TYPE_IDS, shipChipMatches, SHIP_CHIPS, STYPE_CN } from '../ship-category'
 import { equipTypeIconHtml } from '../equip-icon'
 import { countCapacitySlotitems } from '../equip-capacity'
@@ -170,7 +171,8 @@ import { voicePlaybackObservationAt } from '../../shared/voice-playback-observat
 import { ENEMY_FORMATION, formationText } from '../../shared/enemy-formation'
 import { bgmPreviewHtml } from '../bgm-preview'
 import { archivedMapBgmOf } from '../../shared/event-map-bgm'
-import { applyScrollProfile, captureScrollProfile, combinedEscortState, commitPaneHtml, deferWhileComposing, deferWhilePressed, esc, exitWithMotion, fmtDate, fmtDateTime, fmtTime, forgetCommittedHtml, jstDayOfWeek, lodeCredit, lodeCreditMark, lodeCreditShort, masterShipName, mg, nextJstTime, onFilterInput, onMgChange, ownedHangarExpansionOf, queryLode, queryMasterRaw, queryShipMemorial, trackMountCleanup, uiGet, uiSet, withViewStateKept } from '../kernel'
+import { eventLifecycleOf } from '../../shared/event-lifecycle'
+import { applyScrollProfile, captureScrollProfile, combinedEscortState, commitPaneHtml, deferPassive, esc, exitWithMotion, fmtDate, fmtDateTime, fmtTime, forgetCommittedHtml, jstDayOfWeek, lodeCredit, lodeCreditMark, lodeCreditShort, masterShipName, mg, nextJstTime, onFilterInput, onMgChange, ownedHangarExpansionOf, queryLode, queryMasterRaw, queryShipMemorial, trackMountCleanup, uiGet, uiSet, withViewStateKept } from '../kernel'
 import type { ScrollProfile } from '../kernel'
 import { createNavHistory } from '../nav-history'
 import { searchFold } from '../search-fold'
@@ -207,10 +209,10 @@ import {
   setRosterViewOpener,
 } from './qa'
 import {
-  invalidateStockRows,
   openEquipCleanup,
   mountStockView,
   refreshStockView,
+  refreshStockViewIfEquipmentChanged,
   setStockViewOpener,
 } from './equip-stock'
 import { questByCode, questVerdicts, questsAwarding, questsAwardingMaterial, questsMentioning, searchInManager } from './qn'
@@ -514,10 +516,9 @@ const scheduleRender = () => {
     if (!pane?.classList.contains('active')) return
     // 用户正按在图鉴上：把这次被动重渲让到手指抬起来之后。按下与抬起之间换掉 DOM，
     // 浏览器就不会派发 click——「点了没反应」的机制就是这个（封顶见 kernel）。
-    if (deferWhilePressed(pane, 'ji', () => render())) return
-    // 正在用输入法打字同理，让到组合结束：换掉 DOM 会把组合会话一起换没
-    if (deferWhileComposing(pane, 'ji', () => render())) return
-    render()
+    // 正在用输入法打字同理，让到组合结束：换掉 DOM 会把组合会话一起换没。
+    // 持续滚动时也让到安静窗之后，免得滚动中的 DOM 被替换。
+    deferPassive(pane, 'ji', render)
   })
 }
 
@@ -618,6 +619,7 @@ let eventArchives: EventArchive[] | null = null
 // 舰娘详情 = kcwiki 中文口径，实体级回退主数据——绝不字段级混拼）
 let abyssalLode: { meta: LodeMeta; data: any } | null = null
 let fcdMapLode: { meta: LodeMeta; data: any } | null = null // poi fcd：海域字母/坐标
+let eventLifecycleLode: { meta: LodeMeta; data: any } | null = null
 let routingLode: { meta: LodeMeta; data: any } | null = null // kcwiki：各图带路条件
 let wikiwikiRoutingLode: { meta: LodeMeta; data: any } | null = null // wikiwiki：日文一手分歧说明
 let kcnavRoutingLode: { meta: LodeMeta; data: any } | null = null
@@ -1800,12 +1802,12 @@ const huntPlanHtml = (): string => {
   }
 
   // 按「会不会消失」分组，而不是按「有没有日期」。这两件事在舰C 里不是一回事：
-  //   · 活动图      活动一结束掉落就没了 —— **真的有时限**，但官方一般要到结束前
-  //                 1–2 周才公布具体日期，所以活动进行中 event.until 是 null 属正常，
-  //                 等资料补上日期，倒计时会自动出现（解析与排序都已就位）
+  //   · 活动图      活动一结束掉落就没了 —— **真的有时限**；官方一般结束前
+  //                 1–2 周才公告，公告前 event.until 是 null 属正常；公告后填进资料，
+  //                 剩余天数随之出现
   //   · 常规图限定  多是某次追加后一直开着的（玩家口径的「永久开放的限定掉落」），
   //                 kcwiki 本来就不给截止日 —— null 是如实记录，不是资料缺失
-  // 实测随包目录：常规图 112 条限定掉落无一写截止日，活动图 62-x 的 event.until 也是 null。
+  // 实测随包目录：常规图 112 条限定掉落无一写截止日。
   // 所以绝不能拿「没有日期」当「快关门」去催玩家，那是凭空造出来的紧迫感。
   // 收藏组内靠前（2026-08-16 用户提议的收藏置顶口径）：missing 的 id 本来就是
   // 链根，直接判。「快关门」组仍以剩余天数为先——紧迫性不让位给偏好。
@@ -2295,21 +2297,23 @@ const loadShipMemorial = (chain: number[]) => {
     })
     .finally(() => {
       if (shipMemorialLoading === key) shipMemorialLoading = ''
-      if (!shipState.open || (chainOf.get(shipState.selectedRoot) ?? []).join(',') !== key) return
-      // 只有「收容库」这一块要换。原先为它跑一次全量 render——火焰图里点开一艘舰
-      // 有两个长任务，第二个就是它，而抽屉与目录的内容一个字都没变。
-      // ⚠ 换块之后必须重绑「查看人生记录」：它是逐元素绑定，不走全局委托。
-      // 曾以为块内只有实体链接而跳过重绑——于是每次首开详情，异步换进来的
-      // 收容库行点了都没反应（wire 绑的是被换掉的那批占位元素）。
-      const host = pane?.querySelector('#ji-ship-memorial')
-      if (host) {
-        forgetCommittedHtml(pane, 'ji') // 局部换块后记忆作废（见 kernel commitPaneHtml）
-        host.outerHTML = shipMemorialHtml(chain)
-        const fresh = pane?.querySelector('#ji-ship-memorial')
-        if (fresh) bindMemorialToggles(fresh)
-      } else {
-        render()
-      }
+      deferPassive(pane, 'ji:memorial', () => {
+        if (!shipState.open || (chainOf.get(shipState.selectedRoot) ?? []).join(',') !== key) return
+        // 只有「收容库」这一块要换。原先为它跑一次全量 render——火焰图里点开一艘舰
+        // 有两个长任务，第二个就是它，而抽屉与目录的内容一个字都没变。
+        // ⚠ 换块之后必须重绑「查看人生记录」：它是逐元素绑定，不走全局委托。
+        // 曾以为块内只有实体链接而跳过重绑——于是每次首开详情，异步换进来的
+        // 收容库行点了都没反应（wire 绑的是被换掉的那批占位元素）。
+        const host = pane?.querySelector('#ji-ship-memorial')
+        if (host) {
+          forgetCommittedHtml(pane, 'ji') // 局部换块后记忆作废（见 kernel commitPaneHtml）
+          host.outerHTML = shipMemorialHtml(chain)
+          const fresh = pane?.querySelector('#ji-ship-memorial')
+          if (fresh) bindMemorialToggles(fresh)
+        } else {
+          render()
+        }
+      })
     })
 }
 
@@ -7122,7 +7126,7 @@ const loadShipDrops = (mstId: number) => {
       shipState.open &&
       shipState.dtab === 'p-drop'
     ) {
-      updateShipDetailPanel()
+      deferPassive(pane, 'ji:detail', updateShipDetailPanel)
     }
   }).catch((error: unknown) => {
     // 读失败要说读失败。留空会被渲染成「你还没在任何海域捞到过这一舰」——
@@ -7132,7 +7136,7 @@ const loadShipDrops = (mstId: number) => {
     shipDropsPending = 0
     shipDrops = { mstId, sites: [], failed: true }
     if (activeBook === 'ship' && shipState.selectedForm === mstId && shipState.open) {
-      updateShipDetailPanel()
+      deferPassive(pane, 'ji:detail', updateShipDetailPanel)
     }
   })
 }
@@ -7261,7 +7265,7 @@ const ensureAbyssKills = () => {
       abyssKills = k ?? {}
       abyssKillsStale = false
       abyssKillsLoading = false
-      render()
+      deferPassive(pane, 'ji', render)
     })
     .catch((error: unknown) => {
       // 失败不清手上这份；也不立刻重试（脏标记清掉，等下一次 sortie 变化）
@@ -7993,24 +7997,28 @@ const eventPeriodOf = (info: any): {
   ended: boolean
   text: string
   basis: string
+  source: 'lifecycle' | 'intel' | null
 } | null => {
   if (!eventAreaIds.has(info.api_maparea_id)) return null
   const code = `${info.api_maparea_id}-${info.api_no}`
   const intel = EVENT_DIFFICULTIES
     .map((difficulty) => mapIntelMap(code, difficulty)?.event)
     .find(Boolean)
+  // 第一方登记是生命周期权威，map-intel 的 event 块只在缺少该海域条目时兜底。
+  const lifecycle = eventLifecycleOf(eventLifecycleLode?.data, info.api_maparea_id) ?? intel
+  const source = lifecycle ? (lifecycle === intel ? 'intel' : 'lifecycle') : null
   const observed = mg.eventAreas[info.api_maparea_id]
   const archive = eventArchives?.find((entry) => entry.areaId === info.api_maparea_id)
   const active = Boolean(observed && !observed.closed)
-  const ended = active ? false : Boolean(intel?.status === 'ended' || archive || observed?.closed)
+  const ended = active ? false : Boolean(lifecycle?.status === 'ended' || archive || observed?.closed)
   const slash = (value: string) => value.replaceAll('-', '/')
   // 日期格式单一出处：fmtDate 给 YYYY-MM-DD，这里只换分隔符，不再手抄一份 padStart
   const observedDay = (ts: number) => slash(fmtDate(ts))
-  const from = intel?.from
-    ? slash(intel.from)
+  const from = lifecycle?.from
+    ? slash(lifecycle.from)
     : observedDay(archive?.opened ?? observed?.firstSeenTs ?? Date.now())
-  const until = intel?.until
-    ? slash(intel.until)
+  const until = lifecycle?.until
+    ? slash(lifecycle.until)
     : ended && (archive?.closed ?? observed?.lastSeenTs)
       ? observedDay(archive?.closed ?? observed!.lastSeenTs)
       : null
@@ -8018,11 +8026,12 @@ const eventPeriodOf = (info: any): {
     active,
     ended,
     text: until ? `${from}—${until}` : `${from}—`,
-    basis: intel?.until
+    basis: lifecycle?.until
       ? '离线活动资料'
-      : intel?.from
+      : lifecycle?.from
         ? '开始时间来自离线活动资料；结束时间由本机游戏数据确认'
         : '由本机游戏数据记录',
+    source,
   }
 }
 
@@ -9916,6 +9925,7 @@ const mapDrawerHtml = () => {
   const syncedDifficulty =
     EVENT_DIFFICULTY_BY_RANK[mg.mapGauges[info.api_id]?.selectedRank ?? 0]
   const eventPeriod = eventPeriodOf(info)
+  const eventLifecycleCredit = eventPeriod?.source === 'lifecycle' ? eventLifecycleLode : null
   const allowedFleets = mapFleetAllowanceLabels(info.api_sally_flag)
   const difficultyTabs = difficulty
     ? `<div class="own-line mi-diff-line"><span>资料难度</span>
@@ -9962,7 +9972,7 @@ const mapDrawerHtml = () => {
     ${mapForecastHtml(info, code, difficulty)}
     ${prefetchHtml(code, difficulty)}
     ${dropPoolHtml(code, Number(info.api_id) || 0, difficulty)}
-    <div class="foot"><span class="credit-mark" title="海域名称 ${info.__kansoArchiveFallback ? '旧归档仅保存编号' : eventPeriod?.ended ? '来自活动期间保存的游戏数据' : `来自游戏基础数据 · 更新于 ${masterTs ? fmtDate(masterTs) : '—'}`}${fcdMapLode ? ` ｜ 海图 ${esc(lodeCreditShort(fcdMapLode.meta))}` : ''}">源</span></div>
+    <div class="foot"><span class="credit-mark" title="海域名称 ${info.__kansoArchiveFallback ? '旧归档仅保存编号' : eventPeriod?.ended ? '来自活动期间保存的游戏数据' : `来自游戏基础数据 · 更新于 ${masterTs ? fmtDate(masterTs) : '—'}`}${fcdMapLode ? ` ｜ 海图 ${esc(lodeCreditShort(fcdMapLode.meta))}` : ''}${eventLifecycleCredit ? ` ｜ ${esc(lodeCredit(eventLifecycleCredit.meta))}` : ''}">源</span></div>
   </div>`
 }
 
@@ -11105,7 +11115,7 @@ const loadEventArchives = () => {
       }
       missNotice = { book: 'map', text: '当前海域资料读取失败' }
     }
-    render()
+    deferPassive(pane, 'ji', render)
   }).catch((error: unknown) => {
     // 活动归档只影响海域卷里几张已结束的图，读不到就维持现状，不清空已有的
     console.warn('[kanso] 活动归档读取失败', error)
@@ -11114,7 +11124,7 @@ const loadEventArchives = () => {
     pendingMapOpen = null
     if (missNotice?.book === 'map') {
       missNotice = { book: 'map', text: '当前海域资料读取失败' }
-      render()
+      deferPassive(pane, 'ji', render)
     }
   })
 }
@@ -11485,7 +11495,7 @@ function wireShipDetailPanel(panel: HTMLElement) {
       const url = voiceUrl(mstId, slot)
       if (!url) {
         collectOutcomes.set(key, 'blocked')
-        scheduleRender()
+        render()
         return
       }
       // 取之前先记下这一格档案里已有的指纹：回来之后才判得出「是不是同一份字节」
@@ -11523,7 +11533,7 @@ function wireShipDetailPanel(panel: HTMLElement) {
       const key = `${guessToggle.dataset.abyssGuess ?? ''}`
       // 一次只展开一条：候选要紧挨着那一行的台词，摊开好几行就对不上音节了
       abyssGuessOpen = abyssGuessOpen === key ? '' : key
-      scheduleRender()
+      render()
       return
     }
 
@@ -11615,7 +11625,7 @@ function wireShipDetailPanel(panel: HTMLElement) {
     const input = (event.target as HTMLElement)?.closest<HTMLInputElement>('[data-abyss-prefix]')
     if (!input) return
     abyssGuessPrefixes.set(`${input.dataset.abyssPrefix ?? ''}`, input.value)
-    scheduleRender()
+    render()
   })
 }
 
@@ -13185,7 +13195,7 @@ registerModule({
       if (improvementDayTimer) clearTimeout(improvementDayTimer)
       improvementDayTimer = setTimeout(() => {
         if (pane.classList.contains('active') && activeBook === 'equip' && equipState.mode === 'today') {
-          render()
+          deferPassive(pane, 'ji', render)
         }
         scheduleImprovementDayRollover()
       }, Math.max(1000, nextJstTime([0]) - Date.now() + 100))
@@ -13236,7 +13246,7 @@ registerModule({
     )
     void ensureFirstEncounters()
     onFirstEncountersChange(() => {
-      if (pane.classList.contains('active')) render()
+      if (pane.classList.contains('active')) deferPassive(pane, 'ji', render)
     })
     void (async () => {
       const raw = await queryMasterRaw()
@@ -13254,6 +13264,7 @@ registerModule({
         akashiListLode,
         kcwikiLode,
         fcdMapLode,
+        eventLifecycleLode,
         wikiwikiRemodelLode,
         devRecipeLode,
         buildRecipeLode,
@@ -13265,6 +13276,7 @@ registerModule({
         queryLode('akashi-list'),
         queryLode('kcwiki-ships'),
         queryLode('poi-fcd-map'),
+        queryLode('event-lifecycle'),
         queryLode('wikiwiki-remodel'),
         queryLode('dev-recipes'),
         queryLode('build-recipes'),
@@ -13274,12 +13286,12 @@ registerModule({
       // 端点的**值**统一由 fleet-calc 持有（面板反推与图鉴三维上限共用一份，
       // 免得两处各拉一份各自失效）；这里那一份只用来给来源脚注取 meta。
       ensureShipStatsLode(() => {
-        if (pane?.isConnected) render()
+        if (pane?.isConnected) deferPassive(pane, 'ji', render)
       })
       // 收容库履历里的点位字母。上面已经把 poi-fcd-map 拉进 fcdMapLode 了，
       // 但那份是海图卡自己的；文案层走公用的那本（queryLode 按 id 缓存，不多下一次）
       ensureMapCellLetters(() => {
-        if (pane?.isConnected) render()
+        if (pane?.isConnected) deferPassive(pane, 'ji', render)
       })
       shipProfileByMst = new Map()
       for (const entry of Object.values<any>(shipProfileLode?.data ?? {})) {
@@ -13307,7 +13319,7 @@ registerModule({
       // 台词包（日中对照）：只在图鉴模块用，按需加载
       void queryLode('wikiwiki-item-exchange').then((pack) => {
         itemExchangeLode = pack
-        if (itemState.open) render()
+        if (itemState.open) deferPassive(pane, 'ji', render)
       })
       void Promise.all([
         queryLode('kcwiki-voice'),
@@ -13403,7 +13415,7 @@ registerModule({
               ).data,
             }
           : null
-        render()
+        deferPassive(pane, 'ji', render)
       })
       kcwikiByMst = new Map()
       if (kcwikiLode?.data) {
@@ -13412,7 +13424,7 @@ registerModule({
         }
       }
       buildRemodelNeeds()
-      render()
+      deferPassive(pane, 'ji', render)
     })().catch((error: unknown) => {
       // 这条链上十来个 queryLode / initMapIntel，任一 reject 就在那一行断掉：
       // 后面的索引再也不建，模块只显示半截，而 mountModule 早已把 mount 算成功。
@@ -13425,11 +13437,14 @@ registerModule({
       if (keys.some((k) => ['ships', 'sortie'].includes(k))) shipMemorialGeneration += 1
       // 仓库卷的行缓存要跟着这三样走：装备本身、装备的去处（舰上）、陆航的格子。
       // 少一样就会出现「刚卸下来的装备还显示装在舰上」。
-      if (keys.some((k) => ['slotitems', 'ships', 'airBases'].includes(k))) {
-        invalidateStockRows()
-        invalidateEquippedInstIds()
-        refreshStockView()
-      } else if (keys.some((k) => ['furnitures', 'basic'].includes(k))) {
+      // refreshStockViewIfEquipmentChanged 先比行缓存自己的轻量签名；没变就不失效、不重画。
+      // 它的刷新本体已用 'es' 键走统一提交口；这里再包会形成两级排队，
+      // 还会与鉴自己的 render 共用 'ji' 键互相顶掉。
+      const stockChanged =
+        keys.some((k) => ['slotitems', 'ships', 'airBases'].includes(k)) &&
+        refreshStockViewIfEquipmentChanged()
+      if (stockChanged) invalidateEquippedInstIds()
+      if (!stockChanged && keys.some((k) => ['furnitures', 'basic'].includes(k))) {
         // 仓库卷的装饰品视图读的是 mg.furnitures 与 basic 的家具币/布局——
         // 这两样变了行缓存并没受影响（那是装备的），但清单得重画，
         // 否则刚买的家具、刚花掉的家具币要等下一次装备变动才跟上。
@@ -13456,17 +13471,19 @@ registerModule({
             setShipGraph(raw.data?.api_mst_shipgraph ?? [])
             setShipImageGraph(raw.data?.api_mst_shipgraph ?? [])
           }
-          render()
+          deferPassive(pane, 'ji', render)
           loadEventArchives()
         })().catch((error: unknown) => {
           // 主数据重取失败不该静默：索引会停在旧的一份，界面看着正常却不再跟游戏走
           recordCrash('ji:master-refresh', error)
           console.warn('[kanso] 主数据重取失败，索引仍停在上一份', error)
         })
-      } else if (keys.some((k) => ['ships', 'slotitems', 'decks', 'useitems', 'materials', 'basic', 'eventAreas', 'sortie', 'mapGauges'].includes(k))) {
+      } else if (jiBookNeedsRender(keys, activeBook)) {
         // 在籍归并/持有数/道具所持联动。必须合并到同一帧：materials 每场战斗都推，
         // 而同步 render 会在游戏线程上把整张海域预测（带路 DFS + 逐点战斗模拟）
         // 重跑一遍——那些计算跟 materials 一个字的关系都没有。
+        // 现在先按当前卷的 shared 依赖表判断；切卷本来就是主动全量 render，
+        // 跳过的键无需另记脏标记，切回来读到的就是当时最新状态。
         scheduleRender()
       }
     })

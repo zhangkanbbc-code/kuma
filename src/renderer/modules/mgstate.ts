@@ -1,6 +1,8 @@
 // 铭 (Mg) · 状态查看器。M1 验收工具页：资源/舰队/入渠/建造的原始视图。
 import {
   applyPaneHtml,
+  combinedEscortState,
+  deckOnSortie,
   debugApplyPatch,
   debugEmitMarriage,
   esc,
@@ -28,11 +30,11 @@ const MAT_LABELS = ['燃料', '弹药', '钢材', '铝土', '高速建造材', '
 let pane: HTMLElement
 let renderPending = false
 
-// 这一页只读这六样。其余补丁（quests / slotitems / sortie / portLogs…）跟这五块
-// 视图无关，不过滤就是任何一次补丁都重建 5 段 innerHTML。
+// 这一页只读这七样。其余补丁（quests / slotitems / portLogs…）跟这些视图无关，
+// 不过滤就是任何一次补丁都重建整页 innerHTML。
 // 注意 lastPortTs **不能**进这张表：主进程每条补丁都捎带它（main/mg/index.ts），
 // 列进来等于不过滤；返港时刻由下面的 onTick 每秒重画，不靠补丁驱动。
-const WATCHED_KEYS = ['master', 'materials', 'ships', 'decks', 'ndocks', 'kdocks']
+const WATCHED_KEYS = ['master', 'materials', 'ships', 'decks', 'ndocks', 'kdocks', 'sortie']
 
 const renderFreshness = () => {
   const el = pane.querySelector<HTMLElement>('.mg-freshness')!
@@ -71,6 +73,7 @@ const renderDecks = () => {
     .map((deck) => {
       const { canonical, custom } = fleetLabel(deck)
       const onMission = deck.mission?.[0] > 0
+      const onSortie = deckOnSortie(deck.id) || combinedEscortState(deck.id) === 'sortie'
       const rows = deck.ships
         .filter((id) => id > 0)
         .map((id) => {
@@ -92,7 +95,11 @@ const renderDecks = () => {
       return (
         `<div class="mg-deck"><div class="mg-deck-head"><b>${elink('fleet', deck.id, canonical)}</b>` +
         (custom ? `<span class="deck-custom">「${entityTermHtml('fleet', deck.id, custom)}」</span>` : '') +
-        (onMission ? `<span class="deck-badge">远征中</span>` : '') +
+        (onMission
+          ? `<span class="deck-badge">远征中</span>`
+          : onSortie
+            ? `<span class="deck-badge">出击中</span>`
+            : '') +
         `</div>${rows}</div>`
       )
     })

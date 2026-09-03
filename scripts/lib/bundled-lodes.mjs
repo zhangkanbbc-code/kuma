@@ -6,8 +6,9 @@
 // 要么产物里多出一个不该有的（那是**许可事故**，不是体积问题）。
 //
 // 判据只有一条：`scripts/lode-sources.json` 里 `bundle: true`。
-// 而 `bundle` 能不能是 true，取决于那一条的 `licenseId` ——
-// 只有数据本身所在的源有明确、允许再分发的许可声明（MIT / CC BY-NC-SA 3.0）才行。
+// 而 `bundle` 能不能是 true，取决于那一条的许可标识——
+// 只有数据本身所在的源有明确、允许再分发的许可声明（MIT / CC BY-NC-SA 3.0），
+// 或明确登记为第一方产物才行。
 // 无声明或明文禁止的一律换源，不留中间路（2026-08-21 用户定稿的发布侧口径）。
 
 import { readFileSync } from 'node:fs'
@@ -18,11 +19,15 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 export const REPO_ROOT = path.resolve(here, '..', '..')
 
 /** 允许随包的许可。不在这张表里的一律不许翻 bundle。 */
-export const REDISTRIBUTABLE_LICENSES = new Set(['MIT', 'CC-BY-NC-SA-3.0'])
+export const REDISTRIBUTABLE_LICENSES = new Set([
+  'MIT',
+  'CC-BY-NC-SA-3.0',
+  '第一方产物',
+])
 
 /**
- * 第一方自补层：不是抓来的，所以不在 lode-sources.json 里
- *（那份清单会被 fetch-lodes 逐条遍历，塞进没有 url 的条目会炸）。
+ * 第一方自补层：旧有手工台账不在 lode-sources.json 里；独立生成器产出的包可以登记，
+ * 但必须显式写 selfFetch: false，让通用抓取跳过。
  * 自补内容是 kuma 自己维护的数据，可入仓可随包。
  *
  * 与 `map-drops` / `ship-stats` 那种「第一方汇编」不是一回事：那几个仍旧是抓来的，
@@ -73,6 +78,9 @@ export const REDISTRIBUTABLE_LICENSES = new Set(['MIT', 'CC-BY-NC-SA-3.0'])
  * 置信度与 aa-evasion 同级但成因不同：名单核过 wikiwiki 与 kcwiki 两家、37/37 一致，
  * **但两家都写明转自同一份社区分类表**——同源转录，不算两票，basis 照此写。
  * 它按期号（`data.event`）与 event-bonus 的 `page=` 对齐，换期对不上就整表不生效。
+ *
+ * event-lifecycle 登记活动开始、结束与分期开图日期（2026-09-03）。
+ * 它由独立生成器从维护者登记表重建；随包与否只认 lode-sources.json 的 bundle 标志。
  */
 export const FIRST_PARTY_LODE_IDS = [
   'map-drop-windows',
@@ -80,6 +88,7 @@ export const FIRST_PARTY_LODE_IDS = [
   'equip-improve',
   'equip-aa-evasion',
   'event-plane-groups',
+  'event-lifecycle',
 ]
 
 /**
@@ -106,20 +115,22 @@ const readSources = () =>
 /** 随包的矿脉包 id，排序固定（.gitignore 块与产物核对都靠它稳定）。 */
 export const bundledLodeIds = (sources = readSources()) => {
   const ids = []
+  const registered = new Set(sources.map((source) => source?.id))
   for (const source of sources) {
     if (source?.bundle !== true) continue
     if (NEVER_BUNDLED_LODE_IDS.includes(source.id)) {
       throw new Error(`${source.id} 在「永不随包」名单里，不许标 bundle: true`)
     }
-    if (!REDISTRIBUTABLE_LICENSES.has(source.licenseId)) {
+    const license = source.licenseId ?? source.license
+    if (!REDISTRIBUTABLE_LICENSES.has(license)) {
       throw new Error(
-        `${source.id} 标了 bundle: true，但 licenseId=${JSON.stringify(source.licenseId)}` +
+        `${source.id} 标了 bundle: true，但许可=${JSON.stringify(license)}` +
           ` 不在允许再分发的许可里（${[...REDISTRIBUTABLE_LICENSES].join(' / ')}）`,
       )
     }
     ids.push(source.id)
   }
-  return [...ids, ...FIRST_PARTY_LODE_IDS].sort()
+  return [...ids, ...FIRST_PARTY_LODE_IDS.filter((id) => !registered.has(id))].sort()
 }
 
 export const BUNDLED_LODE_IDS = bundledLodeIds()

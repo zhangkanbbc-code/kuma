@@ -17,6 +17,19 @@ const isDateText = (value: unknown) =>
   typeof value === 'string' && value.length <= 100 && /^\d{4}-\d{2}-\d{2}/.test(value)
 const isCalendarDate = (value: unknown): value is string =>
   typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+const isValidCalendarDate = (value: unknown): value is string => {
+  if (!isCalendarDate(value)) return false
+  const parsed = Date.parse(`${value}T00:00:00Z`)
+  return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 10) === value
+}
+const ISO_DATE_TIME =
+  /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/
+const isIsoDateTime = (value: unknown): value is string =>
+  typeof value === 'string' &&
+  value.length <= 100 &&
+  ISO_DATE_TIME.test(value) &&
+  isValidCalendarDate(value.slice(0, 10)) &&
+  Number.isFinite(Date.parse(value))
 
 const SAFE_ID = /^[a-z0-9][a-z0-9._-]{0,79}$/
 const SAFE_SPOT = /^[A-Za-z0-9]{1,8}$/
@@ -387,7 +400,6 @@ const validateMapIntel = (data: unknown): string | null => {
         (event.status !== 'active' && event.status !== 'ended') ||
         !isDateText(event.phaseOpenedAt) ||
         (event.lifecycleSourceUrl !== undefined && !isText(event.lifecycleSourceUrl, 4096)) ||
-        (event.status === 'active' && event.until !== null) ||
         (event.status === 'ended' && !isCalendarDate(event.until))
       ) {
         return `${mapKey}.event 生命周期非法`
@@ -431,6 +443,44 @@ const validateMapIntel = (data: unknown): string | null => {
           `${mapKey}.difficulties.${difficulty}`,
         )
         if (operationError) return operationError
+      }
+    }
+  }
+  return null
+}
+
+const validateEventLifecycle = (data: unknown): string | null => {
+  if (!isRecord(data) || data.schemaVersion !== 1 || !Array.isArray(data.events)) {
+    return 'event-lifecycle 必须是 schemaVersion=1 且含 events 的对象'
+  }
+  const validZhTable = (value: unknown) =>
+    value === undefined ||
+    (isRecord(value) && Object.values(value).every((text) => isText(text, 500)))
+  for (const [index, event] of data.events.entries()) {
+    if (
+      !isRecord(event) ||
+      !isInteger(event.mapAreaId, 1, 999) ||
+      !isText(event.name, 300) ||
+      (event.nameZh !== undefined && !isText(event.nameZh, 300)) ||
+      !isValidCalendarDate(event.from) ||
+      (event.until !== null && !isValidCalendarDate(event.until)) ||
+      (event.status !== 'active' && event.status !== 'ended') ||
+      (event.status === 'ended' && !isValidCalendarDate(event.until)) ||
+      !Array.isArray(event.phases) ||
+      !event.phases.length ||
+      !validZhTable(event.mapNamesZh) ||
+      !validZhTable(event.operationNamesZh)
+    ) {
+      return `event-lifecycle.events[${index}] 非法`
+    }
+    for (const [phaseIndex, phase] of event.phases.entries()) {
+      if (
+        !isRecord(phase) ||
+        !isIsoDateTime(phase.openedAt) ||
+        !Array.isArray(phase.maps) ||
+        !phase.maps.every(Number.isInteger)
+      ) {
+        return `event-lifecycle.events[${index}].phases[${phaseIndex}] 非法`
       }
     }
   }
@@ -2267,6 +2317,7 @@ const LODE_DATA_VALIDATORS: Record<string, LodeDataValidator> = {
   'map-enemy-comps': validateMapEnemyComps,
   'map-drops': validateMapDrops,
   'map-drop-windows': validateMapDropWindows,
+  'event-lifecycle': validateEventLifecycle,
   'event-bonus': validateEventBonus,
   'event-plane-groups': validateEventPlaneGroups,
   'kcwiki-localization': validateLocalization,

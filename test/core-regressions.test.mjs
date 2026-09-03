@@ -645,6 +645,7 @@ test('live state mutations broadcast every displayed slice without waiting for p
   const fleet = fs.readFileSync(new URL('../src/renderer/modules/ru.ts', import.meta.url), 'utf8')
   const expedition = fs.readFileSync(new URL('../src/renderer/modules/bi.ts', import.meta.url), 'utf8')
   const catalog = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
+  const catalogDeps = fs.readFileSync(new URL('../src/shared/ji-book-deps.ts', import.meta.url), 'utf8')
   const roster = fs.readFileSync(new URL('../src/renderer/modules/qa.ts', import.meta.url), 'utf8')
 
   for (const endpoint of [
@@ -672,7 +673,10 @@ test('live state mutations broadcast every displayed slice without waiting for p
   )
   assert.match(fleet, /'ndocks',\s*'basic',\s*'master'/)
   assert.match(expedition, /'slotitems',\s*'ndocks',\s*'quests'/)
-  assert.match(catalog, /'materials',\s*'basic',\s*'eventAreas'/)
+  assert.match(catalog, /jiBookNeedsRender\(keys, activeBook\)/)
+  for (const key of ['materials', 'basic', 'eventAreas']) {
+    assert.match(catalogDeps, new RegExp(`['"]${key}['"]`))
+  }
   // 行缓存作废含 decks：在编标注（2026-08-17）跟着编成变化走
   assert.match(roster, /'ndocks',\s*'decks',\s*'basic',\s*'master'/)
 })
@@ -2409,6 +2413,7 @@ test('forecast fleet selection treats strike and combined fleets as real sortie 
 test('resource trends use calendar-day tiles, a rolling ETA rate, cutoff baselines, and step changes', () => {
   const ledger = fs.readFileSync(new URL('../src/main/mg/ledger.ts', import.meta.url), 'utf8')
   const renderer = fs.readFileSync(new URL('../src/renderer/modules/zi.ts', import.meta.url), 'utf8')
+  const materialDeltas = fs.readFileSync(new URL('../src/renderer/material-deltas.ts', import.meta.url), 'utf8')
   const review = fs.readFileSync(new URL('../src/renderer/modules/shi.ts', import.meta.url), 'utf8')
   const trend = fs.readFileSync(new URL('../src/renderer/resource-trend-window.ts', import.meta.url), 'utf8')
   const main = fs.readFileSync(new URL('../src/main/index.ts', import.meta.url), 'utf8')
@@ -2420,11 +2425,15 @@ test('resource trends use calendar-day tiles, a rolling ETA rate, cutoff baselin
   assert.match(renderer, /todayDelta\(idx\)/)
   assert.match(renderer, /queryMaterialHistory\(rollingDayStart\)/)
   assert.match(renderer, /rollingDayRate\(idx\)/)
-  assert.match(renderer, /首次载入\/重启回灌只记基线/)
-  assert.match(renderer, /cue\.delta \+= delta/)
-  assert.match(renderer, /MATERIAL_DELTA_HOLD_MS = 2400/)
-  assert.match(renderer, /materialDeltaCueHtml\(idx\)/)
-  assert.match(renderer, /if \(keys\.includes\('materials'\)\) observeMaterialChanges\(\)/)
+  assert.match(materialDeltas, /首次载入\/重启回灌只记基线/)
+  assert.match(materialDeltas, /if \(!Array\.isArray\(current\) \|\| current\.length < 8\)/)
+  assert.match(materialDeltas, /queueMaterialDelta\(idx, after - before\)/)
+  assert.match(materialDeltas, /cue\.delta \+= delta/)
+  assert.match(materialDeltas, /const HOLD_MS = 2400/)
+  assert.match(materialDeltas, /const FADE_MS = 420/)
+  assert.match(renderer, /materialDeltaCueHtml\(cue\)/)
+  assert.match(renderer, /onMaterialCueChange\(\(\) => \{\s+renderPassiveChange\(\)\s+syncTileGlow\(\)/)
+  assert.doesNotMatch(renderer, /const observeMaterialChanges|materialBaseline/)
   assert.match(html, /\.mod-zi \.tile \.h \.live-delta\.leaving/)
   assert.match(html, /@keyframes zi-material-delta-out/)
   assert.doesNotMatch(html, /zi-material-delta-in/)
@@ -2549,8 +2558,8 @@ test('基地航空队的就绪只看真会出门的队，且不把舰队的「�
     '出击途中该看这一趟打的是不是活动图',
   )
   assert.ok(fleet.includes('return atMapSelect'), '选图页上活动开着就该说话')
-  // 换了区要当场重画一次,保 toast 前后界面一致
-  assert.match(fleet, /if \(changed\) render\(\)/)
+  // 换了区要提交一次重画,保 toast 前后界面一致；主进程订阅仍属于被动入口
+  assert.match(fleet, /if \(changed\) deferPassive\(pane, 'ru', render\)/)
   // 不知道就不说：退回识别札等于「队里带过活动札就一直亮」，切到 1-1 也不灭,
   // 那正是这条判据要治的毛病
   const relevant = fleet.slice(
@@ -2662,8 +2671,8 @@ test('入渠芯片点开的是在修的那艘舰，而计时定位的锚原地�
   assert.match(notices, /notify\('dock',[\s\S]*?ship \? \{ type: 'ship', id: ship\.id \} : undefined\)/)
 
   // ④ `.el` 芯片的描边收拾按 .hs-chip.el 写，别再钉死某一种芯片
-  assert.match(html, /#header-status \.hs-chip\.el \{ border-bottom-style: solid; \}/)
-  assert.match(html, /#header-status \.hs-chip\.el\.peeked \{/)
+  assert.match(html, /#header-status \.hs-chip\.el, \.header-fold-pop \.hs-chip\.el \{ border-bottom-style: solid; \}/)
+  assert.match(html, /#header-status \.hs-chip\.el\.peeked, \.header-fold-pop \.hs-chip\.el\.peeked \{/)
   assert.doesNotMatch(html, /#header-status \.hs-chip\.build\.el/)
 })
 
@@ -2698,10 +2707,11 @@ test('顶栏远征芯片按在外/归来/未补给三态上色，且归来跟着
   assert.equal(stateOf(T, false, T), 'back', '文字在 now === completeTime 时已是「返港」，边框必须同拍')
 
   // ---- ② 翻转走的是逐拍轻量路径，不是等下一次 mg 变更 ----
+  assert.match(header, /updateCountdowns\(host!\)\s*\n\s*syncExpeditionChipStates\(host!\)/)
   assert.match(
     header,
-    /onTick\(\(\) => \{\s*\n\s*updateCountdowns\(host!\)\s*\n\s*syncExpeditionChipStates\(host!\)\s*\n\s*\}\)/,
-    '归来态必须跟 updateCountdowns 同一拍翻，落在 mg 变更上就要等到下一条报文才变色',
+    /if \(foldPopoverEl\) \{\s*\n\s*updateCountdowns\(foldPopoverEl\)\s*\n\s*syncExpeditionChipStates\(foldPopoverEl\)/,
+    '打开的折叠浮层必须与顶栏同一拍更新倒计时和归来态',
   )
   const sync = header.match(/const syncExpeditionChipStates = \(root: HTMLElement\) => \{[\s\S]*?\n\}/)?.[0] ?? ''
   assert.ok(sync, 'syncExpeditionChipStates 应还在，且仍是顶层箭头函数')
@@ -2724,12 +2734,12 @@ test('顶栏远征芯片按在外/归来/未补给三态上色，且归来跟着
   assert.match(fh[2], /\.some\(isUnsupplied\w*\)/, '按队问的是「有没有任一舰未补给」')
 
   // ---- ④ 配色只引既有 token，且三态两两分得开（ΔE 实算在「色板」那条）----
-  assert.match(html, /#header-status \.hs-chip\.exp\.on \{ border-color: color-mix\(in srgb, var\(--dock\) \d+%, var\(--line\)\); \}/)
-  assert.match(html, /#header-status \.hs-chip\.exp\.on\.back \{ border-color: color-mix\(in srgb, var\(--gold\) \d+%, var\(--line\)\); \}/)
-  assert.match(html, /#header-status \.hs-chip\.exp\.unsupplied \{ border-color: color-mix\(in srgb, var\(--warn\) \d+%, var\(--line\)\); \}/)
+  assert.match(html, /#header-status \.hs-chip\.exp\.on, \.header-fold-pop \.hs-chip\.exp\.on \{ border-color: color-mix\(in srgb, var\(--dock\) \d+%, var\(--line\)\); \}/)
+  assert.match(html, /#header-status \.hs-chip\.exp\.on\.back, \.header-fold-pop \.hs-chip\.exp\.on\.back \{ border-color: color-mix\(in srgb, var\(--gold\) \d+%, var\(--line\)\); \}/)
+  assert.match(html, /#header-status \.hs-chip\.exp\.unsupplied, \.header-fold-pop \.hs-chip\.exp\.unsupplied \{ border-color: color-mix\(in srgb, var\(--warn\) \d+%, var\(--line\)\); \}/)
   // 归来＝全应用的「待领取」金，与建造坞「待领」同一句话；别各挑各的金
-  assert.match(html, /#header-status \.hs-chip\.build\.ready \{ border-color: color-mix\(in srgb, var\(--gold\) \d+%, var\(--line\)\); \}/)
-  const expCss = html.match(/#header-status \.hs-chip\.exp[\s\S]*?#header-status \.hs-chip\.el \{/)?.[0] ?? ''
+  assert.match(html, /#header-status \.hs-chip\.build\.ready, \.header-fold-pop \.hs-chip\.build\.ready \{ border-color: color-mix\(in srgb, var\(--gold\) \d+%, var\(--line\)\); \}/)
+  const expCss = html.match(/#header-status \.hs-chip\.exp[\s\S]*?#header-status \.hs-chip\.el,/)?.[0] ?? ''
   assert.ok(expCss, '远征三态那几行 CSS 应还在 .hs-chip.el 之前')
   assert.doesNotMatch(expCss, /#[0-9a-fA-F]{3,8}\b/, '远征芯片配色不许写裸 hex，只引 token')
 })
@@ -2773,7 +2783,8 @@ test('header shows the actual requested BGM before the admiral name without mist
   assert.match(header, /title="当前未识别游戏 BGM"/)
   assert.match(header, /正在播放 · \$\{name\}/)
   assert.match(renderer, /initHeaderStatus\(broadcaster\)/)
-  assert.match(html, /#header-status \.hs-bgm/)
+  assert.match(html, /#header-status \.hs-bgm \{\s*flex: none; width: 200px;/)
+  assert.match(html, /#header-status\.compact \.hs-bgm \{ width: 108px;/)
   assert.match(html, /text-overflow: ellipsis/)
 })
 
@@ -4792,6 +4803,51 @@ test('map-intel lodes accept bounded lifecycle data and reject malformed enemy f
   assert.equal(validateLodePack(badPending).ok, false)
 })
 
+test('event-lifecycle accepts active dates and rejects invalid lifecycle entries', () => {
+  const valid = {
+    meta: {
+      id: 'event-lifecycle',
+      name: 'event lifecycle',
+      version: '1',
+      source: 'test',
+      fetchedAt: new Date().toISOString(),
+    },
+    data: {
+      schemaVersion: 1,
+      events: [
+        {
+          mapAreaId: 62,
+          name: 'test event',
+          nameZh: '测试活动',
+          from: '2026-07-08',
+          until: null,
+          status: 'active',
+          phases: [{ openedAt: '2026-07-08T21:59:00+09:00', maps: [1, 2, 3] }],
+          mapNamesZh: { 1: '第一海域' },
+          operationNamesZh: { 1: '第一作战' },
+        },
+      ],
+    },
+  }
+  assert.equal(validateLodePack(valid).ok, true)
+
+  const activeWithUntil = structuredClone(valid)
+  activeWithUntil.data.events[0].until = '2026-09-10'
+  assert.equal(validateLodePack(activeWithUntil).ok, true)
+
+  const endedWithoutUntil = structuredClone(valid)
+  endedWithoutUntil.data.events[0].status = 'ended'
+  assert.equal(validateLodePack(endedWithoutUntil).ok, false)
+
+  const unknownStatus = structuredClone(valid)
+  unknownStatus.data.events[0].status = 'pending'
+  assert.equal(validateLodePack(unknownStatus).ok, false)
+
+  const fractionalArea = structuredClone(valid)
+  fractionalArea.data.events[0].mapAreaId = 62.5
+  assert.equal(validateLodePack(fractionalArea).ok, false)
+})
+
 test('event map intel keeps 甲乙丙丁 as isolated data layers', () => {
   const node = (shipId, enemy) => ({
     nodes: {
@@ -4842,6 +4898,14 @@ test('event map intel keeps 甲乙丙丁 as isolated data layers', () => {
     },
   }
   assert.equal(validateLodePack(pack).ok, true)
+
+  const activeWithUntil = structuredClone(pack)
+  activeWithUntil.data.maps['62-1'].event.until = '2026-09-10'
+  assert.equal(validateLodePack(activeWithUntil).ok, true)
+
+  const endedWithoutUntil = structuredClone(pack)
+  endedWithoutUntil.data.maps['62-1'].event.status = 'ended'
+  assert.equal(validateLodePack(endedWithoutUntil).ok, false)
 
   const mixed = structuredClone(pack)
   mixed.data.maps['62-1'].nodes = node(9, '誤混入').nodes
@@ -4966,14 +5030,21 @@ test('quest details link expedition API ids and give inventory-aware choice rewa
 test('game header keeps repair docks ahead of optional capacity and compacts before clipping', () => {
   const header = fs.readFileSync(new URL('../src/renderer/header-status.ts', import.meta.url), 'utf8')
   const html = rendererSource
-  const expeditionAt = header.indexOf('<span class="hs-label">远</span>')
-  const dockAt = header.indexOf('<span class="hs-label">渠</span>')
+  const expeditionAt = header.indexOf("foldGroupHtml('expedition', '远'")
+  const dockAt = header.indexOf("foldGroupHtml('dock', '渠'")
   const capacityAt = header.indexOf('${capacityHtml()}', dockAt)
   assert.ok(expeditionAt >= 0 && dockAt > expeditionAt && capacityAt > dockAt)
-  // 2026-08-12 起状态条改吃满中段剩余宽度(flex:1 1 0),不再定宽居中
-  assert.match(html, /#header-status \{\s*flex: 1 1 0; min-width: 0;/)
-  assert.match(header, /host\.scrollWidth > host\.clientWidth/)
+  // 2026-09-03 起按钮钉右端,状态条按内容定宽,空间不足时由它收缩
+  assert.match(html, /#header-status \{\s*flex: 0 1 auto; min-width: 0;/)
+  assert.match(html, /#overlay-bar \{[^}]*margin-left: auto;/)
+  assert.match(header, /host\.classList\.remove\('compact', 'folded'\)/)
+  assert.match(header, /void host\.offsetWidth/)
+  assert.match(
+    header,
+    /headerFitStage\(regular, compact, HEADER_FIT_TOLERANCE_PX\) === 'folded'/,
+  )
   assert.match(html, /#header-status\.compact \.hs-label \{ display: none; \}/)
+  assert.match(html, /#header-status\.folded \.hs-group\[data-group\] > \.hs-group-detail \{ display: none; \}/)
 })
 
 test('battle trail abbreviates trailing state and never exposes a horizontal scrollbar', () => {
@@ -5530,6 +5601,34 @@ test('review battle replays open in a local side drawer instead of the covered c
   assert.match(combat, /renderBattlePane\(pane, snapshot, true, true, options\?\.trailIndex \?\? battleHistory\)/)
   assert.match(html, /\.mod-shi \.shi-stage \{[\s\S]*display: flex;[\s\S]*overflow: hidden;/)
   assert.match(html, /\.mod-shi \.shi-battle-drawer \{[\s\S]*border-left:/)
+})
+
+test('review battle replay follows its persistent host width and owns its scoped scrolling', () => {
+  const review = fs.readFileSync(new URL('../src/renderer/modules/shi.ts', import.meta.url), 'utf8')
+  const css = fs.readFileSync(new URL('../src/renderer/assets/battle-replay.css', import.meta.url), 'utf8')
+  const hostSetup = review.slice(
+    review.indexOf("const battleDetailHost = document.createElement('div')"),
+    review.indexOf('const battleDrawerHtml'),
+  )
+
+  assert.equal((hostSetup.match(/new ResizeObserver/g) ?? []).length, 1)
+  assert.match(hostSetup, /battleDetailHost\.querySelector\('\.di-app'\)/)
+  assert.match(
+    hostSetup,
+    /app\.classList\.toggle\('narrow', battleDetailHost\.clientWidth < 700\)/,
+  )
+  assert.match(hostSetup, /\.observe\(battleDetailHost\)/)
+  assert.doesNotMatch(hostSetup, /pane\.clientWidth/)
+  assert.match(
+    css,
+    /\.mod-di:where\(\.shi-battle-detail, #battle-replay-detail\) \.battle-col \{ overflow-y: auto; \}/,
+  )
+  assert.match(
+    css,
+    /\.mod-di:where\(\.shi-battle-detail, #battle-replay-detail\) \.log \{ flex: none; max-height: 46vh; \}/,
+  )
+  assert.match(css, /\.mod-di \.battle-col \{[^}]*overflow: hidden;/)
+  assert.match(css, /\.mod-di \.log \{ flex: 1;[^}]*overflow-y: auto;/)
 })
 
 test('native master and sortie fields stay connected to player-facing decisions', () => {
@@ -6573,12 +6672,28 @@ test('横滚的标签条一律留细滚动条，不藏', () => {
   assert.doesNotMatch(html, /\.mod-ji \.book-tabs \{[^}]*scrollbar-width: none/)
 })
 
-test('顶栏按钮是一族：形态只写一遍，弹窗组不再自成一套', () => {
+test('顶栏去掉字标，动作组收进菜单，所有按钮继续共用形态', () => {
   const html = rendererSource
-  // 弹窗组（.ov-btn：回顾/通知/设置）与动作组（专注/截图/刷新）并排站在同一条顶栏里，
-  // 却分两次写出来，漂出四项差异：高 22/25.1、圆角 4/3、内边距 0-9/3-10、字色 --sub/--text，
-  // 外加动作组漏了 font-family:inherit 整组落回 Arial。两组的 hover 完全一致，
-  // 可见本意就是同一枚按钮——所以形态收进 `header button` 一条，.ov-btn 只留独有的部分。
+  const renderer = fs.readFileSync(new URL('../src/renderer/index.ts', import.meta.url), 'utf8')
+  const header = /\n    <header>([\s\S]*?)\n    <\/header>/.exec(html)
+  assert.ok(header, '找不到顶栏标记')
+  assert.match(header[1], /^\s*<span id="server-badge">/)
+  assert.doesNotMatch(html, /wordmark/)
+  assert.match(header[1], /<button id="btn-more" class="hdr-menu" title="更多操作">≡<\/button>/)
+  const actions = /<span id="header-actions" class="hdr-actions">([\s\S]*?)<\/span>/.exec(header[1])
+  assert.ok(actions, '找不到动作下拉')
+  for (const button of [
+    '<button id="btn-focus" title="专注模式：收起三坞只留游戏（F9）">专注</button>',
+    '<button id="btn-capture" title="保存游戏画面截图">截图</button>',
+    '<button id="btn-reload" title="刷新游戏页面">刷新</button>',
+    '<button id="btn-browse" title="新开浏览窗 · 可多开 · 与游戏共用登录与代理">新窗</button>',
+  ]) {
+    assert.ok(actions[1].includes(button), `动作没有留在下拉里：${button}`)
+  }
+  assert.match(renderer, /document\.addEventListener\('click',[\s\S]*headerActions\.classList\.toggle\('open'\)[\s\S]*headerActions\.classList\.remove\('open'\)/)
+  assert.match(renderer, /e\.key === 'Escape'[\s\S]*headerActions\.classList\.remove\('open'\)/)
+
+  // 常驻弹窗组、动作菜单入口与下拉动作项仍共用 `header button` 这一套形态。
   const shared = /\n    header button \{([^}]*)\}/.exec(html)
   assert.ok(shared, '找不到 header button 规则')
   for (const decl of ['height: 22px', 'padding: 0 10px', 'border-radius: 3px', 'font-family: inherit', 'color: var(--text)']) {
@@ -7245,7 +7360,12 @@ test('矿脉目录走白名单：许可箱之外的包一个都不许进产物',
   // 这里是**许可护栏**，不是体积护栏——排除式清单在这一段根本不成立：
   // 新抓一个包就会被默默打进去，而漏一个的代价是侵权分发。
   const { isPackageIgnored } = await import('../scripts/lib/package-ignore.mjs')
-  const { BUNDLED_LODE_IDS, NEVER_BUNDLED_LODE_IDS, REDISTRIBUTABLE_LICENSES } = await import(
+  const {
+    BUNDLED_LODE_IDS,
+    NEVER_BUNDLED_LODE_IDS,
+    REDISTRIBUTABLE_LICENSES,
+    bundledLodeIds,
+  } = await import(
     '../scripts/lib/bundled-lodes.mjs'
   )
   const sources = JSON.parse(
@@ -7272,13 +7392,21 @@ test('矿脉目录走白名单：许可箱之外的包一个都不许进产物',
   for (const id of NEVER_BUNDLED_LODE_IDS) {
     assert.equal(isPackageIgnored(`/assets/lodes/${id}.json`), true, `${id} 是永不随包的`)
   }
+  assert.ok(
+    !bundledLodeIds(
+      sources.map((source) =>
+        source.id === 'event-lifecycle' ? { ...source, bundle: false } : source,
+      ),
+    ).includes('event-lifecycle'),
+    'event-lifecycle 的随包判据没有跟着 lode-sources.json 的 bundle 标志走',
+  )
 
-  // 许可一致性：凡是 bundle: true 的，licenseId 必须在允许再分发的那两种里
+  // 许可一致性：凡是 bundle: true 的，许可标识必须在允许再分发的清单里
   for (const source of sources) {
     if (source.bundle !== true) continue
     assert.ok(
-      REDISTRIBUTABLE_LICENSES.has(source.licenseId),
-      `${source.id} 标了 bundle 却写着 licenseId=${source.licenseId}`,
+      REDISTRIBUTABLE_LICENSES.has(source.licenseId ?? source.license),
+      `${source.id} 标了 bundle 却写着许可=${source.licenseId ?? source.license}`,
     )
   }
 })
@@ -7833,6 +7961,55 @@ test('限定掉落带上截止日，同图多点取最早关门的那个', async
   const [plain] = confirmedDropSitesOf(701, '2026-08-09')
   assert.equal(plain.limitedUntil, null)
   assert.equal(plain.limited, false)
+})
+
+test('活动图掉落沿用官方公告的结束日，舰船期限优先且已结束不回退', async () => {
+  const m = await import('../dist/shared/map-intel.js')
+  const { applyMapIntelCatalog, confirmedDropSitesOf } = m.default ?? m
+  const event = (status) => ({
+    name: 'test event',
+    from: '2026-07-08',
+    until: '2026-09-10',
+    status,
+    phaseOpenedAt: '2026-07-08T21:59:00+09:00',
+  })
+  const node = (ships) => ({ ships, emptyDrop: 'unknown', enemyComps: [] })
+  assert.ok(
+    applyMapIntelCatalog({
+      schemaVersion: 1,
+      maps: {
+        '62-8': {
+          source: 's', sourceUrl: 'u', checkedAt: '2026-09-03', revision: 'r',
+          event: event('active'),
+          difficulties: {
+            甲: {
+              nodes: {
+                A: node([
+                  { id: 702 },
+                  {
+                    id: 703,
+                    limited: {
+                      from: '2026-07-08',
+                      until: '2026-09-01',
+                      lastConfirmedAt: '2026-09-03',
+                    },
+                  },
+                ]),
+              },
+            },
+          },
+        },
+        '62-9': {
+          source: 's', sourceUrl: 'u', checkedAt: '2026-09-11', revision: 'r',
+          event: event('ended'),
+          difficulties: { 甲: { nodes: { A: node([{ id: 704 }]) } } },
+        },
+      },
+    }),
+  )
+  assert.equal(confirmedDropSitesOf(702, '2026-08-09')[0].limitedUntil, '2026-09-10')
+  assert.equal(confirmedDropSitesOf(703, '2026-08-09')[0].limitedUntil, '2026-09-01')
+  assert.equal(confirmedDropSitesOf(704, '2026-08-09')[0].limitedUntil, null)
 })
 
 const mapEnemyCompsPack = new URL('../assets/lodes/map-enemy-comps.json', import.meta.url)
@@ -10807,7 +10984,17 @@ test('慢操作哨兵:分发计时归因 + 主进程网络事件计时 + 渲染�
   assert.match(kernel, /listenerSites\.set\(cb, captureListenerSite\(\)\)/)
   // 每个监听器开跑前先报面包屑——挂死时这就是看门狗要写的凶手
   assert.match(guard, /kanso:perf-breadcrumb/)
-  assert.match(guard, /SLOW_DISPATCH_MS = 80/)
+  // 诊断会话可用 env 调低两档阈值；无效值分别回落到原默认 80ms / 8ms。
+  assert.match(guard, /configuredSlowDispatchMs = Number\(process\.env\.KANSO_PERF_SLOW_MS\)/)
+  assert.match(guard, /configuredPartMs = Number\(process\.env\.KANSO_PERF_PART_MS\)/)
+  assert.match(
+    guard,
+    /Number\.isFinite\(configuredSlowDispatchMs\) && configuredSlowDispatchMs > 0\s*\n\s*\? configuredSlowDispatchMs\s*\n\s*: 80/,
+  )
+  assert.match(
+    guard,
+    /Number\.isFinite\(configuredPartMs\) && configuredPartMs > 0 \? configuredPartMs : 8/,
+  )
   // ping 必须由主进程发起:页面隐藏时渲染层定时器被节流,自报心跳会误报挂死
   assert.match(guard, /ipcRenderer\.on\('kanso:perf-ping'/)
   assert.match(perfLog, /win\.webContents\.send\('kanso:perf-ping'\)/)
@@ -10818,6 +11005,53 @@ test('慢操作哨兵:分发计时归因 + 主进程网络事件计时 + 渲染�
   // 主进程网络事件分段计时:主进程慢一拍,游戏加载就顿一拍
   assert.match(mgIndex, /解析 .*记账 .*归约 /)
   assert.match(mainIndex, /installPerfLogging\(\(\) => mainWindow\)/)
+})
+
+test('渲染长任务达到阈值后沿用 perf 落盘通道', () => {
+  const guard = fs.readFileSync(new URL('../src/renderer/perf-guard.ts', import.meta.url), 'utf8')
+  const longTaskObserver = guard.match(
+    /new PerformanceObserver\(\(list\) => \{([\s\S]*?)\}\)\.observe\(\{ entryTypes: \['longtask'\] \}\)/,
+  )?.[1]
+  assert.ok(longTaskObserver, '找不到 longtask PerformanceObserver')
+  assert.match(longTaskObserver, /entry\.duration < LONGTASK_MS/)
+  assert.match(
+    longTaskObserver,
+    /ipcRenderer\.send\('kanso:perf', \{ scope: 'longtask', ms: entry\.duration, detail \}\)/,
+  )
+  assert.doesNotMatch(longTaskObserver, /kanso:perf-longtask/)
+  for (const field of ['name', 'containerType', 'containerSrc', 'containerId', 'containerName']) {
+    assert.match(longTaskObserver, new RegExp(`item\\.${field}`))
+  }
+})
+
+test('长任务阈值接受正数环境变量，无效值回落到 50ms', () => {
+  const guard = fs.readFileSync(new URL('../src/renderer/perf-guard.ts', import.meta.url), 'utf8')
+  assert.match(guard, /configuredLongTaskMs = Number\(process\.env\.KANSO_PERF_LONGTASK_MS\)/)
+  const longTaskDefault = Number(
+    guard.match(
+      /Number\.isFinite\(configuredLongTaskMs\) && configuredLongTaskMs > 0\s*\n\s*\? configuredLongTaskMs\s*\n\s*:\s*(\d+)/,
+    )?.[1],
+  )
+  const partDefault = Number(
+    guard.match(
+      /Number\.isFinite\(configuredPartMs\) && configuredPartMs > 0 \? configuredPartMs : (\d+)/,
+    )?.[1],
+  )
+  assert.equal(longTaskDefault, 50)
+  assert.ok(longTaskDefault > partDefault)
+})
+
+test('主进程按 longtask scope 选择独立的耗时标签', () => {
+  const perfLog = fs.readFileSync(new URL('../src/main/perf-log.ts', import.meta.url), 'utf8')
+  const rendererPerfHandler = perfLog.match(
+    /ipcMain\.on\('kanso:perf',([\s\S]*?)\n  \}\)/,
+  )?.[1]
+  assert.ok(rendererPerfHandler, '找不到 renderer perf IPC 处理器')
+  const scopeLabels = rendererPerfHandler.match(
+    /entry\.scope === 'longtask'\s*\?\s*('[^']+')\s*:\s*('[^']+')/,
+  )
+  assert.ok(scopeLabels, 'longtask 与其余 scope 没有分支')
+  assert.notEqual(scopeLabels[1], scopeLabels[2])
 })
 
 test('游戏自报粗档只在同一任务周期内当下限,隔周期的旧 flag 不垫账', () => {
@@ -11363,13 +11597,17 @@ test('游戏画面等比包含:区域比 5:3 矮时留黑边,不裁游戏底部'
   assert.match(html, /#game-wrapper \{ width: min\(100cqw, calc\(100cqh \* \(1200 \/ 720\)\)\); aspect-ratio: 1200 \/ 720/)
 })
 
-test('顶栏状态条吃满中段剩余宽度,不再定宽居中被裁右侧', () => {
+test('顶栏按钮钉右端,状态条按内容定宽并在拥挤时独自收缩', () => {
   // 2026-08-12 用户实锤:远征四个「领」+ 演习 + 舰装计数一起出现时,
   // min(1080px,56vw) 的定宽装不下,最右被 overflow:hidden 裁掉。
-  // 改成普通 flex 成员(flex:1 1 0 + min-width:0),中段剩多少用多少;
-  // 原来的 .spacer 撑位与状态条抢配额,必须一并去掉。
+  // 2026-09-03 改为 flex:0 1 auto + min-width:0:宽时按内容定宽,窄时独自收缩;
+  // overlay-bar 用自动左边距把自己与菜单按钮钉在右端。
   const html = rendererSource
-  assert.match(html, /#header-status \{\s*flex: 1 1 0; min-width: 0;/)
+  const headerStatusRule = html.match(/#header-status\s*\{([^}]*)\}/)?.[1] ?? ''
+  const overlayBarRule = html.match(/#overlay-bar\s*\{([^}]*)\}/)?.[1] ?? ''
+  assert.match(headerStatusRule, /flex:\s*0 1 auto/)
+  assert.doesNotMatch(headerStatusRule, /(?:^|;)\s*(?:max-)?width\s*:/)
+  assert.match(overlayBarRule, /margin-left:\s*auto/)
   assert.doesNotMatch(html, /header \.spacer/)
   assert.doesNotMatch(html, /<span class="spacer">/)
 })

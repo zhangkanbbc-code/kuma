@@ -972,6 +972,10 @@
   padding-top: 5px; border-top: 1px solid var(--line-soft);
 }
 .mod-di .dp-foot .tg { margin-left: auto; }
+/* 复盘宿主（史的抽屉、独立复盘窗）高度由容器给、常常不够：整列一根滚动条，流水封顶后自滚。
+   镝的实时面板不走这条——它有整坞的高度，流水撑满剩余空间才是对的。 */
+.mod-di:where(.shi-battle-detail, #battle-replay-detail) .battle-col { overflow-y: auto; }
+.mod-di:where(.shi-battle-detail, #battle-replay-detail) .log { flex: none; max-height: 46vh; }
 /* 窄形态 */
 .mod-di .di-app.narrow { flex-direction: column; overflow-y: auto; }
 .mod-di .di-app.narrow .battle-col { border-right: none; overflow: visible; flex: none; }

@@ -140,6 +140,7 @@ Copyright (c) 2015-2021 poi contributors）的下列文件。移植文件均在�
 | `src/shared/equip-upgrade-corrections.ts` | 改修事实表的裁决台账：逐件记下某一格为什么取现在这个值（游戏内实测、官方公告、机制通则），以及记下来还没定的分歧 |
 | `assets/lodes/equip-aa-evasion.json` | 对空射击回避事实表：哪些机体挨敌方对空射击时更不容易被打下来，两个减免补正分别是多少、综合档位是哪一档。每一行带 `basis` 写明这一格现在有多硬 |
 | `assets/lodes/event-plane-groups.json` | 活动陆航特効分组事实表：本期活动里哪架飞机属于哪个陆航特効组（C1/C2/C3）。带期号，换期对不上就整表不生效 |
+| `assets/lodes/event-lifecycle.json` | kuma 第一方登记表，官方公告日期 |
 
 台账里记的是**数值与运营事实**（「Bofors 12cm単装両用砲 在 Gotland 上 火力+2」「1-1 的 C 点自
 2025-10-29 起掉某条船」这类游戏行为事实，事实不受著作权保护），逐条带着核对当时那一页的页名与

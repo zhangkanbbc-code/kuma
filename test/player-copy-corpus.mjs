@@ -274,14 +274,22 @@ const collectFromHtml = (file) => {
 const collectFromLodes = () => {
   const rows = []
   for (const file of walk(path.join(ROOT, 'assets/lodes'), ['.json'])) {
-    let note
+    let raw
+    let meta
     try {
-      note = JSON.parse(fs.readFileSync(file, 'utf8'))?.meta?.note
+      raw = fs.readFileSync(file, 'utf8')
+      meta = JSON.parse(raw)?.meta
     } catch {
       continue // 半截包/手改坏的包不是本闸门的事，lode-health 那套管
     }
-    if (typeof note === 'string' && CJK.test(note)) {
-      rows.push({ file: rel(file), line: 0, text: note, layer: 'lode' })
+    const metaOffset = raw.search(/"meta"\s*:/)
+    for (const field of ['name', 'source', 'note']) {
+      const text = meta?.[field]
+      if (typeof text !== 'string' || !CJK.test(text)) continue
+      const offset = raw.indexOf(`"${field}"`, metaOffset)
+      if (offset < 0) continue
+      const line = raw.slice(0, offset).split('\n').length
+      rows.push({ file: rel(file), line, text, layer: 'lode', field })
     }
   }
   return rows
@@ -324,7 +332,7 @@ export const collectStructuralPlayerCopy = () => {
     tierA.push({ ...row, calls: [], properties: [], functions: [] })
   }
   for (const row of collectFromLodes()) {
-    tierA.push({ ...row, calls: [], properties: ['note'], functions: [] })
+    tierA.push({ ...row, calls: [], properties: [row.field], functions: [] })
   }
 
   const tierB = []

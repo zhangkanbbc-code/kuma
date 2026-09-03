@@ -46,6 +46,62 @@ export const scrollUntouchedSince = (
 ): boolean =>
   !!written && Math.abs(current.top - written.top) <= 1 && Math.abs(current.left - written.left) <= 1
 
+/** 程序化写回之后，浏览器尾随派发可信 scroll 的最大回声间隔。 */
+export const PROGRAMMATIC_SCROLL_ECHO_MS = 250
+
+/**
+ * 这条可信 scroll 是否只是刚才程序化写回位置的回声。
+ *
+ * `isTrusted` 只能排除 dispatchEvent 合成事件；浏览器替 scrollTop/Left 写回派发的
+ * scroll 同样可信，所以还得同时核对标记、短窗与实际位置。位置沿用上面的 1px
+ * 亚像素容差：用户若在这 250ms 里真的滚了，当前位置就会对不上，不会被布尔开关误压制。
+ */
+export const isProgrammaticScrollEcho = (
+  current: { top: number; left: number },
+  mark: { top: number; left: number; at: number } | undefined,
+  now: number,
+): boolean =>
+  !!mark &&
+  now - mark.at <= PROGRAMMATIC_SCROLL_ECHO_MS &&
+  scrollUntouchedSince(current, mark)
+
+export type PassiveDeferReason = 'composing' | 'pressed' | 'scrolling' | null
+
+/**
+ * 一次被动重画此刻该让给哪种玩家动作。次序与计时口径本身都是产品行为：
+ *
+ * 1. 组合优先且不封顶。按下可以无限久所以要封顶；组合一定会由敲定、取消或失焦
+ *    结束，硬封顶反而会在玩家选字时换掉 DOM。
+ * 2. 按下的封顶从 pressedAt 算，沿用 2026-08-21 行为：按住超过封顶后才到来的
+ *    重画立即放行，界面不会因一直按着而冻住。
+ * 3. 滚动安静窗要长过 Chromium 约 500ms 的滚轮锁存，避免容器在锁存期内被换掉；
+ *    滚动中的面板可以比按下多等，所以用独立封顶，并从这一项首次等待的 since 算。
+ * 4. 其余情形不推迟。
+ */
+export const passiveDeferReason = (input: {
+  composing: boolean
+  pressed: boolean
+  pressedAt: number
+  scrolling: boolean
+  scrollAt: number
+  since: number
+  now: number
+  quietMs: number
+  capMs: number
+  scrollCapMs: number
+}): PassiveDeferReason => {
+  if (input.composing) return 'composing'
+  if (input.pressed && input.now - input.pressedAt < input.capMs) return 'pressed'
+  if (
+    input.scrolling &&
+    input.now - input.scrollAt < input.quietMs &&
+    input.now - input.since < input.scrollCapMs
+  ) {
+    return 'scrolling'
+  }
+  return null
+}
+
 // ---- 换完 DOM 之后的还原次序 ----
 //
 // 这四步的**先后本身就是判据**，所以做成数据放在这里，能不带 DOM 直接测：

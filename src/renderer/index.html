@@ -193,17 +193,13 @@
       position: relative;
       transition: filter var(--motion-solemn) ease; /* 哀悼态失色（见 body.kanso-mourning） */
     }
-    .wordmark { font-weight: 700; letter-spacing: 2px; color: var(--accent); }
-    .wordmark small { color: var(--dim); font-weight: 400; letter-spacing: 0; margin-left: 6px; }
     /* 泊地槽位定宽保底（2026-08-16 用户定的）：识别前后宽度不跳；IP 在悬停里 */
     #server-badge { color: var(--dim); font-size: 12px; display: inline-block; min-width: 72px; cursor: help; }
     #server-badge.known { color: var(--ok); }
-    /* 顶栏按钮是一族：弹窗组（回顾/通知/设置，.ov-btn）与动作组（专注/截图/刷新）
-       并排站在同一条栏里，形态就该一样。两组本来分两次写（.ov-btn 出自 05c7150 的
-       顶栏弹窗宿主，动作组出自初版），谁也没参照谁，漂出四项差异：高 22/25.1、
-       圆角 4/3、内边距 0-9/3-10、字色 --sub/--text，外加动作组漏了 font-family:inherit
-       整组落回 Arial。两组的 hover 反而完全一致（accent 描边+字），可见本意就是同一枚
-       按钮——所以是漂移不是分组，一律收进这条规则；.ov-btn 只留它真正独有的东西。
+    /* 顶栏按钮是一族：常驻弹窗组（回顾/通知/设置，.ov-btn）、动作菜单入口与下拉动作项
+       都在同一条栏里，形态就该一样。弹窗组与动作组本来分两次写，漂出高度、圆角、
+       内边距、字色与字体差异；两组的 hover 完全一致，可见本意就是同一枚按钮。
+       动作组收进菜单后仍复用这条规则；.ov-btn 只留它真正独有的东西。
        圆角取 3 是回到档位（:root 注释：圆角限 3/5/8/10）。 */
     header button {
       background: var(--bg2);
@@ -219,6 +215,15 @@
       white-space: nowrap;
     }
     header button:hover { border-color: var(--accent); color: var(--accent); }
+    .hdr-menu { flex: none; width: 32px; padding: 0; font-size: 16px; }
+    .hdr-actions {
+      display: none; position: absolute; top: 30px; right: 12px; z-index: 950;
+      flex-direction: column; gap: 3px; min-width: 82px; padding: 4px;
+      background: var(--bg1); border: 1px solid var(--line); border-radius: 3px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, .28);
+    }
+    .hdr-actions.open { display: flex; }
+    .hdr-actions button { width: 100%; text-align: left; }
 
     /* 崩溃角标：平时不存在，出事才现身。做隔离而不给可见信号，
        只会把「模块崩了」伪装成「这块数据怎么不动了」。 */
@@ -292,34 +297,42 @@
       border-radius: 3px; padding: 4px 12px; cursor: pointer; font-size: 12px;
     }
     .mod-crashed button:hover { border-color: var(--accent); color: var(--accent); }
-    /* 状态条吃掉抬头中段的全部剩余宽度（2026-08-12 用户实锤：远征四个「领」+
-       演习 + 舰装计数一起出现时，原来的 min(1080px,56vw) 定宽装不下，最右被裁）。
-       抬头除信息外只剩两侧几个按钮，不再绝对定位居中，改成普通 flex 成员：
-       两侧内容多宽都不会重叠，中段有多少空间就用多少。 */
+    /* 2026-08-12 用户实锤：远征四个「领」+ 演习 + 舰装计数一起出现时，
+       原来的 min(1080px,56vw) 定宽装不下，最右被裁；状态条因此改为普通 flex 成员。
+       2026-09-03 按钮钉在右端，状态条占多少用多少；空间不足时它是唯一收缩项。 */
     #header-status {
-      flex: 1 1 0; min-width: 0; height: 27px;
+      flex: 0 1 auto; min-width: 0; height: 27px;
       display: flex; align-items: center; gap: 5px;
       overflow: hidden; scrollbar-width: none;
       border-left: 1px solid var(--line); border-right: 1px solid var(--line);
       padding: 0 6px; white-space: nowrap;
     }
     #header-status::-webkit-scrollbar { display: none; }
+    /* BGM 槽位是预算不是内容尺寸（08-16 常驻槽位的延伸），曲名长短不许牵动中段。 */
     #header-status.compact { gap: 3px; padding-inline: 4px; }
     #header-status.compact .hs-player { max-width: 120px; gap: 3px; }
-    #header-status.compact .hs-bgm { max-width: 108px; padding-right: 3px; gap: 3px; }
+    #header-status.compact .hs-bgm { width: 108px; padding-right: 3px; gap: 3px; }
     #header-status.compact .hs-bgm > span { display: none; }
     #header-status.compact .hs-group { gap: 1px; padding-left: 3px; }
     #header-status.compact .hs-label { display: none; }
     #header-status.compact .hs-res { padding-inline: 2px; }
     #header-status.compact .hs-chip,
     #header-status.compact .hs-cap { gap: 2px; padding-inline: 4px; }
+    #header-status .hs-group-detail { display: contents; }
+    #header-status .hs-chip.hs-fold-chip {
+      display: none; min-width: 13px; justify-content: center;
+      color: var(--dim); font: 700 9px var(--sans);
+    }
+    #header-status.folded .hs-group[data-group] > .hs-label,
+    #header-status.folded .hs-group[data-group] > .hs-group-detail { display: none; }
+    #header-status.folded .hs-group[data-group] > .hs-chip.hs-fold-chip { display: inline-flex; }
     #header-status .hs-player {
       flex: none; display: inline-flex; align-items: baseline; gap: 5px;
       /* min-width 保底：登录前「等待登录」也占住提督名的位置，同步后不右推整条 */
       min-width: 100px; max-width: 150px; padding-right: 3px; color: var(--text);
     }
     #header-status .hs-bgm {
-      flex: 0 1 190px; min-width: 54px; max-width: 190px;
+      flex: none; width: 200px;
       display: inline-flex; align-items: center; gap: 4px;
       padding-right: 6px; border-right: 1px solid var(--line-soft);
       color: var(--dim);
@@ -360,9 +373,24 @@
     #header-status .hs-label { color: var(--dim); font-size: 9px; font-weight: 700; }
     #header-status .hs-res {
       height: 22px; display: inline-flex; align-items: center; gap: 1px;
-      padding: 0 3px; border-radius: 4px; color: var(--sub); cursor: pointer;
+      position: relative; padding: 0 3px; border-radius: 4px; color: var(--sub); cursor: pointer;
     }
-    #header-status .hs-res:hover, #header-status .hs-chip:hover, #header-status .hs-cap:hover { background: var(--bg3); color: var(--accent); }
+    /* 光与「刚刚 ±N」数字同进同出：缓入 240ms、常亮至数字离场、随数字 420ms 淡出 */
+    #header-status .hs-res::after, .mod-zi .tile::after {
+      content: ''; position: absolute; inset: 0; z-index: 0; border-radius: inherit; pointer-events: none;
+      opacity: 0; will-change: opacity;
+    }
+    #header-status .hs-res > *, .mod-zi .tile > * { position: relative; z-index: 1; }
+    #header-status .hs-res.glow-up::after, .mod-zi .tile.glow-up::after { background: color-mix(in srgb, var(--ok) 26%, transparent); box-shadow: inset 0 0 0 1px var(--ok); }
+    #header-status .hs-res.glow-down::after, .mod-zi .tile.glow-down::after { background: color-mix(in srgb, var(--bad) 26%, transparent); box-shadow: inset 0 0 0 1px var(--bad); }
+    #header-status .hs-res.glow-up::after, #header-status .hs-res.glow-down::after,
+    .mod-zi .tile.glow-up::after, .mod-zi .tile.glow-down::after { animation: kanso-res-glow-in 240ms ease-out both; animation-delay: calc(-1 * var(--glow-elapsed, 0ms)); }
+    #header-status .hs-res.glow-up.leaving::after, #header-status .hs-res.glow-down.leaving::after,
+    .mod-zi .tile.glow-up.leaving::after, .mod-zi .tile.glow-down.leaving::after { animation: kanso-res-glow-out 420ms ease-in forwards; animation-delay: calc(-1 * var(--glow-elapsed, 0ms)); }
+    @keyframes kanso-res-glow-in { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes kanso-res-glow-out { from { opacity: 1; } to { opacity: 0; } }
+    #header-status .hs-res:hover, #header-status .hs-chip:hover, #header-status .hs-cap:hover,
+    .header-fold-pop .hs-chip:hover { background: var(--bg3); color: var(--accent); }
     #header-status .hs-res .material-icon.xs { width: 12px; height: 12px; }
     /* 数字位保底 5 字形宽（2026-08-16 用户定的槽位常驻口径）：四资源 fmtShort
        最宽「14.8k」、四材料到顶「3,000」（上限 3000）都是 5 字形——桶从 34 涨到
@@ -381,57 +409,65 @@
     #header-status .hs-cap.warn b { color: var(--warn); }
     #header-status .hs-cap.bad { border-color: color-mix(in srgb, var(--bad) 55%, var(--line)); }
     #header-status .hs-cap.bad b { color: var(--bad); }
-    #header-status .hs-chip {
+    #header-status .hs-chip, .header-fold-pop .hs-chip {
       height: 21px; display: inline-flex; align-items: center; gap: 3px;
       padding: 0 5px; border: 1px solid var(--line-soft); border-radius: 5px;
       color: var(--dim); background: var(--bg0); cursor: pointer;
     }
-    #header-status .hs-chip i {
+    #header-status .hs-chip i, .header-fold-pop .hs-chip i {
       width: 13px; height: 13px; display: grid; place-items: center;
       border-radius: 50%; background: var(--bg3); color: var(--sub);
       font: 8.5px var(--mono); font-style: normal;
     }
     /* 标签保底两个汉字宽（2026-08-16 用户定的）：单字舰名（雪）或短文案
        也占满两字位，芯片宽度不随内容抖动 */
-    #header-status .hs-chip b { color: var(--text); font: 9.5px var(--mono); font-weight: 500; min-width: 19px; text-align: center; }
-    #header-status .hs-chip em { color: var(--dim); font-size: 9px; font-style: normal; min-width: 18px; text-align: center; }
+    #header-status .hs-chip b, .header-fold-pop .hs-chip b { color: var(--text); font: 9.5px var(--mono); font-weight: 500; min-width: 19px; text-align: center; }
+    #header-status .hs-chip em, .header-fold-pop .hs-chip em { color: var(--dim); font-size: 9px; font-style: normal; min-width: 18px; text-align: center; }
     /* 远征三态（2026-08-21 用户拍板：在外 / 归来 / 未补给 各一个颜色，看边框）。
        在外＝现行的进行中色系（--dock）；归来＝待领取的金（与建造坞「待领」同一句话，
        全应用「可以去拿了」就是这一枚金）；未补给＝警示色系（--warn，与演习未打、
        仓库将满同一档）。三者两两 ΔE 实算护栏在 core-regressions「色板」。 */
-    #header-status .hs-chip.exp.on { border-color: color-mix(in srgb, var(--dock) 38%, var(--line)); }
-    #header-status .hs-chip.exp.on i { color: var(--dock); }
-    #header-status .hs-chip.exp.on.back { border-color: color-mix(in srgb, var(--gold) 45%, var(--line)); }
-    #header-status .hs-chip.exp.on.back i, #header-status .hs-chip.exp.on.back b { color: var(--gold); }
-    #header-status .hs-chip.exp.unsupplied { border-color: color-mix(in srgb, var(--warn) 48%, var(--line)); }
-    #header-status .hs-chip.exp.unsupplied i { color: var(--warn); }
-    #header-status .hs-chip.dock.on { border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); }
-    #header-status .hs-chip.dock.on i { color: var(--ok); }
+    #header-status .hs-chip.exp.on, .header-fold-pop .hs-chip.exp.on { border-color: color-mix(in srgb, var(--dock) 38%, var(--line)); }
+    #header-status .hs-chip.exp.on i, .header-fold-pop .hs-chip.exp.on i { color: var(--dock); }
+    #header-status .hs-chip.exp.on.back, .header-fold-pop .hs-chip.exp.on.back { border-color: color-mix(in srgb, var(--gold) 45%, var(--line)); }
+    #header-status .hs-chip.exp.on.back i, #header-status .hs-chip.exp.on.back b,
+    .header-fold-pop .hs-chip.exp.on.back i, .header-fold-pop .hs-chip.exp.on.back b { color: var(--gold); }
+    #header-status .hs-chip.exp.unsupplied, .header-fold-pop .hs-chip.exp.unsupplied { border-color: color-mix(in srgb, var(--warn) 48%, var(--line)); }
+    #header-status .hs-chip.exp.unsupplied i, .header-fold-pop .hs-chip.exp.unsupplied i { color: var(--warn); }
+    #header-status .hs-chip.dock.on, .header-fold-pop .hs-chip.dock.on { border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); }
+    #header-status .hs-chip.dock.on i, .header-fold-pop .hs-chip.dock.on i { color: var(--ok); }
     /* 顶栏里同时是 EntityLink 的芯片（建造坞 → 建造坞预览；入渠 → 在修的那艘舰）。
        `.el` 那套点划下划线是给正文里的实体名用的，套在芯片上会顶出一条歪线——
        芯片本来就有边框，改为整块提亮即可。按 .hs-chip.el 写而不是钉死某一种芯片：
        下一枚挂实体的芯片不必再来补一遍同样的三行。 */
-    #header-status .hs-chip.el { border-bottom-style: solid; }
-    #header-status .hs-chip.el:hover { border-bottom-color: currentColor; }
-    #header-status .hs-chip.el.peeked { box-shadow: 0 0 0 1px currentColor inset; }
+    #header-status .hs-chip.el, .header-fold-pop .hs-chip.el { border-bottom-style: solid; }
+    #header-status .hs-chip.el:hover, .header-fold-pop .hs-chip.el:hover { border-bottom-color: currentColor; }
+    #header-status .hs-chip.el.peeked, .header-fold-pop .hs-chip.el.peeked { box-shadow: 0 0 0 1px currentColor inset; }
     /* 建造坞：建造中与「完成待领」要一眼分得开——后者是可以去拿了 */
-    #header-status .hs-chip.build.on { border-color: color-mix(in srgb, var(--r-build) 38%, var(--line)); }
-    #header-status .hs-chip.build.on i { color: var(--r-build); }
-    #header-status .hs-chip.build.ready { border-color: color-mix(in srgb, var(--gold) 45%, var(--line)); }
-    #header-status .hs-chip.build.ready i, #header-status .hs-chip.build.ready b { color: var(--gold); }
+    #header-status .hs-chip.build.on, .header-fold-pop .hs-chip.build.on { border-color: color-mix(in srgb, var(--r-build) 38%, var(--line)); }
+    #header-status .hs-chip.build.on i, .header-fold-pop .hs-chip.build.on i { color: var(--r-build); }
+    #header-status .hs-chip.build.ready, .header-fold-pop .hs-chip.build.ready { border-color: color-mix(in srgb, var(--gold) 45%, var(--line)); }
+    #header-status .hs-chip.build.ready i, #header-status .hs-chip.build.ready b,
+    .header-fold-pop .hs-chip.build.ready i, .header-fold-pop .hs-chip.build.ready b { color: var(--gold); }
     #header-status .hs-chip.practice.pending { border-color: color-mix(in srgb, var(--warn) 48%, var(--line)); }
     #header-status .hs-chip.practice.pending i { color: var(--warn); }
     #header-status .hs-chip.practice.done { border-color: color-mix(in srgb, var(--ok) 42%, var(--line)); }
     #header-status .hs-chip.practice.done i { color: var(--ok); }
     #header-status .hs-chip.practice.stale { opacity: .62; }
-    #header-status .hs-count { color: var(--sub); font: 9px var(--mono); }
+    #header-status .hs-count, .header-fold-pop .hs-count { color: var(--sub); font: 9px var(--mono); }
+    .header-fold-pop {
+      position: fixed; z-index: 1200; display: flex; align-items: center; gap: 3px;
+      max-width: calc(100vw - 16px); padding: 6px; white-space: nowrap;
+      background: rgba(21, 28, 35, 0.98); border: 1px solid var(--line); border-radius: 8px;
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6); visibility: hidden;
+    }
+    .header-fold-pop .hs-chip, .header-fold-pop .hs-count { flex: none; }
+    .header-fold-pop .hs-muted { color: var(--dim); font-size: 10px; }
     #header-status .pulse { animation: header-status-pulse .55s ease-in-out 4 alternate; }
     @keyframes header-status-pulse {
       to { background: color-mix(in srgb, var(--accent) 30%, var(--bg2)); box-shadow: 0 0 0 1px var(--accent); }
     }
-    @media (max-width: 2199px) {
-      #header-status { width: min(980px, 51vw); }
-    }
+    /* 右侧动作组只剩一枚菜单，不再用 51vw 为四枚动作预留一半视口，不设上限，吃满到按钮之前 */
 
     /* 只指工作区那一个 <main>。别写回裸 main：模块自己也用语义化 <main>
        （史 .shi-body、镖 .detail），裸选择器会把 display:flex + padding-left 泼进去——
@@ -1101,8 +1137,8 @@
     }
 
     /* ══ 顶栏独立模块（史 铃 钥 铭 锚）══ */
-    #overlay-bar { display: flex; gap: 3px; margin-right: 6px; }
-    /* 形态全在 `header button` 那条（同族统一）；这里只留角标的定位锚与激活态 */
+    #overlay-bar { display: flex; gap: 3px; margin-left: auto; margin-right: 6px; }
+    /* 常驻按钮形态全在 `header button` 那条（同族统一）；这里只留角标的定位锚与激活态 */
     .ov-btn { position: relative; }
     .ov-btn.on { background: var(--accent-dim); border-color: var(--accent); color: #fff; }
     .ov-btn .ov-badge:not(:empty) {
@@ -7516,6 +7552,8 @@
       .lg-toast.powerup-result,
       .mod-zi .tile.hl,
       .mod-di .bship-detail { animation: none !important; }
+      #header-status .hs-res::after,
+      .mod-zi .tile::after { animation: none !important; opacity: 0 !important; }
       #overlay-host .ov-back { backdrop-filter: none; }
       /* 花瓣停落，改成两侧边带上的静态点缀：庆祝还在，只是不动了。
          --petal-y 由 lg.ts 逐片写在行内，就是为了这一档有地方可落。 */
@@ -7530,14 +7568,16 @@
 <body>
   <div id="app">
     <header>
-      <span class="wordmark">kuma</span>
       <span id="server-badge">未识别服务器</span>
       <span id="header-status" aria-label="提督、资源、远征与入渠状态"></span>
       <span id="overlay-bar"></span>
-      <button id="btn-focus" title="专注模式：收起三坞只留游戏（F9）">专注</button>
-      <button id="btn-capture" title="保存游戏画面截图">截图</button>
-      <button id="btn-reload" title="刷新游戏页面">刷新</button>
-      <button id="btn-browse" title="新开浏览窗 · 可多开 · 与游戏共用登录与代理">新窗</button>
+      <button id="btn-more" class="hdr-menu" title="更多操作">≡</button>
+      <span id="header-actions" class="hdr-actions">
+        <button id="btn-focus" title="专注模式：收起三坞只留游戏（F9）">专注</button>
+        <button id="btn-capture" title="保存游戏画面截图">截图</button>
+        <button id="btn-reload" title="刷新游戏页面">刷新</button>
+        <button id="btn-browse" title="新开浏览窗 · 可多开 · 与游戏共用登录与代理">新窗</button>
+      </span>
     </header>
     <main>
       <nav id="element-rail"></nav>

@@ -929,7 +929,10 @@ const buildDropIndex = (today: string) => {
         for (const ship of resolved.ships) {
           const list = byShip.get(ship.id) ?? []
           const hit = list.find((site) => site.map === code && site.difficulty === layer.difficulty)
-          const until = ship.limited?.until ?? null
+          // 活动图掉落随活动一起关门，官方公告的结束日就是它的截止日。
+          const until =
+            ship.limited?.until ??
+            (entry.event?.status === 'active' && entry.event.until ? entry.event.until : null)
           if (hit) {
             if (!hit.nodes.includes(node)) hit.nodes.push(node)
             if (ship.limited) hit.limited = true

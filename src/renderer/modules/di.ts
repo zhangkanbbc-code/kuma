@@ -106,6 +106,7 @@ import type { BranchTally } from '../../shared/route-stats'
 import { isAbyssMstId } from '../../shared/kcs-domain'
 import { attackEquipmentReliable } from '../../shared/attack-equipment'
 import { boldTitle, firstTextTitle, installSectionFolding, leadingTitle } from '../section-fold'
+import { timedRun } from '../perf-guard'
 
 import type { LodeMeta } from '../kernel'
 import type {
@@ -4068,13 +4069,17 @@ const historyTitle = (entry: BattleSnapshotSummary): string => {
 const loadBattleHistory = async (rerender = true) => {
   if (historyLoading) return
   historyLoading = true
+  let nextHistory: BattleSnapshotSummary[] | null = null
   try {
-    battleHistory = await queryBattleSnapshots(40)
+    nextHistory = await queryBattleSnapshots(40)
   } catch (error) {
     console.warn('[kanso] 战斗快照索引读取失败', error)
   } finally {
-    historyLoading = false
-    if (rerender && diPane) render(diPane)
+    timedRun('async:di-battle-history', () => {
+      if (nextHistory) battleHistory = nextHistory
+      historyLoading = false
+      if (rerender && diPane) render(diPane)
+    })
   }
 }
 
@@ -4563,7 +4568,7 @@ export const renderBattleReplayDetail = (
  * 海图浮层：挂在 <body> 下，不放进面板里。
  *
  * 两条都试过、都不行：
- *   · absolute —— .trail 与 .battle-col 都有 overflow:hidden（节点链横向滚、
+ *   · absolute —— .trail 与 .battle-col 都会裁 overflow（节点链横向裁、
  *     战斗列纵向滚），浮层直接被裁掉；
  *   · fixed 放在面板内 —— .ws-pane 自带 transform（哪怕是 matrix(1,0,0,1,0,0)），
  *     那就足以成为 fixed 的包含块，于是「相对视口」变成「相对面板」，
@@ -4837,13 +4842,13 @@ export const handleBattleReplayDetailClick = (
 
 export const bootstrapBattleReplay = (rerender: () => void) => {
   initUsedEquipmentPopover()
-  void loadBattleHistory(false).then(rerender)
+  void loadBattleHistory(false).then(() => timedRun('async:di-battle-history', rerender))
   void Promise.all([loadFcd(), loadAbyssalStats(), loadRouting()])
     .then(rerender)
     .catch((error) => console.warn('[kanso] di: 矿脉包读取失败', error))
   void initMapIntel().then(rerender)
   void ensureFirstEncounters()
-  onFirstEncountersChange(rerender)
+  onFirstEncountersChange(() => timedRun('async:di-first-seen', rerender))
 }
 
 registerModule({

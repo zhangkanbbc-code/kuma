@@ -106,6 +106,11 @@ test('complete quest inference follows only observed downstream prerequisites', 
   assert.deepEqual(inferCompletedQuestCodes(graph, [1]), new Set())
 })
 
+test('complete quest inference excludes quests observed in the game task list', () => {
+  assert.deepEqual(inferCompletedQuestCodes(graph, [4, 2]), new Set(['A', 'C']))
+  assert.deepEqual(inferCompletedQuestCodes(graph, [5, 4, 2, 1]), new Set(['C']))
+})
+
 test('descendant count excludes the branch itself and includes truncated slots', () => {
   const tree = buildQuestChainTree(graph[3], graph)
   assert.equal(countQuestChainDescendants(tree.before.branches[0]), 1)

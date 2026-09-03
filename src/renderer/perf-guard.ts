@@ -9,6 +9,9 @@
 //
 // 面包屑：每个监听器开跑前先报到主进程。正常时只是内存变量的覆盖写；
 // 一旦渲染进程挂死（死循环），最后一条面包屑就是看门狗要写进日志的凶手。
+//
+// 长任务：同步分发返回后的样式重算、排版、绘制与合成不在分发计时里，
+// 由浏览器的 longtask 观测补上整段主线程占用。
 
 import { recordCrash } from './crash-guard'
 
@@ -24,10 +27,82 @@ ipcRenderer.on('kanso:perf-ping', () => {
   }
 })
 
+const configuredSlowDispatchMs = Number(process.env.KANSO_PERF_SLOW_MS)
+const configuredPartMs = Number(process.env.KANSO_PERF_PART_MS)
+const configuredLongTaskMs = Number(process.env.KANSO_PERF_LONGTASK_MS)
+
+// 诊断会话可调低阈值；未设置或值无效时保持默认阈值不变。
 /** 分发总耗时超过这个数才上报——单帧预算 16ms，偶发 2-3 帧的尖刺不值得记 */
-const SLOW_DISPATCH_MS = 80
+const SLOW_DISPATCH_MS =
+  Number.isFinite(configuredSlowDispatchMs) && configuredSlowDispatchMs > 0
+    ? configuredSlowDispatchMs
+    : 80
 /** 单个监听器至少吃掉这么多毫秒才进「大头」清单 */
-const PART_MS = 8
+const PART_MS =
+  Number.isFinite(configuredPartMs) && configuredPartMs > 0 ? configuredPartMs : 8
+/** 50ms 是长任务的通行门槛：一帧 16ms，超过三帧就是肉眼可见的卡顿；默认值高于诊断会话的 20ms / 4ms */
+const LONGTASK_MS =
+  Number.isFinite(configuredLongTaskMs) && configuredLongTaskMs > 0
+    ? configuredLongTaskMs
+    : 50
+
+type KansoTaskAttribution = {
+  readonly name: string
+  readonly containerType: string
+  readonly containerSrc: string
+  readonly containerId: string
+  readonly containerName: string
+}
+
+type KansoLongTaskEntry = PerformanceEntry & {
+  readonly attribution: readonly KansoTaskAttribution[]
+}
+
+try {
+  new PerformanceObserver((list) => {
+    for (const entry of list.getEntries()) {
+      if (entry.duration < LONGTASK_MS) continue
+      const detail = (entry as KansoLongTaskEntry).attribution
+        .map((item) => {
+          const container = `${item.containerType}${item.containerId ? `#${item.containerId}` : ''}`
+          return [container, item.containerName, item.containerSrc, item.name]
+            .filter(Boolean)
+            .join(' · ')
+        })
+        .filter(Boolean)
+        .join(' / ')
+      ipcRenderer.send('kanso:perf', { scope: 'longtask', ms: entry.duration, detail })
+    }
+  }).observe({ entryTypes: ['longtask'] })
+} catch {
+  // entryType 不受支持时 observe 会抛；抓住是为了不让 perf-guard 模块求值整个失败——它同时还管着看门狗应答。
+}
+
+/**
+ * 给异步回程、rAF 与被动补渲这类单次工作计时；阈值与同步分发共用，
+ * 诊断会话调低 KANSO_PERF_SLOW_MS 时两层会一起现形。
+ */
+export const timedRun = (scope: string, run: () => void): void => {
+  try {
+    ipcRenderer.send('kanso:perf-breadcrumb', scope)
+  } catch {
+    /* IPC 不可用时面包屑作罢，计时照常 */
+  }
+  const startedAt = performance.now()
+  try {
+    run()
+  } catch (error) {
+    recordCrash(scope, error)
+  }
+  const ms = performance.now() - startedAt
+  if (ms >= SLOW_DISPATCH_MS) {
+    try {
+      ipcRenderer.send('kanso:perf', { scope, ms, detail: '' })
+    } catch {
+      /* 同上 */
+    }
+  }
+}
 
 /**
  * 与 safeEach 同语义（逐个跑、互不牵连、错误记账），外加计时与归因。
