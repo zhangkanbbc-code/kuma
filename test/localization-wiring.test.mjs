@@ -33,8 +33,19 @@ const ENTITIES = lodeFile('kcwiki-localization.json').data.entities
 const localization = (() => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-l10n-wire-'))
   const files = {
+    'entry.ts': [
+      "export * from './renderer/localization'",
+      "export * from './renderer/kcwiki-zh'",
+      "export { normalizeTaskEntityText } from './renderer/task-entity-match'",
+      '',
+    ].join('\n'),
     'renderer/localization.ts': readSrc('renderer/localization.ts'),
+    'renderer/kcwiki-zh.ts': readSrc('renderer/kcwiki-zh.ts'),
+    'renderer/task-entity-match.ts': readSrc('renderer/task-entity-match.ts'),
+    'renderer/zh-simplify.ts': readSrc('renderer/zh-simplify.ts'),
     'shared/abyssal-label.ts': readSrc('shared/abyssal-label.ts'),
+    'shared/ship-nationality.ts': readSrc('shared/ship-nationality.ts'),
+    'shared/zh-simplify.ts': readSrc('shared/zh-simplify.ts'),
     'renderer/kernel.ts': [
       'export const esc = (value: unknown): string =>',
       "  `${value ?? ''}`.replaceAll('&', '&amp;').replaceAll('<', '&lt;')",
@@ -50,7 +61,7 @@ const localization = (() => {
   }
   const outfile = path.join(dir, 'l10n.cjs')
   buildSync({
-    entryPoints: [path.join(dir, 'renderer/localization.ts')],
+    entryPoints: [path.join(dir, 'entry.ts')],
     outfile,
     bundle: true,
     platform: 'node',
@@ -73,6 +84,7 @@ globalThis.__lode = (id) =>
     'kcwiki-localization': lodeFile('kcwiki-localization.json'),
     'quests-scn': lodeFile('quests-scn.json'),
     'kcwiki-expedition': lodeFile('kcwiki-expedition.json'),
+    'opencc-t2s': lodeFile('opencc-t2s.json'),
   })[id] ?? null
 
 const hasKana = (text) => /[ぁ-ゖァ-ヺ]/.test(`${text ?? ''}`)
@@ -109,6 +121,7 @@ for (const [domain, minEntries, kanaCap, where] of WIRED) {
 
 test('译名接线:entityNamePlain 查得到出中文,查不到如实保原文', async () => {
   await localization.initLocalization()
+  assert.equal(localization.normalizeTaskEntityText('南西諸島近海'), '南西诸岛近海')
   // 舰种（bi/qn/ru 三处接线喂的就是 mg.master.stypes 的日文原名）
   assert.equal(localization.entityNamePlain('shipType', 2, '駆逐艦'), '驱逐舰')
   // 道具（bi/shi/ji 三处）
@@ -151,4 +164,132 @@ test('窄格红线:「原」折叠钮只在显式开启时出现（图鉴那一�
   const opened = localization.bilingualNameHtml('长门', '長門', { showOriginal: true })
   assert.match(opened, /l10n-toggle/)
   assert.match(opened, /長門/)
+})
+
+test('繁→简在译名与任务正文装配时只处理中文列，运行期补登同口径', async () => {
+  const opencc = lodeFile('opencc-t2s.json')
+  globalThis.__lode = (id) =>
+    ({
+      'kcwiki-localization': {
+        data: {
+          entities: {
+            ship: {
+              1: { ja: '艦隊の長門', zh: '長門', source: 'fixture' },
+            },
+          },
+        },
+      },
+      'quests-scn': {
+        data: {
+          2: {
+            code: 'A2',
+            name: '艦隊任務',
+            desc: '獲得裝備與圖紙',
+            memo: '報酬：開發資材',
+            memo2: '編成聯合艦隊',
+            pre: [],
+          },
+        },
+      },
+      'kcwiki-expedition': { data: {} },
+      'opencc-t2s': opencc,
+    })[id] ?? null
+
+  await localization.initLocalization()
+  assert.equal(localization.entityNamePlain('ship', 1), '长门')
+  assert.equal(localization.localizedEntry('ship', 1).ja, '艦隊の長門')
+  assert.equal(localization.localizedEntry('ship', 1).source, 'fixture')
+  assert.equal(localization.entityNamePlain('quest', 2), '舰队任务')
+
+  const body = localization.simplifyQuestScnData(globalThis.__lode('quests-scn').data)[2]
+  assert.equal(body.desc, '获得装备与图纸')
+  assert.equal(body.memo, '报酬：开发资材')
+  assert.equal(body.memo2, '编成联合舰队')
+
+  localization.registerLocalizedName('ship', 3, '時津風', '時津風', 'runtime-fixture')
+  assert.equal(localization.entityNamePlain('ship', 3), '时津风')
+  assert.equal(localization.localizedEntry('ship', 3).ja, '時津風')
+
+  const ships = localization.simplifyKcwikiShipsData({
+    4: {
+      日文名: '艦隊の長門',
+      中文名: '長門',
+      级别: ['陽炎型', 1],
+      改造: { 图纸: '設計圖x1' },
+    },
+  })
+  assert.equal(ships[4].日文名, '艦隊の長門')
+  assert.equal(ships[4].中文名, '长门')
+  assert.equal(ships[4].级别[0], '阳炎型')
+  assert.equal(ships[4].改造.图纸, '设计图x1')
+
+  const expedition = localization.simplifyKcwikiExpeditionData({
+    5: {
+      nameJp: '艦隊遠征',
+      nameZh: '艦隊遠征',
+      composition: '聯合艦隊',
+      rewards: { items: [{ name: '開發資材' }] },
+    },
+  })
+  assert.equal(expedition[5].nameJp, '艦隊遠征')
+  assert.equal(expedition[5].nameZh, '舰队远征')
+  assert.equal(expedition[5].composition, '联合舰队')
+  assert.equal(expedition[5].rewards.items[0].name, '开发资材')
+
+  const fit = localization.simplifyFitBonusData({
+    schemaVersion: 1,
+    equipGroups: { radar: { zh: '對空電探', tokens: [] } },
+    equips: { 6: { id: 6, nameJa: '對空電探', nameZh: '對空電探', rules: [] } },
+    unresolved: [],
+  })
+  assert.equal(fit.equipGroups.radar.zh, '对空电探')
+  assert.equal(fit.equips[6].nameJa, '對空電探')
+  assert.equal(fit.equips[6].nameZh, '对空电探')
+})
+
+test('opencc-t2s 缺席时译名装配恒等', async () => {
+  globalThis.__lode = (id) =>
+    ({
+      'kcwiki-localization': {
+        data: { entities: { ship: { 1: { ja: '長門', zh: '長門' } } } },
+      },
+      'quests-scn': { data: {} },
+      'kcwiki-expedition': { data: {} },
+    })[id] ?? null
+
+  await localization.initLocalization()
+  assert.equal(localization.entityNamePlain('ship', 1), '長門')
+  assert.equal(localization.localizedEntry('ship', 1).ja, '長門')
+})
+
+test('独立 renderer 与直读资料包的装配边界都安装或复用简化器', () => {
+  const localizationSource = readSrc('renderer/localization.ts')
+  const questTree = readSrc('renderer/quest-tree-window.ts')
+  const battleReplay = readSrc('renderer/battle-replay-window.ts')
+  const questModule = readSrc('renderer/modules/qn.ts')
+  const eventModule = readSrc('renderer/modules/du.ts')
+  const resourceModule = readSrc('renderer/modules/zi.ts')
+  const expeditionModule = readSrc('renderer/modules/bi.ts')
+  const rosterModule = readSrc('renderer/modules/qa.ts')
+  const fleetModule = readSrc('renderer/modules/ru.ts')
+  const catalogModule = readSrc('renderer/modules/ji.ts')
+
+  assert.match(localizationSource, /queryLode\('opencc-t2s'\)/)
+  assert.match(localizationSource, /installZhSimplifier\(opencc\)/)
+  assert.match(localizationSource, /installTaskEntityFold\(opencc\?\.data\?\.chars \?\? null\)/)
+  assert.match(questTree, /queryLode\('opencc-t2s'\)/)
+  assert.match(questTree, /installZhSimplifier\(opencc\)/)
+  assert.match(questTree, /simplifyQuestScnData\(pack\?\.data\)/)
+  assert.match(battleReplay, /queryLode\('opencc-t2s'\)/)
+  assert.match(battleReplay, /installZhSimplifier\(opencc\)/)
+  assert.match(battleReplay, /await Promise\.all\(\[[\s\S]*initLocalization\(\)/)
+  assert.match(questModule, /data:\s*simplifyQuestScnData\(scnLode\.data\)/)
+  assert.match(eventModule, /simplifyQuestScnData\(\(catalog as any\)\.data\)/)
+  assert.match(resourceModule, /simplifyQuestScnData\(questLode\.data\)/)
+  assert.match(expeditionModule, /simplifyKcwikiExpeditionData\(localizationPack\.data\)/)
+  assert.match(questModule, /simplifyKcwikiShipsData\(kcwikiShipLode\?\.data\)/)
+  assert.match(rosterModule, /simplifyKcwikiShipsData\(kcwiki\.data\)/)
+  assert.match(fleetModule, /simplifyKcwikiShipsData\(lode\.data\)/)
+  assert.match(catalogModule, /simplifyKcwikiShipsData\(kcwikiLode\.data\)/)
+  assert.match(catalogModule, /simplifyFitBonusData\(f\.data as FitBonusData\)/)
 })

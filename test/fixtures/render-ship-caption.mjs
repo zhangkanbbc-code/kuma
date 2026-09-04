@@ -4,7 +4,7 @@
 // 源码一个字不改，它引用到的外部名字在这里补桩。**不断言源码文本**——
 // 查表顺序写反、闸门排错位置、补空写成覆盖，正则一条也拦不住。
 //
-// 三个真判据（标点体例归一 / 台词归一 / 占位句识别）**引真的那一份**，不补桩：
+// 四个真判据（标点体例归一 / 缺译 / 台词归一 / 占位句识别）**引真的那一份**，不补桩：
 // 桩一写歪，护栏就会对着一个假的判据绿。
 import fs from 'node:fs'
 import os from 'node:os'
@@ -34,7 +34,7 @@ const BODY = sliceBetween(
 const abs = (...parts) => path.join(ROOT, ...parts).replace(/\\/g, '/')
 
 const HARNESS = `
-import { normalizeVoiceText } from '${abs('src', 'shared', 'voice-text.ts')}'
+import { isUntranslatedVoiceText, normalizeVoiceText } from '${abs('src', 'shared', 'voice-text.ts')}'
 import { normalizeVoiceLine } from '${abs('src', 'shared', 'voice-lineage.ts')}'
 import {
   foldVoiceLineForCompare,
@@ -42,6 +42,7 @@ import {
   regularSubtitleSlots,
   seasonalTextIndex,
 } from '${abs('src', 'shared', 'voice-scene-slots.ts')}'
+import { installZhSimplifier, simplifyZh } from '${abs('src', 'renderer', 'zh-simplify.ts')}'
 
 type VoiceRequestCue = any
 type CaptionLine = any
@@ -52,6 +53,7 @@ export const stub: any = {
   subtitleJa: {},
   wikiwikiVoice: {},
   voiceZhByJa: new Map(),
+  voiceOverlayZhByJa: new Map(),
   voiceFallbackOf: new Map(),
   seasonOccupied: new Map(),
   kcwikiBySlot: new Map(),
@@ -64,6 +66,7 @@ const subtitleZh: any = new Proxy({}, { get: (_t, k) => stub.subtitleZh[k as str
 const subtitleJa: any = new Proxy({}, { get: (_t, k) => stub.subtitleJa[k as string] })
 const wikiwikiVoice: any = new Proxy({}, { get: (_t, k) => stub.wikiwikiVoice[k as string] })
 const voiceZhByJa = { get: (k: string) => stub.voiceZhByJa.get(k) }
+const voiceOverlayZhByJa = { get: (k: string) => stub.voiceOverlayZhByJa.get(k) }
 const voiceFallbackOf = { get: (k: number) => stub.voiceFallbackOf.get(k) }
 const seasonOccupied = { get: (k: number) => stub.seasonOccupied.get(k) }
 const kcwikiBySlot = { get: (k: number) => stub.kcwikiBySlot.get(k) }
@@ -80,7 +83,7 @@ const entityNamePlain = (_domain: string, _id: number, fallback: string) => fall
 
 ${BODY}
 
-export { shipCaption, captionText, seasonalTextIndex }
+export { shipCaption, captionText, seasonalTextIndex, installZhSimplifier }
 `
 
 const bundle = (() => {
@@ -104,10 +107,12 @@ const loaded = createRequire(import.meta.url)(bundle)
 /** 摆好这一轮的资料，然后取一格字幕。 */
 export const captionOf = (setup, mstId, voiceId) => {
   const stub = loaded.stub
+  loaded.installZhSimplifier(setup.simplifierPack ?? null)
   stub.subtitleZh = setup.subtitleZh ?? {}
   stub.subtitleJa = setup.subtitleJa ?? {}
   stub.wikiwikiVoice = setup.wikiwikiVoice ?? {}
   stub.voiceZhByJa = setup.voiceZhByJa ?? new Map()
+  stub.voiceOverlayZhByJa = setup.voiceOverlayZhByJa ?? new Map()
   stub.voiceFallbackOf = setup.voiceFallbackOf ?? new Map()
   stub.seasonOccupied = setup.seasonOccupied ?? new Map()
   stub.kcwikiBySlot = setup.kcwikiBySlot ?? new Map()

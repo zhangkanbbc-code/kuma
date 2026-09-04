@@ -83,6 +83,9 @@ test('一次 Boss 都没打过就说没有，不拿别的点冒充', () => {
 const jiSource = fs
   .readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
   .replace(/\r\n/g, '\n')
+const kernelSource = fs
+  .readFileSync(new URL('../src/renderer/kernel.ts', import.meta.url), 'utf8')
+  .replace(/\r\n/g, '\n')
 
 // 键名也一起编进来：写死在夹具里就成了自证，改坏了照样绿
 const SET_BLOCK = (() => {
@@ -94,13 +97,34 @@ const SET_BLOCK = (() => {
   return jiSource.slice(start, end)
 })()
 
+const UI_STORE_BLOCK = (() => {
+  const from = 'export const uiGet = '
+  const to = '\n\n// 内部详情栏'
+  const start = kernelSource.indexOf(from)
+  const end = kernelSource.indexOf(to, start)
+  assert.ok(start >= 0 && end > start, 'kernel.ts 里找不到 uiGet/uiSet，这条守卫的锚点要跟着改')
+  return kernelSource.slice(start, end)
+})()
+
 const store = (() => {
   const source = `
 export let saved: any = null
-const uiGet = <T>(_key: string, fallback: T): T => fallback
-const uiSet = (key: string, value: unknown) => { saved = { key, value } }
+let remoteValue = 'B'
+const remoteObject: Record<string, string> = {}
+Object.defineProperty(remoteObject, '2-1', {
+  enumerable: true,
+  get: () => remoteValue,
+  set: (value: string) => { remoteValue = value },
+})
+const kernelConfig = {
+  get: (_key: string) => remoteObject,
+  set: (key: string, value: unknown) => { saved = { key: key.slice(3), value } },
+}
+${UI_STORE_BLOCK}
 ${SET_BLOCK}
 export const reset = () => { routeTargets = {}; saved = null }
+export const resetFromRemote = () => { remoteValue = 'B'; routeTargets = uiGet(ROUTE_TARGET_KEY, {}); saved = null }
+export const sourceValue = () => remoteValue
 export const set = (code: string, letter: string) => {
   setRouteTarget(code, letter)
   return Object.keys(routeTargets)
@@ -123,6 +147,13 @@ test('选择按图落盘，落的是 ui 子树那一条；选回「未选」就�
   assert.ok(!jiSource.includes("require('@electron/remote')"), '这一条不该自己拉 remote')
   // 选择器发的是海域码：换回数字 mapId 的话上面那条时序就静默失效了
   assert.match(jiSource, /data-map-route-target="\$\{esc\(code\)\}"/)
+})
+
+test('配置已有目标点时也能切换，不会在 remote 代理的不可配置属性上报错', () => {
+  store.resetFromRemote()
+  assert.doesNotThrow(() => store.set('2-1', 'A'))
+  assert.deepEqual(store.saved, { key: 'ji.routeTarget', value: { '2-1': 'A' } })
+  assert.equal(store.sourceValue(), 'B', '改本地副本不该绕过 config.set 直写主进程对象')
 })
 
 test('碰过的图回到队尾——这是裁剪能裁对人的前提', () => {

@@ -23,6 +23,25 @@ const matcher = require(output)
 
 test.after(() => fs.rmSync(tempDir, { recursive: true, force: true }))
 
+test('task entity folding extends JP2CN with the OpenCC character table', () => {
+  matcher.installTaskEntityFold(null)
+  assert.equal(matcher.normalizeTaskEntityText('戦艦'), '战舰')
+
+  const opencc = JSON.parse(
+    fs.readFileSync(new URL('../assets/lodes/opencc-t2s.json', import.meta.url), 'utf8'),
+  )
+  matcher.installTaskEntityFold(opencc.data.chars)
+  assert.equal(matcher.normalizeTaskEntityText('南西諸島近海'), '南西诸岛近海')
+  assert.equal(matcher.normalizeTaskEntityText('南西諸島防衛線'), '南西诸岛防卫线')
+  assert.equal(matcher.normalizeTaskEntityText('東部オリョール海'), '东部オリョール海')
+
+  const source = '南西諸島近海'
+  const aligned = matcher.alignedTaskEntityText(source)
+  assert.notEqual(aligned, null)
+  assert.equal(aligned.length, source.length)
+  matcher.installTaskEntityFold(null)
+})
+
 const entry = (id, name, aliases = [name]) => ({
   id,
   name,

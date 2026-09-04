@@ -306,8 +306,16 @@ ipcMain.handle('chron:node-history-index', (_event, limit?: number) =>
   ledger.queryNodeHistoryIndex(typeof limit === 'number' ? limit : 300),
 )
 
+ipcMain.handle('chron:node-drop-index', (_event, limit?: number) =>
+  ledger.queryNodeDropIndex(typeof limit === 'number' ? limit : 300),
+)
+
 ipcMain.handle('chron:node-history', (_event, map: number, cell: number, limit?: number) =>
   ledger.queryNodeHistory(map | 0, cell | 0, typeof limit === 'number' ? limit : 60),
+)
+
+ipcMain.handle('chron:node-drops', (_event, map: number, cell: number, limit?: number) =>
+  ledger.queryNodeDrops(map | 0, cell | 0, typeof limit === 'number' ? limit : 60),
 )
 
 ipcMain.handle('chron:event-sortie-costs', (_event, areaId: number, sinceTs: number) =>

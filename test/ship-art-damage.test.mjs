@@ -282,7 +282,12 @@ const entityArtBundle = (() => {
     {
       'renderer/entity-art.ts': read(srcFile('renderer/entity-art.ts')),
       'renderer/localization.ts': read(srcFile('renderer/localization.ts')),
+      'renderer/kcwiki-zh.ts': read(srcFile('renderer/kcwiki-zh.ts')),
+      'renderer/task-entity-match.ts': read(srcFile('renderer/task-entity-match.ts')),
+      'renderer/zh-simplify.ts': read(srcFile('renderer/zh-simplify.ts')),
       'shared/abyssal-label.ts': read(srcFile('shared/abyssal-label.ts')),
+      'shared/ship-nationality.ts': read(srcFile('shared/ship-nationality.ts')),
+      'shared/zh-simplify.ts': read(srcFile('shared/zh-simplify.ts')),
       'renderer/kernel.ts': [
         'export const esc = (value: unknown): string =>',
         "  `${value ?? ''}`.replaceAll('&', '&amp;').replaceAll('<', '&lt;')",

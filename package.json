@@ -1,7 +1,7 @@
 {
   "name": "kuma",
   "productName": "kuma",
-  "version": "1.0.0-beta.7",
+  "version": "1.0.0-beta.8",
   "description": "《舰队 Collection》的信息工作台",
   "main": "dist/main/index.js",
   "private": true,
@@ -25,6 +25,8 @@
     "lodes:map-intel-confirm-end": "node scripts/confirm-map-intel-end.mjs",
     "lodes:map-intel-approve": "node scripts/approve-map-intel-candidate.mjs",
     "lodes:event-lifecycle": "node scripts/build-event-lifecycle.mjs",
+    "lodes:voice-overlay": "node scripts/build-voice-overlay.mjs",
+    "lodes:opencc-t2s": "node scripts/fetch-opencc-t2s.mjs",
     "lodes:sync-ignore": "node scripts/sync-bundled-lodes.mjs",
     "bgm:align": "node scripts/bgm-duration-align.mjs",
     "bgm:ost": "node scripts/fetch-ost-tracklists.mjs",

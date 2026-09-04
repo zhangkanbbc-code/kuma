@@ -1136,7 +1136,7 @@ export const forecastAssumptions = (
       : `夜战单独计算：当前编成无可攻击舰${blocked.length ? `（${blocked.join(' / ')}）` : ''}`
 
   return [
-    `我方按${formationText}估算`,
+    `我方按${formationText}预估`,
     hasSaiun
       ? '航向按同航45% / 反航40% / T有利15%加权（彩云消除T不利）'
       : '航向按同航45% / 反航30% / T有利15% / T不利10%加权',

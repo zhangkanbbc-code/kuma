@@ -22,6 +22,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { VOICE_EMOTICON_PERSONA, VOICE_TRANSLATE_NOTES } from './lib/voice-translate-notes.mjs'
+import { normalizeVoiceLine } from '../src/shared/voice-lineage.ts'
+import { isUntranslatedVoiceText } from '../src/shared/voice-text.ts'
 
 /** 颜表情的译注一律以这个词开头（`voice-translate-notes` 里生成时钉死的口径）。 */
 const EMOTICON_NOTE_PREFIX = '颜表情：'
@@ -41,6 +43,10 @@ const readPack = (id, required) => {
 
 const kansoPack = readPack('kanso-voice', true)
 const kanso = kansoPack.data?.ships ?? {}
+const overlayPack = readPack('kanso-voice-zh', true)
+const overlay = overlayPack.data ?? {}
+const regularPack = readPack('kcwiki-voice', true)
+const seasonalPack = readPack('kcwiki-seasonal-voice', true)
 const localization = readPack('kcwiki-localization', false).data?.entities?.ship ?? {}
 const shipName = (mstId) => localization?.[`${mstId}`]?.zh || `#${mstId}`
 
@@ -185,11 +191,119 @@ const head = [
   '',
 ]
 
+const sourceRows = new Map()
+for (const [pack, groups] of [
+  ['kcwiki-voice', regularPack.data ?? {}],
+  ['kcwiki-seasonal-voice', seasonalPack.data?.ships ?? {}],
+]) {
+  for (const [mstId, rows] of Object.entries(groups)) {
+    for (const row of rows ?? []) {
+      if (overlay.entries?.[row.key]?.pack === pack) sourceRows.set(row.key, { mstId, pack, row })
+    }
+  }
+}
+
+const retiredKeys = new Set()
+const mismatchedKeys = new Set()
+for (const [key, entry] of Object.entries(overlay.entries ?? {})) {
+  const source = sourceRows.get(key)
+  if (!source) continue
+  if (normalizeVoiceLine(source.row.ja) !== normalizeVoiceLine(entry.ja)) {
+    mismatchedKeys.add(key)
+  } else if (!isUntranslatedVoiceText(source.row.zh)) {
+    retiredKeys.add(key)
+  }
+}
+
+const overlayByShip = new Map()
+for (const [key, entry] of Object.entries(overlay.entries ?? {})) {
+  const sourceRow = sourceRows.get(key)
+  if (!sourceRow) continue
+  const list = overlayByShip.get(sourceRow.mstId) ?? []
+  list.push({ key, entry, ...sourceRow })
+  overlayByShip.set(sourceRow.mstId, list)
+}
+
+const overlayShipSections = [...overlayByShip]
+  .sort(
+    ([leftId, left], [rightId, right]) =>
+      Number(right.some((item) => item.entry.draft)) -
+        Number(left.some((item) => item.entry.draft)) ||
+      Number(leftId) - Number(rightId),
+  )
+  .map(([mstId, rows]) => {
+    rows.sort(
+      (left, right) =>
+        Number(Boolean(right.entry.draft)) - Number(Boolean(left.entry.draft)) ||
+        left.key.localeCompare(right.key),
+    )
+    return [
+      `### ${shipName(mstId)} · \`${mstId}\`（${rows.length} 条）`,
+      '',
+      '| 场合 | 日文原文 | 中文译文 | 状态 |',
+      '|---|---|---|---|',
+      ...rows.map(({ key, entry, row }) => {
+        const flags = []
+        if (entry.draft) {
+          flags.push('**待复核**')
+          const note = VOICE_TRANSLATE_NOTES[key]
+          if (note) flags.push(note)
+        }
+        if (retiredKeys.has(key)) flags.push('**上游已补，可删**')
+        if (mismatchedKeys.has(key)) flags.push('**上游日文已变，未叠加**')
+        return `| ${escapeCell(row.scene || key)} | ${escapeCell(entry.ja)} | ${escapeCell(entry.zh)} | ${escapeCell(flags.join('；')) || '可用'} |`
+      }),
+      '',
+    ].join('\n')
+  })
+
+const byJaRows = overlay.byJa ?? []
+const retiredRows = [...retiredKeys]
+  .map((key) => {
+    const source = sourceRows.get(key)
+    return source ? { key, ...source } : null
+  })
+  .filter(Boolean)
+  .sort((left, right) => left.key.localeCompare(right.key))
+
+const overlaySections = [
+  '## 译文自补层',
+  '',
+  `- keyed 译文：**${Object.keys(overlay.entries ?? {}).length}**；按日文匹配的字幕译文：**${byJaRows.length}**`,
+  `- 待复核（\`draft\`）：**${Object.values(overlay.entries ?? {}).filter((entry) => entry?.draft).length}**`,
+  `- 上游已补、可删：**${retiredRows.length}**`,
+  '',
+  ...overlayShipSections,
+  '### 按日文匹配的字幕译文',
+  '',
+  '| 日文原文 | 中文译文 | 状态 |',
+  '|---|---|---|',
+  ...byJaRows.map(
+    (entry) => `| ${escapeCell(entry.ja)} | ${escapeCell(entry.zh)} | 可用 |`,
+  ),
+  '',
+  '### 上游已补、可删',
+  '',
+  ...(retiredRows.length
+    ? [
+        '| 包 | key | 日文原文 | 上游译文 |',
+        '|---|---|---|---|',
+        ...retiredRows.map(
+          ({ key, pack, row }) =>
+            `| ${escapeCell(pack)} | \`${escapeCell(key)}\` | ${escapeCell(row.ja)} | ${escapeCell(row.zh)} |`,
+        ),
+      ]
+    : ['（无）']),
+  '',
+]
+
 mkdirSync(reviewDir, { recursive: true })
 const outFile = path.join(reviewDir, 'voice-translate-review.md')
-writeFileSync(outFile, [...head, ...sections].join('\n'))
+writeFileSync(outFile, [...head, ...sections, ...overlaySections].join('\n'))
 console.log(
   `[review] 审稿单已写出：${path.relative(root, outFile)}` +
     `（${forms.length} 形态 / ${totalRows} 行 / 待复核 ${draftRows} 行` +
-    `${unmatched ? ` / 无日文原文 ${unmatched} 行` : ''}）`,
+    `${unmatched ? ` / 无日文原文 ${unmatched} 行` : ''}` +
+    ` / 译文 overlay ${Object.keys(overlay.entries ?? {}).length} + ${byJaRows.length} 行` +
+    ` / 可删 ${retiredRows.length} 行）`,
 )

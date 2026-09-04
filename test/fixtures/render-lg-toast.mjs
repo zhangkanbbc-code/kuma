@@ -10,8 +10,9 @@
 //
 // 做法照搬 test/fixtures/preview-bgm-dom.mjs：把 src 拷进临时目录、把牵着 electron 与
 // 账本的那一圈换成桩，**与这条护栏有关的那一份用真的**——modules/lg 本体不桩，
-// 否则测的就不是那段代码。入口是 lg 导出的两个口子：showSortieReadinessToast 直通
-// showToast，runNotificationDemo 是 ▶ 测试通知那一路（走完整的 notify），两者都不必
+// 否则测的就不是那段代码。入口是 lg 的三个口子：showSortieReadinessToast 直通
+// showToast，runNotificationDemo 是 ▶ 测试通知那一路（走完整的 notify）；
+// showPowerupResultToast 只在临时副本里改成导出，生产代码的可见性不变。三者都不必
 // 先把整个模块 mount 起来。
 //
 // 账本、托盘徽标、ipc 三处桩都记账（`appendNoticeCalls` / `trayUnreadCalls` /
@@ -107,7 +108,7 @@ ${ESCORT_STATE}
     export const observedCond = (_a: unknown) => null
   `,
   'renderer/lg-test-entry.ts': `
-    export { runNotificationDemo, showSortieReadinessToast } from './modules/lg'
+    export { runNotificationDemo, showPowerupResultToast, showSortieReadinessToast } from './modules/lg'
     // 出击态归内核那份 mg 管，勿扰要靠它才摆得出来（桩与铃看的是同一个对象）
     export { mg } from './kernel'
   `,
@@ -116,6 +117,14 @@ ${ESCORT_STATE}
 const bundle = (() => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-lg-'))
   fs.cpSync(path.join(ROOT, 'src'), path.join(dir, 'src'), { recursive: true })
+  const lgPath = path.join(dir, 'src', 'renderer', 'modules', 'lg.ts')
+  const lgSource = fs.readFileSync(lgPath, 'utf8')
+  const testableLgSource = lgSource.replace(
+    'const showPowerupResultToast =',
+    'export const showPowerupResultToast =',
+  )
+  assert.notEqual(testableLgSource, lgSource, 'lg.ts 里找不到 showPowerupResultToast，这份夹具的入口要跟着改')
+  fs.writeFileSync(lgPath, testableLgSource)
   for (const [rel, source] of Object.entries(STUBS)) {
     fs.writeFileSync(path.join(dir, 'src', ...rel.split('/')), source)
   }
@@ -430,6 +439,7 @@ export const mountLgToast = (options = {}) => {
   )
 
   assert.ok(typeof mod.exports.showSortieReadinessToast === 'function', '铃没把弹卡入口导出来')
+  assert.ok(typeof mod.exports.showPowerupResultToast === 'function', '铃没把强化结果弹卡入口导出来')
   assert.ok(typeof mod.exports.runNotificationDemo === 'function', '铃没把 ▶ 测试通知的入口导出来')
 
   // 整棵树里找那一摞：宿主是 body 还是 #game-wrapper 由玩家选的参照系决定
@@ -454,6 +464,8 @@ export const mountLgToast = (options = {}) => {
     doc,
     /** 造一张弹卡。走的是真的 showToast（合并、驱逐、倒计时都是那一份） */
     show: (...args) => mod.exports.showSortieReadinessToast(...args),
+    /** 造一张近代化改修结果卡。走的是真的 showPowerupResultToast */
+    showPowerup: (result) => mod.exports.showPowerupResultToast(result),
     /** 点一下 ▶ 测试通知（三条里的后两条挂在计时器上，要 fireTimers 才到） */
     demo: () => mod.exports.runNotificationDemo(),
     /** 眼下挂着的置顶横幅 */

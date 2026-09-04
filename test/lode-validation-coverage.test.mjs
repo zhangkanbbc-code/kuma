@@ -241,6 +241,24 @@ const validData = {
       ],
     },
   },
+  'kanso-voice-zh': {
+    schemaVersion: 1,
+    compiledAt: '2026-09-04',
+    entries: {
+      '021-Atk1': {
+        pack: 'kcwiki-voice',
+        ja: 'Burning Love！！',
+        zh: '燃烧的爱！！',
+        draft: true,
+      },
+      '035-Sec1TenthAnniversary': {
+        pack: 'kcwiki-seasonal-voice',
+        ja: '原文',
+        zh: '译文',
+      },
+    },
+    byJa: [{ ja: 'Open fire!', zh: '开火！' }],
+  },
   'kcwiki-seasonal-voice': {
     schemaVersion: 1,
     seasons: {
@@ -545,6 +563,11 @@ const validData = {
       },
     ],
   },
+  'opencc-t2s': {
+    schemaVersion: 1,
+    chars: { 體: '体' },
+    phrases: { 乾隆: '乾隆' },
+  },
   'event-bonus': {
     events: {
       E4: {
@@ -610,6 +633,11 @@ const validData = {
 }
 
 const invalidData = {
+  'opencc-t2s': {
+    schemaVersion: 1,
+    chars: { 體: 'body' },
+    phrases: { 乾隆: '乾隆' },
+  },
   'event-lifecycle': {
     schemaVersion: 1,
     events: [
@@ -745,6 +773,19 @@ const invalidData = {
     ships: {
       973: [{ key: '973-1', scene: '入手/登入时', slot: 1, basis: 'wikiwiki-mapped', zh: '译文' }],
     },
+  },
+  // pack 只能指向两份上游台词包，不能把任意资料包接进叠加层
+  'kanso-voice-zh': {
+    schemaVersion: 1,
+    compiledAt: '2026-09-04',
+    entries: {
+      '021-Atk1': {
+        pack: 'subtitle-zh',
+        ja: 'Burning Love！！',
+        zh: '燃烧的爱！！',
+      },
+    },
+    byJa: [],
   },
   // 槽位越界（官方语音编号只有 1..53）——这个数会被拿去算音轨文件名，必须拦
   'kcwiki-seasonal-voice': {
@@ -921,14 +962,14 @@ const invalidData = {
   },
 }
 
-test('source manifest, validators, and fixtures cover the same 45 lode packs', () => {
+test('source manifest, validators, and fixtures cover the same 47 lode packs', () => {
   // 包分两类，**合起来**才是校验器与夹具要覆盖的全集：
   //  · 来源登记（scripts/lode-sources.json）：抓来的包与独立生成器包；
   //  · 第一方手工台账（FIRST_PARTY_LODE_IDS）：没有独立生成器的旧台账不进来源登记。
   // 少写一边的后果不是报错，而是新包**没有校验器**却照样被加载。
   const expected = Object.keys(validData).sort()
   const sourceIds = lodeSources.map((source) => source.id)
-  assert.equal(expected.length, 45)
+  assert.equal(expected.length, 47)
   assert.equal(new Set(sourceIds).size, sourceIds.length, 'source manifest contains duplicate ids')
   for (const id of FIRST_PARTY_LODE_IDS) {
     const registered = lodeSources.find((source) => source.id === id)
@@ -1099,7 +1140,7 @@ const NOTE_BANNED = [
  */
 const NOTE_MIGRATED_IDS = Object.freeze([
   'abyssal-stats', 'akashi-list', 'build-recipes', 'dev-recipes', 'eo-quests',
-  'equip-upgrades', 'event-bonus', 'fit-bonus', 'kanso-voice', 'kcnav-routing',
+  'equip-upgrades', 'event-bonus', 'fit-bonus', 'kanso-voice', 'kanso-voice-zh', 'kcnav-routing',
   'kcwiki-bgm', 'kcwiki-expedition', 'kcwiki-fit-bonus', 'kcwiki-localization',
   'kcwiki-quest-req', 'kcwiki-routing', 'kcwiki-seasonal-voice', 'kcwiki-ships',
   'kcwiki-voice', 'map-drop-windows', 'map-drops', 'map-enemy-comps', 'map-intel',
@@ -1166,8 +1207,15 @@ test('资料包的 meta.note 是给玩家的一两句人话，考古另住 maint
     }
     const source = lodeSources.find((entry) => entry.id === id)
     assert.ok(source, `${file} 既不在抓取清单里也不是手工台账`)
-    // 包里不该带 maintainerNote：抓取器不写它，写了就是有人手改包时搬错了地方
-    assert.equal(meta.maintainerNote, undefined, `${file} 的 meta 里出现了 maintainerNote`)
+    if (id === 'opencc-t2s') {
+      assert.deepEqual(
+        meta.maintainerNote,
+        ['第一方覆盖层见 scripts/lib/zh-simplify-overrides.mjs'],
+      )
+    } else {
+      // 包里不该带 maintainerNote：抓取器不写它，写了就是有人手改包时搬错了地方
+      assert.equal(meta.maintainerNote, undefined, `${file} 的 meta 里出现了 maintainerNote`)
+    }
     // map-intel 的 note 由三个活动流水线脚本覆写（fetch-map-intel / …-event / archive-…），
     // 与清单那一份天然不同，只查文案体例不查一致
     if (id !== 'map-intel') {

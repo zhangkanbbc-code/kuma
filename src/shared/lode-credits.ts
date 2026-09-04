@@ -105,6 +105,15 @@ export const LODE_CREDIT_SOURCES: readonly LodeCreditSource[] = [
     lodeIds: ['subtitle-ja', 'subtitle-zh', 'subtitle-npc', 'subtitle-enemies'],
   },
   {
+    key: 'opencc',
+    name: 'OpenCC',
+    url: 'https://github.com/BYVoid/OpenCC',
+    license: 'Apache License 2.0',
+    provides: '玩家可见中文资料繁体转简体所用的字表与词表',
+    detail: '繁体中文转为简体中文所用的字表与词表；在玩家可见中文资料及台词显示时查表。',
+    lodeIds: ['opencc-t2s'],
+  },
+  {
     key: 'kcwiki-quest-data',
     name: 'kcwiki-quest-data',
     url: 'https://github.com/kcwikizh/kcwiki-quest-data',
@@ -128,6 +137,7 @@ export const LODE_CREDIT_SOURCES: readonly LodeCreditSource[] = [
     lodeIds: [
       'map-drop-windows',
       'kanso-voice',
+      'kanso-voice-zh',
       'equip-improve',
       'equip-aa-evasion',
       'event-plane-groups',

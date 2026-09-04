@@ -108,7 +108,7 @@ const EVENTS: EventDef[] = [
   { id: 'quest', label: '任务完成 · 待领取', note: '同时完成时合并通知', sev: 'gold', icon: '✓', jump: 'qn', jumpLabel: '任务面板' },
   { id: 'pracRefresh', label: '演习刷新前未打完', note: '刷新前 30 分钟 · 按上次打开演习页时的记录', sev: 'warn', icon: '⚔', jump: 'lg', jumpLabel: '通知记录', refLabel: '抬头 · 演习' },
   { id: 'resource', label: '资源阈值', note: '', sev: 'warn', icon: '⚠', jump: 'zi', jumpLabel: '资源统计' },
-  { id: 'condRecover', label: '疲劳估算已恢复', note: '后台估算 · 恢复至 30 · 按舰队', sev: 'ok', icon: '✦', jump: 'ru', jumpLabel: '编队展示' },
+  { id: 'condRecover', label: '疲劳预估已恢复', note: '后台预估 · 恢复至 30 · 按舰队', sev: 'ok', icon: '✦', jump: 'ru', jumpLabel: '编队展示' },
   { id: 'questReset', label: '重置前任务未清', note: '日/周/月同规则 · 重置前 2 小时', sev: 'warn', icon: '⏰', jump: 'qn', jumpLabel: '任务面板' },
   { id: 'newShip', label: '新舰入库', note: '首次入库 · 提醒上锁', sev: 'gold', icon: '★', jump: 'ji', jumpLabel: '舰娘图鉴', na: ['system', 'sound'] },
   { id: 'damecon', label: '应急修理发动', note: '同一舰同一战只报一次', sev: 'ok', icon: '修', jump: 'di', jumpLabel: '战斗详情', refLabel: '战斗详情' },
@@ -700,10 +700,13 @@ const showPowerupResultToast = (result: PowerupResultCue) => {
     event.stopPropagation()
     el.remove()
   })
-  el.addEventListener('click', () => {
+  // 点击语义同 showToast（08-27 用户定）；09-04 用户报这张强化卡漏改。
+  el.querySelector('.tx .act')!.addEventListener('click', (event) => {
+    event.stopPropagation()
     navigate({ type: 'ship', id: result.rosterId })
     el.remove()
   })
+  el.addEventListener('click', () => el.remove())
   box.appendChild(el)
   evictOverflowToasts(box)
 
@@ -1370,7 +1373,7 @@ const tickDetect = () => {
     const { tired, ready, readyTs } = condRecoveryInfo(deck.id)
     if (tired && ready && readyTs > 0 && readyTs <= now) {
       fireOnce(`cond-${deck.id}-${readyTs}`, () =>
-        notify('condRecover', `第${deck.id}舰队 疲劳估算已恢复`, `士气估算已恢复至 ${FATIGUE_READY_COND}`, {
+        notify('condRecover', `第${deck.id}舰队 疲劳预估已恢复`, `士气预估已恢复至 ${FATIGUE_READY_COND}`, {
           type: 'fleet',
           id: deck.id,
         }),
@@ -1475,7 +1478,7 @@ const detectQuestComplete = () => {
     )
     if (complete) {
       questNotified.add(id)
-      notify('quest', `任务估算完成 · 待领取`, `${entityNamePlain('quest', id, quest.title)}${tracker.approx ? ' · 部分条件为估算' : ''}`, {
+      notify('quest', `任务预估完成 · 待领取`, `${entityNamePlain('quest', id, quest.title)}${tracker.approx ? ' · 部分条件为预估' : ''}`, {
         type: 'quest',
         id,
       })

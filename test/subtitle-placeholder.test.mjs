@@ -93,7 +93,7 @@ test('实时字幕取文本时过这道滤，不是取完再补救', () => {
     '中文那支没过滤',
   )
   assert.ok(
-    subtitle.includes(": captionText(subtitleJa[`${id}`]?.[key])"),
+    subtitle.includes('const jaLine = captionText(subtitleJa[`${id}`]?.[key])'),
     '日文兜底那支没过滤——中文是占位句时会退到日文占位句，等于原地踏步',
   )
   // kcwiki 那一支同样要过滤（它是 2026-08-25 接进来的第三个源）

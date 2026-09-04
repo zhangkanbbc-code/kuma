@@ -1224,13 +1224,13 @@ const blockedBossNightHtml = (s: SortieView, b: BattleView): string | null => {
     // （`s.active` 不在这里重复判：函数开头的守卫已经把非进行中的局面全挡掉了）
     const friendlyIncoming = isEventMapArea(s.mapArea) && mg.friendlyRequest?.flag === 1
     return `<div class="verdict v-warn"><span class="ic">夜</span><span class="tx">
-      <b>敌护卫仍有战力 · 夜战估算无法攻击 ${flagshipName}</b>
+      <b>敌护卫仍有战力 · 夜战预估无法攻击 ${flagshipName}</b>
       <span>${friendlyIncoming ? '已开启友军请求 · 友军先清理残余' : '夜战将消耗弹药'}</span>
     </span><span class="act">${friendlyIncoming ? '友军先行' : '撤退可用'}</span></div>`
   }
   // 打得到旗舰是斩杀决策的关键信息，不该只在「打不到」时才出声。
   return `<div class="verdict v-cyan"><span class="ic">夜</span><span class="tx">
-    <b>敌护卫已残破 · 夜战估算可攻击 ${flagshipName}</b>
+    <b>敌护卫已残破 · 夜战预估可攻击 ${flagshipName}</b>
     <span>夜战可攻击主力旗舰</span>
   </span><span class="act">夜战机会</span></div>`
 }
@@ -1469,7 +1469,7 @@ const outcomeBannerHtml = (s: SortieView): string => {
       ].filter(Boolean).join(' · ')
       return `<div class="verdict v-cyan"><span class="ic">演</span><span class="tx">
         <b>已读取 ${esc(opponent.name || '演习对手')} 的当前编成</b>
-        <span>${esc(context || `${opponent.ships.length} 舰`)} · 开战前估算见下</span>
+        <span>${esc(context || `${opponent.ships.length} 舰`)} · 开战前预估见下</span>
         </span><span class="act">选择对手</span></div>`
     }
     return headingBannerHtml(s)
@@ -1515,12 +1515,12 @@ const outcomeBannerHtml = (s: SortieView): string => {
   }
   if (isDamageOnlyBattle(b)) {
     return `<div class="verdict v-green"><span class="ic">☑</span><span class="tx">
-      <b>${esc(battleForecastLead(b))}预测 ${esc(predictedRank)}${p.sure ? '' : '（估算）'} · 我方损失 ${p.fGauge}%</b>
+      <b>${esc(battleForecastLead(b))}预测 ${esc(predictedRank)}${p.sure ? '' : '（预估）'} · 我方损失 ${p.fGauge}%</b>
     </span><span class="act">预测 ${esc(predictedRank)}</span></div>`
   }
   if (b.kind === 'airbattle') {
     return `<div class="verdict v-green"><span class="ic">☑</span><span class="tx">
-      <b>航空战预测 ${esc(predictedRank)}${p.sure ? '' : '（估算）'} · 敌方损失 ${p.eGauge}% · 我方损失 ${p.fGauge}%</b>
+      <b>航空战预测 ${esc(predictedRank)}${p.sure ? '' : '（预估）'} · 敌方损失 ${p.eGauge}% · 我方损失 ${p.fGauge}%</b>
     </span><span class="act">预测 ${esc(predictedRank)}</span></div>`
   }
   const sunkInfo = `${b.practice ? '击破判定' : '击沉'} ${p.eSunk}/${p.eCount}`
@@ -1553,13 +1553,13 @@ const outcomeBannerHtml = (s: SortieView): string => {
         })),
     )
     if (target === 'escort') {
-      return ` · 夜战估算与敌护卫交战（护卫剩余 ${escortRemain.length} 舰合计 HP ${escortRemain.reduce((acc, x) => acc + x.hpEnd, 0)}）`
+      return ` · 夜战预估与敌护卫交战（护卫剩余 ${escortRemain.length} 舰合计 HP ${escortRemain.reduce((acc, x) => acc + x.hpEnd, 0)}）`
     }
     const mainRemain = remain.filter((ship) => ship.fleet !== 'escort')
-    return ` · 敌护卫已残破 · 夜战估算与主力交战（主力剩余合计 HP ${mainRemain.reduce((acc, x) => acc + x.hpEnd, 0)}）`
+    return ` · 敌护卫已残破 · 夜战预估与主力交战（主力剩余合计 HP ${mainRemain.reduce((acc, x) => acc + x.hpEnd, 0)}）`
   })()
   return `<div class="verdict v-green"><span class="ic">☑</span><span class="tx">
-    <b>${esc(battleForecastLead(b))}预测 ${esc(predictedRank)}${p.sure ? '' : '（估算）'}${engagement ? ` · ${esc(engagement)}` : ''} · ${sunkInfo} · ${remainTxt}</b>
+    <b>${esc(battleForecastLead(b))}预测 ${esc(predictedRank)}${p.sure ? '' : '（预估）'}${engagement ? ` · ${esc(engagement)}` : ''} · ${sunkInfo} · ${remainTxt}</b>
     <span>敌方损失 ${p.eGauge}% · 我方损失 ${p.fGauge}%${nightHint}</span>
   </span><span class="act">预测 ${esc(predictedRank)}</span></div>`
 }
@@ -1905,7 +1905,7 @@ const hpNumsHtml = (view: ShipStageView): string => {
     ? ` class="hp-split" title="${esc(view.chain)}"`
     : ''
   const approx = view.mismatch
-    ? '<span class="hp-approx" title="中间阶段的数值为估算">≈</span>'
+    ? '<span class="hp-approx" title="中间阶段的数值为预估">≈</span>'
     : ''
   return `${approx}<span${tip}>${view.hp}/${view.hpMax}</span>${
     view.state ? `<span class="st9" style="color:${view.state[1]}">${view.state[0]}</span>` : ''
@@ -2228,7 +2228,7 @@ const resultStripHtml = (b: BattleView): string => {
     ? `${battleTypeLabel(b)} · 游戏结算`
     : p.sure
       ? `${battleTypeLabel(b)} · 已确定`
-      : `${battleForecastLead(b)}估算`
+      : `${battleForecastLead(b)}预估`
   const primaryMetric = damageOnly
     ? `<span class="rchip">我方损失 <b>${p.fGauge}%</b></span>`
     : aviationOnly
@@ -3202,7 +3202,7 @@ const previewEncounterCandidatesHtml = (
   if (!candidates.length && !fuzzy.length) {
     return {
       html: '<div class="prebattle-match-note">前三舰未匹配到已知编成</div>',
-      label: '前三舰估算',
+      label: '前三舰预估',
     }
   }
   const exactStatus = !candidates.length
@@ -3333,10 +3333,10 @@ const practiceOpponentPreviewHtml = (s: SortieView): string => {
         ${practiceExpMetricHtml(s, opponent)}
       </div>
       <div class="practice-preview-model-meta">
-        <b>${forecast.band.confidence}级区间估算</b>
+        <b>${forecast.band.confidence}级区间预估</b>
         <span>${esc(forecast.fleetLabel)} · 对手 ${forecast.resolvedShips}/${opponent.ships.length} 舰已解析</span>
       </div>
-      <div class="prebattle-model-rule">对手装备未公开 · 按通用配装估算</div>
+      <div class="prebattle-model-rule">对手装备未公开 · 按通用配装预估</div>
       <div class="prebattle-model-rule">航向加权：${esc(forecastEngagementText(
         forecast.band.engagements.length === 1 && forecast.band.engagements[0] === 'saiun',
       ))}</div>
@@ -3417,7 +3417,7 @@ const preBattleMechanicHtml = (
       : null
   if (foreignKind) {
     return `<div class="prebattle-model pending">
-      <b>暂无机制估算 · 当前点为${esc(foreignKind)}</b><span>敌编成与阵型候选见下方</span>
+      <b>暂无机制预估 · 当前点为${esc(foreignKind)}</b><span>敌编成与阵型候选见下方</span>
     </div>`
   }
   // 机制估算只吃精确档：模糊命中的各形态耐久/装备不同，拿猜的形态算出的
@@ -3450,7 +3450,7 @@ const preBattleMechanicHtml = (
         ? '前三舰仅模糊匹配 · 各形态耐久与装备不同'
         : '前三舰未命中完整候选'
     return `<div class="prebattle-model pending">
-      <b>暂无机制估算 · 敌编成未定</b><span>${reason}</span>
+      <b>暂无机制预估 · 敌编成未定</b><span>${reason}</span>
     </div>`
   }
   // 活动特效倍卡与陆航都只在当前这一点生效，所以在这里组装上下文：
@@ -3503,7 +3503,7 @@ const preBattleMechanicHtml = (
   const engagement = saiun ? '航向：彩云修正' : '航向：自然分布'
   const fleetLabel = forecastFleetLabelForDeck(s.deckId)
   const html = `<div class="prebattle-model">
-    <div class="prebattle-model-head"><b>机制估算</b><span>${band.candidates} 套完整候选 · ${band.confidence}级估算 · ${esc(fleetLabel)} · 我方 ${esc(friendlyFormation)} · ${engagement} · 制空 ${esc(air)}</span></div>
+    <div class="prebattle-model-head"><b>机制预估</b><span>${band.candidates} 套完整候选 · ${band.confidence}级预估 · ${esc(fleetLabel)} · 我方 ${esc(friendlyFormation)} · ${engagement} · 制空 ${esc(air)}</span></div>
     <div class="forecast-grid prebattle-grid mechanic">
       <div class="forecast-metric"><span>B+胜率</span><b>${modelRangeText(band.bPlus)}</b></div>
       <div class="forecast-metric"><span>S/A率</span><b>${modelRangeText(band.sa)}</b></div>

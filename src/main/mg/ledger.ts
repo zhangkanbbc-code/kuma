@@ -90,6 +90,8 @@ import type {
   FirstEncounterIndex,
   MapChronicleReport,
   MapClearFleetRow,
+  NodeDropIndex,
+  NodeDropReport,
   NodeHistoryIndexEntry,
   NodeHistoryReport,
   RouteStatsReport,
@@ -3660,6 +3662,41 @@ class Ledger {
     }
   }
 
+  queryNodeDropIndex = (limit = 300): NodeDropIndex => {
+    try {
+      const entries = (
+        this.db
+          .prepare(
+            `SELECT map, cell, COUNT(*) drops, COUNT(DISTINCT drop_mst) kinds, MAX(ts) lastTs
+             FROM encounters
+             WHERE drop_mst IS NOT NULL
+             GROUP BY map, cell
+             ORDER BY lastTs DESC
+             LIMIT ?`,
+          )
+          .all(Math.max(1, Math.min(600, limit | 0))) as any[]
+      ).map((row) => ({
+        map: Number(row.map),
+        cell: Number(row.cell),
+        drops: Number(row.drops),
+        kinds: Number(row.kinds),
+        lastTs: Number(row.lastTs),
+      }))
+      // 同一艘舰可能在多个点位掉落，种类不能把各点位的去重数相加。
+      const row = this.db
+        .prepare(
+          `SELECT COUNT(DISTINCT drop_mst) kinds
+           FROM encounters
+           WHERE drop_mst IS NOT NULL`,
+        )
+        .get() as any
+      return { kinds: Number(row.kinds), entries }
+    } catch (error) {
+      console.warn('[kanso] mg: node drop index query failed', error)
+      throw error
+    }
+  }
+
   queryNodeHistory = (map: number, cell: number, limit = 60): NodeHistoryReport => {
     try {
       const rows = this.db
@@ -3695,6 +3732,47 @@ class Ledger {
       }
     } catch (error) {
       console.warn('[kanso] mg: node history query failed', error)
+      throw error
+    }
+  }
+
+  queryNodeDrops = (map: number, cell: number, limit = 60): NodeDropReport => {
+    try {
+      const summary = this.db
+        .prepare(
+          `SELECT COUNT(*) battles, COALESCE(SUM(rank = 'S'), 0) sWins,
+                  COALESCE(SUM(drop_mst IS NOT NULL), 0) drops,
+                  COUNT(DISTINCT drop_mst) kinds
+           FROM encounters
+           WHERE map = ? AND cell = ?`,
+        )
+        .get(map, cell) as any
+      // 空掉落只进战数与 S 胜汇总，不进顺次掉落条目，否则会把没捞到也列成一次掉落。
+      const rows = this.db
+        .prepare(
+          `SELECT ts, is_boss isBoss, rank, drop_mst mstId
+           FROM encounters
+           WHERE map = ? AND cell = ? AND drop_mst IS NOT NULL
+           ORDER BY ts DESC
+           LIMIT ?`,
+        )
+        .all(map, cell, Math.max(1, Math.min(500, limit | 0))) as any[]
+      return {
+        map,
+        cell,
+        battles: Number(summary.battles),
+        sWins: Number(summary.sWins),
+        drops: Number(summary.drops),
+        kinds: Number(summary.kinds),
+        entries: rows.map((row) => ({
+          ts: Number(row.ts),
+          isBoss: row.isBoss === 1,
+          rank: row.rank == null ? null : `${row.rank}`,
+          mstId: Number(row.mstId),
+        })),
+      }
+    } catch (error) {
+      console.warn('[kanso] mg: node drops query failed', error)
       throw error
     }
   }

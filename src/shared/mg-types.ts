@@ -1179,6 +1179,36 @@ export interface NodeHistoryReport {
   entries: NodeHistoryEntry[]
 }
 
+export interface NodeDropIndexEntry {
+  map: number
+  cell: number
+  drops: number
+  kinds: number
+  lastTs: number
+}
+
+export interface NodeDropIndex {
+  kinds: number
+  entries: NodeDropIndexEntry[]
+}
+
+export interface NodeDropEntry {
+  ts: number
+  isBoss: boolean
+  rank: string | null
+  mstId: number
+}
+
+export interface NodeDropReport {
+  map: number
+  cell: number
+  battles: number
+  sWins: number
+  drops: number
+  kinds: number
+  entries: NodeDropEntry[]
+}
+
 /**
  * 「这张图的每个分歧点，我自己实际被带去过哪几次」。
  *

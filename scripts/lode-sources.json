@@ -246,6 +246,21 @@
     ]
   },
   {
+    "id": "kanso-voice-zh",
+    "name": "台词译文自补层（kuma 自行翻译）",
+    "source": "kuma 自行翻译；日文底本为随包 kcwiki-voice / kcwiki-seasonal-voice 的原文列",
+    "license": "kuma 自行整理（第一方译文）",
+    "licenseId": "第一方产物",
+    "bundle": true,
+    "selfFetch": false,
+    "parser": "voice-overlay",
+    "note": "补充上游缺失或照抄英文原文的中文译文",
+    "maintainerNote": [
+      "2026-09-04 用户裁定：有许可基座的过时缺口走第一方自补层；上游译文为空或照抄英文原文时，由 kuma 自行翻译补上，只叠缺译，不覆盖上游已有中文",
+      "2026-09-04 用户续裁：只翻原文本身是英文、译文栏照抄英文的行；原文是日文口癖或外来语、kcwiki 有意保留罗马字的行不动。由 npm run lodes:voice-overlay 从 scripts/voice-overlay-zh.json 与两份随包上游台词生成，零网络；上游补上中文即退役，ja 漂移则跳过并告警"
+    ]
+  },
+  {
     "id": "subtitle-zh",
     "name": "台词中文翻译（覆盖兜底）",
     "source": "poi-plugin-subtitle (kcwikizh)",
@@ -567,6 +582,24 @@
     "note": "活动开始与结束日期，来自官方公告",
     "maintainerNote": [
       "由 npm run lodes:event-lifecycle 从 scripts/map-intel-events.json 生成，零网络；结束日只在官方公告后填，活动结束改 status 为 ended 后重新生成"
+    ]
+  },
+  {
+    "id": "opencc-t2s",
+    "name": "繁简字表（OpenCC 派生）",
+    "source": "OpenCC 项目 data/dictionary/TSCharacters.txt + TSPhrases.txt",
+    "license": "Apache-2.0（OpenCC）",
+    "licenseId": "Apache-2.0",
+    "bundle": true,
+    "selfFetch": false,
+    "parser": "opencc-t2s",
+    "url": [
+      "https://raw.githubusercontent.com/BYVoid/OpenCC/master/data/dictionary/TSCharacters.txt",
+      "https://raw.githubusercontent.com/BYVoid/OpenCC/master/data/dictionary/TSPhrases.txt"
+    ],
+    "note": "玩家可见中文资料显示时使用的繁体转简体字词表",
+    "maintainerNote": [
+      "由 npm run lodes:opencc-t2s 独立生成；只取 TSCharacters.txt 与 TSPhrases.txt，每行多个候选时取第一个；第一方覆盖层见 scripts/lib/zh-simplify-overrides.mjs"
     ]
   },
   {

@@ -34,6 +34,7 @@ import { sortieJustEnded } from '../../shared/passive-refresh'
 import { MATERIAL_ICON_BY_INDEX, materialIconHtml, useItemIconHtml } from '../entity-art'
 import { elink, navigate, registerEntityRoute } from '../link'
 import { bilingualNameHtml, entityNameHtml, entityNamePlain, entityTermHtml, entityTermTrustedHtml } from '../localization'
+import { simplifyQuestScnData } from '../kcwiki-zh'
 import { activateModule, isModuleAvailable, registerModule } from '../mu'
 import { timedRun } from '../perf-guard'
 import { focusExpeditionsForResource } from './bi'
@@ -1268,7 +1269,7 @@ const refresh = async () => {
     loadError = null
     if (!senkaQuestNames && questLode?.data) {
       senkaQuestNames = new Map()
-      for (const [idStr, raw] of Object.entries<any>(questLode.data)) {
+      for (const [idStr, raw] of Object.entries<any>(simplifyQuestScnData(questLode.data))) {
         const id = parseInt(idStr, 10)
         if (id > 0) {
           senkaQuestNames.set(id, {

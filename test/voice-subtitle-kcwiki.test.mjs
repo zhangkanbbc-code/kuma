@@ -15,11 +15,15 @@
 // 这份护栏全部**真跑** shipCaption（切片编译，见 fixtures/render-ship-caption.mjs），
 // 不断言源码文本——查表顺序写反、补空写成覆盖，正则一条也拦不住。
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
 import test from 'node:test'
 
 import { captionOf, textOf } from './fixtures/render-ship-caption.mjs'
 
 const chain = (...ids) => new Map([[ids[0], ids]])
+const simplifierPack = JSON.parse(
+  fs.readFileSync(new URL('../assets/lodes/opencc-t2s.json', import.meta.url), 'utf8'),
+)
 
 // ---- ① 补空不覆盖 ----
 
@@ -34,6 +38,18 @@ test('同一格 subtitle 有值时，kcwiki 一个字都不许顶上去', () => 
     2,
   )
   assert.equal(text, '音轨转写的那一句', 'kcwiki 覆盖了音轨转写——文本权威反了')
+})
+
+test('subtitle 中文栏照抄英文时按日文原文取 overlay，已有中文仍然优先', () => {
+  const voiceOverlayZhByJa = new Map([['Openfire!', '开火！']])
+  const setup = {
+    voiceFallbackOf: chain(100),
+    subtitleJa: { 100: { 2: ' Open fire! ', 3: 'Open fire!' } },
+    subtitleZh: { 100: { 2: 'Open fire!', 3: '已有中文' } },
+    voiceOverlayZhByJa,
+  }
+  assert.equal(textOf(setup, 100, 2), '开火！')
+  assert.equal(textOf(setup, 100, 3), '已有中文')
 })
 
 test('subtitle 缺这一格时 kcwiki 补上', () => {
@@ -78,6 +94,24 @@ test('kcwiki 也是中文优先、日文兜底，且过标点体例归一', () =
   assert.equal(textOf(setup, 100, 2), '中文那句', 'kcwiki 的中文没过标点体例归一')
   // 只有日文时照出日文，且**不过**归一（原文转写不是我们的翻译）
   assert.equal(textOf(setup, 100, 3), '日本語だけ')
+})
+
+test('繁体中文显示为简体，日文原文含艦隊与戦闘也一字不动', () => {
+  const setup = {
+    simplifierPack,
+    voiceFallbackOf: chain(100),
+    kcwikiBySlot: new Map([
+      [
+        100,
+        new Map([
+          [2, { zh: '艦隊已經準備好了。', ja: '艦隊は戦闘準備ができた。' }],
+          [3, { zh: '', ja: '艦隊は戦闘準備ができた。' }],
+        ]),
+      ],
+    ]),
+  }
+  assert.equal(textOf(setup, 100, 2), '舰队已经准备好了')
+  assert.equal(textOf(setup, 100, 3), '艦隊は戦闘準備ができた。')
 })
 
 // ---- ② 小桶不许挡整页（这条是整批最容易写错的地方）----

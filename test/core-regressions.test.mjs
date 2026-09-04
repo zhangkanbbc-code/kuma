@@ -2011,11 +2011,11 @@ test('boss decision UI warns when surviving enemy escorts make the main flagship
   // test/enemy-night-target.test.mjs，这里只钉「确实接了那一份，没有回退成全灭判定」。
   assert.match(source, /const escortAlive = escort\.filter\(\(ship\) => ship\.hpEnd > 0/)
   assert.match(source, /enemyNightTargetOf\(/)
-  assert.match(source, /夜战估算无法攻击/)
+  assert.match(source, /夜战预估无法攻击/)
   assert.match(source, /夜战将消耗弹药/)
   assert.match(html, /\.mod-di \.verdict\.v-warn/)
   // 打得到旗舰那一面也要有话说，且用的是另一套配色
-  assert.match(source, /夜战估算可攻击/)
+  assert.match(source, /夜战预估可攻击/)
   assert.match(html, /\.mod-di \.verdict\.v-cyan/)
 })
 
@@ -3016,7 +3016,7 @@ test('practice, fatigue, and activity accounting expose their actual freshness a
   assert.match(fatigue, /FATIGUE_READY_COND = 30/)
   assert.match(fleet, /fatigueReadyTs\(ship\.id, FATIGUE_READY_COND\)/)
   assert.match(roster, /band === 'red'[\s\S]*?' bad'/)
-  assert.match(notify, /士气估算已恢复至 \$\{FATIGUE_READY_COND\}/)
+  assert.match(notify, /士气预估已恢复至 \$\{FATIGUE_READY_COND\}/)
   // 「下列各行只统计这一项」这句自我解说 2026-08-26 按族 7 删了。要守的事没变——
   // 分解仍只取当前那一种资源，改钉取数本身（比钉那句复述硬）＋卡名与净变化行的口径。
   assert.match(resources, /\.map\(\(d\) => \(\{ category: d\.category, value: d\.values\[breakdownRes\] \}\)\)/)
@@ -3696,7 +3696,10 @@ test('review node history remains independently browsable after the current sort
   assert.doesNotMatch(review, /if \(!paintNodeSelection\(\)\) render\(\)/)
   assert.match(review, /正在读取该点的长期记录/)
   assert.match(review, /const shownNodeMap = \(\): number =>/)
-  assert.match(review, /selectedNodeMap \?\? selectedNode\?\.map \?\? nodeIndex\[0\]\?\.map/)
+  assert.match(
+    review,
+    /selectedNodeMap \?\?[\s\S]{0,40}selectedNode\?\.map \?\?[\s\S]{0,80}\(nodeSub === 'drops' \? dropIndex\[0\]\?\.map : nodeIndex\[0\]\?\.map\)/,
+  )
   assert.match(review, /nodeSnapshotsBlock\(shownNodeMap\(\)\)/)
   assert.match(review, /data-shi-snapshots-title/)
   // 选中点位专属那块：整图那块必须留着，两块并排在底栏，且换点走补丁不整页重渲
@@ -5092,6 +5095,7 @@ test('game voice requests show Chinese-first UI captions and directional battle 
   assert.match(subtitle, /queryLode\('subtitle-enemies'\)/)
   assert.match(subtitle, /queryLode\('wikiwiki-voice'\)/)
   assert.match(subtitle, /queryLode\('wikiwiki-abyss-voice'\)/)
+  assert.match(subtitle, /queryLode\('opencc-t2s'\)/)
   assert.match(subtitle, /battle\?\.flavorVoices/)
   assert.match(subtitle, /ipcRenderer\.invoke\('mg:voice-unmatched'/)
   assert.match(abyssNames, /安齊奧沖棲姫: 'アンツィオ沖棲姫'/)
@@ -5102,7 +5106,11 @@ test('game voice requests show Chinese-first UI captions and directional battle 
   // 体例归一（行尾不写句号），日文回退**不过**（那是原文转写，不是我们的翻译）。
   // 判据盯的还是同一件事：拿得到既有中文就用中文，拿不到才用日文。
   assert.match(subtitle, /const reused = line \? voiceZhByJa\.get\(normalizeVoiceLine\(line\.ja\)\) : ''/)
-  assert.match(subtitle, /text = reused \? normalizeVoiceText\(reused\) : `\$\{line\?\.ja \?\? ''\}`/)
+  assert.match(
+    subtitle,
+    /text = reused \? simplifyZh\(normalizeVoiceText\(reused\)\) : `\$\{line\?\.ja \?\? ''\}`/,
+  )
+  assert.doesNotMatch(subtitle, /simplifyZh\(\s*`\$\{line\?\.ja/)
   assert.match(catalog, /queryLode\('wikiwiki-voice'\)/)
   assert.match(catalog, /queryLode\('wikiwiki-abyss-voice'\)/)
   // 深海字幕支仍旧拿**官方档名**当 key（能拼地址的只有这一组）。场合那一列
@@ -5140,7 +5148,8 @@ test('game voice requests show Chinese-first UI captions and directional battle 
   // 判据盯的仍是同一件事：「中文优先、缺了才回退日文」，两支都必须还在。
   // 2026-08-25 查表序列重构：形态在循环里就选定了，取文本改用循环变量 id
   assert.match(subtitle, /const zhLine = captionText\(subtitleZh\[`\$\{id\}`\]\?\.\[key\]\)/)
-  assert.match(subtitle, /: captionText\(subtitleJa\[`\$\{id\}`\]\?\.\[key\]\)/)
+  assert.match(subtitle, /const jaLine = captionText\(subtitleJa\[`\$\{id\}`\]\?\.\[key\]\)/)
+  assert.match(subtitle, /: jaLine/)
   assert.match(subtitle, /speaker\.textContent =/)
   assert.match(subtitle, /line\.textContent = text/)
   assert.match(subtitle, /item\.textContent = speaker \? `\$\{speaker\}：\$\{text\}` : text/)
@@ -5214,9 +5223,8 @@ test('ship banner thumbnails keep the subject in frame', () => {
   // 并切掉半张。78% 是「脸完整入框、左侧不进徽章也不进杂物」那一档，徽章右缘 x≈58。
   // 往回改成 right/100% 或往左越过 74%，这条就该红。
   assert.match(html, /\.ship-thumb img\s*\{[^}]*object-position:\s*78% center;[^}]*\}/)
-  // 三个特调档各有各的框宽，不跟着默认走，改默认时一字不动
+  // 两个特调档各有各的框宽，不跟着默认走，改默认时一字不动
   assert.match(html, /\.ship-thumb\.avatar img\s*\{[^}]*object-position:\s*68% center;[^}]*\}/)
-  assert.match(html, /\.ship-thumb\.plan img\s*\{[^}]*object-position:\s*75% center;[^}]*\}/)
   assert.match(
     html,
     /\.mod-shi \.factory-outcome \.ship-thumb\.factory img\s*\{[^}]*object-position:\s*68% center;[^}]*\}/,
@@ -5225,10 +5233,12 @@ test('ship banner thumbnails keep the subject in frame', () => {
   // 取景百分比与**框宽**是一对，不能只动一半：窗口左沿 = p × (240 − 窗宽)，
   // 窗宽 = 60 × 框宽 ÷ 框高，所以框一变宽，同一个 p 取到的就是另一段画面。
   // avatar 档 2026-09-01 由 36×28 / 22×22 放宽到 46×28 / 36×22，p 跟着 65%→68%
-  // （两处新框宽高比一致，窗口都落在原图 x≈96–195）。把三处框宽钉在这里，
+  // （两种新框宽高比一致，窗口都落在原图 x≈96–195）；远征在 09-04 跟进编队同款。
+  // 把四处框宽钉在这里，
   // 谁改了框宽而没回来重调上面那个 68%，这条就该红。
   assert.match(html, /\.fleet-skin \.fc \{[^}]*width: 46px; height: 28px;[^}]*\}/)
   assert.match(html, /\.fleet-skin \.fc \.ship-thumb\.avatar \{[^}]*width: 46px; height: 28px;/)
+  assert.match(html, /\.mod-bi \.pl-av \.ship-thumb\.avatar \{[^}]*width: 46px; height: 28px;/)
   assert.match(html, /\.mod-du \.op-owned-ship \.ship-thumb \{ width: 36px; height: 22px;/)
   assert.match(html, /\.mod-du \.op-friend-ship \.ship-thumb \{ width: 36px; height: 22px;/)
 
@@ -10457,7 +10467,7 @@ test('联合舰队夜战追击提示与 Boss 警告同走一份判别式', () =>
   // 2026-08-26 抬头换了：原来数「还剩几艘」，但艘数并不决定交战对象——
   // 判别式按损伤算分（shared/enemy-night-target），且它是暂定式、有例外观测，
   // 所以措辞降为「预计」。艘数不再出现在文案里，这里跟着钉新抬头。
-  assert.match(combat, /敌护卫仍有战力 · 夜战估算无法攻击 \$\{flagshipName\}/)
+  assert.match(combat, /敌护卫仍有战力 · 夜战预估无法攻击 \$\{flagshipName\}/)
 })
 
 test('三维端点换源：运行时只认第一方汇编包，wikiwiki-ship-max 退成维护者侧选票', () => {
@@ -11076,7 +11086,7 @@ test('出击面板战型名看 api_event_kind:夜战点不写「通常战」,昼
   assert.match(battle, /nodeEventName\(n\) : \(NODE_EVENT\[n\.eventId\] \?\? ''\)/)
   // 机制估算是昼战流程模型:夜战/航空战/空袭/雷达点明说不出数,不给误导性胜率;
   // 敌联合(kind 5)走模型自己的主力/护卫分段,不拦
-  assert.match(battle, /暂无机制估算 · 当前点为/)
+  assert.match(battle, /暂无机制预估 · 当前点为/)
   assert.match(battle, /arrivedNode\.eventKind !== 5/)
   assert.match(battle, /NODE_BATTLE_KIND\[arrivedNode\.eventKind\] \?\? null/)
 })
@@ -12747,7 +12757,7 @@ test('发布侧不挂出处署名与标尺声明，但口径与诚实标注一�
   // 「防连坐」这条纪律本身不放松：口径半句照钉，估算标注/空态/读数前提换成这批之后
   // 仍在的锚点继续钉。
   assert.match(battle, /判定来源：游戏结算/)
-  assert.match(battle, /p\.sure \? '' : '（估算）'/)
+  assert.match(battle, /p\.sure \? '' : '（预估）'/)
   assert.match(battle, /本地资料待更新/)
   assert.match(fleet, /到达扬陆点时大破的舰娘及其装备一律不计/)
   // 2026-08-26 文案清扫把中段自证（「游戏不下发战果数值，这里是按公式换算」）删了，
@@ -12899,6 +12909,6 @@ test('第三批：严谨说明只在折叠/悬停里，停更与新鲜度只在�
   assert.match(catalog, /加成表暂无本舰条目/) // 空态
   assert.match(battle, /记录已过期/) // 状态词
   assert.match(event, /<span class="mst lk">未同步<\/span>/) // 状态词
-  assert.match(quests, /部分条件无法核对 · 计数为估算/) // 估算标注（本来就在悬停里）
+  assert.match(quests, /部分条件无法核对 · 计数为预估/) // 估算标注（本来就在悬停里）
   assert.match(resource, /活动开始前暂无资源记录/) // 空态诚实语
 })

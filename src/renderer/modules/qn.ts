@@ -32,6 +32,11 @@ import { hideFilterMenu, showFilterMenu } from '../filter-menu'
 import type { FilterMenuSpec } from '../filter-menu'
 import { elink, elinkHtml, navigate, registerEntityRoute } from '../link'
 import { entityNameHtml, entityNamePlain, entityTermHtml, registerLocalizedName } from '../localization'
+import {
+  buildTaskExpeditionNameIndex,
+  normalizeExpeditionDispNo,
+} from '../expedition-name-index'
+import { buildTaskMapNameIndex } from '../map-name-index'
 import { furnitureIconHtml, materialIconHtml, shipThumbHtml, useItemIconHtml } from '../entity-art'
 import { equipTypeIconHtml } from '../equip-icon'
 import { activateModule, isCompactMode, registerCompactMode, registerModule } from '../mu'
@@ -43,9 +48,14 @@ import {
 import { isShipFamilyOwned } from '../ship-ownership'
 import { buildQuestAvailability } from '../../shared/quest-availability'
 import type { QuestVerdict } from '../../shared/quest-availability'
+import { buildExpeditionOverlap } from '../../shared/quest-expedition-overlap'
 import { mergeQuestPre } from '../../shared/quest-pre-merge'
 import type { MergedQuestPre, WwQuestPre } from '../../shared/quest-pre-merge'
 import { QUEST_PRE_ARBITRATION } from '../../shared/quest-pre-arbitration'
+import {
+  simplifyKcwikiShipsData,
+  simplifyQuestScnData,
+} from '../kcwiki-zh'
 import { questPreSourceNoteHtml } from '../quest-pre-note'
 import { KCWIKI_EQUIP_ALIAS, KCWIKI_ITEM_ALIAS } from '../../shared/kcwiki-upgrade'
 import { buildShipClassNameIndex } from '../../shared/ship-class-name'
@@ -968,7 +978,7 @@ const progressHtml = (row: QRow) => {
       : baseTip
     return `<span class="q-prog" title="${esc(tip)}">${bar}
       <span class="pt"><span>${paused ? '已保留' : precise.floored ? '下限校正' : '本地计数'}${
-        precise.approx ? '<span title="部分条件无法核对 · 计数为估算">≈</span>' : ''
+        precise.approx ? '<span title="部分条件无法核对 · 计数为预估">≈</span>' : ''
       }</span><span>${esc(precise.text)}</span></span></span>`
   }
   if (row.observed.state === 1) {
@@ -1011,7 +1021,7 @@ const rowHtml = (row: QRow) => {
     const precise = qpOf(row)
     tag =
       precise && precise.pct >= 100
-        ? '<span class="st-tag" style="color:var(--gold);border-color:#4a3f22" title="本地计数已完成 · 打开任务界面后由游戏确认">估算完成</span>'
+        ? '<span class="st-tag" style="color:var(--gold);border-color:#4a3f22" title="本地计数已完成 · 打开任务界面后由游戏确认">预估完成</span>'
         : '<span class="st-tag" style="color:var(--accent);border-color:#2a4a5e">进行中</span>'
   } else if (observed?.state === 1) {
     tag = qpOf(row)
@@ -1425,7 +1435,7 @@ const entityChipsHtml = (row: QRow) => {
 const expeditionDisplayName = (missionId: number): string => {
   const mission = mg.master.missions[missionId]
   const raw = mission?.name ?? `#${missionId}`
-  const dispNo = `${mission?.dispNo ?? ''}`.replace(/^0+(?=\d)/, '')
+  const dispNo = normalizeExpeditionDispNo(mission?.dispNo)
   return (dispNo ? entityNamePlain('expedition', dispNo, '') : '') ||
     entityNamePlain('expedition', missionId, raw)
 }
@@ -2104,6 +2114,34 @@ const questChainHtml = (row: QRow): string => {
   </section>`
 }
 
+const expeditionTogetherHtml = (row: QRow): string => {
+  if (!qp) return ''
+  const verdicts = questVerdicts()
+  const overlaps = buildExpeditionOverlap({
+    questId: row.id,
+    trackers: qp.trackers,
+    quests: [...lib.values()].map(({ id, code }) => ({ id, code })),
+    verdictOf: (id) => verdicts.get(id)?.status,
+    missionCodeOf: (missionId) =>
+      normalizeExpeditionDispNo(mg.master.missions[missionId]?.dispNo) || undefined,
+  })
+  if (!overlaps.length) return ''
+  // 共用远征的任务动辄十几条，展开比计数器还高，用户 09-04 拍板默认折叠。
+  return `<details class="q-section q-together">
+    <summary>可以顺手一起完成 · ${overlaps.length} 个任务</summary>
+    ${overlaps.map(({ questId, items }) => {
+      const quest = lib.get(questId)!
+      const itemHtml = items.map(({ missionId, count }) => {
+        if (missionId === 0) return `任意远征 ×${count}`
+        const dispNo = normalizeExpeditionDispNo(mg.master.missions[missionId]?.dispNo)
+        const label = dispNo ? `远征 ${dispNo}` : `远征#${missionId}`
+        return `${elink('expedition', missionId, label)} ×${count}`
+      }).join(' · ')
+      return `<div class="d-ent">${elink('quest', quest.id, quest.name)} · ${itemHtml}</div>`
+    }).join('')}
+  </details>`
+}
+
 const detailHtml = (row: QRow) => {
   const originalTitle = row.observed?.title?.trim() ?? ''
   const originalDetail = row.observed?.detail?.trim() ?? ''
@@ -2157,6 +2195,7 @@ const detailHtml = (row: QRow) => {
           : ''
       }
       ${counter}
+      ${expeditionTogetherHtml(row)}
       ${inferredNote}
       ${entityChipsHtml(row)}
       ${rewardSectionsHtml(row)}
@@ -2671,7 +2710,7 @@ const buildEntityIndexes = (
   // 那个启发式被 api_sortno 的历史怪癖坑了（雪風 sortno=5 而 陽炎=91，阳炎型显示成雪风级），
   // 140 个舰级里 53 个是错的。分类是基础设施，两个模块必须同一个出口，不许各参照各的。
   const trueClassName = buildShipClassNameIndex(
-    Object.values((kcwikiShipLode?.data ?? {}) as Record<string, ShipClassNameRow>),
+    Object.values(simplifyKcwikiShipsData(kcwikiShipLode?.data)) as ShipClassNameRow[],
     (mstId) => Number(shipById.get(mstId)?.api_ctype) || 0,
   )
   shipClassIndex = [...rootsByClass.entries()].map(([ctype, members]) => {
@@ -2740,16 +2779,12 @@ const buildEntityIndexes = (
       aliases,
     }
   })
-  mapNameIndex = (data.api_mst_mapinfo ?? []).map((map: any) => {
-    const code = `${map.api_maparea_id}-${map.api_no}`
-    const localized = entityNamePlain('map', map.api_id, map.api_name)
-    const nameSegments = [map.api_name, localized]
-      .flatMap((name) => `${name}`.split(/[／/]/))
-      .map((name) => name.trim())
-      .filter((name) => name.length >= 2)
-    const aliases = entityAliases('map', map.api_id, map.api_name, [code, ...nameSegments])
-    return { id: map.api_id, name: code, simple: normalizeEntityText(code), aliases }
-  })
+  mapNameIndex = buildTaskMapNameIndex(
+    data.api_mst_mapinfo,
+    data.api_mst_maparea,
+    (map) => entityNamePlain('map', map.api_id, map.api_name),
+    normalizeEntityText,
+  )
   mapIds = new Set(mapNameIndex.map((map) => map.id))
   equiptypeNames = new Map(
     (data.api_mst_slotitem_equiptype ?? []).map((t: any) => [t.api_id, t.api_name]),
@@ -2769,29 +2804,21 @@ const buildEntityIndexes = (
       aliases,
     }
   })
-  missionNameIndex = (data.api_mst_mission ?? []).map((mission: any) => {
-    const localized = expeditionLode?.data?.[`${mission.api_disp_no ?? ''}`]
-    if (localized?.nameZh) {
+  missionNameIndex = buildTaskExpeditionNameIndex(
+    data.api_mst_mission,
+    expeditionLode?.data,
+    (mission) => entityNamePlain('expedition', mission.api_id, mission.api_name),
+    (mission, nameZh) => {
       registerLocalizedName(
         'expedition',
         mission.api_id,
         mission.api_name,
-        localized.nameZh,
+        nameZh,
         'kcwiki-expedition',
       )
-    }
-    const aliases = entityAliases('expedition', mission.api_id, mission.api_name, [
-      `${mission.api_disp_no ?? ''}`,
-      `${localized?.nameJp ?? ''}`,
-      `${localized?.nameZh ?? ''}`,
-    ])
-    return {
-      id: mission.api_id,
-      name: localized?.nameZh ?? entityNamePlain('expedition', mission.api_id, mission.api_name),
-      simple: aliases[0] ?? normalizeEntityText(mission.api_name),
-      aliases,
-    }
-  })
+    },
+    normalizeEntityText,
+  )
   // 家具名：无中文矿脉，原名照排。任务库写法是简化转写（「掛け軸」→「挂け轴」），
   // 靠 JP2CN 两侧归并对齐；≥4 字才收——「椅子」这种短名在奖励文本里会乱撞。
   furnitureNameIndex = (data.api_mst_furniture ?? [])
@@ -2883,6 +2910,9 @@ registerModule({
       qp = await queryQp()
       quickCountEpoch += 1
       scnLode = await queryLode('quests-scn')
+      if (scnLode?.data) {
+        scnLode = { ...scnLode, data: simplifyQuestScnData(scnLode.data) }
+      }
       // wikiwiki 前提链（抓取时已 EO 公证对齐）：补 scn 缺口、修悬空码、标冲突
       const wwLode = await queryLode('wikiwiki-quests')
       const wwByCode = new Map<string, WwQuestPre>(

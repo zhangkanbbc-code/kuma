@@ -13,7 +13,7 @@ release/
 # 按项目纪律「可能构成侵权的一律换源，不随包分发」——
 # 克隆后自行 `npm run lodes:fetch` 生成（抓取清单见 scripts/lode-sources.json）。
 #
-# 例外是下面的反选块：数据本身所在的源有明确、允许再分发的许可（MIT / CC BY-NC-SA 3.0）
+# 例外是下面的反选块：数据本身所在的源有明确、允许再分发的许可（MIT / Apache-2.0 / CC BY-NC-SA 3.0）
 # 的那些包**入仓、随发行版分发**，省玩家一次抓取、也不给原站添负担。
 # 名单由 scripts/lib/bundled-lodes.mjs 从 lode-sources.json 的 bundle 标志算出，
 # 打包过滤与这里共用同一份——`npm run lodes:sync-ignore` 生成，测试跑 --check 挡漂移。
@@ -26,6 +26,7 @@ assets/lodes/*.json
 !assets/lodes/event-lifecycle.json
 !assets/lodes/event-plane-groups.json
 !assets/lodes/kanso-voice.json
+!assets/lodes/kanso-voice-zh.json
 !assets/lodes/kcwiki-bgm.json
 !assets/lodes/kcwiki-expedition.json
 !assets/lodes/kcwiki-fit-bonus.json
@@ -38,6 +39,7 @@ assets/lodes/*.json
 !assets/lodes/map-drop-windows.json
 !assets/lodes/map-drops.json
 !assets/lodes/map-enemy-comps.json
+!assets/lodes/opencc-t2s.json
 !assets/lodes/poi-fcd-map.json
 !assets/lodes/poi-quest-goal.json
 !assets/lodes/quests-scn.json

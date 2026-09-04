@@ -233,7 +233,12 @@ const localization = (() => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-l10n-'))
   const files = {
     'renderer/localization.ts': readSrc('renderer/localization.ts'),
+    'renderer/kcwiki-zh.ts': readSrc('renderer/kcwiki-zh.ts'),
+    'renderer/task-entity-match.ts': readSrc('renderer/task-entity-match.ts'),
+    'renderer/zh-simplify.ts': readSrc('renderer/zh-simplify.ts'),
     'shared/abyssal-label.ts': readSrc('shared/abyssal-label.ts'),
+    'shared/ship-nationality.ts': readSrc('shared/ship-nationality.ts'),
+    'shared/zh-simplify.ts': readSrc('shared/zh-simplify.ts'),
     // kernel 只给 localization 用到的两样：转义，以及矿脉包读取（指向仓库里的真包）
     'renderer/kernel.ts': [
       'export const esc = (value: unknown): string =>',
@@ -267,7 +272,7 @@ const localization = (() => {
 globalThis.document ??= { addEventListener: () => {} }
 globalThis.__lode = (id) => {
   const file = { 'kcwiki-localization': 'kcwiki-localization.json', 'quests-scn': 'quests-scn.json',
-    'kcwiki-expedition': 'kcwiki-expedition.json' }[id]
+    'kcwiki-expedition': 'kcwiki-expedition.json', 'opencc-t2s': 'opencc-t2s.json' }[id]
   return file ? lode(file) : null
 }
 

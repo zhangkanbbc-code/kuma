@@ -66,6 +66,21 @@ export const JP2CN: Record<string, string> = {
   掛: '挂', 軸: '轴', 団: '团', 記: '记', 餅: '饼', 鯨: '鲸',
 }
 
+let taskEntityFoldChars: Record<string, string> | null = null
+
+/**
+ * 给任务实体匹配安装 OpenCC TSCharacters 字表。
+ *
+ * 索引别名与任务正文必须走同一个 simplifyTaskEntityText，才能把同一名字归到
+ * 同一形；玩家报的 62-1 正是正文「南西诸岛近海」与日文别名
+ * 「南西諸島近海」只差一个没折叠的「諸」。这里只接 chars，不接 phrases：
+ * alignedTaskEntityText 要把命中坐标原样落回正文，归一过程必须保持逐字 1:1，
+ * 而 TSCharacters 已核为单字到单字，词表不保证这一点。
+ */
+export const installTaskEntityFold = (chars: Record<string, string> | null): void => {
+  taskEntityFoldChars = chars
+}
+
 /**
  * 任务正文里在用、而主数据与本地化包都给不出的中文通称。
  *
@@ -81,8 +96,13 @@ export const TASK_SHIP_TEXT_ALIASES: Record<number, string[]> = {
   978: ['吞武里改'],
 }
 
-export const simplifyTaskEntityText = (text: string) =>
-  text.replace(/./g, (character) => JP2CN[character] ?? character)
+export const simplifyTaskEntityText = (text: string) => {
+  const folded = text.replace(/./g, (character) => JP2CN[character] ?? character)
+  const chars = taskEntityFoldChars
+  return chars
+    ? folded.replace(/./g, (character) => chars[character] ?? character)
+    : folded
+}
 
 export const normalizeTaskEntityText = (text: string) =>
   simplifyTaskEntityText(`${text ?? ''}`.normalize('NFKC')).toLowerCase().replace(/\s+/g, '')

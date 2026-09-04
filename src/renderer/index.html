@@ -1935,7 +1935,6 @@
        窗口落在原图 x≈96–195：左边离徽章右缘（x≈58）还有近 40px，也过了 x≈80 那条
        「赤城的货架、翔鹤的烟囱开始抢镜」的线（见上面默认档那段）。 */
     .ship-thumb.avatar img { object-position: 68% center; }
-    .ship-thumb.plan img { object-position: 75% center; }
     .ship-thumb-fallback {
       display: none; width: 100%; height: 100%; place-items: center;
       color: var(--sub); font-family: var(--serif); font-size: 11px;
@@ -1951,7 +1950,6 @@
     .ship-thumb.avatar { width: 32px; height: 32px; border-radius: 50%; }
     .ship-thumb.table { width: 42px; height: 18px; margin-right: 7px; }
     .ship-thumb.battle { width: 38px; height: 18px; margin-right: 5px; }
-    .ship-thumb.plan { width: 28px; height: 28px; border-radius: 50%; }
     /* 预览横幅按官方 4:1 原比例自适应（2026-08-16 用户实锤定高 58px + cover
        只剩中段、头顶被裁）；窄容器里图小、宽容器里图大，都不裁画 */
     .ship-thumb.preview { width: 100%; height: auto; aspect-ratio: 4 / 1; margin-bottom: 10px; border-radius: 6px; }
@@ -5522,7 +5520,9 @@
     /* 列表行是 10.5px 的单行摘要，底纹在那个密度下会糊成一条彩带，只留字色 */
     .mod-qn .q-nm .plain .qh { padding: 0; background: none; }
     .mod-qn .q-original { margin-top: 8px; border-top: 1px solid var(--line-soft); padding-top: 6px; }
-    .mod-qn .q-original summary { color: var(--accent); cursor: pointer; font-size: 10px; }
+    .mod-qn .q-original summary, .mod-qn .q-together summary {
+      color: var(--accent); cursor: pointer; font-size: 10px;
+    }
     .mod-qn .q-original > b { display: block; margin-top: 6px; color: var(--dim); font-size: 11px; }
     .mod-qn .counter-paused {
       margin: 6px 0; padding: 5px 7px; border: 1px solid #70512f; border-radius: 5px;
@@ -5836,7 +5836,7 @@
       border-radius: 6px; font-size: 11px;
     }
     .mod-bi .pl-av {
-      flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--bg3);
+      flex: none; width: 46px; height: 28px; border-radius: 5px; background: var(--bg3);
       display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--sub);
     }
     .mod-bi .pl-prefs { display: flex; flex-direction: column; gap: 5px; margin-bottom: 7px; padding: 6px 8px; border: 1px solid var(--line-soft); border-radius: 6px; background: var(--bg0); color: var(--dim); font-size: 9.5px; }
@@ -5850,7 +5850,7 @@
     .mod-bi .pl-excluded button, .mod-bi .pl-exclude { border: 0; background: transparent; color: var(--dim); font: 9px var(--sans); cursor: pointer; }
     .mod-bi .pl-excluded button:hover, .mod-bi .pl-exclude:hover { color: var(--bad); }
     .mod-qn .rw.art { background: transparent; }
-    .mod-bi .pl-av .ship-thumb { border: 0; }
+    .mod-bi .pl-av .ship-thumb.avatar { width: 46px; height: 28px; border-radius: 5px; border: 0; }
     .mod-bi .pl-nm { font-weight: 600; }
     .mod-bi .pl-meta { color: var(--dim); font-size: 10.5px; }
     .mod-bi .pl-role {
@@ -6837,6 +6837,7 @@
     .mod-shi .shi-resource-chips button,
     .mod-shi .shi-node-maps button,
     .mod-shi .shi-item-filter button,
+    .mod-shi .shi-node-subs button,
     .mod-shi .shi-session-chips button {
       flex: none; border: 1px solid transparent; border-radius: 5px; background: transparent;
       color: var(--dim); cursor: pointer; transition: color var(--motion-fast) ease, background var(--motion-fast) ease, border-color var(--motion-fast) ease;
@@ -6847,6 +6848,7 @@
     .mod-shi .shi-resource-chips button:hover,
     .mod-shi .shi-node-maps button:hover,
     .mod-shi .shi-item-filter button:hover,
+    .mod-shi .shi-node-subs button:hover,
     .mod-shi .shi-session-chips button:hover { color: var(--sub); background: var(--bg2); }
     .mod-shi .shi-tabs button.on {
       color: var(--accent); border-color: var(--accent-dim); background: color-mix(in srgb, var(--accent-dim) 18%, transparent);
@@ -7138,6 +7140,7 @@
     .mod-shi .shi-node-maps button { padding: 3px 7px; font-size: 9px; }
     .mod-shi .shi-node-maps button.on,
     .mod-shi .shi-item-filter button.on,
+    .mod-shi .shi-node-subs button.on,
     .mod-shi .shi-session-chips button.on {
       color: var(--accent); border-color: var(--accent-dim);
       background: color-mix(in srgb, var(--accent-dim) 18%, transparent);
@@ -7150,9 +7153,11 @@
       cursor: pointer; padding: 5px 8px; color: var(--sub); font-size: 9.5px; font-weight: 600;
     }
     .mod-shi .shi-map-group > summary:hover { background: var(--bg2); }
+    .mod-shi .shi-node-subs,
     .mod-shi .shi-session-chips {
       display: flex; flex-wrap: wrap; gap: 2px; margin: 0 0 8px;
     }
+    .mod-shi .shi-node-subs button,
     .mod-shi .shi-session-chips button { padding: 3px 7px; font-size: 9px; }
     .mod-shi .shi-item-filter { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px; }
     .mod-shi .shi-item-filter button { padding: 3px 7px; font-size: 9px; }
@@ -7301,6 +7306,7 @@
     .mod-shi .shi-nodes > .shi-view-head,
     .mod-shi .shi-nodes > .shi-kpis,
     .mod-shi .shi-nodes > .shi-node-maps { flex: none; }
+    .mod-shi .shi-nodes > .shi-node-subs { flex: none; margin: 0; }
     .mod-shi .shi-nodes > .shi-kpis,
     .mod-shi .shi-nodes > .shi-node-maps,
     .mod-shi .shi-nodes > .shi-mapgraph-card,
@@ -7320,6 +7326,7 @@
       flex: 1; min-height: 0; height: auto; max-height: none;
     }
     /* 底部一行两块：左边整图快照照旧，右边是选中点位专属那块（没选点时挂 hidden 收起来） */
+    .mod-shi .shi-nodes > .shi-nodes-foot[hidden] { display: none; }
     .mod-shi .shi-nodes > .shi-nodes-foot {
       flex: 0 1 180px; min-width: 0; min-height: 120px; max-height: 200px;
       display: flex; gap: 8px;

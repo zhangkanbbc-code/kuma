@@ -110,7 +110,7 @@ test('活动图 + 要請已开：副行改说友军，角标换成「友军先�
   assert.match(html, new RegExp(NEW_LINE))
   assert.match(html, /友军先行<\/span>/)
   // 标题一律不动：改的是副行与角标
-  assert.match(html, /敌护卫仍有战力 · 夜战估算无法攻击 戦艦棲姫/)
+  assert.match(html, /敌护卫仍有战力 · 夜战预估无法攻击 戦艦棲姫/)
   assert.equal(/夜战将消耗弹药/.test(html), false)
   assert.equal(/撤退可用/.test(html), false)
 })
@@ -154,7 +154,7 @@ test('判别式判「打得到旗舰」时不受要請影响：那一支本来�
     })),
   )
   const html = renderBlockedBossNight(s)
-  assert.match(html, /敌护卫已残破 · 夜战估算可攻击 戦艦棲姫/)
+  assert.match(html, /敌护卫已残破 · 夜战预估可攻击 戦艦棲姫/)
   assert.match(html, /夜战机会<\/span>/)
   assert.equal(html.includes(NEW_LINE), false)
 })

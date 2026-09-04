@@ -3,11 +3,13 @@ import {
   initUiZoom,
   queryBattleRun,
   queryBattleSnapshot,
+  queryLode,
   queryMasterRaw,
 } from './kernel'
 import { installEquipIconFallback } from './equip-icon'
 import { installEntityArtFallback } from './entity-art'
 import { initLocalization } from './localization'
+import { installZhSimplifier } from './zh-simplify'
 import { setAllowRemoteArt, setGameHost, setShipImageGraph } from './kcs-image'
 import {
   battleReplayPlaceText,
@@ -126,6 +128,8 @@ const start = async () => {
   installEquipIconFallback()
   installEntityArtFallback()
   await initKernel()
+  const opencc = await queryLode('opencc-t2s')
+  installZhSimplifier(opencc)
   await Promise.all([
     initLocalization().catch((error) => console.warn('[kanso] 译名表读取失败', error)),
     queryMasterRaw()

@@ -45,7 +45,7 @@ test('一支工作舰旗舰都没有时，只说状态，不解释机制', () =>
   // 空态只说状态：不许顺手把「泊地修理是什么」在这儿讲一遍
   assert.ok(!html.includes('20 分'), '空态在解释机制')
   assert.ok(!html.includes('入渠'), '空态在解释机制')
-  assert.ok(!html.includes('估算'))
+  assert.ok(!html.includes('预估'))
   assert.ok(!/。/.test(html), '空态里出现了句号')
 })
 
@@ -128,26 +128,26 @@ test('四种处境各挂各的短标，没有长句', () => {
 
 // ---- ④ 20 分钟前后 ----
 
-test('不满 20 分钟：报还差几分 + 一根预热条，一个估算都不出现', () => {
+test('不满 20 分钟：报还差几分 + 一根预热条，一个预估都不出现', () => {
   reset({ fleets: [akashiFleet({ facilities: 1, since: ago(8), followers: [HURT_A_BIT] })] })
   const html = renderBerth()
   assert.match(html, /缺 12 分/)
   assert.match(html, /class="bt-bar"/)
   assert.ok(!html.includes('停泊'))
-  assert.ok(!html.includes('估算'), '预热期不许报估算')
+  assert.ok(!html.includes('预估'), '预热期不许报预估')
   assert.ok(!/\+\d/.test(html), '预热期不许报回复量')
 })
 
-test('过了 20 分钟：报停泊多少分，估算带「估算」二字', () => {
+test('过了 20 分钟：报停泊多少分，预估带「预估」二字', () => {
   reset({ fleets: [akashiFleet({ facilities: 1, since: ago(22), followers: [HURT_A_BIT] })] })
   const html = renderBerth()
   assert.match(html, /停泊 22 分/)
   // 缺 2 点、入渠 22 分 → 每点 11 分 → 22 分回 2 点
-  assert.match(html, /<b>\+2<\/b><em>估算<\/em>/)
+  assert.match(html, /<b>\+2<\/b><em>预估<\/em>/)
   assert.ok(!html.includes('还差'))
 })
 
-test('估算只给真在修的那几艘：满血、中破、入渠、范围外都不给', () => {
+test('预估只给真在修的那几艘：满血、中破、入渠、范围外都不给', () => {
   reset({
     fleets: [akashiFleet({
       facilities: 0, // 只覆盖到 2 号位
@@ -159,7 +159,7 @@ test('估算只给真在修的那几艘：满血、中破、入渠、范围外�
     })],
   })
   const html = renderBerth()
-  assert.ok(!html.includes('估算'), '没有一艘该拿到估算')
+  assert.ok(!html.includes('预估'), '没有一艘该拿到预估')
 })
 
 test('没有锚点就什么都不报，不拿开机时刻顶替', () => {
@@ -169,12 +169,12 @@ test('没有锚点就什么都不报，不拿开机时刻顶替', () => {
   assert.match(html, /计时未知/)
   assert.ok(!html.includes('停泊'))
   assert.ok(!html.includes('还差'))
-  assert.ok(!html.includes('估算'))
+  assert.ok(!html.includes('预估'))
 })
 
 // ---- ⑤ 整队停摆 ----
 
-test('远征中只说远征中，不报计时也不报估算', () => {
+test('远征中只说远征中，不报计时也不报预估', () => {
   reset({
     fleets: [akashiFleet({
       facilities: 1,
@@ -186,7 +186,7 @@ test('远征中只说远征中，不报计时也不报估算', () => {
   const html = renderBerth()
   assert.match(html, /远征中/)
   assert.ok(!html.includes('停泊'))
-  assert.ok(!html.includes('估算'))
+  assert.ok(!html.includes('预估'))
 })
 
 test('旗舰中破 / 旗舰在渠：停摆态各说各的，队照样列出来', () => {
@@ -202,7 +202,7 @@ test('旗舰中破 / 旗舰在渠：停摆态各说各的，队照样列出来',
   })
   let html = renderBerth()
   assert.match(html, /旗舰中破/)
-  assert.ok(!html.includes('估算'), '旗舰中破时整队不执行修理')
+  assert.ok(!html.includes('预估'), '旗舰中破时整队不执行修理')
   // 队还在，不能因为停摆就把整块藏起来
   assert.match(html, /明石改/)
 
@@ -212,7 +212,7 @@ test('旗舰中破 / 旗舰在渠：停摆态各说各的，队照样列出来',
   })
   html = renderBerth()
   assert.match(html, /旗舰在渠/)
-  assert.ok(!html.includes('估算'))
+  assert.ok(!html.includes('预估'))
 })
 
 // ---- ⑥ 页签落位 ----
@@ -292,7 +292,7 @@ test('这一页的样式真在样式表里', () => {
 
 // ---- ⑧ 明石队自己出海（2026-08-26 用户指出的缺口）----
 
-test('出击中的明石队：计时格改报出击中、估算暂停；计时本身不清零，演习与别队出击不受影响', () => {
+test('出击中的明石队：计时格改报出击中、预估暂停；计时本身不清零，演习与别队出击不受影响', () => {
   const fleet = () => akashiFleet({ facilities: 1, since: ago(30), followers: [HURT_A_BIT] })
   reset({
     fleets: [fleet()],
@@ -301,7 +301,7 @@ test('出击中的明石队：计时格改报出击中、估算暂停；计时�
   const body = renderBerth()
   assert.match(body, /出击中/)
   assert.ok(!body.includes('停泊'), '出海时不许摆停泊分钟数')
-  assert.ok(!body.includes('估算'), '出海时账面 HP 是旧值，估算必须暂停')
+  assert.ok(!body.includes('预估'), '出海时账面 HP 是旧值，预估必须暂停')
 
   // 演习没出海：照常计时
   reset({

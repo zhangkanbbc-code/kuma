@@ -61,6 +61,16 @@ Copyright (c) 2015-2021 poi contributors）的下列文件。移植文件均在�
 （打包过滤与 `.gitignore` 共用同一份，见 `scripts/lib/bundled-lodes.mjs`）。
 其余资料一律不随包——它们的上游没有给出可再分发的授权
 
+### OpenCC — Apache License 2.0
+
+| kuma 文件 | OpenCC 来源 |
+|---|---|
+| `assets/lodes/opencc-t2s.json` | [OpenCC `data/dictionary`](https://github.com/BYVoid/OpenCC/tree/master/data/dictionary) 的 `TSCharacters.txt`、`TSPhrases.txt` |
+
+该文件只取 OpenCC 的繁体转简体字表与词表，按
+[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0) 使用；转换在显示期本地完成，运行时零联网
+另含 kuma 第一方补充的少量字词（妳→你、助词 著→着 等），清单在仓库 scripts/lib/zh-simplify-overrides.mjs
+
 ### 舰娘百科 zh.kcwiki.cn — CC BY-NC-SA 3.0
 
 下列数据取自**舰娘百科（zh.kcwiki.cn）及其编辑者**，按
@@ -131,6 +141,7 @@ Copyright (c) 2015-2021 poi contributors）的下列文件。移植文件均在�
 |---|---|
 | `assets/lodes/map-drop-windows.json` | 常规海域限定期台账：哪张图哪个点从哪天起掉哪条船、那一批是什么名义、现在还开着没有 |
 | `assets/lodes/kanso-voice.json` | 台词自补层：上游两家都没收录的舰娘形态，其台词的**中文译文**，外加对应的日文原文列 |
+| `assets/lodes/kanso-voice-zh.json` | 台词译文自补层：上游已有行但中文栏为空或照抄英文原文时叠上的**中文译文**，外加对应的上游日文原文 |
 | `src/shared/fit-bonus-corrections.ts` | 装备加成的修正台账：随包 kcwiki 底表某几行的数与日文一手对不上时，加载时叠一层补正 |
 | `src/shared/fit-bonus-supplement.ts` | 装备加成的自补层：随包底表整件没收的装备（mstId 566–588），按日文一手转写成第一方条目 |
 | `scripts/lib/fit-bonus-conflicts.mjs` | 装备加成的冲突台账：两份独立整理在同一格给了不同的数，逐条记下裁给谁 |
@@ -171,6 +182,10 @@ Copyright (c) 2015-2021 poi contributors）的下列文件。移植文件均在�
 这一列与随发行版早就带着的 `kcwiki-voice` 日文列、整份 `subtitle-ja` 同源同性质，
 单独把它挡在外面并不会让分发物更干净，只会让台词卷变成半张对照表。
 上游确实没有转写日文的行照实留空，不据中文回译
+
+`kanso-voice-zh.json` 只补两份随包上游台词里仍缺译的行：中文栏为空，或原文本身是英文、
+中文栏照抄英文原文。上游已有中文时一律不覆盖；上游补上中文后该条进入可删清单，
+上游日文原文变化时也不会把旧译文硬贴上去。原文是日文口癖或外来语、上游有意保留罗马字的行不动
 
 kuma 运行时不连接该站；台账里的数是维护者只读核对后手工转写的，抓取脚本在 `scripts/`
 

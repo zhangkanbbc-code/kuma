@@ -19,6 +19,7 @@ export type ReviewQuery =
   | 'materials'
   | 'battles'
   | 'nodes'
+  | 'nodeDrops'
   | 'events'
   | 'factory'
   | 'useitems'
@@ -33,7 +34,7 @@ const REVIEW_QUERIES: Record<ReviewView, readonly ReviewQuery[]> = {
   resources: ['materials'],
   factory: ['factory'],
   practice: ['battles'],
-  nodes: ['battles', 'nodes', 'master', 'map'],
+  nodes: ['battles', 'nodes', 'nodeDrops', 'master', 'map'],
   events: ['events', 'master'],
   items: ['useitems', 'itemChanges', 'actions', 'master', 'payLog'],
 }

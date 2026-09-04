@@ -83,7 +83,7 @@ test('空值与非字符串一律给空串，不抛', () => {
   assert.equal(normalizeVoiceText(undefined), '')
 })
 
-// ---- 两份入仓的包必须已经合体例（缺包时跳过；test:lodes 会把它们列成必备） ----
+// ---- 三份入仓的包必须已经合体例（缺包时跳过；test:lodes 会把它们列成必备） ----
 
 const readLode = (id) => {
   const file = new URL(`../assets/lodes/${id}.json`, import.meta.url)
@@ -107,6 +107,22 @@ test('自译包的每一行译文都已合体例', (t) => {
     [],
     `${bad.length} 行不合标点体例。跑 \`node scripts/voice-normalize-packs.mjs\` 就地改写`,
   )
+})
+
+test('译文 overlay 包的每一行译文都已合体例', (t) => {
+  const pack = readLode('kanso-voice-zh')
+  if (!pack) {
+    t.skip('缺 kanso-voice-zh，跳过')
+    return
+  }
+  const bad = []
+  for (const [key, row] of Object.entries(pack.data.entries ?? {})) {
+    if (!isVoiceTextNormalized(row.zh)) bad.push(key)
+  }
+  for (const [index, row] of (pack.data.byJa ?? []).entries()) {
+    if (!isVoiceTextNormalized(row.zh)) bad.push(`byJa[${index}]`)
+  }
+  assert.deepEqual(bad.slice(0, 8), [], `${bad.length} 行不合标点体例`)
 })
 
 test('季节台词包的每一行译文都已合体例（它会被整份重抓，所以抓取器落盘前就得治）', (t) => {
@@ -141,9 +157,11 @@ test('显示面两处都过同一份归一：图鉴台词卷与实时字幕浮�
   const catalog = read('../src/renderer/modules/ji.ts')
   const subtitle = read('../src/renderer/voice-subtitle.ts')
   // 图鉴：常规台词行与季节台词行各一处
-  assert.match(catalog, /const zhText = normalizeVoiceText\(zh\)/)
-  assert.match(catalog, /const seasonZh = normalizeVoiceText\(line\.zh\)/)
+  assert.match(catalog, /const zhText = simplifyZh\(normalizeVoiceText\(zh\)\)/)
+  assert.match(catalog, /const seasonZh = simplifyZh\(normalizeVoiceText\(line\.zh\)\)/)
   // 实时字幕：中文那一支过归一，日文回退不动（那是原文转写，不是我们的翻译）
-  assert.match(subtitle, /text = zhLine\s*\n?\s*\? normalizeVoiceText\(zhLine\)/)
+  assert.match(subtitle, /const overlayZh = isUntranslatedVoiceText\(zhLine\)/)
+  assert.match(subtitle, /text = overlayZh[\s\S]*?simplifyZh\(normalizeVoiceText\(overlayZh\)\)/)
+  assert.match(subtitle, /: zhLine\s*\n?\s*\? simplifyZh\(normalizeVoiceText\(zhLine\)\)/)
   assert.doesNotMatch(subtitle, /normalizeVoiceText\(\s*`\$\{subtitleJa/, '日文回退被误过归一了')
 })

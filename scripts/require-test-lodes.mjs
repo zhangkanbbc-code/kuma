@@ -37,6 +37,7 @@ const required = [
   'subtitle-zh',
   'kcwiki-ships',
   'kanso-voice',
+  'kanso-voice-zh',
   'wikiwiki-voice', // 审稿单的日文底本（本机有、不随包）
   // 深海行号 → 场合名那张对照表的**唯一独立取证源**（本机有、不随包）。
   // 缺了 abyss-voice-archive 里那条「行号首位就是場合号」的对撞会整条跳过，

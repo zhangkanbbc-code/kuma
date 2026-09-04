@@ -33,7 +33,7 @@ test('史的每个视图只声明渲染实际读到的账本表', () => {
   assert.deepEqual(reviewQueriesFor('resources'), ['materials'])
   assert.deepEqual(reviewQueriesFor('factory'), ['factory'])
   assert.deepEqual(reviewQueriesFor('practice'), ['battles'])
-  assert.deepEqual(reviewQueriesFor('nodes'), ['battles', 'nodes', 'master', 'map'])
+  assert.deepEqual(reviewQueriesFor('nodes'), ['battles', 'nodes', 'nodeDrops', 'master', 'map'])
   assert.deepEqual(reviewQueriesFor('events'), ['events', 'master'])
   assert.deepEqual(reviewQueriesFor('items'), [
     'useitems',
@@ -47,7 +47,7 @@ test('史的每个视图只声明渲染实际读到的账本表', () => {
 test('切到新视图会补查缺表，已经取到的表不重复取', () => {
   assert.deepEqual(
     missingReviewQueries('nodes', ['battles', 'master']),
-    ['nodes', 'map'],
+    ['nodes', 'nodeDrops', 'map'],
   )
   assert.deepEqual(
     missingReviewQueries('items', ['useitems', 'itemChanges', 'actions', 'master', 'payLog']),
@@ -139,8 +139,8 @@ test('史按当前视图发查询，切页只把缺表交给 450ms 补查', () =
   assert.match(refresh, /new Set\(requestedQueries \?\? reviewQueriesFor\(activeView\)\)/)
   assert.equal(
     (refresh.match(/wanted\.has\('/g) ?? []).length,
-    11,
-    '11 个查询入口必须逐一受当前视图计划约束',
+    12,
+    '12 个查询入口必须逐一受当前视图计划约束',
   )
   assert.match(refresh, /for \(const query of wanted\) loadedReviewQueries\.add\(query\)/)
 

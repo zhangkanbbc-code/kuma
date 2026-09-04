@@ -102,6 +102,7 @@ import { resolveUseitemStock } from '../../shared/useitem-stock'
 import { shipArtDamaged } from '../../shared/ship-art-path'
 import { elink, elinkHtml, navigate, registerEntityRoute } from '../link'
 import { entityNameHtml, entityNamePlain, entityTermHtml } from '../localization'
+import { simplifyKcwikiShipsData } from '../kcwiki-zh'
 import { activateModule, registerModule } from '../mu'
 import { initMapIntel } from '../map-intel'
 import { eventGuideUrlOf } from '../../shared/event-guide'
@@ -299,7 +300,7 @@ const condHtml = (ship: PlayerShip) => {
   const star = ship.cond >= 50 ? '<span class="s">✦</span>' : ''
   const observed = observedCond(ship.id)
   const title = ship.cond < FATIGUE_READY_COND
-    ? `游戏最近记录的士气 ${ship.cond}${observed ? ` · ${fmtTime(observed.ts)}` : ''} · 估算 ${estimated}${
+    ? `游戏最近记录的士气 ${ship.cond}${observed ? ` · ${fmtTime(observed.ts)}` : ''} · 预估 ${estimated}${
         ready ? `；预计 ${fmtTime(ready)} 恢复至 ${FATIGUE_READY_COND}` : ''
       }`
     : `游戏记录的士气 ${ship.cond}`
@@ -2482,7 +2483,7 @@ const berthFleetHtml = (deck: Deck, flag: PlayerShip, now: number): string => {
         <span class="bt-name">${entityTermHtml('ship', ship.shipId, entityNamePlain('ship', ship.shipId, name))}</span>
         ${berthHpHtml(ship, docked)}
         ${inRange ? `<span class="bt-tag s-${state}">${BERTH_STATE_LABEL[state]}</span>` : '<span class="bt-tag out">范围外</span>'}
-        <span class="bt-gain">${gain > 0 ? `<b>+${gain}</b><em>估算</em>` : ''}</span>
+        <span class="bt-gain">${gain > 0 ? `<b>+${gain}</b><em>预估</em>` : ''}</span>
       </div>`
     })
     .join('')
@@ -3035,7 +3036,7 @@ const loadKcwikiShips = () => {
       loadFailed.delete('kcwiki')
       if (!lode?.data) return
       kcwikiByMst = new Map()
-      for (const entry of Object.values<any>(lode.data)) {
+      for (const entry of Object.values<any>(simplifyKcwikiShipsData(lode.data))) {
         if (entry?.ID) kcwikiByMst.set(entry.ID, entry)
       }
       deferPassive(pane, 'ru', render)
@@ -3148,7 +3149,7 @@ const render = (force = false) => {
         ${airBaseActive || sandboxActive || berthActive ? '' : deckIoHtml(deck)}
         <div class="foot"><span>${
           // 泊地修理排在前面判：它与沙盘互斥，这样写让沙盘那一句保持原样
-          berthActive ? '本地推算' : sandboxActive ? '本地推演' : '与游戏状态实时同步'
+          berthActive ? '本地预估' : sandboxActive ? '本地推演' : '与游戏状态实时同步'
         }${loadFailHtml()}</span><span style="margin-left:auto">${
           airBaseActive
             ? '陆航数据在游戏打开出击海域选择页后更新'

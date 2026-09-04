@@ -2237,7 +2237,7 @@ const requestedSources = only
     )
 if (only && !requestedSources.length) throw new Error(`未知矿脉包：${only}`)
 const selectedSources = requestedSources.filter(
-  (source) => Boolean(source.url) || source.selfFetch === true,
+  (source) => source.selfFetch !== false && (Boolean(source.url) || source.selfFetch === true),
 )
 if (only && !selectedSources.length) {
   throw new Error(`${only} 由独立生成器维护，不走 lodes:fetch`)

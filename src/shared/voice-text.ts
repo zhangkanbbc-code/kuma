@@ -31,6 +31,17 @@ const TRAILING_DECOR = '」』】》〕］｝）\\)\\]♪♥☆★'
 
 const ELLIPSIS_THEN_PERIOD = /([…‥]+)[ \t]*。+/g
 const TRAILING_PERIOD = new RegExp(`。+([${TRAILING_DECOR}\\s]*)$`)
+const CJK_CHARACTER = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u
+const LATIN_LETTER = /\p{Script=Latin}/u
+
+/**
+ * 中文译文栏是否仍是缺译：空白，或只有拉丁字母而没有中日韩文字。
+ * 「……」「♪」这类没有字母的合法译文不算缺译。
+ */
+export const isUntranslatedVoiceText = (value: unknown): boolean => {
+  const compact = `${value ?? ''}`.replace(/\s+/gu, '')
+  return !compact || (!CJK_CHARACTER.test(compact) && LATIN_LETTER.test(compact))
+}
 
 /** 这一行是不是已经合体例（`normalizeVoiceText` 的不动点）。护栏与对账用。 */
 export const isVoiceTextNormalized = (value: unknown): boolean =>

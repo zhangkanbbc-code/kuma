@@ -12,6 +12,29 @@ import test from 'node:test'
 
 import { mountLgToast } from './fixtures/render-lg-toast.mjs'
 
+test('强化成功弹卡:点卡面只关闭,不跳转', () => {
+  const lg = mountLgToast()
+  lg.mg.master.ships[601] = { name: '叢雲' }
+  lg.showPowerup({ ts: 1, rosterId: 3813, mstId: 601, stats: [] })
+  assert.equal(lg.toasts().length, 1, '强化成功弹卡没造出来')
+
+  lg.click(lg.toast().querySelector('.tx b'))
+  assert.deepEqual(lg.navigateCalls(), [], '点强化成功卡面竟然跳到了舰娘')
+  assert.equal(lg.toasts().length, 0, '点了强化成功卡面却没关掉')
+})
+
+test('强化成功弹卡:只有「→ 查看这艘舰」跳转,且只关闭一次', () => {
+  const lg = mountLgToast()
+  lg.mg.master.ships[601] = { name: '叢雲' }
+  lg.showPowerup({ ts: 1, rosterId: 3813, mstId: 601, stats: [] })
+  const card = lg.toast()
+
+  lg.click(card.querySelector('.tx .act'))
+  assert.deepEqual(lg.navigateCalls(), [{ type: 'ship', id: 3813 }], '点查看入口没跳到这艘舰')
+  assert.equal(lg.toasts().length, 0, '跳转之后强化成功弹卡该跟着关掉')
+  assert.equal(card.removeCalls, 1, '查看入口没拦住冒泡，卡面监听器又关闭了一次')
+})
+
 test('弹卡:点卡面只关闭,不跳转', () => {
   const lg = mountLgToast()
   lg.show('第1舰队有中破', '旗舰中破，出击前先看一眼', 1, false)

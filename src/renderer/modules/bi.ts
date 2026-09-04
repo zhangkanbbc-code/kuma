@@ -39,6 +39,7 @@ import {
   entityTermHtml,
   localizedEntityId,
 } from '../localization'
+import { simplifyKcwikiExpeditionData } from '../kcwiki-zh'
 import { materialIconHtml, shipThumbHtml, useItemIconHtml } from '../entity-art'
 import { activateModule, isCompactMode, registerCompactMode, registerModule } from '../mu'
 import { matchSlots } from '../../shared/slot-matching'
@@ -960,8 +961,9 @@ const planCardHtml = (e: Exped): string => {
       // 同一行里舰名与舰种都要过译名表，别让一格中文一格日文混排
       const stype = stypeOf(p.ship)
       const type = mg.master.stypes[stype] ? entityNamePlain('shipType', stype, mg.master.stypes[stype]) : '?'
+      // 2026-09-04 用户裁定远征方案跟编队同款；46×28 的取景依据见 index.html 编队注释。
       return `<div class="pl-row">
-        <span class="pl-av">${shipThumbHtml(p.ship.shipId, name, { className: 'plan' })}</span>
+        <span class="pl-av">${shipThumbHtml(p.ship.shipId, name, { className: 'avatar' })}</span>
         <span class="pl-nm">${elinkHtml('ship', p.ship.id, entityNameHtml('ship', p.ship.shipId, name, { compact: true }))}</span>
         <span class="pl-meta">${esc(type)} · Lv ${p.ship.lv} · ${esc(p.where)}</span>
         <span class="pl-role">${esc(p.role)}</span>
@@ -2103,8 +2105,10 @@ registerModule({
           return null
         }),
       ])
-      expedLocalizationLode = localizationPack
-      expedLode = wikiwikiPack ?? localizationPack
+      expedLocalizationLode = localizationPack?.data
+        ? { ...localizationPack, data: simplifyKcwikiExpeditionData(localizationPack.data) }
+        : localizationPack
+      expedLode = wikiwikiPack ?? expedLocalizationLode
       qp = qpState
       areaNames = new Map((raw?.data?.api_mst_maparea ?? []).map((a: any) => [a.api_id, a.api_name]))
       useitemNames = new Map(

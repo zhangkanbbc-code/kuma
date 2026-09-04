@@ -34,6 +34,7 @@ import { shipThumbHtml } from '../entity-art'
 import { planRepairs } from '../../shared/repair-schedule'
 import { elink, elinkHtml, navigate, pinEntityPeek, registerEntityRoute } from '../link'
 import { entityNameHtml, entityNamePlain, entityTermHtml } from '../localization'
+import { simplifyKcwikiShipsData } from '../kcwiki-zh'
 import { activateModule } from '../mu'
 import { ensureLevelExpLode, expNeededTo } from '../level-exp'
 import { ensureMapCellLetters } from '../map-cell-letter'
@@ -1561,7 +1562,7 @@ const initializeRosterView = () => {
     const kcwiki = await queryLode('kcwiki-ships')
     kcwikiByMst = new Map()
     if (kcwiki?.data) {
-      for (const entry of Object.values<any>(kcwiki.data)) {
+      for (const entry of Object.values<any>(simplifyKcwikiShipsData(kcwiki.data))) {
         if (entry?.ID) kcwikiByMst.set(entry.ID, entry)
       }
     }

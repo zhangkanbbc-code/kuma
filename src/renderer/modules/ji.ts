@@ -167,7 +167,13 @@ import {
 } from '../../shared/voice-scene-slots'
 import type { CorrectedVoiceRow, VoiceFallbackSource } from '../../shared/voice-scene-slots'
 import { normalizeVoiceText } from '../../shared/voice-text'
+import { applyVoiceOverlay, voiceOverlayJaIndex } from '../../shared/voice-overlay'
 import { voicePlaybackObservationAt } from '../../shared/voice-playback-observations'
+import {
+  simplifyFitBonusData,
+  simplifyKcwikiShipsData,
+} from '../kcwiki-zh'
+import { installZhSimplifier, simplifyZh } from '../zh-simplify'
 import { ENEMY_FORMATION, formationText } from '../../shared/enemy-formation'
 import { bgmPreviewHtml } from '../bgm-preview'
 import { archivedMapBgmOf } from '../../shared/event-map-bgm'
@@ -578,6 +584,9 @@ let voiceLode: { meta: LodeMeta; data: any } | null = null
 // 这一层把那些形态的台词自己译成中文补上。合流按**槽位**填空、kcwiki 胜——
 // 它是社区共识层；同一格两层都有时不并排显示，也不做行内混拼。
 let kansoVoiceLode: { meta: LodeMeta; data: any } | null = null
+let kansoVoiceZhLode: { meta: LodeMeta; data: any } | null = null
+let voiceOverlayRegularKeys = new Set<string>()
+let voiceOverlaySeasonalKeys = new Set<string>()
 // kcwiki 台词行按档名的形态码重排后的视图（归属/槽位/文本三类校正，判据见
 // shared/voice-scene-slots 的「归属与文本校正」段）。**加载时算一次**，
 // 渲染路径只查表——onMgChange 那条路上不许现算 11250 行。
@@ -1968,7 +1977,7 @@ const npcDrawerHtml = (): string => {
       const playPath = url && url.startsWith('https:') ? track.path : ''
       const lines = track.lines
         .map((line, index) => {
-          const zh = normalizeVoiceText(line.zh)
+          const zh = simplifyZh(normalizeVoiceText(line.zh))
           const play =
             index > 0
               ? '<span class="vo-play off"></span>'
@@ -3197,6 +3206,10 @@ const voiceRow = (
     (resolved.basis === 'divergent'
       ? '与游戏当前音轨对不上'
       : voiceRemoteOffNote(playbackMstId, noteSlot))
+  const translationCredit =
+    correction?.textSource !== 'subtitle' && voiceOverlayRegularKeys.has(k) && kansoVoiceZhLode
+      ? lodeCreditMark(kansoVoiceZhLode.meta, '中文译文来源：kuma 自译')
+      : ''
   return voiceRowWithUrl(
     k,
     scene,
@@ -3206,6 +3219,7 @@ const voiceRow = (
     offNote,
     correction?.textSource,
     play?.pathname,
+    translationCredit,
   )
 }
 
@@ -3223,6 +3237,7 @@ const voiceRowWithUrl = (
    * 「播过的」从此点亮并升档（见 kcs-voice 的 noteVoicePlayed）。
    */
   playPath?: string | null,
+  translationCredit = '',
 ) => {
   const badge =
     textSource === 'subtitle'
@@ -3234,15 +3249,16 @@ const voiceRowWithUrl = (
   // 放在这里是因为台词卷是多层混排的：同一页上可能一半行来自舰娘百科、一半是艦素自译，
   // 还有几行来自 poi-plugin-subtitle——自译行没有行尾句号、隔壁行拖着一个，
   // 读起来就是两拨人写的。判据与理由见 shared/voice-text.ts。
+  // 繁→简与标点归一同一位置、同一纪律：显示期过，上游文件不改。
   // 日文那一列**不动**：它是原文转写，不是我们的翻译，日语的句读也不归这条规矩管。
-  const zhText = normalizeVoiceText(zh)
+  const zhText = simplifyZh(normalizeVoiceText(zh))
   return `<div class="vo-row">
     <span class="vo-k">${esc(scene || `#${k}`)}</span>
     <div class="vo-tx">
       ${ja ? `<div class="vo-ja">${esc(ja)}</div>` : ''}
       ${zhText ? `<div class="vo-zh">${esc(zhText)}</div>` : ''}
     </div>
-    ${badge}
+    ${badge}${translationCredit}
     ${
       url
         ? `<span class="vo-play" data-voice="${esc(url)}"${
@@ -3655,12 +3671,16 @@ const seasonalVoiceHtml = (mstId: number): string => {
         // 采集钮：给不给由 `seasonalTakeOffered` 一处说了算（判据与理由在那儿，
         // 护栏能脱开 Electron 真跑一遍）。这里只管把「给」翻成 HTML。
         const take = seasonalTakeOffered(line, state) ? seasonalTakeHtml(mstId, line.slot!) : ''
-        const seasonZh = normalizeVoiceText(line.zh)
+        const seasonZh = simplifyZh(normalizeVoiceText(line.zh))
         const seasonJa = `${line.ja ?? ''}`
+        const translationCredit =
+          voiceOverlaySeasonalKeys.has(line.key) && kansoVoiceZhLode
+            ? lodeCreditMark(kansoVoiceZhLode.meta, '中文译文来源：kuma 自译')
+            : ''
         return `<div class="vo-row vo-${state}">
         <span class="vo-k">${esc(line.scene || line.key)}</span>
         <div class="vo-tx">${seasonJa ? `<div class="vo-ja">${esc(seasonJa)}</div>` : ''}${seasonZh ? `<div class="vo-zh">${esc(seasonZh)}</div>` : '<div class="vo-zh vo-untranslated">（暂无译文）</div>'}</div>
-        ${take}${cell}
+        ${translationCredit}${take}${cell}
       </div>`
       })
       .join('')
@@ -8639,7 +8659,7 @@ const mapForecastHtml = (
       data-map-forecast-deck="${scope.canonicalDeckId}">${label}${sortie ? ' · 出击中' : ''}</button>`
   }).join('')
   if (!route) {
-    return `<div class="sec map-forecast"><div class="sec-h">全图与路线预测<span class="aux">战斗机制估算</span></div>
+    return `<div class="sec map-forecast"><div class="sec-h">全图与路线预测<span class="aux">战斗机制预估</span></div>
       <div class="map-forecast-tabs">${tabs}</div>
       <div class="q-foot">缺少离线海域资料 · 完整路线暂不可用</div></div>`
   }
@@ -8666,7 +8686,7 @@ const mapForecastHtml = (
   </label>`
   // 空舰队那一档也要能改目标点：切到一支没船的队时选择器不该跟着消失
   if (!friendly.ships.length) {
-    return `<div class="sec map-forecast"><div class="sec-h">全图与路线预测<span class="aux">战斗机制估算</span></div>
+    return `<div class="sec map-forecast"><div class="sec-h">全图与路线预测<span class="aux">战斗机制预估</span></div>
       <div class="map-forecast-tabs">${tabs}${targetPicker}</div>
       <div class="q-foot">当前舰队暂无舰娘 · 暂无计算结果</div></div>`
   }
@@ -8773,14 +8793,14 @@ const mapForecastHtml = (
     ? `${context.shipCount} 舰 · ${context.speed >= 20 ? '最速' : context.speed >= 15 ? '高速+' : context.speed >= 10 ? '高速' : '低速'} · 索敌33 ${Object.entries(context.los).map(([factor, value]) => `×${factor} ${value}`).join(' / ')}`
     : '舰队数据待同步'
   return `<div class="sec map-forecast">
-    <div class="sec-h">全图与路线预测<span class="aux" title="最终面板 · 等级/士气/补给 · 装备属性/★改修/熟练度/搭载 · 深海数值与装备">战斗机制估算 + 本地实测对照</span></div>
+    <div class="sec-h">全图与路线预测<span class="aux" title="最终面板 · 等级/士气/补给 · 装备属性/★改修/熟练度/搭载 · 深海数值与装备">战斗机制预估 + 本地实测对照</span></div>
     <div class="map-forecast-tabs">${tabs}${targetPicker}<span>${esc(fleetLine)}</span></div>
     <div class="map-model-summary">
       <em>${esc(history)}${mapForecastState.loading ? ' <i class="stale">· 正在更新</i>' : ''}</em>
     </div>
     ${fleetOutlookHtml(info, code, route, routeTarget.target)}
     <div class="map-model-title">全图单点</div>
-    <div class="map-model-nodes">${nodeRows || '<div class="q-foot">当前难度暂无已确认敌编成 · 暂无估算数值</div>'}</div>
+    <div class="map-model-nodes">${nodeRows || '<div class="q-foot">当前难度暂无已确认敌编成 · 暂无预估数值</div>'}</div>
     <div class="map-model-title">可达路线</div>
     <div class="map-model-routes">${routeRows || '<div class="q-foot">带路资料不完整 · 暂无完整路线</div>'}</div>
     <div class="map-model-title">分歧实测<span class="aux">本地航路志</span></div>
@@ -13331,8 +13351,11 @@ registerModule({
         queryLode('subtitle-enemies'),
         queryLode('kcwiki-fit-bonus'),
         queryLode('kanso-voice'),
+        queryLode('kanso-voice-zh'),
         queryLode('subtitle-npc'),
-      ]).then(([v, sv, w, a, z, j, e, f, kv, npc]) => {
+        queryLode('opencc-t2s'),
+      ]).then(([v, sv, w, a, z, j, e, f, kv, kvZh, npc, opencc]) => {
+        installZhSimplifier(opencc)
         voiceLode = v
         seasonalVoiceLode = sv
         wikiwikiVoiceLode = w
@@ -13341,6 +13364,31 @@ registerModule({
         subtitleJa = j
         subtitleEnemiesLode = e
         kansoVoiceLode = kv
+        kansoVoiceZhLode = kvZh
+        const regularOverlay = applyVoiceOverlay(
+          voiceLode?.data ?? {},
+          kansoVoiceZhLode?.data ?? null,
+          'kcwiki-voice',
+        )
+        const seasonalOverlay = applyVoiceOverlay(
+          seasonalVoiceLode?.data?.ships ?? {},
+          kansoVoiceZhLode?.data ?? null,
+          'kcwiki-seasonal-voice',
+        )
+        voiceOverlayRegularKeys = new Set(regularOverlay.appliedKeys)
+        voiceOverlaySeasonalKeys = new Set(seasonalOverlay.appliedKeys)
+        if (voiceLode) voiceLode = { ...voiceLode, data: regularOverlay.data }
+        if (seasonalVoiceLode) {
+          seasonalVoiceLode = {
+            ...seasonalVoiceLode,
+            data: { ...seasonalVoiceLode.data, ships: seasonalOverlay.data },
+          }
+        }
+        for (const warning of [...regularOverlay.warnings, ...seasonalOverlay.warnings]) {
+          console.warn(
+            `[kanso] 台词译文自补层跳过 ${warning.pack}/${warning.key}：上游日文原文已变化`,
+          )
+        }
         // 分组与排序在这里算一次，逐行渲染只查表（与下面那三类校正同一条纪律）
         npcVoiceGroups = buildNpcVoiceBook(npc?.data ?? null)
         // 归属/槽位/文本三类校正**在这里算一次**，渲染只查表。
@@ -13392,19 +13440,26 @@ registerModule({
           (subtitleJa?.data ?? {}) as Record<string, Record<string, string>>,
           (subtitleZh?.data ?? {}) as Record<string, Record<string, string>>,
         )
-        // 两层第一方台账在**加载时**依次叠上去：不改 CC 包文件，也不让消费端各自记得去叠。
+        for (const [key, value] of voiceOverlayJaIndex(kansoVoiceZhLode?.data ?? null)) {
+          if (!voiceZhByJa.has(key)) voiceZhByJa.set(key, value)
+        }
+        // 三层第一方台账在**加载时**依次叠上去：不改 CC 包文件，也不让消费端各自记得去叠。
         //   ① 修正台账：上游那几行的数错了 —— 自失效判据是「被盯的行变了没」；
         //   ② 自补层：上游整件没收 —— 自失效判据反过来，是「上游开始收这件了没」。
-        // 两层都宁可跳过并告警，也不拿一份过期的东西去改一个已经变了样的东西。
+        //   ③ 台词译文 overlay：只叠缺译且日文原文未变的行 —— 上游补上中文即退役。
+        // 三层都宁可跳过并告警，也不拿一份过期的东西去改一个已经变了样的东西。
         fitLode = f?.data
           ? {
               meta: f.meta,
               data: applyFitBonusSupplement(
-                applyFitBonusCorrections(f.data as FitBonusData, (correction, reason, detail) => {
-                  console.warn(
-                    `[kanso] 装备加成修正作废：${correction.equipId} ${correction.equipName}（${reason}）${detail}`,
-                  )
-                }).data,
+                applyFitBonusCorrections(
+                  simplifyFitBonusData(f.data as FitBonusData),
+                  (correction, reason, detail) => {
+                    console.warn(
+                      `[kanso] 装备加成修正作废：${correction.equipId} ${correction.equipName}（${reason}）${detail}`,
+                    )
+                  },
+                ).data,
                 (entry, reason, detail) => {
                   // `empty` 是本来就没规则的条目（确认无 / 整件挂牌），不是异常，不吵
                   if (reason !== 'recall') return
@@ -13419,7 +13474,7 @@ registerModule({
       })
       kcwikiByMst = new Map()
       if (kcwikiLode?.data) {
-        for (const entry of Object.values<any>(kcwikiLode.data)) {
+        for (const entry of Object.values<any>(simplifyKcwikiShipsData(kcwikiLode.data))) {
           if (entry?.ID) kcwikiByMst.set(entry.ID, entry)
         }
       }

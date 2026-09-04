@@ -21,7 +21,9 @@ import {
 } from './quest-chain-tree'
 import { mergeQuestPre } from '../shared/quest-pre-merge'
 import { QUEST_PRE_ARBITRATION } from '../shared/quest-pre-arbitration'
+import { simplifyQuestScnData } from './kcwiki-zh'
 import { questPreSourceNoteHtml } from './quest-pre-note'
+import { installZhSimplifier } from './zh-simplify'
 
 import type {
   CompleteQuestTreeNode,
@@ -402,18 +404,20 @@ const load = async () => {
     focusTask(id)
   })
   await initKernel()
-  const pack = await queryLode('quests-scn')
+  const [pack, opencc] = await Promise.all([
+    queryLode('quests-scn'),
+    queryLode('opencc-t2s'),
+  ])
+  installZhSimplifier(opencc)
   lodeMeta = pack?.meta ?? null
-  quests = pack?.data && typeof pack.data === 'object'
-    ? Object.entries<any>(pack.data).map(([idText, raw]) => ({
-        id: Number(idText),
-        code: `${raw?.code ?? '?'}`,
-        name: `${raw?.name ?? ''}`,
-        desc: `${raw?.desc ?? ''}`,
-        memo2: `${raw?.memo2 ?? ''}`,
-        pre: Array.isArray(raw?.pre) ? raw.pre.map(String) : [],
-      }))
-    : []
+  quests = Object.entries<any>(simplifyQuestScnData(pack?.data)).map(([idText, raw]) => ({
+    id: Number(idText),
+    code: `${raw?.code ?? '?'}`,
+    name: `${raw?.name ?? ''}`,
+    desc: `${raw?.desc ?? ''}`,
+    memo2: `${raw?.memo2 ?? ''}`,
+    pre: Array.isArray(raw?.pre) ? raw.pre.map(String) : [],
+  }))
   // 与任务管理器同一份双源合并口径（补缺/修悬空/标冲突），树和详情才不会各说各话
   const wwPack = await queryLode('wikiwiki-quests')
   const wwByCode = new Map<string, WwQuestPre>(

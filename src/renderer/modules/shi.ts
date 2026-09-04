@@ -5,6 +5,8 @@ import type {
   BattleSnapshotSummary,
   FactoryRecipeStats,
   FactoryStatsReport,
+  NodeDropIndexEntry,
+  NodeDropReport,
   NodeHistoryIndexEntry,
   NodeHistoryReport,
   UseitemHistoryChange,
@@ -31,6 +33,8 @@ import {
   queryLode,
   queryMasterRaw,
   queryDailyMaterialHistory,
+  queryNodeDropIndex,
+  queryNodeDrops,
   queryNodeHistory,
   queryNodeHistoryIndex,
   queryPayLog,
@@ -158,10 +162,16 @@ let selectedResource = Math.max(0, Math.min(7, uiGet<number>('shi.resource', 0))
 let dailyMaterials: DailyMaterial[] = []
 let battles: BattleSnapshotSummary[] = []
 let nodeIndex: NodeHistoryIndexEntry[] = []
+let nodeSub = uiGet<'battles' | 'drops'>('shi.nodeSub', 'battles')
+let dropIndex: NodeDropIndexEntry[] = []
+let dropKinds = 0
 let selectedNode: { map: number; cell: number } | null = null
 let selectedNodeReport: NodeHistoryReport | null = null
 let nodeLoadingKey = ''
 let nodeLoadFailed = false // 读失败要说读失败，不能渲染成「该点没有可读取的记录」；原文只进 console
+let selectedDropReport: NodeDropReport | null = null
+let dropLoadingKey = ''
+let dropLoadFailed = false
 let eventArchives: EventArchive[] = []
 let factoryStats: FactoryStatsReport | null = null
 let factoryKind: 'ship' | 'item' = 'ship'
@@ -707,8 +717,46 @@ const nodeTimelineHtml = (): string => {
   return '<div class="shi-empty">暂无可读取记录</div>'
 }
 
+const nodeDropsHtml = (): string => {
+  if (!selectedNode) return '<div class="shi-empty">尚未选择节点</div>'
+  const key = `${selectedNode.map}:${selectedNode.cell}`
+  if (dropLoadingKey === key) return '<div class="shi-empty">正在读取该点的捞船记录……</div>'
+  // 两个子页共用 selectedNode；旧子页留存的报告只有坐标仍相同时才属于当前选择。
+  const report =
+    selectedDropReport?.map === selectedNode.map &&
+    selectedDropReport.cell === selectedNode.cell
+      ? selectedDropReport
+      : null
+  if (report) {
+    const summary = `<div class="shi-chart-title"><b>${report.battles} 战 · S 胜 ${report.sWins} · 捞到 ${report.drops} 次 · ${report.kinds} 种</b></div>`
+    // SQL 已经排除了空掉落；这里一行只代表一次实际捞到，并沿用遭遇志的时间方向。
+    const entries = report.entries
+      .map(
+        (entry) => `<div class="shi-node-battle">
+          <time>${esc(fmtDateTime(entry.ts))}</time>
+          <div>${entry.isBoss ? '<b>Boss</b>' : ''}
+            ${entry.rank ? `<span class="shi-rank ${WIN_RANKS.has(entry.rank) ? 'win' : 'loss'}">${esc(entry.rank)}</span>` : ''}
+            <span class="drop">掉落 ${elink('mstShip', entry.mstId, shipNames.get(entry.mstId) ?? `#${entry.mstId}`)}${firstDropBadgeHtml(entry.mstId, entry.ts, true)}${unownedShipBadgeHtml(entry.mstId)}</span>
+          </div>
+        </div>`,
+      )
+      .join('')
+    return `${summary}${entries || '<div class="shi-empty">该点暂无捞船记录</div>'}`
+  }
+  if (dropLoadFailed) {
+    return `<div class="shi-empty">记录读取失败 ·
+      <button class="pf-btn" data-shi-node="${key}">重试</button></div>`
+  }
+  return '<div class="shi-empty">该点暂无捞船记录</div>'
+}
+
 // 海图、点选、芯片共用同一张「当前图」：出击快照必须跟这张图走，不能在「全部海图」时混进别的海域。
-const shownNodeMap = (): number => selectedNodeMap ?? selectedNode?.map ?? nodeIndex[0]?.map ?? 0
+// 捞船子页没有选择时只从有掉落的图里兜底，免得海图卡跳到左栏不存在的图。
+const shownNodeMap = (): number =>
+  selectedNodeMap ??
+  selectedNode?.map ??
+  (nodeSub === 'drops' ? dropIndex[0]?.map : nodeIndex[0]?.map) ??
+  0
 
 const nodeSnapshotsBlock = (
   map: number,
@@ -750,14 +798,19 @@ const nodeBattlesBlock = (): { title: string; list: string } | null => {
 }
 
 const nodeViewHtml = (): string => {
+  const dropMode = nodeSub === 'drops'
+  // 捞船索引只含实际有掉落的点，两个子页因此各自从自己的索引生成海图与左栏。
+  const activeIndex: readonly (NodeHistoryIndexEntry | NodeDropIndexEntry)[] =
+    dropMode ? dropIndex : nodeIndex
   const sortieBattles = battles.filter((battle) => !battle.practice)
   const total = nodeIndex.reduce((sum, node) => sum + node.count, 0)
   const boss = nodeIndex.reduce((sum, node) => sum + node.bosses, 0)
-  const allMaps = [...new Set(nodeIndex.map((node) => node.map))].sort((a, b) => a - b)
+  const totalDrops = dropIndex.reduce((sum, node) => sum + node.drops, 0)
+  const allMaps = [...new Set(activeIndex.map((node) => node.map))].sort((a, b) => a - b)
   const visibleIndex = selectedNodeMap
-    ? nodeIndex.filter((node) => node.map === selectedNodeMap)
-    : nodeIndex
-  const maps = new Map<number, NodeHistoryIndexEntry[]>()
+    ? activeIndex.filter((node) => node.map === selectedNodeMap)
+    : activeIndex
+  const maps = new Map<number, (NodeHistoryIndexEntry | NodeDropIndexEntry)[]>()
   for (const node of visibleIndex) {
     const list = maps.get(node.map) ?? []
     list.push(node)
@@ -794,25 +847,43 @@ const nodeViewHtml = (): string => {
             ${mapsInArea
               .map((map) => {
                 const list = [...(maps.get(map) ?? [])].sort((a, b) => a.cell - b.cell)
-                const fights = list.reduce((sum, node) => sum + node.count, 0)
+                const fights = list.reduce(
+                  (sum, node) => sum + ('drops' in node ? node.drops : node.count),
+                  0,
+                )
                 const open =
                   selectedNodeMap === map ||
                   selectedNode?.map === map ||
                   (selectedNodeMap == null && selectedNode == null && map === mapOrder[0])
                 // 点位索引是动态列表（新打一张图就插一行），光靠「同 class 内序号」
                 // 认键会把展开态错位到隔壁那张图上——图号本身就是稳定键。
-                return `<details class="shi-map-group" data-keep="map-group:${map}"${open ? ' open' : ''}>
-                  <summary>${esc(mapCode(map))} · ${list.length} 点 · ${fights} 战</summary>
+                // 两个子页的列表会同序出现，分开 data-keep 键才不会把彼此的展开态串起来。
+                const keep = dropMode
+                  ? `data-keep="drop-group:${map}"`
+                  : `data-keep="map-group:${map}"`
+                return `<details class="shi-map-group" ${keep}${open ? ' open' : ''}>
+                  <summary>${esc(mapCode(map))} · ${list.length} 点 · ${
+                    dropMode ? `捞到 ${fights} 次` : `${fights} 战`
+                  }</summary>
                   ${list
                     .map(
-                      (node) => `<button type="button" class="shi-node-row${
-                        selectedNode?.map === node.map && selectedNode.cell === node.cell ? ' on' : ''
-                      }" data-shi-node="${node.map}:${node.cell}">
-                        <span>${elink('map', node.map, mapCode(node.map))}</span>
-                        <b>${esc(letterOf(node.map, node.cell))} 点</b>
-                        <small>${node.count} 战${node.bosses ? ` · Boss ${node.bosses}` : ''}</small>
-                        <time>${fmtDate(node.lastTs)}</time>
-                      </button>`,
+                      (node) => 'drops' in node
+                        ? `<button type="button" class="shi-node-row${
+                            selectedNode?.map === node.map && selectedNode.cell === node.cell ? ' on' : ''
+                          }" data-shi-node="${node.map}:${node.cell}">
+                            <span>${elink('map', node.map, mapCode(node.map))}</span>
+                            <b>${esc(letterOf(node.map, node.cell))} 点</b>
+                            <small>捞到 ${node.drops} 次 · ${node.kinds} 种</small>
+                            <time>${fmtDate(node.lastTs)}</time>
+                          </button>`
+                        : `<button type="button" class="shi-node-row${
+                            selectedNode?.map === node.map && selectedNode.cell === node.cell ? ' on' : ''
+                          }" data-shi-node="${node.map}:${node.cell}">
+                            <span>${elink('map', node.map, mapCode(node.map))}</span>
+                            <b>${esc(letterOf(node.map, node.cell))} 点</b>
+                            <small>${node.count} 战${node.bosses ? ` · Boss ${node.bosses}` : ''}</small>
+                            <time>${fmtDate(node.lastTs)}</time>
+                          </button>`,
                     )
                     .join('')}
                 </details>`
@@ -821,7 +892,7 @@ const nodeViewHtml = (): string => {
           </div>`
         })
         .join('')
-    : '<div class="shi-empty">暂无永久节点遭遇记录</div>'
+    : `<div class="shi-empty">${dropMode ? '暂无捞船记录' : '暂无永久节点遭遇记录'}</div>`
   const previewMap = shownNodeMap()
   // 记下这次整页渲染把海图卡画成了哪张图（0 = 没有卡），换点时的局部补丁据此判断该不该换卡。
   shownMapCard = previewMap > 0 ? previewMap : 0
@@ -829,23 +900,35 @@ const nodeViewHtml = (): string => {
   const nodeSnaps = nodeBattlesBlock()
   return `<div class="shi-view shi-nodes">
     <div class="shi-view-head"><div><b>出击节点记录</b><span>遭遇志永久累计</span></div></div>
-    <div class="shi-kpis">
-      <span><small>有记录点位</small><b>${nodeIndex.length}</b></span>
-      <span><small>节点战斗</small><b>${total}</b></span>
-      <span><small>Boss 战</small><b>${boss}</b></span>
-      <span><small>近期可回放</small><b>${sortieBattles.length}</b></span>
+    <div class="shi-node-subs">
+      <button type="button" class="${dropMode ? '' : 'on'}" data-shi-node-sub="battles">战斗</button>
+      <button type="button" class="${dropMode ? 'on' : ''}" data-shi-node-sub="drops">捞船</button>
     </div>
+    ${dropMode
+      ? `<div class="shi-kpis">
+          <span><small>有掉落点位</small><b>${dropIndex.length}</b></span>
+          <span><small>捞到</small><b>${totalDrops}</b></span>
+          <span><small>种类</small><b>${dropKinds}</b></span>
+        </div>`
+      : `<div class="shi-kpis">
+          <span><small>有记录点位</small><b>${nodeIndex.length}</b></span>
+          <span><small>节点战斗</small><b>${total}</b></span>
+          <span><small>Boss 战</small><b>${boss}</b></span>
+          <span><small>近期可回放</small><b>${sortieBattles.length}</b></span>
+        </div>`}
     ${mapChips}
     ${previewMap > 0 ? nodeMapSvgHtml(previewMap) : ''}
     <div class="shi-two-col">
-      <section class="shi-panel"><h3>点位索引</h3><div class="shi-node-list">${nodes}</div></section>
+      <section class="shi-panel"><h3>${dropMode ? '掉落点位' : '点位索引'}</h3><div class="shi-node-list">${nodes}</div></section>
       <section class="shi-panel"><h3 data-shi-node-title>${
         selectedNode
           ? `${mapCode(selectedNode.map)} · ${esc(letterOf(selectedNode.map, selectedNode.cell))} 点`
           : '节点详情'
-      }</h3><div class="shi-node-timeline">${nodeTimelineHtml()}</div></section>
+      }</h3><div class="shi-node-timeline">${
+        dropMode ? nodeDropsHtml() : nodeTimelineHtml()
+      }</div></section>
     </div>
-    <div class="shi-nodes-foot">
+    <div class="shi-nodes-foot"${dropMode ? ' hidden' : ''}>
       <section class="shi-panel shi-recent-battles"><h3 data-shi-snapshots-title>${
         snapshots.title
       }</h3><div class="shi-history-list">${snapshots.list}</div></section>
@@ -1431,22 +1514,25 @@ const paintNodeSelection = (): boolean => {
   title.textContent = selectedNode
     ? `${mapCode(selectedNode.map)} · ${letterOf(selectedNode.map, selectedNode.cell)} 点`
     : '节点详情'
-  timeline.innerHTML = nodeTimelineHtml()
-  const snapshots = nodeSnapshotsBlock(shownNodeMap())
-  const snapTitle = pane.querySelector('[data-shi-snapshots-title]')
-  const snapList = pane.querySelector('.shi-recent-battles .shi-history-list')
-  if (snapTitle) snapTitle.textContent = snapshots.title
-  if (snapList) snapList.innerHTML = snapshots.list
-  // 选中点专属那块也走这条补丁链：整块常驻 DOM，没选点时靠 hidden 收起来，
-  // 换点只改标题和列表——别让它变成「结构变了就得整页重渲」的理由。
-  const nodeSnapPanel = pane.querySelector('[data-shi-node-snapshots]')
-  if (nodeSnapPanel instanceof HTMLElement) {
-    const nodeSnaps = nodeBattlesBlock()
-    nodeSnapPanel.hidden = !nodeSnaps
-    const nodeSnapTitle = nodeSnapPanel.querySelector('[data-shi-node-snapshots-title]')
-    const nodeSnapList = nodeSnapPanel.querySelector('.shi-history-list')
-    if (nodeSnapTitle) nodeSnapTitle.textContent = nodeSnaps?.title ?? ''
-    if (nodeSnapList) nodeSnapList.innerHTML = nodeSnaps?.list ?? ''
+  // 两个子页共用同一个选中点，局部补丁只需按当前子页换对应正文。
+  timeline.innerHTML = nodeSub === 'drops' ? nodeDropsHtml() : nodeTimelineHtml()
+  if (nodeSub === 'battles') {
+    const snapshots = nodeSnapshotsBlock(shownNodeMap())
+    const snapTitle = pane.querySelector('[data-shi-snapshots-title]')
+    const snapList = pane.querySelector('.shi-recent-battles .shi-history-list')
+    if (snapTitle) snapTitle.textContent = snapshots.title
+    if (snapList) snapList.innerHTML = snapshots.list
+    // 选中点专属那块也走这条补丁链：整块常驻 DOM，没选点时靠 hidden 收起来，
+    // 换点只改标题和列表——别让它变成「结构变了就得整页重渲」的理由。
+    const nodeSnapPanel = pane.querySelector('[data-shi-node-snapshots]')
+    if (nodeSnapPanel instanceof HTMLElement) {
+      const nodeSnaps = nodeBattlesBlock()
+      nodeSnapPanel.hidden = !nodeSnaps
+      const nodeSnapTitle = nodeSnapPanel.querySelector('[data-shi-node-snapshots-title]')
+      const nodeSnapList = nodeSnapPanel.querySelector('.shi-history-list')
+      if (nodeSnapTitle) nodeSnapTitle.textContent = nodeSnaps?.title ?? ''
+      if (nodeSnapList) nodeSnapList.innerHTML = nodeSnaps?.list ?? ''
+    }
   }
   pane.querySelectorAll('.shi-spot.on').forEach((el) => el.classList.remove('on'))
   pane.querySelectorAll('.shi-node-row.on').forEach((el) => el.classList.remove('on'))
@@ -1473,12 +1559,34 @@ const paintNodeSelection = (): boolean => {
 
 const selectNode = async (map: number, cell: number) => {
   const key = `${map}:${cell}`
+  const dropMode = nodeSub === 'drops'
+  // 两个子页共用 selectedNode，切换后才能仍停在玩家刚选的同一个点。
   selectedNode = { map, cell }
-  selectedNodeReport = null
-  nodeLoadFailed = false
-  nodeLoadingKey = key
+  if (dropMode) {
+    selectedDropReport = null
+    dropLoadFailed = false
+    dropLoadingKey = key
+  } else {
+    selectedNodeReport = null
+    nodeLoadFailed = false
+    nodeLoadingKey = key
+  }
   // 点选只补丁详情/高亮。整页 render 会把海图和列表拆掉重建，框就会闪并被撑高。
   paintNodeSelection()
+  if (dropMode) {
+    try {
+      const report = await queryNodeDrops(map, cell, 500)
+      if (dropLoadingKey !== key) return
+      selectedDropReport = report
+    } catch (error) {
+      console.warn('[kanso] 回顾捞船记录读取失败', map, cell, error)
+      if (dropLoadingKey === key) dropLoadFailed = true
+    } finally {
+      if (dropLoadingKey === key) dropLoadingKey = ''
+      deferPassive(pane, 'shi:node', paintNodeSelection)
+    }
+    return
+  }
   try {
     const report = await queryNodeHistory(map, cell, 200)
     if (nodeLoadingKey !== key) return
@@ -1622,6 +1730,7 @@ const refresh = async (requestedQueries?: readonly ReviewQuery[]) => {
       wanted.has('materials') ? queryDailyMaterialHistory(materialSince, now) : Promise.resolve(undefined),
       wanted.has('battles') ? queryBattleSnapshots(500) : Promise.resolve(undefined),
       wanted.has('nodes') ? queryNodeHistoryIndex(600) : Promise.resolve(undefined),
+      wanted.has('nodeDrops') ? queryNodeDropIndex(600) : Promise.resolve(undefined),
       wanted.has('events') ? queryEventArchives() : Promise.resolve(undefined),
       wanted.has('factory') ? queryFactoryStats(now - 90 * DAY_MS) : Promise.resolve(undefined),
       wanted.has('useitems') ? queryUseitemSummary(0) : Promise.resolve(undefined),
@@ -1640,7 +1749,7 @@ const refresh = async (requestedQueries?: readonly ReviewQuery[]) => {
     return
   }
   if (generation !== refreshGeneration) return
-  const [materials, snapshots, nodes, archives, factory, summaries, changes, actions, master, fcd, payRows] = rows
+  const [materials, snapshots, nodes, dropNodes, archives, factory, summaries, changes, actions, master, fcd, payRows] = rows
   timedRun('async:shi', () => {
     loadFailed = false
     if (materials) {
@@ -1661,9 +1770,15 @@ const refresh = async (requestedQueries?: readonly ReviewQuery[]) => {
     }
     if (nodes) {
       nodeIndex = nodes
-      if (selectedNodeMap != null && !nodeIndex.some((node) => node.map === selectedNodeMap)) {
-        selectedNodeMap = null
-      }
+    }
+    if (dropNodes) {
+      dropKinds = dropNodes.kinds
+      dropIndex = dropNodes.entries
+    }
+    // 海图筛选的有效范围随子页而变；捞船页不能拿含空掉落点的战斗索引判有效。
+    if ((nodes || dropNodes) && selectedNodeMap != null) {
+      const activeIndex = nodeSub === 'drops' ? dropIndex : nodeIndex
+      if (!activeIndex.some((node) => node.map === selectedNodeMap)) selectedNodeMap = null
     }
     if (archives) eventArchives = archives as EventArchive[]
     if (factory) factoryStats = factory
@@ -1902,6 +2017,27 @@ registerModule({
         render()
         return
       }
+      const nodeSubButton = target.closest<HTMLElement>('[data-shi-node-sub]')
+      if (nodeSubButton) {
+        const sub = nodeSubButton.dataset.shiNodeSub
+        if ((sub === 'battles' || sub === 'drops') && sub !== nodeSub) {
+          nodeSub = sub
+          uiSet('shi.nodeSub', nodeSub)
+          // 与 refresh 中海图筛选的子页有效范围保持同一口径。
+          const activeIndex = nodeSub === 'drops' ? dropIndex : nodeIndex
+          if (selectedNodeMap != null && !activeIndex.some((node) => node.map === selectedNodeMap)) {
+            selectedNodeMap = null
+          }
+          render()
+          if (selectedNode) {
+            const { map, cell } = selectedNode
+            const report = nodeSub === 'drops' ? selectedDropReport : selectedNodeReport
+            // 选中点跨子页共用，但每个子页只补自己尚未持有的这一点报告。
+            if (!report || report.map !== map || report.cell !== cell) void selectNode(map, cell)
+          }
+        }
+        return
+      }
       const nodeMap = target.closest<HTMLElement>('[data-shi-node-map]')
       if (nodeMap) {
         const map = Number(nodeMap.dataset.shiNodeMap)
@@ -1984,7 +2120,7 @@ registerModule({
           ['materials', 'useitems', 'sortie', 'eventAreas', 'master', 'kdocks', 'slotitems', 'ships', 'record', 'payitems'].includes(key),
         )
       ) {
-        // 一次 refresh 最多有 11 个账本查询槽。出击中 materials/ships
+        // 一次 refresh 最多有 12 个账本查询槽。出击中 materials/ships
         // 频繁变化，浮层根本没打开也全套跑一遍是纯浪费——不可见就攒脏标记，
         // 打开时（onShow）一次补上。（ji/qa/du 同款守卫，这里曾是唯一漏网）
         // 用户正按在这块面板上就让到抬起之后（按下与抬起之间换掉 DOM，click 不会发生）

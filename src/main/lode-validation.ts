@@ -1579,6 +1579,49 @@ const validateKansoVoice = (data: unknown): string | null => {
   return null
 }
 
+const VOICE_OVERLAY_KEY = /^[0-9]{3}[a-z]?-[A-Za-z0-9]+$/
+const VOICE_OVERLAY_PACKS = new Set(['kcwiki-voice', 'kcwiki-seasonal-voice'])
+const VOICE_OVERLAY_ENTRY_KEYS = new Set(['pack', 'ja', 'zh', 'draft'])
+const VOICE_OVERLAY_BY_JA_KEYS = new Set(['ja', 'zh'])
+
+const validateKansoVoiceZh = (data: unknown): string | null => {
+  if (!isRecord(data) || data.schemaVersion !== 1) {
+    return 'kanso-voice-zh 必须是 schemaVersion=1 的对象'
+  }
+  if (!isCalendarDate(data.compiledAt)) return 'kanso-voice-zh.compiledAt 非法'
+  if (!isRecord(data.entries)) return 'kanso-voice-zh.entries 必须是对象'
+  const entries = Object.entries(data.entries)
+  if (entries.length > 20_000) return 'kanso-voice-zh.entries 条目过多'
+  for (const [key, raw] of entries) {
+    const at = `kanso-voice-zh.entries.${key}`
+    if (!VOICE_OVERLAY_KEY.test(key) || !isRecord(raw)) return `${at} 非法`
+    for (const field of Object.keys(raw)) {
+      if (!VOICE_OVERLAY_ENTRY_KEYS.has(field)) return `${at} 出现了不该有的字段 ${field}`
+    }
+    if (
+      typeof raw.pack !== 'string' ||
+      !VOICE_OVERLAY_PACKS.has(raw.pack) ||
+      !isText(raw.ja, 10_000) ||
+      !isText(raw.zh, 10_000) ||
+      (raw.draft !== undefined && raw.draft !== true)
+    ) {
+      return `${at} 非法`
+    }
+  }
+  if (!Array.isArray(data.byJa) || data.byJa.length > 20_000) {
+    return 'kanso-voice-zh.byJa 非法'
+  }
+  for (const [index, raw] of data.byJa.entries()) {
+    const at = `kanso-voice-zh.byJa[${index}]`
+    if (!isRecord(raw)) return `${at} 非法`
+    for (const field of Object.keys(raw)) {
+      if (!VOICE_OVERLAY_BY_JA_KEYS.has(field)) return `${at} 出现了不该有的字段 ${field}`
+    }
+    if (!isText(raw.ja, 10_000) || !isText(raw.zh, 10_000)) return `${at} 非法`
+  }
+  return null
+}
+
 
 const validateWikiwikiVoice = (data: unknown): string | null => {
   if (!isRecord(data)) return 'wikiwiki-voice 必须是对象'
@@ -2275,6 +2318,34 @@ const validateEventPlaneGroups = (data: unknown): string | null => {
   return null
 }
 
+const CJK_TEXT = /\p{Script=Han}/u
+
+const validateOpenccT2s = (data: unknown): string | null => {
+  if (
+    !isRecord(data) ||
+    data.schemaVersion !== 1 ||
+    !isRecord(data.chars) ||
+    !isRecord(data.phrases)
+  ) {
+    return 'opencc-t2s 必须是 schemaVersion=1 且含 chars/phrases 的对象'
+  }
+  for (const [name, dictionary] of [
+    ['chars', data.chars],
+    ['phrases', data.phrases],
+  ] as const) {
+    for (const [key, value] of Object.entries(dictionary)) {
+      if (
+        !CJK_TEXT.test(key) ||
+        typeof value !== 'string' ||
+        !CJK_TEXT.test(value)
+      ) {
+        return `opencc-t2s.${name}.${key} 必须是含 CJK 的 string→string`
+      }
+    }
+  }
+  return null
+}
+
 const LODE_DATA_VALIDATORS: Record<string, LodeDataValidator> = {
   'abyssal-stats': validateAbyssalStats,
   'wikiwiki-ship-profile': validateWikiwikiShipProfile,
@@ -2299,6 +2370,7 @@ const LODE_DATA_VALIDATORS: Record<string, LodeDataValidator> = {
   'kcwiki-voice': validateVoice,
   'kcwiki-seasonal-voice': validateSeasonalVoice,
   'kanso-voice': validateKansoVoice,
+  'kanso-voice-zh': validateKansoVoiceZh,
   'wikiwiki-voice': validateWikiwikiVoice,
   'wikiwiki-remodel': validateWikiwikiRemodel,
   'wikiwiki-ship-max': validateWikiwikiShipMax,
@@ -2320,6 +2392,7 @@ const LODE_DATA_VALIDATORS: Record<string, LodeDataValidator> = {
   'event-lifecycle': validateEventLifecycle,
   'event-bonus': validateEventBonus,
   'event-plane-groups': validateEventPlaneGroups,
+  'opencc-t2s': validateOpenccT2s,
   'kcwiki-localization': validateLocalization,
 }
 

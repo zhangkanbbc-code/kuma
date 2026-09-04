@@ -7,8 +7,8 @@
 //   ① 行尾句号一律不写；② `……。` 是病句，任何位置都修。
 //
 // ---- 为什么要有这个脚本，而不是一次 sed 了事 ----
-// 一次 sed 只治当下这些行。自译包是**手工维护**的（逐句订正直接改包文件），
-// 季节台词包会被 `lodes:fetch` 整份重抓——两边都会有新行进来，而新行是人写/机器抓的，
+// 一次 sed 只治当下这些行。自译包与译文 overlay 源清单都由人维护，
+// 季节台词包会被 `lodes:fetch` 整份重抓——三边都会有新行进来，而新行是人写/机器抓的，
 // 不会自己记得这条体例。所以规则做成一个函数：
 //   · 落盘前跑（季节包的抓取器在 buildSeasonalVoicePack 里就调了它）；
 //   · 手工改完包跑这个脚本；
@@ -55,6 +55,10 @@ const normalizePack = (id, walk) => {
 const results = [
   normalizePack('kanso-voice', (data, visit) => {
     for (const rows of Object.values(data?.ships ?? {})) for (const row of rows) visit(row, 'zh')
+  }),
+  normalizePack('kanso-voice-zh', (data, visit) => {
+    for (const row of Object.values(data?.entries ?? {})) visit(row, 'zh')
+    for (const row of data?.byJa ?? []) visit(row, 'zh')
   }),
   normalizePack('kcwiki-seasonal-voice', (data, visit) => {
     for (const rows of Object.values(data?.ships ?? {})) for (const row of rows) visit(row, 'zh')

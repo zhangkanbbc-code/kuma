@@ -40,7 +40,9 @@ import {
   VOICE_CAPTION_SIZE_DEFAULT,
   VOICE_CAPTION_SIZE_PATH,
 } from '../shared/voice-caption-size'
-import { normalizeVoiceText } from '../shared/voice-text'
+import { isUntranslatedVoiceText, normalizeVoiceText } from '../shared/voice-text'
+import { applyVoiceOverlay, voiceOverlayJaIndex } from '../shared/voice-overlay'
+import { installZhSimplifier, simplifyZh } from './zh-simplify'
 
 const remote = require('@electron/remote')
 const { ipcRenderer } = require('electron')
@@ -116,6 +118,7 @@ let wikiwikiAbyssVoice: WikiwikiAbyssVoiceTable = {}
 /** 短剧/群像语音（kc9997）的译文表，档名（裸编号）→ 一段中文。 */
 let seasonalSkits: Record<string, { season?: string; scene?: string; zh?: string }> = {}
 let voiceZhByJa = new Map<string, string>()
+let voiceOverlayZhByJa = new Map<string, string>()
 /**
  * 被季节语音占着的槽位（形态 mstId → 槽位集合）。判据与图鉴侧同一份，
  * 见 `shared/voice-scene-slots` 的 `seasonOccupiedSlots`。
@@ -127,6 +130,7 @@ let seasonOccupied = new Map<number, Set<number>>()
  * 发行版里 `wikiwiki-voice` 不随包，字幕层此前实际只剩 subtitle-zh/ja 一个源；
  * 而主来源 `kcwiki-voice` 早就随包、NOTICE 在册，只是没接进来。
  * 它**只补空格**，同一格 subtitle 有值一律不覆盖（音轨转写是文本权威）。
+ * 译文 overlay 也只补仍判缺译、且日文原文没有变化的上游行；上游补上中文即退役。
  */
 let kcwikiBySlot = new Map<number, Map<number, KcwikiSlotLine>>()
 /**
@@ -201,7 +205,7 @@ export const setVoiceCaptionSize = (px: unknown) => {
 setVoiceCaptionSize(config.get(VOICE_CAPTION_SIZE_PATH, VOICE_CAPTION_SIZE_DEFAULT))
 
 const loadData = async () => {
-  const [raw, zh, ja, npc, enemies, wikiwiki, wikiwikiAbyss, seasonal, kcwikiVoice, kcwikiShips] =
+  const [raw, zh, ja, npc, enemies, wikiwiki, wikiwikiAbyss, seasonal, kcwikiVoice, kcwikiShips, voiceOverlay, opencc] =
     await Promise.all([
       queryMasterRaw(),
       queryLode('subtitle-zh'),
@@ -215,7 +219,28 @@ const loadData = async () => {
       // 而那份判据要的就是这几个源（见 seasonOccupiedSlots）
       queryLode('kcwiki-voice'),
       queryLode('kcwiki-ships'),
+      queryLode('kanso-voice-zh'),
+      queryLode('opencc-t2s'),
     ])
+  installZhSimplifier(opencc)
+  const regularOverlay = applyVoiceOverlay(
+    (kcwikiVoice?.data ?? {}) as Record<
+      string,
+      { key: string; scene: string; ja: string; zh: string }[]
+    >,
+    voiceOverlay?.data ?? null,
+    'kcwiki-voice',
+  )
+  const seasonalOverlay = applyVoiceOverlay(
+    (seasonal?.data?.ships ?? {}) as Record<string, { key: string; ja: string; zh: string }[]>,
+    voiceOverlay?.data ?? null,
+    'kcwiki-seasonal-voice',
+  )
+  for (const warning of [...regularOverlay.warnings, ...seasonalOverlay.warnings]) {
+    console.warn(
+      `[kanso] 台词译文自补层跳过 ${warning.pack}/${warning.key}：上游日文原文已变化`,
+    )
+  }
   setShipGraph(raw?.data?.api_mst_shipgraph ?? [])
   voiceFallbackOf = buildVoiceFallbackIds(
     raw?.data?.api_mst_ship ?? [],
@@ -228,15 +253,19 @@ const loadData = async () => {
   wikiwikiVoice = (wikiwiki?.data ?? {}) as WikiwikiVoiceTable
   wikiwikiAbyssVoice = (wikiwikiAbyss?.data ?? {}) as WikiwikiAbyssVoiceTable
   seasonalSkits = (seasonal?.data?.skits ?? {}) as typeof seasonalSkits
-  seasonalShips = (seasonal?.data?.ships ?? {}) as typeof seasonalShips
+  seasonalShips = seasonalOverlay.data as typeof seasonalShips
   voiceZhByJa = buildVoiceTranslationIndex(subtitleJa, subtitleZh)
+  voiceOverlayZhByJa = voiceOverlayJaIndex(voiceOverlay?.data ?? null)
+  for (const [key, value] of voiceOverlayZhByJa) {
+    if (!voiceZhByJa.has(key)) voiceZhByJa.set(key, value)
+  }
   // 分拣**只跑一次**，导出两张表：季节闸 + kcwiki 按槽位查表。
   // 各调一次就是把 17434 行的分拣跑两遍（实测一遍 ~83ms）。
   const plan = planVoiceCorrections({
-    voice: (kcwikiVoice?.data ?? null) as never,
+    voice: regularOverlay.data as never,
     subtitleJa,
     subtitleZh,
-    seasonalShips: (seasonal?.data?.ships ?? null) as never,
+    seasonalShips: seasonalOverlay.data as never,
     codeMap: kcwikiShips?.data ? buildShipFormCodeMap(kcwikiShips.data) : null,
   })
   // 缺任何一个源就算不出来，那时这张表是空的＝谁都不拦，字幕照旧出。
@@ -353,7 +382,7 @@ const mountedSeasonalText = (mstId: number, voiceId: number): string => {
   if (!key) return ''
   const line = seasonalShips[`${mstId}`]?.find((entry) => entry?.key === key)
   const zh = captionText(line?.zh)
-  return zh ? normalizeVoiceText(zh) : captionText(line?.ja)
+  return zh ? simplifyZh(normalizeVoiceText(zh)) : captionText(line?.ja)
 }
 
 const shipCaption = (cue: Extract<VoiceRequestCue, { kind: 'ship' }>): CaptionLine[] => {
@@ -388,7 +417,7 @@ const shipCaption = (cue: Extract<VoiceRequestCue, { kind: 'ship' }>): CaptionLi
   const kcwikiAt = (id: number): string => {
     const row = kcwikiBySlot.get(id)?.get(cue.voiceId)
     const zh = captionText(row?.zh)
-    return zh ? normalizeVoiceText(zh) : captionText(row?.ja)
+    return zh ? simplifyZh(normalizeVoiceText(zh)) : captionText(row?.ja)
   }
   // 实体级回退：当前形态整份资料都不存在时，才沿改装链找最近的前置形态。
   // 当前形态只要已有任一语言的表，就不拿前置形态补单个缺行，避免新旧台词混拼。
@@ -432,13 +461,22 @@ const shipCaption = (cue: Extract<VoiceRequestCue, { kind: 'ship' }>): CaptionLi
     if (hasSubtitle) {
       // 中文那一支过一道**标点体例归一**（行尾不写句号、省略号后不许再接句号），
       // 与图鉴台词卷同一份判据（shared/voice-text）——同一句话在两处不许长得不一样。
+      // 繁→简与标点归一同一位置、同一纪律：显示期过，上游文件不改。
       // 日文回退**不动**：那是原文转写，不是我们的翻译。
       const zhLine = captionText(subtitleZh[`${id}`]?.[key])
-      text = zhLine ? normalizeVoiceText(zhLine) : captionText(subtitleJa[`${id}`]?.[key])
+      const jaLine = captionText(subtitleJa[`${id}`]?.[key])
+      const overlayZh = isUntranslatedVoiceText(zhLine)
+        ? (voiceOverlayZhByJa.get(normalizeVoiceLine(jaLine)) ?? '')
+        : ''
+      text = overlayZh
+        ? simplifyZh(normalizeVoiceText(overlayZh))
+        : zhLine
+          ? simplifyZh(normalizeVoiceText(zhLine))
+          : jaLine
     } else {
       const line = wikiLines!.find((entry) => entry.voiceId === cue.voiceId)
       const reused = line ? voiceZhByJa.get(normalizeVoiceLine(line.ja)) : ''
-      text = reused ? normalizeVoiceText(reused) : `${line?.ja ?? ''}`
+      text = reused ? simplifyZh(normalizeVoiceText(reused)) : `${line?.ja ?? ''}`
     }
     // 同一形态内补空：subtitle 那一格没有转写（或写的是占位句）时才轮到 kcwiki。
     // **有值一律不覆盖**——音轨转写是文本权威，kcwiki 是转写层。
@@ -517,7 +555,7 @@ const flavorSpeaker = (className: string | undefined, name: string): string => {
  */
 const skitCaptions = (cue: Extract<VoiceRequestCue, { kind: 'skit' }>): CaptionLine[] => {
   const entry = seasonalSkits[cue.voiceId]
-  const text = normalizeVoiceText(`${entry?.zh ?? ''}`.trim())
+  const text = simplifyZh(normalizeVoiceText(`${entry?.zh ?? ''}`.trim()))
   if (!text) return []
   return [{ speaker: `${entry?.scene || '短剧'}`, text, delay: 0 }]
 }
@@ -538,7 +576,9 @@ const extraCaptions = (
   if (raw) {
     return (Array.isArray(raw) ? raw : [raw]).flatMap((entry) => {
       const entryZh = `${entry.zh ?? ''}`.trim()
-      const text = entryZh ? normalizeVoiceText(entryZh) : `${entry.jp ?? ''}`.trim()
+      const text = entryZh
+        ? simplifyZh(normalizeVoiceText(entryZh))
+        : `${entry.jp ?? ''}`.trim()
       if (!text) return []
       const fallbackSpeaker = `${entry.name || ''}`.trim()
       return [{

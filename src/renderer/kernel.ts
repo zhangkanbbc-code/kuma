@@ -15,6 +15,8 @@ import type {
   MgMaster,
   MgPatch,
   MgPlayer,
+  NodeDropIndex,
+  NodeDropReport,
   NodeHistoryIndexEntry,
   NodeHistoryReport,
   PowerupResultCue,
@@ -50,7 +52,11 @@ const kernelConfig = require('@electron/remote').require('./config')
 // 渲染层是 file:// 源，Chromium 对它的本地存储不保证跨重启留存——布局记不住就是栽在这。
 export const uiGet = <T>(key: string, fallback: T): T => {
   const value = kernelConfig.get(`ui.${key}`)
-  return value === undefined || value === null ? fallback : (value as T)
+  if (value === undefined || value === null) return fallback
+  // @electron/remote 返回的对象是代理：值成员不可 configurable，玩家在图鉴切换目标点时
+  // `delete routeTargets[code]` 会抛 TypeError；对已有键赋值又会经 setter 直写主进程对象，
+  // 绕过 config.set 的落盘与变更通知。ui.* 都是 JSON 值，取出时也复制成本地对象。
+  return typeof value === 'object' ? (JSON.parse(JSON.stringify(value)) as T) : (value as T)
 }
 export const uiSet = (key: string, value: unknown) => {
   // 深拷贝：config.set 用引用比较判断「值没变」，直接塞同一个对象会被判为无变化而不落盘
@@ -711,12 +717,22 @@ export const queryEventSortieCosts = (
 export const queryNodeHistoryIndex = (limit = 300): Promise<NodeHistoryIndexEntry[]> =>
   ipcRenderer.invoke('chron:node-history-index', limit)
 
+export const queryNodeDropIndex = (limit = 300): Promise<NodeDropIndex> =>
+  ipcRenderer.invoke('chron:node-drop-index', limit)
+
 export const queryNodeHistory = (
   map: number,
   cell: number,
   limit = 60,
 ): Promise<NodeHistoryReport> =>
   ipcRenderer.invoke('chron:node-history', map, cell, limit)
+
+export const queryNodeDrops = (
+  map: number,
+  cell: number,
+  limit = 60,
+): Promise<NodeDropReport> =>
+  ipcRenderer.invoke('chron:node-drops', map, cell, limit)
 
 export const queryFirstEncounters = (): Promise<FirstEncounterIndex> =>
   ipcRenderer.invoke('chron:first-encounters')

@@ -7,7 +7,7 @@
 //
 // 判据只有一条：`scripts/lode-sources.json` 里 `bundle: true`。
 // 而 `bundle` 能不能是 true，取决于那一条的许可标识——
-// 只有数据本身所在的源有明确、允许再分发的许可声明（MIT / CC BY-NC-SA 3.0），
+// 只有数据本身所在的源有明确、允许再分发的许可声明（MIT / Apache-2.0 / CC BY-NC-SA 3.0），
 // 或明确登记为第一方产物才行。
 // 无声明或明文禁止的一律换源，不留中间路（2026-08-21 用户定稿的发布侧口径）。
 
@@ -21,6 +21,7 @@ export const REPO_ROOT = path.resolve(here, '..', '..')
 /** 允许随包的许可。不在这张表里的一律不许翻 bundle。 */
 export const REDISTRIBUTABLE_LICENSES = new Set([
   'MIT',
+  'Apache-2.0',
   'CC-BY-NC-SA-3.0',
   '第一方产物',
 ])
@@ -47,6 +48,10 @@ export const REDISTRIBUTABLE_LICENSES = new Set([
  * 逐字转写的权利归游戏方，与随包早就有的 `kcwiki-voice.ja`、整份 `subtitle-ja`
  * 同级同灰度，挡住它只会让台词卷变成半张对照表。
  * 它同样抓不回来：`lodes:fetch` 一行都不该动它，逐句订正直接改包文件。
+ *
+ * `kanso-voice-zh`（2026-09-04）是同域的译文 overlay：上游已有台词行，
+ * 但中文栏为空或照抄英文原文时才把第一方译文叠上去。它从仓内维护者清单和两份
+ * 随包上游台词生成，通用抓取不碰；上游补上中文即退役，日文原文漂移即停用。
  *
  * **这两个包的 note 归属**：它们不在 lode-sources.json 里，所以两份文案都住在包自己的
  * meta 里——`meta.note` 是玩家可见的（lodeCredit 渲染进「源」悬停，只写一两句人话），
@@ -85,6 +90,7 @@ export const REDISTRIBUTABLE_LICENSES = new Set([
 export const FIRST_PARTY_LODE_IDS = [
   'map-drop-windows',
   'kanso-voice',
+  'kanso-voice-zh',
   'equip-improve',
   'equip-aa-evasion',
   'event-plane-groups',

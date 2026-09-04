@@ -1,5 +1,8 @@
 import { splitAbyssalDisplayLabel } from '../shared/abyssal-label'
 import { esc, queryLode } from './kernel'
+import { simplifyLocalizationEntities } from './kcwiki-zh'
+import { installTaskEntityFold } from './task-entity-match'
+import { installZhSimplifier, simplifyZh } from './zh-simplify'
 
 export type LocalizedDomain =
   | 'ship'
@@ -146,7 +149,8 @@ export const registerLocalizedName = (
   source = 'runtime',
 ) => {
   const jaText = clean(ja)
-  const zhText = clean(zh)
+  // 运行期补登也是译名表的装配入口：只归一中文列，日文原名保持原样。
+  const zhText = simplifyZh(clean(zh))
   if (!jaText || !zhText) return
   // 值没变就不推进版本号。这个函数在渲染路径上被反复调用（钦每重建一次任务行
   // 就把全部任务名重登一遍），无条件 bump 会把下游按版本号缓存的索引
@@ -368,12 +372,18 @@ const installFoldToggle = () => {
 
 export const initLocalization = async () => {
   installFoldToggle()
-  const [pack, questPack, expeditionPack] = await Promise.all([
+  const [pack, questPack, expeditionPack, opencc] = await Promise.all([
     queryLode('kcwiki-localization'),
     queryLode('quests-scn'),
     queryLode('kcwiki-expedition'),
+    queryLode('opencc-t2s'),
   ])
-  const raw = pack?.data?.entities
+  installZhSimplifier(opencc)
+  // index.ts 会等 initLocalization 与快照一起完成后才装配模块：这里先装字符表，
+  // qn 首次 buildEntityIndexes 及以后 master 触发的重建都会与正文共用同一折叠。
+  // initLocalization 失败则模块不装配；字表缺席时两侧的 OpenCC 层都为恒等。
+  installTaskEntityFold(opencc?.data?.chars ?? null)
+  const raw = simplifyLocalizationEntities(pack?.data?.entities)
   if (raw && typeof raw === 'object') {
     tables = { ...emptyTables(), ...raw }
   }
@@ -384,7 +394,7 @@ export const initLocalization = async () => {
       if (quest?.name) {
         tables.quest[id] = {
           ja: original?.ja ?? '',
-          zh: quest.name,
+          zh: simplifyZh(quest.name),
           source: original?.ja ? 'kcwiki-quest-data+quests-scn' : 'quests-scn',
         }
       }

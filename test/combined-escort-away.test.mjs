@@ -276,7 +276,7 @@ test('通知本体没被改坏：文案与落点照旧', () => {
   const notices = detectCond({ fleets: 三支队, tired: [31], combinedFlag: 0, sortie: null })
   assert.equal(notices.length, 1)
   assert.equal(notices[0].eventId, 'condRecover')
-  assert.match(notices[0].title, /^第3舰队 疲劳估算已恢复$/)
+  assert.match(notices[0].title, /^第3舰队 疲劳预估已恢复$/)
   assert.deepEqual(notices[0].ref, { type: 'fleet', id: 3 })
 })
 

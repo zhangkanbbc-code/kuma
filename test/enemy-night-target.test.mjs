@@ -118,21 +118,21 @@ test('敌方不是联合编成：不出横幅', () => {
   assert.equal(renderBlockedBossNight(atBossBefore(enemyFleet([]))), null)
 })
 
-test('二队仍有战力：用估算标注无法攻击主力，措辞不写成确定', () => {
+test('二队仍有战力：用预估标注无法攻击主力，措辞不写成确定', () => {
   const html = renderBlockedBossNight(atBossBefore(enemyFleet([100, 100, 100])))
-  assert.match(html, /敌护卫仍有战力 · 夜战估算无法攻击 戦艦棲姫/)
+  assert.match(html, /敌护卫仍有战力 · 夜战预估无法攻击 戦艦棲姫/)
   assert.match(html, /夜战将消耗弹药/)
   assert.match(html, /撤退可用<\/span>/)
   assert.match(html, /verdict v-warn/)
-  // 判别式非官方、有例外观测，一律只说「估算」
-  assert.match(html, /估算/)
+  // 判别式非官方、有例外观测，一律只说「预估」
+  assert.match(html, /预估/)
 })
 
 test('二队只剩两艘大破：反过来提示这是斩杀机会', () => {
   // 旗舰存活 +1 + 两艘大破各 0 = 1.0 < 3 → 打一队。
   // 旧写法「还有活的就接触不到」会在这里给出**相反**的建议。
   const html = renderBlockedBossNight(atBossBefore(enemyFleet([20, 20])))
-  assert.match(html, /敌护卫已残破 · 夜战估算可攻击 戦艦棲姫/)
+  assert.match(html, /敌护卫已残破 · 夜战预估可攻击 戦艦棲姫/)
   assert.match(html, /夜战可攻击主力旗舰/)
   assert.match(html, /夜战机会<\/span>/)
   assert.match(html, /verdict v-cyan/)

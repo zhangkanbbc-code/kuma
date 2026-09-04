@@ -23,6 +23,7 @@ import { LBAS_TARGET_LABEL } from '../../shared/lbas-target-power'
 import type { LbasTargetKind } from '../../shared/lbas-target-power'
 import { elink, elinkHtml } from '../link'
 import { entityNameHtml, entityNamePlain, entityTermHtml, localizationVersion } from '../localization'
+import { simplifyQuestScnData } from '../kcwiki-zh'
 import { initMapIntel } from '../map-intel'
 import { registerModule, setModuleVisible } from '../mu'
 import { sallyTagColor } from '../sally-tag'
@@ -1369,7 +1370,9 @@ registerModule({
         loadEventBonusLode(),
       ])
       applyMasterAreas(raw)
-      questCatalog = (catalog as any)?.data ?? null
+      questCatalog = (catalog as any)?.data
+        ? simplifyQuestScnData((catalog as any).data)
+        : null
       // 缺包不挡路：推荐照出，只是回避档那一列显示未收录、排序退成看威力与耗铝
       aaEvasion = new Map(
         (((evasion as any)?.data ?? []) as AaEvasionRow[]).map((row) => [row.eq_id, row]),
