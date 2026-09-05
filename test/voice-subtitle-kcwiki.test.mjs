@@ -114,6 +114,37 @@ test('繁体中文显示为简体，日文原文含艦隊与戦闘也一字不�
   assert.equal(textOf(setup, 100, 3), '艦隊は戦闘準備ができた。')
 })
 
+test('只有 wikiwiki 表的形态也优先显示 kcwiki 中文', () => {
+  const text = textOf(
+    {
+      simplifierPack,
+      voiceFallbackOf: chain(991),
+      wikiwikiVoice: { 991: [{ voiceId: 5, ja: 'また賑やかになるね!' }] },
+      kcwikiBySlot: new Map([
+        [991, new Map([[5, { zh: '新船造好了！正好熱熱鬧鬧的。', ja: '' }]])],
+      ]),
+    },
+    991,
+    5,
+  )
+  assert.equal(text, '新船造好了！正好热热闹闹的')
+})
+
+test('只有 wikiwiki 表时 kcwiki 的日文不许顶掉 wikiwiki 转写', () => {
+  const text = textOf(
+    {
+      voiceFallbackOf: chain(991),
+      wikiwikiVoice: { 991: [{ voiceId: 5, ja: 'wikiwiki の原文' }] },
+      kcwikiBySlot: new Map([
+        [991, new Map([[5, { zh: '', ja: 'kcwiki の原文' }]])],
+      ]),
+    },
+    991,
+    5,
+  )
+  assert.equal(text, 'wikiwiki の原文')
+})
+
 // ---- ② 小桶不许挡整页（这条是整批最容易写错的地方）----
 
 test('kcwiki 小桶不许挤掉前置形态那张整表', () => {

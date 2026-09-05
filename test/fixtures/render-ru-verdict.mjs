@@ -90,8 +90,7 @@ const masterShipName = (mstId: number) => mg.master.ships[mstId]?.name ?? \`#\${
 const FATIGUE_READY_COND = 40
 const fatigueReadyTs = (_id: number, _cond: number) => null
 const fmtCountdownShort = (_ts: number) => '00:00'
-// 陆航与札两枚芯片不是这条护栏的事，给空串（裁决框只是把它们原样挂上去）。
-const airBaseFlagHtml = () => ''
+// 札芯片不是这条护栏的事，给空串（裁决框只是把它原样挂上去）。
 const sallyFlagHtml = (_ships: any) => ''
 
 ${FLEET_SHIPS}

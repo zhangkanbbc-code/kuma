@@ -7,6 +7,7 @@ import path from 'path'
 import { atomicWriteJsonSync } from './atomic-json'
 import { APPDATA_PATH, DEFAULT_CACHE_PATH } from './env'
 import { DEFAULT_GAME_URL } from '../shared/game-url'
+import { HOTKEY_DEFAULTS } from '../shared/hotkeys'
 import { LAUNCH_GLOW_DEFAULT } from '../shared/launch-glow'
 
 const CONFIG_PATH = path.join(APPDATA_PATH, 'config.json')
@@ -43,6 +44,7 @@ const DEFAULTS: Record<string, unknown> = {
     //（默认关）。
     // 默认值取自 shared/launch-glow：钥的开关与镇壳的读取都引同一份，别在这里写字面量。
     launchGlow: LAUNCH_GLOW_DEFAULT,
+    hotkeys: { ...HOTKEY_DEFAULTS, bossEnabled: true },
     network: { customCertificateAuthority: '' },
     trustedCerts: [] as string[],
   },

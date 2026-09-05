@@ -13,6 +13,7 @@ import path from 'path'
 import config from './config'
 import { safeConsole } from './crash-log'
 import { ROOT } from './env'
+import { restoreFromBoss } from './hotkeys'
 
 import type { BrowserWindow } from 'electron'
 
@@ -32,6 +33,7 @@ export const minimizeToTray = () =>
 
 /** 从托盘/通知里把主窗口拉回来。隐藏过的窗口 focus() 是无效的，必须先 show() */
 export const showMainWindow = () => {
+  if (restoreFromBoss()) return
   const win = getWindow()
   if (!win || win.isDestroyed()) return
   if (!win.isVisible()) win.show()

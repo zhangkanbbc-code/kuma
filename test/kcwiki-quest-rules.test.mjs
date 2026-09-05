@@ -377,6 +377,61 @@ test('a flagship group still counts every matching ship toward its amount', () =
   })
 })
 
+test('flagship mismatch reports the named matching ship at index 2', () => {
+  const goal = {
+    groups: [{
+      label: '駆逐',
+      ships: [],
+      stypes: [2],
+      amount: 1,
+      flagship: true,
+    }],
+  }
+  const result = rules.evaluateFleetGoal(goal, [
+    { mstId: 200, stype: 5, soku: 10, lv: 50 },
+    { mstId: 201, stype: 5, soku: 10, lv: 50 },
+    { mstId: 1, name: '時雨', stype: 2, soku: 10, lv: 50 },
+    { mstId: 204, name: '夕立', stype: 2, soku: 10, lv: 50 },
+  ], 1)
+  assert.equal(result.lines[0].issue, '旗舰不符合「駆逐」 · 「時雨」在第3位')
+})
+
+test('position mismatch reports the matching ship at index 3', () => {
+  const goal = {
+    groups: [{
+      label: '駆逐',
+      ships: [],
+      stypes: [2],
+      amount: 1,
+      position: 2,
+    }],
+  }
+  const result = rules.evaluateFleetGoal(goal, [
+    { mstId: 200, stype: 5, soku: 10, lv: 50 },
+    { mstId: 201, stype: 5, soku: 10, lv: 50 },
+    { mstId: 202, stype: 5, soku: 10, lv: 50 },
+    { mstId: 203, stype: 2, soku: 10, lv: 50 },
+  ], 1)
+  assert.equal(result.lines[0].issue, '2号位不符合「駆逐」 · 符合条件的舰在第4位')
+})
+
+test('position mismatch keeps the original issue when no ship matches', () => {
+  const goal = {
+    groups: [{
+      label: '駆逐',
+      ships: [],
+      stypes: [2],
+      amount: 1,
+      position: 2,
+    }],
+  }
+  const result = rules.evaluateFleetGoal(goal, [
+    { mstId: 200, stype: 5, soku: 10, lv: 50 },
+    { mstId: 201, stype: 5, soku: 10, lv: 50 },
+  ], 1)
+  assert.equal(result.lines[0].issue, '2号位不符合「駆逐」')
+})
+
 test('sortie requirements: range pools into one slot, array keeps per-map slots, boss rank preserved', () => {
   const context = rules.buildKcwikiRuleContext(master)
   // 范围写法 = 任意图凑数(池计数,或):共享一槽

@@ -123,6 +123,11 @@ const pickSections = (sections: Section[]) => {
         patch.questActiveTs = state.player.questActiveTs
         patch.questExecCount = state.player.questExecCount
         break
+      case 'missionStates':
+        patch.missionStates = state.player.missionStates
+        patch.missionStatesTs = state.player.missionStatesTs
+        patch.missionLimitTs = state.player.missionLimitTs
+        break
       case 'useitems':
         patch.useitems = state.player.useitems
         patch.useitemsTs = state.player.useitemsTs
@@ -452,6 +457,7 @@ const handleEvent = (
 
 const DOMAIN_SECTIONS = new Set<Section>([
   'quests',
+  'missionStates',
   'useitems',
   'slotitems',
   'practice',

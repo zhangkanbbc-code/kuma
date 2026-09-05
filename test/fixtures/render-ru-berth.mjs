@@ -93,6 +93,8 @@ const inCombined = (deck: any) => mg.combinedFlag > 0 && (deck.id === 1 || deck.
 const scopeShips = (deck: any) => fleetShips(deck)
 const shipIssues = (_s: any) => ({ taiha: false, chuuha: false, unsupplied: false, docked: false, tired: false })
 const trackedAirBases = () => []
+const airBaseTabGlow = (_squads: any[]) => null
+const airBaseReadiness = () => null
 const sandboxDeck = () => ({ id: -1, ships: [] })
 const fleetLabel = (deck: any) => ({ canonical: \`第\${deck.id}舰队\`, custom: '' })
 const masterShipName = (mstId: number) => mg.master.ships[mstId]?.name ?? \`#\${mstId}\`

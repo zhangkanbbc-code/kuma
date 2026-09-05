@@ -62,6 +62,9 @@ const state: MgState = {
     questActiveIds: null,
     questActiveTs: null,
     questExecCount: null,
+    missionStates: {},
+    missionStatesTs: null,
+    missionLimitTs: null,
     useitems: {},
     useitemsTs: null,
     furnitures: null,
@@ -127,6 +130,12 @@ export const hydrateDomain = (data: any) => {
         : null
   state.player.questExecCount =
     typeof data.questExecCount === 'number' ? data.questExecCount : null
+  state.player.missionStates =
+    data.missionStates && typeof data.missionStates === 'object' ? data.missionStates : {}
+  state.player.missionStatesTs =
+    typeof data.missionStatesTs === 'number' ? data.missionStatesTs : null
+  state.player.missionLimitTs =
+    typeof data.missionLimitTs === 'number' ? data.missionLimitTs : null
   if (data.useitems && typeof data.useitems === 'object') state.player.useitems = data.useitems
   if (typeof data.useitemsTs === 'number') state.player.useitemsTs = data.useitemsTs
   if (data.slotitems && typeof data.slotitems === 'object') state.player.slotitems = data.slotitems
@@ -206,6 +215,9 @@ export const domainSnapshot = () => ({
   questActiveIds: state.player.questActiveIds,
   questActiveTs: state.player.questActiveTs,
   questExecCount: state.player.questExecCount,
+  missionStates: state.player.missionStates,
+  missionStatesTs: state.player.missionStatesTs,
+  missionLimitTs: state.player.missionLimitTs,
   useitems: state.player.useitems,
   useitemsTs: state.player.useitemsTs,
   slotitems: state.player.slotitems,
@@ -1390,6 +1402,7 @@ const reducers: Record<string, Reducer> = {
         name: m.api_name,
         time: m.api_time ?? 0,
         dispNo: m.api_disp_no ?? `${m.api_id}`,
+        resetType: m.api_reset_type ?? 0,
         useFuel: m.api_use_fuel ?? 0,
         useBull: m.api_use_bull ?? 0,
         deckNum: m.api_deck_num ?? 0,
@@ -2730,6 +2743,25 @@ const reducers: Record<string, Reducer> = {
   // 玩家真点了「退避」。两条端点同一件事（通常舰队 / 連合舰队），共用一个归约器。
   '/kcsapi/api_req_sortie/goback_port': onGobackPort,
   '/kcsapi/api_req_combined_battle/goback_port': onGobackPort,
+
+  /**
+   * 用户账本 489 条响应核出：api_state 0 = 未解放、1 = 已解放且本期未达成、
+   * 2 = 已达成；已观测的全量列表里缺号也表示尚未解锁。api_limit_time[0] 是
+   * 月次远征每月 15 日 12:00 JST 的重置时刻。状态只在打开远征页时刷新；
+   * 重置时刻一过而没有新观测，旧的「本期已完成」不能再信。
+   */
+  '/kcsapi/api_get_member/mission': (body, _post, ts) => {
+    const missionStates: Record<number, number> = {}
+    for (const raw of body?.api_list_items ?? []) {
+      if (!raw || typeof raw.api_mission_id !== 'number') continue
+      missionStates[raw.api_mission_id] = raw.api_state
+    }
+    state.player.missionStates = missionStates
+    state.player.missionStatesTs = ts
+    state.player.missionLimitTs =
+      typeof body?.api_limit_time?.[0] === 'number' ? body.api_limit_time[0] * 1000 : null
+    return ['missionStates']
+  },
 
   // 海域攻略进度（打开出击图时自然产生）：Boss 血条/击破计数
   '/kcsapi/api_get_member/mapinfo': (body, _post, ts) => {

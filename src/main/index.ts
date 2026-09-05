@@ -13,6 +13,7 @@ import { closeAllBrowseWindows, openBrowseWindow } from './browse-window'
 import config from './config'
 import { installCrashLogging, reportFatal } from './crash-log'
 import { installPerfLogging } from './perf-log'
+import { attachApplicationHotkeys, installHotkeys } from './hotkeys'
 import { ROOT } from './env'
 import { installQuitGuard, reapOrphanKansoProcesses } from './quit-guard'
 import { flushShipArtPaths } from './ship-art-store'
@@ -589,6 +590,8 @@ app.on('ready', () => {
     },
   })
   mainWindow = win
+  attachApplicationHotkeys(win.webContents)
+  installHotkeys(() => mainWindow)
 
   // 窗口一建好就露面，不等 ready-to-show（渲染层首帧）：2.2 MB 的渲染层 bundle 要解析
   // 执行完才有首帧，用户实机感受是「双击后要等两秒才弹窗」（2026-08-26 他裁）。
@@ -661,6 +664,7 @@ app.on('ready', () => {
   win.webContents.addListener('did-attach-webview', (_event, webContent) => {
     gameWebContentsId = webContent.id
     setKcsResourceGameWebContentsId(webContent.id)
+    attachApplicationHotkeys(webContent)
     // 换了一页游戏就是换了一份 preload，那边的试听系数从 1 起——正在试听的话补一声
     if (previewDucking) sendPreviewDuck(true)
     webContent.once('destroyed', () => {

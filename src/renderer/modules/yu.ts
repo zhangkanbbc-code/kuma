@@ -69,6 +69,16 @@ import {
   VOICE_CAPTION_SIZE_STEP,
 } from '../../shared/voice-caption-size'
 import { LAUNCH_GLOW_CONFIG_KEY, LAUNCH_GLOW_DEFAULT } from '../../shared/launch-glow'
+import {
+  BOSS_HOTKEY_ENABLED_CONFIG_KEY,
+  formatAccelerator,
+  HOTKEY_CONFIG_KEYS,
+  HOTKEY_DEFAULTS,
+  isAcceptableAccelerator,
+  parseAccelerator,
+  serializeAccelerator,
+} from '../../shared/hotkeys'
+import type { Accelerator, HotkeyId } from '../../shared/hotkeys'
 import { mapIntelCatalog } from '../../shared/map-intel'
 import { groupVoiceAbsentByMonth } from '../../shared/voice-probe-plan'
 import type { VoiceAbsentEntry } from '../../shared/voice-probe-plan'
@@ -180,6 +190,10 @@ let loginHealth: {
   lastError: string | null
 } | null = null
 let backupMessage = ''
+type BossHotkeyStatus = 'registered' | 'conflict' | 'disabled'
+let bossHotkeyStatus: BossHotkeyStatus | null = null
+let recordingHotkey: HotkeyId | null = null
+let hotkeyMessage: { id: HotkeyId; text: string } | null = null
 /**
  * 「重新载入游戏页面」按下去之后的回话。它值得留一句：设置浮层正盖着游戏区，
  * 玩家按完看不见页面有没有动——不吭声就只能关掉浮层去猜。
@@ -1054,6 +1068,56 @@ const trayCardHtml = (): string => `<div class="h"><b>托盘与后台</b><span c
   )}
   <div class="ynote">托盘、通知或再次启动可唤回</div>`
 
+const HOTKEY_IDS: readonly HotkeyId[] = ['boss', 'reload', 'focus', 'capture']
+const HOTKEY_LABELS: Record<HotkeyId, string> = {
+  boss: '老板键',
+  reload: '刷新游戏',
+  focus: '专注模式',
+  capture: '截图',
+}
+
+const readHotkey = (id: HotkeyId): Accelerator => {
+  const configured = parseAccelerator(config.get(HOTKEY_CONFIG_KEYS[id], HOTKEY_DEFAULTS[id]))
+  if (configured && isAcceptableAccelerator(configured)) return configured
+  return parseAccelerator(HOTKEY_DEFAULTS[id]) as Accelerator
+}
+
+const bossHotkeyStatusText = (): string => {
+  if (config.get(BOSS_HOTKEY_ENABLED_CONFIG_KEY, true) === false) return '已关'
+  if (bossHotkeyStatus === 'registered') return '可用'
+  if (bossHotkeyStatus === 'conflict') return '被其他程序占用，暂不可用'
+  return ''
+}
+
+const hotkeyRowHtml = (id: HotkeyId): string => {
+  const value =
+    hotkeyMessage?.id === id
+      ? hotkeyMessage.text
+      : recordingHotkey === id
+        ? '按下新的组合键…'
+        : formatAccelerator(readHotkey(id))
+  const bossSwitch =
+    id === 'boss'
+      ? `<span class="ysw${config.get(BOSS_HOTKEY_ENABLED_CONFIG_KEY, true) === true ? ' on' : ''}" data-hotkey-boss-toggle><i></i></span>`
+      : ''
+  const status =
+    id === 'boss' ? `<span class="dim">${esc(bossHotkeyStatusText())}</span>` : ''
+  return `<div class="yline yhotkey-row" data-hotkey-row="${id}">
+    <b class="yhotkey-label">${HOTKEY_LABELS[id]}</b>${bossSwitch}
+    <span class="mono yhotkey-value">${esc(value)}</span>
+    <span class="ybtn" data-hotkey-record="${id}">录入</span>
+    <span class="ybtn" data-hotkey-default="${id}">默认</span>${status}
+  </div>`
+}
+
+const hotkeysCardHtml = (): string =>
+  `<div class="h"><b>快捷键</b><span class="aux">在游戏画面里也能用</span></div>
+  ${hotkeyRowHtml('boss')}
+  <div class="ynote">隐藏 kuma 全部窗口并静音，再按一次恢复</div>
+  ${hotkeyRowHtml('reload')}
+  ${hotkeyRowHtml('focus')}
+  ${hotkeyRowHtml('capture')}`
+
 const gameAudioCardHtml = (): string => {
   const rawMode = config.get('kanso.gameAudio.mode', 'all')
   const mode: GameAudioMode = rawMode === 'voice' || rawMode === 'bgm' ? rawMode : 'all'
@@ -1294,6 +1358,7 @@ const CARD_HTML: Record<SettingsCardId, () => string> = {
   'caption-size': captionSizeCardHtml,
   'ui-hints': uiHintsCardHtml,
   tray: trayCardHtml,
+  hotkeys: hotkeysCardHtml,
   'game-audio': gameAudioCardHtml,
   'game-audio-selftest': gameAudioSelfTestCardHtml,
   'voice-archive': voiceArchiveCardHtml,
@@ -1371,6 +1436,85 @@ registerModule({
     // 拖动期间每个 input 事件都同步 config.set = 一次阻塞 remote 调用 + 一次原子写盘，
     // 滑条肉眼发涩。150ms 尾随去抖：音量跟手感知不到延迟，写盘从几十次收敛到一两次。
     const volumeCommitTimers = new Map<string, ReturnType<typeof setTimeout>>()
+    const updateHotkeyStatus = (result: { boss?: BossHotkeyStatus } | null) => {
+      if (
+        result?.boss === 'registered' ||
+        result?.boss === 'conflict' ||
+        result?.boss === 'disabled'
+      ) {
+        bossHotkeyStatus = result.boss
+      }
+    }
+    const applyHotkeyChange = () => {
+      void ipcRenderer
+        .invoke('hotkeys:apply')
+        .then((result: { boss?: BossHotkeyStatus } | null) => {
+          updateHotkeyStatus(result)
+          window.dispatchEvent(new Event('kanso-hotkeys-changed'))
+          render()
+        })
+    }
+    const stopHotkeyRecording = () => {
+      recordingHotkey = null
+      hotkeyMessage = null
+      void ipcRenderer
+        .invoke('hotkeys:recording', false)
+        .then((result: { boss?: BossHotkeyStatus } | null) => {
+          updateHotkeyStatus(result)
+          render()
+        })
+      render()
+    }
+    const onHotkeyKeydown = (event: KeyboardEvent) => {
+      if (!recordingHotkey) return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      if (event.repeat) return
+      if (event.key === 'Escape') {
+        stopHotkeyRecording()
+        return
+      }
+      if (['Control', 'Alt', 'Shift', 'Meta', 'AltGraph'].includes(event.key)) return
+      const key = event.key === '+' ? 'Plus' : event.key === ' ' ? 'Space' : event.key
+      const parts = [
+        event.ctrlKey ? 'Ctrl' : '',
+        event.altKey ? 'Alt' : '',
+        event.shiftKey ? 'Shift' : '',
+        event.metaKey ? 'Meta' : '',
+        key,
+      ].filter(Boolean)
+      const accelerator = parseAccelerator(parts.join('+'))
+      if (!accelerator || !isAcceptableAccelerator(accelerator)) {
+        hotkeyMessage = { id: recordingHotkey, text: '要带 Ctrl 或 Alt，或用 F 键' }
+        render()
+        return
+      }
+      const duplicate = HOTKEY_IDS.find(
+        (id) =>
+          id !== recordingHotkey &&
+          serializeAccelerator(readHotkey(id)) === serializeAccelerator(accelerator),
+      )
+      if (duplicate) {
+        hotkeyMessage = {
+          id: recordingHotkey,
+          text: `与「${HOTKEY_LABELS[duplicate]}」重复`,
+        }
+        render()
+        return
+      }
+      config.set(HOTKEY_CONFIG_KEYS[recordingHotkey], serializeAccelerator(accelerator))
+      recordingHotkey = null
+      hotkeyMessage = null
+      render()
+      applyHotkeyChange()
+    }
+    document.addEventListener('keydown', onHotkeyKeydown, true)
+    trackMountCleanup(() => {
+      document.removeEventListener('keydown', onHotkeyKeydown, true)
+      if (recordingHotkey) void ipcRenderer.invoke('hotkeys:recording', false)
+      recordingHotkey = null
+      hotkeyMessage = null
+    })
     el.addEventListener('input', (e) => {
       const input = (e.target as HTMLElement).closest<HTMLInputElement>('input[data-audio-volume]')
       if (!input) return
@@ -1519,6 +1663,48 @@ registerModule({
         return
       }
       const act = t.closest<HTMLElement>('[data-act]')?.dataset.act
+      const hotkeyRecord = t.closest<HTMLElement>('[data-hotkey-record]')?.dataset.hotkeyRecord
+      if (HOTKEY_IDS.includes(hotkeyRecord as HotkeyId)) {
+        void ipcRenderer.invoke('hotkeys:recording', true).then(() => {
+          recordingHotkey = hotkeyRecord as HotkeyId
+          hotkeyMessage = null
+          render()
+        })
+        return
+      }
+      const hotkeyDefault = t.closest<HTMLElement>('[data-hotkey-default]')?.dataset.hotkeyDefault
+      if (HOTKEY_IDS.includes(hotkeyDefault as HotkeyId)) {
+        if (recordingHotkey) stopHotkeyRecording()
+        const id = hotkeyDefault as HotkeyId
+        const accelerator = parseAccelerator(HOTKEY_DEFAULTS[id]) as Accelerator
+        const duplicate = HOTKEY_IDS.find(
+          (other) =>
+            other !== id &&
+            serializeAccelerator(readHotkey(other)) === serializeAccelerator(accelerator),
+        )
+        if (duplicate) {
+          hotkeyMessage = { id, text: `与「${HOTKEY_LABELS[duplicate]}」重复` }
+          render()
+          return
+        }
+        recordingHotkey = null
+        hotkeyMessage = null
+        config.set(HOTKEY_CONFIG_KEYS[id], HOTKEY_DEFAULTS[id])
+        render()
+        applyHotkeyChange()
+        return
+      }
+      if (t.closest('[data-hotkey-boss-toggle]')) {
+        recordingHotkey = null
+        hotkeyMessage = null
+        config.set(
+          BOSS_HOTKEY_ENABLED_CONFIG_KEY,
+          config.get(BOSS_HOTKEY_ENABLED_CONFIG_KEY, true) !== true,
+        )
+        render()
+        applyHotkeyChange()
+        return
+      }
       const zoomChip = t.closest<HTMLElement>('[data-zoom]')
       if (zoomChip) {
         setUiZoom(parseFloat(zoomChip.dataset.zoom!))
@@ -1893,6 +2079,12 @@ registerModule({
     }
     ipcRenderer.on('yu:login-health', onLoginHealth)
     trackMountCleanup(() => ipcRenderer.removeListener('yu:login-health', onLoginHealth))
+    void ipcRenderer
+      .invoke('hotkeys:status')
+      .then((result: { boss?: BossHotkeyStatus } | null) => {
+        updateHotkeyStatus(result)
+        render()
+      })
     void (async () => {
       mapIntelError = null // 重新装配就是重读一次，先把上一轮的失败清掉
       ;[lodes, appdataPath, proxyStatus, loginHealth] = await Promise.all([

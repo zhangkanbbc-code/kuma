@@ -5,10 +5,12 @@
 // 本地事件流计数，与服务器进度可能有出入，游戏自报粗档并列展示作对照。
 import type { Quest } from '../../shared/mg-types'
 import { QP_BLOCK_TEXT, QP_RANK_NAME, qpTaskGroups } from '../../shared/qp-types'
+import { decksOnExpedition } from '../../shared/expedition-state'
 
 import {
   esc,
   exitWithMotion,
+  fmtCountdownShort,
   fmtDurationLong,
   fmtTime,
   commitPaneHtml,
@@ -1688,7 +1690,36 @@ const qpDetailHtml = (row: QRow): string => {
     const n = Math.min(cap, Math.max(local, floors[slot] ?? 0))
     const done = local >= cap
     const alternatives = entries.map(({ task }) => qpTaskLabel(task)).join(' 或 ')
-    return `<div class="d-ent"><span class="k" style="color:${done ? 'var(--ok)' : 'var(--dim)'}">${done ? '✓' : '◌'}</span>${alternatives} <b style="font-family:var(--mono);color:${done ? 'var(--gold)' : 'var(--text)'}">${floored ? '≥' : ''}${n}/${cap}</b>${floored && serverFloor ? ` <small>游戏进度 ${FLAG_TEXT(serverFloor.flag)}</small>` : ''}</div>`
+    // 只在本地未完成行提示派没派；返港余时交给现有 data-cds tick 原地更新，不为秒数重画详情。
+    const matchedDecks = done
+      ? []
+      : [
+          ...new Map(
+            entries
+              .flatMap(({ task }) =>
+                task.kind === 'expedition'
+                  ? decksOnExpedition(mg.decks, task.missionId)
+                  : [],
+              )
+              .map((deck) => [deck.deckId, deck]),
+          ).values(),
+        ].sort((a, b) => a.deckId - b.deckId)
+    const returned = matchedDecks.filter((deck) => deck.state === 2)
+    const running = matchedDecks.filter((deck) => deck.state === 1)
+    const expeditionParts = [
+      returned.length ? `第${returned.map((deck) => deck.deckId).join('、')}舰队已返港` : '',
+      running.length ? `第${running.map((deck) => deck.deckId).join('、')}舰队远征中` : '',
+      running.length
+        ? (() => {
+            const returnTs = Math.min(...running.map((deck) => deck.returnTs))
+            return `返港 <span data-cds="${returnTs}" data-cds-done="已返港">${fmtCountdownShort(returnTs, '已返港')}</span>`
+          })()
+        : '',
+    ].filter(Boolean)
+    const expeditionStatus = expeditionParts.length
+      ? ` <span class="dim">· ${expeditionParts.join(' · ')}</span>`
+      : ''
+    return `<div class="d-ent"><span class="k" style="color:${done ? 'var(--ok)' : 'var(--dim)'}">${done ? '✓' : '◌'}</span>${alternatives} <b style="font-family:var(--mono);color:${done ? 'var(--gold)' : 'var(--text)'}">${floored ? '≥' : ''}${n}/${cap}</b>${expeditionStatus}${floored && serverFloor ? ` <small>游戏进度 ${FLAG_TEXT(serverFloor.flag)}</small>` : ''}</div>`
   })
   // 「本地计数」四字已在列表行的条上，这里不再重复口径，只留「源」与游戏自报档
   const counterMeta = [
@@ -2129,15 +2160,21 @@ const expeditionTogetherHtml = (row: QRow): string => {
   // 共用远征的任务动辄十几条，展开比计数器还高，用户 09-04 拍板默认折叠。
   return `<details class="q-section q-together">
     <summary>可以顺手一起完成 · ${overlaps.length} 个任务</summary>
-    ${overlaps.map(({ questId, items }) => {
+    ${overlaps.map(({ questId, status, items }) => {
       const quest = lib.get(questId)!
+      const statusTag =
+        status === 'active'
+          ? '<span class="st-tag mini" style="color:var(--accent);border-color:#2a4a5e">进行中</span>'
+          : status === 'open'
+            ? '<span class="st-tag mini dim">未领取</span>'
+            : ''
       const itemHtml = items.map(({ missionId, count }) => {
         if (missionId === 0) return `任意远征 ×${count}`
         const dispNo = normalizeExpeditionDispNo(mg.master.missions[missionId]?.dispNo)
         const label = dispNo ? `远征 ${dispNo}` : `远征#${missionId}`
         return `${elink('expedition', missionId, label)} ×${count}`
       }).join(' · ')
-      return `<div class="d-ent">${elink('quest', quest.id, quest.name)} · ${itemHtml}</div>`
+      return `<div class="d-ent">${statusTag}${elink('quest', quest.id, quest.name)} · ${itemHtml}</div>`
     }).join('')}
   </details>`
 }

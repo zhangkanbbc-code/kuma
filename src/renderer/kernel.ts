@@ -129,6 +129,9 @@ export interface MgView {
   questActiveIds: MgPlayer['questActiveIds']
   questActiveTs: MgPlayer['questActiveTs']
   questExecCount: MgPlayer['questExecCount']
+  missionStates: MgPlayer['missionStates']
+  missionStatesTs: MgPlayer['missionStatesTs']
+  missionLimitTs: MgPlayer['missionLimitTs']
   useitems: Record<number, number>
   useitemsTs: number | null
   sortie: SortieView | null
@@ -175,6 +178,9 @@ export const mg: MgView = {
   questActiveIds: null,
   questActiveTs: null,
   questExecCount: null,
+  missionStates: {},
+  missionStatesTs: null,
+  missionLimitTs: null,
   useitems: {},
   useitemsTs: null,
   sortie: null,
@@ -491,6 +497,9 @@ export const initKernel = (): Promise<void> => {
       mg.questActiveIds = s.player.questActiveIds ?? null
       mg.questActiveTs = s.player.questActiveTs ?? null
       mg.questExecCount = s.player.questExecCount ?? null
+      mg.missionStates = s.player.missionStates ?? {}
+      mg.missionStatesTs = s.player.missionStatesTs ?? null
+      mg.missionLimitTs = s.player.missionLimitTs ?? null
       mg.useitems = s.player.useitems
       mg.useitemsTs = s.player.useitemsTs ?? null
       mg.sortie = s.sortie ?? null

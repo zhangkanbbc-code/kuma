@@ -476,10 +476,21 @@ const shipCaption = (cue: Extract<VoiceRequestCue, { kind: 'ship' }>): CaptionLi
     } else {
       const line = wikiLines!.find((entry) => entry.voiceId === cue.voiceId)
       const reused = line ? voiceZhByJa.get(normalizeVoiceLine(line.ja)) : ''
-      text = reused ? simplifyZh(normalizeVoiceText(reused)) : `${line?.ja ?? ''}`
+      const kcwikiZh = captionText(kcwikiBySlot.get(id)?.get(cue.voiceId)?.zh)
+      const overlayZh = line
+        ? (voiceOverlayZhByJa.get(normalizeVoiceLine(line.ja)) ?? '')
+        : ''
+      text = reused
+        ? simplifyZh(normalizeVoiceText(reused))
+        : kcwikiZh
+          ? simplifyZh(normalizeVoiceText(kcwikiZh))
+          : overlayZh
+            ? simplifyZh(normalizeVoiceText(overlayZh))
+            : `${line?.ja ?? ''}`
     }
     // 同一形态内补空：subtitle 那一格没有转写（或写的是占位句）时才轮到 kcwiki。
-    // **有值一律不覆盖**——音轨转写是文本权威，kcwiki 是转写层。
+    // wikiwiki 日文是音轨转写、不是译文，不能挡住 kcwiki 中文；上面的 wikiwiki 分支
+    // 只拿 kcwiki 补中文，不拿它的日文覆盖 wikiwiki 转写。
     if (!text) text = kcwikiAt(id)
     break
   }

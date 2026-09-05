@@ -48,6 +48,11 @@ import {
   parseCompositionBranches,
 } from '../../shared/expedition-composition'
 import type { CompShipView } from '../../shared/expedition-composition'
+import {
+  expeditionGlow,
+  expeditionResetLabel,
+  expeditionRowState,
+} from '../../shared/expedition-state'
 import { questName } from './qn'
 
 import type { LodeMeta } from '../kernel'
@@ -172,6 +177,7 @@ interface Exped {
   dispNo: string
   name: string // 主数据日文名
   timeMin: number
+  resetType: number
   useFuel: number
   useBull: number
   deckNum: number
@@ -207,6 +213,7 @@ const allExpeds = (): Exped[] => {
       dispNo,
       name: m.name,
       timeMin: m.time,
+      resetType: m.resetType,
       useFuel: m.useFuel,
       useBull: m.useBull,
       deckNum: m.deckNum,
@@ -1342,8 +1349,30 @@ const fitChipHtml = (e: Exped): string => {
   return `<span class="fit ok">✓ 可</span>`
 }
 
-const listRowHtml = (e: Exped): string => {
+const expeditionDisplayState = (e: Exped, now: number) => {
+  const kind = expeditionRowState({
+    resetType: e.resetType,
+    observed: mg.missionStatesTs != null,
+    state: mg.missionStates[e.apiId],
+    limitTs: mg.missionLimitTs,
+    now,
+  })
+  if (kind === 'done') {
+    const reset = expeditionResetLabel(mg.missionLimitTs, now)
+    return { kind, label: `本期已完成${reset ? ` · ${reset}` : ''}` }
+  }
+  if (kind === 'locked') return { kind, label: '尚未解锁' }
+  return null
+}
+
+const listRowHtml = (e: Exped, now: number): string => {
   const w = e.wiki
+  const displayState = expeditionDisplayState(e, now)
+  const runningDeck = runningDeckOf(e.apiId)
+  const missionState = runningDeck?.mission?.[0]
+  const returnTs = runningDeck?.mission?.[2] ?? null
+  const fails = runningDeck ? checkExpedition(e, runningDeck).fails : 0
+  const glow = expeditionGlow({ missionState, returnTs, now, fails })
   const brief = [
     fmtDur(e.timeMin),
     w?.flagLv ? `旗Lv${w.flagLv}` : '',
@@ -1354,12 +1383,42 @@ const listRowHtml = (e: Exped): string => {
     .filter(Boolean)
     .join(' · ')
   const sp2 = w?.monthly || /[A-Z]/.test(e.dispNo)
-  return `<div class="erow${state.selected === e.apiId ? ' on' : ''}" data-exp="${e.apiId}">
+  const name = entityNamePlain('expedition', e.dispNo, w?.nameJp ?? e.name)
+  const glowTitle =
+    glow === 'collect'
+      ? `第${runningDeck!.id}舰队已返港 · 可收取`
+      : glow === 'unfit'
+        ? `第${runningDeck!.id}舰队编成不符合要求 · 差${fails}项`
+        : glow === 'running'
+          ? `第${runningDeck!.id}舰队远征中`
+          : ''
+  const titleBase = `${name}${displayState ? ` · ${displayState.label}` : ''}`
+  const title = `${titleBase}${glowTitle ? ` · ${glowTitle}` : ''}`
+  const returnAttrs =
+    missionState === 1 && returnTs != null && now < returnTs
+      ? ` data-return-ts="${returnTs}" data-collect-title="${esc(`${titleBase} · 第${runningDeck!.id}舰队已返港 · 可收取`)}"`
+      : ''
+  return `<div class="erow${state.selected === e.apiId ? ' on' : ''}${displayState ? ` ${displayState.kind}` : ''}${glow ? ` glow-${glow}` : ''}" data-exp="${e.apiId}"${returnAttrs} title="${esc(title)}">
     <span class="eid${sp2 ? ' sp2' : ''}">${esc(e.dispNo)}</span>
-    <span class="nm"><b title="${esc(entityNamePlain('expedition', e.dispNo, w?.nameJp ?? e.name))}">${entityNameHtml('expedition', e.dispNo, w?.nameJp ?? e.name, { compact: true })}</b><span>${brief}</span></span>
+    <span class="nm"><b title="${esc(title)}">${entityNameHtml('expedition', e.dispNo, w?.nameJp ?? e.name, { compact: true })}</b><span>${brief}</span></span>
     ${gainCellHtml(e)}
     ${fitChipHtml(e)}
   </div>`
+}
+
+// 时钟驱动的返港翻转跟现有倒计时 tick 同拍，只同步 class/title，不生成新 HTML；
+// collect 优先级也因此在跨过 returnTs 的这一秒立即压过 running / unfit。
+const syncExpeditionRowGlows = (root: HTMLElement) => {
+  const now = Date.now()
+  root.querySelectorAll<HTMLElement>('.erow[data-return-ts]').forEach((row) => {
+    if (now < Number(row.dataset.returnTs)) return
+    row.classList.remove('glow-running', 'glow-unfit')
+    row.classList.add('glow-collect')
+    row.title = row.dataset.collectTitle!
+    row.querySelector<HTMLElement>('.nm b')!.title = row.dataset.collectTitle!
+    delete row.dataset.returnTs
+    delete row.dataset.collectTitle
+  })
 }
 
 const expeditionHistoryHtml = (e: Exped): string => {
@@ -1486,10 +1545,11 @@ const ensureExpeditionHistory = (missionId: number) => {
     })
 }
 
-const detailHtml = (e: Exped): string => {
+const detailHtml = (e: Exped, now: number): string => {
   const w = e.wiki
   const areaName = areaNames.get(e.mapArea) ?? (e.mapArea > 10 ? '活动海域' : `海域${e.mapArea}`)
-  const returnTs = Date.now() + e.timeMin * 60000
+  const displayState = expeditionDisplayState(e, now)
+  const returnTs = now + e.timeMin * 60000
   const rc = new Date(returnTs)
   const pad = (n: number) => `${n}`.padStart(2, '0')
   const deck = pickDeck()
@@ -1635,6 +1695,7 @@ const detailHtml = (e: Exped): string => {
         ${w?.combat ? `<span class="badge" style="color:var(--warn);border-color:#4a3a22">${esc(w.combat)}</span>` : ''}
       </div>
       <h1><i>${esc(e.dispNo)}</i>${entityNameHtml('expedition', e.dispNo, w?.nameJp ?? e.name)}</h1>
+      ${displayState ? `<div class="exp-state ${displayState.kind}">${esc(displayState.label)}</div>` : ''}
       <div class="tline">
         <span class="pill">时间 <b>${fmtDur(e.timeMin)}</b></span>
         <span class="pill">现在出发 → <b class="hl">${pad(rc.getHours())}:${pad(rc.getMinutes())} 返港</b></span>
@@ -1702,6 +1763,7 @@ const AREA_CHIP_ORDER = [1, 2, 3, 4, 5, 7]
 
 const render = () => {
   if (!pane) return
+  const now = Date.now()
   const expeds = allExpeds()
   if (!expeds.length) {
     forgetCommittedHtml(pane, 'bi') // 这一支绕开 commitPaneHtml，记忆不能留着
@@ -1871,10 +1933,14 @@ const render = () => {
       <aside class="index">
         ${headHtml}
         ${fleetStatusHtml()}
-        <div class="elist">${list.map(listRowHtml).join('') || '<div style="padding:20px;color:var(--dim)">暂无匹配远征</div>'}</div>
-        <div class="index-foot">${referenceShips.length ? `按第${pickDeck()!.id}舰队满载补给估算 · 条件同队` : `每小时基础总收益 · 按${pickDeck() ? `第${pickDeck()!.id}舰队` : '—'}检查条件`}</div>
+        <div class="elist">${list.map((e) => listRowHtml(e, now)).join('') || '<div style="padding:20px;color:var(--dim)">暂无匹配远征</div>'}</div>
+        <div class="index-foot"><span class="index-foot-copy">${referenceShips.length ? `按第${pickDeck()!.id}舰队满载补给估算 · 条件同队` : `每小时基础总收益 · 按${pickDeck() ? `第${pickDeck()!.id}舰队` : '—'}检查条件`}</span>${
+          mg.missionStatesTs != null
+            ? `<span class="index-foot-state" title="远征状态更新于 ${fmtTime(mg.missionStatesTs).slice(0, 5)} · 打开游戏远征页刷新">状态更新于 ${fmtTime(mg.missionStatesTs).slice(0, 5)}</span>`
+            : ''
+        }</div>
       </aside>
-      <main class="detail${detailWasOpen ? ' stable' : ''}">${selected ? detailHtml(selected) : ''}</main>
+      <main class="detail${detailWasOpen ? ' stable' : ''}">${selected ? detailHtml(selected, now) : ''}</main>
     </div>`
   // 没换 DOM 就不能重绑：搜索框还是老元素，再绑一遍就是监听叠加
   const domChanged = commitPaneHtml(pane, 'bi', html)
@@ -2132,7 +2198,7 @@ registerModule({
           lastDeckMissions.set(deck.id, cur)
         }
       }
-      if (keys.some((k) => ['master', 'decks', 'ships', 'slotitems', 'ndocks', 'quests'].includes(k)) && pane.classList.contains('active')) {
+      if (keys.some((k) => ['master', 'decks', 'ships', 'slotitems', 'ndocks', 'quests', 'missionStates'].includes(k)) && pane.classList.contains('active')) {
         if (keys.includes('decks') || keys.includes('ships')) savePlannerPrefs()
         // 用户正按在这块面板上就让到抬起之后（按下与抬起之间换掉 DOM，click 不会发生）；
         // 正在用输入法打字同理，让到组合结束——换掉 DOM 会把组合会话一起换没。
@@ -2143,6 +2209,7 @@ registerModule({
     onTick(() => {
       if (!pane.classList.contains('active')) return
       updateCountdowns(pane)
+      syncExpeditionRowGlows(pane)
       // 紧凑态的返港倒计时只住在悬停卡里（卡在 body，不在 pane 的扫描范围内）
       if (fleetCard?.classList.contains('show')) updateCountdowns(fleetCard)
     })

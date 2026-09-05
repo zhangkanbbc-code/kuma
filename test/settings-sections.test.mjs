@@ -4,7 +4,7 @@
 //      `data-ycard`——漏一张、重一张、跑到别的类里去，这里当场红。
 //      只断言源码文本是不够的：注册表少接一张卡，源码看着照样齐整。
 //   ③ **两种形态各数一遍**：矿脉健康度、游戏音频链路自检都是维护者工具，
-//      只在 `KANSO_DEBUG_UI=1` 下装配（发行版 22 张 / 调试 24 张）。
+//      只在 `KANSO_DEBUG_UI=1` 下装配（发行版 23 张 / 调试 25 张）。
 //      玩家那份产物里连那两张卡的影子都不许有。
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
@@ -116,12 +116,13 @@ test('分类表：抽掉维护者工具卡之后，没有一类被掏空或只�
   // 发行版那一列第一次从 18 变到 19；2026-08-30 又添了「游戏页面网址」
   //（网络类，紧跟代理）到 20，同日的游戏画面缩放两档添了「游戏画面」
   //（界面类，紧跟界面缩放）到 21；2026-08-31 字幕跟着游戏倍率缩放时添了
-  //「字幕字号」（界面类，紧跟游戏画面）到 22。四张都是**玩家卡**，不在调试门后。
-  assert.equal(release.length, 22, '发行版的卡数变了——两种形态的数字都要重新对一遍')
-  // 24：2026-08-26 拔掉战斗演出族时撤走了「索敌飞机 · Δ 校准」那张维护者卡（19），
+  //「字幕字号」（界面类，紧跟游戏画面）到 22；2026-09-05 托盘旁新增「快捷键」到 23。
+  // 五张都是**玩家卡**，不在调试门后。
+  assert.equal(release.length, 23, '发行版的卡数变了——两种形态的数字都要重新对一遍')
+  // 25：2026-08-26 拔掉战斗演出族时撤走了「索敌飞机 · Δ 校准」那张维护者卡（19），
   // 同日修语音滑条时又添了「游戏音频链路自检」（20）。那两张都只在调试门后装配，
   // 所以发行版那一列在 2026-08-29 之前自始至终是 18；之后添的四张玩家卡两列同涨。
-  assert.equal(SETTINGS_CARD_IDS.length, 24, '调试态的卡数变了')
+  assert.equal(SETTINGS_CARD_IDS.length, 25, '调试态的卡数变了')
 })
 
 // ---- ② 把钥编出来真渲染一遍 ----
@@ -231,6 +232,21 @@ test('魔改文件夹：玩家卡，紧跟缓存修复，按钮走主进程开�
   assert.match(card, /打开文件夹/)
   yu.click({ act: 'open-mod-dir' })
   assert.ok(yu.invoked.includes('yu:open-mod-dir'), '点了「打开文件夹」却没往主进程发')
+})
+
+test('快捷键：玩家卡紧跟托盘，四行与游戏画面内生效说明都真渲染', async () => {
+  const yu = mountYu({ ui: { [SETTINGS_SECTION_UI_KEY]: 'ui' } })
+  await yu.settled()
+  const cards = cardsIn(yu.pane.innerHTML)
+  assert.equal(cards[cards.indexOf('tray') + 1], 'hotkeys')
+  const card = cardHtml(yu.pane.innerHTML, 'hotkeys')
+  assert.match(card, /<b>快捷键<\/b><span class="aux">在游戏画面里也能用<\/span>/)
+  assert.match(card, /data-hotkey-row="boss"[\s\S]*老板键[\s\S]*Ctrl \+ Alt \+ H/)
+  assert.match(card, /data-hotkey-row="reload"[\s\S]*刷新游戏[\s\S]*F5/)
+  assert.match(card, /data-hotkey-row="focus"[\s\S]*专注模式[\s\S]*F9/)
+  assert.match(card, /data-hotkey-row="capture"[\s\S]*截图[\s\S]*Ctrl \+ Alt \+ S/)
+  assert.match(card, /隐藏 kuma 全部窗口并静音，再按一次恢复/)
+  assert.match(card, /可用/)
 })
 
 test('发行版：连别的分类里也没有矿脉健康度漏出来', () => {

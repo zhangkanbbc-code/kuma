@@ -85,6 +85,7 @@ export interface MasterMission {
   name: string
   time: number // 分钟
   dispNo: string // 显示编号（A1/B2/…，kcwiki 远征包按此对齐）
+  resetType: number // api_reset_type：0 常规 / 1 月次
   useFuel: number // 消耗率（0.3 = 30%）
   useBull: number
   deckNum: number // 需求舰数（主数据口径）
@@ -844,6 +845,9 @@ export interface MgPlayer {
   questActiveIds: number[] | null // tab 0/9 确认的当前受领集合；旧快照没有时为 null
   questActiveTs: number | null // 当前受领集合最近一次被 tab 0/9 或受领/取消动作确认的时刻
   questExecCount: number | null // 游戏 api_exec_count，自报的同时遂行数
+  missionStates: Record<number, number> // 远征 id → 游戏自报 api_state；已观测但缺号 = 尚未解锁
+  missionStatesTs: number | null // 最近一次打开游戏远征页、同步 mission 的时刻
+  missionLimitTs: number | null // 本期月次远征重置时刻；游戏没给时为 null
   useitems: Record<number, number> // useitem id → 所持数
   useitemsTs: number | null // 最近一次完整同步 api_useitem 的时刻；缺席条目只有在此后才能判定为 0
   // 持有家具（api_get_member/require_info 与 /furniture 的 api_furniture_id，升序去重）。
@@ -929,6 +933,7 @@ export type Section =
   | 'kdocks'
   | 'slotitems'
   | 'quests'
+  | 'missionStates'
   | 'useitems'
   | 'furnitures'
   | 'portLogs'
@@ -958,6 +963,9 @@ export interface MgPatch {
   questActiveIds?: number[] | null
   questActiveTs?: number | null
   questExecCount?: number | null
+  missionStates?: Record<number, number>
+  missionStatesTs?: number | null
+  missionLimitTs?: number | null
   useitems?: Record<number, number>
   useitemsTs?: number | null
   furnitures?: number[] | null

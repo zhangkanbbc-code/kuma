@@ -4,7 +4,11 @@ import test from 'node:test'
 
 import specialAttackModule from '../dist/shared/fleet-special-attack.js'
 
-const { detectFleetSpecialAttacks, specialAttackLabel } = specialAttackModule
+const {
+  MAIN_FLEET_DETAIL,
+  detectFleetSpecialAttacks,
+  specialAttackLabel,
+} = specialAttackModule
 
 const ship = (name, stype = 9, over = {}) => ({
   name,
@@ -44,6 +48,15 @@ test('Nagato and Colorado attacks use their required battleship positions', () =
   assert.deepEqual(
     labels('normal', [ship('Colorado改'), ship('驱逐', 2), ship('战舰B'), ...fillers(3)]),
     [],
+  )
+  const [colorado] = detectFleetSpecialAttacks({
+    role: 'normal',
+    ships: [ship('Colorado改'), ship('战舰A'), ship('战舰B'), ...fillers(3)],
+  })
+  assert.equal(colorado.caveat, MAIN_FLEET_DETAIL)
+  assert.equal(
+    colorado.detail,
+    `2、3号位为战舰 · ${MAIN_FLEET_DETAIL}`,
   )
 })
 
@@ -135,6 +148,18 @@ test('strike-force and submarine-tender composition rules are detected', () => {
     labels('normal', [ship('平安丸改', 20), ship('水上舰', 2), ship('伊13', 14), ship('伊14', 14)]),
     [],
     '三、四号位为潜水舰不能替代二、三号位这一发动条件',
+  )
+  const [submarine] = detectFleetSpecialAttacks({
+    role: 'normal',
+    ships: [ship('迅鯨改', 20), ship('伊13', 14), ship('伊14', 14)],
+  })
+  assert.equal(
+    submarine.caveat,
+    '实际发动还需要对应阵形并消耗潜水舰补给物资',
+  )
+  assert.equal(
+    submarine.detail,
+    '旗舰为 Lv30 以上的指定潜水母舰且2、3号位为潜水舰；实际发动还需要对应阵形并消耗潜水舰补给物资',
   )
 })
 

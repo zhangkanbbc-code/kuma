@@ -1041,6 +1041,8 @@ function decodeKcwikiRequirementAt(
 
 export interface FleetGoalShipView {
   mstId: number
+  // 调用方在组装视图时补舰名，判据用 findIndex 只报最靠前的一艘，避免反查主数据和多艘提示噪声。
+  name?: string
   stype: number
   ctype: number
   soku: number
@@ -1130,6 +1132,23 @@ export const evaluateFleetGoal = (
       Boolean(fleet[0] && selectorMatches(group, fleet[0], concrete))
     const maximumOk = group.maxAmount === undefined || current <= group.maxAmount
     const ok = flagshipOk && current >= group.amount && maximumOk
+    const positionShortfall = group.position !== undefined && current < group.amount
+    const expectedIndex = !flagshipOk
+      ? 0
+      : positionShortfall
+        ? group.position! - 1
+        : undefined
+    const matchingIndex = expectedIndex === undefined
+      ? -1
+      : fleet.findIndex((ship, index) =>
+          index !== expectedIndex && selectorMatches(group, ship, concrete),
+        )
+    const matchingShip = matchingIndex >= 0
+      ? fleet[matchingIndex]
+      : undefined
+    const misplacedHint = matchingShip
+      ? ` · ${matchingShip.name ? `「${matchingShip.name}」` : '符合条件的舰'}在第${matchingIndex + 1}位`
+      : ''
     lines.push({
       label: group.label,
       current,
@@ -1138,9 +1157,9 @@ export const evaluateFleetGoal = (
       issue: ok
         ? null
         : !flagshipOk
-          ? `旗舰不符合「${group.label}」`
-          : group.position !== undefined
-            ? `${group.position}号位不符合「${group.label}」`
+          ? `旗舰不符合「${group.label}」${misplacedHint}`
+          : positionShortfall
+            ? `${group.position}号位不符合「${group.label}」${misplacedHint}`
             : !maximumOk
               ? `「${group.label}」最多 ${group.maxAmount} 艘（当前 ${current}）`
           : `还差 ${Math.max(0, group.amount - current)} 艘「${group.label}」`,

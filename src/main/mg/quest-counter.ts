@@ -739,6 +739,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
   ): boolean => {
     const fleetView = fleet.map((ship) => ({
         ...ship,
+        name: master.names.get(ship.mstId),
         stype: master.stype.get(ship.mstId) ?? 0,
         ctype: master.ctype.get(ship.mstId) ?? 0,
         soku: ship.soku || master.soku.get(ship.mstId) || 0,
@@ -1246,6 +1247,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
                 const mstId = ship?.shipId ?? 0
                 return {
                   mstId,
+                  name: master.names.get(mstId),
                   stype: master.stype.get(mstId) ?? 0,
                   ctype: master.ctype.get(mstId) ?? 0,
                   soku: ship?.soku || master.soku.get(mstId) || 0,

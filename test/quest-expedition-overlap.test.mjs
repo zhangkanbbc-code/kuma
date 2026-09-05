@@ -42,10 +42,10 @@ test('done, locked, and claimable quests are omitted while active, open, unknown
     { length: 8 },
     (_, index) => ({ id: index + 1, code: `D${index + 1}` }),
   )
-  assert.deepEqual(
-    run({ trackers, quests, verdicts }).map(({ questId }) => questId),
-    [5, 6, 7, 8],
-  )
+  const actual = run({ trackers, quests, verdicts })
+  assert.deepEqual(actual.map(({ questId }) => questId), [5, 6, 7, 8])
+  assert.deepEqual(actual.map(({ status }) => status), ['active', 'open', 'unknown', undefined])
+  assert.equal(Object.hasOwn(actual[3], 'status'), false)
 })
 
 test('two shared expeditions from one quest are combined into one row', () => {
@@ -76,6 +76,7 @@ test('an any-expedition quest is listed after quests sharing a specific expediti
     ],
   })
   assert.deepEqual(actual.map(({ questId }) => questId), [3, 2])
+  assert.equal(actual.every((row) => !Object.hasOwn(row, 'status')), true)
 })
 
 test('a current quest with only an any-expedition condition returns no overlap', () => {
@@ -113,4 +114,21 @@ test('numeric expedition codes sort numerically before alphabetic codes and ties
     missionCodes: { 103: '3', 110: '10', 201: 'A1' },
   })
   assert.deepEqual(actual.map(({ questId }) => questId), [5, 3, 2, 4])
+  assert.equal(actual.every((row) => !Object.hasOwn(row, 'status')), true)
+})
+
+test('unknown verdict is passed through as unknown', () => {
+  const actual = run({
+    trackers: {
+      1: { tasks: [expedition(4)] },
+      2: { tasks: [expedition(4)] },
+    },
+    quests: [{ id: 1, code: 'D1' }, { id: 2, code: 'D2' }],
+    verdicts: new Map([[2, 'unknown']]),
+  })
+  assert.deepEqual(actual, [{
+    questId: 2,
+    status: 'unknown',
+    items: [{ missionId: 4, count: 1 }],
+  }])
 })

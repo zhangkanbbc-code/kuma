@@ -149,6 +149,12 @@ export const mountYu = ({
   globalThis.__overlayEntrance = []
   globalThis.__captionSizes = []
   globalThis.__yuModule = null
+  globalThis.document = {
+    ...(globalThis.document ?? {}),
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }
+  globalThis.window = { dispatchEvent: () => true }
   globalThis.requestAnimationFrame = (cb) => {
     cb()
     return 1
@@ -162,6 +168,7 @@ export const mountYu = ({
           invoked.push(channel)
           if (channel === 'lode:list') return Promise.resolve(lodes)
           if (channel === 'yu:appdata-path') return Promise.resolve(appdataPath)
+          if (channel === 'hotkeys:status') return Promise.resolve({ boss: 'registered' })
           return Promise.resolve(null)
         },
         on: () => {},

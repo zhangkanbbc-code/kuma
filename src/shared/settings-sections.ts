@@ -8,7 +8,7 @@
 //  · **每张卡恰好属于一类**。表是唯一出处（卡的次序也从这里来），
 //    渲染层只消费；护栏从渲染产物逐张数，漏一张、重一张都当场红。
 //  · **维护者工具不进发行版**。这张表列全部的卡，`settingsCardsOf` 按 `debugUi`
-//    过滤——所以完备性护栏要按**两种形态**各数一遍（发行版 21 张 / 调试 23 张）。
+//    过滤——所以完备性护栏要按**两种形态**各数一遍（发行版 23 张 / 调试 25 张）。
 //
 // 类名用玩家词汇、两三个字：页签是给人扫一眼定位的，不是分类学。
 
@@ -24,6 +24,7 @@ export type SettingsCardId =
   | 'caption-size'
   | 'ui-hints'
   | 'tray'
+  | 'hotkeys'
   | 'game-audio'
   | 'game-audio-selftest'
   | 'voice-archive'
@@ -71,6 +72,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
       'caption-size',
       'ui-hints',
       'tray',
+      'hotkeys',
       'game-audio',
       'game-audio-selftest',
     ],

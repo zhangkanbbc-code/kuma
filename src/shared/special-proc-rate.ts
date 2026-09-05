@@ -71,7 +71,8 @@ export interface ProcRateEntry {
   rate: number | null
   /**
    * 悬停里逐行给的东西。公式未知时通常只有 PROC_RATE_UNKNOWN_NOTE；
-   * 对空CI 仍会保留固定击坠、倍率与条件这些已知事实。
+   * 对空CI 仍会保留固定击坠、倍率这些已知事实。
+   * 单舰视图不摆类别定义，定义留在能力标签。
    */
   detail: string[]
   /**
@@ -79,6 +80,11 @@ export interface ProcRateEntry {
    * detail 不重复主标签已有的数值。
    */
   summary: string
+  /**
+   * 跟在数值后面的一句已知事实。单独成字段，因为 label 是一眼位置，
+   * pill 脸上只放种别与百分数。
+   */
+  facts?: string
 }
 
 export interface ProcRateGroupView {
@@ -440,7 +446,7 @@ const unknownSpecialNotesOf = (ci: number): string[] => {
   return []
 }
 
-/** 有专属动画的舰队特殊攻击；昼夜共用 special 一族。 */
+/** 有专属动画的舰队特殊攻击；昼夜共用 special 一族。单舰卡不摆类别定义，定义在编队顶部特殊攻击标签的 title 里。 */
 export const specialEntriesOf = (
   detected: readonly FleetSpecialAttack[],
   fleetView: readonly FleetSpecialAttackShip[],
@@ -450,7 +456,6 @@ export const specialEntriesOf = (
     const mechanism = specialMechanismOf(attack.ci)
     const known = knownSpecialRateOf(attack, fleetView)
     if (!known) {
-      const condition = `编成条件：${attack.detail}`
       return {
         id,
         group: 'special' as const,
@@ -458,9 +463,9 @@ export const specialEntriesOf = (
         rate: null,
         detail:
           attack.ci === 400
-            ? [condition, ...(mechanism ? [mechanism] : []), PROC_RATE_UNKNOWN_NOTE]
+            ? [attack.caveat, ...(mechanism ? [mechanism] : []), PROC_RATE_UNKNOWN_NOTE]
             : [
-                condition,
+                attack.caveat,
                 PROC_RATE_UNKNOWN_NOTE,
                 ...unknownSpecialNotesOf(attack.ci),
                 ...(mechanism ? [mechanism] : []),
@@ -475,7 +480,7 @@ export const specialEntriesOf = (
       label: attack.label,
       rate,
       detail: [
-        `编成条件：${attack.detail}`,
+        attack.caveat,
         `发动率：推定式 ${known.formula}`,
         `代入：${known.substitution}`,
         ...(known.raw > 100 ? [`公式值 ${known.raw.toFixed(2)}%`] : []),
@@ -495,10 +500,8 @@ export const aaciEntriesOf = (
   shipAacis(ship, ship.equipment).map((aaci) => {
     const evidence = AACI_RATE_BY_ID.get(aaci.id)!
     const label = `对空CI ${aaci.id}`
-    const known = [
-      `固定击坠 +${aaci.fixed} · 倍率 ×${aaci.modifier}`,
-      `条件：${aaci.scope} · ${aaci.condition}`,
-    ]
+    const facts = `固定击坠 +${aaci.fixed} · 倍率 ×${aaci.modifier}`
+    const known = [facts]
     if (evidence.rate === null) {
       return {
         id: `aaci-${aaci.id}`,
@@ -507,6 +510,7 @@ export const aaciEntriesOf = (
         rate: null,
         detail: [...known, PROC_RATE_UNKNOWN_NOTE],
         summary: `? · ${PROC_RATE_UNKNOWN_NOTE}`,
+        facts,
         aaci,
         evidence,
       }
@@ -529,6 +533,7 @@ export const aaciEntriesOf = (
         '按优先度逐项判定 · 非本队最终发动率',
       ],
       summary: `${evidence.rate.toFixed(0)}%`,
+      facts,
       aaci,
       evidence,
     }
@@ -749,14 +754,20 @@ export const procRateGroupsOf = (
       detail: [
         ...primary.detail,
         ...(others.length
-          ? ['其他可发动项', ...others.map((entry) => `${entry.label} ${procRateEntryFace(entry)}`)]
+          ? [
+              '其他可发动项',
+              ...others.map(
+                (entry) =>
+                  `${entry.label} ${procRateEntryFace(entry)}${entry.facts ? ` · ${entry.facts}` : ''}`,
+              ),
+            ]
           : []),
       ],
       foldLines: [
-        `${primary.group === 'special' ? '特殊攻击 · ' : ''}${primary.label} ${primary.summary}`,
+        `${primary.group === 'special' ? '特殊攻击 · ' : ''}${primary.label} ${primary.summary}${primary.facts ? ` · ${primary.facts}` : ''}`,
         ...others.map(
           (entry) =>
-            `　${entry.group === 'special' ? '特殊攻击 · ' : ''}${entry.label} ${entry.summary}`,
+            `　${entry.group === 'special' ? '特殊攻击 · ' : ''}${entry.label} ${entry.summary}${entry.facts ? ` · ${entry.facts}` : ''}`,
         ),
       ],
     })

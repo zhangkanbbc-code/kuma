@@ -147,9 +147,9 @@ test('对空CI:秋月两炮加电探列 1/2/3，率、样本、出处与非舰�
   assert.deepEqual(entries.map((entry) => entry.id), ['aaci-1', 'aaci-2', 'aaci-3'])
   assert.deepEqual(entries.map((entry) => entry.rate), [64.97, 55.34, 50.77])
   assert.deepEqual(entries.map((entry) => entry.summary), ['65%', '55%', '51%'])
+  assert.ok(entries.every((entry) => entry.detail.every((line) => !line.includes('条件：'))))
   assert.deepEqual(entries[0].detail, [
     '固定击坠 +7 · 倍率 ×1.7',
-    '条件：秋月型 · 高角炮×2 + 电探',
     '单体发动率 64.97% · 18,311/28,183',
     '出处：CC_jabberwock / POI DB · 2023-06',
     '按优先度逐项判定 · 非本队最终发动率',
@@ -166,8 +166,8 @@ test('对空CI:B 级保留原表推定措辞，C 级保留已知效果与条件�
     'aaci-47',
   )
   assert.equal(type47.rate, 70)
-  assert.equal(type47.detail[2], '单体发动率 推定 70%（原表 70%?）')
-  assert.equal(type47.detail[3], '出处：yukicacoon · 2024-04')
+  assert.equal(type47.detail[1], '单体发动率 推定 70%（原表 70%?）')
+  assert.equal(type47.detail[2], '出处：yukicacoon · 2024-04')
 
   const type53 = byId(
     aaciEntriesOf(
@@ -182,8 +182,8 @@ test('对空CI:B 级保留原表推定措辞，C 级保留已知效果与条件�
     'aaci-53',
   )
   assert.equal(type53.rate, 60)
-  assert.equal(type53.detail[2], '单体发动率 推定 60%（原表 60％前後）')
-  assert.equal(type53.detail[3], '出处：CC_jabberwock · 2026-02')
+  assert.equal(type53.detail[1], '单体发动率 推定 60%（原表 60％前後）')
+  assert.equal(type53.detail[2], '出处：CC_jabberwock · 2026-02')
 
   const type48 = byId(
     aaciEntriesOf(
@@ -204,7 +204,6 @@ test('对空CI:B 级保留原表推定措辞，C 级保留已知效果与条件�
   assert.equal(type48.summary, `? · ${PROC_RATE_UNKNOWN_NOTE}`)
   assert.deepEqual(type48.detail, [
     '固定击坠 +8 · 倍率 ×1.75',
-    '条件：秋月型改／改二 / 吹雪改三護 · 10cm連装高角砲改+高射装置改×2 + 高性能对空电探',
     PROC_RATE_UNKNOWN_NOTE,
   ])
 })
@@ -440,12 +439,38 @@ test('同类合并:秋月样例只出对空CI与夜战两枚，主条取最高�
   assert.equal(groups.length, 2)
   const aaci = groups[0]
   assert.deepEqual(aaci.others.map((entry) => entry.label), ['对空CI 2', '对空CI 3'])
-  assert.deepEqual(aaci.detail.slice(-3), ['其他可发动项', '对空CI 2 55%', '对空CI 3 51%'])
-  assert.deepEqual(aaci.foldLines, [
-    '对空CI 1 65%',
-    '　对空CI 2 55%',
-    '　对空CI 3 51%',
+  assert.deepEqual(aaci.detail.slice(-3), [
+    '其他可发动项',
+    '对空CI 2 55% · 固定击坠 +6 · 倍率 ×1.7',
+    '对空CI 3 51% · 固定击坠 +4 · 倍率 ×1.6',
   ])
+  assert.deepEqual(aaci.foldLines, [
+    '对空CI 1 65% · 固定击坠 +7 · 倍率 ×1.7',
+    '　对空CI 2 55% · 固定击坠 +6 · 倍率 ×1.7',
+    '　对空CI 3 51% · 固定击坠 +4 · 倍率 ×1.6',
+  ])
+})
+
+test('同类合并:对空CI 8/5 的其他项与窄态每行都带效果事实，弹幕不带', () => {
+  const aaciEntries = aaciEntriesOf(
+    destroyer({
+      equipment: [highAngle(10), highAngle(10), aaRadar()],
+    }),
+  )
+  assert.deepEqual(aaciEntries.map((entry) => entry.id), ['aaci-5', 'aaci-8'])
+  const aaci = procRateGroupsOf(aaciEntries)[0]
+  assert.equal(aaci.primary.id, 'aaci-8')
+  assert.match(aaci.detail.at(-1), /^对空CI 5 50% · 固定击坠 \+\d+ · 倍率 ×[\d.]+$/)
+  for (const line of aaci.foldLines) {
+    assert.match(line, /固定击坠 \+\d+ · 倍率 ×[\d.]+$/)
+  }
+
+  const barrage = procRateGroupsOf([
+    barrageEntryOf(hyuugaKai({ equipment: [rocket()] })),
+  ])[0]
+  for (const line of [...barrage.detail, ...barrage.foldLines]) {
+    assert.doesNotMatch(line, /固定击坠/)
+  }
 })
 
 test('同类合并:水侦战舰的昼族取最高率，悬停按判定顺序列全其余昼观测', () => {

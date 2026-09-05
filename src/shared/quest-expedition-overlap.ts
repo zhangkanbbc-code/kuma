@@ -8,6 +8,7 @@ export interface ExpeditionOverlapItem {
 
 export interface ExpeditionOverlap {
   questId: number
+  status?: QuestAvailability
   items: ExpeditionOverlapItem[]
 }
 
@@ -57,8 +58,7 @@ export const buildExpeditionOverlap = (
   const rows: Array<ExpeditionOverlap & { code: string }> = []
   for (const quest of input.quests) {
     if (quest.id === input.questId) continue
-    // 裁决合并了任务履历、前置链与周期边界；observed.state 单独看不出已交付或未解锁。
-    // done / locked / claimable 都不是现在还能与当前远征一起推进的任务。
+    // 裁决合并了周期边界与前置链，所以筛选和标记不能直接使用 observed.state。
     const verdict = input.verdictOf(quest.id)
     if (verdict && unavailable.has(verdict)) continue
     const items = (input.trackers[quest.id]?.tasks ?? [])
@@ -67,7 +67,14 @@ export const buildExpeditionOverlap = (
         (task.missionId === 0 || currentMissions.has(task.missionId)))
       .map(({ missionId, count }) => ({ missionId, count }))
       .sort((left, right) => compareMission(left, right, input.missionCodeOf))
-    if (items.length) rows.push({ questId: quest.id, code: quest.code, items })
+    if (items.length) {
+      rows.push({
+        questId: quest.id,
+        code: quest.code,
+        ...(verdict ? { status: verdict } : {}),
+        items,
+      })
+    }
   }
 
   return rows
@@ -76,5 +83,9 @@ export const buildExpeditionOverlap = (
       if (byMission) return byMission
       return left.code < right.code ? -1 : left.code > right.code ? 1 : 0
     })
-    .map(({ questId, items }) => ({ questId, items }))
+    .map(({ questId, status, items }) => ({
+      questId,
+      ...(status ? { status } : {}),
+      items,
+    }))
 }

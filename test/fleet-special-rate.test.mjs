@@ -96,6 +96,10 @@ test('Nelson、长门、金刚、大和四条推定式按当前编成代入，�
     1.1 * Math.sqrt(99) + Math.sqrt(99) + Math.sqrt(99) + 1.4 * Math.sqrt(50) + 25
   assert.equal(nelson.rate, nelsonExpected)
   assert.equal(
+    nelson.detail[0],
+    '仅核对母港可确认的编成条件；实际发动还取决于阵形、损伤、战斗类型、剩余次数与发动率',
+  )
+  assert.equal(
     nelson.detail[2],
     '代入：旗舰 Lv99 运50 · 3号 Lv99 · 5号 Lv99',
   )
@@ -294,6 +298,10 @@ test('C 级保持 null 而非 0，106 不采用长门型假定式', () => {
     300,
   )
   assert.equal(submarine.rate, null)
+  assert.equal(
+    submarine.detail[0],
+    '实际发动还需要对应阵形并消耗潜水舰补给物资',
+  )
   assert.equal(submarine.detail.at(-1), '每个攻击点消耗 1 个潜水舰补给物资')
 
   for (const ci of [301, 302, 1000]) {
@@ -304,9 +312,55 @@ test('C 级保持 null 而非 0，106 不采用长门型假定式', () => {
         phase: 'day',
         formation: '测试阵型',
         detail: '测试编成',
+        caveat: '测试提醒',
       },
     ], [fleetShip('测试旗舰')])
     assert.equal(entry.rate, null, `${ci} 应为 C 级`)
+  }
+})
+
+test('special 条目只列各攻击的未核项提醒，不重复编成条件定义', () => {
+  const cases = [
+    ['normal', [
+      fleetShip('Nelson改'),
+      fleetShip('2号舰'),
+      fleetShip('3号舰'),
+      fleetShip('4号舰'),
+      fleetShip('5号舰'),
+      fleetShip('6号舰'),
+    ]],
+    ['normal', [
+      fleetShip('Colorado改'),
+      fleetShip('战舰A'),
+      fleetShip('战舰B'),
+      ...fillers(3),
+    ]],
+    ['normal', [
+      fleetShip('金剛改二丙', 8),
+      fleetShip('比叡改二丙', 8),
+      ...fillers(4),
+    ]],
+    ['normal', [
+      fleetShip('大和改二'),
+      fleetShip('武蔵改二'),
+      fleetShip('長門改二'),
+      ...fillers(3),
+    ]],
+    ['normal', [
+      fleetShip('迅鯨改', 20, { lv: 30 }),
+      fleetShip('伊13', 14),
+      fleetShip('伊14', 14),
+    ]],
+  ]
+
+  for (const [role, ships] of cases) {
+    const attacks = attacksOf(role, ships)
+    const entries = specialEntriesOf(attacks, ships)
+    assert.equal(entries.length, attacks.length)
+    entries.forEach((entry, index) => {
+      assert.ok(entry.detail.includes(attacks[index].caveat))
+      assert.ok(entry.detail.every((line) => !line.includes('编成条件：')))
+    })
   }
 })
 

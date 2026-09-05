@@ -53,6 +53,13 @@ import {
   rippleOrder,
 } from '../shared/launch-glow'
 import { GAME_URL_CONFIG_KEY, normalizeGameUrl } from '../shared/game-url'
+import {
+  formatAccelerator,
+  HOTKEY_CONFIG_KEYS,
+  HOTKEY_DEFAULTS,
+  isAcceptableAccelerator,
+  parseAccelerator,
+} from '../shared/hotkeys'
 import { cleanUserAgent } from '../shared/user-agent'
 import { initHeaderStatus } from './header-status'
 import { initVoiceSubtitles } from './voice-subtitle'
@@ -77,6 +84,7 @@ const { pathToFileURL } = require('url')
 
 const broadcaster = remote.require('./game-api-broadcaster')
 const config = remote.require('./config')
+const { ipcRenderer } = require('electron')
 initVoiceSubtitles(broadcaster)
 
 const APP_ROOT: string = remote.getGlobal('ROOT')
@@ -254,7 +262,7 @@ $('#btn-reload').addEventListener('click', () => {
 $('#btn-browse').addEventListener('click', () => {
   void openBrowseWindow()
 })
-$('#btn-capture').addEventListener('click', async () => {
+const captureGame = async () => {
   if (!webview) return
   try {
     const dataUrl: string | undefined = await webview.executeJavaScript('window.capture()')
@@ -269,7 +277,8 @@ $('#btn-capture').addEventListener('click', async () => {
   } catch (e) {
     console.error('[kanso] capture failed', e)
   }
-})
+}
+$('#btn-capture').addEventListener('click', () => void captureGame())
 
 // ---- 服务器识别 ----
 const serverBadge = $('#server-badge')
@@ -398,14 +407,32 @@ const syncFocusBtn = (on: boolean) => {
   focusBtn.textContent = on ? '退出专注' : '专注'
 }
 focusBtn.addEventListener('click', () => syncFocusBtn(toggleFocus()))
+
+const hotkeyTitle = (id: 'reload' | 'focus' | 'capture'): string => {
+  const configured = parseAccelerator(config.get(HOTKEY_CONFIG_KEYS[id], HOTKEY_DEFAULTS[id]))
+  return formatAccelerator(
+    configured && isAcceptableAccelerator(configured)
+      ? configured
+      : (parseAccelerator(HOTKEY_DEFAULTS[id]) as NonNullable<typeof configured>),
+  )
+}
+const syncHotkeyTitles = () => {
+  $('#btn-focus').title = `专注模式：收起三坞只留游戏（${hotkeyTitle('focus')}）`
+  $('#btn-capture').title = `保存游戏画面截图（${hotkeyTitle('capture')}）`
+  $('#btn-reload').title = `刷新游戏页面（${hotkeyTitle('reload')}）`
+}
+syncHotkeyTitles()
+window.addEventListener('kanso-hotkeys-changed', syncHotkeyTitles)
+
+ipcRenderer.on('kanso:hotkey', (_event: unknown, id: unknown) => {
+  if (id === 'reload') webview?.reload()
+  else if (id === 'focus') syncFocusBtn(toggleFocus())
+  else if (id === 'capture') void captureGame()
+})
+
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     headerActions.classList.remove('open')
-    return
-  }
-  if (e.key === 'F9') {
-    e.preventDefault()
-    syncFocusBtn(toggleFocus())
     return
   }
   // 界面缩放：Ctrl +/-/0（游戏画面自动跟着补偿，不会走形）

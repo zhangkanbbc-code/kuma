@@ -40,6 +40,7 @@ export interface FleetSpecialAttack {
   phase: 'day' | 'night'
   formation: string
   detail: string
+  caveat: string
 }
 
 // 战斗解析和母港编队提示共用同一份名称，避免同一个 api_cl_list 在两处口径不同。
@@ -149,7 +150,7 @@ const mainFleetReady = (input: FleetSpecialAttackInput): boolean => {
   return input.ships.length === 6 && surfaceCount(input.ships) === 6
 }
 
-const MAIN_FLEET_DETAIL =
+export const MAIN_FLEET_DETAIL =
   '仅核对母港可确认的编成条件；实际发动还取决于阵形、损伤、战斗类型、剩余次数与发动率'
 
 const formationFor = (
@@ -268,6 +269,7 @@ const mainSpecialAttack = (input: FleetSpecialAttackInput): FleetSpecialAttack[]
       phase: 'day',
       formation: formationFor(input, '复纵阵', '第二警戒航行序列'),
       detail: `3、5号位为非空母水上舰 · ${MAIN_FLEET_DETAIL}`,
+      caveat: MAIN_FLEET_DETAIL,
     }]
   }
 
@@ -279,6 +281,7 @@ const mainSpecialAttack = (input: FleetSpecialAttackInput): FleetSpecialAttack[]
       phase: 'day',
       formation: formationFor(input, '梯形阵', '第二警戒航行序列'),
       detail: `2号位为战舰 · ${MAIN_FLEET_DETAIL}`,
+      caveat: MAIN_FLEET_DETAIL,
     }]
   }
 
@@ -293,6 +296,7 @@ const mainSpecialAttack = (input: FleetSpecialAttackInput): FleetSpecialAttack[]
       phase: 'day',
       formation: formationFor(input, '梯形阵', '第二警戒航行序列'),
       detail: `2、3号位为战舰 · ${MAIN_FLEET_DETAIL}`,
+      caveat: MAIN_FLEET_DETAIL,
     }]
   }
 
@@ -303,6 +307,7 @@ const mainSpecialAttack = (input: FleetSpecialAttackInput): FleetSpecialAttack[]
       phase: 'day',
       formation: formationFor(input, '复纵阵', '第二警戒航行序列'),
       detail: `前两舰为 Richelieu改／Deux 或 Jean Bart改 · ${MAIN_FLEET_DETAIL}`,
+      caveat: MAIN_FLEET_DETAIL,
     }]
   }
 
@@ -313,6 +318,7 @@ const mainSpecialAttack = (input: FleetSpecialAttackInput): FleetSpecialAttack[]
       phase: 'day',
       formation: formationFor(input, '梯形阵', '第二警戒航行序列'),
       detail: `前两舰为 Warspite改／Valiant改 · ${MAIN_FLEET_DETAIL}`,
+      caveat: MAIN_FLEET_DETAIL,
     }]
   }
 
@@ -325,6 +331,7 @@ const mainSpecialAttack = (input: FleetSpecialAttackInput): FleetSpecialAttack[]
         phase: 'day',
         formation: formationFor(input, '梯形阵', '第四警戒航行序列'),
         detail: `2、3号位组成指定战舰组合 · ${MAIN_FLEET_DETAIL}`,
+        caveat: MAIN_FLEET_DETAIL,
       })
     }
     if (YAMATO_TWO_SHIP_PARTNERS.has(secondName)) {
@@ -334,6 +341,7 @@ const mainSpecialAttack = (input: FleetSpecialAttackInput): FleetSpecialAttack[]
         phase: 'day',
         formation: formationFor(input, '梯形阵', '第四警戒航行序列'),
         detail: `2号位为指定战舰 · ${MAIN_FLEET_DETAIL}`,
+        caveat: MAIN_FLEET_DETAIL,
       })
     }
   } else if (
@@ -347,6 +355,7 @@ const mainSpecialAttack = (input: FleetSpecialAttackInput): FleetSpecialAttack[]
       phase: 'day',
       formation: formationFor(input, '梯形阵', '第四警戒航行序列'),
       detail: `前两舰为大和型改二组合 · ${MAIN_FLEET_DETAIL}`,
+      caveat: MAIN_FLEET_DETAIL,
     })
   }
   return attacks
@@ -364,6 +373,7 @@ const kongoNightAttack = (input: FleetSpecialAttackInput): FleetSpecialAttack[] 
     formation: formationFor(input, '单纵阵或梯形阵', '第二或第四警戒航行序列'),
     detail:
       '前两舰满足指定僚舰组合且有至少5艘水上舰；仅夜战可用，实际发动还取决于阵形、损伤、剩余次数与发动率',
+    caveat: '仅夜战可用，实际发动还取决于阵形、损伤、剩余次数与发动率',
   }]
 }
 
@@ -385,6 +395,7 @@ const submarineAttack = (input: FleetSpecialAttackInput): FleetSpecialAttack[] =
     formation: '梯形阵或单横阵',
     detail:
       '旗舰为 Lv30 以上的指定潜水母舰且2、3号位为潜水舰；实际发动还需要对应阵形并消耗潜水舰补给物资',
+    caveat: '实际发动还需要对应阵形并消耗潜水舰补给物资',
   }]
 }
 

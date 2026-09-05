@@ -2,6 +2,7 @@
 // 数据边界：制空/索敌33/TP 走 fleet-calc（poi 口径 + 战斗计算模型 + wikiwiki 逐条核对）。
 import type { AirBaseSquad, Deck, PlayerShip } from '../../shared/mg-types'
 import { airBaseCustomName } from '../../shared/air-base-name'
+import { airBaseTabGlow } from '../../shared/air-base-tab'
 import {
   ESCORT_FLAGSHIP_INDEX,
   FLAGSHIP_INDEX,
@@ -1149,7 +1150,7 @@ const airBaseReadiness = (areaId?: number): { short: number; red: number; orange
  * 最近一次能确知「玩家摊开了哪个海区」的记录（区号）。null = 这个会话还没见过。
  *
  * **它已经不是任何挂牌/判定的依据**——札看 onEventMapScreen（mapinfo/出击），
- * 陆航是全局常驻，两条都不读它。留着只有一个用处：开图信号到手时比一比区号变没变，
+ * 陆航状态看基地航空队页签，两条都不读它。留着只有一个用处：开图信号到手时比一比区号变没变，
  * 变了才重画一次，让紧接着弹出的 toast 与界面前后一致（见 mount 里的监听）。
  * 之所以不能当判据：开图信号每个游戏会话每区只发得出一次（下面那段注释）。
  *
@@ -1161,9 +1162,8 @@ const airBaseReadiness = (areaId?: number): { short: number; red: number; orange
 let lastOpenedMapArea: number | null = null
 // 开图信号(海图美术嗅探)每个**游戏会话**每区只发得出一次:切回已开过的区、
 // 甚至返港后再进选图,游戏都用自己的资源管理器缓存,连 HTTP 请求都不发
-// (2026-08-11 用户三轮复现逐步钉死)。所以它只配驱动一次性 toast;
-// **挂牌**不依赖它——站在选图页这个时间窗里,凡驻有中队的海区一律各挂
-// 一枚(中部/南西/活动区,至多两三枚,按区标名),稳定可见胜过忽隐忽现。
+// (2026-08-11 用户三轮复现逐步钉死)。所以它只配驱动一次性 toast，
+// 陆航页签则直接跟随账本里的 airBases 状态。
 
 /** 出击一次就确知打的是哪个区，拿它校准（游戏下次也会回到这个区）。 */
 const noteSortieArea = () => {
@@ -1213,33 +1213,6 @@ const onEventMapScreen = (): boolean => {
   const sortie = mg.sortie
   if (sortie?.active && !sortie.practice) return areas.has(sortie.mapArea)
   return atMapSelect
-}
-
-// 陆航挂牌是**全局常驻**的(2026-08-11 用户三轮复现后拍板):出击/防空中的
-// 中队缺补给或红疲劳,这件事在哪个界面都成立、也随时能去修——比起绑在
-// 「开了哪个区」这种探测不可靠的窗口上忽隐忽现,有问题就亮、修好就灭
-// 才当得住提醒。就绪时不挂牌(常亮的「就绪」很快会被当背景板,陆航页
-// 表头本来就有总览)。
-// 挂牌是全局的，跟看的是哪支舰队无关——参数收掉（原先留着个从不读的 _deck，
-// 看着像「这支队的陆航」，正是这条口径要撇清的误会）。
-const airBaseFlagHtml = (): string => {
-  const areas = [...new Set(mg.airBases.map((squad) => squad.areaId))].sort((a, b) => a - b)
-  return areas
-    .map((area) => {
-      const state = airBaseReadiness(area)
-      if (!state) return ''
-      const label = airBaseAreaLabel(area)
-      const issues = [
-        state.short ? `未补给 ${state.short} 队` : '',
-        state.red ? `红疲劳 ${state.red} 队` : '',
-        state.orange ? `橙疲劳 ${state.orange} 队` : '',
-      ].filter(Boolean)
-      if (!issues.length) return ''
-      return `<span class="ab-flag ${state.red ? 'bad' : 'warn'}"
-        title="${esc(`${label}出击/防空中的 ${state.squads} 支航空队里：${issues.join('、')}`)}"
-        data-air-base-jump="1">${esc(label)}陆航 ${issues.join(' · ')}</span>`
-    })
-    .join('')
 }
 
 // 出击识别札。这是出击**前**唯一能确定的目标图侧条件——
@@ -1466,11 +1439,8 @@ const verdictHtml = (deck: Deck) => {
   if (docked) problems.push(`入渠中 ${docked}`)
   if (tired) problems.push(`疲劳 ${tired}`)
 
-  // 陆航与札都不属于「这支舰队自己就绪没有」，但都属于「现在出击划不划算 / 能不能进」。
-  // 两条并排放进同一行——各占一行的话，裁决框会到三行高，把下面的编队区挤没了。
-  const airBase = airBaseFlagHtml()
   const sally = sallyFlagHtml(ships)
-  const flags = airBase || sally ? `<span class="vflags">${sally}${airBase}</span>` : ''
+  const flags = sally ? `<span class="vflags">${sally}</span>` : ''
 
   // 出击中的舰队不该被「暂缓出击」指手画脚（用户 2026-08-11 指出）——中破/
   // 未补给是海上的常态，就绪裁决只对「还没出门」的舰队有意义。改报「出击中」，
@@ -2291,11 +2261,25 @@ const fleetTabsHtml = (activeId: number) =>
     })
     .join('')}${(() => {
       const bases = trackedAirBases()
-      const warning = bases.some((squad) => squad.planes.some(
-        (plane) => plane.slotId > 0 && (plane.count < plane.maxCount || plane.cond >= 2),
-      ))
-      return `<div class="ftab air${activeId === AIR_BASE_TAB_ID ? ' on' : ''}" data-deck="${AIR_BASE_TAB_ID}">
-        <span class="d ${warning ? 'warn' : 'air'}"></span>${entityTermHtml('fleet', AIR_BASE_TAB_ID, '基地航空队')}<span class="t">${bases.length}队</span></div>`
+      const glow = airBaseTabGlow(bases)
+      const readiness = airBaseReadiness()
+      const issues = readiness
+        ? [
+            readiness.short ? `未补给 ${readiness.short} 队` : '',
+            readiness.red ? `红疲劳 ${readiness.red} 队` : '',
+            readiness.orange ? `橙疲劳 ${readiness.orange} 队` : '',
+          ].filter(Boolean)
+        : []
+      const title =
+        glow === 'bad'
+          ? ['有航空队被打空', ...issues].join(' · ')
+          : glow === 'warn'
+            ? `基地航空队未就绪：${issues.join(' · ')}`
+            : ''
+      return `<div class="ftab air${activeId === AIR_BASE_TAB_ID ? ' on' : ''}${glow ? ` glow-${glow}` : ''}" data-deck="${AIR_BASE_TAB_ID}"${
+        title ? ` title="${esc(title)}"` : ''
+      }>
+        <span class="d air"></span>${entityTermHtml('fleet', AIR_BASE_TAB_ID, '基地航空队')}<span class="t">${bases.length}队</span></div>`
     })()}${(() => {
       const picked = sandboxDeck().ships.length
       return `<div class="ftab sandbox${activeId === SANDBOX_TAB_ID ? ' on' : ''}" data-deck="${SANDBOX_TAB_ID}" title="临时编成指标">
@@ -2767,7 +2751,7 @@ const saveDeckBuilderFile = async (deck: DeckBuilderDeck) => {
 
 const deckIoHtml = (deck: Deck | null): string => {
   if (!deckIo.open) {
-    return `<div class="dbio-bar"><span class="dbio-toggle" data-dbio="open">⇄ 编成互通（デッキビルダー v4）</span></div>`
+    return ''
   }
   const scopeChip = (key: 'current' | 'all', label: string) =>
     `<span class="dbio-chip${deckIo.scope === key ? ' on' : ''}" data-dbio-scope="${key}">${label}</span>`
@@ -2868,12 +2852,6 @@ const bindFleetPanelDelegates = (
     }
   })
 
-  // 出击就绪那行的陆航警示 → 切到基地航空队页，把「哪一队缺什么」直接摆出来
-  root.addEventListener('click', (e) => {
-    if (!(e.target as HTMLElement).closest('[data-air-base-jump]')) return
-    setActive(AIR_BASE_TAB_ID)
-    rerender()
-  })
   // 札的挂牌 → 切到铎：按札分组的完整名单在那儿，这里不重复列
   root.addEventListener('click', (e) => {
     if (!(e.target as HTMLElement).closest('[data-sally-jump]')) return
@@ -3150,13 +3128,17 @@ const render = (force = false) => {
         <div class="foot"><span>${
           // 泊地修理排在前面判：它与沙盘互斥，这样写让沙盘那一句保持原样
           berthActive ? '本地预估' : sandboxActive ? '本地推演' : '与游戏状态实时同步'
-        }${loadFailHtml()}</span><span style="margin-left:auto">${
+        }${loadFailHtml()}</span><span>${
           airBaseActive
             ? '陆航数据在游戏打开出击海域选择页后更新'
             : sandboxActive
               ? '装备与改修取当前状态'
               : ''
-        }</span></div>
+        }</span>${
+          airBaseActive || sandboxActive || berthActive || deckIo.open
+            ? ''
+            : '<span class="dbio-toggle" data-dbio="open" style="margin-left:auto">⇄ 编成互通（デッキビルダー v4）</span>'
+        }</div>
       </div>
     </div>`
   // 没换 DOM 就不能重绑，也不必重新测量收纳：DOM 还是上一帧那份
@@ -3223,8 +3205,8 @@ registerModule({
     const onMapOpen = (event: { areaId: number; ts: number }) => {
       const changed = lastOpenedMapArea !== event.areaId
       lastOpenedMapArea = event.areaId
-      // 挂牌不吃这个信号(它每游戏会话每区只响一次,当判据必聋);
-      // 只驱动一次性 toast,换区时重画一次保 toast 前后界面一致
+      // 陆航页签不吃这个信号（它直接跟随 airBases）；这里只驱动一次性 toast，
+      // 换区时重画一次保 toast 前后界面一致
       warnOnEventMapOpen(event.areaId, event.ts)
       if (changed) deferPassive(pane, 'ru', render)
     }

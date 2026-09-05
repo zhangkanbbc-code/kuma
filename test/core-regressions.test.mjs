@@ -2511,8 +2511,9 @@ test('opening the expedition screen follows the bottom 远征 tab and restores o
   assert.doesNotMatch(sceneBlock, /api_req_mission\/result/)
 })
 
-test('基地航空队的就绪只看真会出门的队，且不把舰队的「可以出击」染红', () => {
+test('基地航空队状态改亮页签，编队横幅只留札，开图铃仍按海区提醒', () => {
   const fleet = fs.readFileSync(new URL('../src/renderer/modules/ru.ts', import.meta.url), 'utf8')
+  const glowRule = fs.readFileSync(new URL('../src/shared/air-base-tab.ts', import.meta.url), 'utf8')
   const html = rendererSource
 
   assert.match(fleet, /const airBaseReadiness = /)
@@ -2523,27 +2524,26 @@ test('基地航空队的就绪只看真会出门的队，且不把舰队的「�
   // 红疲劳与橙疲劳分开数：两者伤害不是一个量级，早先它们共用一个类看不出差别
   assert.match(fleet, /plane\.cond >= 3/)
   assert.match(fleet, /plane\.cond === 2/)
-  // 陆航问题独占一行，不并进 problems——它不是这支舰队的就绪与否。
-  // 旧钉写的是 `airBaseFlagHtml(deck)`，可那个 deck 参数从来没被读过（形参就叫 _deck）：
-  // 钉着它反而与下面「陆航挂牌是全局常驻、跟看的是哪支队无关」的口径自相矛盾。
-  // 参数已收掉，守卫的原意「基地航空旗标出现在编成抬头、且自成一栏」改钉这两条：
-  assert.match(fleet, /const airBase = airBaseFlagHtml\(\)/)
-  assert.match(fleet, /const flags = airBase \|\| sally \? `<span class="vflags">/)
-  assert.doesNotMatch(fleet, /airBaseFlagHtml\((?!\))/, '陆航挂牌是全局的，不该按舰队传参')
-  // 陆航挂牌是**全局常驻**(2026-08-11 用户三轮复现后拍板):开图探测每个
-  // 游戏会话每区只响一次,返港重开后就是聋的——绑在它上面的提示必然
-  // 忽隐忽现。有问题就亮、修好就灭,不再依赖任何屏幕/开图判据;
-  // 就绪时不挂牌,常亮的「就绪」只会沦为背景板。
-  assert.match(fleet, /const airBaseFlagHtml = /)
-  assert.match(fleet, /new Set\(mg\.airBases\.map\(\(squad\) => squad\.areaId\)\)/)
-  assert.match(fleet, /if \(!issues\.length\) return ''/)
-  // readiness 按区取数:各区各挂一枚、按区标名——两个区一好一坏时
-  // 不能合并成一句谎话
+  // 09-05 取代 08-11 的横幅挂牌：编队横幅只剩札，陆航问题改亮自己的页签。
+  assert.match(fleet, /const flags = sally \? `<span class="vflags">\$\{sally\}<\/span>` : ''/)
+  assert.doesNotMatch(fleet, /airBaseFlagHtml|data-air-base-jump/, '横幅里的陆航挂牌与点击处理都应删除')
+  assert.match(fleet, /const glow = airBaseTabGlow\(bases\)/)
+  assert.match(fleet, /const readiness = airBaseReadiness\(\)/)
+  assert.match(fleet, /glow \? ` glow-\$\{glow\}` : ''/)
+  assert.match(fleet, /<span class="d air"><\/span>/, '陆航页签的小圆点应固定使用 air 色')
+  assert.match(fleet, /基地航空队未就绪：\$\{issues\.join\(' · '\)\}/)
+  assert.match(fleet, /\['有航空队被打空', \.\.\.issues\]\.join\(' · '\)/)
+  assert.match(html, /\.fleet-skin \.ftab\.air\.glow-warn \{[^}]*var\(--warn\) 45%[^}]*var\(--warn\) 22%/)
+  assert.match(html, /\.fleet-skin \.ftab\.air\.glow-bad \{[^}]*var\(--bad\) 45%[^}]*var\(--bad\) 22%/)
+  assert.match(html, /\.fleet-skin \.ftab\.on \{[^}]*background: var\(--bg0\)/, '选中态应与光晕同时保留')
+  assert.match(glowRule, /2026-08-11[^]*已被 09-05 取代/)
+  assert.match(glowRule, /不管中队此刻是出击、待机还是休息都必须报红/)
+  assert.match(glowRule, /普通未就绪只影响真会投入战斗的出击\/防空中队/)
+
+  // readiness 按区取数，供开图铃只报玩家刚摊开的那个海区。
   assert.match(fleet, /const airBaseReadiness = \(areaId\?: number\)/)
   assert.match(fleet, /areaId == null \|\| squad\.areaId === areaId/)
-  assert.match(fleet, /airBaseReadiness\(area\)/)
   assert.match(fleet, /airBaseReadiness\(areaId\)/)
-  assert.match(fleet, /airBaseAreaLabel\(area\)/)
   // 开图警告同样拆开:札看活动区、陆航看该区驻队,都不成立才闭嘴
   assert.match(fleet, /const eventArea = activeAreasNow\(\)\.has\(areaId\)/)
   assert.match(fleet, /if \(!eventArea && !hasSquadsHere\) return/)
@@ -2564,14 +2564,14 @@ test('基地航空队的就绪只看真会出门的队，且不把舰队的「�
   // 那正是这条判据要治的毛病
   const relevant = fleet.slice(
     fleet.indexOf('const onEventMapScreen'),
-    fleet.indexOf('const airBaseFlagHtml'),
+    fleet.indexOf('// 出击识别札'),
   )
   assert.ok(relevant.length > 100, '取到的判据片段不对')
   assert.doesNotMatch(relevant, /ship\.sallyArea/, '不知道在哪张图时不该退回识别札')
   // 美术请求会因为已缓存而不再发；出击那一刻的海区是确知的，拿它校准
   assert.match(fleet, /const noteSortieArea = /)
   assert.match(fleet, /if \(keys\.includes\('sortie'\)\) noteSortieArea\(\)/)
-  // 札的挂牌仍以「摊开的是活动图」为判据(陆航已改按区各判各的)
+  // 札的挂牌仍以「摊开的是活动图」为判据。
   assert.match(fleet, /if \(!onEventMapScreen\(\)\) return ''/)
 
   // 光记「最后摊开哪张图」不够：那个记忆一旦落在活动区就再没东西撤下来，
@@ -2587,9 +2587,9 @@ test('基地航空队的就绪只看真会出门的队，且不把舰队的「�
   )
   assert.doesNotMatch(fleet, /keys\.includes\('lastPortTs'\)/, 'lastPortTs 每次 patch 都带，当不了信号')
   assert.doesNotMatch(fleet, /problems\.push\(`基地航空/)
-  // 挂牌仍然独占一行（别被挤进裁决那行的角落看不见），只是改由 .vflags 承载：
-  // 陆航与札两条并排共用这一行，各占一行会让裁决框到三行高。
+  // 札挂牌仍然独占横幅第二行，陆航不再挤进这里。
   assert.match(html, /\.fleet-skin \.vflags \{[^}]*flex-basis: 100%/)
+  assert.match(html, /\.fleet-skin \.verdict \.ab-flag/, 'ab-flag 样式仍归札挂牌使用')
 })
 
 test('header status replaces the removed admiral room and fleet sidebar', () => {
@@ -5102,14 +5102,14 @@ test('game voice requests show Chinese-first UI captions and directional battle 
   assert.match(abyssNames, /巴達維亞沖棲姬: 'バタビア沖棲姫'/)
   // 2026-08-25 查表序列重构（kcwiki 接进来）后这一句挪进了 else 支，多一个 `!`
   assert.match(subtitle, /wikiLines!?\.find\(\(entry\) => entry\.voiceId === cue\.voiceId\)/)
-  // 中文缺失才回退日文原文。2026-08-22 这一句拆成了两行——中文那一支要过一道标点
-  // 体例归一（行尾不写句号），日文回退**不过**（那是原文转写，不是我们的翻译）。
-  // 判据盯的还是同一件事：拿得到既有中文就用中文，拿不到才用日文。
+  // wikiwiki 分支的中文候选都还接着；精确优先序由 voice-subtitle-kcwiki 的
+  // shipCaption 行为测试钉，源码守卫只防整条来源被误删。
   assert.match(subtitle, /const reused = line \? voiceZhByJa\.get\(normalizeVoiceLine\(line\.ja\)\) : ''/)
   assert.match(
     subtitle,
-    /text = reused \? simplifyZh\(normalizeVoiceText\(reused\)\) : `\$\{line\?\.ja \?\? ''\}`/,
+    /const kcwikiZh = captionText\(kcwikiBySlot\.get\(id\)\?\.get\(cue\.voiceId\)\?\.zh\)/,
   )
+  assert.match(subtitle, /voiceOverlayZhByJa\.get\(normalizeVoiceLine\(line\.ja\)\)/)
   assert.doesNotMatch(subtitle, /simplifyZh\(\s*`\$\{line\?\.ja/)
   assert.match(catalog, /queryLode\('wikiwiki-voice'\)/)
   assert.match(catalog, /queryLode\('wikiwiki-abyss-voice'\)/)
@@ -6694,14 +6694,17 @@ test('顶栏去掉字标，动作组收进菜单，所有按钮继续共用形�
   assert.ok(actions, '找不到动作下拉')
   for (const button of [
     '<button id="btn-focus" title="专注模式：收起三坞只留游戏（F9）">专注</button>',
-    '<button id="btn-capture" title="保存游戏画面截图">截图</button>',
-    '<button id="btn-reload" title="刷新游戏页面">刷新</button>',
+    '<button id="btn-capture" title="保存游戏画面截图（Ctrl + Alt + S）">截图</button>',
+    '<button id="btn-reload" title="刷新游戏页面（F5）">刷新</button>',
     '<button id="btn-browse" title="新开浏览窗 · 可多开 · 与游戏共用登录与代理">新窗</button>',
   ]) {
     assert.ok(actions[1].includes(button), `动作没有留在下拉里：${button}`)
   }
   assert.match(renderer, /document\.addEventListener\('click',[\s\S]*headerActions\.classList\.toggle\('open'\)[\s\S]*headerActions\.classList\.remove\('open'\)/)
   assert.match(renderer, /e\.key === 'Escape'[\s\S]*headerActions\.classList\.remove\('open'\)/)
+  assert.doesNotMatch(renderer, /e\.key === 'F9'/, 'F9 仍在 DOM 处理，会与主进程拦截切两次')
+  assert.match(renderer, /ipcRenderer\.on\('kanso:hotkey'/)
+  assert.match(renderer, /window\.addEventListener\('kanso-hotkeys-changed', syncHotkeyTitles\)/)
 
   // 常驻弹窗组、动作菜单入口与下拉动作项仍共用 `header button` 这一套形态。
   const shared = /\n    header button \{([^}]*)\}/.exec(html)
@@ -6717,6 +6720,16 @@ test('顶栏去掉字标，动作组收进菜单，所有按钮继续共用形�
   // 激活态与角标锚点是它真正独有的，别连坐删掉
   assert.match(html, /\.ov-btn \{ position: relative; \}/)
   assert.match(html, /\.ov-btn\.on \{ background: var\(--accent-dim\);/)
+})
+
+test('快捷键录入态跟随宿主页寿命，离开时恢复全部快捷键', () => {
+  const hotkeys = fs.readFileSync(new URL('../src/main/hotkeys.ts', import.meta.url), 'utf8')
+  assert.match(hotkeys, /recordingSender = event\.sender/)
+  assert.match(hotkeys, /recordingSender\.once\('destroyed', finishRecordingOnSenderExit\)/)
+  assert.match(hotkeys, /recordingSender\.once\('did-navigate', finishRecordingOnSenderExit\)/)
+  assert.match(hotkeys, /if \(recording\) applyHotkeys\(\)/)
+  assert.match(hotkeys, /recordingSender\.removeListener\('destroyed', finishRecordingOnSenderExit\)/)
+  assert.match(hotkeys, /recordingSender\.removeListener\('did-navigate', finishRecordingOnSenderExit\)/)
 })
 
 test('镝的敌我两队不上下堆叠（2026-08-20 用户看过效果后否决：太占位置）', () => {
@@ -6765,12 +6778,12 @@ test('镝的舰名不被伤害列的常驻空位挤死（余量流向文字，�
   assert.match(html, /\.mod-di \.brow \.nm > \.el \{ flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; \}/)
 })
 
-test('编队抬头不抢编队区的高度', () => {
+test('编队抬头的札挂牌不抢编队区高度', () => {
   const html = rendererSource
   const fleet = fs.readFileSync(new URL('../src/renderer/modules/ru.ts', import.meta.url), 'utf8')
-  // 陆航与札两条挂牌并排共占一行。各占一行的话裁决框就三行高，
-  // 实测（993px 面板）会让抬头从 57px 涨到 91px，编队区从 197 掉到 161。
-  assert.match(fleet, /<span class="vflags">\$\{sally\}\$\{airBase\}<\/span>/)
+  // 札挂牌独占一行；陆航已挪到页签，不再增加裁决框高度。
+  assert.match(fleet, /<span class="vflags">\$\{sally\}<\/span>/)
+  assert.doesNotMatch(fleet, /\$\{sally\}\$\{airBase\}/)
   assert.match(html, /\.fleet-skin \.vflags \{/)
   assert.doesNotMatch(html, /\.fleet-skin \.verdict \.ab-flag \{\s*flex-basis: 100%/)
 })
