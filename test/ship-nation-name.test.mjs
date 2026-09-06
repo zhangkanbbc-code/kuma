@@ -15,14 +15,14 @@ import shipNationName from '../dist/shared/ship-nation-name.js'
 import shipProperName from '../dist/shared/ship-proper-name.js'
 import shipTypeName from '../dist/shared/ship-type-name.js'
 import kcwiki from '../dist/main/mg/kcwiki-quest-rules.js'
-import kanso from '../dist/main/mg/kanso-quest-rules.js'
+import kuma from '../dist/main/mg/kuma-quest-rules.js'
 import fleetRules from '../dist/main/mg/quest-fleet-rules.js'
 
 const { NATION_LABEL_ZH, localizeShipNationWords } = shipNationName
 const { buildShipProperNameIndex, localizeShipProperWords } = shipProperName
 const { localizeShipTypeWords, shipTypeLabelTokens } = shipTypeName
 const { buildKcwikiRuleContext, decodeKcwikiRequirement, augmentShipGroupsFromQuestText } = kcwiki
-const { buildKansoQuestRules } = kanso
+const { buildKumaQuestRules } = kuma
 const {
   NATION_HEAD_NOUNS,
   NATION_TOKENS,
@@ -121,8 +121,8 @@ const world = () => {
     take(decoded.fleetGoal, `kcwiki/${quest?.code ?? questId}`)
     for (const task of decoded.tasks ?? []) take(task.fleetGoal, `kcwiki/${quest?.code ?? questId}`)
   }
-  for (const rule of buildKansoQuestRules(context, masterRaw, fcd)) {
-    const where = `艦素手写/${scn[rule.questId]?.code ?? rule.questId}`
+  for (const rule of buildKumaQuestRules(context, masterRaw, fcd)) {
+    const where = `kuma手写/${scn[rule.questId]?.code ?? rule.questId}`
     take(rule.fleetGoal, where)
     for (const task of rule.tasks ?? []) take(task.fleetGoal, where)
   }
@@ -139,14 +139,14 @@ const world = () => {
         `${raw?.memo2 ?? ''}`,
         fleetContext,
       )?.fleetGoal,
-      `艦素推导/${code || questId}`,
+      `kuma推导/${code || questId}`,
     )
   }
   assert.ok(labels.length > 500, `只扫到 ${labels.length} 条编成门,收集器多半坏了`)
   const index = buildShipProperNameIndex({ masterRaw, localizationData })
   cached = {
     labels,
-    // 与 quest-counter 的 localizeFleetGoalLabels 同一条链、同一个先后
+    // 与 quest-counter 的 localizeQuestLabels 同一条链、同一个先后
     localize: (label) =>
       localizeShipNationWords(localizeShipProperWords(localizeShipTypeWords(label), index)),
   }
@@ -193,17 +193,17 @@ test('护栏:真包跑完的国籍组前后对照——清单钉在这里当账'
   // 消失的那条是上游把正文改了还是我们把门读丢了。
   assert.deepEqual(ledger, [
     // 同一条任务两侧原本各说各的：推导侧「法国船」、手写侧「法国舰娘」
-    '法国舰娘 → 法国舰娘', // 艦素手写/Cy14
-    '法国舰艇 → 法国舰娘', // 艦素推导/2606Cw1
-    '法国船 → 法国舰娘', // 艦素推导/Cy14
-    '美/英/澳/荷舰娘 → 美/英/澳/荷舰娘', // 艦素手写/B149、B150
+    '法国舰娘 → 法国舰娘', // kuma手写/Cy14
+    '法国舰艇 → 法国舰娘', // kuma推导/2606Cw1
+    '法国船 → 法国舰娘', // kuma推导/Cy14
+    '美/英/澳/荷舰娘 → 美/英/澳/荷舰娘', // kuma手写/B149、B150
     // 中心词是舰种词「航空母舰」，不是国籍后缀 → 保留（换掉会把门说松）
-    '美/英航空母舰 → 美/英航空母舰', // 艦素手写/B151
+    '美/英航空母舰 → 美/英航空母舰', // kuma手写/B151
     // 「(USS)」是中文正文自己带的括注 → 保留
-    '美军(USS)舰娘 → 美军(USS)舰娘', // 艦素推导/B147
-    '美英澳荷出身舰娘 → 美/英/澳/荷舰娘', // 艦素推导/B150
-    '美英澳荷出身的舰娘 → 美/英/澳/荷舰娘', // 艦素推导/B148、B149
-    '美英舰艇 → 美/英舰娘', // 艦素推导/By11
+    '美军(USS)舰娘 → 美军(USS)舰娘', // kuma推导/B147
+    '美英澳荷出身舰娘 → 美/英/澳/荷舰娘', // kuma推导/B150
+    '美英澳荷出身的舰娘 → 美/英/澳/荷舰娘', // kuma推导/B148、B149
+    '美英舰艇 → 美/英舰娘', // kuma推导/By11
   ].sort())
 })
 

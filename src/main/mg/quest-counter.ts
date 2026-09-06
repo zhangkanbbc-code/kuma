@@ -1,18 +1,18 @@
 // 铭 · 任务精确计数引擎。
 //
 // 规则源四层，优先级从上到下，**只填空位、绝不覆盖**：
-//   kcwiki-quest-req（MIT）→ poi-quest-goal（MIT）→ 艦素自研 → 中文正文兜底
-// 「艦素自研」这一层是本引擎的主力（2026-08-21 全量自研完工后接管了原 EO 那 164 条）：
+//   kcwiki-quest-req（MIT）→ poi-quest-goal（MIT）→ kuma自研 → 中文正文兜底
+// 「kuma自研」这一层是本引擎的主力（2026-08-21 全量自研完工后接管了原 EO 那 164 条）：
 // 废弃装备 / 演习 / 远征 / 出击（纯海域与带点位）四类由中文任务正文 + 游戏一手主数据
 // (`api_start2`) + poi-fcd 拓扑推导，编成门另由 quest-fleet-rules 推导；
-// 逐条人工解码的少量条目在 kanso-quest-rules。各自的口径与闸门写在各自文件头。
+// 逐条人工解码的少量条目在 kuma-quest-rules。各自的口径与闸门写在各自文件头。
 // 上游编码与游戏日文原文对不上的，逐条走 quest-source-conflicts 的修正台账，不改通则。
 //
 // 纪律：
 // - 只对「遂行中」(state=2) 的任务计数；交付(clearitemget)时清进度；
 // - 战斗/远征/演习/到达类计数前先过编成条件门；装备废弃类不查条件（游戏同口径）；
 // - 判定拿不准的一律标 approx（UI 显示 ≈，含义「计数可能偏多」），绝不假装精确；
-// - 计数是本地口径（kanso 在线期间的事件），与游戏服务器进度可能有出入——
+// - 计数是本地口径（kuma 在线期间的事件），与游戏服务器进度可能有出入——
 //   钦同时展示游戏自己的 progressFlag 作对照。
 //
 // **本模块不认识 Electron**：矿脉/账本/状态/广播四样都由宿主 (QuestEngineHost) 注入，
@@ -27,26 +27,25 @@ import {
   evaluateFleetGoal,
 } from './kcwiki-quest-rules'
 import { buildPoiQuestContext, decodePoiQuestGoal } from './poi-quest-rules'
-import { buildKansoQuestRules } from './kanso-quest-rules'
+import { buildKumaQuestRules } from './kuma-quest-rules'
 import { buildFleetRuleContext, deriveFleetRule } from './quest-fleet-rules'
 import { buildMissionRuleContext, deriveMissionRule } from './quest-mission-rules'
 import { derivePracticeRule } from './quest-practice-rules'
 import { buildScrapRuleContext, deriveScrapRule } from './quest-scrap-rules'
 import { buildSortieRuleContext, deriveSortieRule } from './quest-sortie-rules'
 import { applyQuestSourceConflicts } from './quest-source-conflicts'
+import { QUEST_TEXT_NOTES } from './quest-text-notes'
 import { actionIncrement, buildEquipTypeNameIndex, deriveFallbackTracker } from './quest-counter-rules'
 import { questAnnualMonth, questPeriodFromCode, questPeriodKey } from '../../shared/quest-period'
 import {
-  buildShipProperNameIndex,
-  localizeShipProperWords,
-} from '../../shared/ship-proper-name'
-import { localizeShipNationWords } from '../../shared/ship-nation-name'
-import { localizeShipTypeWords } from '../../shared/ship-type-name'
+  buildQuestGoalNameIndex,
+  localizeQuestGoalLabels,
+} from '../../shared/quest-goal-name'
 import { USEITEM_MATERIAL_INDEX } from '../../shared/useitem-stock'
 import { isEnemyReallySunk } from '../../shared/enemy-sunk'
 
 import type { QuestPeriodKind } from '../../shared/quest-period'
-import type { ShipProperNameIndex } from '../../shared/ship-proper-name'
+import type { QuestGoalNameIndex } from '../../shared/quest-goal-name'
 import { qpTaskGroups, qpTaskSlot } from '../../shared/qp-types'
 
 import type {
@@ -128,7 +127,8 @@ interface Tracker {
 const num = (v: unknown, d = 0) => (typeof v === 'number' ? v : d)
 
 /**
- * 把追踪器表里所有编成门的词换成规范中文写法。**三遍，同一个出口**：
+ * 把追踪器表里四类任务详情标签换成规范中文写法。**四类标签，同一个出口**：
+ * 编成检查与秘书舰走同一条三表链：
  *   ① 舰种词（表与口径见 shared/ship-type-name.ts）——封闭表，认不出的放行；
  *   ② 专有名词：舰名 / 舰级 / 队名残段（口径见 shared/ship-proper-name.ts）——
  *      回查主数据与译名包，认不出的同样放行；
@@ -136,29 +136,23 @@ const num = (v: unknown, d = 0) => (typeof v === 'number' ? v : d)
  * ①② 认的词不相交，先后无所谓；按「先封闭表、后回查」排，落到 ② 的就都是 ① 明确放行的词。
  * ③ **必须最后**：②的字形折叠先把「法国艦艇」折成「法国舰艇」，③ 一张表就收两种字形；
  * 而 ③ 的产物自带「/」（「美/英/澳/荷舰娘」），放最后就不会再被谁切开重读。
+ * 目标装备与持有条件则按 mstId 回查译名包；只有 label 与 ja、zh 或主数据 api_name
+ * 等值时才接管，带判定修饰的手写标签原样放行。
  *
  * 追踪器自己的 `fleetGoal` 与**每条 task 各自带的** `fleetGoal` 都要过：
  * 组合规则里那一份挂在 task 上（`QpTask.fleetGoal`），漏掉它，
  * 抽屉的编成检查会有一半仍是日文。就地改，不复制一份追踪器——
  * 消费端（`toState` 的快照、`evaluateFleetGoal` 的实时判定）拿的都得是同一份词。
  *
- * 舰名索引由调用方**装配期建一次**传进来：五百多个 token 各自线性扫 3057 条主数据，
- * 是每次 `initQuestCounter` 都要白付的账。
+ * 四类标签索引由调用方**装配期建一次**传进来；其中舰名索引若让五百多个 token
+ * 各自线性扫 3057 条主数据，是每次 `initQuestCounter` 都要白付的账。
  */
-const localizeFleetGoalLabels = (
+const localizeQuestLabels = (
   trackers: Map<number, Tracker>,
-  properNames: ShipProperNameIndex,
+  index: QuestGoalNameIndex,
 ): void => {
-  const localizeGoal = (goal: QpFleetGoal | undefined) => {
-    for (const group of goal?.groups ?? []) {
-      group.label = localizeShipNationWords(
-        localizeShipProperWords(localizeShipTypeWords(group.label), properNames),
-      )
-    }
-  }
   for (const tracker of trackers.values()) {
-    localizeGoal(tracker.fleetGoal)
-    for (const task of tracker.tasks) localizeGoal(task.fleetGoal)
+    localizeQuestGoalLabels(tracker, index)
   }
 }
 
@@ -265,7 +259,9 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
     )
     const questTextOf = (questId: number): string => {
       const quest = (scn?.data as any)?.[questId]
-      return quest ? `${quest.desc ?? ''}｜${quest.memo2 ?? ''}` : ''
+      return quest
+        ? `${quest.desc ?? ''}｜${quest.memo2 ?? ''}｜${QUEST_TEXT_NOTES[questId] ?? ''}`
+        : ''
     }
     if (kcwikiPack?.data && typeof kcwikiPack.data === 'object' && !Array.isArray(kcwikiPack.data)) {
       for (const [idText, requirement] of Object.entries(kcwikiPack.data as Record<string, unknown>)) {
@@ -318,10 +314,10 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
       }
     }
 
-    // 第三规则源：艦素自研补充。上游两源都没有的任务在 kanso-quest-rules 里
+    // 第三规则源：kuma自研补充。上游两源都没有的任务在 kuma-quest-rules 里
     // 逐条人工解码（依据任务正文 + wiki 核对），只填空位、绝不覆盖上游。
     if (masterRaw) {
-      for (const rule of buildKansoQuestRules(kcwikiContext, masterRaw, fcdPack?.data as any)) {
+      for (const rule of buildKumaQuestRules(kcwikiContext, masterRaw, fcdPack?.data as any)) {
         if (trackers.has(rule.questId)) continue
         if (
           !rule.tasks.length &&
@@ -332,7 +328,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
         trackers.set(rule.questId, {
           questId: rule.questId,
           tasks: rule.tasks,
-          source: 'kanso',
+          source: 'kuma',
           fleetGoal: rule.fleetGoal,
           stateGoal: rule.stateGoal,
           stockGoals: rule.stockGoals,
@@ -343,7 +339,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
         })
       }
 
-      // 同为艦素自研，但走的是**推导**而不是逐条人工解码：废弃装备类的清单
+      // 同为kuma自研，但走的是**推导**而不是逐条人工解码：废弃装备类的清单
       // （装备名/类别 + 数量）整个在中文正文里，配上游戏一手主数据就能解出来，
       // 不必一条条手写。口径与边界见 quest-scrap-rules。仍然只填空位。
       const scrapContext = buildScrapRuleContext(masterRaw, localization?.data)
@@ -368,7 +364,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
           trackers.set(questId, {
             questId,
             tasks: derived.tasks,
-            source: 'kanso',
+            source: 'kuma',
             fleetGoal: fleet?.fleetGoal,
             approx: derived.approx,
             partial: false,
@@ -406,7 +402,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
           trackers.set(questId, {
             questId,
             tasks: derived.tasks,
-            source: 'kanso',
+            source: 'kuma',
             fleetGoal: fleet?.fleetGoal,
             approx: derived.approx || Boolean(fleet?.approx),
             partial: derived.partial,
@@ -417,7 +413,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
       }
     }
 
-    // 最后回退：仅在 KCWiki、poi 与艦素自研都没有安全规则时，才从中文任务文本推导（标 ≈）。
+    // 最后回退：仅在 KCWiki、poi 与kuma自研都没有安全规则时，才从中文任务文本推导（标 ≈）。
     if (scn?.data && typeof scn.data === 'object') {
       for (const [idStr, raw] of Object.entries<any>(scn.data)) {
         const questId = parseInt(idStr, 10)
@@ -445,31 +441,34 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
     // 放在全部规则源之后，是因为要先看清「这条最后落到哪个源」再决定改不改；
     // 指纹对不上就不改（上游修了/改了都算），只告警。依据逐条写在 quest-source-conflicts。
     const patched = applyQuestSourceConflicts(trackers, (conflict, reason) => {
-      console.warn(`[kanso] qp: 源修正台账 ${conflict.questId}/${conflict.code} 未生效——${reason}`)
+      console.warn(`[kuma] qp: 源修正台账 ${conflict.questId}/${conflict.code} 未生效——${reason}`)
     })
 
-    // 编成门标签的中文化——**全仓唯一的那个出口**，位置就定在这里。
+    // 四类任务详情标签的中文化——**全仓唯一的那个出口**，位置就定在这里。
     //
     // 放在四层规则源与修正台账**之后**：再往前一步就要在每个源里各做一遍
     //（kcwiki 抄上游日文、自研侧切中文正文，两边的词根本不同源），各做一遍就会漂移；
     // 再往后一步就晚了——`evaluateFleetGoal` 拿 `group.label` 拼抽屉那几句
     //（「还差 2 艘「駆逐」」），它读的是这张表里的追踪器，不是 `toState()` 的快照。
+    // `evaluateStateGoal` 拼的「秘书舰未装备「X」」「「X」改修不满」同样直接读这张表。
     // 收在这一点上，任务行的 `qpFleetNeedItems` 与抽屉的「编成检查」用的就是同一份词。
     //
-    // 三张口径各自封在 shared 里：舰种词 ship-type-name（封闭表），
-    // 专有名词 ship-proper-name（回查主数据 + 译名包），国籍词组 ship-nation-name（封闭表）。
-    // 都是整词匹配、认不出原样放行。
-    // 幂等——规范写法既不是任一封闭表的键，回查又把中文名指向它自己，重建多少次结果都一样。
-    localizeFleetGoalLabels(
+    // 四类标签的口径封在 shared/quest-goal-name 里：编成检查与秘书舰逐词走舰种词
+    // ship-type-name（封闭表）→ 专有名词 ship-proper-name（回查主数据 + 译名包）
+    // → 国籍词组 ship-nation-name（封闭表）；目标装备与持有条件按 mstId 回查译名包。
+    // 都是整词或整名匹配、认不出原样放行。
+    // 幂等——规范写法既不是任一封闭表的键，按 id 回查又把中文名指向它自己，
+    // 重建多少次结果都一样。
+    localizeQuestLabels(
       trackers,
-      buildShipProperNameIndex({ masterRaw, localizationData: localization?.data }),
+      buildQuestGoalNameIndex({ masterRaw, localizationData: localization?.data }),
     )
 
     const sourceCounts: Record<QpTrackerSource, number> = {
       kcwiki: 0,
       poi: 0,
       text: 0,
-      kanso: 0,
+      kuma: 0,
     }
     // 覆盖统计只数目录里的任务：上游包里可能带着不在中文任务目录里的条目，
     // 直接数 trackers.size 会把分子数得比分母还大（EO 在位时曾显示 646/644）。
@@ -504,7 +503,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
     }
     repairContradictedCompleteProgress()
     console.log(
-      `[kanso] qp: ${trackers.size} 个任务追踪器就绪（KCWiki ${sourceCounts.kcwiki} / poi ${sourceCounts.poi} / 艦素 ${sourceCounts.kanso} / 文本 ${sourceCounts.text}` +
+      `[kuma] qp: ${trackers.size} 个任务追踪器就绪（KCWiki ${sourceCounts.kcwiki} / poi ${sourceCounts.poi} / kuma ${sourceCounts.kuma} / 文本 ${sourceCounts.text}` +
       `${patched ? ` · 源修正 ${patched}` : ''}） · 主数据${master.names.size ? `已就绪（${master.names.size} 舰）` : '未就绪'}`,
     )
     if (notifyRenderers) broadcastState()
@@ -599,7 +598,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
       delete progressUpdated[questId]
       ledger.deleteQuestProgress(questId)
       broadcastProgress(questId, null)
-      console.log(`[kanso] qp: 任务 ${questId} 已跨 ${period} 重置线，本地计数清零`)
+      console.log(`[kuma] qp: 任务 ${questId} 已跨 ${period} 重置线，本地计数清零`)
     }
   }
 
@@ -640,7 +639,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
       ledger.deleteQuestProgress(questId)
       broadcastProgress(questId, null)
       console.warn(
-        `[kanso] qp: 任务 ${questId} 的本地完成数与之后的游戏状态矛盾，已撤销精确数并回退到游戏进度档`,
+        `[kuma] qp: 任务 ${questId} 的本地完成数与之后的游戏状态矛盾，已撤销精确数并回退到游戏进度档`,
       )
     }
   }
@@ -699,7 +698,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
     ledger.saveQuestProgress(tracker.questId, counts)
     if (tracker.stateGoal) broadcastState()
     else broadcastProgress(tracker.questId)
-    console.log(`[kanso] qp: 任务 ${tracker.questId} 槽 ${slot + 1} 计数 +${inc} → ${next}/${cap}`)
+    console.log(`[kuma] qp: 任务 ${tracker.questId} 槽 ${slot + 1} 计数 +${inc} → ${next}/${cap}`)
   }
 
   const broadcastState = () => {
@@ -988,7 +987,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
     try {
       dispatch(apiPath, body, post, context)
     } catch (e) {
-      console.warn('[kanso] qp: dispatch failed', apiPath, e)
+      console.warn('[kuma] qp: dispatch failed', apiPath, e)
     }
   }
 
@@ -1053,14 +1052,14 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
       // 后者不涨是对的，前者是我们自己瞎了，必须说出断在哪一步。
       if (party?.issue && condMissed) {
         console.log(
-          `[kanso] qp: 近代化改修的双方判不出来，${condMissed} 条精确任务本次不计数（${party.issue}）`,
+          `[kuma] qp: 近代化改修的双方判不出来，${condMissed} 条精确任务本次不计数（${party.issue}）`,
         )
       }
       if (!hit) {
         // 计数没落到任何任务时说清原因，免得只能靠猜
         const known = Object.keys(store.getState().player.quests).length
         console.log(
-          `[kanso] qp: ${action} 事件未计入任何任务（遂行中且有追踪器 ${tracked.length} 条 · 已知任务 ${known} 条${known === 0 ? '——游戏里打开一次任务页即可同步' : ''}${condMissed ? ` · 另有 ${condMissed} 条因改修条件不符未计` : ''}）`,
+          `[kuma] qp: ${action} 事件未计入任何任务（遂行中且有追踪器 ${tracked.length} 条 · 已知任务 ${known} 条${known === 0 ? '——游戏里打开一次任务页即可同步' : ''}${condMissed ? ` · 另有 ${condMissed} 条因改修条件不符未计` : ''}）`,
         )
       }
     }

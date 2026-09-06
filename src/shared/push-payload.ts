@@ -9,7 +9,7 @@
 //    body / title / badge / sound / icon / group / url；另有 subtitle、level、
 //    markdown、id、delete、device_keys 等。也可 POST /push 并把设备码写成
 //    JSON 里的 `device_key`。表单形式（-d 'body=…&group=…'）同样受理。
-//    艦素只用 title / body / group 三个字段：通知只送「时刻」，别的不塞。
+//    kuma只用 title / body / group 三个字段：通知只送「时刻」，别的不塞。
 //
 // ② 加密推送 —— https://bark.day.app/encryption.md
 //    原文给的步骤是「把 Bark 请求参数转成 json 字符串 → 用秘钥和相应算法加密
@@ -46,7 +46,7 @@ import {
 export interface PushNotification {
   title: string
   body: string
-  /** 通知中心里的分组（Bark 的 group）；艦素统一用一个值，免得刷屏各占一格 */
+  /** 通知中心里的分组（Bark 的 group）；kuma统一用一个值，免得刷屏各占一格 */
   group?: string
 }
 

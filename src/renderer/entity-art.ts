@@ -267,7 +267,7 @@ const hydrateUseItemIcons = () => {
 export const installEntityArtFallback = (): void => {
   if (fallbackInstalled) return
   fallbackInstalled = true
-  document.addEventListener('kanso:art-source-change', () => {
+  document.addEventListener('kuma:art-source-change', () => {
     hydrateShipThumbs()
     hydrateUseItemIcons()
   })

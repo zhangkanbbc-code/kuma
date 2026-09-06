@@ -1,5 +1,6 @@
 // 渲染层内核：铭状态的本地缓存与订阅、秒级 ticker、公共工具。
 // 各模块（铆装配的面板）只依赖这里，不直接碰 ipc。
+import { readEnv } from '../shared/env-names'
 import type {
   BattleSnapshot,
   BattleSnapshotSummary,
@@ -48,7 +49,7 @@ const { ipcRenderer } = require('electron')
 const kernelConfig = require('@electron/remote').require('./config')
 
 // ---- UI 偏好持久化 ----
-// 走主进程 config.json（%APPDATA%/kanso/），不用 localStorage：
+// 走主进程 config.json（%APPDATA%/kuma/），不用 localStorage：
 // 渲染层是 file:// 源，Chromium 对它的本地存储不保证跨重启留存——布局记不住就是栽在这。
 export const uiGet = <T>(key: string, fallback: T): T => {
   const value = kernelConfig.get(`ui.${key}`)
@@ -135,6 +136,7 @@ export interface MgView {
   useitems: Record<number, number>
   useitemsTs: number | null
   sortie: SortieView | null
+  lastSortieLevelUps: import('../shared/mg-types').LastSortieLevelUps | null
   mapGauges: Record<number, MapGauge>
   eventAreas: Record<number, EventArea>
   practice: {
@@ -184,6 +186,7 @@ export const mg: MgView = {
   useitems: {},
   useitemsTs: null,
   sortie: null,
+  lastSortieLevelUps: null,
   mapGauges: {},
   eventAreas: {},
   practice: null,
@@ -295,7 +298,7 @@ export const onMarriage = (cb: MarriageListener) => {
 //
 // 判据本体在 shared/sortie-mourning（主进程攒名单、这里读名单，两边共用一份）。
 // 它**只从状态推导**：「当前出击仍在途 && 这次出击的沉没名单非空」⇒ 哀悼。
-// 于是重开界面（甚至重开艦素后回灌到同一份 sortie）都会重新算出同一个答案，
+// 于是重开界面（甚至重开kuma后回灌到同一份 sortie）都会重新算出同一个答案，
 // 返港时 store 把 sortie.active 落下，这里下一次同步就自动解除——没有「忘记复位」这条路。
 //
 // 入口放在内核而不是铃：失色作用于整个应用外壳（顶栏 / 侧栏 / 三坞），
@@ -321,12 +324,12 @@ export const isEscapedInSortie = (rosterId: number): boolean => !!escapedInSorti
 
 // 开关（钥 · 击沉特效）。初值自己从 config 读而不是等钥推过来——
 // 钥装配失败时不该让一个用户已经关掉的特效偷偷生效（buildSpoiler 同款理由）。
-let sunkEffectsOn = Boolean(kernelConfig.get('kanso.sunkEffects', true))
+let sunkEffectsOn = Boolean(kernelConfig.get('kuma.sunkEffects', true))
 export const sunkEffectsEnabled = () => sunkEffectsOn
 
-/** 失色只挂在艦素自己的外壳上；游戏画面容器不在名单里（CSS 侧逐个列出）。 */
+/** 失色只挂在kuma自己的外壳上；游戏画面容器不在名单里（CSS 侧逐个列出）。 */
 const syncMourning = () => {
-  document.body.classList.toggle('kanso-mourning', sunkEffectsOn && sortieSunkShips().length > 0)
+  document.body.classList.toggle('kuma-mourning', sunkEffectsOn && sortieSunkShips().length > 0)
 }
 
 type MourningListener = () => void
@@ -425,14 +428,14 @@ const applyMgPatch = (patch: MgPatch) => {
 /**
  * **仅调试**：把一份补丁按真实通道灌进来。
  *
- * 门控与诊断面板同一个（KANSO_DEBUG_UI=1），发布形态里调了也直接返回。
+ * 门控与诊断面板同一个（KUMA_DEBUG_UI=1），发布形态里调了也直接返回。
  * 存在的理由：应急修理与击沉这两类效果没法在真机上按需复现——前者要浪费一枚
  * 稀有道具，后者要真沉一艘舰。走 applyMgPatch 而不是另写一套 mock，
  * 是为了让模拟看到的东西**由生产代码路径产出**：探测、去重、横幅排序、失色推导
  * 全都是真的那一份，只有输入是编的。
  */
 export const debugApplyPatch = (patch: MgPatch) => {
-  if (process.env.KANSO_DEBUG_UI !== '1') return
+  if (readEnv('KUMA_DEBUG_UI') !== '1') return
   applyMgPatch(patch)
 }
 
@@ -447,7 +450,7 @@ const dispatchMarriage = (cue: MarriageCue) => {
  * 与报文到达完全同一条派发路径，看到的才是真结婚时会看到的东西。
  */
 export const debugEmitMarriage = (cue: MarriageCue) => {
-  if (process.env.KANSO_DEBUG_UI !== '1') return
+  if (readEnv('KUMA_DEBUG_UI') !== '1') return
   dispatchMarriage(cue)
 }
 
@@ -503,6 +506,7 @@ export const initKernel = (): Promise<void> => {
       mg.useitems = s.player.useitems
       mg.useitemsTs = s.player.useitemsTs ?? null
       mg.sortie = s.sortie ?? null
+      mg.lastSortieLevelUps = s.lastSortieLevelUps ?? null
       mg.mapGauges = s.mapGauges ?? {}
       mg.eventAreas = s.eventAreas ?? {}
       mg.battleReconciliation = s.battleReconciliation ?? { checked: 0, mismatched: 0, records: [] }
@@ -881,7 +885,8 @@ export const queryFleetCheck = (): Promise<QpFleetCheck> => ipcRenderer.invoke('
 export interface LodeMeta {
   id: string
   name: string
-  version: string
+  version?: string
+  ignoredUserVersion?: string
   source: string
   sourceUrl?: string
   fetchedAt: string
@@ -1642,7 +1647,7 @@ export const fmtDurationLong = (completeTime: number) => {
 export const masterShipName = (mstId: number) => mg.master.ships[mstId]?.name ?? `#${mstId}`
 
 // 舰队并列名：canonical = 按当前编成语义生成的标准名，custom = 玩家自定义名。
-// 第3舰队实际出现 7 个有效栏位时就是游击部队；只改艦素展示，不回写游戏原名。
+// 第3舰队实际出现 7 个有效栏位时就是游击部队；只改kuma展示，不回写游戏原名。
 export const fleetLabel = (deck: Deck): { canonical: string; custom: string | null } => {
   const numbered = `第${deck.id}舰队`
   const isStrikeForce = deck.id === 3 && deck.ships.filter((id) => id > 0).length === 7

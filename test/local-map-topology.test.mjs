@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url'
 
 import { buildSync } from 'esbuild'
 
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-local-map-topology-'))
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-local-map-topology-'))
 const output = path.join(tempDir, 'local-map-topology.cjs')
 buildSync({
   entryPoints: [fileURLToPath(new URL('../src/shared/local-map-topology.ts', import.meta.url))],

@@ -91,7 +91,7 @@ export const resetFired = () => firedKeys.clear()
 `
 
 const loaded = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-lg-cond-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-lg-cond-'))
   const entry = path.join(dir, 'cond.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'cond.cjs')

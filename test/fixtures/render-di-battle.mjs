@@ -306,7 +306,7 @@ export {
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-di-battle-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-di-battle-'))
   const entry = path.join(dir, 'panel.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'panel.cjs')

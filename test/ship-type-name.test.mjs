@@ -4,7 +4,7 @@ import nodeTest from 'node:test'
 
 import shipTypeName from '../dist/shared/ship-type-name.js'
 import kcwiki from '../dist/main/mg/kcwiki-quest-rules.js'
-import kanso from '../dist/main/mg/kanso-quest-rules.js'
+import kuma from '../dist/main/mg/kuma-quest-rules.js'
 import fleetRules from '../dist/main/mg/quest-fleet-rules.js'
 
 const {
@@ -20,13 +20,13 @@ const {
   augmentShipGroupsFromQuestText,
   resolveFriendlyShipToken,
 } = kcwiki
-const { buildKansoQuestRules } = kanso
+const { buildKumaQuestRules } = kuma
 const { STYPE_ALIASES, buildFleetRuleContext, deriveFleetRule } = fleetRules
 
 // ---------------------------------------------------------------- 出口本身
 //
 // 2026-09-01 之前编成门那一列是两条腿两种话：kcwiki 那一半照抄上游日文舰种词
-//（「駆逐 ×3」），艦素自研那一半出中文（「驱逐舰 ×3」）。用户拍板统一中文后
+//（「駆逐 ×3」），kuma自研那一半出中文（「驱逐舰 ×3」）。用户拍板统一中文后
 // 并成 localizeShipTypeWords 一个出口，收在 quest-counter 装配完追踪器那一点上。
 
 nodeTest('舰种词出口:整词换,分隔符与前后空白一个字节都不碰', () => {
@@ -153,8 +153,8 @@ const realLabels = () => {
     for (const task of decoded.tasks ?? []) take(task.fleetGoal, `kcwiki/${quest?.code ?? questId}`)
   }
 
-  for (const rule of buildKansoQuestRules(context, masterRaw, fcd)) {
-    const where = `艦素手写/${scn[rule.questId]?.code ?? rule.questId}`
+  for (const rule of buildKumaQuestRules(context, masterRaw, fcd)) {
+    const where = `kuma手写/${scn[rule.questId]?.code ?? rule.questId}`
     take(rule.fleetGoal, where)
     for (const task of rule.tasks ?? []) take(task.fleetGoal, where)
   }
@@ -165,7 +165,7 @@ const realLabels = () => {
     if (!questId) continue
     const code = `${raw?.code ?? ''}`
     const derived = deriveFleetRule(questId, code, `${raw?.desc ?? ''}`, `${raw?.memo2 ?? ''}`, fleetContext)
-    take(derived?.fleetGoal, `艦素推导/${code || questId}`)
+    take(derived?.fleetGoal, `kuma推导/${code || questId}`)
   }
 
   assert.ok(out.length > 500, `只扫到 ${out.length} 条编成门,收集器多半坏了`)

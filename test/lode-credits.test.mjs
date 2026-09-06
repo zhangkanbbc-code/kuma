@@ -65,7 +65,7 @@ test('每一组署名都给得出「谁、按什么许可、提供了什么」�
       assert.ok(`${source[field] ?? ''}`.trim(), `${source.key} 的 ${field} 是空的`)
     }
     if (!source.lodeIds.length) continue
-    // 第一方台账那一组例外：它的「出处」就是艦素自己，没有第三方链接可指
+    // 第一方台账那一组例外：它的「出处」就是kuma自己，没有第三方链接可指
     // （参考来源的集中署名在 NOTICE 的对应小节里）。硬要它挂个链接只会指向
     // 一个与这份数据无关的地方——那比不挂更误导。
     if (source.lodeIds.every((id) => FIRST_PARTY_LODE_IDS.includes(id))) {
@@ -95,9 +95,13 @@ test('非商业这条硬约束在集中页与 NOTICE 各出现一次', () => {
   assert.ok(notice.includes('https://creativecommons.org/licenses/by-nc-sa/3.0/'))
 })
 
-test('集中页文案守住发布纪律：零日期、零工程黑话', () => {
+test('集中页文案守住发布纪律：仅明石署名日期豁免、零工程黑话', () => {
   // 本页一个日期都不出现——新鲜度归「矿脉健康度」卡（纪律七之四）
-  assert.doesNotMatch(playerCopy, /\d{4}\s*[-/年]\s*\d{1,2}/)
+  // 2026-09-06 施工单明确要求这条署名标模块日期，豁免只随这一句走。
+  const akashi = LODE_CREDIT_SOURCES.find(source => source.key === 'kcwiki-akashi')
+  const moduleDate = JSON.parse(fs.readFileSync(path.join(root, 'assets/lodes/kcwiki-akashi-improve.json'), 'utf8')).meta.moduleUpdatedAt.slice(0, 10)
+  assert.equal(akashi.name, `参考舰娘百科·明石工厂数据（资料日期 ${moduleDate}）`)
+  assert.doesNotMatch(playerCopy.replace(akashi.name, ''), /\d{4}\s*[-/年]\s*\d{1,2}/)
   // 玩家不该在这页读到施工词汇
   for (const jargon of ['矿脉', '装配', '抓取', '停更', '正则', '解析器', 'json', 'JSON']) {
     assert.ok(!playerCopy.includes(jargon), `集中页文案里出现了工程用语「${jargon}」`)

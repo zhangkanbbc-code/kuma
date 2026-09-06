@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 
 import { buildSync } from 'esbuild'
 
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-quest-chain-tree-'))
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-quest-chain-tree-'))
 const output = path.join(tempDir, 'quest-chain-tree.cjs')
 buildSync({
   entryPoints: [fileURLToPath(new URL('../src/renderer/quest-chain-tree.ts', import.meta.url))],
@@ -126,7 +126,7 @@ test('complete forest path to a quest follows the canonical parent spine', () =>
 })
 
 const questPackUrl = new URL('../assets/lodes/quests-scn.json', import.meta.url)
-const hasFullQuestPack = process.env.KANSO_TEST_FORCE_SYNTHETIC !== '1'
+const hasFullQuestPack = process.env.KUMA_TEST_FORCE_SYNTHETIC !== '1'
   && fs.existsSync(questPackUrl)
 
 test('the shipped complete quest forest contains every library task exactly once', {

@@ -143,7 +143,7 @@ export { applyUseitems, upgradeRowFrom, REMODEL_USEITEM_COSTS, remodelSlotUseite
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-remodel-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-remodel-'))
   const entry = path.join(dir, 'remodel.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'remodel.cjs')

@@ -95,7 +95,7 @@ test('zh catalog aliases match when the live text is not enough', () => {
 })
 
 test('items missing from the master are skipped instead of guessed', () => {
-  // 注册表条目解析不到主数据名字就整条跳过（同 kanso-quest-rules 的实体纪律）
+  // 注册表条目解析不到主数据名字就整条跳过（同 kuma-quest-rules 的实体纪律）
   const detected = detectSeasonalCampaigns({
     useitemMst: [{ id: 96, name: '南瓜' }],
     useitems: { 68: 3 }, // 有秋刀鱼存量，但主数据里没有秋刀鱼条目

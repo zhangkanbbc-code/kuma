@@ -37,7 +37,7 @@ const load = (): AbyssVoiceSighting[] => {
     sightings = Array.isArray(raw?.sightings) ? normalizeAbyssVoiceSightings(raw.sightings) : []
   } catch (error: any) {
     if (error?.code !== 'ENOENT') {
-      console.warn('[kanso] abyss voice sightings: failed to read', error)
+      console.warn('[kuma] abyss voice sightings: failed to read', error)
     }
     sightings = []
   }
@@ -56,7 +56,7 @@ export const flushAbyssVoiceSightings = () => {
     })
   } catch (error) {
     // 记不下来只是下次少一个播放钮，不该拖垮战斗结算
-    console.warn('[kanso] abyss voice sightings: failed to write', error)
+    console.warn('[kuma] abyss voice sightings: failed to write', error)
   }
 }
 

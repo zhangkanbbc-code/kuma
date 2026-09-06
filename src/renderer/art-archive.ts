@@ -77,13 +77,13 @@ export const loadArtArchive = (): Promise<void> => {
       // 由消费端按自己的闸门决定要不要重画（mstId 0 = 不知道涉及谁，重画一次）。
       if (typeof document !== 'undefined') {
         document.dispatchEvent(
-          new CustomEvent('kanso:archive-lit', { detail: { kind: 'art', mstId: 0 } }),
+          new CustomEvent('kuma:archive-lit', { detail: { kind: 'art', mstId: 0 } }),
         )
       }
     })
     .catch((error: unknown) => {
       loading = null
-      console.warn('[kanso] 立绘档案索引读取失败', error)
+      console.warn('[kuma] 立绘档案索引读取失败', error)
     })
   return loading
 }
@@ -104,7 +104,7 @@ export const loadArtArchive = (): Promise<void> => {
  * 它上面的格子却灰着，而档案里其实早就有了（六格同一秒全部落盘，界面卡在四格）。
  * 「画在屏幕上却没点亮」正是这条政策要消灭的东西，却被这行注释挡在门外。
  *
- * 所以现在：**并进索引之后如实说一声**（返回值 + `kanso:archive-lit` 事件），
+ * 所以现在：**并进索引之后如实说一声**（返回值 + `kuma:archive-lit` 事件），
  * 由消费端判断「这条是不是玩家正在看的那一页」再决定重渲。
  * 两道性能闸门一个没松——重渲仍旧走 ji 自己的 `scheduleRender`
  *（面板不 active 不画、手指按着的时候推迟，见 memory/kanso-perf-architecture）。
@@ -162,7 +162,7 @@ export const archivedArtUrl = (entry: ArtArchiveEntry): string | null => {
  *
  * ---- 为什么取图那条链非要看这一层不可（2026-08-31 用户实机报）----
  * 他翻完游戏图鉴，村雨改二六个图种的字节当场全进了档案（盘上真有文件），
- * 回到艦素的立绘页却还是空的、脚注还写着「还没落到缓存」。
+ * 回到kuma的立绘页却还是空的、脚注还写着「还没落到缓存」。
  * 因为**显示**只认 Chromium 缓存与远端两条路，而档案是第三本账，
  * 谁也没告诉取图那一侧「东西其实就在盘上」。
  *

@@ -1,6 +1,6 @@
 // 远征 / 入渠 / 建造的倒计时能不能熬过一次重启。
 //
-// 用户报的症状是「每次重启艦素，**总有一两支**舰队的远征倒计时没了，其余还在」。
+// 用户报的症状是「每次重启kuma，**总有一两支**舰队的远征倒计时没了，其余还在」。
 // 「一两支」这三个字正是线索：decks 此前确实会恢复，只不过恢复的是
 // **最后一次 api_port/port 那一刻的定格**——回港之后才从远征页派出去的那几支，
 // 游戏不会再发一次 port，落盘清单里又没有 decks，于是它们无处可存。
@@ -198,7 +198,7 @@ test('回灌之后顶栏第一帧就是倒计时芯片，不是「等待同步�
 
 test('已返港未收的那支：回灌后照实显示「返港」，不是凭空复活一段倒计时', () => {
   coldBoot()
-  const done = Date.now() - 10 * MIN // 艦素关着的时候就到点了
+  const done = Date.now() - 10 * MIN // kuma关着的时候就到点了
   memberDeck([rawDeck(1), rawDeck(2), rawDeck(3, { mission: [1, 38, done, 0] }), rawDeck(4)])
   const persisted = domainSnapshot()
 
@@ -237,7 +237,7 @@ test('下一个权威报文整份盖回来：回灌的值不许赖着不走', ()
   hydrateFromDomain(persisted)
   assert.equal(deckOf(4).mission[0], 1)
 
-  // 艦素关着的时候玩家在游戏里把第 4 队收了、又把第 2 队派出去了。
+  // kuma关着的时候玩家在游戏里把第 4 队收了、又把第 2 队派出去了。
   // 重启后第一份权威编成一到，两边都得按游戏说的算。
   const fresh = now + 5 * MIN
   memberDeck([

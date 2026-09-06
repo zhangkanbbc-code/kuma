@@ -23,7 +23,7 @@ const sliceBetween = (source, from, to, label) => {
 }
 
 const bundleHarness = (t, name, source) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `kanso-${name}-`))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `kuma-${name}-`))
   const entry = path.join(dir, `${name}.ts`)
   const output = path.join(dir, `${name}.cjs`)
   fs.writeFileSync(entry, source)

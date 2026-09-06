@@ -20,7 +20,7 @@
 //
 // ⑤ **走应用自己的网络栈**（`net.fetch`，2026-08-23 全出口合规审计的裁定）：
 //    Node 的全局 `fetch` 用的是 Node 自己那套栈——**绕开玩家在系统/应用里配的代理**，
-//    于是「艦素其余所有出网都走代理、只有推送这一条裸奔」。地址是玩家亲手填的
+//    于是「kuma其余所有出网都走代理、只有推送这一条裸奔」。地址是玩家亲手填的
 //    第三方主机，恰恰是最不该悄悄绕过代理的那一条。`net.fetch` 走 Chromium 网络栈：
 //    代理设置、系统证书、`webRequest` 观察都与其余出口同一套。行为其余一个字不改
 //    （默认关、地址空不发、绝不重试、失败显式、在场门槛照旧排在出网之前）。
@@ -80,7 +80,7 @@ const systemIdleSeconds = (): number => {
     return Number.isFinite(seconds) && seconds >= 0 ? seconds : IDLE_UNKNOWN_SECONDS
   } catch (error) {
     console.warn(
-      `[kanso] push: 读不出系统空闲时间，按「不在电脑前」处理 · ${(error as { message?: string })?.message ?? error}`,
+      `[kuma] push: 读不出系统空闲时间，按「不在电脑前」处理 · ${(error as { message?: string })?.message ?? error}`,
     )
     return IDLE_UNKNOWN_SECONDS
   }
@@ -231,7 +231,7 @@ const sendPush = async (input: unknown): Promise<PushSendResult> => {
         ? `超时（${PUSH_TIMEOUT_MS / 1000}s）`
         : `${(error as { message?: string })?.message ?? error}`
     // 只写主机名：完整地址里那串设备码/频道名等同于密码，不该落进 crash.log
-    console.warn(`[kanso] push: 发送失败 → ${pushEndpointHost(request.url)} · ${reason}`)
+    console.warn(`[kuma] push: 发送失败 → ${pushEndpointHost(request.url)} · ${reason}`)
     return { ok: false, message: `推送失败：${reason}` }
   } finally {
     clearTimeout(timer)

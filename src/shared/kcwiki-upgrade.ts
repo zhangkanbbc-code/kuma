@@ -18,6 +18,7 @@ export const KCWIKI_ITEM_ALIAS: Record<string, number> = {
   工厂资源: 104,
   开发资材: 3, // 持有数住在 materials
   高速建造材: 2,
+  改修资材: 4, // 2026-09-06：api_mst_useitem[4].api_name=改修資材
   熟练搭乘员: 70,
   勋章: 57,
   补强增设: 64,

@@ -120,7 +120,7 @@ export const enemyFlagshipOf = <T extends BossKillShip>(eShips: readonly T[]): T
  * 找出终结敌旗舰的那一击并定归属。
  *
  * 调用方负责先确认这是**非演习的 boss 战**——这里不去猜战斗性质，
- * 快照里的 `is_boss` / `practice` 是账本自己的列，比重新判一遍可靠。
+ * 快照里的 `is_boss` / `practice` 是游戏报文自己的列，比重新判一遍可靠。
  *
  * 敌旗舰不在（空敌表）时返回 null：那不是「没人终结」，是这场压根没得判。
  */

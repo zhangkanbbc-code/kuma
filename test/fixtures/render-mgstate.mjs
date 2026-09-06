@@ -73,7 +73,7 @@ const STUBS = {
 }
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-mg-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-mg-'))
   fs.cpSync(path.join(ROOT, 'src'), path.join(dir, 'src'), { recursive: true })
   for (const [rel, source] of Object.entries(STUBS)) {
     fs.writeFileSync(path.join(dir, 'src', ...rel.split('/')), source)
@@ -162,9 +162,9 @@ export const mountMgstate = ({
   archive = {},
   remoteArt = true,
 } = {}) => {
-  // 门与铆/钥同一道：`process.env.KANSO_DEBUG_UI === '1'`，在模块顶层求值。
-  if (debugUi) process.env.KANSO_DEBUG_UI = '1'
-  else delete process.env.KANSO_DEBUG_UI
+  // 门与铆/钥同一道：`process.env.KUMA_DEBUG_UI === '1'`，在模块顶层求值。
+  if (debugUi) process.env.KUMA_DEBUG_UI = '1'
+  else process.env.KUMA_DEBUG_UI = ''
   globalThis.__mg = emptyMg()
   globalThis.__lodes = lodes
   globalThis.__archive = archive

@@ -1579,7 +1579,7 @@ const selectNode = async (map: number, cell: number) => {
       if (dropLoadingKey !== key) return
       selectedDropReport = report
     } catch (error) {
-      console.warn('[kanso] 回顾捞船记录读取失败', map, cell, error)
+      console.warn('[kuma] 回顾捞船记录读取失败', map, cell, error)
       if (dropLoadingKey === key) dropLoadFailed = true
     } finally {
       if (dropLoadingKey === key) dropLoadingKey = ''
@@ -1592,7 +1592,7 @@ const selectNode = async (map: number, cell: number) => {
     if (nodeLoadingKey !== key) return
     selectedNodeReport = report
   } catch (error) {
-    console.warn('[kanso] 回顾节点记录读取失败', map, cell, error)
+    console.warn('[kuma] 回顾节点记录读取失败', map, cell, error)
     if (nodeLoadingKey === key) nodeLoadFailed = true
   } finally {
     if (nodeLoadingKey === key) nodeLoadingKey = ''
@@ -1622,7 +1622,7 @@ const openReviewBattle = async (id: number) => {
   } catch (error) {
     if (generation !== battleLoadGeneration) return
     selectedBattleError = '战斗记录读取失败'
-    console.warn('[kanso] 回顾战斗快照读取失败', id, error)
+    console.warn('[kuma] 回顾战斗快照读取失败', id, error)
   } finally {
     if (generation !== battleLoadGeneration) return
     selectedBattleLoadingId = 0
@@ -1742,7 +1742,7 @@ const refresh = async (requestedQueries?: readonly ReviewQuery[]) => {
     ])
   } catch (error) {
     if (generation !== refreshGeneration) return
-    console.warn('[kanso] 回顾数据读取失败', error)
+    console.warn('[kuma] 回顾数据读取失败', error)
     loadFailed = true
     loading = false
     deferPassive(pane, 'shi', render)
@@ -1958,7 +1958,7 @@ registerModule({
             void refresh()
           })
           .catch((error) => {
-            console.warn('[kanso] 回顾补记氪金失败', error)
+            console.warn('[kuma] 回顾补记氪金失败', error)
             payFormError = '写入失败'
             deferPassive(pane, 'shi', render)
           })
@@ -1983,7 +1983,7 @@ registerModule({
             void refresh()
           })
           .catch((error) => {
-            console.warn('[kanso] 回顾删除补记失败', error)
+            console.warn('[kuma] 回顾删除补记失败', error)
             payDelError = '删除失败'
             deferPassive(pane, 'shi', render)
           })

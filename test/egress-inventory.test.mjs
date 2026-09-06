@@ -79,7 +79,7 @@ const NETWORK_CALL_SITES = {
 test('出口清单：能发网络请求的调用点就是台账上那几处，不多不少', () => {
   // 判据钉在「构造/发起」这一类词上；`window.fetch = ` 这种包装不算新增出口
   // （game-audio.js 包了页面自己的 fetch/XHR 只为观察，转发的是原函数）。
-  const pattern = /(?<![.\w])(?:net\.fetch|fetch)\s*\(|new\s+XMLHttpRequest|new\s+WebSocket|new\s+EventSource|sendBeacon\s*\(|https?\.(?:get|request)\s*\(/g
+  const pattern = /(?<![.\w])(?:net\.(?:fetch|request)|fetch)\s*\(|new\s+XMLHttpRequest|new\s+WebSocket|new\s+EventSource|sendBeacon\s*\(|https?\.(?:get|request)\s*\(/g
   const found = new Map()
   for (const [rel, text] of runtimeFiles()) {
     const code = stripComments(text)
@@ -176,7 +176,7 @@ test('第三方零请求：会被拿去 fetch 的绝对地址，主机只能是�
 
 // ---------------------------------------------------------------- 行为要像人
 
-test('钥开关是主进程的不变量：三条会真出网的路都自己判一次 kanso.remoteArt', () => {
+test('钥开关是主进程的不变量：三条会真出网的路都自己判一次 kuma.remoteArt', () => {
   // 渲染层本来也有一道闸（remoteUrl() 关着时返回 null），但那一道挡不住
   // 「以后谁在渲染层新开一条调用」。所以每一条会出网的路都要在主进程自己判。
   // 2026-08-23 审计时 map-art-json 缺这一份，当场补上。
@@ -184,7 +184,7 @@ test('钥开关是主进程的不变量：三条会真出网的路都自己判�
     const text = fs.readFileSync(new URL(`main/${file}.ts`, SRC), 'utf8')
     assert.match(
       stripComments(text),
-      /config\.get\(\s*'kanso\.remoteArt'/,
+      /config\.get\(\s*'kuma\.remoteArt'/,
       `${file}.ts 少了钥开关那道闸——现取路径必须能被玩家一关了之`,
     )
   }
@@ -193,7 +193,7 @@ test('钥开关是主进程的不变量：三条会真出网的路都自己判�
 test('渲染层那两个开关的初值必须来自配置，不许写死 true', () => {
   // 2026-09-01 实测的既有 bug：两处都是 `let allowRemote... = true`，真值只在钥（yu）
   // 装配时才补上。可钥的 order 是 8.8，编队/图鉴（order 2~4）早就渲完了缩略图，
-  // 主机名也在装配之前就从 `kanso.lastGameHost` 恢复好了——于是玩家明明关着
+  // 主机名也在装配之前就从 `kuma.lastGameHost` 恢复好了——于是玩家明明关着
   // 「不联网补取美术资源」，启动头几秒仍有 12 条 banner_dmg 出网。
   //
   // 这一条只能钉源码：两个文件顶层都 require 了 `@electron/remote`，脱开 Electron
@@ -207,11 +207,11 @@ test('渲染层那两个开关的初值必须来自配置，不许写死 true', 
     assert.doesNotMatch(
       code,
       new RegExp(`let ${flag}\\s*(?::[^=]+)?=\\s*(?:true|false)\\b`),
-      `${file} 把远端回退开关的初值写死了——它必须从 kanso.remoteArt 读`,
+      `${file} 把远端回退开关的初值写死了——它必须从 kuma.remoteArt 读`,
     )
     assert.match(
       code,
-      /remote\.require\('\.\/config'\)\.get\('kanso\.remoteArt', true\) !== false/,
+      /remote\.require\('\.\/config'\)\.get\('kuma\.remoteArt', true\) !== false/,
       `${file} 少了「初值读配置」那一句`,
     )
     // 读不到配置时要回落默认开：默认关会让开着开关的玩家一启动就满屏图裂

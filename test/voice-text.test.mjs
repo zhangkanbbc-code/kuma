@@ -91,9 +91,9 @@ const readLode = (id) => {
 }
 
 test('自译包的每一行译文都已合体例', (t) => {
-  const pack = readLode('kanso-voice')
+  const pack = readLode('kuma-voice')
   if (!pack) {
-    t.skip('缺 kanso-voice，跳过')
+    t.skip('缺 kuma-voice，跳过')
     return
   }
   const bad = []
@@ -110,9 +110,9 @@ test('自译包的每一行译文都已合体例', (t) => {
 })
 
 test('译文 overlay 包的每一行译文都已合体例', (t) => {
-  const pack = readLode('kanso-voice-zh')
+  const pack = readLode('kuma-voice-zh')
   if (!pack) {
-    t.skip('缺 kanso-voice-zh，跳过')
+    t.skip('缺 kuma-voice-zh，跳过')
     return
   }
   const bad = []

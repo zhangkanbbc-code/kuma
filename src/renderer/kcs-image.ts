@@ -129,7 +129,7 @@ export interface MapArtManifest {
 const mapArtCache = new Map<string, Promise<MapArtManifest | null>>()
 
 const notifyArtSourceChange = () => {
-  if (typeof document !== 'undefined') document.dispatchEvent(new CustomEvent('kanso:art-source-change'))
+  if (typeof document !== 'undefined') document.dispatchEvent(new CustomEvent('kuma:art-source-change'))
 }
 
 let gameHost: string | null = null
@@ -212,11 +212,11 @@ export const shipGraphLayout = (mstId: number): ShipGraphLayout | null =>
 export const shipImageVersionOf = (mstId: number): string => shipImageVersion.get(mstId) ?? ''
 
 /**
- * 「不联网补取美术资源」（`kanso.remoteArt`）的**初值自己去读配置**，不写死 true。
+ * 「不联网补取美术资源」（`kuma.remoteArt`）的**初值自己去读配置**，不写死 true。
  *
  * 钥（yu）装配时还会再应用一次——那是玩家当场扳开关的通道，保留着。但钥的 order 是
  * 8.8，而编队/图鉴那几个模块（order 2~4）早在它之前就把缩略图渲出去了；主机名又在
- * 装配之前就从 `kanso.lastGameHost` 恢复好了。于是关着开关的玩家，启动头几秒照样有
+ * 装配之前就从 `kuma.lastGameHost` 恢复好了。于是关着开关的玩家，启动头几秒照样有
  * 一批横幅出网（2026-09-01 实测 12 条 banner_dmg）——开关的话写在屏幕上，产物没照做。
  *
  * 走的是同步通道：主进程那个 config 单例在 require 的那一下就把 config.json 读完了，
@@ -228,9 +228,9 @@ export const shipImageVersionOf = (mstId: number): string => shipImageVersion.ge
  */
 const configuredAllowRemoteArt = (): boolean => {
   try {
-    return remote.require('./config').get('kanso.remoteArt', true) !== false
+    return remote.require('./config').get('kuma.remoteArt', true) !== false
   } catch (error) {
-    console.warn('[kanso] 远端取图开关读取失败，按默认（开）继续', error)
+    console.warn('[kuma] 远端取图开关读取失败，按默认（开）继续', error)
     return true
   }
 }
@@ -324,7 +324,7 @@ setEquipIconSpriteProvider(slotIconSpriteStyle)
 // 换过来还白捡一个好处：net.fetch 会命中 Chromium 磁盘缓存，玩家在游戏里
 // 打开过那张图之后，我们这边根本不会再产生网络请求。
 const readRemoteJson = <T>(url: string): Promise<T | null> =>
-  ipcRenderer.invoke('kanso:map-art-json', url) as Promise<T | null>
+  ipcRenderer.invoke('kuma:map-art-json', url) as Promise<T | null>
 
 const readStaticJson = async <T>(pathname: string): Promise<T | null> => {
   const file = cachedFile(pathname)
@@ -332,7 +332,7 @@ const readStaticJson = async <T>(pathname: string): Promise<T | null> => {
     try {
       return JSON.parse(fs.readFileSync(file, 'utf8')) as T
     } catch (error) {
-      console.warn('[kanso] 本地地图美术元数据无效', file, error)
+      console.warn('[kuma] 本地地图美术元数据无效', file, error)
       return null
     }
   }
@@ -373,7 +373,7 @@ const loadLearnedArt = () => {
     }
   } catch (error) {
     // 学过的路径没了只是回到「按 cipher 拼」，不该影响启动
-    console.warn('[kanso] 舰船美术路径表读取失败，按空表继续', error)
+    console.warn('[kuma] 舰船美术路径表读取失败，按空表继续', error)
   }
 }
 loadLearnedArt()
@@ -395,7 +395,7 @@ const loadShipCostumes = () => {
     costumesByShip = shipCostumeIndex(shipCostumes)
   } catch (error) {
     // 学过的归属没了只是衣装格摆不出来，不该影响启动
-    console.warn('[kanso] 衣装归属表读取失败，按空表继续', error)
+    console.warn('[kuma] 衣装归属表读取失败，按空表继续', error)
   }
 }
 loadShipCostumes()
@@ -403,7 +403,7 @@ loadShipCostumes()
 /**
  * 主进程刚学到新的归属（玩家正在翻图鉴，或启动回灌补完了历史）。
  *
- * 说一声用的是**自己的事件**而不是 `kanso:art-source-change`：后者的消费端是
+ * 说一声用的是**自己的事件**而不是 `kuma:art-source-change`：后者的消费端是
  * 缩略图补图那条路（entity-art 全文档重扫），而这里变的是「谁有哪几套衣装」，
  * 该跟上的是立绘页的衣装段。混用会让每翻一页图鉴就白扫一遍全文档缩略图。
  */
@@ -413,7 +413,7 @@ export const noteShipCostumes = (map: unknown): void => {
   shipCostumes = next
   costumesByShip = shipCostumeIndex(next)
   if (typeof document !== 'undefined') {
-    document.dispatchEvent(new CustomEvent('kanso:ship-costumes-change'))
+    document.dispatchEvent(new CustomEvent('kuma:ship-costumes-change'))
   }
 }
 
@@ -496,7 +496,7 @@ export const shipImagePath = (mstId: number, type: ShipImgType, damaged = false)
  *
  * ---- 档案那一档是 2026-08-31 补的（用户实机报的脱节）----
  * 他翻完游戏图鉴，村雨改二六个图种的字节当场全进了档案（盘上真有文件），
- * 艦素的立绘页却还是空的、脚注还写着「还没落到缓存」。因为这里此前只有
+ * kuma的立绘页却还是空的、脚注还写着「还没落到缓存」。因为这里此前只有
  * 缓存与远端两档，而档案是第三本账——盘上明明有，取图这一侧却看不见。
  *
  * 档案排在缓存之后、远端之前：两者都是**本机已经有的字节**，谁都不必再走网络；
@@ -517,13 +517,13 @@ export const shipImageUrl = (mstId: number, type: ShipImgType, damaged = false):
 }
 
 /**
- * 「显示即入档」：这张舰船美术刚在艦素里**显示成功**了，顺手让主进程留一份进档案。
+ * 「显示即入档」：这张舰船美术刚在kuma里**显示成功**了，顺手让主进程留一份进档案。
  *
  * ---- 为什么要有这一句（2026-08-23 用户实机报的脱节）----
  * 他打开立绘页，整张立绘好端端显示着，收集格却写「0/6 图种」。
  * 两本账各说各的：**显示**走这个文件（缓存命中 + 游戏资源服务器回退），
  * **点亮**认档案层，而档案层此前只收「游戏页面自己请求资源」那条钩子——
- * 艦素自己摆出来的图根本不经过它。
+ * kuma自己摆出来的图根本不经过它。
  *
  * 补法不是把点亮判据放宽去认缓存（缓存会被整盘丢弃，收集进度会随时蒸发），
  * 而是把显示这件事本身变成一次入档。从此「看见了」与「点亮了」是一件事的两面。
@@ -536,7 +536,7 @@ export const noteShipArtDisplayed = (pathname: string, url: string, version?: st
   try {
     // `version` 只在调用方手上有主数据现行版号时才带（图鉴画廊那条路）：
     // 本机缓存命中时地址是 `file://…`，从地址里提不出版本，而版本是版本对账的判据。
-    ipcRenderer.send('kanso:archive-capture-art', { pathname, url, version: version ?? '' })
+    ipcRenderer.send('kuma:archive-capture-art', { pathname, url, version: version ?? '' })
   } catch (_error) {
     // 入档失败只是这一张没留住，不该影响正在显示的这一帧
   }

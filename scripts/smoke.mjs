@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url'
 const root = path.join(fileURLToPath(import.meta.url), '..', '..')
 const require = createRequire(import.meta.url)
 const electronPath = require('electron')
-const marker = '[kanso] smoke: window ok'
-const configuredTimeout = Number.parseInt(process.env.KANSO_SMOKE_TIMEOUT_MS ?? '30000', 10)
+const marker = '[kuma] smoke: window ok'
+const configuredTimeout = Number.parseInt(process.env.KUMA_SMOKE_TIMEOUT_MS ?? '30000', 10)
 const timeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout > 0
   ? configuredTimeout
   : 30000
@@ -16,7 +16,7 @@ const child = spawn(electronPath, ['.'], {
   cwd: root,
   env: {
     ...process.env,
-    KANSO_SMOKE: '1',
+    KUMA_SMOKE: '1',
   },
   stdio: ['ignore', 'pipe', 'pipe'],
   windowsHide: true,
@@ -88,8 +88,8 @@ if (child.exitCode === null && child.signalCode === null && child.pid) {
 }
 
 if (!outcome.ok) {
-  console.error(`[kanso] smoke failed: ${outcome.message}`)
+  console.error(`[kuma] smoke failed: ${outcome.message}`)
   process.exitCode = 1
 } else if (outcome.message) {
-  console.warn(`[kanso] smoke: ${outcome.message}`)
+  console.warn(`[kuma] smoke: ${outcome.message}`)
 }

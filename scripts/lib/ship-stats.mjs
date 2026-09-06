@@ -24,7 +24,7 @@
 //
 // ---- 印证四档 ----
 //
-//   `ledger` 账本一手裁定 / `multi` 两 wiki 独立一致 / `patched` 分歧按裁决取一侧 /
+//   `ledger` 游戏报文一手裁定 / `multi` 两 wiki 独立一致 / `patched` 分歧按裁决取一侧 /
 //   `single` 只有基座一票（wikiwiki 那张表没有这一格，或者维护者本机压根没有那个包）。
 //
 // ---- 两道自维护的护栏 ----
@@ -195,7 +195,7 @@ export const buildShipStats = ({
         wikiwiki:
           '艦これ攻略 Wiki「艦船最大値」总表与定向舰页——只投票不供值；供值的只有 ship-stats-patches.ts 里逐条转写带依据的分歧格',
         ledger:
-          '本机账本一手：api_kaihi/api_taisen/api_sakuteki 的 [1]，游戏对持有形态直接下发的 Lv99 上限',
+          '游戏报文核对（维护者核 2026-09-06）：api_kaihi/api_taisen/api_sakuteki 的 [1]，游戏对持有形态直接下发的 Lv99 上限',
       },
       forms,
     },
@@ -207,7 +207,7 @@ export const buildShipStats = ({
   }
 }
 
-/** 主数据快照里的 api_mst_ship（维护者本机有账本才有；没有就返回空数组）。 */
+/** 主数据快照里的 api_mst_ship（维护者对照资料有游戏报文才有；没有就返回空数组）。 */
 export const loadMasterShips = ({ snapshotPath = null } = {}) => {
   const file =
     snapshotPath ?? userDataPathIfAny('snapshots', 'kcsapi_api_start2_getData.json')

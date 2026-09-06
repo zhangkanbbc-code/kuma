@@ -58,6 +58,7 @@ import { HIST_FLEETS, memberFormIds } from '../../shared/hist-fleets'
 import { shipNationalityIdFromSortId } from '../../shared/ship-nationality'
 import { buildShipRemodelChains } from '../../shared/ship-remodel-chain'
 import { augmentShipGroupsFromQuestText, buildKcwikiRuleContext } from './kcwiki-quest-rules'
+import { QUEST_TEXT_NOTES } from './quest-text-notes'
 
 import type { HistFleetEntry } from '../../shared/hist-fleets'
 import type { QpFleetGoal, QpFleetGoalGroup } from '../../shared/qp-types'
@@ -84,7 +85,7 @@ export const STYPE_ALIASES: Record<string, number[]> = {
   航巡: [6], 航空巡洋舰: [6],
   轻空母: [7], 轻母: [7], 轻航母: [7],
   // 「战舰」不写「航空」时把航空战舰一起算：2605B3 的正文写「88级以上的战舰2只」，
-  // 游戏实际接受大和改二重（航空战舰）+ 武藏改二 这一队，账本里 63 次真出击都是这么打的。
+  // 游戏出击报文核对（维护者核 2026-09-06）：接受大和改二重（航空战舰）+ 武藏改二。
   // 按 api_mst_stype 的字面（8/9）落地会把它们全拦下——这正是「门比游戏严」的硬伤。
   战舰: [8, 9, 10], 战列舰: [8, 9, 10],
   航战: [10], 航空战舰: [10], 航空战列舰: [10],
@@ -123,7 +124,7 @@ export interface FleetRuleContext {
   /**
    * 归一后的舰名 → 该名字在判定里代表哪些形态。
    *
-   * **形态口径与 kcwiki 源同一份**（2026-08-18 用户两轮实锤定谳，见 kcwiki-quest-rules）：
+   * **形态口径与 kcwiki 源同一份**（2026-08-18 维护者两轮实锤定谳，见 kcwiki-quest-rules）：
    * 素名（链根，「時雨」「扶桑」）＝任意形态；写明形态（「白露改」）＝**只认写明的**。
    * 写明形态的追加形态由 `augmentShipGroupsFromQuestText` 按正文列举补入，
    * 这里一个结构推断都不做。
@@ -1447,7 +1448,7 @@ export const deriveFleetRule = (
   //
   // 底线口径是「写明形态就只认写明的」（与 kcwiki 源同一份，见 FleetRuleContext.shipIdsOf）。
   // 但中文正文有两种写法会让底线变得比游戏严，都得放宽——**严了会拦住游戏算了的编成**：
-  const questText = `${desc ?? ''}｜${memo2 ?? ''}`
+  const questText = `${desc ?? ''}｜${memo2 ?? ''}｜${QUEST_TEXT_NOTES[questId] ?? ''}`
   //  ① 正文明说「改二也可」「改造后也可」：By13 的「【胧改、曙改、涟改、潮改】（改二也可）」
   //     按字面只认「改」，把改二的合规编成全拦下。这是正文自己写的放宽，不是结构推断。
   if (LATER_FORMS_OK.test(questText)) {
@@ -1487,7 +1488,7 @@ const LATER_FORMS_OK = /改二(?:也|亦)?可|改二以[上后後]|改造[后後
 
 // ---- 仲裁台账（依据一律是游戏自己的日文原文，不是第二个解码器的编码）----
 //
-// 定式：**日文原文 > 账本回放实测 > 三方两票 > approx**。
+// 定式：**日文原文 > 游戏报文回放核对 > 三方两票 > approx**。
 // 两种裁法：
 //  · `drop` = 整条不装门（正文按字面读会把门装**严**——严＝会拦住游戏算了的编成，硬伤方向）；
 //  · `noFlagship` = 门照装，只把「旗舰」那一维拆掉（正文说旗舰、别的源说不限，裁不动就取较松者）。
@@ -1503,16 +1504,16 @@ export const FLEET_ARBITRATED: Record<
       '是它的消费端 evalShipCond 在 shipId==0（纯舰级条件）时提前 return 了，把旗舰这一维丢掉。' +
       '中文 desc「以“秋月型”驱逐舰为旗舰」、memo2「需要秋月型旗舰」、EO 的编码三票一致要旗舰，' +
       '只有 EO 的实现漏判。→ 按三票落地，不跟着漏判走。' +
-      '（账本窗口内 Cy13 从未受领——它是年常 6 月任务——回放对它无话可说。）',
+      '（维护者核 2026-09-06；Cy13 为年常6月任务。）',
   },
   364: {
     keep: true,
     why:
       'C73 的自研门比 EO 严一格：正文写「金刚改二丙」，我们只认这个形态；EO 那条 ShipV2 的 ' +
-      'remodelCmp=0（Any＝同改造链），连素体金刚都算。这正是 2026-08-18 用户两轮实锤否掉的' +
+      'remodelCmp=0（Any＝同改造链），连素体金刚都算。这正是 维护者核 2026-08-18 已排除的' +
       '「按改造链默认展开」——本工作区的口径是**写明形态只认写明的**，追加形态只由正文列举补入' +
       '（见 kcwiki-quest-rules 的 buildKcwikiRuleContext）。中文 desc 与 memo2 两处都写' +
-      '「金刚改二丙」，kcwiki-quest-req 没有 364 条目、第三票弃权，账本窗口内这条从未受领。' +
+      '「金刚改二丙」，kcwiki-quest-req 没有 364 条目、第三票弃权；维护者核 2026-09-06。' +
       '→ 按本工作区口径落写明形态，不跟着 EO 的链展开走。' +
       '**这是本模块唯一一处有意比 EO 严的方向**，若日后回放抓到「游戏计了、门拦了」，先翻这一条',
   },
@@ -1526,7 +1527,7 @@ export const FLEET_ARBITRATED: Record<
       'B208 的 desc「以“白雪改二”旗舰」与 memo2「以白雪改二为旗舰」两处都写了旗舰，' +
       'EO 编的却是「白雪改二+（不限位置）且 吹雪级凑2」。三方点票：中文正文一票「要旗舰」，' +
       'EO 一票「不要」，kcwiki-quest-req 没有 1025 条目、wikiwiki-quests 的 condRaw 只记前置解锁，' +
-      '第三票弃权；账本里这条从没受领过，回放也裁不动。' +
+      '第三票弃权；尚无独立实测结论（维护者核 2026-09-06）。' +
       '按「三方无两票即取较松者」拆掉旗舰这一维（保留「队里要有白雪改二」），并标 ≈——' +
       '装着旗舰门而万一游戏不要求，就会把游戏算了的编成拦下，那是硬伤方向',
   },

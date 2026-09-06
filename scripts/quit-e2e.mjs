@@ -6,14 +6,14 @@
 //
 // 剧本：
 //   ① 先查实例：有主进程（命令行不带 --type=）就拒绝跑，只剩孤儿就先清掉；
-//   ② 起一个只听 127.0.0.1 的小页面服务器，把 kanso.homepage 指过去
+//   ② 起一个只听 127.0.0.1 的小页面服务器，把 kuma.homepage 指过去
 //      （绝不让验收实例连真游戏：没有 Network/Cookies，也不该去碰 DMM）；
-//   ③ 用 KANSO_DATA_DIR 把数据目录指到临时副本 —— **不能靠 APPDATA 环境变量**，
+//   ③ 用 KUMA_DATA_DIR 把数据目录指到临时副本 —— **不能靠 APPDATA 环境变量**，
 //      2026-08-20 实测 Electron 43 在 Windows 上不认它（app.getPath('appData')
 //      照样返回真实 Roaming）；
 //   ④ CloseMainWindow()（等价于点标题栏的 ×）；
 //   ⑤ 数秒内同映像进程必须清零，否则打印残留进程的完整命令行 + crash.log 里的
-//      quit-guard 流水（KANSO_QUIT_TRACE=1 打开的），失败退出。
+//      quit-guard 流水（KUMA_QUIT_TRACE=1 打开的），失败退出。
 //
 // 关键场景是 `hang`：游戏 webview 的渲染进程正卡在死循环里时关窗——
 // 这正是历史上四次残留的共同现场（卡死的 guest 收不到 close，主进程先走一步）。
@@ -28,23 +28,23 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import {
-  KANSO_IMAGE,
-  classifyKansoProcesses,
+  KUMA_IMAGE,
+  classifyKumaProcesses,
   describeProcess,
   killPids,
-  listKansoPidsFast,
-  listKansoProcesses,
-} from './lib/kanso-processes.mjs'
+  listKumaPidsFast,
+  listKumaProcesses,
+} from './lib/kuma-processes.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const args = process.argv.slice(2)
 const argOf = (name, fallback) =>
   args.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback
 
-const exePath = path.resolve(argOf('exe', path.join(root, 'release', 'kuma-win32-x64', KANSO_IMAGE)))
+const exePath = path.resolve(argOf('exe', path.join(root, 'release', 'kuma-win32-x64', KUMA_IMAGE)))
 const scenarioArg = argOf('scenario', 'both')
 const keepData = args.includes('--keep-data')
-const dataDir = path.join(os.tmpdir(), 'kanso-quit-e2e')
+const dataDir = path.join(os.tmpdir(), 'kuma-quit-e2e')
 
 const QUIT_DEADLINE_MS = 20000
 const STARTUP_DEADLINE_MS = 60000
@@ -62,8 +62,8 @@ if (!fs.existsSync(exePath)) {
 }
 
 // —— ① 查实例。这一步的判据就是那条工序纪律，别再拿「有没有同名进程」当依据 ——
-const preexisting = listKansoProcesses()
-const { mains, children } = classifyKansoProcesses(preexisting)
+const preexisting = listKumaProcesses()
+const { mains, children } = classifyKumaProcesses(preexisting)
 if (mains.length) {
   console.error(
     `[quit-e2e] kuma 正在运行（${mains.map(describeProcess).join('；')}），拒绝验收——` +
@@ -138,7 +138,7 @@ const runScenario = async (scenario) => {
   fs.writeFileSync(
     path.join(dataDir, 'config.json'),
     JSON.stringify(
-      { kanso: { homepage: `http://127.0.0.1:${port}/${scenario}`, tray: { enabled: false } } },
+      { kuma: { homepage: `http://127.0.0.1:${port}/${scenario}`, tray: { enabled: false } } },
       null,
       2,
     ),
@@ -146,7 +146,7 @@ const runScenario = async (scenario) => {
 
   const child = spawn(exePath, [], {
     cwd: path.dirname(exePath),
-    env: { ...process.env, KANSO_DATA_DIR: dataDir, KANSO_QUIT_TRACE: '1' },
+    env: { ...process.env, KUMA_DATA_DIR: dataDir, KUMA_QUIT_TRACE: '1' },
     stdio: 'ignore',
     windowsHide: false,
   })
@@ -159,7 +159,7 @@ const runScenario = async (scenario) => {
   let ready = []
   while (Date.now() - startedAt < STARTUP_DEADLINE_MS) {
     await sleep(1500)
-    const rows = listKansoProcesses().filter((row) => row.pid === mainPid || ours(row))
+    const rows = listKumaProcesses().filter((row) => row.pid === mainPid || ours(row))
     const renderers = rows.filter((row) => row.type === 'renderer')
     if (renderers.length >= 2) {
       ready = rows
@@ -167,7 +167,7 @@ const runScenario = async (scenario) => {
     }
   }
   if (!ready.length) {
-    killPids(listKansoPidsFast())
+    killPids(listKumaPidsFast())
     throw new Error(`${STARTUP_DEADLINE_MS}ms 内没等到两个渲染进程（主窗口 + 游戏 webview）`)
   }
   log(`启动完成：${ready.length} 个进程 · ${ready.map(describeProcess).join('；')}`)
@@ -193,7 +193,7 @@ const runScenario = async (scenario) => {
   // —— ⑤ 数清零 ——
   let leftover = []
   while (Date.now() - closedAt < QUIT_DEADLINE_MS) {
-    leftover = listKansoPidsFast()
+    leftover = listKumaPidsFast()
     if (!leftover.length) break
     await sleep(500)
   }
@@ -224,7 +224,7 @@ const runScenario = async (scenario) => {
     return true
   }
 
-  const stuck = listKansoProcesses()
+  const stuck = listKumaProcesses()
   console.error(`[quit-e2e] 失败：关窗 ${QUIT_DEADLINE_MS}ms 后仍有 ${stuck.length} 个进程残留`)
   for (const row of stuck) console.error(`  ${describeProcess(row)}\n    ${row.commandLine}`)
   console.error(`[quit-e2e] quit-guard 流水：\n${trace}`)

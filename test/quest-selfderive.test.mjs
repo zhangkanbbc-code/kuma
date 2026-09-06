@@ -22,7 +22,7 @@ import { sortieMaster } from './fixtures/quest-sortie-master.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const require = createRequire(import.meta.url)
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-quest-selfderive-'))
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-quest-selfderive-'))
 
 const bundleModule = async (relative, name) => {
   const outfile = path.join(tempDir, `${name}.cjs`)
@@ -1727,7 +1727,7 @@ test('编成：斜杠省写形态不许把「或」后面那一半吞掉', () =>
  *
  * 判据：注册表某条队的成员，在**引用了这支队**的那条任务的门里认不认得出来。
  * 全 184 条 (条目 × questRef) 里 167 条全覆盖；下面这 17 条不覆盖，逐条查明原因。
- * （dd-02-2/Cy16 原也在表内，2026-08-30 那条任务在 kanso-quest-rules 里按日文原文
+ * （dd-02-2/Cy16 原也在表内，2026-08-30 那条任务在 kuma-quest-rules 里按日文原文
  *  逐条解码后有门了——旗舰子集 + 全集凑 3 艘两组装得下，于是从台账里删掉。）
  *
  * 覆盖的尺子与门用的同一把：**按整条改造链量**。cd-04 第四航空战队记的是 A60 那一期
@@ -1742,7 +1742,7 @@ test('编成：斜杠省写形态不许把「或」后面那一半吞掉', () =>
 const HIST_FLEET_RECONCILE = [
   { entry: 'sq-05-hg', code: 'B138', why: '「其他重巡级1艘驱逐舰2艘 或 驱逐舰4艘」是组间「或」，引擎表达不了 → 整条弃用' },
   { entry: 'dd-22', code: 'A49', why: 'A49 的正文只点名 皐月/文月/長月 + 「其他一艘驱逐舰」，游戏这一条不要求 水無月；成员表由同为 defines 的 A79 背书（那条四个人全列了）。注册表没错，是 A49 这一条本来就松' },
-  { entry: 'sq-31-e1', code: '2606Am1', why: '一条正文两套名单；2606Am1 在 kanso-quest-rules 里按「更新后」口径手工解码，落的是 sq-31-e2 那一期。前期名单因此不在门里——这是那条手工解码自己的期别选择，不是注册表与门打架' },
+  { entry: 'sq-31-e1', code: '2606Am1', why: '一条正文两套名单；2606Am1 在 kuma-quest-rules 里按「更新后」口径手工解码，落的是 sq-31-e2 那一期。前期名单因此不在门里——这是那条手工解码自己的期别选择，不是注册表与门打架' },
   { entry: 'dd-02-2', code: 'B206', why: 'mentions：B206 只要 早霜改二 旗舰 + 清霜/秋霜，朝霜 不在这条的要求里' },
   { entry: 'dd-07', code: 'B165', why: 'mentions：B165 只点名了队里的曙与潮，胧与涟不在这条的要求里' },
   { entry: 'dd-11-2', code: 'B208', why: 'mentions：B208 要的是 白雪改二 + 吹雪级凑数，不是整支第十一驱逐队' },

@@ -43,7 +43,7 @@ test('默认就是可配之前那条 clamp 的封顶档，常用档里有它', (
     '默认那一档不在常用档里，开箱第一眼没有一个亮着的',
   )
   // 叶子路径：整对象读会读到 setByPath 留下的半份对象，从此不再回落默认值
-  assert.equal(VOICE_CAPTION_SIZE_PATH, 'kanso.voiceCaptionSize')
+  assert.equal(VOICE_CAPTION_SIZE_PATH, 'kuma.voiceCaptionSize')
   assert.equal(VOICE_CAPTION_SIZE_STEP, 1)
 })
 

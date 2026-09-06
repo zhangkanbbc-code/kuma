@@ -99,6 +99,10 @@ export const syntheticLocalizationPack = {
   meta: { id: 'kcwiki-localization', version: 'test-fixture', source: 'synthetic' },
   data: {
     entities: {
+      equip: {
+        19: { ja: '九六式艦戦', zh: '九六式舰战' },
+        20: { ja: '零式艦戦21型', zh: '零式舰战21型' },
+      },
       equipType: {
         1: { ja: '小口径主砲', zh: '小口径主炮' },
         2: { ja: '中口径主砲', zh: '中口径主炮' },

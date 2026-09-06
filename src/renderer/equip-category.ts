@@ -68,6 +68,9 @@ const AVIATION_TYPES = new Set([
   ...['舰载机', '水上机', '陆航'].flatMap((chip) => EQUIP_CHIP_TYPES[chip]),
 ])
 
+/** 舰载机、水上机、陆航三组 chip 的 type2 并集。 */
+export const isAviationEquipType = (type2: number): boolean => AVIATION_TYPES.has(type2)
+
 /**
  * chip 收不收这个类别。与 shipChipMatches 同一套口径：「其他」靠反推，
  * 「全部」不设限，其余按名单。图鉴 / 仓库 / 深海三处都走这里，不各写一份。
@@ -77,7 +80,7 @@ export const equipChipMatches = (chip: string, type2: number, type0 = -1): boole
   if (chip === '其他') return isOtherEquipCategory(type2)
   const types = EQUIP_CHIP_TYPES[chip]
   if (!types) return true // 全部
-  if (AVIATION_TYPES.has(type2) && LAND_ONLY_T0.has(type0)) {
+  if (isAviationEquipType(type2) && LAND_ONLY_T0.has(type0)) {
     return chip === '陆航'
   }
   return types.includes(type2)

@@ -207,8 +207,8 @@ test('任务树冒烟探针每次 render 仍会在提交后更新', () => {
   const renderEnd = tree.indexOf('const selectTask', renderStart)
   const render = tree.slice(renderStart, renderEnd)
   const commitAt = render.indexOf("commitPaneHtml(root, 'quest-tree', html)")
-  const treeProbeAt = render.indexOf('document.body.dataset.kansoQuestTree')
-  const packProbeAt = render.indexOf('document.body.dataset.kansoQuestPack')
+  const treeProbeAt = render.indexOf('document.body.dataset.kumaQuestTree')
+  const packProbeAt = render.indexOf('document.body.dataset.kumaQuestPack')
   assert.ok(commitAt >= 0 && commitAt < treeProbeAt && treeProbeAt < packProbeAt)
 })
 

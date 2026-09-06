@@ -310,10 +310,53 @@ export const assertNoPendingMapIntelCandidate = (output, force = false) => {
   }
 }
 
-export const stageMapIntelCandidate = (output, current, candidate) => {
+// 重跑同一次结束归档不制造新候选或新时间戳；不同内容仍走原来的待审拦截。
+export const matchesPendingEventArchive = (output, current, candidate, friendlyFleets, eventMapIntel = null) => {
+  const files = candidatePaths(output)
+  if (!existsSync(files.report)) return false
+  const report = JSON.parse(readFileSync(files.report, 'utf8'))
+  if (report.approvedAt || !report.friendlyFleets ||
+      report.baseFingerprint !== fingerprint(current) ||
+      report.friendlyFleets.baseFingerprint !== fingerprint(friendlyFleets.current)) return false
+  const pending = JSON.parse(readFileSync(files.candidate, 'utf8'))
+  const friends = JSON.parse(readFileSync(path.join(path.dirname(files.candidate), 'event-friendly-fleets.candidate.json'), 'utf8'))
+  const content = ({ meta: { version, fetchedAt, ...meta }, data }) => ({ meta, data })
+  if (eventMapIntel) {
+    if (!report.eventMapIntel || report.eventMapIntel.baseFingerprint !== fingerprint(eventMapIntel.current)) return false
+    const pendingEvent = JSON.parse(readFileSync(path.join(path.dirname(files.candidate), 'event-map-intel.candidate.json'), 'utf8'))
+    if (fingerprint(pendingEvent) !== report.eventMapIntel.candidateFingerprint ||
+        fingerprint(content(pendingEvent)) !== fingerprint(content(eventMapIntel.candidate))) return false
+  }
+  return fingerprint(pending) === report.candidateFingerprint &&
+    fingerprint(friends) === report.friendlyFleets.candidateFingerprint &&
+    fingerprint(content(pending)) === fingerprint(content(candidate)) &&
+    fingerprint(content(friends)) === fingerprint(content(friendlyFleets.candidate))
+}
+
+export const stageMapIntelCandidate = (output, current, candidate, friendlyFleets = null, eventMapIntel = null) => {
   const files = candidatePaths(output)
   const report = buildMapIntelDiff(current, candidate)
   mkdirSync(path.dirname(files.candidate), { recursive: true })
+  // 活动海域随包资料与友军同口径：三份候选的指纹全部核验后，批准入口才写正式包。
+  if (eventMapIntel) {
+    report.eventMapIntel = {
+      baseFingerprint: fingerprint(eventMapIntel.current), candidateFingerprint: fingerprint(eventMapIntel.candidate),
+      history: eventMapIntel.candidate.data.history.map(({ maps, ...event }) => ({ ...event, maps: Object.keys(maps) })),
+    }
+    writeFileSync(path.join(path.dirname(files.candidate), 'event-map-intel.candidate.json'), JSON.stringify(eventMapIntel.candidate, null, 2) + '\n')
+  }
+  // 活动结束时两包一起待审；批准入口先核对两份指纹，再写正式包。
+  if (friendlyFleets) {
+    report.friendlyFleets = {
+      baseFingerprint: fingerprint(friendlyFleets.current),
+      candidateFingerprint: fingerprint(friendlyFleets.candidate),
+      history: friendlyFleets.candidate.data.history.map(({ maps, ...event }) => ({ ...event, maps: Object.keys(maps) })),
+    }
+    const friendlyFile = path.join(path.dirname(files.candidate), 'event-friendly-fleets.candidate.json')
+    writeFileSync(friendlyFile, JSON.stringify(friendlyFleets.candidate, null, 2))
+    console.log(`[lodes] 友军归档候选包：${friendlyFile}`)
+    console.log(`[lodes] 友军归档：${JSON.stringify(report.friendlyFleets.history)}`)
+  }
   writeFileSync(files.candidate, JSON.stringify(candidate, null, 2))
   writeFileSync(files.report, JSON.stringify(report, null, 2))
   console.log(`[lodes] 候选包：${files.candidate}`)
@@ -334,7 +377,29 @@ export const approveMapIntelCandidate = (output) => {
   if (fingerprint(candidate) !== report.candidateFingerprint) {
     throw new Error('候选包与差异报告不一致；拒绝批准')
   }
+  let friendlyCandidate
+  const friendlyOutput = path.join(path.dirname(output), 'event-friendly-fleets.json')
+  if (report.friendlyFleets) {
+    const friendlyCurrent = JSON.parse(readFileSync(friendlyOutput, 'utf8'))
+    friendlyCandidate = JSON.parse(readFileSync(path.join(path.dirname(files.candidate), 'event-friendly-fleets.candidate.json'), 'utf8'))
+    if (fingerprint(friendlyCurrent) !== report.friendlyFleets.baseFingerprint) {
+      throw new Error('友军正式包已在候选生成后发生变化；拒绝批准过期候选，请重新归档')
+    }
+    if (fingerprint(friendlyCandidate) !== report.friendlyFleets.candidateFingerprint) {
+      throw new Error('友军候选包与差异报告不一致；拒绝批准')
+    }
+  }
+  let eventCandidate
+  const eventOutput = path.join(path.dirname(output), 'event-map-intel.json')
+  if (report.eventMapIntel) {
+    const eventCurrent = JSON.parse(readFileSync(eventOutput, 'utf8'))
+    eventCandidate = JSON.parse(readFileSync(path.join(path.dirname(files.candidate), 'event-map-intel.candidate.json'), 'utf8'))
+    if (fingerprint(eventCurrent) !== report.eventMapIntel.baseFingerprint) throw new Error('活动海域正式包已变化；拒绝批准过期候选')
+    if (fingerprint(eventCandidate) !== report.eventMapIntel.candidateFingerprint) throw new Error('活动海域候选与差异报告不一致；拒绝批准')
+  }
   writeFileSync(output, JSON.stringify(candidate))
+  if (friendlyCandidate) writeFileSync(friendlyOutput, JSON.stringify(friendlyCandidate, null, 2) + '\n')
+  if (eventCandidate) writeFileSync(eventOutput, JSON.stringify(eventCandidate, null, 2) + '\n')
   report.approvedAt = new Date().toISOString()
   writeFileSync(files.report, JSON.stringify(report, null, 2))
   console.log(`[lodes] 已批准候选：${output}`)

@@ -40,6 +40,11 @@ export interface FoldSpec {
    * 不改变默认阅读**。
    */
   openAllByDefault?: boolean
+  /**
+   * 临时强制展开。只影响这一拍怎么画，不改 opened / closed 两本账；
+   * 适合搜索或筛选期间把命中的段露出来，条件撤掉后仍回到玩家原来的开合状态。
+   */
+  forceOpen?: () => boolean
 }
 
 /**
@@ -51,19 +56,23 @@ export interface FoldSpec {
  * 两支的记法是**相反**的：常规段记「开着的」，`openAllByDefault` 段记「折起来的」。
  */
 export const sectionIsOpen = (
-  spec: Pick<FoldSpec, 'openAllByDefault'>,
+  spec: Pick<FoldSpec, 'openAllByDefault' | 'forceOpen'>,
   name: string,
   opened: ReadonlySet<string>,
   closed: ReadonlySet<string>,
-): boolean => (spec.openAllByDefault ? !closed.has(name) : opened.has(name))
+): boolean =>
+  spec.forceOpen?.() === true ||
+  (spec.openAllByDefault ? !closed.has(name) : opened.has(name))
 
 /** 翻这一段的开合。改的是哪本账由 `openAllByDefault` 决定（见 `sectionIsOpen`）。 */
 export const toggleSectionFold = (
-  spec: Pick<FoldSpec, 'openAllByDefault'>,
+  spec: Pick<FoldSpec, 'openAllByDefault' | 'forceOpen'>,
   name: string,
   opened: Set<string>,
   closed: Set<string>,
 ): void => {
+  // 强制展开只是筛选期的显示态；此时点击也不能暗改账，免得清筛选后状态变了。
+  if (spec.forceOpen?.() === true) return
   const book = spec.openAllByDefault ? closed : opened
   if (book.has(name)) book.delete(name)
   else book.add(name)

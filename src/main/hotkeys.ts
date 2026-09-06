@@ -29,6 +29,7 @@ let bossSnapshot: BossSnapshot | null = null
 let recording = false
 let recordingSender: WebContents | null = null
 let applicationAccelerators: Record<ApplicationHotkeyId, Accelerator>
+let muted = config.get('kuma.gameAudio.muted', false) === true
 
 const readAccelerator = (id: HotkeyId): Accelerator => {
   const configured = parseAccelerator(config.get(HOTKEY_CONFIG_KEYS[id], HOTKEY_DEFAULTS[id]))
@@ -41,6 +42,7 @@ function readApplicationAccelerators(): Record<ApplicationHotkeyId, Accelerator>
     reload: readAccelerator('reload'),
     focus: readAccelerator('focus'),
     capture: readAccelerator('capture'),
+    mute: readAccelerator('mute'),
   }
 }
 
@@ -84,9 +86,31 @@ const executeBossAction = (action: BossAction) => {
   else window.focus()
 }
 
+export const applyMute = () => {
+  for (const contents of webContents.getAllWebContents()) {
+    contents.setAudioMuted(muted)
+  }
+}
+
+const broadcastMute = () => {
+  const mainWindow = resolveMainWindow()
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('kuma:mute-changed', muted)
+  }
+}
+
+const toggleMute = (): boolean => {
+  muted = !muted
+  config.set('kuma.gameAudio.muted', muted)
+  applyMute()
+  broadcastMute()
+  return muted
+}
+
 export const restoreFromBoss = (): boolean => {
   if (!bossSnapshot) return false
   for (const action of planBossToggle(true, bossSnapshot)) executeBossAction(action)
+  applyMute()
   bossSnapshot = null
   return true
 }
@@ -127,7 +151,7 @@ export const applyHotkeys = (): { boss: BossHotkeyStatus } => {
 }
 
 /**
- * 应用内三键放在 WebContents 的 before-input-event，而不是宿主 DOM：
+ * 应用内四键放在 WebContents 的 before-input-event，而不是宿主 DOM：
  * 焦点进入游戏 webview 后，guest 的键盘事件不会冒泡到主页面；主窗与 guest 各挂一份
  * 才能得到同一行为。命中后拦掉页面 keydown，避免浏览器默认动作或宿主再处理一次。
  */
@@ -141,7 +165,7 @@ export const attachApplicationHotkeys = (contents: WebContents) => {
     event.preventDefault()
     const mainWindow = resolveMainWindow()
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('kanso:hotkey', matched)
+      mainWindow.webContents.send('kuma:hotkey', matched)
     }
   })
 }
@@ -149,10 +173,13 @@ export const attachApplicationHotkeys = (contents: WebContents) => {
 export const installHotkeys = (getMainWindow: () => BrowserWindow | null) => {
   resolveMainWindow = getMainWindow
   bossStatus = applyHotkeys().boss
+  applyMute()
 }
 
 ipcMain.handle('hotkeys:apply', () => applyHotkeys())
 ipcMain.handle('hotkeys:status', () => ({ boss: bossStatus }))
+ipcMain.handle('audio:get-mute', () => muted)
+ipcMain.handle('audio:toggle-mute', () => toggleMute())
 ipcMain.handle('hotkeys:recording', (event, active: unknown) => {
   recording = active === true
   if (recording) {
@@ -166,4 +193,7 @@ ipcMain.handle('hotkeys:recording', (event, active: unknown) => {
   return applyHotkeys()
 })
 
+app.on('web-contents-created', (_event, contents) => {
+  contents.setAudioMuted(muted)
+})
 app.on('will-quit', () => globalShortcut.unregisterAll())

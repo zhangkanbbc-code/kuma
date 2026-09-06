@@ -261,7 +261,7 @@ export const parseEnemyTableHtml = (table) => {
   return nodes
 }
 
-/** 游戏主数据（用户的 api_start2 快照，仓库上一级 s2.json）→ [日文名, id] 名表。
+/** 游戏主数据（维护者的 api_start2 快照，仓库上一级 s2.json）→ [日文名, id] 名表。
  *  kcwiki 对新实装整批滞后（2026-08-11 实锤：杉在包里整个缺席，限定页的
  *  1-5-J 杉被静默丢掉）——舰名解析一律以主数据为权威、kcwiki 兜底。
  *  快照不存在时返回 null；调用方要打显眼警告，此时解析退回 kcwiki 单基准。 */
@@ -720,7 +720,7 @@ export const fetchText = async (url, options = {}) => {
     const remaining = minIntervalMs - (Date.now() - lastNetworkRequestAt)
     if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining))
     lastNetworkRequestAt = Date.now()
-    const response = await fetch(url, { headers: { 'User-Agent': 'kanso-lodes' } })
+    const response = await fetch(url, { headers: { 'User-Agent': 'kuma-lodes' } })
     if (response.ok) {
       const html = await response.text()
       if (cacheFile) {

@@ -4,31 +4,31 @@
 //
 // 这三项的 [Lv1, Lv99] 端点游戏**不在主数据里下发**（api_mst_ship 根本没有这三个字段），
 // 只能靠社区实测。随包基座是 `kcwiki-ships`（CC BY-NC-SA，可分发）的 `数据.回避/对潜/索敌`。
-// 但用户 2026-08-22 实证：kcwiki 那张成长表**显著滞后**——2026-04-07 官方公告的上方修正里，
-// 大和改二重【回避】up 之后 wikiwiki 已跟到 62，kcwiki 仍是 60，而账本一手 api_kaihi[1] = 62。
+// 但维护者 2026-08-22 实证：kcwiki 那张成长表**显著滞后**——2026-04-07 官方公告的上方修正里，
+// 大和改二重【回避】up 之后 wikiwiki 已跟到 62，kcwiki 仍是 60，而游戏报文一手 api_kaihi[1] = 62。
 // 所以端点表不能单源。
 //
 // 出路与 `fit-bonus-corrections.ts` 同一条：**不搬表**（wikiwiki 无许可声明，一格文件都不许抄进随包的包），
 // 而是把**分歧的那几格事实**逐条转写进这张第一方台账，带值、带来源、带依据。
 // 全表 862 友军形态 × 3 项 × 2 端点 = 5172 格里，需要转写的只有下面这 64 格。
 //
-// ---- 三张票与裁决顺序（2026-08-22 用户规格「端点表改多源」）----
+// ---- 三张票与裁决顺序（2026-08-22 维护者规格「端点表改多源」）----
 //
-// ① **账本一手**（`via: 'ledger'`）：游戏对**持有形态**其实下发 Lv99 上限——
+// ① **游戏报文一手**（`via: 'ledger'`）：游戏对**持有形态**其实下发 Lv99 上限——
 //    `api_kaihi/api_taisen/api_sakuteki` 的 `[1]` 就是它（依据见 `ship-growth.ts` 文件头）。
-//    这是一手事实，无条件压过两个 wiki。init 端游戏不下发，账本票只裁 max 端。
+//    这是一手事实，无条件压过两个 wiki。init 端游戏不下发，游戏报文票只裁 max 端。
 // ② **kcwiki 基座**：随包，覆盖 857 形态。
 // ③ **wikiwiki 补丁票**（`via: 'wikiwiki'`）：「艦船最大値」总表 + 定向舰页初期值。
 //
 // **§裁决一（补缺）**：kcwiki 基座整条没有这个形态 → 取 wikiwiki，标待印证。
 // **§裁决二（分歧）**：两边都有且不等时——
 //   · wikiwiki **高** 1~2 → 判为「C2 上方修正、kcwiki 未跟」，取 wikiwiki，标待印证。
-//     依据不是语感：账本能裁的 4 例（陸奥改二 索敌 +1、早波改 対潜 +1、Helena改 索敌 +1、
+//     依据不是语感：游戏报文能裁的 4 例（陸奥改二 索敌 +1、早波改 対潜 +1、Helena改 索敌 +1、
 //     大和改二重 回避 +2）**全部**证实 wikiwiki 那一侧为真，且后两例正是官方 4/7 公告点名的舰。
-//     已知反例 1 例：Nevada改 Mod.2 索敌 kcwiki 52 / wikiwiki 53，账本一手 52 —— 它由 ①
-//     直接裁掉，不落这条规则。所以这条规则的实测命中是 4/5，且只在账本裁不了时才生效。
+//     已知反例 1 例：Nevada改 Mod.2 索敌 kcwiki 52 / wikiwiki 53，游戏报文一手 52 —— 它由 ①
+//     直接裁掉，不落这条规则。所以这条规则的实测命中是 4/5，且只在游戏报文裁不了时才生效。
 //   · 其余（wikiwiki 偏低，或差值 >2）→ **不动基座**，把 wikiwiki 那一格挂进
-//     `SHIP_STAT_SUSPECT_CELLS` 等人复核。账本能裁的 5 例（鳳翔 索敌 69 vs 36、
+//     `SHIP_STAT_SUSPECT_CELLS` 等人复核。游戏报文能裁的 5 例（鳳翔 索敌 69 vs 36、
 //     時津風 回避 79 vs 9、宗谷 索敌 12 vs 2、朝霜 対潜 70 vs 64、Gloire改 回避 83 vs 38）
 //     全部证实这一侧是 wikiwiki 那张总表**解析/录入错**，不是数据新旧之争。
 //
@@ -59,7 +59,7 @@ export interface ShipStatPatch {
   why: string
 }
 
-/** 补丁台账。裁决日 2026-08-22，账本观测日 2026-08-06（423 舰全量快照）。 */
+/** 补丁台账。裁决日 2026-08-22，游戏报文观测日 2026-08-06。 */
 export const SHIP_STAT_PATCHES: readonly ShipStatPatch[] = Object.freeze([
   { formId: 195, name: '綾波改二', key: 'los', end: 'max', value: 51, base: 49, via: 'wikiwiki',
     why: '两 wiki 分歧 kcwiki 49 / wikiwiki 51（+2，上方修正型），取勤快侧待印证' },
@@ -68,7 +68,7 @@ export const SHIP_STAT_PATCHES: readonly ShipStatPatch[] = Object.freeze([
   { formId: 363, name: '春風改', key: 'asw', end: 'max', value: 76, base: 75, via: 'wikiwiki',
     why: '两 wiki 分歧 kcwiki 75 / wikiwiki 76（+1，上方修正型），取勤快侧待印证' },
   { formId: 392, name: 'Richelieu改', key: 'evasion', end: 'max', value: 74, base: 73, via: 'ledger',
-    why: '账本一手 api_kaihi[1]=74（观测 2026-08-06）；kcwiki 基座 73、wikiwiki 73' },
+    why: '游戏报文一手 api_kaihi[1]=74（观测 2026-08-06）；kcwiki 基座 73、wikiwiki 73' },
   { formId: 542, name: '夕雲改二', key: 'los', end: 'max', value: 46, base: 45, via: 'wikiwiki',
     why: '两 wiki 分歧 kcwiki 45 / wikiwiki 46（+1，上方修正型），取勤快侧待印证' },
   { formId: 543, name: '長波改二', key: 'evasion', end: 'max', value: 92, base: 91, via: 'wikiwiki',
@@ -82,11 +82,11 @@ export const SHIP_STAT_PATCHES: readonly ShipStatPatch[] = Object.freeze([
   { formId: 564, name: '風雲改二', key: 'asw', end: 'max', value: 79, base: 78, via: 'wikiwiki',
     why: '两 wiki 分歧 kcwiki 78 / wikiwiki 79（+1，上方修正型），取勤快侧待印证' },
   { formId: 573, name: '陸奥改二', key: 'los', end: 'max', value: 57, base: 56, via: 'ledger',
-    why: '账本一手 api_sakuteki[1]=57（观测 2026-08-06）；kcwiki 基座 56、wikiwiki 57' },
+    why: '游戏报文一手 api_sakuteki[1]=57（观测 2026-08-06）；kcwiki 基座 56、wikiwiki 57' },
   { formId: 578, name: '朝霜改二', key: 'los', end: 'max', value: 46, base: 44, via: 'wikiwiki',
     why: '两 wiki 分歧 kcwiki 44 / wikiwiki 46（+2，上方修正型），取勤快侧待印证' },
   { formId: 620, name: 'Helena改', key: 'los', end: 'max', value: 77, base: 76, via: 'ledger',
-    why: '账本一手 api_sakuteki[1]=77（观测 2026-08-06）；kcwiki 基座 76、wikiwiki 77' },
+    why: '游戏报文一手 api_sakuteki[1]=77（观测 2026-08-06）；kcwiki 基座 76、wikiwiki 77' },
   { formId: 648, name: '秋雲改二', key: 'evasion', end: 'max', value: 92, base: 91, via: 'wikiwiki',
     why: '两 wiki 分歧 kcwiki 91 / wikiwiki 92（+1，上方修正型），取勤快侧待印证' },
   { formId: 648, name: '秋雲改二', key: 'asw', end: 'max', value: 77, base: 75, via: 'wikiwiki',
@@ -94,19 +94,19 @@ export const SHIP_STAT_PATCHES: readonly ShipStatPatch[] = Object.freeze([
   { formId: 649, name: '高波改二', key: 'los', end: 'max', value: 62, base: 60, via: 'wikiwiki',
     why: '两 wiki 分歧 kcwiki 60 / wikiwiki 62（+2，上方修正型），取勤快侧待印证' },
   { formId: 688, name: '早波改', key: 'asw', end: 'max', value: 70, base: 69, via: 'ledger',
-    why: '账本一手 api_taisen[1]=70（观测 2026-08-06）；kcwiki 基座 69、wikiwiki 70' },
+    why: '游戏报文一手 api_taisen[1]=70（观测 2026-08-06）；kcwiki 基座 69、wikiwiki 70' },
   { formId: 703, name: '有明改', key: 'evasion', end: 'max', value: 89, base: 88, via: 'wikiwiki',
     why: '两 wiki 分歧 kcwiki 88 / wikiwiki 89（+1，上方修正型），取勤快侧待印证' },
   { formId: 724, name: 'Jean Bart改', key: 'evasion', end: 'max', value: 74, base: 73, via: 'ledger',
-    why: '账本一手 api_kaihi[1]=74（观测 2026-08-06）；kcwiki 基座 73、wikiwiki 73' },
+    why: '游戏报文一手 api_kaihi[1]=74（观测 2026-08-06）；kcwiki 基座 73、wikiwiki 73' },
   { formId: 732, name: 'Drum改', key: 'evasion', end: 'init', value: 18, base: null, via: 'wikiwiki',
     why: 'kcwiki 基座缺这一格（本形态整条不在「模块:舰娘数据」里）；wikiwiki 舰页 18' },
   { formId: 732, name: 'Drum改', key: 'evasion', end: 'max', value: 59, base: null, via: 'ledger',
-    why: '账本一手 api_kaihi[1]=59（观测 2026-08-06）；kcwiki 基座缺这一格、wikiwiki 59' },
+    why: '游戏报文一手 api_kaihi[1]=59（观测 2026-08-06）；kcwiki 基座缺这一格、wikiwiki 59' },
   { formId: 732, name: 'Drum改', key: 'los', end: 'init', value: 12, base: null, via: 'wikiwiki',
     why: 'kcwiki 基座缺这一格（本形态整条不在「模块:舰娘数据」里）；wikiwiki 舰页 12' },
   { formId: 732, name: 'Drum改', key: 'los', end: 'max', value: 43, base: null, via: 'ledger',
-    why: '账本一手 api_sakuteki[1]=43（观测 2026-08-06）；kcwiki 基座缺这一格、wikiwiki 43' },
+    why: '游戏报文一手 api_sakuteki[1]=43（观测 2026-08-06）；kcwiki 基座缺这一格、wikiwiki 43' },
   { formId: 734, name: 'Phoenix改', key: 'evasion', end: 'init', value: 37, base: null, via: 'wikiwiki',
     why: 'kcwiki 基座缺这一格（本形态整条不在「模块:舰娘数据」里）；wikiwiki 舰页 37' },
   { formId: 734, name: 'Phoenix改', key: 'evasion', end: 'max', value: 82, base: null, via: 'wikiwiki',
@@ -146,15 +146,15 @@ export const SHIP_STAT_PATCHES: readonly ShipStatPatch[] = Object.freeze([
   { formId: 911, name: '大和改二', key: 'evasion', end: 'max', value: 68, base: 67, via: 'wikiwiki',
     why: '两 wiki 分歧 kcwiki 67 / wikiwiki 68（+1，上方修正型），取勤快侧待印证' },
   { formId: 916, name: '大和改二重', key: 'evasion', end: 'max', value: 62, base: 60, via: 'ledger',
-    why: '账本一手 api_kaihi[1]=62（观测 2026-08-06）；kcwiki 基座 60、wikiwiki 62' },
+    why: '游戏报文一手 api_kaihi[1]=62（观测 2026-08-06）；kcwiki 基座 60、wikiwiki 62' },
   { formId: 944, name: '平安丸', key: 'evasion', end: 'init', value: 14, base: null, via: 'wikiwiki',
     why: 'kcwiki 基座缺这一格（本形态整条不在「模块:舰娘数据」里）；wikiwiki 舰页 14' },
   { formId: 944, name: '平安丸', key: 'evasion', end: 'max', value: 27, base: null, via: 'ledger',
-    why: '账本一手 api_kaihi[1]=27（观测 2026-08-06）；kcwiki 基座缺这一格、wikiwiki 27' },
+    why: '游戏报文一手 api_kaihi[1]=27（观测 2026-08-06）；kcwiki 基座缺这一格、wikiwiki 27' },
   { formId: 944, name: '平安丸', key: 'los', end: 'init', value: 11, base: null, via: 'wikiwiki',
     why: 'kcwiki 基座缺这一格（本形态整条不在「模块:舰娘数据」里）；wikiwiki 舰页 11' },
   { formId: 944, name: '平安丸', key: 'los', end: 'max', value: 30, base: null, via: 'ledger',
-    why: '账本一手 api_sakuteki[1]=30（观测 2026-08-06）；kcwiki 基座缺这一格、wikiwiki 30' },
+    why: '游戏报文一手 api_sakuteki[1]=30（观测 2026-08-06）；kcwiki 基座缺这一格、wikiwiki 30' },
   { formId: 949, name: '平安丸改', key: 'evasion', end: 'init', value: 16, base: null, via: 'wikiwiki',
     why: 'kcwiki 基座缺这一格（本形态整条不在「模块:舰娘数据」里）；wikiwiki 舰页 16' },
   { formId: 949, name: '平安丸改', key: 'evasion', end: 'max', value: 37, base: null, via: 'wikiwiki',
@@ -178,7 +178,7 @@ export const SHIP_STAT_PATCHES: readonly ShipStatPatch[] = Object.freeze([
   { formId: 1027, name: 'Glorious', key: 'evasion', end: 'init', value: 32, base: null, via: 'wikiwiki',
     why: 'kcwiki 基座缺这一格（本形态整条不在「模块:舰娘数据」里）；wikiwiki 舰页 32' },
   { formId: 1027, name: 'Glorious', key: 'evasion', end: 'max', value: 56, base: null, via: 'ledger',
-    why: '账本一手 api_kaihi[1]=56（观测 2026-08-06）；kcwiki 基座缺这一格、wikiwiki 56' },
+    why: '游戏报文一手 api_kaihi[1]=56（观测 2026-08-06）；kcwiki 基座缺这一格、wikiwiki 56' },
   { formId: 1027, name: 'Glorious', key: 'asw', end: 'init', value: 0, base: null, via: 'wikiwiki',
     why: 'kcwiki 基座缺这一格（本形态整条不在「模块:舰娘数据」里）；wikiwiki 舰页 0' },
   { formId: 1027, name: 'Glorious', key: 'asw', end: 'max', value: 0, base: null, via: 'wikiwiki',
@@ -186,7 +186,7 @@ export const SHIP_STAT_PATCHES: readonly ShipStatPatch[] = Object.freeze([
   { formId: 1027, name: 'Glorious', key: 'los', end: 'init', value: 12, base: null, via: 'wikiwiki',
     why: 'kcwiki 基座缺这一格（本形态整条不在「模块:舰娘数据」里）；wikiwiki 舰页 12' },
   { formId: 1027, name: 'Glorious', key: 'los', end: 'max', value: 65, base: null, via: 'ledger',
-    why: '账本一手 api_sakuteki[1]=65（观测 2026-08-06）；kcwiki 基座缺这一格、wikiwiki 65' },
+    why: '游戏报文一手 api_sakuteki[1]=65（观测 2026-08-06）；kcwiki 基座缺这一格、wikiwiki 65' },
   { formId: 1036, name: 'Independence Flight II', key: 'evasion', end: 'init', value: 33, base: 32, via: 'wikiwiki',
     why: '两 wiki 分歧 kcwiki 32 / wikiwiki 33（+1，上方修正型），取勤快侧待印证' },
 ])
@@ -225,26 +225,26 @@ export const SHIP_STAT_SUSPECT_CELLS: readonly ShipStatSuspect[] = Object.freeze
     why: 'wikiwiki 与 kcwiki 差 -1（wikiwiki 偏低），不是上方修正的形状，按 §裁决二 取 kcwiki 并挂牌复核' },
   { formId: 1006, name: 'Киров改', key: 'evasion', end: 'max', kept: 78, wikiwiki: 39,
     why: 'wikiwiki 与 kcwiki 差 -39（wikiwiki 偏低），不是上方修正的形状，按 §裁决二 取 kcwiki 并挂牌复核' },
-  // 下面 6 条不是「按形状判」，是**账本一手当场判死的**：这几艘在籍，
+  // 下面 6 条不是「按形状判」，是**游戏报文一手当场判死的**：该批形态已有核对结论，
   // api_*[1] 与 kcwiki 逐格相同，与 wikiwiki 差得离谱。它们是 §裁决二 后半段
   // （「wikiwiki 那张总表解析/录入错」）最硬的证据，所以单独列在这里，
   // 而不是混进上面那批靠差值形状判的。
   { formId: 89, name: '鳳翔', key: 'los', end: 'max', kept: 69, wikiwiki: 36,
-    why: '账本一手 api_sakuteki[1]=69（观测 2026-08-06）＝kcwiki；wikiwiki 36 是错值' },
+    why: '游戏报文一手 api_sakuteki[1]=69（观测 2026-08-06）＝kcwiki；wikiwiki 36 是错值' },
   { formId: 186, name: '時津風', key: 'evasion', end: 'max', kept: 79, wikiwiki: 9,
-    why: '账本一手 api_kaihi[1]=79（观测 2026-08-06）＝kcwiki；wikiwiki 9 是错值' },
+    why: '游戏报文一手 api_kaihi[1]=79（观测 2026-08-06）＝kcwiki；wikiwiki 9 是错值' },
   { formId: 425, name: '朝霜', key: 'asw', end: 'max', kept: 70, wikiwiki: 64,
-    why: '账本一手 api_taisen[1]=70（观测 2026-08-06）＝kcwiki；wikiwiki 64 是错值' },
+    why: '游戏报文一手 api_taisen[1]=70（观测 2026-08-06）＝kcwiki；wikiwiki 64 是错值' },
   { formId: 699, name: '宗谷', key: 'los', end: 'max', kept: 12, wikiwiki: 2,
-    why: '账本一手 api_sakuteki[1]=12（观测 2026-08-06）＝kcwiki；wikiwiki 2 是错值' },
+    why: '游戏报文一手 api_sakuteki[1]=12（观测 2026-08-06）＝kcwiki；wikiwiki 2 是错值' },
   { formId: 936, name: 'Nevada改 Mod.2', key: 'los', end: 'max', kept: 52, wikiwiki: 53,
     why:
-      '账本一手 api_sakuteki[1]=52（观测 2026-08-06）＝kcwiki；wikiwiki 53。' +
+      '游戏报文一手 api_sakuteki[1]=52（观测 2026-08-06）＝kcwiki；wikiwiki 53。' +
       '**这是 §裁决二「wikiwiki 高 1~2 判上方修正」那条规则唯一的已知反例**——' +
-      '它由账本票直接裁掉，不落那条规则。规则的实测记录因此是 4 中 4 对（有账本旁证的四例）、' +
-      '连这一例算 5 中 4，且只在账本裁不了时才生效。' },
+      '它由游戏报文票直接裁掉，不落那条规则。规则的实测记录因此是 4 中 4 对（有游戏报文旁证的四例）、' +
+      '连这一例算 5 中 4，且只在游戏报文裁不了时才生效。' },
   { formId: 970, name: 'Gloire改', key: 'evasion', end: 'max', kept: 83, wikiwiki: 38,
-    why: '账本一手 api_kaihi[1]=83（观测 2026-08-06）＝kcwiki；wikiwiki 38 是错值' },
+    why: '游戏报文一手 api_kaihi[1]=83（观测 2026-08-06）＝kcwiki；wikiwiki 38 是错值' },
 ])
 
 /**
@@ -268,7 +268,7 @@ export const SHIP_STAT_GAPS: readonly ShipStatGap[] = Object.freeze([
 ])
 
 /**
- * 官方公告播种表（用户 2026-08-22 定的口径）。
+ * 官方公告播种表（维护者 2026-08-22 定的口径）。
  *
  * 官方 X @KanColle_STAFF 的「上方修正」公告**只说谁和哪项，不说加多少**。
  * 但它是一手事实、零许可问题，转写成事件清单之后有两个用处：
@@ -304,8 +304,8 @@ export const SHIP_GROWTH_NOTICES: readonly ShipGrowthNotice[] = Object.freeze([
     masterStats: ['対空max', '運max'],
     serverStats: [],
     note:
-      '两项都走 api_mst_ship，主数据一更新自动到手。账本核对：矢矧改二乙 対空max 主数据 89、運max 108，' +
-      '与 wikiwiki 一致；kcwiki 那张表当时仍是 88/89——正是「kcwiki 滞后」这一判断的用户实证起点。',
+      '两项都走 api_mst_ship，主数据一更新自动到手。游戏主数据核对（2026-09-06）：矢矧改二乙 対空max 主数据 89、運max 108，' +
+      '与 wikiwiki 一致；kcwiki 那张表当时仍是 88/89——正是「kcwiki 滞后」这一判断的维护者实证起点。',
   },
   {
     at: '2026-04-07',
@@ -317,9 +317,9 @@ export const SHIP_GROWTH_NOTICES: readonly ShipGrowthNotice[] = Object.freeze([
     masterStats: [],
     serverStats: ['evasion'],
     note:
-      '**纯服务端项**，主数据里看不见。账本一手裁定：大和改二重 api_kaihi[1] = 62（观测 2026-08-06），' +
+      '**纯服务端项**，主数据里看不见。游戏报文一手裁定：大和改二重 api_kaihi[1] = 62（观测 2026-08-06），' +
       'kcwiki 仍是 60、wikiwiki 已跟到 62 —— kcwiki 那一格确认过时（不是疑似）。' +
-      '大和改二不在籍，按 §裁决二 取 wikiwiki 68（kcwiki 67），待印证。',
+      '大和改二尚无独立实测结论，按 §裁决二 取 wikiwiki 68（kcwiki 67），待印证。',
   },
   {
     at: '2026-04-07',
@@ -331,8 +331,8 @@ export const SHIP_GROWTH_NOTICES: readonly ShipGrowthNotice[] = Object.freeze([
     masterStats: ['火力max'],
     serverStats: ['asw'],
     note:
-      '火力max 走主数据自愈；対潜是服务端项。两舰都不在籍，闸门裁不了，' +
+      '火力max 走主数据自愈；対潜是服务端项。两舰尚无独立实测结论，' +
       '按 §裁决二 取 wikiwiki（磯風乙改 72 / 浜風乙改 74，kcwiki 分别 71 / 73），待印证。' +
-      '**用户若日后收了这两艘，把空装备状态下的面板对一次就能终审。**',
+      'wikiwiki 数值待独立验证（维护者核 2026-09-06）。',
   },
 ])

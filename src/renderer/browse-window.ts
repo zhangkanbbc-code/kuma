@@ -30,7 +30,7 @@ const view = document.createElement('webview') as WebviewTag
 view.setAttribute('useragent', USER_AGENT)
 // allowpopups 才会走主进程那条 setWindowOpenHandler（不开的话页面弹窗直接没反应，
 // DMM 的登录跳转就断在半路）。**不设 preload、不设 disablewebsecurity**：
-// 这一层不是游戏页，抓包桥与 kanso-cache 换出都不该经过它。
+// 这一层不是游戏页，抓包桥与 kuma-cache 换出都不该经过它。
 view.setAttribute('allowpopups', '')
 view.src = initialUrl
 holder.appendChild(view)
@@ -68,7 +68,7 @@ const navigate = (raw: string) => {
     return
   }
   view.loadURL(target).catch((error) => {
-    console.warn('[kanso] 浏览窗导航失败', target, error)
+    console.warn('[kuma] 浏览窗导航失败', target, error)
   })
 }
 

@@ -4,7 +4,7 @@
 // `voice-subtitle` 有两处闸门读 `mg.sortie.active`：
 //   · modeFor —— `active && battle` 时台词改道成顶部弹幕，底部字幕条不再出；
 //   · 演习拦截 —— `active && practice` 时整场一个字都不出。
-// 落盘快照里的 sortie 完全可能是 `active: true`（艦素在出击/演习会话中途被关掉，
+// 落盘快照里的 sortie 完全可能是 `active: true`（kuma在出击/演习会话中途被关掉，
 // 那一刻的 domainSnapshot 就长这样）。若原样复活，这两道闸会在**母港**里持续误伤，
 // 窗口任意长——直到下一条 port 报文才关。表现就是「字幕间歇性消失」。
 //

@@ -31,8 +31,7 @@ import type { ShipBossKillEntry, ShipLifeEvent, ShipLifeReport } from '../shared
 const root = document.querySelector<HTMLElement>('#life-root')!
 const windowConfig = require('@electron/remote').require('./config')
 
-// 账本对这个查询的硬上限就是 200 条（ledger.queryShipLife 自己 clamp）。
-const EVENT_LIMIT = 200
+const EVENT_PAGE_SIZE = 200
 
 const rosterId = Number(new URLSearchParams(location.search).get('roster') ?? 0)
 
@@ -40,6 +39,8 @@ let life: ShipLifeReport | null = null
 let kills: ShipBossKillEntry[] = []
 let loadFailed = false
 let refreshing = false
+let eventLimit = EVENT_PAGE_SIZE
+let loadingMoreEvents = false
 
 const DAY_MS = 24 * 3600 * 1000
 
@@ -259,15 +260,15 @@ const timelineHtml = (report: ShipLifeReport): string => {
   const rows = report.events
     .map((event: ShipLifeEvent) => lifeEventHtml(event, { battleLink }))
     .join('')
-  // 到顶了就把「最近」两个字写进计数：账本这个查询的上限就是 EVENT_LIMIT 条，
-  // 不说的话这个数会被读成「她这辈子只做过这些事」。
-  const capped = report.events.length >= EVENT_LIMIT
+  const capped = report.events.length >= eventLimit
   return `<div class="col">
-    <div class="col-h"><b>履历</b><span class="cnt"${
-      capped ? ` title="最多显示 ${EVENT_LIMIT} 条"` : ''
-    }>${capped ? '最近 ' : ''}${report.events.length} 条</span></div>
+    <div class="col-h"><b>履历</b><span class="cnt" data-life-count>已显示 ${report.events.length} 条</span></div>
     <div class="col-body">${
-      rows ? `<div class="life-timeline">${rows}</div>` : '<div class="empty">暂无履历记录</div>'
+      rows
+        ? `<div class="life-timeline">${rows}</div>${
+            capped ? '<button class="life-more" data-life-more>加载更多</button>' : ''
+          }`
+        : '<div class="empty">暂无履历记录</div>'
     }</div>
   </div>`
 }
@@ -318,8 +319,52 @@ const toggleKillGroup = (head: HTMLElement) => {
   head.title = open ? '收起' : `展开这 ${head.dataset.count ?? ''} 场`
 }
 
+/**
+ * 再取下一批旧履历，只把新拿到的尾巴接在时间轴后面。
+ * 整页重画会同时抖动击杀簿与履历两栏；这里留住履历栏自己的 scrollTop。
+ */
+const loadMoreLifeEvents = async (button: HTMLButtonElement) => {
+  if (loadingMoreEvents || !life) return
+  const body = button.closest<HTMLElement>('.col-body')
+  const timeline = body?.querySelector<HTMLElement>('.life-timeline')
+  if (!body || !timeline) return
+  loadingMoreEvents = true
+  button.disabled = true
+  const shown = life.events.length
+  const scrollTop = body.scrollTop
+  const nextLimit = eventLimit + EVENT_PAGE_SIZE
+  try {
+    const report = await queryShipLife(rosterId, nextLimit)
+    const appended = report.events
+      .slice(shown)
+      .map((event) => lifeEventHtml(event, { battleLink }))
+      .join('')
+    if (appended) timeline.insertAdjacentHTML('beforeend', appended)
+    life = report
+    eventLimit = nextLimit
+    const count = root.querySelector<HTMLElement>('[data-life-count]')
+    if (count) count.textContent = `已显示 ${report.events.length} 条`
+    if (report.events.length >= nextLimit) {
+      button.disabled = false
+    } else {
+      button.remove()
+    }
+    body.scrollTop = scrollTop
+  } catch (error) {
+    console.warn('[kuma] 人生记录继续读取失败', rosterId, error)
+    button.disabled = false
+  } finally {
+    loadingMoreEvents = false
+  }
+}
+
 root.addEventListener('click', (event) => {
   const target = event.target as HTMLElement
+  const more = target.closest<HTMLButtonElement>('[data-life-more]')
+  if (more) {
+    void loadMoreLifeEvents(more)
+    return
+  }
   const head = target.closest<HTMLElement>('[data-boss]')
   if (head) {
     toggleKillGroup(head)
@@ -337,7 +382,7 @@ const refresh = async () => {
   refreshing = true
   try {
     const [report, bossKills] = await Promise.all([
-      queryShipLife(rosterId, EVENT_LIMIT),
+      queryShipLife(rosterId, eventLimit),
       queryBossKills(rosterId, 500),
     ])
     life = report
@@ -346,7 +391,7 @@ const refresh = async () => {
   } catch (error) {
     // 下层不再把读取故障吞成空结果，所以这里接得住。手上已经有一份就留着旧的，
     // 别把「这次没读出来」画成「她什么都没做过」。
-    console.warn('[kanso] 人生记录读取失败', rosterId, error)
+    console.warn('[kuma] 人生记录读取失败', rosterId, error)
     if (!life) loadFailed = true
   } finally {
     refreshing = false
@@ -362,18 +407,18 @@ const start = async () => {
   }
   // 立绘/横幅的取图口径与主窗口一致：本地缓存优先，缓存里没有才回退游戏自己的
   // 资源服务器，而那条回退在钥里可以关。主机名用上次识别到的那个（主窗口存的）。
-  const remembered = windowConfig.get('kanso.lastGameHost', '')
+  const remembered = windowConfig.get('kuma.lastGameHost', '')
   if (typeof remembered === 'string' && /^[\w.-]+$/.test(remembered)) setGameHost(remembered)
-  setAllowRemoteArt(windowConfig.get('kanso.remoteArt', true) !== false)
+  setAllowRemoteArt(windowConfig.get('kuma.remoteArt', true) !== false)
   await initKernel()
   // 点位字母表到手之前先写 `#号`，到手再重画一次（与人生记录卡同一条路）
   ensureMapCellLetters(() => render())
   await Promise.all([
-    initLocalization().catch((error) => console.warn('[kanso] 译名表读取失败', error)),
+    initLocalization().catch((error) => console.warn('[kuma] 译名表读取失败', error)),
     // api_mst_shipgraph 的版本号：远端取图要带它绕过 CDN 的长期缓存
     queryMasterRaw()
       .then((raw) => setShipImageGraph(raw?.data?.api_mst_shipgraph ?? []))
-      .catch((error) => console.warn('[kanso] 主数据读取失败', error)),
+      .catch((error) => console.warn('[kuma] 主数据读取失败', error)),
   ])
   await refresh()
   // 回到这扇窗时重查一次就够了：她在游戏里刚打完的那一场，切回来就在。
@@ -381,6 +426,6 @@ const start = async () => {
 }
 
 void start().catch((error) => {
-  console.error('[kanso] ship life window failed', error)
+  console.error('[kuma] ship life window failed', error)
   root.innerHTML = '<div class="fatal">人生记录加载失败 · 请重试</div>'
 })

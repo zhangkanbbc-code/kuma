@@ -1,5 +1,5 @@
 // 游戏页音频总控。安装在页面主世界，覆盖 WebAudio 与 HTMLMedia 两条播放链：
-// - 总音量是艦素额外乘数，不改游戏自身保存的分项音量；
+// - 总音量是kuma额外乘数，不改游戏自身保存的分项音量；
 // - 「仅语音 / 仅 BGM」按资源 URL 精确分类，其他音效一并静音；
 // - 设置由隔离世界 bridge 提供，页面只读到经过钳制的音频配置。
 // 游戏真下发的两族语音地址（对着本机缓存里的真实 URL 核过）：
@@ -50,11 +50,11 @@ const gameAudioGainFor = (settings, category) => {
 // 注意：该函数会被 contextBridge.executeInMainWorld 序列化执行，不能闭包引用模块变量。
 const installGameAudioControl = (policy) => {
   const hostWindow = window
-  if (hostWindow.kansoAudioControlInstalled) return
+  if (hostWindow.kumaAudioControlInstalled) return
 
   const setup = (target, settingsBridge) => {
-    if (!target || target.kansoAudioControlInstalled) return
-    Object.defineProperty(target, 'kansoAudioControlInstalled', {
+    if (!target || target.kumaAudioControlInstalled) return
+    Object.defineProperty(target, 'kumaAudioControlInstalled', {
       value: true,
       configurable: true,
     })
@@ -394,7 +394,7 @@ const installGameAudioControl = (policy) => {
       }
     }
 
-    // ---- HTMLAudio / HTMLVideo：保留游戏原音量，再乘艦素总控 ----
+    // ---- HTMLAudio / HTMLVideo：保留游戏原音量，再乘kuma总控 ----
     const liveMedia = new target.Set()
     const gameVolumeByMedia = new target.WeakMap()
     const mediaProto = target.HTMLMediaElement?.prototype
@@ -465,7 +465,7 @@ const installGameAudioControl = (policy) => {
     }
   }
 
-  const settingsBridge = hostWindow.kansoPreloadBridge
+  const settingsBridge = hostWindow.kumaPreloadBridge
   // 每个装上钩子的帧留一份快照器：顶层帧读回时把各帧汇总起来，
   // 少了哪个帧在卡上一眼看得见。
   const snapshots = []
@@ -474,11 +474,11 @@ const installGameAudioControl = (policy) => {
     if (snapshot) snapshots.push(snapshot)
   }
   register(hostWindow)
-  Object.defineProperty(hostWindow, 'installKansoAudioControl', {
+  Object.defineProperty(hostWindow, 'installKumaAudioControl', {
     configurable: true,
     value: (target) => register(target),
   })
-  Object.defineProperty(hostWindow, 'kansoGameAudioStats', {
+  Object.defineProperty(hostWindow, 'kumaGameAudioStats', {
     configurable: true,
     value: () => snapshots.map((snapshot) => snapshot()),
   })

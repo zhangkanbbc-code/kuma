@@ -43,7 +43,7 @@ export const SLOT_SCENES = {
 export const EXTRA_VOICE_DIRS = { 9997: 'skit', 9998: 'enemy', 9999: 'npc' }
 
 export const voiceArchiveDir = () =>
-  process.env.KANSO_VOICE_ARCHIVE || userDataPath('voice-archive')
+  process.env.KUMA_VOICE_ARCHIVE || userDataPath('voice-archive')
 
 /** `/kcs/sound/kcXXXX/123456.mp3` → { dir, encoded }。 */
 export const parseVoicePathname = (pathname) => {

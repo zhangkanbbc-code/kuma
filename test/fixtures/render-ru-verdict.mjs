@@ -100,7 +100,7 @@ export { verdictHtml, sortieTaihaTier, inCombined, scopeShips }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-ru-verdict-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-ru-verdict-'))
   const entry = path.join(dir, 'verdict.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'verdict.cjs')

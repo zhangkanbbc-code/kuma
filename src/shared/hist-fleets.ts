@@ -67,7 +67,7 @@ export type HistFleetKind =
   | 'escortCommand' // 护卫总队/护卫舰队
 
 export interface HistFleetQuestRef {
-  /** 艦素码空间（与 quests-scn 同），如 'A67' */
+  /** kuma码空间（与 quests-scn 同），如 'A67' */
   code: string
   /** defines = 这条任务的正文界定了成员表；mentions = 只是引用 */
   role: 'defines' | 'mentions'

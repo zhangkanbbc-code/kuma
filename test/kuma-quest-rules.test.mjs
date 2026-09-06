@@ -2,10 +2,10 @@ import assert from 'node:assert/strict'
 import nodeTest from 'node:test'
 import fs from 'node:fs'
 
-import kanso from '../dist/main/mg/kanso-quest-rules.js'
+import kuma from '../dist/main/mg/kuma-quest-rules.js'
 import kcwiki from '../dist/main/mg/kcwiki-quest-rules.js'
 
-const { buildKansoQuestRules } = kanso
+const { buildKumaQuestRules } = kuma
 const { buildKcwikiRuleContext, evaluateFleetGoal } = kcwiki
 
 const s2Url = new URL('../../s2.json', import.meta.url)
@@ -24,7 +24,7 @@ const fcdPack = hasRuleFixtures ? JSON.parse(fs.readFileSync(fcdUrl, 'utf8')) : 
 const fcd = fcdPack?.data ?? fcdPack
 
 const context = buildKcwikiRuleContext(masterRaw)
-const rules = buildKansoQuestRules(context, masterRaw, fcd)
+const rules = buildKumaQuestRules(context, masterRaw, fcd)
 const byId = new Map(rules.map((rule) => [rule.questId, rule]))
 
 // 编成门的实弹检验共用：按舰名造一支舰队，字段与 evaluateFleetGoal 要的一致。
@@ -38,7 +38,7 @@ const shipView = (name) => {
 const gatePasses = (questId, names, deckId = 1) =>
   evaluateFleetGoal(byId.get(questId).fleetGoal, names.map(shipView), deckId).ok
 
-test('艦素补充规则全部解析成功——名字解析失败会整条丢弃，掉数就是有名字烂了', () => {
+test('kuma补充规则全部解析成功——名字解析失败会整条丢弃，掉数就是有名字烂了', () => {
   // 草稿表共 63 条——63 条缺口每条都有规则。少一条就说明某个名字没解析出来
   // （构建时会打 warn），那是数据错误不是可接受的降级。
   // 2026-08-30 近代化改修族 714-717 补进草稿表（+4），718/719 早已在表内；
@@ -61,7 +61,7 @@ test('缺 poi-fcd 时带点位的规则整条弃用，绝不退化成空 nodes',
   console.warn = (...args) => warnings.push(args.join(' '))
   let without
   try {
-    without = buildKansoQuestRules(context, masterRaw, null)
+    without = buildKumaQuestRules(context, masterRaw, null)
   } finally {
     console.warn = originalWarn
   }

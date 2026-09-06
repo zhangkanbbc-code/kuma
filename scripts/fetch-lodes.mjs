@@ -90,7 +90,7 @@ const upstreamUpdatedAt = async (url) => {
   try {
     const res = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/commits?path=${encodeURIComponent(file)}&sha=${ref}&per_page=1`,
-      { headers: { 'User-Agent': 'kanso-lodes' } },
+      { headers: { 'User-Agent': 'kuma-lodes' } },
     )
     if (!res.ok) return null
     const commits = await res.json()
@@ -262,7 +262,7 @@ const KCWIKI_API = 'https://zh.kcwiki.cn/api.php'
 const fetchWikiPages = async (titles, withMeta = false) => {
   const props = withMeta ? 'content|timestamp' : 'content'
   const url = `${KCWIKI_API}?action=query&prop=revisions&rvprop=${encodeURIComponent(props)}&format=json&titles=${encodeURIComponent(titles.join('|'))}`
-  const res = await fetch(url, { headers: { 'User-Agent': 'kanso-lodes' } })
+  const res = await fetch(url, { headers: { 'User-Agent': 'kuma-lodes' } })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const json = await res.json()
   const out = new Map()
@@ -295,7 +295,7 @@ const fetchAllPageTitles = async (namespace) => {
       `${KCWIKI_API}?action=query&list=allpages&apnamespace=${namespace}` +
       `&aplimit=500&format=json` +
       (continuation ? `&apcontinue=${encodeURIComponent(continuation)}` : '')
-    const res = await fetch(url, { headers: { 'User-Agent': 'kanso-lodes' } })
+    const res = await fetch(url, { headers: { 'User-Agent': 'kuma-lodes' } })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const json = await res.json()
     titles.push(...(json?.query?.allpages ?? []).map((entry) => entry.title).filter(Boolean))
@@ -312,7 +312,7 @@ const fetchEmbeddedPageTitles = async (templateTitle) => {
       `${KCWIKI_API}?action=query&list=embeddedin&eititle=${encodeURIComponent(templateTitle)}` +
       `&eilimit=500&einamespace=0&format=json` +
       (continuation ? `&eicontinue=${encodeURIComponent(continuation)}` : '')
-    const res = await fetch(url, { headers: { 'User-Agent': 'kanso-lodes' } })
+    const res = await fetch(url, { headers: { 'User-Agent': 'kuma-lodes' } })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const json = await res.json()
     titles.push(...(json?.query?.embeddedin ?? []).map((entry) => entry.title).filter(Boolean))
@@ -616,13 +616,13 @@ const wikiwikiLastModified = (html) => {
 }
 
 const lodeBuild = (data, upstreamUpdatedAt = null) => ({
-  __kansoLodeBuild: true,
+  __kumaLodeBuild: true,
   data,
   upstreamUpdatedAt,
 })
 
 const sharedWikiwikiShipCache = () =>
-  path.join(os.tmpdir(), 'kanso-wikiwiki-ship-page-cache', jstDate())
+  path.join(os.tmpdir(), 'kuma-wikiwiki-ship-page-cache', jstDate())
 
 // wikiwiki 原站限流很敏感（2026-08-12 实测：台词页按 1.2s 间隔抓，整程 429，
 // 每页硬等 30/60s 重试等于持续骚扰原站）。节奏统一收在这里、按主机各排一条队，
@@ -666,7 +666,7 @@ const fetchWikiwikiPage = async (
     let response
     try {
       response = await fetch(`${baseUrl}${encodeURIComponent(title)}`, {
-        headers: { 'User-Agent': 'kanso-lodes' },
+        headers: { 'User-Agent': 'kuma-lodes' },
       })
     } catch (error) {
       if (attempt >= 4) throw error
@@ -1229,7 +1229,7 @@ const WIKIWIKI_QUEST_PAGES = [
 const WIKIWIKI_QUEST_NEWEST_PAGE = '任務/新着任務'
 
 const parseWikiwikiQuests = async () => {
-  const cacheDir = path.join(os.tmpdir(), 'kanso-wikiwiki-quest-cache', jstDate())
+  const cacheDir = path.join(os.tmpdir(), 'kuma-wikiwiki-quest-cache', jstDate())
   mkdirSync(cacheDir, { recursive: true })
   const out = {}
   const allWarnings = []
@@ -1308,12 +1308,12 @@ const parseWikiwikiQuests = async () => {
 }
 
 const parseKcnavRouting = async () => {
-  const imported = loadKcnavRoutingExport(process.env.KANSO_KCNAV_EXPORT)
+  const imported = loadKcnavRoutingExport(process.env.KUMA_KCNAV_EXPORT)
   return lodeBuild(imported.data, imported.upstreamUpdatedAt)
 }
 
 const parseWikiwikiRouting = async () => {
-  const cacheDir = path.join(os.tmpdir(), 'kanso-map-intel-cache', jstDate())
+  const cacheDir = path.join(os.tmpdir(), 'kuma-map-intel-cache', jstDate())
   const imported = await fetchWikiwikiRouting({
     cacheDir,
     minIntervalMs: 10_500,
@@ -1376,7 +1376,7 @@ const parseWikiwikiAbyssVoice = async () => {
   let pages = 0
   let missingPages = 0
   let emptyPages = 0
-  const cacheDir = path.join(os.tmpdir(), 'kanso-wikiwiki-abyss-voice-cache', jstDate())
+  const cacheDir = path.join(os.tmpdir(), 'kuma-wikiwiki-abyss-voice-cache', jstDate())
   mkdirSync(cacheDir, { recursive: true })
 
   for (const title of titles) {
@@ -1470,7 +1470,7 @@ const kcwikiEventRoutingPages = async () => {
   const url =
     `${KCWIKI_API}?action=query&list=allpages&format=json&formatversion=2&aplimit=200` +
     `&apprefix=${encodeURIComponent(page)}`
-  const json = await (await fetch(url, { headers: { 'User-Agent': 'kanso-lodes' } })).json()
+  const json = await (await fetch(url, { headers: { 'User-Agent': 'kuma-lodes' } })).json()
   const out = new Map()
   for (const p of json?.query?.allpages ?? []) {
     // 只认 `<活动页>/E-<数字>/带路条件`，把「奖励简析」「倍卡表」这些同前缀页排除掉
@@ -1498,7 +1498,7 @@ const parseKcwikiRouting = async () => {
   for (let i = 0; i < codes.length; i += 40) {
     const batch = codes.slice(i, i + 40)
     const url = `${KCWIKI_API}?action=query&redirects=1&format=json&formatversion=2&titles=${encodeURIComponent(batch.join('|'))}`
-    const json = await (await fetch(url, { headers: { 'User-Agent': 'kanso-lodes' } })).json()
+    const json = await (await fetch(url, { headers: { 'User-Agent': 'kuma-lodes' } })).json()
     for (const r of json?.query?.redirects ?? []) canon.set(r.from, r.to)
     for (const p of json?.query?.pages ?? []) {
       if (!p.missing && !canon.has(p.title) && /^\d+-\d+$/.test(p.title)) canon.set(p.title, p.title)
@@ -1522,7 +1522,7 @@ const parseKcwikiRouting = async () => {
   const contentAgeOf = async (title) => {
     try {
       const url = `${KCWIKI_API}?action=query&prop=revisions&rvprop=timestamp|comment&rvlimit=30&format=json&formatversion=2&titles=${encodeURIComponent(title)}`
-      const j = await (await fetch(url, { headers: { 'User-Agent': 'kanso-lodes' } })).json()
+      const j = await (await fetch(url, { headers: { 'User-Agent': 'kuma-lodes' } })).json()
       const revs = j?.query?.pages?.[0]?.revisions ?? []
       const human = revs.find((r) => !isBotEdit(r.comment))
       return (human ?? revs[0])?.timestamp?.slice(0, 10) ?? null
@@ -1541,7 +1541,7 @@ const parseKcwikiRouting = async () => {
     const url = `${KCWIKI_API}?action=parse&prop=text&format=json&formatversion=2&disablelimitreport=1&page=${encodeURIComponent(`${page}/带路条件`)}`
     let parsed = null
     try {
-      const json = await (await fetch(url, { headers: { 'User-Agent': 'kanso-lodes' } })).json()
+      const json = await (await fetch(url, { headers: { 'User-Agent': 'kuma-lodes' } })).json()
       if (json?.parse?.text) parsed = parseRoutingHtml(json.parse.text)
     } catch (e) {
       console.warn(`[lodes]   ${code} 取页失败：${e.message}`)
@@ -1590,7 +1590,7 @@ const parseMapIntel = async () => {
   }
   const cacheDir = path.join(
     os.tmpdir(),
-    'kanso-map-intel-cache',
+    'kuma-map-intel-cache',
     new Date().toISOString().slice(0, 10),
   )
   const data = await fetchMapIntel(shipsPack, {
@@ -1618,7 +1618,7 @@ const parseMapIntel = async () => {
 // 编成汇编（map-enemy-comps）与掉落汇编（map-drops）读的是同一批页面，
 // 走同一个当日缓存目录：`npm run lodes:fetch` 一次跑两个包时，第二个包直接吃缓存。
 const kcwikiMapPagesCached = async () => {
-  const cacheDir = path.join(os.tmpdir(), 'kanso-kcwiki-map-cache', jstDate())
+  const cacheDir = path.join(os.tmpdir(), 'kuma-kcwiki-map-cache', jstDate())
   mkdirSync(cacheDir, { recursive: true })
   const force = process.argv.includes('--force')
   const pages = new Map()
@@ -1764,7 +1764,7 @@ const parseMapEnemyComps = async () => {
   )
 
   // **不在这里二选一**：脚本按基座源（kcwiki）取值并给该条打 conflict 标，
-  // 裁决权留给用户。
+  // 裁决权留给维护者。
   writeConflictLedger(
     'map-enemy-comps-conflicts.json',
     '源间互斥、等人裁。fingerprint 变了说明上游改过那一格，旧裁决作废要重核。',
@@ -1894,7 +1894,7 @@ const parseQuestsScn = async () => {
   const url =
     `${KCWIKI_API}?action=query&prop=revisions&rvprop=content%7Ctimestamp&format=json` +
     `&titles=${encodeURIComponent(titles.join('|'))}`
-  const res = await fetch(url, { headers: { 'User-Agent': 'kanso-lodes' } })
+  const res = await fetch(url, { headers: { 'User-Agent': 'kuma-lodes' } })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const json = await res.json()
   const pages = new Map()
@@ -1997,7 +1997,7 @@ const parseKcwikiFitBonus = async (raw) => {
   }
   const shipModule = await (async () => {
     const url = 'https://zh.kcwiki.cn/index.php?title=%E6%A8%A1%E5%9D%97:%E8%88%B0%E5%A8%98%E6%95%B0%E6%8D%AE&action=raw'
-    const response = await fetch(url, { headers: { 'User-Agent': 'kanso-lodes' } })
+    const response = await fetch(url, { headers: { 'User-Agent': 'kuma-lodes' } })
     if (!response.ok) throw new Error(`模块:舰娘数据: HTTP ${response.status}`)
     return response.text()
   })()
@@ -2043,7 +2043,7 @@ const parseWikiwikiKaishu = (raw) => {
       (stats.warnings.length ? ` / 警告 ${stats.warnings.length} 条` : ''),
   )
   for (const warning of stats.warnings) console.warn(`[lodes]   ⚠ ${warning}`)
-  return { __kansoLodeBuild: true, data: rows, upstreamUpdatedAt }
+  return { __kumaLodeBuild: true, data: rows, upstreamUpdatedAt }
 }
 
 // 舰娘档案补缺:只针对 kcwiki-ships 没收的形态抓逐舰页,
@@ -2148,7 +2148,7 @@ const parseWikiwikiItemExchange = async () => {
   if (!useitems.length) {
     throw new Error('道具兑换解析需要 api_start2 主数据快照（s2.json）——名字对不上宁可失败，不猜')
   }
-  const cacheDir = path.join(os.tmpdir(), 'kanso-wikiwiki-item-cache', jstDate())
+  const cacheDir = path.join(os.tmpdir(), 'kuma-wikiwiki-item-cache', jstDate())
   mkdirSync(cacheDir, { recursive: true })
   const page = await fetchWikiwikiPage('アイテム', cacheDir)
   if (page.missing || !page.html) throw new Error('wikiwiki アイテム 页取不到')
@@ -2212,7 +2212,7 @@ const PARSERS = {
 // MediaWiki 页面的最后编辑时间（kcwiki 系源的「多新」）
 const mediawikiUpdatedAt = async (apiUrl) => {
   try {
-    const res = await fetch(apiUrl, { headers: { 'User-Agent': 'kanso-lodes' } })
+    const res = await fetch(apiUrl, { headers: { 'User-Agent': 'kuma-lodes' } })
     if (!res.ok) return null
     const json = await res.json()
     const pages = json?.query?.pages ?? {}
@@ -2233,7 +2233,7 @@ const requestedSources = only
   : sources.filter(
       (source) =>
         !source.manualImport ||
-        (source.id === 'kcnav-routing' && Boolean(process.env.KANSO_KCNAV_EXPORT)),
+        (source.id === 'kcnav-routing' && Boolean(process.env.KUMA_KCNAV_EXPORT)),
     )
 if (only && !requestedSources.length) throw new Error(`未知矿脉包：${only}`)
 const selectedSources = requestedSources.filter(
@@ -2249,7 +2249,7 @@ if (!only) {
 }
 
 const failedSources = new Set()
-const sourceCacheDir = path.join(os.tmpdir(), 'kanso-lode-source-cache', jstDate())
+const sourceCacheDir = path.join(os.tmpdir(), 'kuma-lode-source-cache', jstDate())
 for (const src of selectedSources) {
   try {
     console.log(`[lodes] fetching ${src.id} ← ${src.url}`)
@@ -2262,7 +2262,7 @@ for (const src of selectedSources) {
         raw = src.format === 'text' ? cached : JSON.parse(cached)
         console.log(`[lodes]   使用当日源缓存 ${sourceCache}`)
       } else {
-        const res = await fetch(src.url, { headers: { 'User-Agent': 'kanso-lodes' } })
+        const res = await fetch(src.url, { headers: { 'User-Agent': 'kuma-lodes' } })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const text = await res.text()
         raw = src.format === 'text' ? text : JSON.parse(text)
@@ -2273,7 +2273,7 @@ for (const src of selectedSources) {
       }
     }
     const parsed = src.parser ? await PARSERS[src.parser](raw) : raw
-    const buildResult = parsed?.__kansoLodeBuild === true ? parsed : null
+    const buildResult = parsed?.__kumaLodeBuild === true ? parsed : null
     const data = buildResult ? buildResult.data : parsed
     const detectedUpstream = src.upstreamApi
       ? await mediawikiUpdatedAt(src.upstreamApi)

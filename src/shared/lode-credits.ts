@@ -12,6 +12,7 @@
 // `test/lode-credits.test.mjs` 拿真名单 + 真 NOTICE.md 逐个核对，
 // 加了包忘了署名当场红。这条护栏做成数据级比对，不去正则匹配源码文本。
 //
+// 2026-09-06 用户特许：明石工厂署名标资料日期，其他来源沿用下述规则。
 // 这一页**不出现日期**：新鲜度归「矿脉健康度」卡（纪律七之四：新鲜度是维护者的区域）。
 
 export interface LodeCreditSource {
@@ -47,18 +48,24 @@ export const LODE_CREDIT_SOURCES: readonly LodeCreditSource[] = [
     url: 'https://zh.kcwiki.cn/',
     license: '知识共享 署名-非商业性使用-相同方式共享 3.0',
     provides:
-      '舰娘与装备的中文名、任务的中文说明、远征资料、舰娘与深海舰的台词翻译（图鉴与语音字幕都用，含季节限定台词）、季节限定立绘的清单、海域带路说明、海域敌编成、海域确认掉落、活动加成、装备加成、战斗曲的官方曲名',
+      '舰娘与装备的中文名、任务的中文说明、远征资料、舰娘与深海舰的台词翻译（图鉴与语音字幕都用，含季节限定台词）、季节限定立绘的清单、海域带路说明、海域敌编成、海域确认掉落、活动友军编成、活动加成、装备加成、战斗曲的官方曲名',
     detail:
       '舰娘与装备的中文名 · 任务的中文说明 · 远征名称与条件 · 舰娘与深海舰台词翻译 · ' +
       '各年季节限定台词的中文翻译 · ' +
       '各年季节限定立绘的清单（只是「谁在哪一季有过一张限定立绘」这件事，不含任何图） · ' +
-      '各海域带路说明 · 各海域出现的敌方编成 · 各海域的确认掉落 · 活动特效加成 · ' +
+      '各海域带路说明 · 各海域出现的敌方编成 · 各海域的确认掉落 · 活动友军编成 · 活动特效加成 · ' +
       '装备装在特定舰娘身上时的额外加成 · 战斗曲的官方曲名。' +
+      '道具用途由本项目改写，固定兑换只保留核对一致的数值。' +
+      '开发参考整理部分装备的投入与秘书舰类别。' +
+      '建造参考只整理已核对的时间、归属与部分配方。' +
       '这些文件是对页面内容的抽取与重排。' +
       '海域带路说明中，部分表格由舰娘百科转自 NGA 论坛的整理帖。' +
       '海域敌编成与确认掉落是多方资料的汇编，舰娘百科是其中最主要的一份；' +
       '其掉落表按页面自述主要转自日文 Wiki。',
     lodeIds: [
+      'item-facts',
+      'development-facts',
+      'construction-facts',
       'kcwiki-ships',
       'kcwiki-localization',
       'quests-scn',
@@ -68,11 +75,22 @@ export const LODE_CREDIT_SOURCES: readonly LodeCreditSource[] = [
       'kcwiki-bgm',
       'kcwiki-routing',
       'event-bonus',
+      'event-friendly-fleets',
+      'event-map-intel',
       'kcwiki-fit-bonus',
       'map-enemy-comps',
       'map-drops',
       'ship-stats',
     ],
+  },
+  {
+    key: 'kcwiki-akashi',
+    name: '参考舰娘百科·明石工厂数据（资料日期 2026-02-24）',
+    url: 'https://zh.kcwiki.cn/wiki/模块:明石工厂数据',
+    license: '知识共享 署名-非商业性使用-相同方式共享 3.0',
+    provides: '装备改修的逐星加成与图鉴说明（日文原文）',
+    detail: '参考舰娘百科·明石工厂数据；由 kuma 逐格核对后收录。缺表装备按类别公式推算。',
+    lodeIds: ['kcwiki-akashi-improve'],
   },
   {
     key: 'kc3kai',
@@ -126,22 +144,25 @@ export const LODE_CREDIT_SOURCES: readonly LodeCreditSource[] = [
     lodeIds: ['kcwiki-quest-req', 'kcwiki-localization'],
   },
   {
-    key: 'kanso',
+    key: 'kuma',
     name: 'kuma 自行整理',
     license: '——',
     provides:
-      '上述来源尚未收录的新内容、装备改修的消耗与二号舰、各机体遭受对空射击时的减免档位、活动里各机体的陆航特效分组、各海域限时掉落的起讫记录、尚无中文的舰娘台词翻译，以及逐首听出来的战斗曲曲名',
+      '上述来源尚未收录的新内容、装备改修的消耗与二号舰、各机体遭受对空射击时的减免档位、活动里各机体的陆航特效分组、各海域限时掉落的起讫记录、尚无中文的舰娘与深海舰台词翻译，以及逐首听出来的战斗曲曲名',
     detail:
       '以上来源尚未收录的条目由 kuma 补充，只补缺、不改写。' +
       '每条都标明它是照公开资料整理、有官方公告佐证、按规律推断，还是实测过',
     lodeIds: [
       'map-drop-windows',
-      'kanso-voice',
-      'kanso-voice-zh',
+      'kuma-voice',
+      'kuma-abyss-voice',
+      'kuma-voice-zh',
       'equip-improve',
       'equip-aa-evasion',
       'event-plane-groups',
       'event-lifecycle',
+      'expedition-facts',
+      'remodel-facts',
     ],
   },
 ]

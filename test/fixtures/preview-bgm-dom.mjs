@@ -55,7 +55,7 @@ const STUBS = {
 }
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-preview-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-preview-'))
   fs.cpSync(path.join(ROOT, 'src'), path.join(dir, 'src'), { recursive: true })
   for (const [rel, source] of Object.entries(STUBS)) {
     fs.writeFileSync(path.join(dir, 'src', ...rel.split('/')), source)
@@ -362,11 +362,11 @@ export const mountBgmPreview = () => {
     /** 当前那个 Audio 实例（这个模块只会有一个） */
     audio: () => audios[audios.length - 1] ?? null,
     audios,
-    /** 发往主进程的那些 IPC，形如 ['kanso:preview-audio-active', true] */
+    /** 发往主进程的那些 IPC，形如 ['kuma:preview-audio-active', true] */
     sends,
     /** 上报过的「在响没有」序列 */
     activeSends: () =>
-      sends.filter(([channel]) => channel === 'kanso:preview-audio-active').map(([, value]) => value),
+      sends.filter(([channel]) => channel === 'kuma:preview-audio-active').map(([, value]) => value),
     marks: (el) => [...el.classes].filter((name) => name !== 'bgm-pv').sort(),
 
     // ---- 迷你条：读的全是它自己写进节点的东西 ----
@@ -376,7 +376,7 @@ export const mountBgmPreview = () => {
       if (!found) return null
       return {
         shown: found.host.classes.has('show'),
-        bodyLifted: doc.body.classes.has('kanso-preview-on'),
+        bodyLifted: doc.body.classes.has('kuma-preview-on'),
         name: found.name.textContent,
         toggle: found.toggle.textContent,
         toggleLabel: found.toggle.getAttribute('aria-label'),

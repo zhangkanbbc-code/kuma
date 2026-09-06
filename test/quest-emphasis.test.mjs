@@ -18,7 +18,7 @@ const {
 } = emphasis
 
 // 保长匹配住在渲染层（索引也在那儿），单独编一份出来测坐标
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-quest-emphasis-'))
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-quest-emphasis-'))
 const output = path.join(tempDir, 'task-entity-match.cjs')
 buildSync({
   entryPoints: [fileURLToPath(new URL('../src/renderer/task-entity-match.ts', import.meta.url))],

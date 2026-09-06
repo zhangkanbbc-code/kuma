@@ -560,10 +560,12 @@ test('九个模块的异步回程与 qp 回调都从统一被动提交口落地'
     '鉴的首次遭遇、属性端点、点位字母、道具兑换、语音包与整链收尾都必须过闸',
   )
   const jiPatches = cut(ji, '    onMgChange((keys) => {', '  onShow:', '鉴的补丁订阅')
+  // 改装经历新增一次异步查询回程，和主数据回程一样走被动提交闸门。
+  assert.match(jiPatches, /refreshRemodelHistories\(\)\.then\(\(\) => deferPassive\(pane, 'ji', render\)\)/)
   assert.equal(
     (jiPatches.match(/deferPassive\(pane, 'ji', render\)/g) ?? []).length,
-    1,
-    '鉴的主数据回程必须过闸',
+    2,
+    '鉴的主数据与改装经历回程必须过闸',
   )
   assert.equal(
     (jiPatches.match(/refreshStockViewIfEquipmentChanged\(\)/g) ?? []).length,

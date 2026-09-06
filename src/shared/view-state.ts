@@ -32,8 +32,8 @@ export const detailsKey = (el: KeyableElement, seen: Map<string, number>): strin
  *
  * 尾随的那一次还原是为了对付**浏览器**在同步布局之后又动了滚动位置
  * （容器形态切换、抽屉宽度过渡触发的滚动锚定）。可它拿的是重建前那份旧快照，
- * 于是也会把**用户**在这一帧里刚滚出去的距离原样拽回来——2026-08-21 实测：
- * 重渲后滚 500px，两帧后回到原位，用户报的正是「短距离回退」。
+ * 于是也会把**维护者**在这一帧里刚滚出去的距离原样拽回来——2026-08-21 实测：
+ * 重渲后滚 500px，两帧后回到原位，维护者报的正是「短距离回退」。
  *
  * 判据：位置还是我们上一拍亲手写进去的那个，才认为「没人动过」。
  * `written` 记的必须是**写完之后读回来的实际值**（内容没撑开时浏览器会夹住），
@@ -54,7 +54,7 @@ export const PROGRAMMATIC_SCROLL_ECHO_MS = 250
  *
  * `isTrusted` 只能排除 dispatchEvent 合成事件；浏览器替 scrollTop/Left 写回派发的
  * scroll 同样可信，所以还得同时核对标记、短窗与实际位置。位置沿用上面的 1px
- * 亚像素容差：用户若在这 250ms 里真的滚了，当前位置就会对不上，不会被布尔开关误压制。
+ * 亚像素容差：使用者若在这 250ms 里真的滚了，当前位置就会对不上，不会被布尔开关误压制。
  */
 export const isProgrammaticScrollEcho = (
   current: { top: number; left: number },

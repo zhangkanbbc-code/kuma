@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 
 import { buildSync } from 'esbuild'
 
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-nav-history-'))
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-nav-history-'))
 const output = path.join(tempDir, 'nav-history.cjs')
 buildSync({
   entryPoints: [fileURLToPath(new URL('../src/renderer/nav-history.ts', import.meta.url))],

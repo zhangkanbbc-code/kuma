@@ -32,7 +32,7 @@ const HANG_AFTER_MS = 25_000
 
 export const installPerfLogging = (windowOf: () => BrowserWindow | null) => {
   // 渲染层慢分发上报
-  ipcMain.on('kanso:perf', (_event, raw: unknown) => {
+  ipcMain.on('kuma:perf', (_event, raw: unknown) => {
     const entry = (raw ?? {}) as { scope?: unknown; ms?: unknown; detail?: unknown }
     if (typeof entry.scope !== 'string' || typeof entry.ms !== 'number') return
     log.append(
@@ -45,7 +45,7 @@ export const installPerfLogging = (windowOf: () => BrowserWindow | null) => {
   // 面包屑：每个监听器开跑前报到。只留在内存里，挂死时才落盘。
   let lastBreadcrumb = '(尚无分发记录)'
   let breadcrumbTs = 0
-  ipcMain.on('kanso:perf-breadcrumb', (_event, site: unknown) => {
+  ipcMain.on('kuma:perf-breadcrumb', (_event, site: unknown) => {
     if (typeof site === 'string' && site) {
       lastBreadcrumb = site
       breadcrumbTs = Date.now()
@@ -56,7 +56,7 @@ export const installPerfLogging = (windowOf: () => BrowserWindow | null) => {
   // 页面隐藏时 Chromium 会重度节流定时器，自报心跳会误报挂死；IPC 不受节流。
   let lastAlive = Date.now()
   let hangLogged = false
-  ipcMain.on('kanso:perf-alive', () => {
+  ipcMain.on('kuma:perf-alive', () => {
     lastAlive = Date.now()
     hangLogged = false
   })
@@ -64,7 +64,7 @@ export const installPerfLogging = (windowOf: () => BrowserWindow | null) => {
     const win = windowOf()
     if (!win || win.isDestroyed()) return
     try {
-      win.webContents.send('kanso:perf-ping')
+      win.webContents.send('kuma:perf-ping')
     } catch {
       return
     }

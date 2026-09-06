@@ -47,7 +47,7 @@ export const saveTextFile = async (
     require('fs').writeFileSync(filePath, text, 'utf8')
     return { status: 'saved', filePath }
   } catch (error) {
-    console.warn(`[kanso] ${options.logLabel}失败`, chosenPath ?? '(未选定路径)', error)
+    console.warn(`[kuma] ${options.logLabel}失败`, chosenPath ?? '(未选定路径)', error)
     return { status: 'failed', error }
   }
 }

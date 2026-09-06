@@ -32,7 +32,7 @@ const URLS = {
 }
 
 const fetchChecked = async (url, format = 'json') => {
-  const response = await fetch(url, { headers: { 'User-Agent': 'kanso-lodes' } })
+  const response = await fetch(url, { headers: { 'User-Agent': 'kuma-lodes' } })
   if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`)
   return format === 'text' ? response.text() : response.json()
 }
@@ -67,7 +67,7 @@ export const parseLuaNameTable = (text) => {
 // 只钉有病的条目，上游哪条改对了就删哪条；91 号连日文原文都带着断括号，一并补全。
 export const EQUIPTYPE_ZH_FIXES = {
   // 6-8：上游自己两套口径混用（舰载战斗机 vs 舰上侦察机、轰炸机 vs 爆击机）。
-  // 2026-08-16 用户拍板统一 kcwiki 直译系「舰上/爆击机」——别把爆击机当错字改回轰炸机。
+  // 2026-08-16 维护者拍板统一 kcwiki 直译系「舰上/爆击机」——别把爆击机当错字改回轰炸机。
   6: '舰上战斗机',
   7: '舰上爆击机',
   8: '舰上攻击机',
@@ -352,7 +352,7 @@ export const fetchLocalization = async (root) => {
       id,
       ship.api_name,
       zh,
-      shipZh.has(id) ? 'kcwiki-ship-module' : zh ? 'kanso-supplement' : 'derived',
+      shipZh.has(id) ? 'kcwiki-ship-module' : zh ? 'kuma-supplement' : 'derived',
     )
   }
 
@@ -413,11 +413,11 @@ export const fetchLocalization = async (root) => {
 
   for (const type of master.shipTypes) {
     const fix = SHIPTYPE_ZH_FIXES[type.api_id]
-    put(entities.shipType, type.api_id, type.api_name, fix ?? '', fix ? 'kanso-fix' : 'derived')
+    put(entities.shipType, type.api_id, type.api_name, fix ?? '', fix ? 'kuma-fix' : 'derived')
   }
   for (const type of master.equipTypes) {
     const fix = EQUIPTYPE_ZH_FIXES[type.api_id]
-    put(entities.equipType, type.api_id, type.api_name, fix ?? '', fix ? 'kanso-fix' : 'derived')
+    put(entities.equipType, type.api_id, type.api_name, fix ?? '', fix ? 'kuma-fix' : 'derived')
   }
   for (const quest of quests) {
     if (quest?.game_id > 0 && quest?.name) {

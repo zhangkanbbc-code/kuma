@@ -197,7 +197,7 @@ interface Notice {
   ref?: EntityRef // 具体对象（那一艘/那支队/那条任务）；无则退回模块级跳转
   /**
    * 这一条的手机推送没发出去的原因。只活在本次运行的内存里，不进账本：
-   * 它说的是「刚才那一下没成」，重开艦素后回看这条记录时它已无意义。
+   * 它说的是「刚才那一下没成」，重开kuma后回看这条记录时它已无意义。
    */
   pushError?: string
 }
@@ -262,7 +262,7 @@ const BANNER_ORDER: Record<BannerTone, number> = {
   celebrate: 3,
 }
 
-let eventBannerEffectsEnabled = Boolean(config.get('kanso.eventBannerEffects', true))
+let eventBannerEffectsEnabled = Boolean(config.get('kuma.eventBannerEffects', true))
 let bannerHost: HTMLElement | null = null
 const activeBanners = new Map<string, EventBanner>()
 
@@ -391,7 +391,7 @@ export const setEventBannerEffectsEnabled = (enabled: boolean) => {
 // **舰名与跳转落点**也归这一个门管（见 tickDetect 里的建造分支）。
 // 初值自己从 config 读：从前只等钥（设置）mount 时推过来，钥装配失败
 // 这条用户设置就静默失效——退回默认「关」还算安全，反过来则不然。
-let buildSpoilerEnabled = Boolean(config.get('kanso.buildSpoiler', false))
+let buildSpoilerEnabled = Boolean(config.get('kuma.buildSpoiler', false))
 export const setBuildSpoilerEnabled = (enabled: boolean) => {
   buildSpoilerEnabled = enabled
 }
@@ -478,7 +478,7 @@ const restoreLog = async () => {
   } catch (e) {
     // 这一趟没读进来，历史仍是空的——放开守卫，重试装配还能再取一次
     logRestored = false
-    console.warn('[kanso] lg: 通知历史读取失败，本次只显示当前会话', e)
+    console.warn('[kuma] lg: 通知历史读取失败，本次只显示当前会话', e)
   }
 }
 
@@ -836,7 +836,7 @@ const flushHeld = () => {
     try {
       showToast(h.def, h.title, h.detail, h.ref)
     } catch (e) {
-      console.warn('[kanso] lg: 暂留通知送达失败', h.def.id, e)
+      console.warn('[kuma] lg: 暂留通知送达失败', h.def.id, e)
     }
   }
   if (wantSound) beep(false)
@@ -850,7 +850,7 @@ const flushHeld = () => {
         count > 1 ? undefined : item.ref,
       )
     } catch (e) {
-      console.warn('[kanso] lg: 暂留系统通知送达失败', item.def.id, e)
+      console.warn('[kuma] lg: 暂留系统通知送达失败', item.def.id, e)
     }
   }
   if (dropped > 0) {
@@ -946,7 +946,7 @@ const sendNoticePush = (
  */
 const markPushFailed = (notice: Notice, message: string) => {
   notice.pushError = message
-  console.warn('[kanso] lg: 手机推送失败', notice.event, message)
+  console.warn('[kuma] lg: 手机推送失败', notice.event, message)
   renderIfActive()
 }
 
@@ -984,7 +984,7 @@ const holdPush = (item: HeldPush) => {
   while (heldPushQueue.length > HELD_PUSH_MAX) {
     const dropped = heldPushQueue.shift()!
     // 记录本身早在 notify 里进了通知记录，回看不受影响；丢的只是补推那一下
-    console.warn('[kanso] lg: 补发队列超过上限，丢掉最老的一条', dropped.notice.event)
+    console.warn('[kuma] lg: 补发队列超过上限，丢掉最老的一条', dropped.notice.event)
   }
 }
 
@@ -1015,7 +1015,7 @@ const flushHeldPush = async () => {
         outcome = await sendNoticePush(held.notice, held.title, held.detail, held.group, held.ts)
       } catch (e) {
         // 逐条隔离：一条炸了不许把后面的全丢了（勿扰暂留队列当年正是栽在这上面）
-        console.warn('[kanso] lg: 补发推送出错', held.notice.event, e)
+        console.warn('[kuma] lg: 补发推送出错', held.notice.event, e)
       }
       // 人又回到电脑前：这条原样退回队首，剩下的继续等下一轮（顺序不乱）
       if (outcome === 'deferred') {
@@ -1069,7 +1069,7 @@ const pollPushPresence = () => {
     })
     .catch((error: unknown) => {
       // 不静默吞：这一轮不补，下一轮再问
-      console.warn('[kanso] lg: 读不出系统空闲时间，这一轮不补发', error)
+      console.warn('[kuma] lg: 读不出系统空闲时间，这一轮不补发', error)
     })
 }
 
@@ -1710,7 +1710,7 @@ const detectSunk = () => {
 // ケッコンカッコカリ（婚舰）。
 //
 // 判据是**报文到达**这一件事本身，不是任何一个响应字段：这条 path 在本机账本里
-// 零样本（这台机器上的婚舰都早于艦素），响应形状没经过本地实证，深挖它等于拿猜的
+// 零样本（这台机器上的婚舰都早于kuma），响应形状没经过本地实证，深挖它等于拿猜的
 // 当依据。舰的后续状态（Lv100、耐久上抬）由随后的 ship/port 报文自然到账。
 //
 // 认不出是哪一艘时**照常庆祝，只是不指名**——粉光与花瓣是「镇守府今天办喜事」，

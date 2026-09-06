@@ -1,5 +1,5 @@
 // Adapted from poi (https://github.com/poooi/poi) lib/proxy.ts
-// MIT License, Copyright (c) poi contributors — 移植与改造：艦素 kanso 项目。
+// MIT License, Copyright (c) poi contributors — 移植与改造：kuma 项目。
 // 锚：上游代理配置（socks5 / http / pac），支持运行中热切换。
 import { app, BrowserWindow, ipcMain, session, type ProxyConfig } from 'electron'
 
@@ -113,7 +113,7 @@ export const setProxyConfig = (): Promise<void> => {
         message: '已应用',
         updatedAt: Date.now(),
       }
-      console.info(`[kanso] 代理已应用：${resolved.description}`)
+      console.info(`[kuma] 代理已应用：${resolved.description}`)
       publishProxyStatus()
     })
     .catch((error) => {
@@ -124,7 +124,7 @@ export const setProxyConfig = (): Promise<void> => {
         message: error instanceof Error ? error.message : String(error),
         updatedAt: Date.now(),
       }
-      console.error(`[kanso] 代理应用失败：${resolved.description}`, error)
+      console.error(`[kuma] 代理应用失败：${resolved.description}`, error)
       publishProxyStatus()
     })
   return proxyApplyQueue

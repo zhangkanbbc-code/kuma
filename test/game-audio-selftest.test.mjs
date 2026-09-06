@@ -1,4 +1,4 @@
-// 钥 · 「游戏音频链路自检」那张卡。**维护者工具**，只在 `KANSO_DEBUG_UI=1` 下装配。
+// 钥 · 「游戏音频链路自检」那张卡。**维护者工具**，只在 `KUMA_DEBUG_UI=1` 下装配。
 //
 // 它是 2026-08-26 那个 bug 留下的常备工具：语音滑条不起作用时，坏的地方可能在
 // 三环里的任意一环——钩子没装进那个帧、资源地址没被记下、记下了但分类认错。
@@ -74,7 +74,7 @@ test('自检卡：读回来之后按帧摆出捕获计数、活源数与最近�
     const html = await readOnce(yu)
     // 走的是和截图同一条路：webview.executeJavaScript，只取一个统计对象
     assert.equal(calls.length, 1)
-    assert.match(calls[0], /kansoGameAudioStats/)
+    assert.match(calls[0], /kumaGameAudioStats/)
 
     assert.match(html, /\/kcs2\/index\.php/, '没写清是哪个帧')
     assert.match(html, /XHR 42/, 'XHR 那条捕获路的计数没摆出来')

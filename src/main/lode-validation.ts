@@ -1,5 +1,39 @@
 type JsonRecord = Record<string, unknown>
 
+const validateItemFacts = (data: unknown): string | null => {
+  if (!isRecord(data)) return '道具事实表结构非法'
+  for (const [id, row] of Object.entries(data)) {
+    if (!isInteger(Number(id), 1, 9999) || !isRecord(row) || !isText(row.overview, 120) ||
+      Object.keys(row).some(k => !['overview', 'fixed'].includes(k)) ||
+      (row.fixed !== undefined && (!Array.isArray(row.fixed) || !row.fixed.every(r =>
+        isRecord(r) && isText(r.offer, 40) && isText(r.gets, 300) && Object.keys(r).every(k => ['offer', 'gets'].includes(k)))))) return `道具事实 ${id} 非法`
+  }
+  return null
+}
+
+const validateDevelopmentFacts = (data: unknown): string | null => {
+  if (!isRecord(data) || data.schemaVersion !== 1 || !isRecord(data.equipment)) return '开发参考结构非法'
+  for (const [id, rows] of Object.entries(data.equipment)) {
+    if (!isInteger(Number(id), 1, 9999) || !Array.isArray(rows) || !rows.length || !rows.every(row =>
+      isRecord(row) && ['水雷系', '炮战系', '空母系'].includes(row.secretary as string) &&
+      isIntegerArray(row.recipe, 4, 10, 999) && (row.recipe as unknown[]).length === 4 &&
+      Object.keys(row).every(k => ['secretary', 'recipe'].includes(k)))) return `开发参考 ${id} 非法`
+  }
+  return null
+}
+
+const validateConstructionFacts = (data: unknown): string | null => {
+  if (!isRecord(data) || data.schemaVersion !== 1 || !isRecord(data.ships)) return '建造参考结构非法'
+  for (const [id, row] of Object.entries(data.ships)) {
+    if (!isInteger(Number(id), 1, 9999) || !isRecord(row) ||
+      typeof row.time !== 'string' || !/^\d\d:[0-5]\d:[0-5]\d$/.test(row.time) ||
+      !Array.isArray(row.modes) || !row.modes.length || !row.modes.every(v => v === 'normal' || v === 'large') ||
+      !Array.isArray(row.recipes) || !row.recipes.every(r => isIntegerArray(r, 4, 30, 999) && r.length === 4) ||
+      Object.keys(row).some(k => !['time', 'modes', 'recipes'].includes(k))) return `建造参考 ${id} 非法`
+  }
+  return null
+}
+
 const isRecord = (value: unknown): value is JsonRecord =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
@@ -306,6 +340,46 @@ const validateMapIntelNodes = (rawNodes: unknown, prefix: string): string | null
   return null
 }
 
+// 2026-09-06：活动友军第一方汇编；整图共用点位，不伪造难度层或逐组备注。
+const validateEventFriendlyFleets = (data: unknown): string | null => {
+  if (!isRecord(data) || data.schemaVersion !== 1 || !isRecord(data.maps)) {
+    return 'event-friendly-fleets 必须是 schemaVersion=1 且含 maps 的对象'
+  }
+  if (Object.keys(data.maps).length > 500) return 'event-friendly-fleets 海图过多'
+  for (const [map, entry] of Object.entries(data.maps)) {
+    const at = `event-friendly-fleets.maps.${map}`
+    if (!SAFE_MAP.test(map) || !isRecord(entry) || !isText(entry.point, 100) ||
+        !Array.isArray(entry.friendlyFleets) || !entry.friendlyFleets.length || entry.friendlyFleets.length > 100) {
+      return `${at} 非法`
+    }
+    for (const fleet of entry.friendlyFleets) {
+      if (!isRecord(fleet) || !Array.isArray(fleet.ships) || !fleet.ships.length || fleet.ships.length > 12 ||
+          (fleet.note !== undefined && !isString(fleet.note, 500)) ||
+          fleet.ships.some((ship) => !isRecord(ship) || !isInteger(ship.id, 1) || !isText(ship.name, 300) ||
+            (ship.lv !== undefined && !isInteger(ship.lv, 1, 1_000)))) {
+        return `${at}.friendlyFleets 非法`
+      }
+    }
+  }
+  if (data.history !== undefined) {
+    if (!Array.isArray(data.history) || data.history.length > 100) return 'event-friendly-fleets.history 非法'
+    const seen = new Set<string>()
+    for (const block of data.history) {
+      if (!isRecord(block) || !isText(block.name, 200) || !isInteger(block.mapAreaId, 1, 999) ||
+          block.status !== 'ended' || !isValidCalendarDate(block.until) || !isRecord(block.maps) ||
+          !Object.keys(block.maps).length || Object.keys(block.maps).some((map) => !map.startsWith(`${block.mapAreaId}-`))) {
+        return 'event-friendly-fleets.history 活动字段非法'
+      }
+      const key = `${block.mapAreaId}:${block.name}`
+      if (seen.has(key)) return 'event-friendly-fleets.history 活动重复'
+      seen.add(key)
+      const error = validateEventFriendlyFleets({ schemaVersion: 1, maps: block.maps })
+      if (error) return `event-friendly-fleets.history: ${error}`
+    }
+  }
+  return null
+}
+
 const validateEventOperations = (raw: unknown, prefix: string): string | null => {
   if (!isRecord(raw)) return `${prefix}.operations 必须是对象`
   const { gimmicks, specialShips, friendlyFleets, nodeDistances } = raw
@@ -331,6 +405,13 @@ const validateEventOperations = (raw: unknown, prefix: string): string | null =>
       gimmick.steps.some((step) => !isText(step, 500))
     ) {
       return `${prefix}.operations.gimmicks[${index}] 非法`
+    }
+    const steps = gimmick.steps
+    if (gimmick.stepSources !== undefined && (!isRecord(gimmick.stepSources) ||
+      Object.entries(gimmick.stepSources).some(([step, mark]) => !steps.includes(step) ||
+        !isRecord(mark) || mark.basis !== 'maintainer' || !isText(mark.evidence, 2000) ||
+        typeof mark.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(mark.date)))) {
+      return `${prefix}.operations.gimmicks[${index}].stepSources 非法`
     }
   }
   for (const [index, ship] of specialShips.entries()) {
@@ -414,6 +495,13 @@ const validateMapIntel = (data: unknown): string | null => {
         if (!isRecord(reward) || !isText(reward.scope, 10) || !isText(reward.text, 2000)) {
           return `${mapKey}.rewards[${index}] 非法`
         }
+        const parts = (reward.text as string).split('、')
+        if (reward.rewardSources !== undefined && (!isRecord(reward.rewardSources) ||
+          Object.entries(reward.rewardSources).some(([part, mark]) => !parts.includes(part) ||
+            !isRecord(mark) || mark.basis !== 'maintainer' || !isText(mark.evidence, 2000) ||
+            typeof mark.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(mark.date)))) {
+          return `${mapKey}.rewards[${index}].rewardSources 非法`
+        }
       }
     }
 
@@ -444,6 +532,59 @@ const validateMapIntel = (data: unknown): string | null => {
         )
         if (operationError) return operationError
       }
+    }
+  }
+  return null
+}
+
+const validateEventMapIntel = (data: unknown): string | null => {
+  if (!isRecord(data) || data.schemaVersion !== 1 || !isRecord(data.maps) || Object.keys(data.maps).length > 500) return 'event-map-intel 海域对象非法'
+  const maps: Record<string, unknown> = {}
+  const completeOperations = (raw: unknown) => ({
+    gimmicks: [], specialShips: [], friendlyFleets: [], nodeDistances: {}, ...(isRecord(raw) ? raw : {}),
+  })
+  for (const [code, map] of Object.entries(data.maps)) {
+    if (!isRecord(map) || !isRecord(map.difficulties) || map.nodes !== undefined || map.allDiffDrops !== undefined) return `event-map-intel.${code} 必须使用活动难度层`
+    if (map.operations !== undefined) {
+      if (!isRecord(map.operations) || Object.keys(map.operations).some((key) => !['specialShips', 'nodeDistances'].includes(key))) return `${code}.operations 图级域非法`
+      const error = validateEventOperations(completeOperations(map.operations), code)
+      if (error) return error
+    }
+    const difficulties: Record<string, unknown> = {}
+    for (const [difficulty, layer] of Object.entries(map.difficulties)) {
+      if (!isRecord(layer) || !isRecord(layer.nodes)) return `${code}.${difficulty} 非法`
+      if (Object.values(layer.nodes).some((node) => !isRecord(node) || !Array.isArray(node.ships) || node.ships.length ||
+          node.emptyDrop !== 'unknown' || !Array.isArray(node.enemyComps) || node.enemyComps.some((comp) =>
+            !isRecord(comp) || !Array.isArray(comp.ships) || comp.ships.some((id) => !isInteger(id, 1, 1_000_000))))) return `${code}.${difficulty} 不能混入分难度掉落或无号编成`
+      if (layer.operations !== undefined && (!isRecord(layer.operations) ||
+          Object.keys(layer.operations).some((key) => key !== 'gimmicks'))) return `${code}.${difficulty}.operations 域非法`
+      difficulties[difficulty] = { ...layer, operations: completeOperations(layer.operations) }
+    }
+    if (map.drops !== undefined) {
+      const drops = map.drops
+      if (!isRecord(drops) || drops.difficultyAgnostic !== true || !isText(drops.sourceNote, 300) ||
+          !isRecord(drops.nodes) || Object.keys(drops.nodes).length > 200) return `${code}.drops 非法`
+      const nodes = Object.fromEntries(Object.entries(drops.nodes).map(([node, ships]) =>
+        [node, { ships, emptyDrop: 'unknown', enemyComps: [] }]))
+      const error = validateMapIntelNodes(nodes, `${code}.drops`)
+      if (error) return error
+    }
+    maps[code] = { ...map, difficulties }
+  }
+  const error = validateMapIntel({ schemaVersion: 1, maps })
+  if (error) return error
+  if (data.history !== undefined) {
+    if (!Array.isArray(data.history) || data.history.length > 100) return 'event-map-intel.history 非法'
+    const seen = new Set<string>()
+    for (const block of data.history) {
+      if (!isRecord(block) || !isText(block.name, 200) || !isInteger(block.mapAreaId, 1, 999) ||
+          block.status !== 'ended' || !isValidCalendarDate(block.until) || !isRecord(block.maps) ||
+          !Object.keys(block.maps).length || Object.keys(block.maps).some((key) => !key.startsWith(`${block.mapAreaId}-`))) return 'event-map-intel.history 活动字段非法'
+      const key = `${block.mapAreaId}:${block.name}`
+      if (seen.has(key)) return 'event-map-intel.history 活动重复'
+      seen.add(key)
+      const invalid = validateEventMapIntel({ schemaVersion: 1, maps: block.maps })
+      if (invalid) return invalid
     }
   }
   return null
@@ -932,6 +1073,49 @@ const validateAkashiList = (data: unknown): string | null => {
   return null
 }
 
+const validateAkashiImprove = (data: unknown): string | null => {
+  if (!isRecord(data) || ![1, 2].includes(data.schemaVersion as number) || !isRecord(data.items)) return 'kcwiki-akashi-improve 根结构非法'
+  if (Object.keys(data.items).length > 5_000) return 'kcwiki-akashi-improve 条目过多'
+  for (const [id, item] of Object.entries(data.items)) {
+    if (!/^[1-9]\d{0,7}$/.test(id) || !isRecord(item) ||
+        !Object.keys(item).length || Object.keys(item).some(key => !['item_intro', 'item_remodel', 'remodel_basis', 'formula_added_stats'].includes(key))) return `kcwiki-akashi-improve.${id} 非法`
+    if (item.item_intro !== undefined && !isText(item.item_intro, 10_000)) return `kcwiki-akashi-improve.${id}.item_intro 非法`
+    if (item.item_remodel === undefined) {
+      if (item.remodel_basis !== undefined || item.formula_added_stats !== undefined) return `kcwiki-akashi-improve.${id} 来源缺值`
+      continue
+    }
+    if (!isRecord(item.item_remodel) || !Object.keys(item.item_remodel).length || Object.keys(item.item_remodel).length > 100) return `kcwiki-akashi-improve.${id}.item_remodel 非法`
+    for (const [stat, row] of Object.entries(item.item_remodel)) {
+      if (!isText(stat, 100) || !isRecord(row)) return `kcwiki-akashi-improve.${id}.${stat} 非法`
+      for (const [index, value] of Object.entries(row)) {
+        if (!/^(?:[0-9]|[1-3][0-9])$/.test(index) || !isText(value, 200)) return `kcwiki-akashi-improve.${id}.${stat}.${index} 非法`
+        if (data.schemaVersion === 2 && (!isRecord(item.remodel_basis) || !isRecord(item.remodel_basis[stat]) || !Object.hasOwn(item.remodel_basis[stat], index))) return `kcwiki-akashi-improve.${id}.${stat}.${index} 缺 basis`
+      }
+    }
+    if (item.remodel_basis !== undefined) {
+      if (!isRecord(item.remodel_basis)) return `kcwiki-akashi-improve.${id}.remodel_basis 非法`
+      for (const [stat, row] of Object.entries(item.remodel_basis)) {
+        if (!Object.hasOwn(item.item_remodel, stat) || !isRecord(row)) return `kcwiki-akashi-improve.${id}.${stat} 来源缺列`
+        for (const [index, mark] of Object.entries(row)) {
+          const values = item.item_remodel[stat]
+          if (!isRecord(values) || !Object.hasOwn(values, index) || !isRecord(mark) || !['kcwiki', 'formula'].includes(mark.basis as string)) return `kcwiki-akashi-improve.${id}.${stat}.${index} basis 非法`
+          if (mark.basis === 'kcwiki') {
+            if (Object.keys(mark).length !== 1) return `kcwiki-akashi-improve.${id}.${stat}.${index} 实收来源非法`
+          } else if (Object.keys(mark).some(key => !['basis', 'formula', 'compared'].includes(key)) ||
+            !isText(mark.formula, 300) || !(mark.formula as string).endsWith(`/${stat}`) || typeof mark.compared !== 'boolean') return `kcwiki-akashi-improve.${id}.${stat}.${index} 推算来源非法`
+        }
+      }
+    }
+    if (item.formula_added_stats !== undefined) {
+      if (!Array.isArray(item.formula_added_stats) || new Set(item.formula_added_stats).size !== item.formula_added_stats.length ||
+          item.formula_added_stats.some(stat => typeof stat !== 'string' || !Object.hasOwn(item.item_remodel as object, stat) ||
+            !isRecord(item.remodel_basis) || !isRecord(item.remodel_basis[stat]) ||
+            Object.values(item.remodel_basis[stat]).some(mark => !isRecord(mark) || mark.basis !== 'formula'))) return `kcwiki-akashi-improve.${id}.formula_added_stats 非法`
+    }
+  }
+  return null
+}
+
 const validateKcwikiShips = (data: unknown): string | null => {
   if (!isRecord(data)) return 'kcwiki-ships 必须是对象'
   const entries = Object.entries(data)
@@ -949,6 +1133,65 @@ const validateKcwikiShips = (data: unknown): string | null => {
       (raw['消耗'] !== undefined && !isRecord(raw['消耗']))
     ) {
       return `kcwiki-ships.${key} 非法`
+    }
+  }
+  return null
+}
+
+const validateRemodelFacts = (data: unknown): string | null => {
+  if (!isRecord(data) || Object.keys(data).length > 2_000) return 'remodel-facts 必须是逐边素材表'
+  for (const [edge, row] of Object.entries(data)) {
+    const error = `remodel-facts.${edge} 非法`
+    if (!/^[1-9]\d{0,3}→[1-9]\d{0,3}$/.test(edge) || edge.split('→')[0] === edge.split('→')[1] ||
+      !isRecord(row) || Object.keys(row).some(key => key !== 'stages') || !isRecord(row.stages) ||
+      !Object.keys(row.stages).length || Object.keys(row.stages).some(key => !['first', 'convert'].includes(key))) return error
+    for (const materials of Object.values(row.stages)) {
+      if (!isRecord(materials) || !Object.keys(materials).length || Object.keys(materials).length > 50) return error
+      for (const [identity, count] of Object.entries(materials)) {
+        if (!/^(?:(?:useitem|slotitem):[1-9]\d{0,3}|unknown:[^<>\r\n]{1,100})$/.test(identity) || !isInteger(count, 0, 100_000)) return error
+      }
+    }
+  }
+  return null
+}
+
+const validateExpeditionFacts = (data: unknown): string | null => {
+  if (!isRecord(data) || Object.keys(data).length > 1_000) return 'expedition-facts 必须是远征对象表'
+  const fields = new Set(['stats', 'drumTotal', 'compositionBranches', 'greatSuccess', 'rewards'])
+  for (const [id, raw] of Object.entries(data)) {
+    const error = `expedition-facts.${id} 非法`
+    if (!/^(?:[1-9]\d{0,2}|[A-Z][1-9]\d?)$/.test(id) || !isRecord(raw) ||
+      !Object.keys(raw).length || Object.keys(raw).some((key) => !fields.has(key))) return error
+    if (raw.stats !== undefined && (!isRecord(raw.stats) || !Object.keys(raw.stats).length ||
+      Object.entries(raw.stats).some(([key, value]) => !['火力', '对空', '对潜', '索敌'].includes(key) || !isInteger(value, 1, 10_000)))) return error
+    if (raw.drumTotal !== undefined && !isInteger(raw.drumTotal, 1, 100)) return error
+    if (raw.rewards !== undefined && (!isRecord(raw.rewards) || !Object.keys(raw.rewards).length ||
+      Object.entries(raw.rewards).some(([key, pair]) => key === 'shipExp' ? !isInteger(pair, 0, 100_000) : !['fuel', 'ammo', 'steel', 'baux'].includes(key) ||
+        !Array.isArray(pair) || pair.length !== 2 || pair.some((n) => !isInteger(n, 0, 100_000))))) return error
+    if (raw.compositionBranches !== undefined) {
+      if (!Array.isArray(raw.compositionBranches) || !raw.compositionBranches.length || raw.compositionBranches.length > 32) return error
+      for (const branch of raw.compositionBranches) {
+        if (!isRecord(branch) || Object.keys(branch).some((key) => !['label', 'reqs'].includes(key)) ||
+          !isString(branch.label, 120) || !Array.isArray(branch.reqs) || !branch.reqs.length || branch.reqs.length > 12) return error
+        for (const req of branch.reqs) {
+          if (!isRecord(req) || Object.keys(req).some((key) => !['label', 'types', 'count', 'flagship', 'wildcard', 'cve', 'homogeneous'].includes(key)) ||
+            !isString(req.label, 120) || !isInteger(req.count, 1, 6) ||
+            ['flagship', 'wildcard', 'cve', 'homogeneous'].some((key) => typeof req[key] !== 'boolean') ||
+            (req.wildcard ? req.types !== null : !isIntegerArray(req.types, 12, 1, 22) || !(req.types as number[]).length)) return error
+        }
+      }
+    }
+    if (raw.greatSuccess !== undefined) {
+      const great = raw.greatSuccess
+      if (!isRecord(great) || Object.keys(great).some((key) => !['alternatives', 'tentative'].includes(key)) ||
+        (great.tentative !== undefined && typeof great.tentative !== 'boolean') ||
+        !Array.isArray(great.alternatives) || !great.alternatives.length || great.alternatives.length > 6) return error
+      for (const alternative of great.alternatives) {
+        if (!isRecord(alternative) || Object.keys(alternative).some((key) => !['kira', 'flagLv', 'drumTotal'].includes(key)) ||
+          !isInteger(alternative.kira, 1, 6) ||
+          (alternative.flagLv !== undefined && !isInteger(alternative.flagLv, 1, 1_000)) ||
+          (alternative.drumTotal !== undefined && !isInteger(alternative.drumTotal, 1, 100))) return error
+      }
     }
   }
   return null
@@ -1517,7 +1760,7 @@ const validateSeasonalVoice = (data: unknown): string | null => {
 }
 
 /**
- * 台词自补层（`kanso-voice`，2026-08-22）：**第一方译文**，抓不回来，随源码走。
+ * 台词自补层（`kuma-voice`，2026-08-22）：**第一方译文**，抓不回来，随源码走。
  *
  * 这里守三件事：
  *  ① **`ja` 日文原文必须在场**。这一条 2026-08-22 当天**反转过**：原来钉的是
@@ -1532,34 +1775,34 @@ const validateSeasonalVoice = (data: unknown): string | null => {
  *
  * 键仍旧钉在白名单上：多一个没人认识的字段就该当成包被人动过。
  */
-const KANSO_VOICE_ROW_KEYS = new Set(['key', 'scene', 'slot', 'basis', 'ja', 'zh', 'draft'])
+const KUMA_VOICE_ROW_KEYS = new Set(['key', 'scene', 'slot', 'basis', 'ja', 'zh', 'draft'])
 // ⚠️ `key-only` **故意不在这个集合里**（2026-08-23）。这一层的槽位来源只有一个——
 // wikiwiki 舰娘页的场合列——所以它的名字就该是 `wikiwiki-mapped`，标出处而不是标「没校验」。
 // 真有一份包写着 `key-only` 送进来，说明它是按旧口径编的：那时候这一档**不给键**，
 // 收下它会让整层静默变暗（比报错难查得多）。所以让它当场失败。
-const KANSO_VOICE_BASIS = new Set([
+const KUMA_VOICE_BASIS = new Set([
   'key-confirmed',
   'wikiwiki-mapped',
   'divergent',
   'ambiguous',
 ])
 
-const validateKansoVoice = (data: unknown): string | null => {
-  if (!isRecord(data) || data.schemaVersion !== 1) return 'kanso-voice 必须是 schemaVersion=1 的对象'
-  if (!isCalendarDate(data.compiledAt)) return 'kanso-voice.compiledAt 非法'
+const validateKumaVoice = (data: unknown): string | null => {
+  if (!isRecord(data) || data.schemaVersion !== 1) return 'kuma-voice 必须是 schemaVersion=1 的对象'
+  if (!isCalendarDate(data.compiledAt)) return 'kuma-voice.compiledAt 非法'
   const ships = data.ships
-  if (!isRecord(ships)) return 'kanso-voice.ships 必须是对象'
+  if (!isRecord(ships)) return 'kuma-voice.ships 必须是对象'
   const forms = Object.entries(ships)
-  if (forms.length > 5_000) return 'kanso-voice.ships 形态过多'
+  if (forms.length > 5_000) return 'kuma-voice.ships 形态过多'
   for (const [shipId, rawLines] of forms) {
     if (!SAFE_NUMERIC_ID.test(shipId) || !Array.isArray(rawLines) || rawLines.length > 500) {
-      return `kanso-voice.ships.${shipId} 非法`
+      return `kuma-voice.ships.${shipId} 非法`
     }
     for (const [index, raw] of rawLines.entries()) {
-      const at = `kanso-voice.ships.${shipId}[${index}]`
+      const at = `kuma-voice.ships.${shipId}[${index}]`
       if (!isRecord(raw)) return `${at} 非法`
       for (const field of Object.keys(raw)) {
-        if (!KANSO_VOICE_ROW_KEYS.has(field)) return `${at} 出现了不该有的字段 ${field}`
+        if (!KUMA_VOICE_ROW_KEYS.has(field)) return `${at} 出现了不该有的字段 ${field}`
       }
       if (
         !isText(raw.key, 300) ||
@@ -1569,7 +1812,56 @@ const validateKansoVoice = (data: unknown): string | null => {
         !isString(raw.ja, 10_000) ||
         !isInteger(raw.slot, 1, 53) ||
         typeof raw.basis !== 'string' ||
-        !KANSO_VOICE_BASIS.has(raw.basis) ||
+        !KUMA_VOICE_BASIS.has(raw.basis) ||
+        (raw.draft !== undefined && raw.draft !== true)
+      ) {
+        return `${at} 非法`
+      }
+    }
+  }
+  return null
+}
+
+const KUMA_ABYSS_VOICE_ROW_KEYS = new Set([
+  'key',
+  'scene',
+  'suffix',
+  'ja',
+  'zh',
+  'ambiguous',
+  'draft',
+])
+const KUMA_ABYSS_VOICE_SUFFIXES = new Set([10, 11, 20, 21, 30, 31, 40, 41, 50, 51])
+
+const validateKumaAbyssVoice = (data: unknown): string | null => {
+  if (!isRecord(data) || data.schemaVersion !== 1) {
+    return 'kuma-abyss-voice 必须是 schemaVersion=1 的对象'
+  }
+  if (!isCalendarDate(data.compiledAt)) return 'kuma-abyss-voice.compiledAt 非法'
+  const ships = data.ships
+  if (!isRecord(ships)) return 'kuma-abyss-voice.ships 必须是对象'
+  const forms = Object.entries(ships)
+  if (forms.length > 5_000) return 'kuma-abyss-voice.ships 形态过多'
+  for (const [shipId, rawLines] of forms) {
+    if (!SAFE_NUMERIC_ID.test(shipId) || !Array.isArray(rawLines) || rawLines.length > 500) {
+      return `kuma-abyss-voice.ships.${shipId} 非法`
+    }
+    for (const [index, raw] of rawLines.entries()) {
+      const at = `kuma-abyss-voice.ships.${shipId}[${index}]`
+      if (!isRecord(raw)) return `${at} 非法`
+      for (const field of Object.keys(raw)) {
+        if (!KUMA_ABYSS_VOICE_ROW_KEYS.has(field)) {
+          return `${at} 出现了不该有的字段 ${field}`
+        }
+      }
+      if (
+        !isText(raw.key, 300) ||
+        !isText(raw.scene, 1_000) ||
+        !isText(raw.ja, 10_000) ||
+        !isString(raw.zh, 10_000) ||
+        (raw.suffix !== undefined &&
+          (typeof raw.suffix !== 'number' || !KUMA_ABYSS_VOICE_SUFFIXES.has(raw.suffix))) ||
+        (raw.ambiguous !== undefined && raw.ambiguous !== true) ||
         (raw.draft !== undefined && raw.draft !== true)
       ) {
         return `${at} 非法`
@@ -1584,16 +1876,16 @@ const VOICE_OVERLAY_PACKS = new Set(['kcwiki-voice', 'kcwiki-seasonal-voice'])
 const VOICE_OVERLAY_ENTRY_KEYS = new Set(['pack', 'ja', 'zh', 'draft'])
 const VOICE_OVERLAY_BY_JA_KEYS = new Set(['ja', 'zh'])
 
-const validateKansoVoiceZh = (data: unknown): string | null => {
+const validateKumaVoiceZh = (data: unknown): string | null => {
   if (!isRecord(data) || data.schemaVersion !== 1) {
-    return 'kanso-voice-zh 必须是 schemaVersion=1 的对象'
+    return 'kuma-voice-zh 必须是 schemaVersion=1 的对象'
   }
-  if (!isCalendarDate(data.compiledAt)) return 'kanso-voice-zh.compiledAt 非法'
-  if (!isRecord(data.entries)) return 'kanso-voice-zh.entries 必须是对象'
+  if (!isCalendarDate(data.compiledAt)) return 'kuma-voice-zh.compiledAt 非法'
+  if (!isRecord(data.entries)) return 'kuma-voice-zh.entries 必须是对象'
   const entries = Object.entries(data.entries)
-  if (entries.length > 20_000) return 'kanso-voice-zh.entries 条目过多'
+  if (entries.length > 20_000) return 'kuma-voice-zh.entries 条目过多'
   for (const [key, raw] of entries) {
-    const at = `kanso-voice-zh.entries.${key}`
+    const at = `kuma-voice-zh.entries.${key}`
     if (!VOICE_OVERLAY_KEY.test(key) || !isRecord(raw)) return `${at} 非法`
     for (const field of Object.keys(raw)) {
       if (!VOICE_OVERLAY_ENTRY_KEYS.has(field)) return `${at} 出现了不该有的字段 ${field}`
@@ -1609,10 +1901,10 @@ const validateKansoVoiceZh = (data: unknown): string | null => {
     }
   }
   if (!Array.isArray(data.byJa) || data.byJa.length > 20_000) {
-    return 'kanso-voice-zh.byJa 非法'
+    return 'kuma-voice-zh.byJa 非法'
   }
   for (const [index, raw] of data.byJa.entries()) {
-    const at = `kanso-voice-zh.byJa[${index}]`
+    const at = `kuma-voice-zh.byJa[${index}]`
     if (!isRecord(raw)) return `${at} 非法`
     for (const field of Object.keys(raw)) {
       if (!VOICE_OVERLAY_BY_JA_KEYS.has(field)) return `${at} 出现了不该有的字段 ${field}`
@@ -2347,14 +2639,22 @@ const validateOpenccT2s = (data: unknown): string | null => {
 }
 
 const LODE_DATA_VALIDATORS: Record<string, LodeDataValidator> = {
+  'event-friendly-fleets': validateEventFriendlyFleets,
+  'event-map-intel': validateEventMapIntel,
   'abyssal-stats': validateAbyssalStats,
   'wikiwiki-ship-profile': validateWikiwikiShipProfile,
   'ship-exp': validateShipExp,
   'dev-recipes': validateDevRecipes,
   'build-recipes': validateBuildRecipes,
+  'construction-facts': validateConstructionFacts,
+  'development-facts': validateDevelopmentFacts,
+  'item-facts': validateItemFacts,
   'akashi-list': validateAkashiList,
+  'kcwiki-akashi-improve': validateAkashiImprove,
   'kcwiki-ships': validateKcwikiShips,
   'kcwiki-expedition': validateExpeditions,
+  'expedition-facts': validateExpeditionFacts,
+  'remodel-facts': validateRemodelFacts,
   'kcwiki-bgm': validateKcwikiBgm,
   'wikiwiki-expedition': validateWikiwikiExpeditions,
   'quests-scn': validateScnQuests,
@@ -2369,8 +2669,9 @@ const LODE_DATA_VALIDATORS: Record<string, LodeDataValidator> = {
   'equip-aa-evasion': validateEquipAaEvasion,
   'kcwiki-voice': validateVoice,
   'kcwiki-seasonal-voice': validateSeasonalVoice,
-  'kanso-voice': validateKansoVoice,
-  'kanso-voice-zh': validateKansoVoiceZh,
+  'kuma-voice': validateKumaVoice,
+  'kuma-abyss-voice': validateKumaAbyssVoice,
+  'kuma-voice-zh': validateKumaVoiceZh,
   'wikiwiki-voice': validateWikiwikiVoice,
   'wikiwiki-remodel': validateWikiwikiRemodel,
   'wikiwiki-ship-max': validateWikiwikiShipMax,
@@ -2402,7 +2703,7 @@ export interface ValidatedLodePack {
   meta: {
     id: string
     name: string
-    version: string
+    version?: string
     source: string
     sourceUrl?: string
     fetchedAt: string
@@ -2424,7 +2725,7 @@ export const validateLodePack = (
     typeof meta.id !== 'string' ||
     !SAFE_ID.test(meta.id) ||
     !isText(meta.name, 200) ||
-    !isText(meta.version, 100) ||
+    (meta.version !== undefined && !isText(meta.version, 100)) ||
     !isText(meta.source, 300) ||
     !isDateText(meta.fetchedAt) ||
     (meta.upstreamUpdatedAt !== undefined &&

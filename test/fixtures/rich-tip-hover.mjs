@@ -65,7 +65,7 @@ export const tipCard = () => tipEl
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-rich-tip-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-rich-tip-'))
   const entry = path.join(dir, 'tip.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'tip.cjs')

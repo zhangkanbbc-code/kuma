@@ -1,6 +1,6 @@
 // 锐 (Ru) · 编队展示。判定/度量/个体三层 + 联合舰队合并度量。
 // 数据边界：制空/索敌33/TP 走 fleet-calc（poi 口径 + 战斗计算模型 + wikiwiki 逐条核对）。
-import type { AirBaseSquad, Deck, PlayerShip } from '../../shared/mg-types'
+import type { AirBaseSquad, BattleLevelUp, Deck, PlayerShip } from '../../shared/mg-types'
 import { airBaseCustomName } from '../../shared/air-base-name'
 import { airBaseTabGlow } from '../../shared/air-base-tab'
 import {
@@ -63,6 +63,8 @@ import {
   queryMasterRaw,
   repairDuration,
   trackMountCleanup,
+  uiGet,
+  uiSet,
   updateCountdowns,
   queryExpSamples,
 } from '../kernel'
@@ -85,6 +87,7 @@ import {
   observedCond,
 } from '../fatigue'
 import { equipTypeIconHtml } from '../equip-icon'
+import { isAviationEquipType } from '../equip-category'
 import { countCapacitySlotitems } from '../equip-capacity'
 import { shipThumbHtml } from '../entity-art'
 import {
@@ -141,8 +144,6 @@ const STYPE_CODE: Record<number, string> = {
   9: 'BB', 10: 'BBV', 11: 'CV', 12: 'BB', 13: 'SS', 14: 'SSV', 16: 'AV',
   17: 'LHA', 18: 'CVB', 19: 'AR', 20: 'AS', 21: 'CT', 22: 'AO',
 }
-
-const PLANE_ICONS = new Set([6, 7, 8, 9, 10, 21, 22, 25, 26, 33, 37, 38, 43, 44, 45, 56, 57, 58, 59, 94])
 
 interface ShipIssues {
   taiha: boolean
@@ -381,7 +382,7 @@ const equipChips = (ship: PlayerShip) => {
     // 分母是**这一格实际的**搭载上限：格納庫増設抬高过的舰只有实例值是对的，
     // 主数据 maxEq 永远是原量（口径见 src/main/mg/index.ts 与内核 hangarSlotCapacity）。
     // 拿原量当分母，扩过的那一格补满了也会被判成「超了」或错档。
-    const planes = mst && PLANE_ICONS.has(mst.iconId) ? (ship.onslot[i] ?? 0) : 0
+    const planes = mst && isAviationEquipType(mst.type2) ? (ship.onslot[i] ?? 0) : 0
     const band = planes > 0
       ? planeLoadBand(planes, hangarSlotCapacity(ship.id, i, master?.maxEq?.[i] ?? 0))
       : null
@@ -483,7 +484,7 @@ const LOAD_FAIL_LABEL: Record<LoadKind, string> = {
   expSamples: '练级场次',
 }
 const noteLoadFailure = (kind: LoadKind, error: unknown) => {
-  console.warn(`[kanso] 编队 ${LOAD_FAIL_LABEL[kind]}读取失败`, error)
+  console.warn(`[kuma] 编队 ${LOAD_FAIL_LABEL[kind]}读取失败`, error)
   loadFailed.add(kind)
   deferPassive(pane, 'ru', render)
 }
@@ -1016,6 +1017,7 @@ const fillShipDetail = (row: HTMLElement, rosterId: number) => {
 // 锐的整段 HTML 每次 HP 变化都会重渲（输出闸门只挡「一个字节都没变」的那种），
 // 不记一笔的话，她会在整趟出击里一遍遍地滑出去。
 const seenEscaped = new Set<number>()
+const LVUP_HINT_MS = 6000
 
 const shipRow = (deck: Deck, ship: PlayerShip, isFlag: boolean) => {
   const master = mg.master.ships[ship.shipId]
@@ -1032,6 +1034,21 @@ const shipRow = (deck: Deck, ship: PlayerShip, isFlag: boolean) => {
   // 「既沉又退避」是坏状态（退避舰之后不再参战，沉不了）。真撞上时以「沉了」为准，
   // 两套视觉不叠在同一张卡上——那会同时说两件互相否定的事。
   const escaped = shattered ? null : escapedInSortie(ship.id)
+  const sortieLevelUps = mg.sortie?.active
+    ? mg.sortie.levelUps
+    : Date.now() - (mg.lastSortieLevelUps?.endedAt ?? 0) < LVUP_HINT_MS
+      ? mg.lastSortieLevelUps?.entries ?? []
+      : []
+  let levelUp: BattleLevelUp | undefined
+  if (!shattered && !escaped && deck.id !== SANDBOX_DECK_ID) {
+    levelUp = sortieLevelUps.find((entry) => entry.rosterId === ship.id)
+  }
+  const levelUpElapsed = Date.now() - (mg.lastSortieLevelUps?.endedAt ?? 0)
+  const levelUpHint = levelUp
+    ? mg.sortie?.active
+      ? `<em class="lvup hold" title="本次出击升级：${levelUp.from} → ${levelUp.to}">↑${levelUp.from}→${levelUp.to}</em>`
+      : `<em class="lvup" style="--lvup-elapsed:${levelUpElapsed}ms" title="本次出击升级：${levelUp.from} → ${levelUp.to}">↑${levelUp.from}→${levelUp.to}</em>`
+    : ''
   // 离场动画只在**状态翻转的那一次**播，之后只剩静态的 .left。
   const leavingNow = !!escaped && !seenEscaped.has(ship.id)
   if (escaped) seenEscaped.add(ship.id)
@@ -1097,7 +1114,7 @@ const shipRow = (deck: Deck, ship: PlayerShip, isFlag: boolean) => {
       escaped ? `<span class="esc-tag">${escaped.role === 'tow' ? '护卫' : '退避'}</span>` : ''
     }${isFlag ? specialAttackChipsHtml(deck) : ''}${shipAbilityChipsHtml(ship)}<span>Lv ${ship.lv}${
       ship.expNext > 0 ? ` <em>· next ${ship.expNext.toLocaleString()}</em>` : ''
-    } ${remodelHint}</span></div>
+    }${levelUpHint ? ` ${levelUpHint}` : ''} ${remodelHint}</span></div>
     <div class="hpc ${hpClassOf(ship, !!dock)}">
       ${eventRunningNow() ? sallyMarkHtml(ship.sallyArea, currentEventAreaId()) : ''}
       <div class="hpbody">
@@ -1324,7 +1341,7 @@ const sallyFlagHtml = (ships: PlayerShip[]): string => {
   const verdict = currentSallyVerdict(ships)
   if (verdict.kind === 'none') return ''
   const detail = sallyDetail()
-  // 「能不能进」艦素判不了，所以不判：札绑在**阶段**上（同一张图解谜与绿条要的札
+  // 「能不能进」kuma判不了，所以不判：札绑在**阶段**上（同一张图解谜与绿条要的札
   // 就不同），还要按编成类型分，有些图还明确允许几种札混用（E-1/E-2/E-3 备注）；
   // 而且没有血条的阶段根本不下发 API，「现在打到哪一步」被动观测拿不全。
   //
@@ -1830,11 +1847,120 @@ const FLEET_METRIC_FOLD_ORDER = ['tp', 'comp', 'lv', 'soku', 'cmb', 'los', 'air'
 /** 陆航抬头同构，一样封顶一行：先收静态计数，缺补给与疲劳这两条能动手的留到最后。 */
 const AIR_BASE_METRIC_FOLD_ORDER = ['areas', 'squads', 'short', 'tired'] as const
 
+const METRIC_ROW_ITEMS = {
+  fleet: [
+    ['air', '制空'],
+    ['los', '索敌33'],
+    ['comp', '构成'],
+    ['soku', '航速'],
+    ['lv', '平均Lv'],
+    ['tp', 'TP'],
+    ['cmb', '联合合并'],
+  ],
+  airbase: [
+    ['areas', '海域'],
+    ['squads', '航空队'],
+    ['short', '待补给'],
+    ['tired', '疲劳'],
+  ],
+} as const
+type MetricRowId = keyof typeof METRIC_ROW_ITEMS
+
+const metricsHidden: Record<MetricRowId, string[]> = {
+  fleet: uiGet<string[]>('ru.metricsHidden.fleet', []),
+  airbase: uiGet<string[]>('ru.metricsHidden.airbase', []),
+}
+
+/** 纯函数出口给产物回归测试：隐藏发生在拼串前，收纳只会量到剩余芯片。 */
+export const metricsRowMarkup = (
+  rowId: string,
+  order: readonly string[],
+  hidden: readonly string[],
+  chips: string[],
+): string => {
+  const hiddenKeys = new Set(hidden)
+  const visibleChips = chips.filter(Boolean).filter((chip) => {
+    const key = /\bdata-mkey="([^"]+)"/.exec(chip)?.[1]
+    return !!key && !hiddenKeys.has(key)
+  })
+  return `<div class="metrics" data-mrow="${rowId}" data-mfold="${order.join(',')}">${visibleChips.join('')}<span class="mchip mfold m-folded" data-metrics-fold tabindex="0" aria-label="展开收起的度量">⋯<b>0</b></span></div>`
+}
+
+/** 点单项就反转；点「全部显示」传 null，清空隐藏项。 */
+export const nextMetricHidden = (
+  order: readonly string[],
+  hidden: readonly string[],
+  key: string | null,
+): string[] => {
+  if (key === null) return []
+  const next = new Set(hidden)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  return order.filter((item) => next.has(item))
+}
+
 /** 度量行：芯片各带 key，行尾常备一枚「⋯N」（没收东西时它自己是收起的）。 */
-const metricsRowHtml = (rowId: string, order: readonly string[], chips: string[]): string =>
-  `<div class="metrics" data-mrow="${rowId}" data-mfold="${order.join(',')}">${chips
-    .filter(Boolean)
-    .join('')}<span class="mchip mfold m-folded" data-metrics-fold tabindex="0" aria-label="展开收起的度量">⋯<b>0</b></span></div>`
+const metricsRowHtml = (rowId: MetricRowId, order: readonly string[], chips: string[]): string =>
+  metricsRowMarkup(rowId, order, metricsHidden[rowId], chips)
+
+// 右键选择显示项：复用全局 .cmenu 皮肤；面板既裁 overflow 又有 transform 包含块，
+// 所以浮层挂 body，且只按需建一次，不随编队被动重渲染一起生灭。
+let metricsMenu: HTMLElement | null = null
+let metricsMenuRow: MetricRowId | null = null
+
+const metricRowIdOf = (value: string | undefined): MetricRowId | null =>
+  value === 'fleet' || value === 'airbase' ? value : null
+
+const hideMetricsMenu = () => metricsMenu?.classList.remove('show')
+
+const fillMetricsMenu = (rowId: MetricRowId) => {
+  if (!metricsMenu) return
+  const hidden = new Set(metricsHidden[rowId])
+  const items = METRIC_ROW_ITEMS[rowId].map(
+    ([key, label]) =>
+      `<div class="mi${hidden.has(key) ? '' : ' on'}" data-metric-key="${key}">${label}</div>`,
+  )
+  metricsMenu.innerHTML = `<div class="m-t">显示哪些</div>${items.join('')}<div class="mi pri" data-metric-all>全部显示</div>`
+}
+
+const ensureMetricsMenu = () => {
+  if (metricsMenu) return metricsMenu
+  metricsMenu = document.createElement('div')
+  metricsMenu.id = 'ru-metrics-menu'
+  metricsMenu.className = 'cmenu'
+  document.body.appendChild(metricsMenu)
+  metricsMenu.addEventListener('click', (event) => {
+    const item = (event.target as HTMLElement).closest<HTMLElement>('[data-metric-key], [data-metric-all]')
+    if (!item || !metricsMenuRow) return
+    const rowId = metricsMenuRow
+    const order = METRIC_ROW_ITEMS[rowId].map(([key]) => key)
+    metricsHidden[rowId] = nextMetricHidden(
+      order,
+      metricsHidden[rowId],
+      item.hasAttribute('data-metric-all') ? null : (item.dataset.metricKey ?? null),
+    )
+    uiSet(`ru.metricsHidden.${rowId}`, metricsHidden[rowId])
+    fillMetricsMenu(rowId)
+    render()
+  })
+  document.addEventListener('click', (event) => {
+    if (!(event.target as HTMLElement).closest('#ru-metrics-menu')) hideMetricsMenu()
+  })
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') hideMetricsMenu()
+  })
+  return metricsMenu
+}
+
+const showMetricsMenu = (rowId: MetricRowId, x: number, y: number) => {
+  const menu = ensureMetricsMenu()
+  metricsMenuRow = rowId
+  fillMetricsMenu(rowId)
+  const itemCount = METRIC_ROW_ITEMS[rowId].length + 1
+  menu.style.left = `${Math.min(x, window.innerWidth - 200)}px`
+  menu.style.top = `${Math.min(y, window.innerHeight - 40 - itemCount * 24)}px`
+  menu.classList.add('show')
+}
 
 /**
  * 收纳的**判定本身**：纯算术，不碰 DOM。
@@ -2608,7 +2734,7 @@ const scheduleFleetQuestCheck = () => {
       })
       .catch((error) => {
         if (generation !== fleetQuestGeneration) return
-        console.warn('[kanso] 编队任务反查失败', error)
+        console.warn('[kuma] 编队任务反查失败', error)
         fleetQuestFailed = true
         if (pane?.classList.contains('active')) deferPassive(pane, 'ru', render)
       })
@@ -2643,7 +2769,7 @@ const fleetViewHtml = (deck: Deck) => {
 // 支持这个社区事实标准，编成就能和制空権シミュレータ、作戦室(Jervis) 之类互通。
 // 编解码在 shared/deck-builder.ts，那边有对着上游示例逐字核过的红绿样本。
 //
-// **导入只能看，不能用**。艦素不替你操作游戏，所以粘进来的编成是拿去对照的：
+// **导入只能看，不能用**。kuma不替你操作游戏，所以粘进来的编成是拿去对照的：
 // 这套里的舰你有没有、装备齐不齐——编成本身仍然得你自己在游戏里摆。
 
 const deckIo = {
@@ -2734,7 +2860,7 @@ const saveDeckBuilderFile = async (deck: DeckBuilderDeck) => {
   const outcome = await saveTextFile(
     {
       title: '导出编成（デッキビルダー v4）',
-      defaultPath: stampedFileName('kanso-deck', 'json'),
+      defaultPath: stampedFileName('kuma-deck', 'json'),
       filters: [{ name: 'JSON', extensions: ['json'] }],
       logLabel: '编成存为文件',
     },
@@ -2832,6 +2958,15 @@ const bindFleetPanelDelegates = (
   setActive: (id: number) => void,
   rerender: () => void,
 ) => {
+  root.addEventListener('contextmenu', (event) => {
+    const row = (event.target as HTMLElement).closest<HTMLElement>('.metrics[data-mrow]')
+    const rowId = metricRowIdOf(row?.dataset.mrow)
+    if (!row || !rowId) return
+    event.preventDefault()
+    hideMetricsFoldCard()
+    showMetricsMenu(rowId, event.clientX, event.clientY)
+  })
+
   // 沙盘：加人 / 移人 / 清空。都只动本地状态，绝不写回游戏。
   root.addEventListener('click', (e) => {
     const target = e.target as HTMLElement

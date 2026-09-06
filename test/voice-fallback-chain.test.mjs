@@ -63,6 +63,31 @@ const assertOneRowPerSlot = (picks, label) => {
 
 // ============================ 骨架逻辑（合成样本） ============================
 
+test('同一级中文优先：kcwiki 中文优于字幕，字幕中文优于只日文的 kcwiki 和 wikiwiki', () => {
+  const { plan } = planOf({
+    correctedRowsOf: () => [
+      { key: '100-Sec1', scene: '秘书舰1', ja: '百科原文', zh: '百科中文', fix: 'ok' },
+      { key: '100-Sec2', scene: '秘书舰2', ja: '百科日文', zh: '', fix: 'ok' },
+    ],
+    wikiwikiRowsOf: () => [2, 3].map(voiceId => ({ key: String(voiceId), voiceId, scene: '', ja: '另一转写' })),
+    subtitleJaOf: () => ({ 2: '字幕原文二', 3: '字幕原文三' }),
+    subtitleZhOf: () => ({ 2: '字幕中文二', 3: '字幕中文三' }),
+  })
+  assert.deepEqual(plan.picks.map(pick => [pick.slot, pick.source, pick.zh]), [
+    [2, 'kcwiki', '百科中文'], [3, 'subtitle', '字幕中文三'],
+  ])
+})
+
+test('中文优先不拆同源同槽候选：kcwiki 同槽有译文与缺译文的行仍整组保留', () => {
+  const rows = [
+    { key: '100-Sec1', scene: '秘书舰1', ja: '缺译候选', zh: '', fix: 'ok' },
+    { key: '101-Sec1', scene: '秘书舰1', ja: '有译候选', zh: '候选中文', fix: 'ok' },
+  ]
+  const { plan } = planOf({ correctedRowsOf: () => rows, subtitleZhOf: () => ({ 2: '字幕中文' }) })
+  assert.deepEqual(plan.picks.map(pick => pick.row), rows)
+  assertOneRowPerSlot(plan.picks, '中文优先同槽候选')
+})
+
 test('小桶不再挡整页：kcwiki 只有一行时，剩下的格由字幕表续上', () => {
   const { plan, covered } = planOf({
     correctedRowsOf: (id) =>
@@ -325,7 +350,7 @@ test('Richelieu改：24 条时报行一条不少——08-23 起改由 kcwiki 自
   assert.equal(ownHourly.length, 24, '前提翻转：时报现在是 kcwiki 自己的行')
   assert.equal(ownHourly[0].scene, '〇〇〇〇时报')
   // 其余槽位仍向 492 借，页脚要并列标注两个源，不许只标第一个
-  assert.deepEqual(plan.sources, ['wikiwiki', 'subtitle'])
+  assert.deepEqual(plan.sources, ['subtitle', 'wikiwiki'])
   assert.deepEqual(plan.borrowedFrom, [492])
 })
 
@@ -336,7 +361,11 @@ test('裸小时改名：wikiwiki 的时报列摆进「场合」得写成「时�
   }
   // 原判例是 Richelieu改，08-23 kcwiki 追录后它不再走这条路；改名规则本身还在用——
   // 实测全包 31 个形态仍从 wikiwiki 借时报，取行数最全的三隈改（121）当判例。
-  const { plan } = pageOf(121, [121])
+  const { plan } = planOf({
+    mstId: 121,
+    tryIds: [121],
+    wikiwikiRowsOf: (id) => packs.wikiwiki.data?.[`${id}`],
+  })
   const hourly = plan.picks.filter((pick) => pick.slot >= 30 && pick.slot <= 53)
   assert.equal(hourly.length, 24)
   for (const pick of hourly) {

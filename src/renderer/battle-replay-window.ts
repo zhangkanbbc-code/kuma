@@ -68,7 +68,7 @@ const loadSnapshot = async (id: number) => {
     snapshot = await queryBattleSnapshot(id)
   } catch (error) {
     if (generation !== battleLoadGeneration) return
-    console.warn('[kanso] 战斗复盘读取失败', id, error)
+    console.warn('[kuma] 战斗复盘读取失败', id, error)
     showStatus(failedText)
     return
   }
@@ -89,7 +89,7 @@ const loadSnapshot = async (id: number) => {
     })
     .catch((error) => {
       if (generation !== battleLoadGeneration) return
-      console.warn('[kanso] 同次出击航迹读取失败', snapshot.sortieId, error)
+      console.warn('[kuma] 同次出击航迹读取失败', snapshot.sortieId, error)
       showStatus(trailFailedText)
     })
 }
@@ -122,19 +122,19 @@ new ResizeObserver(() => {
 
 const start = async () => {
   initUiZoom()
-  const remembered = windowConfig.get('kanso.lastGameHost', '')
+  const remembered = windowConfig.get('kuma.lastGameHost', '')
   if (typeof remembered === 'string' && /^[\w.-]+$/.test(remembered)) setGameHost(remembered)
-  setAllowRemoteArt(windowConfig.get('kanso.remoteArt', true) !== false)
+  setAllowRemoteArt(windowConfig.get('kuma.remoteArt', true) !== false)
   installEquipIconFallback()
   installEntityArtFallback()
   await initKernel()
   const opencc = await queryLode('opencc-t2s')
   installZhSimplifier(opencc)
   await Promise.all([
-    initLocalization().catch((error) => console.warn('[kanso] 译名表读取失败', error)),
+    initLocalization().catch((error) => console.warn('[kuma] 译名表读取失败', error)),
     queryMasterRaw()
       .then((raw) => setShipImageGraph(raw?.data?.api_mst_shipgraph ?? []))
-      .catch((error) => console.warn('[kanso] 主数据读取失败', error)),
+      .catch((error) => console.warn('[kuma] 主数据读取失败', error)),
   ])
   bootstrapBattleReplay(renderCurrent)
   readyToLoad = true
@@ -143,6 +143,6 @@ const start = async () => {
 }
 
 void start().catch((error) => {
-  console.error('[kanso] battle replay window failed', error)
+  console.error('[kuma] battle replay window failed', error)
   showStatus(failedText)
 })

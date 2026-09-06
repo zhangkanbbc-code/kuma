@@ -57,7 +57,7 @@ test('真实击沉只认 sunk，明确排除 unattackable', () => {
 })
 
 test('遭遇志 sunk_mask 与共享真实击沉判据同场一致', async () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-enemy-sunk-chronicle-'))
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-enemy-sunk-chronicle-'))
   const outfile = path.join(tempDir, 'chronicle.cjs')
   const require = createRequire(import.meta.url)
   globalThis.__enemySunkEncounter = null

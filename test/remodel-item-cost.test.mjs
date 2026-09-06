@@ -176,7 +176,7 @@ test('随后的全量下发不双扣：作差拿的是自扣后的账', () => {
 })
 
 test('全量下发仍报旧数时照实补差：自扣不是把后续观测焊死', () => {
-  // 服务器那一侧还没结算完（或艦素自扣错了）——账要跟游戏走，不跟自己走
+  // 服务器那一侧还没结算完（或kuma自扣错了）——账要跟游戏走，不跟自己走
   reset(RICHELIEU, { useitems: STOCK, upgradeRows: [ROW_RICHELIEU_DEUX] })
   feedRemodeling(REAL_POST)
   feedUseitemSync({ 58: 7, 100: 6 })
@@ -194,7 +194,7 @@ test('主数据查无这艘舰的改造行：不扣不崩', () => {
   assert.equal(useitemLog().length, 0)
 })
 
-test('认不出是哪一艘（中途启动艦素）：不扣不崩', () => {
+test('认不出是哪一艘（中途启动kuma）：不扣不崩', () => {
   reset({}, { useitems: STOCK, upgradeRows: [ROW_RICHELIEU_DEUX] })
   assert.deepEqual(feedRemodeling(REAL_POST), [])
   assert.equal(useitemLog().length, 0)

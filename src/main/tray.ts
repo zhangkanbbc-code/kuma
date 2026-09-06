@@ -1,11 +1,12 @@
 // 镇 · 系统托盘。为「开着挂机」那种用法准备：远征、入渠、建造都是等时刻的事，
-// 艦素多数时间在后台，窗口收起来不该等于停止观测。
+// kuma多数时间在后台，窗口收起来不该等于停止观测。
 //
 // 两条纪律：
 // ① **默认不改 X 键的语义**。关闭到托盘要用户在钥里显式打开——
 //    悄悄把「关闭」变成「隐藏」，用户会以为退出了，实际进程还在占着账本与登录态。
 // ② **托盘不是第二套通知**。它只显示未读条数，事件本身仍归铃管；
 //    这里不弹气泡、不抢焦点，否则同一件事会被提醒两遍。
+import { readEnv } from '../shared/env-names'
 import { app, Menu, Tray } from 'electron'
 import fs from 'fs'
 import path from 'path'
@@ -23,13 +24,13 @@ let tray: Tray | null = null
 let getWindow: () => BrowserWindow | null = () => null
 let unread = 0
 let dnd = false
-// 退出中：close 事件此时必须放行，否则「退出艦素」会被隐藏逻辑吃掉，永远退不掉
+// 退出中：close 事件此时必须放行，否则「退出kuma」会被隐藏逻辑吃掉，永远退不掉
 let quitting = false
 
-export const trayEnabled = () => config.get('kanso.tray.enabled', true) === true
-export const closeToTray = () => tray != null && config.get('kanso.tray.closeToTray', false) === true
+export const trayEnabled = () => config.get('kuma.tray.enabled', true) === true
+export const closeToTray = () => tray != null && config.get('kuma.tray.closeToTray', false) === true
 export const minimizeToTray = () =>
-  tray != null && config.get('kanso.tray.minimizeToTray', false) === true
+  tray != null && config.get('kuma.tray.minimizeToTray', false) === true
 
 /** 从托盘/通知里把主窗口拉回来。隐藏过的窗口 focus() 是无效的，必须先 show() */
 export const showMainWindow = () => {
@@ -98,10 +99,10 @@ export const installTray = (resolveWindow: () => BrowserWindow | null) => {
   app.on('before-quit', () => {
     quitting = true
   })
-  if (process.env.KANSO_SMOKE || !trayEnabled()) return
+  if (readEnv('KUMA_SMOKE') || !trayEnabled()) return
   try {
     if (!fs.existsSync(ICON_PATH)) {
-      safeConsole('warn', '[kanso] 找不到托盘图标，跳过托盘', ICON_PATH)
+      safeConsole('warn', '[kuma] 找不到托盘图标，跳过托盘', ICON_PATH)
       return
     }
     // 直接给路径，不要先 createFromPath：这个 .ico 里有 16→256 共 9 档，
@@ -112,8 +113,8 @@ export const installTray = (resolveWindow: () => BrowserWindow | null) => {
     tray.on('double-click', showMainWindow)
     rebuildMenu()
   } catch (error) {
-    // 托盘装不上不该拖垮启动——没有托盘，艦素照常能用
-    safeConsole('warn', '[kanso] 托盘创建失败', error)
+    // 托盘装不上不该拖垮启动——没有托盘，kuma照常能用
+    safeConsole('warn', '[kuma] 托盘创建失败', error)
     tray = null
   }
 }

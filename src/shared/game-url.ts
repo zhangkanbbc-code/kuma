@@ -10,11 +10,11 @@
 // 而它进的是一个开了 disablewebsecurity、挂着特权 preload 的容器。
 
 /**
- * 配置键。**沿用早就在用的那一个**，不另起 `kanso.game.url` 之类的新名字——
+ * 配置键。**沿用早就在用的那一个**，不另起 `kuma.game.url` 之类的新名字——
  * 它已经有四个消费方（config 默认值、渲染层、cookie-hack、webview-preload），
  * 换名字就要在「新键为空时读旧键」上再长一层，而这一格本来就只有一条值。
  */
-export const GAME_URL_CONFIG_KEY = 'kanso.homepage'
+export const GAME_URL_CONFIG_KEY = 'kuma.homepage'
 
 /** DMM 的舰C页面。「恢复默认」按回来的、以及所有回落落到的都是它。 */
 export const DEFAULT_GAME_URL = 'https://play.games.dmm.com/game/kancolle'

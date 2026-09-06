@@ -1,4 +1,4 @@
-// 启动点亮（钥里默认关）。整场由一个 `kanso.launchGlow` 开关管着。
+// 启动点亮（钥里默认关）。整场由一个 `kuma.launchGlow` 开关管着。
 //
 //  **第零幕 · 欢迎返港**（armLaunchWelcome）：整屏罩暗的同一刻盖上一层全屏欢迎屏
 //    （正中一块铭牌 + 最底一行跳过提示），把舰C黑屏加载、面板装配、缓存回填那段
@@ -60,14 +60,14 @@ import {
   type LaunchWelcomeSignal,
 } from '../shared/launch-glow'
 
-const ARMED_CLASS = 'kanso-glow'
-const RUN_CLASS = 'kanso-glow-run'
+const ARMED_CLASS = 'kuma-glow'
+const RUN_CLASS = 'kuma-glow-run'
 const VEIL_ID = 'game-glow'
-const WELCOME_ID = 'kanso-welcome'
+const WELCOME_ID = 'kuma-welcome'
 const WELCOME_OUT_CLASS = 'kw-out'
 
 /**
- * 逐元素的进场标记：`el.dataset.kansoIn = <幕的标记>`，CSS 靠 `[data-kanso-in="…"]` 上动画。
+ * 逐元素的进场标记：`el.dataset.kumaIn = <幕的标记>`，CSS 靠 `[data-kuma-in="…"]` 上动画。
  *
  * **刻意用 data 属性而不是 class**：换 DOM 之前 withViewStateKept 会把整棵树扫一遍存
  * 滚动位置与 <details> 展开态，而它的键是**按 className 分桶**的（shared/view-state）。
@@ -75,7 +75,7 @@ const WELCOME_OUT_CLASS = 'kw-out'
  * 两列里，万一哪天有卡片自己成了滚动容器或 <details>，还原位置就会悄悄错开。
  * data 属性完全不碰 className，这条路彻底堵死。
  */
-const MARK = 'kansoIn'
+const MARK = 'kumaIn'
 
 /**
  * 「这场仪式还没演到那一幕」。挂在 body 上，CSS 用**祖先选择器**把各幕的内容区
@@ -93,7 +93,7 @@ const MARK = 'kansoIn'
  * 最大的风险面。所以摘除放在 endAll 里统一做，而 endAll 是点击跳过 / cancel /
  * 各只看门狗共用的收场口。
  */
-const CEREMONY_CLASS = 'kanso-ceremony'
+const CEREMONY_CLASS = 'kuma-ceremony'
 
 /**
  * 看门狗宽限：动画本该在总时长那一刻收尾，但 animationend 未必来得了
@@ -129,7 +129,7 @@ export interface LaunchStaggerStage {
   /** 这一幕的预隐选择器。CSS 本体在 index.html，这里留一份供护栏对账 */
   hides: string
   pick(): LaunchStagePick | null
-  /** 逐元素打的标记值：`[data-kanso-in="<mark>"]` */
+  /** 逐元素打的标记值：`[data-kuma-in="<mark>"]` */
   mark: string
   /**
    * 元素进场动画的 keyframes 名**前缀**。用前缀是因为一幕里可以有多个变体
@@ -197,7 +197,7 @@ interface RunningStage {
 //   ③ **静止态不留 transform**：位移只加在浮层内容块自己身上，放完就擦。
 //      **绝不往浮层的祖先上加 transform**——那会改掉 position:fixed 的包含块，
 //      而本仓的弹出物（peek/cmenu 等）正是因为面板有 transform 才挂到 body 上的。
-const OVERLAY_MARK = 'kansoOpen'
+const OVERLAY_MARK = 'kumaOpen'
 let overlayEntranceOn = false
 let overlayCleanup: (() => void) | null = null
 
@@ -256,7 +256,7 @@ export const playOverlayEntrance = (body: HTMLElement | null) => {
     if (overlayCleanup === done) overlayCleanup = null
   }
   const onEnd = (event: Event) => {
-    if (animationNameOf(event) === 'kanso-overlay-block') done()
+    if (animationNameOf(event) === 'kuma-overlay-block') done()
   }
 
   plan.blocks.forEach((block, index) => {
@@ -392,7 +392,7 @@ export const armLaunchWelcome = (enabled: boolean): LaunchWelcomeHandle | null =
   }
 
   const onFadeEnd = (event: Event) => {
-    if (animationNameOf(event) === 'kanso-welcome-out') close()
+    if (animationNameOf(event) === 'kuma-welcome-out') close()
   }
 
   /** 等够了：淡出，淡完才放行第一幕（露出罩暗态的正常面板，紧接着点火）。 */
@@ -512,7 +512,7 @@ export const armLaunchGlow = (enabled: boolean): LaunchGlowHandle | null => {
   }
 
   const onVeilEnd = (event: Event) => {
-    if (animationNameOf(event) === 'kanso-glow-game') finishAct1()
+    if (animationNameOf(event) === 'kuma-glow-game') finishAct1()
   }
 
   // 最后一格亮透＝各幕接手的那一刻。**认名字**：animationend 会冒泡，格子里住着
@@ -756,9 +756,9 @@ export const armLaunchGlow = (enabled: boolean): LaunchGlowHandle | null => {
     for (const step of steps) {
       const el = elementFor(step.target)
       if (!el) continue
-      // 关键帧本体在 index.html：kanso-glow-a/b/c 是三套点火节奏，
-      // kanso-glow-game 是游戏区那套柔和脉冲。
-      el.style.animationName = `kanso-glow-${step.variant}`
+      // 关键帧本体在 index.html：kuma-glow-a/b/c 是三套点火节奏，
+      // kuma-glow-game 是游戏区那套柔和脉冲。
+      el.style.animationName = `kuma-glow-${step.variant}`
       el.style.animationDelay = `${step.delay}ms`
       el.style.animationDuration = `${step.duration}ms`
       touched.push(el)

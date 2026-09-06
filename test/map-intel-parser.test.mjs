@@ -406,6 +406,32 @@ test('友军编成的括号注记不当舰名解——「電」是電探的简�
   )
 })
 
+test('友军表三处已知 wiki 拼写经明示别名命中，不扩成模糊匹配', () => {
+  const pack = {
+    data: {
+      a: { ID: 726, 日文名: 'Heywood L.E.改' },
+      b: { ID: 580, 日文名: 'Maestrale改' },
+      c: { ID: 365, 日文名: 'Aquila改' },
+    },
+  }
+  const html = `
+    <h3>友軍<a name ="friend"></a></h3>
+    <table><tr><th>旗艦</th><th>随伴艦</th><th>備考</th></tr>
+      <tr><td>Heywood l.E.改</td><td>Marstrale改 Aqulia改 Mastrale改</td><td>強友軍</td></tr>
+    </table>
+    <h3>次</h3>`
+
+  const fleets = parseEventFriendlyFleets(html, pack)
+  assert.deepEqual(
+    fleets[0].ships,
+    [
+      { id: 726, name: 'Heywood L.E.改' },
+      { id: 580, name: 'Maestrale改' },
+      { id: 365, name: 'Aquila改' },
+    ],
+  )
+})
+
 test('空模板里的括号注记也不算「已实装」——抹注记那一步两处都要走', () => {
   // 反方向那一半：判「整张表还是空模板」的那一步若拿原文匹配，
   // 注记里蹦出一个短舰名就会把模板判成已实装，铎那一格转而端出一副
@@ -603,7 +629,7 @@ test('友军/机关/特效舰/点位半径改了，人工那道闸要看得见�
 })
 
 test('an unapproved candidate blocks another refresh unless explicitly forced', () => {
-  const directory = mkdtempSync(path.join(os.tmpdir(), 'kanso-map-intel-review-'))
+  const directory = mkdtempSync(path.join(os.tmpdir(), 'kuma-map-intel-review-'))
   const output = path.join(directory, 'map-intel.json')
   try {
     const reviewDirectory = path.join(directory, 'review')

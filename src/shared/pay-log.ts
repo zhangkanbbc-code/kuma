@@ -1,5 +1,5 @@
 // 本机氪金记录（2026-08-19 用户定名）的报文解析纯函数。
-// 数据源实测（当日用户购入母港拡張×3 的账本原文）：
+// 游戏商店报文核对（维护者核 2026-08-19）：字段与使用效果如下。
 // - api_get_member/payitem：持有未用的课金道具清单，开商店/付款后都会刷新；
 //   条目形如 { api_payitem_id: "16"(字符串!), api_name, api_price, api_count }，
 //   一件都没有时 api_data 为 null（mg/index 的 ?? 会把整个包装对象传进来）。
@@ -54,7 +54,7 @@ export const parsePayitemList = (body: unknown): PayitemStocks | null => {
 }
 
 // 前后两份持有清单相减，只有**增加**算购买（减少走 payitemuse，另有记录）。
-// prev 为 null（本机从未观测过）时不造记录：现存的持有不知道是何时买的，
+// prev 为 null（对照资料从未观测过）时不造记录：现存的持有不知道是何时买的，
 // 交给玩家手动补记，不拿观测时刻冒充购买时刻。
 export const diffPayitemStocks = (
   prev: PayitemStocks | null,

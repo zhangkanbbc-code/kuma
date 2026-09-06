@@ -45,7 +45,7 @@ const kernelConfig = {
 ${UI_STORE_BLOCK}
 export const sourceValue = () => remoteValue
 `
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-ui-store-copy-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-ui-store-copy-'))
   const file = path.join(dir, 'store.cjs')
   fs.writeFileSync(file, transformSync(source, { loader: 'ts', format: 'cjs' }).code)
   return createRequire(fileURLToPath(import.meta.url))(file)

@@ -9,7 +9,7 @@ const asCalendarDate = (value) =>
 export const loadKcnavRoutingExport = (file) => {
   if (!file) {
     throw new Error(
-      'KCNav 明确拒绝未授权 API 自动化；请把官方/用户手动导出的离线包路径写入 KANSO_KCNAV_EXPORT 后重试',
+      'KCNav 明确拒绝未授权 API 自动化；请把官方/用户手动导出的离线包路径写入 KUMA_KCNAV_EXPORT 后重试',
     )
   }
   const absolute = path.resolve(file)

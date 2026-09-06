@@ -1,4 +1,4 @@
-// 艦素自研补充（逐条人工解码那一半）。
+// kuma自研补充（逐条人工解码那一半）。
 //
 // 上游（KCWiki / poi）与自研推导（废弃/演习/远征/出击四类）都没有安全规则的
 // 任务，在这里逐条人工解码。依据是本地任务库（quests-scn）的任务正文与补充说明
@@ -25,7 +25,7 @@ import type {
 import { shipNationalityIdFromSortId } from '../../shared/ship-nationality'
 import { buildShipRemodelChains } from '../../shared/ship-remodel-chain'
 
-export interface KansoQuestRule {
+export interface KumaQuestRule {
   questId: number
   code: string
   tasks: QpTask[]
@@ -132,7 +132,7 @@ const group = (
 interface RuleDraft {
   questId: number
   code: string
-  build: (h: BuildHelpers) => Omit<KansoQuestRule, 'questId' | 'code' | 'approx' | 'partial'> & {
+  build: (h: BuildHelpers) => Omit<KumaQuestRule, 'questId' | 'code' | 'approx' | 'partial'> & {
     approx?: boolean
     partial?: boolean
   }
@@ -1402,17 +1402,17 @@ const DRAFTS: RuleDraft[] = [
         { kind: 'useitem', id: h.useitem('新型兵装資材'), label: '新型兵装资材', count: 4 },
         { kind: 'useitem', id: h.useitem('開発資材'), label: '开发资材', count: 160 },
         { kind: 'useitem', id: h.useitem('熟練搭乗員'), label: '熟练搭乘员', count: 1 },
-        { kind: 'useitem', id: h.useitem('ネ式エンジン'), label: 'ネ式引擎', count: 1 },
+        { kind: 'useitem', id: h.useitem('ネ式エンジン'), label: 'Ne式引擎', count: 1 },
       ],
     }),
   },
 ]
 
-export const buildKansoQuestRules = (
+export const buildKumaQuestRules = (
   context: KcwikiRuleContext,
   masterRaw: any,
   fcd: PoiFcdMapData | null | undefined,
-): KansoQuestRule[] => {
+): KumaQuestRule[] => {
   // 改造链索引。禁止拿 aftershipid 手搓单值反向链：可逆改装（改二⇄乙/丙）
   // 的回环边会让链根回溯断在半路，改二之后的形态全漏——权威在 shared/ship-remodel-chain。
   const friendly: any[] = (masterRaw?.api_mst_ship ?? []).filter(
@@ -1491,7 +1491,7 @@ export const buildKansoQuestRules = (
       return ids
     },
   }
-  const rules: KansoQuestRule[] = []
+  const rules: KumaQuestRule[] = []
   for (const draft of DRAFTS) {
     try {
       const built = draft.build(helpers)
@@ -1508,7 +1508,7 @@ export const buildKansoQuestRules = (
     } catch (error) {
       if (error instanceof MissingEntity) {
         // 名字解析失败＝主数据/上下文缺这一项。按纪律丢弃整条规则并告警，绝不猜。
-        console.warn(`[kanso] qp: 艦素规则 ${draft.code} 跳过——${error.message} 无法解析`)
+        console.warn(`[kuma] qp: kuma规则 ${draft.code} 跳过——${error.message} 无法解析`)
       } else {
         throw error
       }

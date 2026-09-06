@@ -1,5 +1,5 @@
 // Adapted from poi (https://github.com/poooi/poi) lib/game-api-broadcaster.ts
-// MIT License, Copyright (c) poi contributors — 移植与改造：艦素 kanso 项目。
+// MIT License, Copyright (c) poi contributors — 移植与改造：kuma 项目。
 // 锚：游戏 API 事件广播器。svdata= 前缀解析、api_result 门控、镇守府服务器识别。
 import { EventEmitter } from 'events'
 import { ipcMain } from 'electron'
@@ -155,7 +155,7 @@ const isAllowedMethod = (method: unknown): method is string =>
 const isGamePath = (pathname: unknown): pathname is string =>
   typeof pathname === 'string' && pathname.startsWith('/kcs')
 
-ipcMain.on('kanso:game-api', (event, kind: unknown, payload: any) => {
+ipcMain.on('kuma:game-api', (event, kind: unknown, payload: any) => {
   try {
     if (event.sender.getType() !== 'webview') return
     if (!payload || typeof payload !== 'object') return
@@ -179,7 +179,7 @@ ipcMain.on('kanso:game-api', (event, kind: unknown, payload: any) => {
       broadcaster.sendError(requestInfo, payload.status)
     }
   } catch (e) {
-    console.warn('[kanso] game-api bridge dispatch failed', e)
+    console.warn('[kuma] game-api bridge dispatch failed', e)
   }
 })
 

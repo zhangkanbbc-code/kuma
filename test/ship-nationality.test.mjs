@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 
 import { buildSync } from 'esbuild'
 
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-ship-nationality-'))
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-ship-nationality-'))
 const output = path.join(tempDir, 'ship-nationality.cjs')
 buildSync({
   entryPoints: [fileURLToPath(new URL('../src/shared/ship-nationality.ts', import.meta.url))],

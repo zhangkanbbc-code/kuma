@@ -107,7 +107,7 @@ test('note 未核时不给 refs；核过的必须留出处', () => {
   }
 })
 
-test('questRefs 的码全在任务库里（艦素码空间）', () => {
+test('questRefs 的码全在任务库里（kuma码空间）', () => {
   const lode = JSON.parse(
     fs.readFileSync(new URL('../assets/lodes/quests-scn.json', import.meta.url), 'utf8'),
   )

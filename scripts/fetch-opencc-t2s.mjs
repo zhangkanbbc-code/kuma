@@ -44,7 +44,7 @@ const mergeDictionary = (dictionary, overrides) => Object.fromEntries(
 
 const fetched = await Promise.all(
   SOURCES.map(async (source) => {
-    const response = await fetch(source.url, { headers: { 'User-Agent': 'kanso-lodes' } })
+    const response = await fetch(source.url, { headers: { 'User-Agent': 'kuma-lodes' } })
     if (!response.ok) throw new Error(`${source.url} → HTTP ${response.status}`)
     return { ...source, text: await response.text() }
   }),

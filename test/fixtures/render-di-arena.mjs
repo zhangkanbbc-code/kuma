@@ -67,7 +67,7 @@ export { arenaHtml, sideRowsHtml, wipedNameHtml, mg }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-di-arena-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-di-arena-'))
   const entry = path.join(dir, 'arena.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'arena.cjs')

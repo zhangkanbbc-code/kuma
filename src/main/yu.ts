@@ -77,7 +77,7 @@ const sha256File = (file: string): Promise<string> =>
 
 const writeBackupBundle = async (destination: string) => {
   const sqliteTemp = path.join(APPDATA_PATH, `mg.backup-${process.pid}-${Date.now()}.sqlite`)
-  const bundleTemp = `${destination}.kanso-${process.pid}-${Date.now()}.tmp`
+  const bundleTemp = `${destination}.kuma-${process.pid}-${Date.now()}.tmp`
   try {
     ledger.backupDatabase(sqliteTemp)
     const stat = fs.statSync(sqliteTemp)
@@ -174,7 +174,7 @@ ipcMain.handle('yu:appdata-path', () => APPDATA_PATH)
 ipcMain.handle('yu:open-mod-dir', async () => {
   const dir = ensureModDir()
   const message = await shell.openPath(dir)
-  if (message) console.warn('[kanso] yu: 打开魔改目录失败', dir, message)
+  if (message) console.warn('[kuma] yu: 打开魔改目录失败', dir, message)
   return { ok: !message, path: dir, message }
 })
 
@@ -199,7 +199,7 @@ ipcMain.handle('yu:reload-game-url', async () => {
   } catch (error) {
     // 导航被打断（ERR_ABORTED）也走这里，不是每一次都算失败；真加载不上时
     // 游戏页那层 did-fail-load 会把错误码原样铺在浮层上，这里只留一行给 crash.log
-    console.warn('[kanso] yu: 游戏页重新载入未完成', url, error)
+    console.warn('[kuma] yu: 游戏页重新载入未完成', url, error)
   }
   return { ok: true, url }
 })
@@ -281,16 +281,16 @@ const runPendingQuitWork = () => {
       if (restoreConfigOnQuit) config.restoreSnapshot(restoreConfigOnQuit)
       fs.rmSync(staged, { force: true })
       fs.rmSync(rollback, { force: true })
-      console.info(`[kanso] yu: ${restoreConfigOnQuit ? 'complete backup' : 'legacy ledger'} restored`)
+      console.info(`[kuma] yu: ${restoreConfigOnQuit ? 'complete backup' : 'legacy ledger'} restored`)
     } catch (error) {
-      console.error('[kanso] yu: ledger restore failed', error)
+      console.error('[kuma] yu: ledger restore failed', error)
       try {
         if (fs.existsSync(rollback)) fs.copyFileSync(rollback, DB_PATH)
         if (restoreConfigOnQuit) config.restoreSnapshot(previousConfig)
         fs.rmSync(rollback, { force: true })
         fs.rmSync(staged, { force: true })
       } catch (rollbackError) {
-        console.error('[kanso] yu: ledger restore rollback failed', rollbackError)
+        console.error('[kuma] yu: ledger restore rollback failed', rollbackError)
       }
     }
   }
@@ -300,10 +300,10 @@ const runPendingQuitWork = () => {
     try {
       fs.rmSync(path.join(APPDATA_PATH, dir), { recursive: true, force: true })
     } catch (e) {
-      console.warn('[kanso] yu: cache dir removal failed', dir, e)
+      console.warn('[kuma] yu: cache dir removal failed', dir, e)
     }
   }
-  console.log('[kanso] yu: cache cleared, relaunching')
+  console.log('[kuma] yu: cache cleared, relaunching')
 }
 
 app.on('will-quit', runPendingQuitWork)

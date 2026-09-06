@@ -32,7 +32,7 @@ const UPSTREAM = path.join(ROOT, 'assets', 'lodes', 'equip-upgrades.json')
 // 输出路径可用环境变量改道：幂等护栏拿它把产物写到临时目录去比字节，
 // 测试期间不再碰仓里那份（并行跑的另外两份测试正在读它）。
 const CANON = path.join(ROOT, 'assets', 'lodes', 'equip-improve.json')
-const OUT = process.env.KANSO_EQUIP_IMPROVE_OUT || CANON
+const OUT = process.env.KUMA_EQUIP_IMPROVE_OUT || CANON
 const DIST = path.join(ROOT, 'dist', 'shared', 'equip-upgrade-corrections.js')
 
 // ---- basis 的档位 ----
@@ -56,7 +56,7 @@ const measuredBasis = (date) => `游戏内实测 ${date}`
  * 认行靠更新目标（`convert`）——比行序可靠，上游调过行序也不会认错。
  */
 const JUDGED_ROW_BASIS = new Map([
-  // 322 瑞雲改二(六三四空)：用户在游戏里点出来的那一件，两行同源
+  // 322 瑞雲改二(六三四空)：维护者在游戏里点出来的那一件，两行同源
   [322, () => measuredBasis('2026-08-25')],
   // 294 12.7cm連装砲A型改二：照表补的一段，未实测
   [294, () => BASIS_DEFAULT],

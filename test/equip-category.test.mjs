@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url'
 
 import { buildSync } from 'esbuild'
 
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-equip-category-'))
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-equip-category-'))
 const output = path.join(tempDir, 'equip-category.cjs')
 buildSync({
   entryPoints: [fileURLToPath(new URL('../src/renderer/equip-category.ts', import.meta.url))],

@@ -141,7 +141,7 @@ export { todayImprovementRows, todayImprovementGroupsHtml, invalidateEquippedIns
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-today-improve-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-today-improve-'))
   const entry = path.join(dir, 'today.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'today.cjs')

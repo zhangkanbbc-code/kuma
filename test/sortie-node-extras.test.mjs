@@ -86,7 +86,7 @@ const flavorSpeaker = (() => {
   const start = source.indexOf(from)
   const end = source.indexOf(to, start)
   assert.ok(start >= 0 && end > start, 'voice-subtitle.ts 里找不到 flavorSpeaker，锚点要跟着改')
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-flavor-speaker-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-flavor-speaker-'))
   const entry = path.join(dir, 'speaker.ts')
   fs.writeFileSync(
     entry,

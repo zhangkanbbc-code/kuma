@@ -283,7 +283,7 @@ export const ensureShipStatsLode = (onReady?: () => void): Promise<void> => {
         gateCache = null
       })
       .catch((error) => {
-        console.warn('[kanso] 成长端点包读不到，回避/对潜/索敌的面板反推整片停用', error)
+        console.warn('[kuma] 成长端点包读不到，回避/对潜/索敌的面板反推整片停用', error)
       })
   }
   if (onReady) void shipStatsReady.then(onReady)

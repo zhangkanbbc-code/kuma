@@ -4,6 +4,7 @@
 //
 // 卡片按**分类分页**摆（页签在面板顶部，一次只画一类）。归属表在
 // shared/settings-sections，这里只消费：卡的次序、页签的次序都从那份表来。
+import { readEnv } from '../../shared/env-names'
 import { crashLog, onCrash } from '../crash-guard'
 import { setAllowRemoteArt } from '../kcs-image'
 import { setAllowRemoteVoice } from '../kcs-voice'
@@ -131,7 +132,7 @@ const config = remote.require('./config')
  * 别为设置另发明一个开关：多一个开关就多一处「以为关着其实开着」。
  * 关着时「矿脉健康度」那张维护者工具卡整张不装配（判据在 shared/settings-sections）。
  */
-const DEBUG_UI = process.env.KANSO_DEBUG_UI === '1'
+const DEBUG_UI = readEnv('KUMA_DEBUG_UI') === '1'
 
 let pane: HTMLElement
 /**
@@ -171,7 +172,7 @@ interface GameAudioFrameStats {
   voiceDurations: { path: string; ms: number }[]
 }
 /**
- * 自检读回来的东西。**维护者工具**（只在 `KANSO_DEBUG_UI=1` 下装配）。
+ * 自检读回来的东西。**维护者工具**（只在 `KUMA_DEBUG_UI=1` 下装配）。
  * null = 还没读过；空数组 = 读到了，但一个帧都没装上钩子——那是真坏了。
  */
 let audioSelfTest: GameAudioFrameStats[] | null = null
@@ -323,7 +324,7 @@ const clampAudioPercent = (field: GameAudioVolumeField, percent: number): number
 
 /** 配置里读出的倍率（0–1 或 0–2）。读不出数回默认 1，而不是 clamp 成 0 静音 */
 const readAudioVolume = (field: GameAudioVolumeField): number => {
-  const raw = Number(config.get(`kanso.gameAudio.${field}`, 1))
+  const raw = Number(config.get(`kuma.gameAudio.${field}`, 1))
   if (!Number.isFinite(raw)) return 1
   return Math.max(0, Math.min(GAME_AUDIO_VOLUME_MAX[field] / 100, raw))
 }
@@ -370,7 +371,7 @@ const readAudioSelfTest = (): void => {
   audioSelfTestReading = true
   audioSelfTestError = null
   void webview
-    .executeJavaScript('window.kansoGameAudioStats ? window.kansoGameAudioStats() : null')
+    .executeJavaScript('window.kumaGameAudioStats ? window.kumaGameAudioStats() : null')
     .then((result) => {
       audioSelfTest = (result as GameAudioFrameStats[] | null) ?? []
     })
@@ -387,7 +388,7 @@ const readAudioSelfTest = (): void => {
 const AUDIO_CATEGORY_LABEL = { voice: '语音', bgm: 'BGM', other: '其他' } as const
 
 /**
- * 游戏音频链路自检。**维护者工具**——只在 `KANSO_DEBUG_UI=1` 下装配
+ * 游戏音频链路自检。**维护者工具**——只在 `KUMA_DEBUG_UI=1` 下装配
  *（归属表 shared/settings-sections 的 `DEBUG_ONLY_CARDS`）。
  *
  * 存在的理由：三条滑条不起作用时，坏的地方可能在任意一环——钩子没装进那个帧、
@@ -395,7 +396,7 @@ const AUDIO_CATEGORY_LABEL = { voice: '语音', bgm: 'BGM', other: '其他' } as
  * 这张卡把这三环各自的计数摊开，一眼能定位到是哪一环。
  *
  * 2026-08-26 修的那个 bug 正是第二环：游戏用 howler 装语音，
- * 它先装 onload 再调 send，而艦素当时把登记挂在 send 里，
+ * 它先装 onload 再调 send，而kuma当时把登记挂在 send 里，
  * 于是解码时地址还没记上，语音被当成普通音效——只吃总音量，语音滑条白拉。
  */
 const gameAudioSelfTestCardHtml = (): string => {
@@ -459,7 +460,7 @@ const gameAudioSelfTestCardHtml = (): string => {
 }
 
 /**
- * 矿脉健康度。**维护者工具**——只在 `KANSO_DEBUG_UI=1` 下装配
+ * 矿脉健康度。**维护者工具**——只在 `KUMA_DEBUG_UI=1` 下装配
  *（归属表 shared/settings-sections 的 `DEBUG_ONLY_CARDS`）。
  *
  * 为什么不给玩家看（2026-08-24 用户拍板，原话「既然不随包玩家那边看不到，
@@ -619,7 +620,7 @@ const lodeHealthCardHtml = (): string => {
 const lodeCreditCardHtml = (): string => {
   const rows = LODE_CREDIT_SOURCES.map((source) => {
     // 来源名是外链：点击才联网，属「网络去向告知」的豁免项。
-    // 没有 url 的那一组（艦素自行整理）落成纯文本，绝不渲染死链。
+    // 没有 url 的那一组（kuma自行整理）落成纯文本，绝不渲染死链。
     const name = source.url
       ? `<a class="ycredit-name" href="${esc(source.url)}" target="_blank" rel="noreferrer">${esc(source.name)} ↗</a>`
       : `<span class="ycredit-name">${esc(source.name)}</span>`
@@ -632,6 +633,9 @@ const lodeCreditCardHtml = (): string => {
     (source) => `<div class="ynote"><b>${esc(source.name)}</b>：${esc(source.detail)}</div>`,
   ).join('')
   return `<div class="h"><b>资料来源与许可</b></div>
+    ${lodes.filter((meta) => meta.ignoredUserVersion !== undefined).map((meta) =>
+      `<div class="ynote">导入的 ${esc(meta.name)} 版本 ${esc(meta.ignoredUserVersion)} 旧于随包版本 ${esc(meta.version)}，已改用随包</div>`,
+    ).join('')}
     <div class="ynote">${esc(LODE_CREDIT_INTRO.lead)}<br>
       ${esc(LODE_CREDIT_INTRO.licenseNote)}<b>${esc(LODE_CREDIT_INTRO.emphasis)}</b></div>
     <div class="ycredits">${rows}</div>
@@ -1017,28 +1021,28 @@ const captionSizeCardHtml = (): string => {
 // 两句摆在同一张卡上就是自相矛盾。改成留个口子，例外由那一条自己说清楚。
 const uiHintsCardHtml = (): string => `<div class="h"><b>界面提示</b><span class="aux">即时生效 · 注明的除外</span></div>
   ${toggleHtml(
-    'kanso.voiceCaptions',
+    'kuma.voiceCaptions',
     '显示语音文字',
     '母港：底部字幕 · 战斗：双向弹幕',
-    config.get('kanso.voiceCaptions', true),
+    config.get('kuma.voiceCaptions', true),
   )}
   ${toggleHtml(
-    'kanso.eventBannerEffects',
+    'kuma.eventBannerEffects',
     '新舰 / 大破 / 应急修理 / 婚礼置顶横幅与外框光效',
     '光效总开关 · 逐事件开关位于通知',
-    config.get('kanso.eventBannerEffects', true),
+    config.get('kuma.eventBannerEffects', true),
   )}
   ${toggleHtml(
-    'kanso.sunkEffects',
+    'kuma.sunkEffects',
     '击沉哀悼特效',
     '被击沉时界面失色、卡片碎裂，直到返港',
-    config.get('kanso.sunkEffects', true),
+    config.get('kuma.sunkEffects', true),
   )}
   ${toggleHtml(
-    'kanso.buildSpoiler',
+    'kuma.buildSpoiler',
     '提前显示建造结果',
     '预览卡与完成通知显示舰名',
-    config.get('kanso.buildSpoiler', false),
+    config.get('kuma.buildSpoiler', false),
   )}
   ${toggleHtml(
     LAUNCH_GLOW_CONFIG_KEY,
@@ -1049,31 +1053,32 @@ const uiHintsCardHtml = (): string => `<div class="h"><b>界面提示</b><span c
 
 const trayCardHtml = (): string => `<div class="h"><b>托盘与后台</b><span class="aux">改动后重启 kuma 生效</span></div>
   ${toggleHtml(
-    'kanso.tray.enabled',
+    'kuma.tray.enabled',
     '显示托盘图标',
     '显示未读条数 · 右键菜单：勿扰 / 退出',
-    config.get('kanso.tray.enabled', true),
+    config.get('kuma.tray.enabled', true),
   )}
   ${toggleHtml(
-    'kanso.tray.closeToTray',
+    'kuma.tray.closeToTray',
     '关闭按钮改为收进托盘',
     '关闭：✕ 退出程序 · 开启：✕ 收起窗口，托盘菜单退出',
-    config.get('kanso.tray.closeToTray', false),
+    config.get('kuma.tray.closeToTray', false),
   )}
   ${toggleHtml(
-    'kanso.tray.minimizeToTray',
+    'kuma.tray.minimizeToTray',
     '最小化时收进托盘',
     '最小化至托盘 · 隐藏任务栏图标',
-    config.get('kanso.tray.minimizeToTray', false),
+    config.get('kuma.tray.minimizeToTray', false),
   )}
   <div class="ynote">托盘、通知或再次启动可唤回</div>`
 
-const HOTKEY_IDS: readonly HotkeyId[] = ['boss', 'reload', 'focus', 'capture']
+const HOTKEY_IDS: readonly HotkeyId[] = ['boss', 'reload', 'focus', 'capture', 'mute']
 const HOTKEY_LABELS: Record<HotkeyId, string> = {
   boss: '老板键',
   reload: '刷新游戏',
   focus: '专注模式',
   capture: '截图',
+  mute: '静音',
 }
 
 const readHotkey = (id: HotkeyId): Accelerator => {
@@ -1116,10 +1121,11 @@ const hotkeysCardHtml = (): string =>
   <div class="ynote">隐藏 kuma 全部窗口并静音，再按一次恢复</div>
   ${hotkeyRowHtml('reload')}
   ${hotkeyRowHtml('focus')}
-  ${hotkeyRowHtml('capture')}`
+  ${hotkeyRowHtml('capture')}
+  ${hotkeyRowHtml('mute')}`
 
 const gameAudioCardHtml = (): string => {
-  const rawMode = config.get('kanso.gameAudio.mode', 'all')
+  const rawMode = config.get('kuma.gameAudio.mode', 'all')
   const mode: GameAudioMode = rawMode === 'voice' || rawMode === 'bgm' ? rawMode : 'all'
   const modeChips = GAME_AUDIO_MODES.map(
     ([id, label]) =>
@@ -1199,20 +1205,20 @@ const loginCardHtml = (): string => {
         ? `登录状态已保存 · ${fmtDateTime(loginHealth.lastPersistedAt)}`
         : '暂无新的 DMM 登录状态'
   return `<div class="h"><b>登录与会话</b></div>
-    ${toggleHtml('kanso.persistLogin', '保持登录状态', 'DMM 会话延长至 180 天 · 重启通常无需重新登录', config.get('kanso.persistLogin', true))}
-    ${toggleHtml('kanso.dmmcookie', 'DMM 地区 Cookie 兼容', '大陆网络通常需要开启 · 关闭后可能出现区域限制页', config.get('kanso.dmmcookie', true))}
+    ${toggleHtml('kuma.persistLogin', '保持登录状态', 'DMM 会话延长至 180 天 · 重启通常无需重新登录', config.get('kuma.persistLogin', true))}
+    ${toggleHtml('kuma.dmmcookie', 'DMM 地区 Cookie 兼容', '大陆网络通常需要开启 · 关闭后可能出现区域限制页', config.get('kuma.dmmcookie', true))}
     ${toggleHtml(
-      'kanso.remoteArt',
+      'kuma.remoteArt',
       '未缓存的立绘/语音从游戏资源服务器取',
       '关闭：仅使用本机已有资源',
-      config.get('kanso.remoteArt', true),
+      config.get('kuma.remoteArt', true),
     )}
     <div class="ystatus ${loginHealth?.lastError ? 'bad' : 'ok'}">${esc(healthText)}</div>`
 }
 
 const reportCardHtml = (): string => `<div class="h"><b>社区上报</b><span class="aux">默认关</span></div>
-  ${toggleHtml('kanso.report.tsundb', 'TsunDB 上报', '提交本地带路、掉落与敌编成记录至社区数据库', false, true, '上报功能尚未接入')}
-  ${toggleHtml('kanso.report.poi', 'poi 统计上报', '提交本地建造、开发与掉落记录至 api.poi.moe', false, true, '上报功能尚未接入')}`
+  ${toggleHtml('kuma.report.tsundb', 'TsunDB 上报', '提交本地带路、掉落与敌编成记录至社区数据库', false, true, '上报功能尚未接入')}
+  ${toggleHtml('kuma.report.poi', 'poi 统计上报', '提交本地建造、开发与掉落记录至 api.poi.moe', false, true, '上报功能尚未接入')}`
 
 const backupCardHtml = (): string => `<div class="h"><b>完整备份与恢复</b><span class="aux">历史数据 · 设置 · 收藏与个人备注</span></div>
   <div class="ynote">备份范围：历史数据库 + <span class="mono">config.json</span>（布局、通知规则、目标、收藏、备注）·
@@ -1292,7 +1298,7 @@ const kumaVersion = (() => {
   try {
     return `${require('@electron/remote').app.getVersion()}`
   } catch (error) {
-    console.warn('[kanso] 版本读取失败', error)
+    console.warn('[kuma] 版本读取失败', error)
     return '版本读取失败'
   }
 })()
@@ -1340,7 +1346,7 @@ const lodePacksCardHtml = (): string => {
         lodesLoaded ? '暂无数据包 · 可能文件损坏 · 请重新安装' : '加载中…'
       }</td></tr>`
     }</tbody></table>
-    <div class="ynote">用户包目录 <span class="mono">${esc(appdataPath)}\\lodes</span> 内同 id 文件覆盖内置包</div>`
+    <div class="ynote">用户包目录 <span class="mono">${esc(appdataPath)}\\lodes</span> 内同 id 文件取较新版本；版本相同时使用你导入的包</div>`
 }
 
 const aboutCardHtml = (): string => `<div class="h"><b>关于</b></div>
@@ -1450,7 +1456,7 @@ registerModule({
         .invoke('hotkeys:apply')
         .then((result: { boss?: BossHotkeyStatus } | null) => {
           updateHotkeyStatus(result)
-          window.dispatchEvent(new Event('kanso-hotkeys-changed'))
+          window.dispatchEvent(new Event('kuma-hotkeys-changed'))
           render()
         })
     }
@@ -1529,7 +1535,7 @@ registerModule({
         field,
         setTimeout(() => {
           volumeCommitTimers.delete(field)
-          config.set(`kanso.gameAudio.${field}`, percent / 100)
+          config.set(`kuma.gameAudio.${field}`, percent / 100)
         }, 150),
       )
     })
@@ -1546,7 +1552,7 @@ registerModule({
           if (pending) {
             clearTimeout(pending)
             volumeCommitTimers.delete(field)
-            config.set(`kanso.gameAudio.${field}`, clampAudioPercent(field, Number(audioInput.value)) / 100)
+            config.set(`kuma.gameAudio.${field}`, clampAudioPercent(field, Number(audioInput.value)) / 100)
           }
         }
         render()
@@ -1580,10 +1586,10 @@ registerModule({
         const mb = Number.parseInt(limitInput.value, 10)
         const configKey =
           kind === 'art'
-            ? 'kanso.archive.artMaxMB'
+            ? 'kuma.archive.artMaxMB'
             : kind === 'bgm'
-              ? 'kanso.archive.bgmMaxMB'
-              : 'kanso.archive.voiceMaxMB'
+              ? 'kuma.archive.bgmMaxMB'
+              : 'kuma.archive.voiceMaxMB'
         config.set(configKey, Number.isInteger(mb) && mb > 0 ? mb : 0)
         // 改完立刻重新统计：上限变了，「满没满」「有多少不可再得」都要重算
         refreshVoiceArchiveUsage()
@@ -1596,7 +1602,7 @@ registerModule({
       if (retentionInput) {
         // 留空、0、负数、乱填一律回**永久保留**（与主进程 planLedgerPrune 同一条判据）。
         // 与推送那个门槛相反：那边 0 等于把门槛悄悄关掉所以要拒，这边 0 就是默认值。
-        config.set('kanso.ledger.retentionDays', clampLedgerRetentionDays(retentionInput.value))
+        config.set('kuma.ledger.retentionDays', clampLedgerRetentionDays(retentionInput.value))
         // 抬头那句「永久保留 / 保留 N 天」要跟着变，重新问一次主进程
         refreshLedgerRetention()
         render()
@@ -1750,7 +1756,7 @@ registerModule({
       }
       if (act === 'open-crash-log') {
         // 文件可能还不存在（一次没出过错就没写过），交给系统提示比自己伪造一个空文件好
-        void ipcRenderer.invoke('kanso:crash-log-path').then((p: string) => {
+        void ipcRenderer.invoke('kuma:crash-log-path').then((p: string) => {
           void remote.shell.openPath(p).then((error: string) => {
             if (error) alert(`打不开 crash.log：${error}\n路径：${p}`)
           })
@@ -1997,7 +2003,7 @@ registerModule({
       if (audioModeChip) {
         const mode = audioModeChip.dataset.audioMode
         if (mode === 'all' || mode === 'voice' || mode === 'bgm') {
-          config.set('kanso.gameAudio.mode', mode)
+          config.set('kuma.gameAudio.mode', mode)
           render()
         }
         return
@@ -2007,13 +2013,13 @@ registerModule({
         const key = toggle.dataset.toggle!
         // 这几个默认开，取反时要按各自默认值读，否则第一次点会「开→开」
         const dflt = [
-          'kanso.persistLogin',
-          'kanso.dmmcookie',
-          'kanso.remoteArt',
-          'kanso.voiceCaptions',
-          'kanso.eventBannerEffects',
-          'kanso.sunkEffects',
-          'kanso.tray.enabled',
+          'kuma.persistLogin',
+          'kuma.dmmcookie',
+          'kuma.remoteArt',
+          'kuma.voiceCaptions',
+          'kuma.eventBannerEffects',
+          'kuma.sunkEffects',
+          'kuma.tray.enabled',
           // 推送的三项保护默认开：取反时按各自默认读，否则第一次点会「开→开」
           PUSH_CONFIG_PATHS.barkEncrypt,
           PUSH_CONFIG_PATHS.titleOnly,
@@ -2021,16 +2027,16 @@ registerModule({
         ].includes(key)
         const next = !config.get(key, dflt)
         config.set(key, next)
-        if (key === 'kanso.remoteArt') {
+        if (key === 'kuma.remoteArt') {
           setAllowRemoteArt(next)
           setAllowRemoteVoice(next)
-        } else if (key === 'kanso.voiceCaptions') {
+        } else if (key === 'kuma.voiceCaptions') {
           setVoiceCaptionsEnabled(next)
-        } else if (key === 'kanso.eventBannerEffects') {
+        } else if (key === 'kuma.eventBannerEffects') {
           setEventBannerEffectsEnabled(next)
-        } else if (key === 'kanso.sunkEffects') {
+        } else if (key === 'kuma.sunkEffects') {
           setSunkEffectsEnabled(next)
-        } else if (key === 'kanso.buildSpoiler') {
+        } else if (key === 'kuma.buildSpoiler') {
           setBuildSpoilerEnabled(next)
         } else if (key === LAUNCH_GLOW_CONFIG_KEY) {
           // 顶栏浮层那半段归同一个开关，而它是**当场生效**的：关掉连正在演的那一次
@@ -2053,17 +2059,17 @@ registerModule({
             ),
           )
         }
-        if (key.startsWith('kanso.push.')) pushMessage = null
+        if (key.startsWith('kuma.push.')) pushMessage = null
         render()
       }
     })
     onUiZoom(() => render())
-    setAllowRemoteArt(config.get('kanso.remoteArt', true))
-    setAllowRemoteVoice(config.get('kanso.remoteArt', true))
-    setVoiceCaptionsEnabled(config.get('kanso.voiceCaptions', true))
-    setEventBannerEffectsEnabled(config.get('kanso.eventBannerEffects', true))
-    setSunkEffectsEnabled(config.get('kanso.sunkEffects', true))
-    setBuildSpoilerEnabled(config.get('kanso.buildSpoiler', false))
+    setAllowRemoteArt(config.get('kuma.remoteArt', true))
+    setAllowRemoteVoice(config.get('kuma.remoteArt', true))
+    setVoiceCaptionsEnabled(config.get('kuma.voiceCaptions', true))
+    setEventBannerEffectsEnabled(config.get('kuma.eventBannerEffects', true))
+    setSunkEffectsEnabled(config.get('kuma.sunkEffects', true))
+    setBuildSpoilerEnabled(config.get('kuma.buildSpoiler', false))
     setOverlayEntranceEnabled(config.get(LAUNCH_GLOW_CONFIG_KEY, LAUNCH_GLOW_DEFAULT))
     // 进程级监听不随面板 innerHTML 生灭，重试装配会再挂一份：
     // 同一条推送重绘两遍（且旧那份还攥着上一张面板）。在 mount 同步段挂退订。
@@ -2098,7 +2104,7 @@ registerModule({
         // 缺包由上面那行「缺 N 包」如实报），抛出来的才是读取出错。
         queryLode('map-intel').catch((error: unknown) => {
           mapIntelError = error instanceof Error ? error.message : String(error)
-          console.warn('[kanso] 读取 map-intel 数据包失败：', error)
+          console.warn('[kuma] 读取 map-intel 数据包失败：', error)
           return null
         }),
       ])

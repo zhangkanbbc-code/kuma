@@ -76,7 +76,7 @@ export { displayAtPlaybackTime, modeFor }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-hourly-gate-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-hourly-gate-'))
   const entry = path.join(dir, 'hourly.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'hourly.cjs')

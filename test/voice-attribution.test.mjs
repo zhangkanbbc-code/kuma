@@ -15,6 +15,7 @@ import {
   voiceSceneOfSlot,
   voiceSlotOfKey,
 } from '../src/shared/voice-scene-slots.ts'
+import { normalizeVoiceLine } from '../src/shared/voice-lineage.ts'
 
 const lodeFile = (id) => new URL(`../assets/lodes/${id}.json`, import.meta.url)
 const readLode = (id) => {
@@ -410,9 +411,9 @@ test('归属校正只搬家不复制：全包行数守恒，且挪走的行不�
 // 这一列与随包早就有的 `kcwiki-voice.ja`、整份 `subtitle-ja` **同级同灰度，不加深**。
 // 台词卷是**对照**功能，缺了日文就只剩半张表，所以判据反过来钉：这一列必须在。
 test('自补层的包：ja 列必须在且逐行非空（对照功能，缺了就是半张表）', (t) => {
-  const pack = readLode('kanso-voice')
+  const pack = readLode('kuma-voice')
   if (!pack) {
-    t.skip('缺 kanso-voice，跳过')
+    t.skip('缺 kuma-voice，跳过')
     return
   }
   const missing = []
@@ -436,15 +437,24 @@ test('自补层的包：ja 列必须在且逐行非空（对照功能，缺了�
   }
 })
 
+test('随包自译台词不含未判定的同槽候选', () => {
+  const pack = readLode('kuma-voice')
+  assert.ok(pack, '缺少随包 kuma-voice')
+  const keys = Object.values(pack.data.ships).flat()
+    .filter(row => row.basis === 'ambiguous').map(row => row.key)
+  assert.deepEqual(keys, [], `未判定行键：${keys.join(', ')}`)
+})
+
 test('自补层的 ja 与 zh 逐行配得上——错一行比缺一行糟', (t) => {
-  const pack = readLode('kanso-voice')
+  const pack = readLode('kuma-voice')
   const wikiwiki = readLode('wikiwiki-voice')
   if (!pack || !wikiwiki) {
-    t.skip('缺 kanso-voice 或它的日文底本 wikiwiki-voice，跳过')
+    t.skip('缺 kuma-voice 或它的日文底本 wikiwiki-voice，跳过')
     return
   }
-  // 与 scripts/voice-backfill-ja.mjs 同一套配对判据：(形态, 槽位, 同槽第几条)。
-  // 这里再独立跑一遍，是因为「配错」的样子和「配对」一模一样——只有比对底本才看得出来。
+  // 与 scripts/voice-backfill-ja.mjs 同一套配对判据：同形态同槽任一候选，且候选不得复用。
+  // 2026-09-06 Glorious 判例：改装阶段的两套台词列在同一页，按同槽序号会把后一阶段
+  // 的行对到前一阶段的句子。这里独立跑一遍，因为「配错」和「配对」看起来一模一样。
   const bad = []
   for (const [mstId, rows] of Object.entries(pack.data.ships)) {
     const seen = new Set()
@@ -458,10 +468,20 @@ test('自补层的 ja 与 zh 逐行配得上——错一行比缺一行糟', (t)
     }
     const used = new Map()
     for (const row of rows) {
-      const index = used.get(row.slot) ?? 0
-      used.set(row.slot, index + 1)
-      const expected = `${(bySlot.get(row.slot) ?? [])[index]?.ja ?? ''}`
-      if (row.ja !== expected) bad.push(`${mstId} ${row.key}`)
+      const candidates = bySlot.get(row.slot) ?? []
+      const usedHere = used.get(row.slot) ?? new Set()
+      const actual = normalizeVoiceLine(row.ja)
+      const index = candidates.findIndex(
+        (candidate, candidateIndex) =>
+          !usedHere.has(candidateIndex) &&
+          actual === normalizeVoiceLine(candidate.ja),
+      )
+      if (index < 0) {
+        bad.push(`${mstId} ${row.key}`)
+      } else {
+        usedHere.add(index)
+        used.set(row.slot, usedHere)
+      }
     }
   }
   assert.deepEqual(bad.slice(0, 5), [], `${bad.length} 行的 ja 与底本对不上`)
@@ -472,8 +492,9 @@ test('自补层只补空：上游已覆盖的槽位一格不收', (t) => {
   //（先追录 50 个形态，再把台词页清单换成穷举式、追到 765 形态），自补层按「只补空」
   // 的本意各做了一轮**槽位级退位**：上游有的槽退出（那些行在运行时本就被 kcwiki
   // 优先层压住不显示），上游仍缺的槽留任。
-  // 判据与运行时 kansoVoiceFillFor 的「只填未占格」同一口径。
-  const pack = readLode('kanso-voice')
+  // 判据与运行时 kumaVoiceFillFor 的「只填未占格」同一口径；subtitle-ja 有原文但
+  // subtitle-zh 没中文也算上游已经占槽，不能只看中文键。
+  const pack = readLode('kuma-voice')
   const voice = readLode('kcwiki-voice')
   const subtitleJa = readLode('subtitle-ja')
   const subtitleZh = readLode('subtitle-zh')
@@ -496,6 +517,7 @@ test('自补层只补空：上游已覆盖的槽位一格不收', (t) => {
         .map((row) => row.slot ?? voiceSlotOfKey(row.key))
         .filter((slot) => slot != null),
     )
+    for (const key of Object.keys(subtitleJa.data?.[formId] ?? {})) upSlots.add(parseInt(key, 10))
     for (const key of Object.keys(subtitleZh.data?.[formId] ?? {})) upSlots.add(parseInt(key, 10))
     for (const row of rows) {
       assert.ok(
@@ -507,7 +529,7 @@ test('自补层只补空：上游已覆盖的槽位一格不收', (t) => {
 })
 
 test('自补层的播放键判据：basis 逐行可重算，ambiguous 一律不给键', (t) => {
-  const pack = readLode('kanso-voice')
+  const pack = readLode('kuma-voice')
   const subtitleJa = readLode('subtitle-ja')
   if (!pack || !subtitleJa) {
     t.skip('缺台词域矿脉，跳过')
@@ -532,10 +554,12 @@ test('自补层的播放键判据：basis 逐行可重算，ambiguous 一律不�
       // 名字本身也是护栏：`key-only` 在 08-22 那一版的语义是「不给键」，
       // 留着这个名字迟早有人照旧语义再撤一遍。
       if (row.basis === 'wikiwiki-mapped') {
+        // 2026-09-06 前这里按「该形态整表为空」断言；自译层开始补有表形态的缺槽后，
+        // 前提缩到槽位级：可以有表，但这一槽必须仍是空的。
         assert.equal(
-          Object.keys(subtitleJa.data?.[formId] ?? {}).length,
-          0,
-          `${formId} 已经有字幕表了，这一行不该还记 wikiwiki-mapped——重编一次包`,
+          Object.prototype.hasOwnProperty.call(subtitleJa.data?.[formId] ?? {}, `${row.slot}`),
+          false,
+          `${row.key} 的槽位已经有 subtitle-ja，这一行不该还记 wikiwiki-mapped——重编一次包`,
         )
       }
     }
@@ -547,11 +571,36 @@ test('自补层的播放键判据：basis 逐行可重算，ambiguous 一律不�
   }
 })
 
+test('自补层同一日文在各形态的译文一致', (t) => {
+  const pack = readLode('kuma-voice')
+  if (!pack) {
+    t.skip('缺 kuma-voice，跳过')
+    return
+  }
+  // 2026-09-06 起，同一句音轨可在有表形态的缺槽与无表形态之间复用；
+  // 若两边中文分叉，形态号升序建的 only-if-missing 索引还会让显示结果随编号漂移。
+  const byJa = new Map()
+  for (const rows of Object.values(pack.data.ships)) {
+    for (const row of rows) {
+      const ja = normalizeVoiceLine(row.ja)
+      const zh = `${row.zh ?? ''}`.trim()
+      if (!ja || !zh) continue
+      byJa.set(ja, [...(byJa.get(ja) ?? []), { key: row.key, zh }])
+    }
+  }
+  for (const rows of byJa.values()) {
+    assert.ok(
+      new Set(rows.map((row) => row.zh)).size <= 1,
+      `同一日文译文不一致：${rows.map((row) => row.key).join(', ')}`,
+    )
+  }
+})
+
 test('吞武里的那一页词还在——自补先行，上游追录后交棒', (t) => {
   // 这条原本断言「上游没有、自补整卷扛」（用户报出来的那一页从 0 变成有）。
   // 2026-08-23 kcwiki 重抓追录了 973/978，自补层按槽位级退位交棒——
   // 但对用户的承诺不变：那一页的入手/秘书舰/出击必须一直有词。断言改盯承诺本身。
-  const pack = readLode('kanso-voice')
+  const pack = readLode('kuma-voice')
   const voice = readLode('kcwiki-voice')
   if (!pack || !voice) {
     t.skip('缺台词域矿脉，跳过')

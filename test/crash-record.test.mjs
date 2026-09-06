@@ -233,12 +233,12 @@ test('同一条错误反复出现要限流，否则日志几分钟就没法看�
 
 test('装配账要写到 DOM 上——隔离之后冒烟只能靠它发现「少装了一格」', () => {
   const mu = read('../src/renderer/mu.ts')
-  assert.match(mu, /dataset\.kansoMounted = `\$\{mountedModules\.size\}\/\$\{expectedModules\}`/)
-  assert.match(mu, /dataset\.kansoCrashed = /)
+  assert.match(mu, /dataset\.kumaMounted = `\$\{mountedModules\.size\}\/\$\{expectedModules\}`/)
+  assert.match(mu, /dataset\.kumaCrashed = /)
   // 冒烟必须真的去读它，否则模块崩了照样一片绿
   const main = read('../src/main/index.ts')
-  assert.match(main, /kansoMounted/)
-  assert.match(main, /kansoCrashed/)
+  assert.match(main, /kumaMounted/)
+  assert.match(main, /kumaCrashed/)
   assert.match(main, /smoke: 模块装配失败/)
   // 成功标记只能在模块自查通过之后打
   assert.ok(

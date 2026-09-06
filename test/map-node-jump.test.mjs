@@ -53,8 +53,8 @@ const ROW_BLOCK = sliceBetween(
 const HARNESS = `
 declare const globalThis: any
 // 常数取**真的那两个**（globalThis 注入，免得这里再抄一份名字——抄一份就守不住改名了）
-const MAP_NODE_JUMP_ATTR: string = globalThis.__kansoJump.MAP_NODE_JUMP_ATTR
-const ENEMY_COMP_ANCHOR_ATTR: string = globalThis.__kansoJump.ENEMY_COMP_ANCHOR_ATTR
+const MAP_NODE_JUMP_ATTR: string = globalThis.__kumaJump.MAP_NODE_JUMP_ATTR
+const ENEMY_COMP_ANCHOR_ATTR: string = globalThis.__kumaJump.ENEMY_COMP_ANCHOR_ATTR
 // 与本次要守的行为无关，补最小桩（转义用真口径：属性值里的引号必须被吃掉）
 const esc = (s: unknown) => \`\${s ?? ''}\`.replace(/[&<>"']/g, (c) => \`&#\${c.charCodeAt(0)};\`)
 
@@ -72,10 +72,10 @@ ${ROW_BLOCK}
 `
 
 const loadHarness = () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-map-jump-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-map-jump-'))
   const file = path.join(dir, 'harness.cjs')
   fs.writeFileSync(file, transformSync(HARNESS, { loader: 'ts', format: 'cjs' }).code)
-  globalThis.__kansoJump = { MAP_NODE_JUMP_ATTR, ENEMY_COMP_ANCHOR_ATTR }
+  globalThis.__kumaJump = { MAP_NODE_JUMP_ATTR, ENEMY_COMP_ANCHOR_ATTR }
   return createRequire(fileURLToPath(import.meta.url))(file)
 }
 

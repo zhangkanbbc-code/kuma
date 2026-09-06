@@ -42,7 +42,7 @@ const load = () => {
     scannedEventId = Number.isInteger(cursor) && cursor > 0 ? cursor : 0
   } catch (error) {
     // 学过的归属没了只是回到「按舰查不到衣装」，绝不让它拦住启动
-    safeConsole('warn', '[kanso] 衣装归属表读取失败，按空表继续', error)
+    safeConsole('warn', '[kuma] 衣装归属表读取失败，按空表继续', error)
     costumes = {}
     scannedEventId = 0
   }
@@ -56,7 +56,7 @@ const write = () => {
       costumes,
     })
   } catch (error) {
-    safeConsole('warn', '[kanso] 衣装归属表落盘失败', error)
+    safeConsole('warn', '[kuma] 衣装归属表落盘失败', error)
   }
 }
 

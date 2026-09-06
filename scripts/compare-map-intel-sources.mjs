@@ -13,7 +13,7 @@
 //   ③ 制空值反校（`--air`）：kcwiki 逐编成给的「制空值」是**另一份独立整理**，
 //      拿它 diff 我们自己按 abyssal-stats + 主数据算出来的深海制空。
 //      对不上通常意味着装备表滞后或某个形态的 kc3_slots 过期——
-//      这是印证票，**不进随包展示层**（用户 2026-08-22 裁定 #7）。
+//      这是印证票，**不进随包展示层**（维护者 2026-08-22 裁定 #7）。
 
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'

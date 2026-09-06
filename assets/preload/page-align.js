@@ -1,5 +1,5 @@
 // Adapted from poi (https://github.com/poooi/poi) assets/js/page-align.js
-// MIT License, Copyright (c) poi contributors — 移植与改造：艦素 kanso 项目。
+// MIT License, Copyright (c) poi contributors — 移植与改造：kuma 项目。
 // MAIN WORLD
 // window.align / window.unalign 由宿主经 webview.executeJavaScript 调用，
 // 那跑在页面主世界，所以必须定义在主世界。经 executeInMainWorld 序列化；

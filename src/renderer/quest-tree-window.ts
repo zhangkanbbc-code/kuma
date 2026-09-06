@@ -304,11 +304,11 @@ const render = () => {
   // 冒烟用的装配账：**「渲染跑完了」和「渲染出了节点」是两件事**。
   // 缺 quests-scn 时零节点是正确的降级（目录本来就是空的），不是故障；
   // 而渲染中途崩掉同样是零节点。只数节点分不开这两种，所以这里把两件事分开记：
-  //   kansoQuestTree  = 这一轮渲染出的节点数（渲染跑完才会有这个属性）
-  //   kansoQuestPack  = 任务目录包在不在（'1' / '0'）
+  //   kumaQuestTree  = 这一轮渲染出的节点数（渲染跑完才会有这个属性）
+  //   kumaQuestPack  = 任务目录包在不在（'1' / '0'）
   // 判据见 src/main/index.ts 的 probeQuestTree：有包就必须有节点，没包只要求渲染跑完。
-  document.body.dataset.kansoQuestTree = `${root.querySelectorAll('.task-node').length}`
-  document.body.dataset.kansoQuestPack = quests.length ? '1' : '0'
+  document.body.dataset.kumaQuestTree = `${root.querySelectorAll('.task-node').length}`
+  document.body.dataset.kumaQuestPack = quests.length ? '1' : '0'
   if (pendingScroll) {
     pendingScroll = false
     requestAnimationFrame(() => {
@@ -473,6 +473,6 @@ const load = async () => {
 }
 
 void load().catch((error) => {
-  console.error('[kanso] complete quest tree window failed', error)
+  console.error('[kuma] complete quest tree window failed', error)
   root.innerHTML = '<div class="loading">完整任务树读取失败 · 关闭窗口后重试</div>'
 })

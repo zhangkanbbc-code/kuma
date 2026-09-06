@@ -97,7 +97,7 @@ export { equipChips, slotPickerHtml }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-hangar-hover-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-hangar-hover-'))
   const entry = path.join(dir, 'hover.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'hover.cjs')

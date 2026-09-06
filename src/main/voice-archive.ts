@@ -77,7 +77,7 @@ const load = () => {
     if (error?.code !== 'ENOENT') {
       // 读不出来就当空档案继续；绝不让它拦住启动，也绝不顺手把 blob 删掉——
       // 索引坏了还能重建，实物没了就真没了。
-      safeConsole('warn', '[kanso] 语音档案索引读取失败，按空档案继续', error)
+      safeConsole('warn', '[kuma] 语音档案索引读取失败，按空档案继续', error)
     }
     entries = new Map()
   }
@@ -96,7 +96,7 @@ const flush = () => {
       entries: [...entries.values()],
     })
   } catch (error) {
-    safeConsole('warn', '[kanso] 语音档案索引落盘失败', error)
+    safeConsole('warn', '[kuma] 语音档案索引落盘失败', error)
   }
 }
 
@@ -124,7 +124,7 @@ const blobFileFor = (entry: VoiceArchiveEntry): string | null => {
  * 「来源已不可再得」的条目**（判据在 shared/voice-archive-plan）。
  */
 const limitBytes = (): number | null => {
-  const mb = Number(config.get('kanso.archive.voiceMaxMB', 0))
+  const mb = Number(config.get('kuma.archive.voiceMaxMB', 0))
   return archiveLimitBytes(Number.isFinite(mb) ? mb * 1024 * 1024 : 0)
 }
 
@@ -135,7 +135,7 @@ const evictIfNeeded = () => {
     try {
       if (file) fs.rmSync(file, { force: true })
     } catch (error) {
-      safeConsole('warn', '[kanso] 语音档案淘汰实物失败', error)
+      safeConsole('warn', '[kuma] 语音档案淘汰实物失败', error)
       continue
     }
     // 降级成「听过但没留下实物」：空间不够只是留不住实物，
@@ -259,7 +259,7 @@ export const keepVoiceBlob = (input: {
     fs.writeFileSync(temp, data)
     fs.renameSync(temp, file)
   } catch (error) {
-    safeConsole('warn', '[kanso] 语音档案落盘失败', error)
+    safeConsole('warn', '[kuma] 语音档案落盘失败', error)
     return null
   }
   // 同一路径的「只听过」占位让位给实物条目（沿用它更早的首次听到时间与次数）
@@ -295,7 +295,7 @@ export const clearVoiceArchive = (): boolean => {
   try {
     fs.rmSync(BLOB_DIR, { recursive: true, force: true })
   } catch (error) {
-    safeConsole('warn', '[kanso] 语音档案清空失败', error)
+    safeConsole('warn', '[kuma] 语音档案清空失败', error)
     return false
   }
   entries = new Map()

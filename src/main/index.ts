@@ -1,6 +1,7 @@
 // 镇：主进程入口。启动顺序与命令行开关移植自 poi app.ts
 // (https://github.com/poooi/poi, MIT License, Copyright (c) poi contributors)。
 import './env' // 必须最先执行：设置 global 环境常量
+import { readEnv } from '../shared/env-names'
 import { APPDATA_PATH } from './env'
 import * as electronRemote from '@electron/remote/main'
 import { X509Certificate, createHash } from 'crypto'
@@ -15,7 +16,7 @@ import { installCrashLogging, reportFatal } from './crash-log'
 import { installPerfLogging } from './perf-log'
 import { attachApplicationHotkeys, installHotkeys } from './hotkeys'
 import { ROOT } from './env'
-import { installQuitGuard, reapOrphanKansoProcesses } from './quit-guard'
+import { installQuitGuard, reapOrphanKumaProcesses } from './quit-guard'
 import { flushShipArtPaths } from './ship-art-store'
 import { flushShipCostumes } from './ship-costume-store'
 import { flushAbyssVoiceSightings } from './abyss-voice-sightings'
@@ -42,10 +43,15 @@ import {
 import { handleWebviewPreloadHack, handleNewWindow, stopFileNavigate } from './webcontent-utils'
 import { DEFAULT_DISK_CACHE_MB, resolveDiskCacheMB } from '../shared/disk-cache'
 
-// Chromium 的 Cookie / Local Storage / ServiceWorker 与业务数据共用稳定的 kanso 目录。
-// 不能依赖 productName 推导默认 userData，否则开发版改名或打包为「艦素」后会像首次登录。
+// Chromium 的 Cookie / Local Storage / ServiceWorker 与业务数据共用稳定的 kuma 目录。
+// 不能依赖 productName 推导默认 userData，否则开发版改名或打包为「kuma」后会像首次登录。
 // 冒烟模式下 APPDATA_PATH 本身已经指向独立临时目录，仍保持零共享。
 app.setPath('userData', APPDATA_PATH)
+
+// before-quit 共 11 个登记方：ship-art-store、ship-costume-store、voice-archive、
+// abyss-voice-sightings、art-archive、bgm-archive、voice-probe、login-keeper、铭、
+// quit-guard、tray。它们各守独立的退出兜底；合并会把先后顺序耦合进一个函数。
+app.setMaxListeners(20)
 
 electronRemote.initialize()
 
@@ -97,7 +103,7 @@ app.on('before-quit', () => flushVoiceProbe())
 // 账本存盘要先落地，再去关子进程、再谈强制退出。
 installQuitGuard()
 
-// kanso-cache:// 特权 scheme 必须在 app ready 前注册
+// kuma-cache:// 特权 scheme 必须在 app ready 前注册
 registerKcsResourceScheme()
 
 // —— poi 传承的命令行开关 ——
@@ -108,7 +114,7 @@ app.commandLine.appendSwitch('disable-site-isolation-trials')
 // Windows 下遮挡计算导致的假死
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
 
-// —— 磁盘缓存上限（poi 没设，是艦素自己加的）——
+// —— 磁盘缓存上限（poi 没设，是kuma自己加的）——
 //
 // 不设这个开关时 Chromium 会自己挑一个很保守的上限。实测 2026-08-09：
 // 这台机器 C 盘可用 914 GB，它只肯用 103 MB，而且已经满了在持续淘汰——
@@ -121,10 +127,10 @@ app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
 //
 // 游戏素材本来就是 PIXI 按需逐个请求的，缓存再大也不会「一次性全出来」；
 // 但命中缓存后每张图从一次网络往返变成一次本地读盘，差一个数量级。
-const diskCacheMB = resolveDiskCacheMB(config.get('kanso.cache.diskCacheMB', DEFAULT_DISK_CACHE_MB))
+const diskCacheMB = resolveDiskCacheMB(config.get('kuma.cache.diskCacheMB', DEFAULT_DISK_CACHE_MB))
 app.commandLine.appendSwitch('disk-cache-size', String(diskCacheMB * 1024 * 1024))
 
-app.setAppUserModelId('moe.kanso')
+app.setAppUserModelId('moe.kuma')
 
 let mainWindow: BrowserWindow | null = null
 let resourceTrendWindow: BrowserWindow | null = null
@@ -145,7 +151,7 @@ const openResourceTrendWindow = () => {
     return
   }
 
-  const saved = config.get('kanso.resourceTrendWindow', {}) as {
+  const saved = config.get('kuma.resourceTrendWindow', {}) as {
     x?: number
     y?: number
     width?: number
@@ -196,7 +202,7 @@ const openResourceTrendWindow = () => {
   trend.loadFile(path.join(ROOT, 'dist', 'renderer', 'resource-trend.html'))
   trend.on('close', () => {
     if (trend.isDestroyed()) return
-    config.set('kanso.resourceTrendWindow', {
+    config.set('kuma.resourceTrendWindow', {
       ...trend.getNormalBounds(),
       isMaximized: trend.isMaximized(),
     })
@@ -226,7 +232,7 @@ const openQuestTreeWindow = (rawFocusId?: unknown) => {
     return
   }
 
-  const saved = config.get('kanso.questTreeWindow', {}) as {
+  const saved = config.get('kuma.questTreeWindow', {}) as {
     x?: number
     y?: number
     width?: number
@@ -278,7 +284,7 @@ const openQuestTreeWindow = (rawFocusId?: unknown) => {
   tree.loadFile(path.join(ROOT, 'dist', 'renderer', 'quest-tree.html'))
   tree.on('close', () => {
     if (tree.isDestroyed()) return
-    config.set('kanso.questTreeWindow', {
+    config.set('kuma.questTreeWindow', {
       ...tree.getNormalBounds(),
       isMaximized: tree.isMaximized(),
     })
@@ -299,7 +305,7 @@ const openShipLifeWindow = (rawRosterId: unknown) => {
     return
   }
 
-  const saved = config.get('kanso.shipLifeWindow', {}) as {
+  const saved = config.get('kuma.shipLifeWindow', {}) as {
     x?: number
     y?: number
     width?: number
@@ -361,7 +367,7 @@ const openShipLifeWindow = (rawRosterId: unknown) => {
   })
   life.on('close', () => {
     if (life.isDestroyed()) return
-    config.set('kanso.shipLifeWindow', {
+    config.set('kuma.shipLifeWindow', {
       ...life.getNormalBounds(),
       isMaximized: life.isMaximized(),
     })
@@ -390,7 +396,7 @@ const openBattleReplayWindow = (rawSnapshotId: unknown, sender: Electron.WebCont
     return
   }
 
-  const saved = config.get('kanso.battleReplayWindow', {}) as {
+  const saved = config.get('kuma.battleReplayWindow', {}) as {
     x?: number
     y?: number
     width?: number
@@ -473,7 +479,7 @@ const openBattleReplayWindow = (rawSnapshotId: unknown, sender: Electron.WebCont
   })
   replayWindow.on('close', () => {
     if (replayWindow.isDestroyed()) return
-    config.set('kanso.battleReplayWindow', {
+    config.set('kuma.battleReplayWindow', {
       ...replayWindow.getNormalBounds(),
       isMaximized: replayWindow.isMaximized(),
     })
@@ -520,12 +526,12 @@ ipcMain.handle('window:quest-tree-focus', (_event, rawQuestId: unknown) => {
 
 // 单实例
 if (!app.requestSingleInstanceLock()) {
-  console.error('[kanso] another instance is running, exiting')
+  console.error('[kuma] another instance is running, exiting')
   app.quit()
 } else {
   // 拿到锁才清残留：此刻没有别的正常实例，同名进程一律是上次没退干净的僵尸。
   // 放在拿锁之前清，会把正在用的那个实例误杀掉。
-  reapOrphanKansoProcesses()
+  reapOrphanKumaProcesses()
   // 收进托盘后再点一次启动：restore+focus 对隐藏窗口是无效的，走托盘那条统一的唤回
   app.on('second-instance', () => showMainWindow())
 }
@@ -551,7 +557,7 @@ app.on('ready', () => {
 
   // 窗口位置恢复 + 跨显示器有效性校验（移植自 poi app.ts）
   const { workArea } = screen.getPrimaryDisplay()
-  const saved = config.get('kanso.window', {}) as {
+  const saved = config.get('kuma.window', {}) as {
     x?: number
     y?: number
     width?: number
@@ -616,9 +622,9 @@ app.on('ready', () => {
   const sendPreviewDuck = (active: boolean) => {
     previewDucking = active
     const game = gameWebContentsId == null ? null : webContents.fromId(gameWebContentsId)
-    if (game && !game.isDestroyed()) game.send('kanso:preview-audio-duck', active)
+    if (game && !game.isDestroyed()) game.send('kuma:preview-audio-duck', active)
   }
-  ipcMain.on('kanso:preview-audio-active', (event, active: unknown) => {
+  ipcMain.on('kuma:preview-audio-active', (event, active: unknown) => {
     // 只认主窗口那一个渲染进程：游戏页里的脚本不该按得住自己的喇叭
     if (event.sender.id !== win.webContents.id) return
     sendPreviewDuck(active === true)
@@ -641,14 +647,14 @@ app.on('ready', () => {
         typeof preload === 'string' &&
         path.resolve(preload).toLowerCase() === path.resolve(trustedWebviewPreload).toLowerCase()
     } catch (error) {
-      console.warn('[kanso] rejected webview with invalid preload URL', error)
+      console.warn('[kuma] rejected webview with invalid preload URL', error)
     }
 
     // 主页面需要 webviewTag 承载游戏，但矿脉数据也会进入该页面的 innerHTML。
     // 只接受应用同步创建的首个游戏视图；额外 webview 即使伪造标签也不能附着。
     if ((current && !current.isDestroyed() && !current.isCrashed()) || !preloadMatches) {
       event.preventDefault()
-      console.warn('[kanso] rejected unexpected webview attachment')
+      console.warn('[kuma] rejected unexpected webview attachment')
       return
     }
     webPreferences.preload = trustedWebviewPreload
@@ -694,7 +700,7 @@ app.on('ready', () => {
 
   const saveBounds = () => {
     if (win.isDestroyed()) return
-    config.set('kanso.window', {
+    config.set('kuma.window', {
       ...win.getNormalBounds(),
       isMaximized: win.isMaximized(),
     })
@@ -734,12 +740,12 @@ app.on('ready', () => {
     enableBuiltInResolver: true,
   })
 
-  if (process.env.KANSO_DEVTOOLS) {
+  if (readEnv('KUMA_DEVTOOLS')) {
     win.webContents.openDevTools({ mode: 'detach' })
   }
   // 冒烟测试同时打开完整任务树，并等到真实任务节点渲染后才算启动成功。
   // 这样辅助窗口脚本/IPC/矿脉读取任一处崩溃都不会被主窗口的假绿掩盖。
-  if (process.env.KANSO_SMOKE) {
+  if (readEnv('KUMA_SMOKE')) {
     openQuestTreeWindow()
     const started = Date.now()
     // 主窗口的模块装配自查。铆做了逐模块隔离之后，某个模块崩掉不再是黑屏，
@@ -747,40 +753,40 @@ app.on('ready', () => {
     // 反倒把「模块装不上」藏了起来，冒烟照样一片绿。
     const probeMainModules = () => {
       if (!mainWindow || mainWindow.isDestroyed()) {
-        console.error('[kanso] smoke: 主窗口已不在')
+        console.error('[kuma] smoke: 主窗口已不在')
         app.quit()
         return
       }
       void mainWindow.webContents
         .executeJavaScript(
-          "JSON.stringify({mounted: document.body.dataset.kansoMounted ?? '', crashed: document.body.dataset.kansoCrashed ?? ''})",
+          "JSON.stringify({mounted: document.body.dataset.kumaMounted ?? '', crashed: document.body.dataset.kumaCrashed ?? ''})",
           true,
         )
         .then((raw: string) => {
           const { mounted, crashed } = JSON.parse(raw) as { mounted: string; crashed: string }
           const [ok, total] = mounted.split('/').map(Number)
           if (crashed) {
-            console.error(`[kanso] smoke: 模块装配失败 → ${crashed}`)
+            console.error(`[kuma] smoke: 模块装配失败 → ${crashed}`)
             app.quit()
           } else if (total > 0 && ok === total) {
-            console.log(`[kanso] smoke: modules ${mounted}`)
-            console.log('[kanso] smoke: window ok, quitting')
+            console.log(`[kuma] smoke: modules ${mounted}`)
+            console.log('[kuma] smoke: window ok, quitting')
             app.quit()
           } else if (Date.now() - started < 20000) {
             setTimeout(probeMainModules, 250)
           } else {
-            console.error(`[kanso] smoke: 模块未装配完（${mounted || '无装配账'}）`)
+            console.error(`[kuma] smoke: 模块未装配完（${mounted || '无装配账'}）`)
             app.quit()
           }
         })
         .catch((error) => {
-          console.error('[kanso] smoke: 主窗口模块探测失败', error)
+          console.error('[kuma] smoke: 主窗口模块探测失败', error)
           app.quit()
         })
     }
     // 任务树探针分两件事看，别只数节点：
-    //  · 渲染有没有跑完（body.dataset.kansoQuestTree 存在）——中途崩掉就没有；
-    //  · 目录包在不在（kansoQuestPack）——缺 quests-scn 时零节点是**正确的降级**，
+    //  · 渲染有没有跑完（body.dataset.kumaQuestTree 存在）——中途崩掉就没有；
+    //  · 目录包在不在（kumaQuestPack）——缺 quests-scn 时零节点是**正确的降级**，
     //    不是故障。只数节点会把这两种混成一个「did not render」，于是
     //    「零包」降级冒烟必然误报红，而为了让它变绿又只能去放宽正常档的判据。
     //    两件事分开记之后：有包就必须有节点，没包只要求渲染跑完（占位是对的）。
@@ -791,7 +797,7 @@ app.on('ready', () => {
         return
       }
       void tree.webContents.executeJavaScript(
-        "JSON.stringify({nodes: document.body.dataset.kansoQuestTree ?? '', pack: document.body.dataset.kansoQuestPack ?? ''})",
+        "JSON.stringify({nodes: document.body.dataset.kumaQuestTree ?? '', pack: document.body.dataset.kumaQuestPack ?? ''})",
         true,
       ).then((raw: string) => {
         const { nodes, pack } = JSON.parse(raw) as { nodes: string; pack: string }
@@ -800,8 +806,8 @@ app.on('ready', () => {
         if (rendered && (pack === '0' || count > 0)) {
           console.log(
             pack === '0'
-              ? '[kanso] smoke: quest tree 无任务目录包，占位渲染完成（降级档口径）'
-              : `[kanso] smoke: quest tree ${count} nodes`,
+              ? '[kuma] smoke: quest tree 无任务目录包，占位渲染完成（降级档口径）'
+              : `[kuma] smoke: quest tree ${count} nodes`,
           )
           probeMainModules()
         } else if (Date.now() - started < 20000) {
@@ -809,13 +815,13 @@ app.on('ready', () => {
         } else {
           console.error(
             rendered
-              ? `[kanso] smoke: 任务目录包在位却一个节点都没渲染出来（nodes=${count}）`
-              : '[kanso] smoke: quest tree did not render',
+              ? `[kuma] smoke: 任务目录包在位却一个节点都没渲染出来（nodes=${count}）`
+              : '[kuma] smoke: quest tree did not render',
           )
           app.quit()
         }
       }).catch((error) => {
-        console.error('[kanso] smoke: quest tree probe failed', error)
+        console.error('[kuma] smoke: quest tree probe failed', error)
         app.quit()
       })
     }
@@ -831,13 +837,13 @@ const ensureCACert = () => {
   if (caCertError || caCert) {
     return
   }
-  const customCertificateAuthority = config.get('kanso.network.customCertificateAuthority', '')
+  const customCertificateAuthority = config.get('kuma.network.customCertificateAuthority', '')
   if (customCertificateAuthority) {
     try {
       const ca = fs.readFileSync(customCertificateAuthority, 'utf8')
       caCert = new X509Certificate(ca)
     } catch (e) {
-      console.error('[kanso] CA error', e)
+      console.error('[kuma] CA error', e)
       caCertError = true
     }
   }
@@ -862,7 +868,7 @@ const verifyCACert = (data: string) => {
 }
 
 app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
-  const trusted: string[] = config.get('kanso.trustedCerts', [])
+  const trusted: string[] = config.get('kuma.trustedCerts', [])
   if (verifyCACert(certificate.data)) {
     event.preventDefault()
     callback(true)
@@ -873,8 +879,8 @@ app.on('certificate-error', (event, webContents, url, error, certificate, callba
     event.preventDefault()
     callback(true)
   } else {
-    console.warn(`[kanso] certificate error for ${url}, sha256=${hash}`)
-    console.warn('[kanso] 如需信任该证书，把上面的 sha256 加进 config.json 的 kanso.trustedCerts')
+    console.warn(`[kuma] certificate error for ${url}, sha256=${hash}`)
+    console.warn('[kuma] 如需信任该证书，把上面的 sha256 加进 config.json 的 kuma.trustedCerts')
     callback(false)
   }
 })

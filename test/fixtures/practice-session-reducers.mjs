@@ -87,7 +87,7 @@ export { newSortie }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-practice-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-practice-'))
   const entry = path.join(dir, 'practice.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'practice.cjs')

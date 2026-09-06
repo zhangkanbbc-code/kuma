@@ -213,7 +213,7 @@ export const guessAbyssVoicePrefixes = (
 export const ABYSS_VOICE_WRITING_RANK: readonly number[] = [2, 1, 0]
 
 /**
- * 这一行该试哪几个档名，**按可能性从高到低**。UI 拿它逐个点，用户耳测判响没响。
+ * 这一行该试哪几个档名，**按可能性从高到低**。UI 拿它逐个点，维护者耳测判响没响。
  *
  * 排序 = 前缀名次（大头）× 写法名次；`known` 里给这个形态**已经确认过的档名**时，
  * 它用的写法提到最前——同一形态从不混用写法（56 个形态零例外），

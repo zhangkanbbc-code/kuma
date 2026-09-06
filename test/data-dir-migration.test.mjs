@@ -10,7 +10,7 @@ import dataDir from '../dist/shared/data-dir.js'
 
 const { DATA_DIR_NAME, LEGACY_DATA_DIR_NAME, dataDirCandidates, planDataDir } = dataDir
 
-const APPDATA = 'C:\\Users\\提督\\AppData\\Roaming'
+const APPDATA = 'X:\\fixture\\AppData\\Roaming'
 const NEW = `${APPDATA}\\kuma`
 const OLD = `${APPDATA}\\kanso`
 
@@ -45,8 +45,8 @@ test('③两个都在：用新目录，不搬也不删旧', () => {
   assert.deepEqual(plan, { dir: NEW, legacyDir: OLD, migrate: false })
 })
 
-test('④KANSO_DATA_DIR 覆盖：一切照它，跳过搬迁', () => {
-  const overridden = 'D:\\tmp\\kanso-quit-e2e'
+test('④KUMA_DATA_DIR 覆盖：一切照它，跳过搬迁', () => {
+  const overridden = 'D:\\tmp\\kuma-quit-e2e'
   for (const legacyExists of [true, false]) {
     for (const currentExists of [true, false]) {
       const plan = planDataDir({
@@ -67,13 +67,13 @@ test('④KANSO_DATA_DIR 覆盖：一切照它，跳过搬迁', () => {
 test('env.ts 真的照这个判定搬，而且搬不动时退回旧目录', () => {
   const env = fs.readFileSync(new URL('../src/main/env.ts', import.meta.url), 'utf8')
   assert.match(env, /planDataDir\(\{/, 'env.ts 不再走 shared/data-dir 的判定')
-  assert.match(env, /override: process\.env\.KANSO_DATA_DIR/, '覆盖模式没传进判定')
+  assert.match(env, /override: dataDirOverride/, '覆盖模式没传进判定')
   assert.match(env, /fs\.renameSync\(plan\.legacyDir, plan\.dir\)/, '搬迁不再是整目录 rename')
   // 失败分支的口径：数据可用性高于目录名——退回旧目录，且把原因交出去
   assert.match(env, /return \{\s*\n?\s*dir: plan\.legacyDir,/, '搬不动时没退回旧目录')
   assert.match(env, /export const DATA_DIR_MIGRATION_ERROR/, '失败原因没往外送')
   // 冒烟目录不参与搬迁：它与正式目录没有继承关系
-  assert.match(env, /KANSO_SMOKE\) \{\s*\n\s*return \{ dir: path\.join\(os\.tmpdir\(\), 'kanso-smoke'\)/)
+  assert.match(env, /readEnv\('KUMA_SMOKE'\)\) \{\s*\n\s*return \{ dir: path\.join\(os\.tmpdir\(\), 'kuma-smoke'\)/)
 
   const crash = fs.readFileSync(new URL('../src/main/crash-log.ts', import.meta.url), 'utf8')
   assert.match(crash, /if \(DATA_DIR_MIGRATION_ERROR\) \{/, '搬迁失败没记进 crash.log')

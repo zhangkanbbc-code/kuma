@@ -98,7 +98,7 @@ export { berthFacilityCount, REPAIR_FACILITY_MST_ID }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-slotset-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-slotset-'))
   const entry = path.join(dir, 'slotset.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'slotset.cjs')

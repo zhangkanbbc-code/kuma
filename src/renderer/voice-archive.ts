@@ -117,7 +117,7 @@ export const loadVoiceArchive = (): Promise<void> => {
     .then((entries) => index(Array.isArray(entries) ? entries : []))
     .catch((error: unknown) => {
       loading = null
-      console.warn('[kanso] 语音档案索引读取失败', error)
+      console.warn('[kuma] 语音档案索引读取失败', error)
     })
   return loading
 }

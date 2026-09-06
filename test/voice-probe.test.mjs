@@ -187,7 +187,7 @@ test('槽位空间不越界：混淆段只在 1..53，其余只能是表里的�
 // ---- ①-b 亲历显形：档案里的表外裸编号自动长行 ----
 //
 // 展示侧那张表只认写死的名单——对，但必然滞后：官方新发明一个编号，从玩家在游戏里
-// 听到、到艦素把它收进表，那一句在图鉴里不存在。而实物早就躺在档案里。
+// 听到、到kuma把它收进表，那一句在图鉴里不存在。而实物早就躺在档案里。
 // 这一段把判据倒过来：**存在性由实物本身背书**。这里盯的是「倒过来之后别把别的东西
 // 也放进来」——重复摆行、把混淆编号当裸编号、以及凭空给一个不知道的编号安场合名。
 
@@ -613,7 +613,7 @@ test('无配音格摆成可点的：挂 data-voice-probe、走同一个 handler�
   assert.match(ji, /void probeVoiceSlot\(mstId, slot, url, recheck\)/)
   // 主进程仍旧只在 recheck 时让路，其余闸门一道没绕
   assert.match(probeMain, /voiceProbeShortCircuits\(\{ known, recheck \}\)/)
-  assert.match(probeMain, /if \(!config\.get\('kanso\.remoteArt', true\)\) return \{ verdict: 'blocked' \}/)
+  assert.match(probeMain, /if \(!config\.get\('kuma\.remoteArt', true\)\) return \{ verdict: 'blocked' \}/)
 })
 
 // ---- ②-c 日期是内容：悬停写哪一天、钥里按月清（2026-08-23）----
@@ -738,8 +738,8 @@ test('钥里那个清理口：按月列、按月清、另有全部清理，且�
   // 走既有 IPC，清完重取索引并广播（台词卷那些格子当场回到可探测态）
   assert.match(yu, /ipcRenderer\.invoke\('mg:voice-absent-clear', \{ month \}\)/)
   assert.match(yu, /void reloadVoiceAbsent\(\)/)
-  assert.match(probeRenderer, /kanso:voice-absent-change/)
-  assert.match(ji, /document\.addEventListener\('kanso:voice-absent-change', onVoiceAbsentChange\)/)
+  assert.match(probeRenderer, /kuma:voice-absent-change/)
+  assert.match(ji, /document\.addEventListener\('kuma:voice-absent-change', onVoiceAbsentChange\)/)
   // 存储结构不变：清理只是把条目挑出去，没有第二份文件、也没有「已删除」标记
   assert.equal(/deleted|tombstone|voice-absent-cleared/.test(probeMain), false)
 })
@@ -768,7 +768,7 @@ test('一次点击一次请求：整条链上没有批量入口', () => {
 
 test('探测受钥里那个开关管，且档案优先照旧', () => {
   // 关掉「未缓存的立绘/语音从游戏资源服务器取」就一次都不发
-  assert.match(probeMain, /if \(!config\.get\('kanso\.remoteArt', true\)\) return \{ verdict: 'blocked' \}/)
+  assert.match(probeMain, /if \(!config\.get\('kuma\.remoteArt', true\)\) return \{ verdict: 'blocked' \}/)
   // 已知官方没有的不再打扰服务器（判据整条挪进 shared，行为按数据在上面验过）
   assert.match(probeMain, /voiceProbeShortCircuits\(\{ known, recheck \}\)/)
   // 骨架行：档案里有实物就直接给档案那一份（零网络），根本不摆探测钮

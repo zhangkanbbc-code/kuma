@@ -2,7 +2,7 @@
 //
 // 正式包里 DevTools 是关的，console 输出没人看得到——出了事只能看着界面不动干瞪眼。
 // 所以渲染层的每一条崩溃记录、主进程的未捕获异常、以及 Chromium 报上来的
-// 「渲染/GPU/工具进程没了」，全都追加到 %APPDATA%/kanso/crash.log。
+// 「渲染/GPU/工具进程没了」，全都追加到 %APPDATA%/kuma/crash.log。
 //
 // 只记事实：时间、来源、错误原文与调用栈。不做「大概是 XX 引起的」这类推断，
 // 也不上报任何地方——这是本机的一份排查线索，不是遥测。
@@ -11,7 +11,7 @@ import { app, ipcMain } from 'electron'
 import fs from 'fs'
 import path from 'path'
 
-import { APPDATA_PATH, DATA_DIR_MIGRATION_ERROR, KANSO_VERSION } from './env'
+import { APPDATA_PATH, DATA_DIR_MIGRATION_ERROR, KUMA_VERSION } from './env'
 
 const LOG_PATH = path.join(APPDATA_PATH, 'crash.log')
 /** 超过这个大小就只保留后半段：日志是给人翻的，涨到几十兆就没人翻了。 */
@@ -96,7 +96,7 @@ export const createRollingLog = (
       seen.set(key, count)
       if (count > options.verbatimTimes && count % options.summaryEvery !== 0) return
 
-      const head = `[${stamp(at)}] ${source} · ${scope} · v${KANSO_VERSION}`
+      const head = `[${stamp(at)}] ${source} · ${scope} · v${KUMA_VERSION}`
       const block =
         count <= options.verbatimTimes
           ? `${head}\n${message}\n${stack ? `${stack}\n` : ''}\n`
@@ -108,7 +108,7 @@ export const createRollingLog = (
       } catch (error) {
         // 日志写不下去只能认了——但绝不能因此再抛一次，那会把「有个模块出错」
         // 升级成「错误处理本身把进程带走了」。
-        safeConsole('error', `[kanso] ${path.basename(filePath)} 写入失败`, error)
+        safeConsole('error', `[kuma] ${path.basename(filePath)} 写入失败`, error)
       }
     },
   }
@@ -135,7 +135,7 @@ export const reportFatal = (scope: string, reason: unknown) => {
     stack: error.stack,
   })
   if (broken) stdoutDead = true // 再往 console 写只会引来下一次同样的异常
-  safeConsole('error', `[kanso] ${scope}`, error.stack)
+  safeConsole('error', `[kuma] ${scope}`, error.stack)
 }
 
 export const installCrashLogging = () => {
@@ -151,7 +151,7 @@ export const installCrashLogging = () => {
   }
 
   // 渲染层送上来的：来自 crash-guard 的记账
-  ipcMain.on('kanso:crash', (_event, raw: unknown) => {
+  ipcMain.on('kuma:crash', (_event, raw: unknown) => {
     const e = (raw ?? {}) as Partial<CrashEntry>
     if (typeof e.message !== 'string') return
     appendCrash({
@@ -163,7 +163,7 @@ export const installCrashLogging = () => {
     })
   })
 
-  ipcMain.handle('kanso:crash-log-path', () => LOG_PATH)
+  ipcMain.handle('kuma:crash-log-path', () => LOG_PATH)
 
   // 承载整个工作台的那个渲染进程真的没了。以前主进程完全不知道这件事：
   // 界面一片空白，日志里一个字都没有。
@@ -181,7 +181,7 @@ export const installCrashLogging = () => {
       message: url,
       stack: null,
     })
-    safeConsole('error', `[kanso] 渲染进程结束：${details.reason} ${url}`)
+    safeConsole('error', `[kuma] 渲染进程结束：${details.reason} ${url}`)
   })
 
   // GPU / 工具进程。这类多半能自愈，但它是花屏、音频失灵一类怪象的根，值得留痕。

@@ -65,7 +65,7 @@ const readFromCache = async (rawUrl) => {
     if (!response.ok) return
     const buffer = await response.arrayBuffer()
     if (!buffer.byteLength || buffer.byteLength > MAX_BYTES) return
-    ipcRenderer.send('kanso:bgm-archive-blob', {
+    ipcRenderer.send('kuma:bgm-archive-blob', {
       // 路径是档案里的身份（树 + 号由它唯一决定）；
       // 完整 URL 一并交回，主进程从里面取版本参数当「换过内容」的身份。
       pathname,
@@ -82,7 +82,7 @@ const readFromCache = async (rawUrl) => {
 }
 
 const installBgmArchive = () => {
-  ipcRenderer.on('kanso:bgm-archive-ask', (_event, url) => {
+  ipcRenderer.on('kuma:bgm-archive-ask', (_event, url) => {
     // 游戏发起请求与响应落进缓存之间有一小段；等一拍再读，命中率高得多。
     // BGM 比语音大得多（一两分钟的 mp3），等久一点更稳；主进程那边的
     // 「自己发的那次请求」认领窗口是 4 秒，这个 2.5 秒仍在窗口内。

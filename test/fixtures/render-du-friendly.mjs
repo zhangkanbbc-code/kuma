@@ -55,14 +55,24 @@ const shipThumbHtml = (mstId: number, name: string, opt: any = {}): string =>
   '<span class="ship-thumb ' + (opt.className ?? '') + '" data-ship-id="' + mstId + '"' +
   ' title="' + esc(name) + '"><span class="ship-thumb-fallback">' + esc(name.charAt(0)) + '</span></span>'
 const mg: any = { master: { ships: {}, slotitems: {} } }
+let friendlyFleetMaps: any = {}
+let friendlyFleetMeta: any = null
+let mapIntelMeta: any = null
+const lodeCredit = (meta: any) => meta.source
 
 ${SECTION}
 
-export { friendlyFleetsHtml, mg }
+const renderMaterials = (mapKey: string, bundled: any, fallback: any, seen: any[]) => {
+  friendlyFleetMaps = bundled?.data?.maps ?? {}
+  friendlyFleetMeta = bundled?.meta ?? null
+  mapIntelMeta = fallback?.meta ?? null
+  return friendlyFleetMaterialsHtml(mapKey, fallback?.operations ?? null, seen)
+}
+export { friendlyFleetsHtml, renderMaterials, mg }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-du-friendly-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-du-friendly-'))
   const entry = path.join(dir, 'friendly-section.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'friendly-section.cjs')
@@ -90,3 +100,6 @@ export const renderFriendlySection = (seen = [], pack = [], masterShips = {}, ma
   loaded.mg.master = { ships: masterShips, slotitems: masterItems }
   return loaded.friendlyFleetsHtml(seen, pack)
 }
+
+export const renderFriendlyMaterials = (mapKey, bundled, fallback, seen = []) =>
+  loaded.renderMaterials(mapKey, bundled, fallback, seen)

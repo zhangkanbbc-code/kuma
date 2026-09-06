@@ -31,7 +31,7 @@ test('一个都没匹配到时 tasklist 那句提示不会被读成 PID', () => 
 })
 
 test('列数不够或 PID 不是数字的行一律跳过，不会 kill(NaN)', () => {
-  const junk = ['"kanso.exe"', '"kanso.exe","","Console","1","0 K"', '"kanso.exe","-1","x","1","0 K"'].join('\n')
+  const junk = ['"kuma.exe"', '"kuma.exe","","Console","1","0 K"', '"kuma.exe","-1","x","1","0 K"'].join('\n')
   assert.deepEqual(parseTasklistPids(junk, 1), [])
 })
 
@@ -41,10 +41,10 @@ test('清残留只在拿到单实例锁之后跑——在那之前跑会误杀�
 
   // installQuitGuard 在 line 75 就执行，远早于单实例检查；清残留不能挂在它里面
   const install = guard.slice(guard.indexOf('export const installQuitGuard'))
-  assert.doesNotMatch(install, /reapOrphanKansoProcesses\(\)/, '清残留又挪回拿锁之前了')
+  assert.doesNotMatch(install, /reapOrphanKumaProcesses\(\)/, '清残留又挪回拿锁之前了')
   // 必须落在 requestSingleInstanceLock 的 else（拿到锁）分支里
   const lockAt = main.indexOf('requestSingleInstanceLock')
-  const reapAt = main.indexOf('reapOrphanKansoProcesses()')
+  const reapAt = main.indexOf('reapOrphanKumaProcesses()')
   assert.ok(reapAt > lockAt, '清残留跑在拿锁之前')
   assert.match(main.slice(lockAt, reapAt), /\} else \{/, '清残留没落在拿到锁的那一支')
 

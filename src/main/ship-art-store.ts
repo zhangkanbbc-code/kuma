@@ -28,7 +28,7 @@ const load = () => {
     }
   } catch (error) {
     // 读不出来就当没学过，下次游戏跑起来会重新记；绝不让它拦住启动
-    safeConsole('warn', '[kanso] 舰船美术路径表读取失败，按空表继续', error)
+    safeConsole('warn', '[kuma] 舰船美术路径表读取失败，按空表继续', error)
     learned = {}
   }
 }
@@ -41,7 +41,7 @@ const scheduleSave = () => {
     try {
       atomicWriteJsonSync(FILE, learned)
     } catch (error) {
-      safeConsole('warn', '[kanso] 舰船美术路径表落盘失败', error)
+      safeConsole('warn', '[kuma] 舰船美术路径表落盘失败', error)
     }
   }, 4000)
   saveTimer.unref?.()
@@ -78,6 +78,6 @@ export const flushShipArtPaths = () => {
   try {
     atomicWriteJsonSync(FILE, learned)
   } catch (error) {
-    safeConsole('warn', '[kanso] 舰船美术路径表退出时落盘失败', error)
+    safeConsole('warn', '[kuma] 舰船美术路径表退出时落盘失败', error)
   }
 }

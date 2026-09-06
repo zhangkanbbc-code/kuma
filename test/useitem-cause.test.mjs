@@ -51,7 +51,7 @@ test('开孔只消费补强增设；改修消费集合来自事实表的实际 1
 })
 
 const openDb = (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-useitem-cause-db-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-useitem-cause-db-'))
   const db = new DatabaseSync(path.join(dir, 'mg.sqlite'))
   db.exec(`
     CREATE TABLE events (

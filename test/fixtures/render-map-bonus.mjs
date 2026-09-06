@@ -39,7 +39,7 @@ const STUBS = {
 }
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-mapbonus-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-mapbonus-'))
   fs.cpSync(path.join(ROOT, 'src'), path.join(dir, 'src'), { recursive: true })
   for (const [rel, source] of Object.entries(STUBS)) {
     fs.writeFileSync(path.join(dir, 'src', ...rel.split('/')), source)

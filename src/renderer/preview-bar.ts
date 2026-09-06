@@ -93,8 +93,8 @@ const applyPlaced = () => {
  * 拖走之后还顶着 54px，就是为一个已经不在那儿的东西空出一块。
  */
 const syncToastLift = (on: boolean) => {
-  if (on && !placed) document.body.classList.add('kanso-preview-on')
-  else document.body.classList.remove('kanso-preview-on')
+  if (on && !placed) document.body.classList.add('kuma-preview-on')
+  else document.body.classList.remove('kuma-preview-on')
 }
 
 /**
@@ -256,7 +256,7 @@ const applySeek = () => {
       audio.currentTime = Math.min(Math.max(0, target), duration)
     } catch (error) {
       // 元数据还没到手时写 currentTime 会抛。吞掉就成了「拖了没反应还查不出为什么」
-      console.warn('[kanso] 试听跳转失败', target, error)
+      console.warn('[kuma] 试听跳转失败', target, error)
     }
   }
   paint()

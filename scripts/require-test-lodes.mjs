@@ -29,15 +29,15 @@ const required = [
   'kcwiki-fit-bonus', // 装备加成词表的「504 个名字逐个有着落」全量核对
   // ---- 台词域：归属校正的四档分拣与自补层的全量对账 ----
   // 少一份，`voice-attribution` 那几条就整条跳过，而它们正是「1013 行一格不丢」
-  // 与「自补层只补空」的凭据。kanso-voice 是入仓文件（第一方译文，抓不回来），
+  // 与「自补层只补空」的凭据。kuma-voice 是入仓文件（第一方译文，抓不回来），
   // 照理不会缺，点名它同样是因为缺了就静静跳过。
   'kcwiki-voice',
   'kcwiki-seasonal-voice',
   'subtitle-ja',
   'subtitle-zh',
   'kcwiki-ships',
-  'kanso-voice',
-  'kanso-voice-zh',
+  'kuma-voice',
+  'kuma-voice-zh',
   'wikiwiki-voice', // 审稿单的日文底本（本机有、不随包）
   // 深海行号 → 场合名那张对照表的**唯一独立取证源**（本机有、不随包）。
   // 缺了 abyss-voice-archive 里那条「行号首位就是場合号」的对撞会整条跳过，
@@ -48,7 +48,7 @@ const missing = required.filter((id) => (
   !fs.existsSync(path.join(root, 'assets', 'lodes', `${id}.json`))
 ))
 // s2.json 不是矿脉（api_start2 原始样本，住在仓库上一级），
-// 但 kanso-quest-rules 的逐条对账离了它会整组跳过
+// 但 kuma-quest-rules 的逐条对账离了它会整组跳过
 const fixtures = [path.join(root, '..', 's2.json')]
 const missingFixtures = fixtures.filter((file) => !fs.existsSync(file))
 

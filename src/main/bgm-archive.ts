@@ -69,7 +69,7 @@ const load = () => {
     if (error?.code !== 'ENOENT') {
       // 读不出来就当空档案继续；绝不让它拦住启动，也绝不顺手把 blob 删掉——
       // 索引坏了还能重建，实物没了就真没了。
-      safeConsole('warn', '[kanso] BGM 档案索引读取失败，按空档案继续', error)
+      safeConsole('warn', '[kuma] BGM 档案索引读取失败，按空档案继续', error)
     }
     entries = new Map()
   }
@@ -88,7 +88,7 @@ const flush = () => {
       entries: [...entries.values()],
     })
   } catch (error) {
-    safeConsole('warn', '[kanso] BGM 档案索引落盘失败', error)
+    safeConsole('warn', '[kuma] BGM 档案索引落盘失败', error)
   }
 }
 
@@ -110,7 +110,7 @@ const blobFileFor = (entry: BgmArchiveEntry): string | null => {
 
 /** 玩家设的上限（MB）。没设 = 不限量 = 一条都不淘汰，与语音/立绘同一条口径。 */
 const limitBytes = (): number | null => {
-  const mb = Number(config.get('kanso.archive.bgmMaxMB', 0))
+  const mb = Number(config.get('kuma.archive.bgmMaxMB', 0))
   return bgmArchiveLimitBytes(Number.isFinite(mb) ? mb * 1024 * 1024 : 0)
 }
 
@@ -121,7 +121,7 @@ const evictIfNeeded = () => {
     try {
       if (file) fs.rmSync(file, { force: true })
     } catch (error) {
-      safeConsole('warn', '[kanso] BGM 档案淘汰实物失败', error)
+      safeConsole('warn', '[kuma] BGM 档案淘汰实物失败', error)
       continue
     }
     // 降级成「响过但没留下实物」：空间不够只是留不住实物，
@@ -230,7 +230,7 @@ export const keepBgmBlob = (input: {
     fs.writeFileSync(temp, data)
     fs.renameSync(temp, file)
   } catch (error) {
-    safeConsole('warn', '[kanso] BGM 档案落盘失败', error)
+    safeConsole('warn', '[kuma] BGM 档案落盘失败', error)
     return null
   }
   // 同一路径的「只响过」占位让位给实物条目（沿用它更早的首次听到时间与次数）
@@ -266,7 +266,7 @@ export const clearBgmArchive = (): boolean => {
   try {
     fs.rmSync(BLOB_DIR, { recursive: true, force: true })
   } catch (error) {
-    safeConsole('warn', '[kanso] BGM 档案清空失败', error)
+    safeConsole('warn', '[kuma] BGM 档案清空失败', error)
     return false
   }
   entries = new Map()

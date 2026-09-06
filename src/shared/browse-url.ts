@@ -5,7 +5,7 @@
 // 合成一份的后果是「改了游戏网址，浏览窗跟着搬家」，那不是他要的。
 //
 // 只收 http / https。地址栏是个自由文本框，而它后面那层网页与游戏共用
-// defaultSession（kanso-cache:// 就注册在这个会话上），file: / javascript:
+// defaultSession（kuma-cache:// 就注册在这个会话上），file: / javascript:
 // 不该从这里进得来。
 
 /**

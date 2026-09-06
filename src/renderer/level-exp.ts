@@ -76,7 +76,7 @@ const recheck = () => {
   }
   if (conflicts.size) {
     console.warn(
-      `[kanso] 等级经验表与本地实测有 ${conflicts.size} 处不符，改用实测值`,
+      `[kuma] 等级经验表与本地实测有 ${conflicts.size} 处不符，改用实测值`,
       [...conflicts.entries()].slice(0, 5),
     )
   }

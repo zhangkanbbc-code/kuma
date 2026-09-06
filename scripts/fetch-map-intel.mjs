@@ -23,7 +23,7 @@ const shipsFile = path.join(outDir, 'kcwiki-ships.json')
 const shipsPack = JSON.parse(readFileSync(shipsFile, 'utf8'))
 const now = new Date()
 const runDate = jstDate(now)
-const cacheDir = path.join(os.tmpdir(), 'kanso-map-intel-cache', now.toISOString().slice(0, 10))
+const cacheDir = path.join(os.tmpdir(), 'kuma-map-intel-cache', now.toISOString().slice(0, 10))
 const output = path.join(outDir, 'map-intel.json')
 if (existsSync(output)) {
   assertNoPendingMapIntelCandidate(output, process.argv.includes('--force'))

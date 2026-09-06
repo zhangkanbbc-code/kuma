@@ -79,6 +79,7 @@ Copyright (c) 2015-2021 poi contributors）的下列文件。移植文件均在�
 
 | kuma 文件 | 来源页面 |
 |---|---|
+| `assets/lodes/kcwiki-akashi-improve.json` | [参考舰娘百科·明石工厂数据（资料日期 2026-02-24）](https://zh.kcwiki.cn/wiki/%E6%A8%A1%E5%9D%97:%E6%98%8E%E7%9F%B3%E5%B7%A5%E5%8E%82%E6%95%B0%E6%8D%AE)，修订号 182356；与本机 akashi-list 逐格一致的逐星加成与日文图鉴说明由 kuma 抽取重排，缺失与分歧格不收录 |
 | `assets/lodes/kcwiki-ships.json` | `模块:舰娘数据` |
 | `assets/lodes/quests-scn.json` | `任务`、`任务/最新任务` |
 | `assets/lodes/kcwiki-localization.json`（中文译名部分） | `模块:舰娘数据`、`模块:深海栖舰数据改二`、`模块:舰娘装备数据改`、`模块:深海装备数据`、`模块:入手方式地图数据` |
@@ -87,6 +88,8 @@ Copyright (c) 2015-2021 poi contributors）的下列文件。移植文件均在�
 | `assets/lodes/kcwiki-expedition.json` | `远征列表` |
 | `assets/lodes/kcwiki-routing.json` | 各海域的「带路条件」子页 |
 | `assets/lodes/event-bonus.json` | 当期活动页的倍卡表 |
+| `assets/lodes/event-friendly-fleets.json` | 当期活动页的「友军舰队」表（kuma 汇编，2026-09-06；编成、等级与出现点位取自舰娘百科；强弱与波次为维护者按攻略 wiki（wikiwiki）对照标注，两波都列的编成按现行（本队）表标；两表强弱不同也取本队并单列汇报，本队行之间或各难度选取后的标签冲突、未能对照的组不标；E3 Fletcher 形态按本机实弹报文订正对照（2026-09-06），仅订正该活动该图的参考侧指纹；攻略 wiki 原始内容不随包） |
+| `assets/lodes/event-map-intel.json` | 当期活动子页的敌编成、奖励、特效分组名单、甲 S 图级掉落、确认机关及文字航程（kuma 汇编，2026-09-06；参考舰娘百科，CC-BY-NC-SA-3.0；不含攻略段落，缺失及未确认事实不收，wikiwiki 仅作本机对照） |
 | `assets/lodes/kcwiki-fit-bonus.json` | `模块:舰娘装备数据改` 的 `额外收益*` 字段 |
 | `assets/lodes/map-enemy-comps.json` | 37 张常规海域页的「深海配置」表 |
 | `assets/lodes/map-drops.json` | 37 张常规海域页的「舰娘掉落表」 |
@@ -140,8 +143,9 @@ Copyright (c) 2015-2021 poi contributors）的下列文件。移植文件均在�
 | kuma 文件 | 是什么 |
 |---|---|
 | `assets/lodes/map-drop-windows.json` | 常规海域限定期台账：哪张图哪个点从哪天起掉哪条船、那一批是什么名义、现在还开着没有 |
-| `assets/lodes/kanso-voice.json` | 台词自补层：上游两家都没收录的舰娘形态，其台词的**中文译文**，外加对应的日文原文列 |
-| `assets/lodes/kanso-voice-zh.json` | 台词译文自补层：上游已有行但中文栏为空或照抄英文原文时叠上的**中文译文**，外加对应的上游日文原文 |
+| `assets/lodes/kuma-voice.json` | 台词自补层：上游两家都没收录的舰娘形态，其台词的**中文译文**，外加对应的日文原文列 |
+| `assets/lodes/kuma-abyss-voice.json` | 深海台词自补层：上游两家都没收录的深海舰形态，其台词的**中文译文**，外加对应的日文原文列 |
+| `assets/lodes/kuma-voice-zh.json` | 台词译文自补层：上游已有行但中文栏为空或照抄英文原文时叠上的**中文译文**，外加对应的上游日文原文 |
 | `src/shared/fit-bonus-corrections.ts` | 装备加成的修正台账：随包 kcwiki 底表某几行的数与日文一手对不上时，加载时叠一层补正 |
 | `src/shared/fit-bonus-supplement.ts` | 装备加成的自补层：随包底表整件没收的装备（mstId 566–588），按日文一手转写成第一方条目 |
 | `scripts/lib/fit-bonus-conflicts.mjs` | 装备加成的冲突台账：两份独立整理在同一格给了不同的数，逐条记下裁给谁 |
@@ -152,6 +156,8 @@ Copyright (c) 2015-2021 poi contributors）的下列文件。移植文件均在�
 | `assets/lodes/equip-aa-evasion.json` | 对空射击回避事实表：哪些机体挨敌方对空射击时更不容易被打下来，两个减免补正分别是多少、综合档位是哪一档。每一行带 `basis` 写明这一格现在有多硬 |
 | `assets/lodes/event-plane-groups.json` | 活动陆航特効分组事实表：本期活动里哪架飞机属于哪个陆航特効组（C1/C2/C3）。带期号，换期对不上就整表不生效 |
 | `assets/lodes/event-lifecycle.json` | kuma 第一方登记表，官方公告日期 |
+| `assets/lodes/expedition-facts.json` | kuma 第一方登记表：远征属性门槛、运输桶总量、可行编成分支与大成功条件；仅结构化游戏机制事实 |
+| `assets/lodes/remodel-facts.json` | kuma 第一方登记表：逐改造边的特殊素材数量与回程成本；以舰娘百科[改造](https://zh.kcwiki.cn/wiki/改造)、舰娘数据模块及舰页为主，wikiwiki 仅供维护者交叉核对；不含上游散文或页面表格，来源修订与主数据依据见 `docs/remodel-facts-report.md` |
 
 台账里记的是**数值与运营事实**（「Bofors 12cm単装両用砲 在 Gotland 上 火力+2」「1-1 的 C 点自
 2025-10-29 起掉某条船」这类游戏行为事实，事实不受著作权保护），逐条带着核对当时那一页的页名与
@@ -173,7 +179,7 @@ Copyright (c) 2015-2021 poi contributors）的下列文件。移植文件均在�
 署名集中在本节，**条目内逐条不署名**——与 `map-drops.json` 的 `sourceNotes` 同一口径：
 来源自述与判据集中说清楚一处，而不是每条重复一遍
 
-`kanso-voice.json` 是这一族里唯一不是「数值台账」的一份，单独说清楚：
+`kuma-voice.json` 是这一族里唯一不是「数值台账」的一份，单独说清楚：
 包里**中文是 kuma 自己译的**，是第一方的翻译劳动；同一句话舰娘百科若已有译文，
 以舰娘百科的为准，自译的只补空缺
 
@@ -183,7 +189,11 @@ Copyright (c) 2015-2021 poi contributors）的下列文件。移植文件均在�
 单独把它挡在外面并不会让分发物更干净，只会让台词卷变成半张对照表。
 上游确实没有转写日文的行照实留空，不据中文回译
 
-`kanso-voice-zh.json` 只补两份随包上游台词里仍缺译的行：中文栏为空，或原文本身是英文、
+`kuma-abyss-voice.json` 遵循相同口径，只收 `subtitle-enemies` 与 `kcwiki-voice`
+均未收录的深海舰形态。包内中文由 kuma 自行翻译；日文列逐字取自日文 Wiki 深海舰页的
+角色台词，台词本身的著作权归游戏方，不主张转写产生新的权利
+
+`kuma-voice-zh.json` 只补两份随包上游台词里仍缺译的行：中文栏为空，或原文本身是英文、
 中文栏照抄英文原文。上游已有中文时一律不覆盖；上游补上中文后该条进入可删清单，
 上游日文原文变化时也不会把旧译文硬贴上去。原文是日文口癖或外来语、上游有意保留罗马字的行不动
 
@@ -286,3 +296,9 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+- `assets/lodes/construction-facts.json`：kuma 汇编，参考舰娘百科[建造](https://zh.kcwiki.cn/wiki/建造)（修订 183185）；CC BY-NC-SA 3.0。抽取并重排已核对的时间、普通/大型归属与部分普通配方；未收社区概率与评价。测试快照 `kcwiki-construction-20260906.json.gz` 同源同许可。
+
+- `assets/lodes/development-facts.json`：kuma 汇编，参考舰娘百科[开发](https://zh.kcwiki.cn/wiki/开发)（修订 184269）；CC BY-NC-SA 3.0。只整理明确秘书舰类别与四项数字投入，不收概率、评价或未解读的条件。测试快照 `kcwiki-development-20260906.json.gz` 同源同许可。
+
+- `assets/lodes/item-facts.json`：kuma 自写用途，参考舰娘百科[道具](https://zh.kcwiki.cn/wiki/道具)（修订 184113）；CC BY-NC-SA 3.0。固定兑换只收双源一致的数字，不收历年及历史兑换。测试快照 `kcwiki-items-20260906.json.gz` 同源同许可。

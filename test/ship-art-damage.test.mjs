@@ -158,7 +158,7 @@ globalThis.document = {
 
 // ---- 把真模块编出来 ----
 const compile = (name, files, entry, external = []) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `kanso-${name}-`))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `kuma-${name}-`))
   for (const [rel, content] of Object.entries(files)) {
     const full = path.join(dir, rel)
     fs.mkdirSync(path.dirname(full), { recursive: true })
@@ -195,7 +195,7 @@ const loadCjs = (outfile, dir, stubs) => {
 
 // 档案索引的样本：**真实条目**（本机档案里村雨改二那套衣装的中破图，路径与指纹同形）。
 // 用一个与其余断言不撞车的槽位，免得把「缓存空 → 远端」那几条改掉。
-const ARCHIVE_APPDATA = path.join(os.tmpdir(), 'kanso-art-archive-appdata')
+const ARCHIVE_APPDATA = path.join(os.tmpdir(), 'kuma-art-archive-appdata')
 const ARCHIVED = [
   {
     pathname: '/kcs2/resources/ship/character_full_dmg/5310_1257.png',
@@ -583,7 +583,7 @@ test('补图按元素上挂的档位取，不会把受损/沉没横幅补成常�
   empty.append(Object.assign(new FakeElement('span'), { classes: new Set(['ship-thumb-fallback']) }))
   docTree = [empty]
 
-  docListeners.get('kanso:art-source-change')?.()
+  docListeners.get('kuma:art-source-change')?.()
   const img = empty.querySelector('[data-ship-thumb]')
   assert.ok(img, '美术源变了要把缺的图补上')
   assert.equal(img.getAttribute('src'), 'dmg://916')

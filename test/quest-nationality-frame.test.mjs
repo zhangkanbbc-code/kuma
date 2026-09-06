@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url'
 
 import { buildSync } from 'esbuild'
 
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-quest-nationality-'))
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-quest-nationality-'))
 const output = path.join(tempDir, 'task-entity-match.cjs')
 buildSync({
   entryPoints: [fileURLToPath(new URL('../src/renderer/task-entity-match.ts', import.meta.url))],

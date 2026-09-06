@@ -482,7 +482,7 @@ const refresh = async (passive = false) => {
       queryActionEvents(rangeStart, now),
     ])
   } catch (error) {
-    console.warn('[kanso] 资源曲线读取失败', error)
+    console.warn('[kuma] 资源曲线读取失败', error)
     return
   }
   if (currentGeneration !== generation) return
@@ -513,6 +513,6 @@ const start = async () => {
 }
 
 void start().catch((error) => {
-  console.error('[kanso] resource trend window failed', error)
+  console.error('[kuma] resource trend window failed', error)
   root.innerHTML = '<div class="loading">资源账本读取失败 · 关闭窗口后重试</div>'
 })

@@ -48,7 +48,7 @@ import {
   type SpecialAbilityShip,
 } from './ship-special-attack'
 
-/** 数值给不出时，悬停里那一句。用户 2026-09-01 逐字定稿，别改写。 */
+/** 数值给不出时，悬停里那一句。维护者 2026-09-01 逐字定稿，别改写。 */
 export const PROC_RATE_UNKNOWN_NOTE = '暂无权威公式'
 
 /**

@@ -67,7 +67,7 @@ const fetchText = async (url, cacheFile, minIntervalMs, clock) => {
   const remaining = minIntervalMs - (Date.now() - clock.last)
   if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining))
   clock.last = Date.now()
-  const response = await fetch(url, { headers: { 'User-Agent': 'kanso-lodes' } })
+  const response = await fetch(url, { headers: { 'User-Agent': 'kuma-lodes' } })
   if (!response.ok) throw new Error(`${url} → HTTP ${response.status}`)
   const text = await response.text()
   mkdirSync(path.dirname(cacheFile), { recursive: true })

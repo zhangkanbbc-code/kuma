@@ -32,7 +32,7 @@ const journal = createCrashJournal({
     if (entry.benign) return // 已知噪音不占磁盘：它会周期性复现，落盘只会把真记录冲走
     // 这条链自己不能再抛，否则错误处理反倒成了新的错误源。
     try {
-      ipcRenderer.send('kanso:crash', {
+      ipcRenderer.send('kuma:crash', {
         scope: entry.scope,
         message: entry.message,
         stack: entry.stack,
@@ -54,8 +54,8 @@ export const recordCrash = (scope: string, error: unknown) => {
   // （EPIPE 一类）就成了 error 事件 → recordCrash → console 再抛的自激环
   try {
     // 噪音不打 console.error：控制台是排查真问题的地方，别让它也被淹掉
-    if (entry.benign) console.debug(`[kanso] ${scope}（已知噪音）：`, entry.message)
-    else console.error(`[kanso] ${scope} 出错：`, error)
+    if (entry.benign) console.debug(`[kuma] ${scope}（已知噪音）：`, entry.message)
+    else console.error(`[kuma] ${scope} 出错：`, error)
   } catch {
     /* console 不可用时放弃打印，记账本体已完成 */
   }

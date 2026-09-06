@@ -33,7 +33,7 @@ export interface DataDirInput {
   legacyExists: boolean
   /** 新目录 `<appData>/kuma` 在不在。 */
   currentExists: boolean
-  /** `KANSO_DATA_DIR` 显式覆盖（验收副本用）。给了就一切照它，用户自管。 */
+  /** `KUMA_DATA_DIR` 显式覆盖（验收副本用）。给了就一切照它，用户自管。 */
   override?: string | null
 }
 

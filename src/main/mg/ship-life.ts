@@ -457,7 +457,7 @@ const recordBattle = (body: any, ts: number) => {
   // 演习更没有「击沉」可言（HP 底线 1）。判据全在这一场的 attacks 里。
   const bossKill = isBoss ? resolveBossKill(battle.eShips, battle.attacks) : null
   for (const anomaly of bossKill?.anomalies ?? []) {
-    console.warn('[kanso] mg: boss 击杀归属异常 —', bossKillAnomalyText(anomaly))
+    console.warn('[kuma] mg: boss 击杀归属异常 —', bossKillAnomalyText(anomaly))
   }
   // 只有归到单舰那一档才落账：航空/支援终结的场次没有单舰归属，如实缺席。
   const killer =
@@ -586,6 +586,6 @@ export const onShipLifeApi = (
       recordBattle(body, ts)
     }
   } catch (error) {
-    console.warn('[kanso] mg: ship life tracking failed', apiPath, error)
+    console.warn('[kuma] mg: ship life tracking failed', apiPath, error)
   }
 }

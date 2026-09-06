@@ -4,7 +4,7 @@
 // 钦的任务行「要凑什么」与详情抽屉的「编成检查」显示的是同一份 `group.label`，
 // 而这份 label 由两个规则源分别产出，各说各的话：
 //   · kcwiki-quest-req 的编成门直接抄上游 requirements 里的**日文舰种词**（「駆逐」「軽巡」）；
-//   · 艦素自研那一侧（手写规则 + 从中文正文推导）出的是**中文**（「驱逐舰」「轻巡级」）。
+//   · kuma自研那一侧（手写规则 + 从中文正文推导）出的是**中文**（「驱逐舰」「轻巡级」）。
 // 于是同一列里「駆逐 ×3」与「驱逐舰 ×3」并排——同一个概念两种写法。
 // 2026-08-25 立的语言总则（见 enemy-formation.ts 文件头）在这一列上还没落实：
 // 玩家可见文案统一中文，同一概念不许两张表两种写法。
@@ -12,7 +12,7 @@
 // ---- 分层纪律（与阵形名那一份同构）----
 // 规则包与解码器里的字符串**保持源文不动**——`kcwiki-quest-rules` 的 FRIENDLY_STYPE_TOKENS
 // 仍以日文为键，考古要能逐字对回上游。中文化只发生在**追踪器装配完成之后、任何消费端之前**
-// 那一个出口（`quest-counter.ts` 的 `localizeFleetGoalLabels`）：那里改一次，
+// 那一个出口（`quest-counter.ts` 的 `localizeQuestLabels`）：那里改一次，
 // 任务行的 `qpFleetNeedItems` 与抽屉的 `evaluateFleetGoal` 两条腿同时受益，不会一边中文一边日文。
 //
 // ---- 不新立文案源 ----
@@ -21,7 +21,7 @@
 //     （护栏 test/ship-type-name.test.mjs 逐条核对，并核「中文词的舰种集 ⊇ 日文词的」）；
 //   · 「任意舰」「其它舰」本来就在用——前者是 `decodeKcwikiRequirement` 给秘书舰任意档的说法，
 //     后者是 `evaluateFleetGoal` 给 allowOnlyGoalShips 那一行的说法；
-//   · 「低速战舰」是 `kanso-quest-rules.ts` 手写规则里已有的 label 原文。
+//   · 「低速战舰」是 `kuma-quest-rules.ts` 手写规则里已有的 label 原文。
 // 长短两档**各译各的**：「駆逐」→「驱逐」、「駆逐艦」→「驱逐舰」。上游写短我们不擅自写长，
 // 那是在替规则包加话；两侧的长短本来就跟着任务正文走。
 //

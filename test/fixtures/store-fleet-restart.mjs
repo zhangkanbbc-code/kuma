@@ -197,7 +197,7 @@ export { applyDeckUpdates, toDeck, toNdock, toKdock }
 `
 
 const loaded = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-fleet-restart-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-fleet-restart-'))
   const entry = path.join(dir, 'fleet.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'fleet.cjs')

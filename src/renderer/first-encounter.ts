@@ -45,7 +45,7 @@ export const refreshFirstEncounters = (): Promise<void> => {
   loading = (async () => {
     const [next, fcd] = await Promise.all([
       queryFirstEncounters().catch((error) => {
-        console.warn('[kanso] 首见志读取失败', error)
+        console.warn('[kuma] 首见志读取失败', error)
         return null
       }),
       fcdRoute ? Promise.resolve(null) : queryLode('poi-fcd-map').catch(() => null),

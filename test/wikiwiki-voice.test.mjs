@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { readFileSync } from 'node:fs'
 
 import {
   normalizeWikiwikiShipName,
+  normalizeWikiwikiVoiceRows,
   parseWikiwikiAbyssVoicePage,
   parseWikiwikiVoicePage,
 } from '../scripts/lib/wikiwiki-voice.mjs'
@@ -22,6 +24,99 @@ const page = `
   <tr><td>00</td><td>零点报时</td><td>×</td><td>◯</td><td></td></tr>
   <tr><td>23</td><td>二十三点报时</td><td>×</td><td>◯</td><td></td></tr>
 </table>`
+
+const slotTable = readFileSync(new URL('./fixtures/wikiwiki-voice-slots.html', import.meta.url), 'utf8')
+
+test('显式小破序号直接取槽，兼容全角与圈号且不推进普通小破计数', () => {
+  for (const [one, two] of [['1', '2'], ['１', '２'], ['①', '②']]) {
+    const html = `<table>
+      <tr><th>イベント</th><th>セリフ</th><th><a href="/kancolle/花月">花月</a></th><th><a href="/kancolle/花月改">花月改</a></th></tr>
+      <tr><td>小破${two}</td><td>いやっ…！お、おやめ、くださいっ！</td><td>○</td><td>○</td></tr>
+      <tr><td>小破</td><td>きゃぁーっ！</td><td>○</td><td>×</td></tr>
+      <tr><td>旗艦大破</td><td>いやっ…！お、おやめ、くださいっ！</td><td>○</td><td>○</td></tr>
+    </table>`
+    const forms = parseWikiwikiVoicePage(html, '花月')
+    assert.deepEqual(forms.map(form => form.lines.map(row => [row.voiceId, row.ja])), [
+      [[20, 'いやっ…！お、おやめ、くださいっ！'], [19, 'きゃぁーっ！']],
+      [[20, 'いやっ…！お、おやめ、くださいっ！']],
+    ])
+    const rows = [
+      { key: '花月#0-23', scene: `小破${two} / 無印・改`, ja: '小破二' },
+      { key: '花月#0-22', scene: `小破${one}`, ja: '小破一' },
+      { key: '花月#0-24', scene: '小破', ja: '按列首句', voiceId: 20 },
+    ]
+    const normalized = normalizeWikiwikiVoiceRows(rows)
+    assert.deepEqual(normalized.map(row => row.voiceId), [20, 19, 19])
+    assert.deepEqual(normalizeWikiwikiVoiceRows(normalized), normalized)
+  }
+})
+
+test('已解析行按页／表内行序归一化，不改输入且重复执行不变', () => {
+  const row = (table, index, scene, ja, voiceId = 20) => ({
+    key: `霧島改二丙#${table}-${index}`, page: '霧島改二丙', scene, ja, voiceId,
+  })
+  const rows = [
+    row(0, 36, '旗艦大破', '痛った…そんな馬鹿な！'),
+    row(0, 30, '小破', '痛った…そんな馬鹿な！'),
+    row(0, 29, '小破', 'はぁぁっ！'),
+    row(0, 28, '小破', 'セリフ'),
+    row(0, 15, '出撃', '出撃よ！', 14),
+    row(0, 14, '編成', '出撃よ!', 13),
+    row(0, 17, '出撃', '第十一戦隊旗艦、戦艦霧島、出撃します！', 14),
+    row(1, 15, '出撃', '出撃よ！', 14),
+    row(1, 29, '小破', '別表の小破'),
+    { ...row(0, 15, '出撃', '出撃よ！', 14), key: '別ページ#0-15', page: '別ページ' },
+  ]
+  const original = structuredClone(rows)
+  const actual = normalizeWikiwikiVoiceRows(rows)
+  assert.deepEqual(rows, original)
+  assert.deepEqual(actual.map(line => [line.key, line.voiceId]), [
+    ['霧島改二丙#0-30', 20], ['霧島改二丙#0-29', 19],
+    ['霧島改二丙#0-14', 13], ['霧島改二丙#0-17', 14],
+    ['霧島改二丙#1-15', 14], ['霧島改二丙#1-29', 19], ['別ページ#0-15', 14],
+  ])
+  assert.deepEqual(normalizeWikiwikiVoiceRows(actual), actual)
+  assert.throws(() => normalizeWikiwikiVoiceRows([{ ...rows[0], key: '不含行序' }]), /缺少表内行序/)
+})
+
+test('四形态小破按各列计数，占位不占槽，出撃和旗艦大破不重复产出', () => {
+  const forms = parseWikiwikiVoicePage(slotTable, '霧島改二丙')
+  assert.equal(forms.length, 4)
+  for (const { name, lines } of forms) {
+    const small1 = ['霧島', '霧島改'].includes(name) ? 'きゃあっ！' : 'はぁぁっ！'
+    assert.deepEqual(lines.filter(line => [19, 20].includes(line.voiceId)).map(line => [line.voiceId, line.ja]), [
+      [19, small1], [20, '痛った…そんな馬鹿な！'],
+    ])
+    assert.deepEqual(lines.filter(line => [13, 14].includes(line.voiceId)).map(line => [line.voiceId, line.ja]), [
+      [13, '出撃よ！さて、どう出てくるかしら？'],
+      ...(name === '霧島改二丙' ? [[14, '第十一戦隊旗艦、戦艦霧島、出撃します！']] : []),
+    ])
+    assert.ok(lines.every(line => line.ja !== 'セリフ' && line.scene !== '旗艦大破'))
+  }
+})
+
+test('旗艦大破与中破同句时不占 20；独有句保留 20', () => {
+  const html = `<table>
+    <tr><th>イベント</th><th>セリフ</th><th><a href="/kancolle/玉波改二">玉波改二</a></th></tr>
+    <tr><td>旗艦大破</td><td>あぁ！？ 応急修理を急いで！ 浸水を止めて！ まだ戦います！</td><td>○</td></tr>
+    <tr><td rowspan="2">小破</td><td>あはぁ！</td><td>○</td></tr>
+    <tr><td>なっ！ 爆発！？ なに！？ ……潜水艦？</td><td>○</td></tr>
+    <tr><td>中破/大破</td><td>あぁ!?応急修理を急いで!浸水を止めて!まだ戦います!</td><td>○</td></tr>
+  </table>`
+  const lines = parseWikiwikiVoicePage(html, '玉波改二')[0].lines
+  assert.deepEqual(lines.map(line => line.voiceId), [19, 20, 21])
+  assert.equal(lines[1].ja, 'なっ！ 爆発！？ なに！？ ……潜水艦？')
+  const unique = parseWikiwikiVoicePage(html.replace('あぁ！？ 応急修理を急いで！ 浸水を止めて！ まだ戦います！', '独自の台詞'), '玉波改二')[0].lines
+  assert.equal(unique.find(line => line.scene === '旗艦大破').voiceId, 20)
+})
+
+test('同句匹配只看本形态；占位行插在小破首行前也不推进计数', () => {
+  const html = slotTable.replace('<td>○</td><td>○</td><td>○</td><td>○</td><td></td></tr>', '<td>○</td><td>○</td><td>○</td><td>×</td><td></td></tr>')
+    .replace('<td rowspan="4">小破</td><td>きゃあっ！</td>', '<td rowspan="5">小破</td><td>セリフ</td><td>○</td><td>○</td><td>○</td><td>○</td><td></td></tr><tr><td>きゃあっ！</td>')
+  const lines = parseWikiwikiVoicePage(html, '霧島改二丙').find(form => form.name === '霧島改二丙').lines
+  assert.equal(lines.filter(line => line.voiceId === 14).length, 2)
+  assert.equal(lines.find(line => line.voiceId === 19).ja, 'はぁぁっ！')
+})
 
 test('wikiwiki voice tables keep remodel forms isolated and map stable voice ids', () => {
   const forms = parseWikiwikiVoicePage(page, '清霜改二')
@@ -54,6 +149,18 @@ test('wikiwiki voice parser accepts the read-only mirror link shape', () => {
   assert.equal(forms.find((form) => form.name === '清霜改二').lines[0].ja, '改二专属台词')
 })
 
+test('wikiwiki voice parser decodes named and numeric HTML entities in Japanese lines', () => {
+  const html = page.replace(
+    '<td>共用台词</td>',
+    '<td>Enchant&eacute;e / &Ccedil;a / arr&egrave;s-midi / &#199; / &#xE7; / &unknown;</td>',
+  )
+  const forms = parseWikiwikiVoicePage(html, '清霜改二')
+  assert.equal(
+    forms.find((form) => form.name === '清霜改二').lines[1].ja,
+    'Enchantée / Ça / arrès-midi / Ç / ç / &unknown;',
+  )
+})
+
 test('wikiwiki abyss voice parser keeps exact No. ids and audited sound suffixes', () => {
   const html = `
     <h3>(No.2297) 駆逐ラ級ζ-壊 (A)</h3>
@@ -81,4 +188,17 @@ test('wikiwiki abyss voice parser keeps exact No. ids and audited sound suffixes
       ['撃沈', 'sunk', 41],
     ],
   )
+})
+
+test('wikiwiki abyss voice parser also decodes HTML entities in Japanese lines', () => {
+  const parsed = parseWikiwikiAbyssVoicePage(
+    `
+      <h3>(No.2297) 深海测试舰</h3>
+      <table>
+        <tr><th>セリフ</th><th>CV：未発表</th></tr>
+        <tr><td>開幕前</td><td>&Ccedil;a &#233; &#xEA;</td></tr>
+      </table>`,
+    '深海测试舰',
+  )
+  assert.equal(parsed.lines[0].ja, 'Ça é ê')
 })

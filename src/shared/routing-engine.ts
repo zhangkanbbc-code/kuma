@@ -358,7 +358,7 @@ export const evaluateRoutingRules = (
   //
   // 机关闸门段判定为 null 时必须原样传下去，吞成 true 就违背本文件头注立的约法
   //「只有此前没有未知分支 + 当前规则确定命中才输出 certain」
-  //（2026-08-26 用户裁定：报成「必走」不是语义，是把不确定说成了确定）。
+  //（2026-08-26 维护者裁定：报成「必走」不是语义，是把不确定说成了确定）。
 
   const acceptRoutes = (routes: RoutingDecisionRoute[]) => {
     for (const route of routes) {

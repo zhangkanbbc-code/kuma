@@ -107,9 +107,9 @@ test('查台账按 (形态, 槽位)；槽位为空一律查不到，不许模糊
 
 test('島根丸那一例的取证：槽位推对了，错的是那一格当季装着季节语音', (t) => {
   const seasonal = readLode('kcwiki-seasonal-voice')
-  const kanso = readLode('kanso-voice')
+  const kuma = readLode('kuma-voice')
   const subtitleJa = readLode('subtitle-ja')
-  if (!seasonal || !kanso || !subtitleJa) {
+  if (!seasonal || !kuma || !subtitleJa) {
     t.skip('缺台词域矿脉，跳过')
     return
   }
@@ -135,38 +135,41 @@ test('島根丸那一例的取证：槽位推对了，错的是那一格当季�
   assert.equal(row.slot, summer.slot)
 })
 
-test('两族不相交：自译层覆盖的形态一个都没有 subtitle-ja，国後却有', (t) => {
-  const kanso = readLode('kanso-voice')
+test('槽位级不相交：自译层每一行的槽位在该形态 subtitle-ja 里都没有，国後却有表', (t) => {
+  const kuma = readLode('kuma-voice')
   const subtitleJa = readLode('subtitle-ja')
-  if (!kanso || !subtitleJa) {
+  if (!kuma || !subtitleJa) {
     t.skip('缺台词域矿脉，跳过')
     return
   }
-  // 这一条就是 2026-08-23 判定「那一刀砍偏了」的关键：国後那一例的病根在
-  // kcwiki 台词表（她有字幕表、能校验、当场判分歧），而自译层是另一族。
+  // 2026-09-06 起自译层也补**有表形态的缺槽**，所以两族不再按形态分开；
+  // 纪律收紧到槽位级：同一槽有 subtitle-ja 就退位。国後判例的病根仍在 kcwiki
+  // 台词表（她有字幕表、能校验、当场判分歧），不受这次前提变化影响。
   assert.ok(Object.keys(subtitleJa.data['518'] ?? {}).length > 0, '国後应当有字幕表')
-  for (const formId of Object.keys(kanso.data.ships)) {
-    assert.equal(
-      Object.keys(subtitleJa.data[formId] ?? {}).length,
-      0,
-      `${formId} 有字幕表了——那这一层的 basis 该重编一次包`,
-    )
+  for (const [formId, rows] of Object.entries(kuma.data.ships)) {
+    for (const row of rows) {
+      assert.equal(
+        Object.prototype.hasOwnProperty.call(subtitleJa.data[formId] ?? {}, `${row.slot}`),
+        false,
+        `${row.key} 的槽位已有 subtitle-ja——这一行该退位`,
+      )
+    }
   }
 })
 
 // ---- 授键判据：这里的每一条都是 08-22 那批断言的**反面** ----
 
 test('自译层：wikiwiki-mapped 给键——1439 行整层恢复', (t) => {
-  const kanso = readLode('kanso-voice')
-  if (!kanso) {
-    t.skip('缺 kanso-voice，跳过')
+  const kuma = readLode('kuma-voice')
+  if (!kuma) {
+    t.skip('缺 kuma-voice，跳过')
     return
   }
   // ⚠️ 反转说明：08-22 这里断言的是「一个键都不给」（`assert.notEqual(row.basis, 'key-confirmed')`
   // 再数 key-only > 2000）。那条判据来自「无从校验＝可能会错」，被证据轴复核推翻——
   // 无从校验只说明我们手上没有第二份东西可以对，不说明它已经错了。
   let mapped = 0
-  for (const [formId, rows] of Object.entries(kanso.data.ships)) {
+  for (const [formId, rows] of Object.entries(kuma.data.ships)) {
     for (const row of rows) {
       assert.notEqual(
         row.basis,
@@ -244,7 +247,7 @@ test('图鉴里播成功的那一句会入档，且只在「地址现取」时�
   // 季节行那一条尤其该入档：过季就换回去了，此刻不收就再也收不到
   assert.match(ji, /data-voice-path="\$\{esc\(\s*\n?\s*voicePathname\(mstId, line\.slot!\) \?\? ''/)
   // 单向 IPC：播放不等转存
-  assert.match(voice, /ipcRenderer\.send\('kanso:archive-capture-voice'/)
+  assert.match(voice, /ipcRenderer\.send\('kuma:archive-capture-voice'/)
 })
 
 test('钥里的远端回退开关同样管语音：关掉就只走档案/缓存', () => {
@@ -258,10 +261,10 @@ test('钥里的远端回退开关同样管语音：关掉就只走档案/缓存'
   assert.match(voice, /return allowRemote && gameHost \? `https:\/\/\$\{gameHost\}\$\{pathname\}` : null/)
   // 立绘与语音**同一个开关**，两处都得接上——只接一处就是承诺不一致
   assert.match(yu, /setAllowRemoteArt\(next\)\s*\n\s*setAllowRemoteVoice\(next\)/)
-  assert.match(yu, /setAllowRemoteArt\(config\.get\('kanso\.remoteArt', true\)\)/)
-  assert.match(yu, /setAllowRemoteVoice\(config\.get\('kanso\.remoteArt', true\)\)/)
+  assert.match(yu, /setAllowRemoteArt\(config\.get\('kuma\.remoteArt', true\)\)/)
+  assert.match(yu, /setAllowRemoteVoice\(config\.get\('kuma\.remoteArt', true\)\)/)
   // 入档那条新路同样受它管（关掉就不走游戏服务器那一步）
-  assert.match(capture, /if \(!config\.get\('kanso\.remoteArt', true\)\) return null/)
+  assert.match(capture, /if \(!config\.get\('kuma\.remoteArt', true\)\) return null/)
   // 三类网络边界要写明白，给下一个会话当坐标
   for (const boundary of ['kcsapi 红线', '静态资源白区', '档案零网络']) {
     assert.ok(capture.includes(boundary), `边界说明里缺「${boundary}」`)
@@ -370,10 +373,10 @@ test('补词队列：每条都说得出形态、槽位、能从哪补', () => {
 })
 
 test('补词队列里的格子确实还没有词——补上了就该从名单里划掉', (t) => {
-  const kanso = readLode('kanso-voice')
+  const kuma = readLode('kuma-voice')
   const voice = readLode('kcwiki-voice')
   const subtitleZh = readLode('subtitle-zh')
-  if (!kanso || !voice || !subtitleZh) {
+  if (!kuma || !voice || !subtitleZh) {
     t.skip('缺台词域矿脉，跳过')
     return
   }
@@ -381,9 +384,9 @@ test('补词队列里的格子确实还没有词——补上了就该从名单�
   for (const gap of VOICE_TEXT_GAPS) {
     const id = `${gap.mstId}`
     for (const slot of gap.slots) {
-      const inKanso = (kanso.data.ships[id] ?? []).some((row) => row.slot === slot)
+      const inKuma = (kuma.data.ships[id] ?? []).some((row) => row.slot === slot)
       const inSubtitle = Boolean(`${subtitleZh.data[id]?.[`${slot}`] ?? ''}`.trim())
-      if (inKanso || inSubtitle) stale.push(`${id} 槽${slot}`)
+      if (inKuma || inSubtitle) stale.push(`${id} 槽${slot}`)
     }
   }
   assert.deepEqual(stale, [], `这些格已经有词了，该从补词队列里划掉：${stale.join('、')}`)
@@ -418,7 +421,7 @@ test('三条渲染路径都把入档身份传下去——漏一处就是「播�
   // ① kcwiki / 兜底那一路
   assert.match(ji, /play\?\.url \?\? null,\s*\n\s*offNote,\s*\n\s*correction\?\.textSource,\s*\n\s*play\?\.pathname,/)
   // ② 自译层那一路
-  assert.match(ji, /kansoVoiceOffNote\(mstId, row\),\s*\n\s*'kanso',\s*\n\s*play\?\.pathname,/)
+  assert.match(ji, /kumaVoiceOffNote\(mstId, row\),\s*\n\s*'kuma',\s*\n\s*play\?\.pathname,/)
   // ③ 季节行（证据点亮的那一条）
   assert.match(ji, /data-voice-path="\$\{esc\(\s*\n?\s*voicePathname\(mstId, line\.slot!\)/)
 })

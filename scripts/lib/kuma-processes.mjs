@@ -15,16 +15,16 @@
 
 import { execFileSync } from 'node:child_process'
 
-export const KANSO_IMAGE = 'kuma.exe'
+export const KUMA_IMAGE = 'kuma.exe'
 
 /**
  * 列出全部同映像进程。返回 `[{ pid, ppid, type, commandLine }]`，
  * `type` 是 `--type=` 开关的值（主进程为 null）。
  */
-export const listKansoProcesses = (image = KANSO_IMAGE) => {
+export const listKumaProcesses = (image = KUMA_IMAGE) => {
   const script = [
     '[Console]::OutputEncoding=[Text.Encoding]::UTF8',
-    '$list = @(Get-CimInstance Win32_Process -Filter "Name=\'$env:KANSO_IMAGE\'" |' +
+    '$list = @(Get-CimInstance Win32_Process -Filter "Name=\'$env:KUMA_IMAGE\'" |' +
       ' Select-Object ProcessId,ParentProcessId,CommandLine)',
     'ConvertTo-Json -InputObject $list -Depth 3 -Compress',
   ].join('; ')
@@ -34,7 +34,7 @@ export const listKansoProcesses = (image = KANSO_IMAGE) => {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 30000,
-      env: { ...process.env, KANSO_IMAGE: image },
+      env: { ...process.env, KUMA_IMAGE: image },
     })
   } catch (error) {
     throw new Error(`枚举 ${image} 进程失败：${error?.message ?? error}`)
@@ -53,7 +53,7 @@ export const listKansoProcesses = (image = KANSO_IMAGE) => {
  * 只要 PID 时走这条：tasklist 没有冷启动开销（~50ms，CIM 走 PowerShell 要 ~1s），
  * 轮询「清零了没有」用它。要命令行/父进程才走上面的 CIM。
  */
-export const listKansoPidsFast = (image = KANSO_IMAGE) => {
+export const listKumaPidsFast = (image = KUMA_IMAGE) => {
   let csv = ''
   try {
     csv = execFileSync('tasklist', ['/FI', `IMAGENAME eq ${image}`, '/FO', 'CSV', '/NH'], {
@@ -77,7 +77,7 @@ export const listKansoPidsFast = (image = KANSO_IMAGE) => {
 }
 
 /** 主进程（不带 `--type=`）与子/孤儿进程（带 `--type=`）分开。 */
-export const classifyKansoProcesses = (rows) => ({
+export const classifyKumaProcesses = (rows) => ({
   mains: rows.filter((row) => row.type == null),
   children: rows.filter((row) => row.type != null),
 })

@@ -25,6 +25,19 @@ const pack = (id, data) => ({
 })
 
 const validData = {
+  'item-facts': { 56: { overview: '可兑换资源', fixed: [{ offer: '消耗1个', gets: '燃料x700' }] } },
+  'development-facts': { schemaVersion: 1, equipment: { 19: [{ secretary: '空母系', recipe: [10, 10, 10, 11] }] } },
+  'construction-facts': { schemaVersion: 1, ships: { 1: { time: '00:18:00', modes: ['normal'], recipes: [[30, 30, 30, 30]] } } },
+  'kcwiki-akashi-improve': { schemaVersion: 1, items: { 1: { item_intro: '説明', item_remodel: { 火力: { 0: '+1', 9: '+3.16', 39: '+12.64' } } } } },
+  'event-map-intel': JSON.parse(fs.readFileSync(new URL('../assets/lodes/event-map-intel.json', import.meta.url), 'utf8')).data,
+  'expedition-facts': { A5: { stats: { 火力: 280, 对空: 220, 对潜: 240, 索敌: 150 } } },
+  'remodel-facts': { '215→652': { stages: { first: { 'useitem:2': 55 } } } },
+  'event-friendly-fleets': {
+    schemaVersion: 1,
+    maps: { '62-1': { point: 'X 点（P3 Boss）', friendlyFleets: [{ ships: [{ id: 746, name: '桐改', lv: 80 }] }] } },
+    history: [{ name: '往期活动', mapAreaId: 61, status: 'ended', until: '2026-06-01',
+      maps: { '61-1': { point: 'X 点', friendlyFleets: [{ ships: [{ id: 746, name: '桐改', lv: 80 }] }] } } }],
+  },
   'abyssal-stats': {
     1501: { api_id: 1501, api_taik: 20, api_maxeq: [0], kc3_slots: [1501], kc3_oasw: false },
   },
@@ -230,7 +243,7 @@ const validData = {
     1: [{ key: '', scene: '战绩', ja: '原文', zh: '译文' }],
   },
   // 台词自补层：第一方译文 + 日文原文列（2026-08-22 起两列都收）
-  'kanso-voice': {
+  'kuma-voice': {
     schemaVersion: 1,
     compiledAt: '2026-08-22',
     ships: {
@@ -241,7 +254,17 @@ const validData = {
       ],
     },
   },
-  'kanso-voice-zh': {
+  'kuma-abyss-voice': {
+    schemaVersion: 1,
+    compiledAt: '2026-09-06',
+    ships: {
+      2317: [
+        { key: '2317-10', scene: '開幕前', suffix: 10, ja: '原文', zh: '译文' },
+        { key: '2317-s1', scene: '家具', ja: '原文', zh: '', draft: true },
+      ],
+    },
+  },
+  'kuma-voice-zh': {
     schemaVersion: 1,
     compiledAt: '2026-09-04',
     entries: {
@@ -633,6 +656,18 @@ const validData = {
 }
 
 const invalidData = {
+  'item-facts': { 56: { overview: '可兑换资源', yearly: [{ year: '2026' }] } },
+  'development-facts': { schemaVersion: 1, equipment: { 19: [{ secretary: '空母系', recipe: [10, 10, 10, 11], rate: 8 }] } },
+  'construction-facts': { schemaVersion: 1, ships: { 1: { time: '00:18:00', modes: ['normal'], recipes: [[30, 30]], rate: 2 } } },
+  'event-map-intel': { schemaVersion: 1, maps: { '62-1': { difficulties: {}, drops: { difficultyAgnostic: false, nodes: {} } } } },
+  'expedition-facts': { A5: { stats: { 火力: -1 } } },
+  'remodel-facts': { '215→652': { stages: { first: { 'useitem:2': -1 } } } },
+  'event-friendly-fleets': {
+    schemaVersion: 1,
+    maps: { '62-1': { point: 'X 点（P3 Boss）', friendlyFleets: [{ ships: [{ id: 746, name: '桐改', lv: 80 }] }] } },
+    history: [{ name: '往期活动', mapAreaId: 61, status: 'ended', until: '2026-06-01',
+      maps: { '61-1': { point: 'X 点', friendlyFleets: [{ ships: [{ id: 0, name: '桐改', lv: 80 }] }] } } }],
+  },
   'opencc-t2s': {
     schemaVersion: 1,
     chars: { 體: 'body' },
@@ -677,6 +712,7 @@ const invalidData = {
     recipes: Array.from({ length: 12 }, () => ({ target: '駆逐艦', recipe: [0, 30, 30, 30], note: '' })),
     times: Array.from({ length: 20 }, () => ({ time: '00:18:00', stype: '駆逐艦', ships: [], largeOnly: [] })),
   },
+  'kcwiki-akashi-improve': { schemaVersion: 1, items: { 1: { item_remodel: { 火力: { 40: '+1' } } } } },
   'akashi-list': {
     items: [],
     pre_star: [],
@@ -767,15 +803,24 @@ const invalidData = {
   // 缺了 `ja` 这一列。判据 2026-08-22 反转过：原来的坏样本是「混进了 ja」，
   // 现在反过来——台词卷是**对照**功能，少一列就是半张表，所以缺列必须拦。
   // （值可以是空串：上游确实没转日文的行照实空着；缺的是**键**才是坏数据。）
-  'kanso-voice': {
+  'kuma-voice': {
     schemaVersion: 1,
     compiledAt: '2026-08-22',
     ships: {
       973: [{ key: '973-1', scene: '入手/登入时', slot: 1, basis: 'wikiwiki-mapped', zh: '译文' }],
     },
   },
+  'kuma-abyss-voice': {
+    schemaVersion: 1,
+    compiledAt: '2026-09-06',
+    ships: {
+      2317: [
+        { key: '2317-30', scene: '被弾', suffix: 30, ja: '', zh: '译文', ambiguous: false },
+      ],
+    },
+  },
   // pack 只能指向两份上游台词包，不能把任意资料包接进叠加层
-  'kanso-voice-zh': {
+  'kuma-voice-zh': {
     schemaVersion: 1,
     compiledAt: '2026-09-04',
     entries: {
@@ -962,14 +1007,14 @@ const invalidData = {
   },
 }
 
-test('source manifest, validators, and fixtures cover the same 47 lode packs', () => {
+test('source manifest, validators, and fixtures cover the same 56 lode packs', () => {
   // 包分两类，**合起来**才是校验器与夹具要覆盖的全集：
   //  · 来源登记（scripts/lode-sources.json）：抓来的包与独立生成器包；
   //  · 第一方手工台账（FIRST_PARTY_LODE_IDS）：没有独立生成器的旧台账不进来源登记。
   // 少写一边的后果不是报错，而是新包**没有校验器**却照样被加载。
   const expected = Object.keys(validData).sort()
   const sourceIds = lodeSources.map((source) => source.id)
-  assert.equal(expected.length, 47)
+  assert.equal(expected.length, 56)
   assert.equal(new Set(sourceIds).size, sourceIds.length, 'source manifest contains duplicate ids')
   for (const id of FIRST_PARTY_LODE_IDS) {
     const registered = lodeSources.find((source) => source.id === id)
@@ -1052,10 +1097,15 @@ test('map-intel source text is escaped at every combat rendering site', () => {
   const combat = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
   // 掉落与编成两格 2026-08-22 起各读各自汇编包的来源（`mapDropsInfo()` /
   // `mapEnemyCompsInfo()`，汇编层没覆盖的图退回底座）。名字换过两轮了，
-  // 所以钉的是「**每一处** `.source` 都被 esc 包着」，不钉具体叫什么。
-  const occurrences = [...combat.matchAll(/\b\w+\.source\b/g)]
-  assert.ok(occurrences.length >= 2, `di.ts 里只找到 ${occurrences.length} 处来源文本`)
-  assert.equal([...combat.matchAll(/esc\(\w+\.source\)/g)].length, occurrences.length)
+  // 所以只数真正送进 HTML 的 `${…x.source…}`，再逐处核它被 esc 包着。
+  const interpolations = [...combat.matchAll(/\$\{[^}\n]*\b\w+\.source\b[^}\n]*\}/g)]
+  assert.ok(interpolations.length >= 2, `di.ts 里只找到 ${interpolations.length} 处来源文本插值`)
+  for (const [interpolation] of interpolations) {
+    assert.match(interpolation, /^\$\{\s*esc\(\w+\.source\)\s*\}$/)
+  }
+  // 不许先 `const source = x.source` 再插 `${esc(source)}`：那会绕开上面的逐处判据。
+  const sourceReads = [...combat.matchAll(/\b\w+\.source\b/g)]
+  assert.equal(sourceReads.length, interpolations.length, '.source 必须在模板插值里直接转义')
   assert.match(combat, /核对 \$\{esc\(\w+\.checkedAt\)\}/)
 })
 
@@ -1140,7 +1190,7 @@ const NOTE_BANNED = [
  */
 const NOTE_MIGRATED_IDS = Object.freeze([
   'abyssal-stats', 'akashi-list', 'build-recipes', 'dev-recipes', 'eo-quests',
-  'equip-upgrades', 'event-bonus', 'fit-bonus', 'kanso-voice', 'kanso-voice-zh', 'kcnav-routing',
+  'equip-upgrades', 'event-bonus', 'fit-bonus', 'kuma-voice', 'kuma-voice-zh', 'kcnav-routing',
   'kcwiki-bgm', 'kcwiki-expedition', 'kcwiki-fit-bonus', 'kcwiki-localization',
   'kcwiki-quest-req', 'kcwiki-routing', 'kcwiki-seasonal-voice', 'kcwiki-ships',
   'kcwiki-voice', 'map-drop-windows', 'map-drops', 'map-enemy-comps', 'map-intel',
@@ -1183,7 +1233,7 @@ test('资料包的 meta.note 是给玩家的一两句人话，考古另住 maint
       checkArchive(`lode-sources.json/${source.id}`, source.maintainerNote)
     }
   }
-  // maintainerNote 绝不能被抄进包里：它一旦进 meta 就会被 lodeCredit 渲染出来
+  // 通用抓取器不搬维护者说明；独立汇编包的明确例外在下方逐项核对。
   const fetcher = fs.readFileSync(new URL('../scripts/fetch-lodes.mjs', import.meta.url), 'utf8')
   assert.doesNotMatch(fetcher, /maintainerNote:\s*src\.maintainerNote/)
 
@@ -1212,6 +1262,10 @@ test('资料包的 meta.note 是给玩家的一两句人话，考古另住 maint
         meta.maintainerNote,
         ['第一方覆盖层见 scripts/lib/zh-simplify-overrides.mjs'],
       )
+    } else if (id === 'event-friendly-fleets' || id === 'event-map-intel') {
+      // 2026-09-06 裁定：随包保留编成出处与维护者强弱/波次标注的责任边界。
+      checkArchive(`assets/lodes/${file}`, meta.maintainerNote)
+      assert.deepEqual(meta.maintainerNote, source.maintainerNote)
     } else {
       // 包里不该带 maintainerNote：抓取器不写它，写了就是有人手改包时搬错了地方
       assert.equal(meta.maintainerNote, undefined, `${file} 的 meta 里出现了 maintainerNote`)

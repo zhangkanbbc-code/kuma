@@ -46,6 +46,7 @@ import { firstTextTitle, installSectionFolding } from '../section-fold'
 import { entityNameHtml, entityNamePlain } from '../localization'
 import { isFavoriteEquipInstance, toggleFavoriteEquipInstance } from '../equip-personal'
 import { csvText, saveTextFile, stampedFileName } from '../csv-export'
+import { searchFold } from '../search-fold'
 
 import type { SlotitemInstance } from '../../shared/mg-types'
 import { compareDisplayNames } from '../../shared/name-order'
@@ -127,7 +128,7 @@ const loadFurnitureMst = () => {
       const raw = await queryMasterRaw()
       list = raw?.data?.api_mst_furniture
     } catch (error) {
-      console.warn('[kanso] 家具主数据读取失败', error)
+      console.warn('[kuma] 家具主数据读取失败', error)
     }
     if (!Array.isArray(list)) {
       // 首次运行还没抓到 api_start2。**必须复位**：锁死的话
@@ -150,7 +151,7 @@ const loadFurnitureMst = () => {
       try {
         notify()
       } catch (error) {
-        console.warn('[kanso] 家具主数据回调失败', error)
+        console.warn('[kuma] 家具主数据回调失败', error)
       }
     }
   })()
@@ -173,7 +174,7 @@ const loadEquipTypeNames = () => {
       const raw = await queryMasterRaw()
       list = raw?.data?.api_mst_slotitem_equiptype
     } catch (error) {
-      console.warn('[kanso] 装备类别名读取失败', error)
+      console.warn('[kuma] 装备类别名读取失败', error)
     }
     if (!Array.isArray(list)) {
       equipTypeNamesRequested = false
@@ -310,11 +311,11 @@ const applyRest = (rows: Row[]): Row[] => {
   const smart = state.smart ? SMART_FILTERS[state.smart] : null
   if (smart) out = out.filter(smart.test)
   if (state.search) {
-    const q = state.search.toLowerCase()
+    const q = searchFold(state.search)
     out = out.filter(
       (r) =>
-        r.name.toLowerCase().includes(q) ||
-        entityNamePlain('equip', r.inst.mstId, r.name).toLowerCase().includes(q),
+        searchFold(r.name).includes(q) ||
+        searchFold(entityNamePlain('equip', r.inst.mstId, r.name)).includes(q),
     )
   }
   return out
@@ -628,7 +629,7 @@ const exportCsv = async (rows: Row[]) => {
   const outcome = await saveTextFile(
     {
       title: '导出装备仓库',
-      defaultPath: stampedFileName('kanso-equips', 'csv'),
+      defaultPath: stampedFileName('kuma-equips', 'csv'),
       filters: [{ name: 'CSV', extensions: ['csv'] }],
       logLabel: '装备仓库导出 CSV',
     },
@@ -658,7 +659,7 @@ const moreCategoriesHtml = (): string => {
     .map(([type2, n]) => {
       const name = equipCategoryFallbackName(type2, equipTypeNames.get(type2))
       return `<span class="cat-cell${state.typeFilter === type2 ? ' on' : ''}" data-equip-type="${type2}">
-        ${esc(name)}<i>${n}</i></span>`
+        ${entityNameHtml('equipType', type2, name, { compact: true })}<i>${n}</i></span>`
     })
   return `<div class="cat-more">
     <div class="cat-more-h">按装备类别精确筛选<span>共 ${cells.length} 类</span></div>

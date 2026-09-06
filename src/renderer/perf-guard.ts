@@ -13,23 +13,24 @@
 // 长任务：同步分发返回后的样式重算、排版、绘制与合成不在分发计时里，
 // 由浏览器的 longtask 观测补上整段主线程占用。
 
+import { readEnv } from '../shared/env-names'
 import { recordCrash } from './crash-guard'
 
 const { ipcRenderer } = require('electron')
 
 // 看门狗的 ping 由主进程发起（页面隐藏时渲染层定时器被节流，自报会误报），
 // 收到即回，证明事件循环还活着。
-ipcRenderer.on('kanso:perf-ping', () => {
+ipcRenderer.on('kuma:perf-ping', () => {
   try {
-    ipcRenderer.send('kanso:perf-alive')
+    ipcRenderer.send('kuma:perf-alive')
   } catch {
     /* 窗口正在关闭时放弃应答 */
   }
 })
 
-const configuredSlowDispatchMs = Number(process.env.KANSO_PERF_SLOW_MS)
-const configuredPartMs = Number(process.env.KANSO_PERF_PART_MS)
-const configuredLongTaskMs = Number(process.env.KANSO_PERF_LONGTASK_MS)
+const configuredSlowDispatchMs = Number(readEnv('KUMA_PERF_SLOW_MS'))
+const configuredPartMs = Number(readEnv('KUMA_PERF_PART_MS'))
+const configuredLongTaskMs = Number(readEnv('KUMA_PERF_LONGTASK_MS'))
 
 // 诊断会话可调低阈值；未设置或值无效时保持默认阈值不变。
 /** 分发总耗时超过这个数才上报——单帧预算 16ms，偶发 2-3 帧的尖刺不值得记 */
@@ -46,7 +47,7 @@ const LONGTASK_MS =
     ? configuredLongTaskMs
     : 50
 
-type KansoTaskAttribution = {
+type KumaTaskAttribution = {
   readonly name: string
   readonly containerType: string
   readonly containerSrc: string
@@ -54,15 +55,15 @@ type KansoTaskAttribution = {
   readonly containerName: string
 }
 
-type KansoLongTaskEntry = PerformanceEntry & {
-  readonly attribution: readonly KansoTaskAttribution[]
+type KumaLongTaskEntry = PerformanceEntry & {
+  readonly attribution: readonly KumaTaskAttribution[]
 }
 
 try {
   new PerformanceObserver((list) => {
     for (const entry of list.getEntries()) {
       if (entry.duration < LONGTASK_MS) continue
-      const detail = (entry as KansoLongTaskEntry).attribution
+      const detail = (entry as KumaLongTaskEntry).attribution
         .map((item) => {
           const container = `${item.containerType}${item.containerId ? `#${item.containerId}` : ''}`
           return [container, item.containerName, item.containerSrc, item.name]
@@ -71,7 +72,7 @@ try {
         })
         .filter(Boolean)
         .join(' / ')
-      ipcRenderer.send('kanso:perf', { scope: 'longtask', ms: entry.duration, detail })
+      ipcRenderer.send('kuma:perf', { scope: 'longtask', ms: entry.duration, detail })
     }
   }).observe({ entryTypes: ['longtask'] })
 } catch {
@@ -80,11 +81,11 @@ try {
 
 /**
  * 给异步回程、rAF 与被动补渲这类单次工作计时；阈值与同步分发共用，
- * 诊断会话调低 KANSO_PERF_SLOW_MS 时两层会一起现形。
+ * 诊断会话调低 KUMA_PERF_SLOW_MS 时两层会一起现形。
  */
 export const timedRun = (scope: string, run: () => void): void => {
   try {
-    ipcRenderer.send('kanso:perf-breadcrumb', scope)
+    ipcRenderer.send('kuma:perf-breadcrumb', scope)
   } catch {
     /* IPC 不可用时面包屑作罢，计时照常 */
   }
@@ -97,7 +98,7 @@ export const timedRun = (scope: string, run: () => void): void => {
   const ms = performance.now() - startedAt
   if (ms >= SLOW_DISPATCH_MS) {
     try {
-      ipcRenderer.send('kanso:perf', { scope, ms, detail: '' })
+      ipcRenderer.send('kuma:perf', { scope, ms, detail: '' })
     } catch {
       /* 同上 */
     }
@@ -120,7 +121,7 @@ export const timedEach = <T>(
   for (const item of items) {
     const site = siteOf(item)
     try {
-      ipcRenderer.send('kanso:perf-breadcrumb', `${scope} → ${site}`)
+      ipcRenderer.send('kuma:perf-breadcrumb', `${scope} → ${site}`)
     } catch {
       /* IPC 不可用时面包屑作罢，计时照常 */
     }
@@ -142,7 +143,7 @@ export const timedEach = <T>(
       .map((part) => `${part.site} ${part.ms.toFixed(0)}ms`)
       .join(' · ')
     try {
-      ipcRenderer.send('kanso:perf', { scope, ms: total, detail })
+      ipcRenderer.send('kuma:perf', { scope, ms: total, detail })
     } catch {
       /* 同上 */
     }

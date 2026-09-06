@@ -611,8 +611,8 @@ test('三段链路上的 channel 名字对得上（渲染层 → 主进程 → �
     'utf8',
   )
 
-  assert.ok(renderer.includes('kanso:preview-audio-active'), '渲染层没在发这条 IPC')
-  assert.ok(main.includes('kanso:preview-audio-active'), '主进程没在收这条 IPC')
+  assert.ok(renderer.includes('kuma:preview-audio-active'), '渲染层没在发这条 IPC')
+  assert.ok(main.includes('kuma:preview-audio-active'), '主进程没在收这条 IPC')
   assert.ok(main.includes(PREVIEW_DUCK_CHANNEL), '主进程没往游戏页转这条 IPC')
   assert.ok(preload.includes('installPreviewDuck'), '游戏页 preload 没装上收货口')
   // 压游戏声音是**瞬态内存态**：这条路上任何一处落盘，崩溃之后都会留下一台哑游戏

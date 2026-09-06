@@ -2,6 +2,7 @@
 //
 //   node scripts/voice-backfill-ja.mjs          # 改写
 //   node scripts/voice-backfill-ja.mjs --check  # 只检查，缺列/错配就非零退出
+//   node scripts/voice-backfill-ja.mjs --renormalize-wikiwiki --check  # 先就地归一化本机 wikiwiki 底本
 //
 // ---- 为什么现在有这一列了 ----
 // 2026-08-22 之前这两个包**只收中文**，那是把任务域的「日文原文不进分发物」口径
@@ -10,9 +11,9 @@
 // 于是撤销那条类推，把日文补回来：台词卷本来就该是**日中对照**，只给中文是半张表。
 //
 // ---- 底本从哪来：零重抓 ----
-//  · 自译包 `kanso-voice`：本机的 `wikiwiki-voice.json`（不随包，但一直在本机）。
-//    配对判据与审稿单完全同一套——按 **(形态, 槽位, 同槽第几条)**，
-//    因为包里的行本来就是照这个顺序从底本生成的。
+//  · 自译包 `kuma-voice`：本机的 `wikiwiki-voice.json`（不随包，但一直在本机）。
+//    配对判据与审稿单完全同一套——已有日文只须命中 **同形态同槽任一候选**，
+//    同槽多行不得复用候选；对不上且有多候选时不按序号猜，列出来交人判定。
 //  · 季节包 `kcwiki-seasonal-voice`：`assets/review/kcwiki-seasonal-voice.audit.json`
 //    （`lodes:fetch --seasonal-voice-audit` 留下的维护者侧材料）。按 **(档名, 季节)** 配；
 //    本家那一季没有日文时，退到别的季列过的同一档名——同一个档名指的是同一句台词。
@@ -26,6 +27,9 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { normalizeVoiceLine } from '../src/shared/voice-lineage.ts'
+import { normalizeWikiwikiVoiceRows } from './lib/wikiwiki-voice.mjs'
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const lodeDir = path.join(root, 'assets', 'lodes')
 const reviewDir = path.join(root, 'assets', 'review')
@@ -33,6 +37,20 @@ const check = process.argv.includes('--check')
 
 const readJson = (file) => (existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : null)
 const SEP = ' ␟ '
+
+if (process.argv.includes('--renormalize-wikiwiki')) {
+  const file = path.join(lodeDir, 'wikiwiki-voice.json')
+  const pack = readJson(file)
+  if (!pack) throw new Error(`缺少本机底本：${file}`)
+  pack.data = Object.fromEntries(Object.entries(pack.data).map(([id, rows]) =>
+    [id, normalizeWikiwikiVoiceRows(rows)]))
+  writeFileSync(file, `${JSON.stringify(pack)}\n`)
+  console.log('[槽位] 已归一化 assets/lodes/wikiwiki-voice.json；未重取页面')
+  const uniqueFlagship = Object.entries(pack.data).flatMap(([id, rows]) =>
+    rows.filter(row => /旗艦大破/.test(row.scene)).map(row => `${id} ${row.key} ${row.ja}`))
+  console.log(`[槽位] 独有旗艦大破 ${uniqueFlagship.length} 行`)
+  for (const row of uniqueFlagship) console.log(`         ${row}`)
+}
 
 /** 底本里这个形态的行：与编包时同一套去重（同槽同文只留一条），按槽位归拢。 */
 const wikiwikiLinesOf = (wikiwiki, mstId) => {
@@ -48,14 +66,14 @@ const wikiwikiLinesOf = (wikiwiki, mstId) => {
   return bySlot
 }
 
-const backfillKanso = () => {
-  const file = path.join(lodeDir, 'kanso-voice.json')
+const backfillKuma = () => {
+  const file = path.join(lodeDir, 'kuma-voice.json')
   const pack = readJson(file)
   const wikiwiki = readJson(path.join(lodeDir, 'wikiwiki-voice.json'))?.data
-  if (!pack) return { id: 'kanso-voice', missing: '本机没有这个包' }
+  if (!pack) return { id: 'kuma-voice', missing: '本机没有这个包' }
   if (!wikiwiki) {
     return {
-      id: 'kanso-voice',
+      id: 'kuma-voice',
       missing:
         '本机没有 wikiwiki-voice.json（自译包的日文底本）。' +
         '跑一次 `npm run lodes:fetch -- --only=wikiwiki-voice` 再来',
@@ -65,15 +83,45 @@ const backfillKanso = () => {
   let filled = 0
   let blank = 0
   const blanks = []
+  let ambiguous = 0
+  const ambiguities = []
   for (const [mstId, rows] of Object.entries(pack.data.ships)) {
     const bySlot = wikiwikiLinesOf(wikiwiki, Number(mstId))
     const used = new Map()
     for (const row of rows) {
-      const index = used.get(row.slot) ?? 0
-      used.set(row.slot, index + 1)
-      const ja = `${(bySlot.get(row.slot) ?? [])[index]?.ja ?? ''}`
-      if (ja) filled += 1
-      else {
+      const candidates = bySlot.get(row.slot) ?? []
+      const usedHere = used.get(row.slot) ?? new Set()
+      const actual = normalizeVoiceLine(row.ja)
+      const matchedIndex = candidates.findIndex(
+        (candidate, candidateIndex) =>
+          !usedHere.has(candidateIndex) &&
+          actual === normalizeVoiceLine(candidate.ja),
+      )
+      if (matchedIndex >= 0) {
+        usedHere.add(matchedIndex)
+        used.set(row.slot, usedHere)
+        filled += 1
+        continue
+      }
+      // 2026-09-06 Glorious 判例：同页混列改装阶段的两套台词；按同槽序号回填会串形态。
+      if (candidates.length > 1) {
+        ambiguous += 1
+        ambiguities.push({
+          row: `${mstId} ${row.key}`,
+          candidates: candidates.map((candidate) => `${candidate.ja ?? ''}`),
+        })
+        continue
+      }
+      const ja = `${candidates[0]?.ja ?? ''}`
+      if (ja && !usedHere.has(0)) {
+        usedHere.add(0)
+        used.set(row.slot, usedHere)
+        filled += 1
+      } else if (ja) {
+        ambiguous += 1
+        ambiguities.push({ row: `${mstId} ${row.key}`, candidates: [ja] })
+        continue
+      } else {
         blank += 1
         if (blanks.length < 5) blanks.push(`${mstId} ${row.key}`)
       }
@@ -84,7 +132,7 @@ const backfillKanso = () => {
     }
   }
   if (changed && !check) writeFileSync(file, `${JSON.stringify(pack, null, 1)}\n`)
-  return { id: 'kanso-voice', changed, filled, blank, blanks, file }
+  return { id: 'kuma-voice', changed, filled, blank, blanks, ambiguous, ambiguities, file }
 }
 
 const backfillSeasonal = () => {
@@ -144,7 +192,7 @@ const backfillSeasonal = () => {
 }
 
 let bad = 0
-for (const result of [backfillKanso(), backfillSeasonal()]) {
+for (const result of [backfillKuma(), backfillSeasonal()]) {
   if (result.missing) {
     console.error(`[日文列] ${result.id}：${result.missing}`)
     bad += 1
@@ -152,14 +200,22 @@ for (const result of [backfillKanso(), backfillSeasonal()]) {
   }
   const tail =
     `日文 ${result.filled} 行` +
-    (result.blank ? ` · 上游确实没有日文的 ${result.blank} 行（照实留空）` : '')
-  if (!result.changed) {
+    (result.blank ? ` · 上游确实没有日文的 ${result.blank} 行（照实留空）` : '') +
+    (result.ambiguous ? ` · 多候选待人工判定 ${result.ambiguous} 行` : '')
+  if (result.ambiguous) {
+    console.error(`[日文列] ${result.id}：待人工判定 · ${tail}`)
+  } else if (!result.changed) {
     console.log(`[日文列] ${result.id}：已就位 · ${tail}`)
   } else {
     console.log(`[日文列] ${result.id}：${check ? '与底本对不上' : '已写入'} ${result.changed} 行 · ${tail}`)
     if (check) bad += 1
   }
   for (const line of result.blanks) console.log(`           留空：${line}`)
+  for (const item of result.ambiguities ?? []) {
+    console.error(`           待定：${item.row}`)
+    for (const candidate of item.candidates) console.error(`                 候选：${candidate}`)
+  }
+  if (result.ambiguous) bad += 1
 }
 if (bad) {
   if (check) console.error('\n[日文列] 跑 `node scripts/voice-backfill-ja.mjs` 就地补齐。')

@@ -46,6 +46,7 @@ const FOLD_SET = sliceBetween('const OPEN_BY_DEFAULT = new Set(', '\n', 'OPEN_BY
 const abs = (...parts) => path.join(ROOT, ...parts).replace(/\\/g, '/')
 
 const HARNESS = `
+import { akashiImproveItem } from '${abs('src', 'shared', 'akashi-improve.ts')}'
 import { improveEntryTier } from '${abs('src', 'shared', 'equip-sources.ts')}'
 import type { EquipUpgradeRow } from '${abs('src', 'shared', 'equip-sources.ts')}'
 import {
@@ -79,6 +80,7 @@ const esc = (s: unknown) => \`\${s ?? ''}\`.replace(/[&<>"']/g, (c) => \`&#\${c.
 const eoByEquip = { get: (_id: number) => stub.eo }
 const eoLode: any = { meta: { source: '第一方事实表' }, data: [] }
 let improveCoverageMax = 0
+const kcwikiAkashiLode: any = { get meta() { return { source: 'CC' } }, get data() { return stub.bundledAkashi } }
 const akashiListLode: any = { get meta() { return { source: 'akashi-list' } }, get data() { return stub.akashi } }
 const mg: any = {
   get materials() { return stub.materials },
@@ -115,7 +117,7 @@ export { improveSectionHtml, OPEN_BY_DEFAULT }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-improve-card-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-improve-card-'))
   const entry = path.join(dir, 'card.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'card.cjs')
@@ -144,6 +146,7 @@ export const improveCardHtml = (setup = {}) => {
   stub.unlocked = setup.unlocked ?? {}
   stub.day = setup.day ?? 2
   stub.akashi = setup.akashi ?? null
+  stub.bundledAkashi = setup.bundledAkashi ?? null
   stub.uncovered = setup.uncovered ?? false
   loaded.setCoverage(setup.coverageMax ?? 0)
   return loaded.improveSectionHtml(

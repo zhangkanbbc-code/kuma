@@ -167,7 +167,7 @@ export {
 `
 
 const loaded = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-combined-escort-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-combined-escort-'))
   const entry = path.join(dir, 'escort.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'escort.cjs')

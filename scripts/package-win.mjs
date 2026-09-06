@@ -5,11 +5,11 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 
 import {
-  classifyKansoProcesses,
+  classifyKumaProcesses,
   describeProcess,
   killPids,
-  listKansoProcesses,
-} from './lib/kanso-processes.mjs'
+  listKumaProcesses,
+} from './lib/kuma-processes.mjs'
 import { isPackageIgnored } from './lib/package-ignore.mjs'
 import { BUNDLED_LODE_IDS } from './lib/bundled-lodes.mjs'
 
@@ -44,7 +44,7 @@ if (missingLodes.length) {
       `  先跑 npm run lodes:fetch（或 --only=<id>）再打包。`,
   )
 }
-console.log(`[kanso] 随包矿脉 ${BUNDLED_LODE_IDS.length} 个：${BUNDLED_LODE_IDS.join(' ')}`)
+console.log(`[kuma] 随包矿脉 ${BUNDLED_LODE_IDS.length} 个：${BUNDLED_LODE_IDS.join(' ')}`)
 
 /**
  * 玩家要能**直接打开**的三份文档。
@@ -67,7 +67,7 @@ if (missingDocs.length) {
 // 而那条其实是上次退出漏下的孤儿渲染进程（父进程早没了）。
 // 孤儿会占着 release/ 让 rmSync 报 EPERM，正是这里该清掉的东西。
 if (process.platform === 'win32') {
-  const { mains, children } = classifyKansoProcesses(listKansoProcesses())
+  const { mains, children } = classifyKumaProcesses(listKumaProcesses())
   if (mains.length) {
     throw new Error(
       `kuma 正在运行，拒绝打包（会占着 release/ 导致 EPERM）：${mains.map(describeProcess).join('；')}`,
@@ -75,7 +75,7 @@ if (process.platform === 'win32') {
   }
   if (children.length) {
     // 没有主进程还剩子进程 = 全是孤儿。主进程该落盘的早落完了，清掉没有数据风险。
-    console.warn(`[kanso] 清掉上次退出漏下的 ${children.length} 个孤儿进程：`)
+    console.warn(`[kuma] 清掉上次退出漏下的 ${children.length} 个孤儿进程：`)
     for (const row of children) console.warn(`  ${describeProcess(row)}`)
     killPids(children.map((row) => row.pid))
   }
@@ -155,7 +155,7 @@ const rmWithRetry = async (dir, label) => {
       return true
     } catch (error) {
       if (error?.code !== 'EPERM' || i === 6) {
-        console.warn(`[kanso] 清理${label}失败（${error?.code ?? error}），留在原地不阻断打包`)
+        console.warn(`[kuma] 清理${label}失败（${error?.code ?? error}），留在原地不阻断打包`)
         return false
       }
       await sleep(800 * i)
@@ -182,7 +182,7 @@ try {
         /fetch failed/i.test(`${error?.message ?? error}`) && !options.download
       if (offline) {
         console.warn(
-          '[kanso] 拉不到 SHASUMS 校验清单（网络/代理不通），改用本地已校验过的 Electron 缓存重试',
+          '[kuma] 拉不到 SHASUMS 校验清单（网络/代理不通），改用本地已校验过的 Electron 缓存重试',
         )
         options.download = { unsafelyDisableChecksums: true }
         continue
@@ -194,7 +194,7 @@ try {
       if (!antivirusHold || attempt === ATTEMPTS) throw error
       const wait = Math.min(30000, 5000 * 2 ** (attempt - 1))
       console.warn(
-        `[kanso] Windows 暂时占用新解压的 Electron 文件，${wait / 1000}s 后重试（${attempt}/${ATTEMPTS - 1}）`,
+        `[kuma] Windows 暂时占用新解压的 Electron 文件，${wait / 1000}s 后重试（${attempt}/${ATTEMPTS - 1}）`,
       )
       await rmWithRetry(tempDir, '临时目录')
       await rmWithRetry(releaseDir, '上一次的产物')
@@ -219,7 +219,7 @@ for (const name of BUNDLED_DOCS) {
   copyFileSync(path.join(root, name), to)
   if (!existsSync(to)) throw new Error(`随包文档没能复制到产物根：${to}`)
 }
-console.log(`[kanso] 随包文档 ${BUNDLED_DOCS.length} 份已就位（resources/ 与产物根各一份）`)
+console.log(`[kuma] 随包文档 ${BUNDLED_DOCS.length} 份已就位（resources/ 与产物根各一份）`)
 
 const shortcut = path.join(root, 'kuma.lnk')
 const shortcutResult = spawnSync(
@@ -230,10 +230,10 @@ const shortcutResult = spawnSync(
     '-Command',
     [
       '$shell = New-Object -ComObject WScript.Shell',
-      '$link = $shell.CreateShortcut($env:KANSO_SHORTCUT)',
-      '$link.TargetPath = $env:KANSO_EXE',
-      '$link.WorkingDirectory = $env:KANSO_APP_DIR',
-      '$link.IconLocation = \"$env:KANSO_EXE,0\"',
+      '$link = $shell.CreateShortcut($env:KUMA_SHORTCUT)',
+      '$link.TargetPath = $env:KUMA_EXE',
+      '$link.WorkingDirectory = $env:KUMA_APP_DIR',
+      '$link.IconLocation = \"$env:KUMA_EXE,0\"',
       '$link.Description = \"kuma · 舰队收藏信息工作台\"',
       '$link.Save()',
     ].join('; '),
@@ -241,9 +241,9 @@ const shortcutResult = spawnSync(
   {
     env: {
       ...process.env,
-      KANSO_SHORTCUT: shortcut,
-      KANSO_EXE: executable,
-      KANSO_APP_DIR: path.dirname(executable),
+      KUMA_SHORTCUT: shortcut,
+      KUMA_EXE: executable,
+      KUMA_APP_DIR: path.dirname(executable),
     },
     encoding: 'utf8',
     windowsHide: true,
@@ -253,5 +253,5 @@ if (shortcutResult.status !== 0 || !existsSync(shortcut)) {
   throw new Error(`无法创建根目录应用快捷方式：${shortcutResult.stderr || shortcutResult.error}`)
 }
 
-console.log(`[kanso] Windows 便携应用已生成：${executable}`)
-console.log(`[kanso] 根目录快捷方式已生成：${shortcut}`)
+console.log(`[kuma] Windows 便携应用已生成：${executable}`)
+console.log(`[kuma] 根目录快捷方式已生成：${shortcut}`)

@@ -70,8 +70,8 @@ ${REVEAL_BLOCK}
 export const registerBooks = (root: any, books: any) => { foldBooks.set(root, books) }
 
 // ---- ji 的点击处理体 ----
-const MAP_NODE_JUMP_ATTR: string = globalThis.__kansoReveal.MAP_NODE_JUMP_ATTR
-const enemyCompRowSelector: any = globalThis.__kansoReveal.enemyCompRowSelector
+const MAP_NODE_JUMP_ATTR: string = globalThis.__kumaReveal.MAP_NODE_JUMP_ATTR
+const enemyCompRowSelector: any = globalThis.__kumaReveal.enemyCompRowSelector
 declare function requestAnimationFrame(fn: () => void): void
 declare function setTimeout(fn: () => void, ms: number): any
 
@@ -81,10 +81,10 @@ ${HANDLER_BLOCK}
 `
 
 export const loadHarness = ({ MAP_NODE_JUMP_ATTR, enemyCompRowSelector }) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-section-reveal-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-section-reveal-'))
   const file = path.join(dir, 'harness.cjs')
   fs.writeFileSync(file, transformSync(HARNESS, { loader: 'ts', format: 'cjs' }).code)
-  globalThis.__kansoReveal = { MAP_NODE_JUMP_ATTR, enemyCompRowSelector }
+  globalThis.__kumaReveal = { MAP_NODE_JUMP_ATTR, enemyCompRowSelector }
   // 处理体里的 rAF 与 setTimeout：跑成确定性的，别把真 timer 拖进来
   // （共享记忆：mock.timers 没还原会让 `node --test` 无输出地挂住）
   globalThis.requestAnimationFrame = (fn) => fn()

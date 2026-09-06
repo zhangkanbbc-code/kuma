@@ -107,7 +107,7 @@ export const FIT_BONUS_NAME_VOCAB = Object.freeze({
     stypes: [8],
     why:
       'api_mst_stype 8 的 api_name 现在也写「戦艦」（与 9 号重名），但它就是巡洋戦艦那一档：' +
-      '本机主数据里 8 号 48 艘全是金刚型系与海外巡战，kcwiki 的 舰种=8 同一批人',
+      '对照资料主数据里 8 号 48 艘全是金刚型系与海外巡战，kcwiki 的 舰种=8 同一批人',
   },
   航空战列舰: { kind: 'stype', stypes: [10], why: 'api_mst_stype 10「航空戦艦」' },
   潜艇: { kind: 'stype', stypes: [13], why: 'api_mst_stype 13「潜水艦」' },

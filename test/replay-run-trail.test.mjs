@@ -83,7 +83,7 @@ ${wiring[0]}
 }
 `
 
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-run-trail-'))
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-run-trail-'))
 const entry = path.join(tempDir, 'run-trail.ts')
 fs.writeFileSync(entry, HARNESS)
 const output = path.join(tempDir, 'run-trail.cjs')

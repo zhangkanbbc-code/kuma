@@ -80,7 +80,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   {
     id: 'archive',
     label: '档案',
-    // 艦素替你记着的东西：三份档案、账本的保留期，以及把它们整包带走的备份。
+    // kuma替你记着的东西：三份档案、账本的保留期，以及把它们整包带走的备份。
     // 三份档案挨着摆——它们能分别清空，数字也分开算，隔开看容易以为是一件事
     cards: ['voice-archive', 'art-archive', 'bgm-archive', 'retention', 'backup'],
   },
@@ -137,10 +137,10 @@ export const settingsSectionOf = (card: string): SettingsSectionId | null =>
  * 另一户是「矿脉健康度」。缺包、停更、新鲜度是**维护者的责任区**
  *（2026-08-21 拍板），玩家侧的信号本来就在各栏目就地的占位上。
  * 那些没获随包许可的资料在玩家那份产物里**永远不会有**，摆一张「缺 14 份」的
- * 清单只是让他为一件自己做不了任何事的事担心——2026-08-24 用户原话：
+ * 清单只是让他为一件自己做不了任何事的事担心——2026-08-24 维护者原话：
  * 「既然不随包玩家那边看不到，多此一举写这些干什么」。
  *
- * 门与铭／锚两个诊断模块同一道：`process.env.KANSO_DEBUG_UI === '1'`（判据在 mu.ts）。
+ * 门与铭／锚两个诊断模块同一道：`readEnv('KUMA_DEBUG_UI') === '1'`（判据在 mu.ts）。
  * 那个判断在渲染层求值后作为 `debugUi` 传进来，这一层保持纯函数、脱开 DOM 可测。
  */
 export const DEBUG_ONLY_CARDS: readonly SettingsCardId[] = [

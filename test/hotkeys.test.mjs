@@ -14,20 +14,22 @@ const {
   planBossToggle,
 } = hotkeys
 
-test('默认键与五个配置路径固定', () => {
+test('默认键与六个配置路径固定', () => {
   assert.deepEqual(HOTKEY_DEFAULTS, {
     boss: 'Ctrl+Alt+H',
     reload: 'F5',
     focus: 'F9',
     capture: 'Ctrl+Alt+S',
+    mute: 'Ctrl+M',
   })
   assert.deepEqual(HOTKEY_CONFIG_KEYS, {
-    boss: 'kanso.hotkeys.boss',
-    reload: 'kanso.hotkeys.reload',
-    focus: 'kanso.hotkeys.focus',
-    capture: 'kanso.hotkeys.capture',
+    boss: 'kuma.hotkeys.boss',
+    reload: 'kuma.hotkeys.reload',
+    focus: 'kuma.hotkeys.focus',
+    capture: 'kuma.hotkeys.capture',
+    mute: 'kuma.hotkeys.mute',
   })
-  assert.equal(BOSS_HOTKEY_ENABLED_CONFIG_KEY, 'kanso.hotkeys.bossEnabled')
+  assert.equal(BOSS_HOTKEY_ENABLED_CONFIG_KEY, 'kuma.hotkeys.bossEnabled')
 })
 
 const parse = (text) => {

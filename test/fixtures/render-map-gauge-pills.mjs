@@ -42,7 +42,7 @@ export { mapGaugePillsHtml }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-map-gauge-pills-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-map-gauge-pills-'))
   for (const name of ['map-gauge-metric.ts', 'map-id.ts']) {
     fs.copyFileSync(path.join(ROOT, 'src', 'shared', name), path.join(dir, name))
   }

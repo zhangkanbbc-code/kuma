@@ -125,7 +125,7 @@ const openRef = (index: number) => {
 const ensureHost = () => {
   if (host) return host
   host = document.createElement('div')
-  host.id = 'kanso-command-palette'
+  host.id = 'kuma-command-palette'
   host.innerHTML = `<div class="cp-box" role="dialog" aria-label="全局速查">
     <div class="cp-input"><span>⌕</span><input id="cp-input" placeholder="搜舰娘 / 装备 / 任务 / 远征…" autocomplete="off"></div>
     <div class="cp-list" id="cp-list"></div>

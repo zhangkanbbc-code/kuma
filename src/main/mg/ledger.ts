@@ -149,12 +149,12 @@ const SNAPSHOT_DIR = path.join(APPDATA_PATH, 'snapshots')
 // 清理权归玩家」，理由与出处写在 shared/ledger-retention 的文件头
 //（同一天先在语音「官方没有」台账上立的，见 shared/voice-probe-plan）。
 //
-// 现在的保留期是**玩家自己设的天数**（`kanso.ledger.retentionDays`，空/0 = 不限，
+// 现在的保留期是**玩家自己设的天数**（`kuma.ledger.retentionDays`，空/0 = 不限，
 // 默认就是不限）。定时器照旧每天跑一次，但没设保留期时 `planLedgerPrune`
 // 返回空数组，`prune()` 一行都不删。
 
 /** 保留天数存在这里（空/0 = 不限）。与档案上限那两项同一层。 */
-const RETENTION_CONFIG_PATH = 'kanso.ledger.retentionDays'
+const RETENTION_CONFIG_PATH = 'kuma.ledger.retentionDays'
 
 export interface ShipLifeStateRow {
   rosterId: number
@@ -437,7 +437,7 @@ class Ledger {
       );
       -- 通知历史（铃）：只为「昨晚那条远征是几点回的」这类回看。原先是 14 日滚动，
       -- 2026-08-23 起跟随钥里那个保留天数（不设就不清），铃里另有手动「清空历史」。
-      -- 会话边界记在 session 列：重开艦素后旧会话的条目只读不重放，
+      -- 会话边界记在 session 列：重开kuma后旧会话的条目只读不重放，
       -- 既不再冒出陈旧 Toast，也不会把它们算进未读徽章。
       CREATE TABLE IF NOT EXISTS notify_log (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -501,7 +501,7 @@ class Ledger {
     ]) {
       try {
         this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`)
-        console.log(`[kanso] mg: ledger 迁移 — ${table}.${col} 已补列`)
+        console.log(`[kuma] mg: ledger 迁移 — ${table}.${col} 已补列`)
       } catch (_e) {
         /* 已有该列 */
       }
@@ -564,7 +564,7 @@ class Ledger {
             atomicWriteJsonSync(file, { ts, body: JSON.parse(body) })
           } catch (e) {
             // 快照失败不应连带丢掉本次事件元数据。
-            console.warn('[kanso] mg: snapshot save failed', apiPath, e)
+            console.warn('[kuma] mg: snapshot save failed', apiPath, e)
           }
         })
       }
@@ -575,7 +575,7 @@ class Ledger {
         .run(ts, method, apiPath, snapshotOnly ? null : body, redactPostBody(postBody), secretaryMst)
       this.lastRecordedEventId = Number(result.lastInsertRowid) || null
     } catch (e) {
-      console.warn('[kanso] mg: ledger record failed', e)
+      console.warn('[kuma] mg: ledger record failed', e)
     }
   }
 
@@ -615,7 +615,7 @@ class Ledger {
         }
       })
     } catch (e) {
-      console.warn('[kanso] mg: useitem log failed', e)
+      console.warn('[kuma] mg: useitem log failed', e)
     }
   }
 
@@ -648,7 +648,7 @@ class Ledger {
         )
       return Number(info.lastInsertRowid)
     } catch (e) {
-      console.warn('[kanso] mg: notify append failed', e)
+      console.warn('[kuma] mg: notify append failed', e)
       return null
     }
   }
@@ -672,7 +672,7 @@ class Ledger {
         read: number
       }[]
     } catch (e) {
-      console.warn('[kanso] mg: notify query failed', e)
+      console.warn('[kuma] mg: notify query failed', e)
       return []
     }
   }
@@ -689,7 +689,7 @@ class Ledger {
         for (const id of ids) stmt.run(id)
       })
     } catch (e) {
-      console.warn('[kanso] mg: notify mark-read failed', e)
+      console.warn('[kuma] mg: notify mark-read failed', e)
     }
   }
 
@@ -698,7 +698,7 @@ class Ledger {
     try {
       this.db.prepare('DELETE FROM notify_log').run()
     } catch (e) {
-      console.warn('[kanso] mg: notify clear failed', e)
+      console.warn('[kuma] mg: notify clear failed', e)
     }
   }
 
@@ -725,7 +725,7 @@ class Ledger {
           Math.max(1, Math.min(5000, Math.floor(limit))),
         ) as { id: number; body: string }[]
     } catch (e) {
-      console.warn('[kanso] mg: picture_book query failed', e)
+      console.warn('[kuma] mg: picture_book query failed', e)
       return []
     }
   }
@@ -758,7 +758,7 @@ class Ledger {
       }
       return rows
     } catch (e) {
-      console.warn('[kanso] mg: action events query failed', e)
+      console.warn('[kuma] mg: action events query failed', e)
       throw e
     }
   }
@@ -822,10 +822,10 @@ class Ledger {
       }
       const removed = remodels.length - trusted.size
       console.log(
-        `[kanso] mg: ledger v5 — 清理 ${removed} 条未获 API 证实的改造与同操作重复换装`,
+        `[kuma] mg: ledger v5 — 清理 ${removed} 条未获 API 证实的改造与同操作重复换装`,
       )
     } catch (error) {
-      console.warn('[kanso] mg: ledger v5 ship-life repair failed', error)
+      console.warn('[kuma] mg: ledger v5 ship-life repair failed', error)
     }
   }
 
@@ -858,10 +858,10 @@ class Ledger {
         lastId = rows[rows.length - 1].id
       }
       if (changed) {
-        console.log(`[kanso] mg: ledger v6 — 已把 ${changed} 条存量 post_body 的 api_token 抹为占位`)
+        console.log(`[kuma] mg: ledger v6 — 已把 ${changed} 条存量 post_body 的 api_token 抹为占位`)
       }
     } catch (error) {
-      console.warn('[kanso] mg: ledger v6 token redaction failed', error)
+      console.warn('[kuma] mg: ledger v6 token redaction failed', error)
     }
   }
 
@@ -916,10 +916,10 @@ class Ledger {
       })
       const fleets = new Set(sightings.map((one) => one.fleetKey)).size
       console.log(
-        `[kanso] mg: ledger v7 — 友军遭遇志补录 ${sightings.length} 次遭遇（${fleets} 支友军）`,
+        `[kuma] mg: ledger v7 — 友军遭遇志补录 ${sightings.length} 次遭遇（${fleets} 支友军）`,
       )
     } catch (error) {
-      console.warn('[kanso] mg: ledger v7 friendly fleet backfill failed', error)
+      console.warn('[kuma] mg: ledger v7 friendly fleet backfill failed', error)
     }
   }
 
@@ -952,10 +952,10 @@ class Ledger {
         for (const [ts, category] of found) changed += Number(update.run(category, ts).changes ?? 0)
       })
       if (changed) {
-        console.log(`[kanso] mg: ledger v8 — ${changed} 笔用道具到账已从「其他」改判`)
+        console.log(`[kuma] mg: ledger v8 — ${changed} 笔用道具到账已从「其他」改判`)
       }
     } catch (error) {
-      console.warn('[kanso] mg: ledger v8 item-use delta reclassify failed', error)
+      console.warn('[kuma] mg: ledger v8 item-use delta reclassify failed', error)
     }
   }
 
@@ -1057,12 +1057,12 @@ class Ledger {
       })
       if (dropped || built) {
         console.log(
-          `[kanso] mg: ledger v9 — 加入镇守府补出处 ${dropped + built} 条` +
+          `[kuma] mg: ledger v9 — 加入镇守府补出处 ${dropped + built} 条` +
             `（掉落 ${dropped} / 建造 ${built}），${pending - dropped - built} 条仍留空`,
         )
       }
     } catch (error) {
-      console.warn('[kanso] mg: ledger v9 ship join origin backfill failed', error)
+      console.warn('[kuma] mg: ledger v9 ship join origin backfill failed', error)
     }
   }
 
@@ -1129,7 +1129,7 @@ class Ledger {
           for (const anomaly of verdict.anomalies) {
             anomalies++
             console.warn(
-              `[kanso] mg: ledger v10 boss 击杀归属异常（快照 ${row.id}）—`,
+              `[kuma] mg: ledger v10 boss 击杀归属异常（快照 ${row.id}）—`,
               bossKillAnomalyText(anomaly),
             )
           }
@@ -1165,12 +1165,12 @@ class Ledger {
         }
       })
       console.log(
-        `[kanso] mg: ledger v10 — boss 击杀归属回算：快照 ${snapshots.length} 场，` +
+        `[kuma] mg: ledger v10 — boss 击杀归属回算：快照 ${snapshots.length} 场，` +
           `补写 ${written} 条（已有归属 ${kept} 条不重写，航空/支援终结 ${stageDamage} 场` +
           `没有单舰归属，boss 未沉 ${noKill} 场，对不回事件 ${unmatched} 场，异常 ${anomalies} 条）`,
       )
     } catch (error) {
-      console.warn('[kanso] mg: ledger v10 boss kill backfill failed', error)
+      console.warn('[kuma] mg: ledger v10 boss kill backfill failed', error)
     }
   }
 
@@ -1222,12 +1222,12 @@ class Ledger {
       })
       if (revoked.length) {
         console.log(
-          `[kanso] mg: ledger v11 — 撤回无领奖报文的任务战果 ${revoked.length} 笔：` +
+          `[kuma] mg: ledger v11 — 撤回无领奖报文的任务战果 ${revoked.length} 笔：` +
             `${revoked.join('、')}（有报文的 ${kept} 笔留着）`,
         )
       }
     } catch (error) {
-      console.warn('[kanso] mg: ledger v11 unevidenced quest senka revoke failed', error)
+      console.warn('[kuma] mg: ledger v11 unevidenced quest senka revoke failed', error)
     }
   }
 
@@ -1302,12 +1302,12 @@ class Ledger {
         unresolved: changes.length - resolved.length,
       }
       console.log(
-        `[kanso] mg: ledger v12 — 道具归因回算 ${stats.total} 行，` +
+        `[kuma] mg: ledger v12 — 道具归因回算 ${stats.total} 行，` +
           `写回 ${stats.resolved}，暂无对应操作 ${stats.unresolved}`,
       )
       return stats
     } catch (error) {
-      console.warn('[kanso] mg: ledger v12 useitem cause backfill failed', error)
+      console.warn('[kuma] mg: ledger v12 useitem cause backfill failed', error)
       return { total: 0, resolved: 0, unresolved: 0 }
     }
   }
@@ -1349,13 +1349,13 @@ class Ledger {
       }
       if (replay.failedQuestIds.length) {
         console.warn(
-          `[kanso] mg: ledger v13 — 保留回算失败任务的原进度 quests=${replay.failedQuestIds.join(',')}`,
+          `[kuma] mg: ledger v13 — 保留回算失败任务的原进度 quests=${replay.failedQuestIds.join(',')}`,
         )
       }
       const changes = planQuestProgressChanges(this.db, replay)
       overwriteQuestProgress(this.db, changes)
       console.log(
-        '[kanso] mg: ledger v13 — 敌空母击沉任务回算：' +
+        '[kuma] mg: ledger v13 — 敌空母击沉任务回算：' +
           changes
             .map((change) =>
               `${change.questId} ${change.oldValue}→${change.newValue}` +
@@ -1365,7 +1365,7 @@ class Ledger {
       )
       return changes
     } catch (error) {
-      console.warn('[kanso] mg: ledger v13 carrier sink quest replay failed', error)
+      console.warn('[kuma] mg: ledger v13 carrier sink quest replay failed', error)
       return null
     }
   }
@@ -1395,7 +1395,7 @@ class Ledger {
         if (Array.isArray(body?.api_list)) return { ts: row.ts, body, post }
       }
     } catch (error) {
-      console.warn('[kanso] mg: latest questlist recovery failed', error)
+      console.warn('[kuma] mg: latest questlist recovery failed', error)
     }
     return null
   }
@@ -1417,7 +1417,7 @@ class Ledger {
       const body = response?.api_data ?? response
       return Array.isArray(body) ? { ts: row.ts, body } : null
     } catch (error) {
-      console.warn('[kanso] mg: latest slotitem list recovery failed', error)
+      console.warn('[kuma] mg: latest slotitem list recovery failed', error)
       return null
     }
   }
@@ -1463,7 +1463,7 @@ class Ledger {
         }
       })
     } catch (error) {
-      console.warn('[kanso] mg: slotitem mutation recovery failed', error)
+      console.warn('[kuma] mg: slotitem mutation recovery failed', error)
       return []
     }
   }
@@ -1598,7 +1598,7 @@ class Ledger {
 
       return aggregateFactoryStats(raw, sinceTs, secretaryTypeOf)
     } catch (error) {
-      console.warn('[kanso] mg: factory stats query failed', error)
+      console.warn('[kuma] mg: factory stats query failed', error)
       throw error
     }
   }
@@ -1609,7 +1609,7 @@ class Ledger {
       const r = this.db.prepare('SELECT MIN(ts) AS t FROM events').get() as { t: number | null }
       return r?.t ?? null
     } catch (e) {
-      console.warn('[kanso] mg: earliest event query failed', e)
+      console.warn('[kuma] mg: earliest event query failed', e)
       return null
     }
   }
@@ -1634,7 +1634,7 @@ class Ledger {
         lastTs: number
       }[]
     } catch (e) {
-      console.warn('[kanso] mg: useitem summary query failed', e)
+      console.warn('[kuma] mg: useitem summary query failed', e)
       throw e
     }
   }
@@ -1652,7 +1652,7 @@ class Ledger {
         cause: string | null
       }[]
     } catch (e) {
-      console.warn('[kanso] mg: useitem history query failed', e)
+      console.warn('[kuma] mg: useitem history query failed', e)
       throw e
     }
   }
@@ -1674,7 +1674,7 @@ class Ledger {
         cause: string | null
       }[]
     } catch (error) {
-      console.warn('[kanso] mg: recent useitem changes query failed', error)
+      console.warn('[kuma] mg: recent useitem changes query failed', error)
       throw error
     }
   }
@@ -1707,7 +1707,7 @@ class Ledger {
         .run(ts, delta, delta * SENKA_PER_EXP, null)
       return true
     } catch (e) {
-      console.warn('[kanso] mg: senka exp log failed', e)
+      console.warn('[kuma] mg: senka exp log failed', e)
       return false
     }
   }
@@ -1750,7 +1750,7 @@ class Ledger {
         .run(ts, senka, `${mapId}`)
       return true
     } catch (e) {
-      console.warn('[kanso] mg: senka eo log failed', e)
+      console.warn('[kuma] mg: senka eo log failed', e)
       return false
     }
   }
@@ -1792,7 +1792,7 @@ class Ledger {
         .run(plan.ts, senka, `${questId}`)
       return true
     } catch (e) {
-      console.warn('[kanso] mg: senka quest log failed', e)
+      console.warn('[kuma] mg: senka quest log failed', e)
       return false
     }
   }
@@ -1819,7 +1819,7 @@ class Ledger {
       }
       return null
     } catch (e) {
-      console.warn('[kanso] mg: senka quest evidence query failed', e)
+      console.warn('[kuma] mg: senka quest evidence query failed', e)
       return null
     }
   }
@@ -1855,7 +1855,7 @@ class Ledger {
       this.questScanState = null
       return Number(result.changes) || 0
     } catch (e) {
-      console.warn('[kanso] mg: senka quest clear failed', e)
+      console.warn('[kuma] mg: senka quest clear failed', e)
       return 0
     }
   }
@@ -1896,7 +1896,7 @@ class Ledger {
         .run(plan.ts, senka, `${questId}`)
       return 'booked'
     } catch (e) {
-      console.warn('[kanso] mg: senka quest manual add failed', e)
+      console.warn('[kuma] mg: senka quest manual add failed', e)
       return 'failed'
     }
   }
@@ -1918,7 +1918,7 @@ class Ledger {
       if (Number(result.changes) > 0) this.questScanState = null
       return Number(result.changes) > 0
     } catch (e) {
-      console.warn('[kanso] mg: senka quest manual remove failed', e)
+      console.warn('[kuma] mg: senka quest manual remove failed', e)
       return false
     }
   }
@@ -1944,7 +1944,7 @@ class Ledger {
         out[quest.id] = hit.some((row) => !row.manual) ? 'evidence' : 'manual'
       }
     } catch (e) {
-      console.warn('[kanso] mg: senka quest taken query failed', e)
+      console.warn('[kuma] mg: senka quest taken query failed', e)
     }
     return out
   }
@@ -2004,7 +2004,7 @@ class Ledger {
           complete: first?.t != null && first.t <= windows.yearStart,
         }
       } catch (e) {
-        console.warn('[kanso] mg: senka carry calc failed', e)
+        console.warn('[kuma] mg: senka carry calc failed', e)
         return null
       }
     })()
@@ -2077,7 +2077,7 @@ class Ledger {
       }
       return booked
     } catch (e) {
-      console.warn('[kanso] mg: senka eo auto-book failed', e)
+      console.warn('[kuma] mg: senka eo auto-book failed', e)
       return []
     }
   }
@@ -2135,7 +2135,7 @@ class Ledger {
       }
       return booked
     } catch (e) {
-      console.warn('[kanso] mg: senka quest auto-book failed', e)
+      console.warn('[kuma] mg: senka quest auto-book failed', e)
       return []
     }
   }
@@ -2148,7 +2148,7 @@ class Ledger {
         .get(fromTs, toTs) as { s: number | null }
       return Number(row?.s) || 0
     } catch (e) {
-      console.warn('[kanso] mg: senka sum failed', e)
+      console.warn('[kuma] mg: senka sum failed', e)
       return 0
     }
   }
@@ -2162,7 +2162,7 @@ class Ledger {
         )
         .run(ts, m[0] ?? 0, m[1] ?? 0, m[2] ?? 0, m[3] ?? 0, m[4] ?? 0, m[5] ?? 0, m[6] ?? 0, m[7] ?? 0)
     } catch (e) {
-      console.warn('[kanso] mg: material log failed', e)
+      console.warn('[kuma] mg: material log failed', e)
     }
   }
 
@@ -2176,7 +2176,7 @@ class Ledger {
         )
         .run(ts, category, delta[0] ?? 0, delta[1] ?? 0, delta[2] ?? 0, delta[3] ?? 0, delta[4] ?? 0, delta[5] ?? 0, delta[6] ?? 0, delta[7] ?? 0)
     } catch (e) {
-      console.warn('[kanso] mg: delta log failed', e)
+      console.warn('[kuma] mg: delta log failed', e)
     }
   }
 
@@ -2194,7 +2194,7 @@ class Ledger {
         values: [r.f, r.a, r.s, r.b, r.fb, r.bk, r.d, r.sc].map((v) => v ?? 0),
       }))
     } catch (e) {
-      console.warn('[kanso] mg: delta query failed', e)
+      console.warn('[kuma] mg: delta query failed', e)
       throw e
     }
   }
@@ -2215,7 +2215,7 @@ class Ledger {
         values: [r.fuel, r.ammo, r.steel, r.bauxite, r.fastbuild, r.bucket, r.devmat, r.screw],
       }))
     } catch (e) {
-      console.warn('[kanso] mg: material query failed', e)
+      console.warn('[kuma] mg: material query failed', e)
       throw e
     }
   }
@@ -2282,7 +2282,7 @@ class Ledger {
         since: since > 0 ? since : null,
       }
     } catch (e) {
-      console.warn('[kanso] mg: daily material query failed', e)
+      console.warn('[kuma] mg: daily material query failed', e)
       throw e
     }
   }
@@ -2314,7 +2314,7 @@ class Ledger {
       }
       return { first: pick('ASC'), last: pick('DESC') }
     } catch (e) {
-      console.warn('[kanso] mg: material window query failed', e)
+      console.warn('[kuma] mg: material window query failed', e)
       throw e
     }
   }
@@ -2347,7 +2347,7 @@ class Ledger {
         )
         .run(ts, missionId, deckId, result, JSON.stringify(materials), JSON.stringify(items))
     } catch (error) {
-      console.warn('[kanso] mg: expedition history save failed', error)
+      console.warn('[kuma] mg: expedition history save failed', error)
     }
   }
 
@@ -2371,7 +2371,7 @@ class Ledger {
         .run(row.ts, row.kind, row.itemId, row.name, row.count, row.price, row.detail)
       return Number(result.lastInsertRowid)
     } catch (error) {
-      console.warn('[kanso] mg: pay log save failed', error)
+      console.warn('[kuma] mg: pay log save failed', error)
       return null
     }
   }
@@ -2385,7 +2385,7 @@ class Ledger {
         )
         .all(Math.max(1, Math.min(5000, limit))) as unknown as PayLogRow[]
     } catch (error) {
-      console.warn('[kanso] mg: pay log query failed', error)
+      console.warn('[kuma] mg: pay log query failed', error)
       return []
     }
   }
@@ -2430,7 +2430,7 @@ class Ledger {
       })
       return saved
     } catch (error) {
-      console.warn('[kanso] mg: fit observation save failed', error)
+      console.warn('[kuma] mg: fit observation save failed', error)
       return 0
     }
   }
@@ -2490,7 +2490,7 @@ class Ledger {
         }
       })
     } catch (error) {
-      console.warn('[kanso] mg: fit observation query failed', error)
+      console.warn('[kuma] mg: fit observation query failed', error)
       throw error
     }
   }
@@ -2501,7 +2501,7 @@ class Ledger {
       const result = this.db.prepare(`DELETE FROM pay_log WHERE id = ? AND kind = 'manual'`).run(id)
       return Number(result.changes) > 0
     } catch (error) {
-      console.warn('[kanso] mg: pay log remove failed', error)
+      console.warn('[kuma] mg: pay log remove failed', error)
       return false
     }
   }
@@ -2577,7 +2577,7 @@ class Ledger {
             items,
           })
         } catch (error) {
-          console.warn('[kanso] mg: expedition history row skipped', missionId, row.ts, error)
+          console.warn('[kuma] mg: expedition history row skipped', missionId, row.ts, error)
         }
       }
       return {
@@ -2595,7 +2595,7 @@ class Ledger {
         entries,
       }
     } catch (error) {
-      console.warn('[kanso] mg: expedition history query failed', error)
+      console.warn('[kuma] mg: expedition history query failed', error)
       throw error
     }
   }
@@ -2606,7 +2606,9 @@ class Ledger {
     try {
       const map = sortie.practice ? 0 : mapIdOf(sortie.mapArea, sortie.mapNo)
       const node = sortie.nodes.find((item) => item.cell === sortie.currentCell)
-      const snapshot: SortieView = JSON.parse(JSON.stringify({ ...sortie, active: false }))
+      const snapshot: SortieView = JSON.parse(
+        JSON.stringify({ ...sortie, active: false, levelUps: [] }),
+      )
       this.db
         .prepare(
           `INSERT INTO battle_snapshots
@@ -2642,7 +2644,7 @@ class Ledger {
       this.expSamplesCache = null // 快照集合变了，实得经验统计下次要用时重算
       return row?.id ?? null
     } catch (error) {
-      console.warn('[kanso] mg: battle snapshot save failed', error)
+      console.warn('[kuma] mg: battle snapshot save failed', error)
       return null
     }
   }
@@ -2669,7 +2671,7 @@ class Ledger {
         practice: row.practice === 1,
       }))
     } catch (error) {
-      console.warn('[kanso] mg: battle snapshot list failed', error)
+      console.warn('[kuma] mg: battle snapshot list failed', error)
       throw error
     }
   }
@@ -2698,7 +2700,7 @@ class Ledger {
         practice: row.practice === 1,
       }))
     } catch (error) {
-      console.warn('[kanso] mg: battle run snapshot list failed', error)
+      console.warn('[kuma] mg: battle run snapshot list failed', error)
       throw error
     }
   }
@@ -2735,7 +2737,7 @@ class Ledger {
         discrepancies: sortie.battle?.discrepancies ?? [],
       }
     } catch (error) {
-      console.warn('[kanso] mg: battle snapshot read failed', error)
+      console.warn('[kuma] mg: battle snapshot read failed', error)
       throw error
     }
   }
@@ -2771,7 +2773,7 @@ class Ledger {
         })
       }
     } catch (e) {
-      console.warn('[kanso] mg: ship life state load failed', e)
+      console.warn('[kuma] mg: ship life state load failed', e)
     }
     return result
   }
@@ -2804,7 +2806,7 @@ class Ledger {
         }
       })
     } catch (e) {
-      console.warn('[kanso] mg: ship life state save failed', e)
+      console.warn('[kuma] mg: ship life state save failed', e)
     }
   }
 
@@ -2840,7 +2842,7 @@ class Ledger {
         }
       })
     } catch (e) {
-      console.warn('[kanso] mg: ship life event log failed', e)
+      console.warn('[kuma] mg: ship life event log failed', e)
     }
   }
 
@@ -2855,6 +2857,7 @@ class Ledger {
       const stats = this.db
         .prepare(
           `SELECT
+             COUNT(*) AS eventCount,
              COALESCE(SUM(exp_delta), 0) AS expGained,
              SUM(CASE WHEN kind = 'sortie' THEN 1 ELSE 0 END) AS sorties,
              SUM(CASE WHEN kind = 'battle' AND practice = 0 THEN 1 ELSE 0 END) AS battles,
@@ -2889,7 +2892,13 @@ class Ledger {
            FROM ship_life_events
            WHERE roster_id = ? ORDER BY ts DESC, id DESC LIMIT ?`,
         )
-        .all(rosterId, Math.max(1, Math.min(200, limit | 0))) as any[]
+        .all(rosterId, Math.max(1, limit | 0)) as any[]
+      // 判改装档位不能只看分页事件：早年的 remodel 也要算，仍只读同一 roster 的账本。
+      const remodelTargets = this.db.prepare(
+        `SELECT DISTINCT json_extract(detail, '$.afterMstId') AS target
+         FROM ship_life_events WHERE roster_id = ? AND kind = 'remodel'
+           AND json_valid(detail)`,
+      ).all(rosterId) as { target: unknown }[]
       const battles = Number(stats?.battles ?? 0)
       const wins = Number(stats?.wins ?? 0)
       const practiceBattles = Number(stats?.practiceBattles ?? 0)
@@ -2931,6 +2940,10 @@ class Ledger {
         bossBattles: Number(stats?.bossBattles ?? 0),
         mvps: Number(stats?.mvps ?? 0),
         remodels: Number(stats?.remodels ?? 0),
+        remodelHistory: {
+          hasEvents: Number(stats?.eventCount ?? 0) > 0,
+          afterMstIds: remodelTargets.map(row => Number(row.target)).filter(id => Number.isInteger(id) && id > 0),
+        },
         damageTaken: Number(stats?.damageTaken ?? 0),
         damageDealt: Number(stats?.damageDealt ?? 0),
         taihaCount: Number(stats?.taihaCount ?? 0),
@@ -2940,7 +2953,7 @@ class Ledger {
         events,
       }
     } catch (e) {
-      console.warn('[kanso] mg: ship life query failed', e)
+      console.warn('[kuma] mg: ship life query failed', e)
       throw e
     }
   }
@@ -2989,7 +3002,7 @@ class Ledger {
       }
       return out
     } catch (e) {
-      console.warn('[kanso] mg: boss kill query failed', e)
+      console.warn('[kuma] mg: boss kill query failed', e)
       throw e
     }
   }
@@ -3038,7 +3051,7 @@ class Ledger {
         entries,
       }
     } catch (e) {
-      console.warn('[kanso] mg: ship memorial query failed', e)
+      console.warn('[kuma] mg: ship memorial query failed', e)
       throw e
     }
   }
@@ -3061,7 +3074,7 @@ class Ledger {
       }
       return map
     } catch (e) {
-      console.warn('[kanso] mg: quest progress load failed', e)
+      console.warn('[kuma] mg: quest progress load failed', e)
       return {}
     }
   }
@@ -3074,7 +3087,7 @@ class Ledger {
         )
         .run(questId, JSON.stringify(counts), Date.now())
     } catch (e) {
-      console.warn('[kanso] mg: quest progress save failed', e)
+      console.warn('[kuma] mg: quest progress save failed', e)
     }
   }
 
@@ -3082,7 +3095,7 @@ class Ledger {
     try {
       this.db.prepare('DELETE FROM quest_progress WHERE quest_id = ?').run(questId)
     } catch (e) {
-      console.warn('[kanso] mg: quest progress delete failed', e)
+      console.warn('[kuma] mg: quest progress delete failed', e)
     }
   }
 
@@ -3110,7 +3123,7 @@ class Ledger {
           sunkMask, difficulty,
         )
     } catch (e) {
-      console.warn('[kanso] mg: encounter log failed', e)
+      console.warn('[kuma] mg: encounter log failed', e)
     }
     // 索引已建好时就地并入这一条，省得每次结算都重扫全表。
     if (this.firstEncounters) {
@@ -3184,7 +3197,7 @@ class Ledger {
         })
       }
     } catch (error) {
-      console.warn('[kanso] mg: first encounter index build failed', error)
+      console.warn('[kuma] mg: first encounter index build failed', error)
     }
     return index
   }
@@ -3244,7 +3257,7 @@ class Ledger {
           JSON.stringify(maps),
         )
     } catch (error) {
-      console.warn('[kanso] mg: event map catalog save failed', error)
+      console.warn('[kuma] mg: event map catalog save failed', error)
     }
   }
 
@@ -3258,7 +3271,7 @@ class Ledger {
         )
         .run(closedAt, closedAt, areaId)
     } catch (error) {
-      console.warn('[kanso] mg: event map catalog close failed', error)
+      console.warn('[kuma] mg: event map catalog close failed', error)
     }
   }
 
@@ -3388,11 +3401,11 @@ class Ledger {
         )
         .run(areaId, opened, closed, JSON.stringify(stats))
       console.log(
-        `[kanso] mg: 活动 ${areaId} 已归档 — 出击 ${sorties} / 战斗 ${stats.battles} / 掉落 ${drops.length} 种`,
+        `[kuma] mg: 活动 ${areaId} 已归档 — 出击 ${sorties} / 战斗 ${stats.battles} / 掉落 ${drops.length} 种`,
       )
       return stats
     } catch (e) {
-      console.warn('[kanso] mg: event archive failed', e)
+      console.warn('[kuma] mg: event archive failed', e)
       return null
     }
   }
@@ -3428,7 +3441,7 @@ class Ledger {
         }
       })
     } catch (e) {
-      console.warn('[kanso] mg: event archive query failed', e)
+      console.warn('[kuma] mg: event archive query failed', e)
       throw e
     }
   }
@@ -3461,7 +3474,7 @@ class Ledger {
       }
       return abyssSeenEntriesOf(this.abyssSeenCache)
     } catch (e) {
-      console.warn('[kanso] mg: abyss seen maps query failed', e)
+      console.warn('[kuma] mg: abyss seen maps query failed', e)
       throw e
     }
   }
@@ -3488,7 +3501,7 @@ class Ledger {
       ) as LocalDropSample[]
       return aggregateLocalDrops(rows)
     } catch (e) {
-      console.warn('[kanso] mg: local drops query failed', e)
+      console.warn('[kuma] mg: local drops query failed', e)
       return EMPTY_LOCAL_DROPS
     }
   }
@@ -3504,7 +3517,7 @@ class Ledger {
         )
         .all(mstId | 0) as { map: number; cell: number; n: number; last: number; bosses: number }[]
     } catch (e) {
-      console.warn('[kanso] mg: ship drop sites query failed', e)
+      console.warn('[kuma] mg: ship drop sites query failed', e)
       throw e
     }
   }
@@ -3544,7 +3557,7 @@ class Ledger {
         this.abyssKillCache = out
       }
     } catch (e) {
-      console.warn('[kanso] mg: abyss kill stats failed', e)
+      console.warn('[kuma] mg: abyss kill stats failed', e)
       throw e
     }
     return this.abyssKillCache
@@ -3554,7 +3567,7 @@ class Ledger {
     try {
       this.db.prepare('INSERT INTO routes (ts, map, from_cell, to_cell) VALUES (?, ?, ?, ?)').run(ts, map, fromCell, toCell)
     } catch (e) {
-      console.warn('[kanso] mg: route log failed', e)
+      console.warn('[kuma] mg: route log failed', e)
     }
   }
 
@@ -3583,7 +3596,7 @@ class Ledger {
           JSON.stringify(sighting.ships),
         )
     } catch (e) {
-      console.warn('[kanso] mg: friendly fleet log failed', e)
+      console.warn('[kuma] mg: friendly fleet log failed', e)
     }
   }
 
@@ -3606,7 +3619,7 @@ class Ledger {
         })),
       )
     } catch (e) {
-      console.warn('[kanso] mg: friendly fleet query failed', e)
+      console.warn('[kuma] mg: friendly fleet query failed', e)
       return []
     }
   }
@@ -3632,7 +3645,7 @@ class Ledger {
       }
       return [...byComp.values()].sort((a, b) => b.count - a.count)
     } catch (e) {
-      console.warn('[kanso] mg: encounter query failed', e)
+      console.warn('[kuma] mg: encounter query failed', e)
       throw e
     }
   }
@@ -3657,7 +3670,7 @@ class Ledger {
         lastTs: Number(row.lastTs),
       }))
     } catch (error) {
-      console.warn('[kanso] mg: node history index query failed', error)
+      console.warn('[kuma] mg: node history index query failed', error)
       throw error
     }
   }
@@ -3692,7 +3705,7 @@ class Ledger {
         .get() as any
       return { kinds: Number(row.kinds), entries }
     } catch (error) {
-      console.warn('[kanso] mg: node drop index query failed', error)
+      console.warn('[kuma] mg: node drop index query failed', error)
       throw error
     }
   }
@@ -3731,7 +3744,7 @@ class Ledger {
         }),
       }
     } catch (error) {
-      console.warn('[kanso] mg: node history query failed', error)
+      console.warn('[kuma] mg: node history query failed', error)
       throw error
     }
   }
@@ -3772,7 +3785,7 @@ class Ledger {
         })),
       }
     } catch (error) {
-      console.warn('[kanso] mg: node drops query failed', error)
+      console.warn('[kuma] mg: node drops query failed', error)
       throw error
     }
   }
@@ -3809,7 +3822,7 @@ class Ledger {
       }
       return { map, branches, total, lastTs }
     } catch (e) {
-      console.warn('[kanso] mg: route query failed', e)
+      console.warn('[kuma] mg: route query failed', e)
       throw e
     }
   }
@@ -3855,7 +3868,7 @@ class Ledger {
           sample.los33 ?? null,
         )
     } catch (e) {
-      console.warn('[kanso] mg: sortie sample start failed', e)
+      console.warn('[kuma] mg: sortie sample start failed', e)
     }
   }
 
@@ -3906,7 +3919,7 @@ class Ledger {
           sample.taihaCount,
         )
     } catch (e) {
-      console.warn('[kanso] mg: node sample save failed', e)
+      console.warn('[kuma] mg: node sample save failed', e)
     }
   }
 
@@ -3923,7 +3936,7 @@ class Ledger {
         )
         .run(sortieId)
     } catch (e) {
-      console.warn('[kanso] mg: node sample advance failed', e)
+      console.warn('[kuma] mg: node sample advance failed', e)
     }
   }
 
@@ -3938,7 +3951,7 @@ class Ledger {
         )
         .run(rank, win, sortieId)
     } catch (e) {
-      console.warn('[kanso] mg: boss sample save failed', e)
+      console.warn('[kuma] mg: boss sample save failed', e)
     }
   }
 
@@ -3982,7 +3995,7 @@ class Ledger {
           fuelCost = cost?.fuel ?? null
           ammoCost = cost?.ammo ?? null
         } catch (error) {
-          console.warn('[kanso] mg: sortie supply baseline invalid', error)
+          console.warn('[kuma] mg: sortie supply baseline invalid', error)
         }
       }
       this.db
@@ -3992,7 +4005,7 @@ class Ledger {
         )
         .run(ts, fuelCost, ammoCost, sortieId)
     } catch (e) {
-      console.warn('[kanso] mg: sortie sample finish failed', e)
+      console.warn('[kuma] mg: sortie sample finish failed', e)
     }
   }
 
@@ -4042,7 +4055,7 @@ class Ledger {
           baseline = JSON.parse(row.baseline)
         } catch (error) {
           console.warn(
-            `[kanso] mg: 无法解析活动出击 ${row.sortieId} 的旧补给基线，已跳过恢复`,
+            `[kuma] mg: 无法解析活动出击 ${row.sortieId} 的旧补给基线，已跳过恢复`,
             error,
           )
           continue
@@ -4076,7 +4089,7 @@ class Ledger {
             }
           } catch (error) {
             console.warn(
-              `[kanso] mg: 无法解析活动出击 ${row.sortieId} 的返港前舰队快照，改用补给差额`,
+              `[kuma] mg: 无法解析活动出击 ${row.sortieId} 的返港前舰队快照，改用补给差额`,
               error,
             )
           }
@@ -4092,7 +4105,7 @@ class Ledger {
             post = JSON.parse(charge.postBody || '{}')
           } catch (error) {
             console.warn(
-              `[kanso] mg: 无法解析活动出击 ${row.sortieId} 的补给请求，已跳过该条`,
+              `[kuma] mg: 无法解析活动出击 ${row.sortieId} 的补给请求，已跳过该条`,
               error,
             )
             continue
@@ -4116,10 +4129,10 @@ class Ledger {
         if (Number(result?.changes ?? 0) > 0) repaired++
       }
       if (repaired) {
-        console.log(`[kanso] mg: 已从返港前快照/补给差额恢复 ${repaired} 次活动出击燃弹消耗`)
+        console.log(`[kuma] mg: 已从返港前快照/补给差额恢复 ${repaired} 次活动出击燃弹消耗`)
       }
     } catch (error) {
-      console.warn('[kanso] mg: historical sortie cost recovery failed', error)
+      console.warn('[kuma] mg: historical sortie cost recovery failed', error)
     }
     return repaired
   }
@@ -4159,7 +4172,7 @@ class Ledger {
         maps,
       }
     } catch (error) {
-      console.warn('[kanso] mg: event sortie cost query failed', error)
+      console.warn('[kuma] mg: event sortie cost query failed', error)
       throw error
     }
   }
@@ -4291,7 +4304,7 @@ class Ledger {
         preview,
       }
     } catch (e) {
-      console.warn('[kanso] mg: sortie forecast query failed', e)
+      console.warn('[kuma] mg: sortie forecast query failed', e)
       throw e
     }
   }
@@ -4327,7 +4340,7 @@ class Ledger {
         localDrops: this.queryLocalDrops(map),
       }
     } catch (e) {
-      console.warn('[kanso] mg: map chronicle query failed', e)
+      console.warn('[kuma] mg: map chronicle query failed', e)
       throw e
     }
   }
@@ -4446,7 +4459,7 @@ class Ledger {
         .slice(0, 8)
         .map(({ winStarts: _winStarts, ...row }) => row)
     } catch (e) {
-      console.warn('[kanso] mg: map clear fleets query failed', e)
+      console.warn('[kuma] mg: map clear fleets query failed', e)
       return []
     }
   }
@@ -4469,7 +4482,7 @@ class Ledger {
         data,
       })
     } catch (e) {
-      console.warn('[kanso] mg: domain state save failed', name, e)
+      console.warn('[kuma] mg: domain state save failed', name, e)
     }
   }
 
@@ -4486,7 +4499,7 @@ class Ledger {
     if (path.resolve(destination).toLowerCase() === path.resolve(DB_PATH).toLowerCase()) {
       throw new Error('备份文件不能覆盖正在使用的数据库')
     }
-    const temp = `${destination}.kanso-${process.pid}-${Date.now()}.tmp`
+    const temp = `${destination}.kuma-${process.pid}-${Date.now()}.tmp`
     try {
       this.db.exec('PRAGMA wal_checkpoint(FULL)')
       const escaped = temp.replace(/'/g, "''")
@@ -4496,7 +4509,7 @@ class Ledger {
       try {
         fs.rmSync(temp, { force: true })
       } catch (error) {
-        console.warn('[kanso] mg: backup temp cleanup failed', error)
+        console.warn('[kuma] mg: backup temp cleanup failed', error)
       }
     }
   }
@@ -4548,7 +4561,7 @@ class Ledger {
       // 不失效就会拿着已经删掉的那几场继续算
       this.expSamplesCache = null
     } catch (e) {
-      console.warn('[kanso] mg: prune failed', e)
+      console.warn('[kuma] mg: prune failed', e)
     }
   }
 
@@ -4602,7 +4615,7 @@ class Ledger {
         rows.push({ month, count })
       }
     } catch (e) {
-      console.warn('[kanso] mg: retention report failed', e)
+      console.warn('[kuma] mg: retention report failed', e)
     }
     return { retentionDays, bytes, months: foldLedgerMonthCounts(rows) }
   }
@@ -4629,7 +4642,7 @@ class Ledger {
         removed += Number(result?.changes) || 0
       }
     } catch (e) {
-      console.warn('[kanso] mg: month clear failed', e)
+      console.warn('[kuma] mg: month clear failed', e)
       this.expSamplesCache = null
       return removed
     }
@@ -4640,7 +4653,7 @@ class Ledger {
         this.db.exec('VACUUM')
       } catch (e) {
         // 腾不出空间不算清理失败：行已经删掉了，只是文件没缩
-        console.warn('[kanso] mg: vacuum after month clear failed', e)
+        console.warn('[kuma] mg: vacuum after month clear failed', e)
       }
     }
     return removed

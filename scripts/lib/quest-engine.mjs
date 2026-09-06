@@ -18,7 +18,7 @@ export const ROOT = path.join(fileURLToPath(import.meta.url), '..', '..', '..')
 export const APPDATA = userDataDir()
 
 const require = createRequire(import.meta.url)
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-quest-offline-'))
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-quest-offline-'))
 
 process.on('exit', () => {
   try {
@@ -76,7 +76,7 @@ export const loadStore = () =>
       export default new Proxy({}, { get: () => noop })
     `,
     // 深海开幕语音台账：归约在战斗结算里顺手记一笔，而它**真的会写盘**
-    //（%APPDATA%/kanso/abyss-voice-sightings.json，2 秒防抖）。回放要跑几万条
+    //（%APPDATA%/kuma/abyss-voice-sightings.json，2 秒防抖）。回放要跑几万条
     // 战斗报文，不掐掉就会把用户的亲历台账按「回放当时」重写一遍，还会跟正在
     // 运行的应用抢同一个文件——「只读账本」这条纪律不是只管 sqlite。
     // 顺带：它 import 的 ./env 会 `import { app } from 'electron'`，纯 Node 里
@@ -96,7 +96,7 @@ export const loadMapNodes = () =>
 
 /**
  * 矿脉包读取，与 src/main/lode.ts 同一层优先级：
- * 用户包（%APPDATA%/kanso/lodes）覆盖内置包（assets/lodes）。
+ * 用户包（%APPDATA%/kuma/lodes）覆盖内置包（assets/lodes）。
  */
 export const loadLode = (id) => {
   for (const dir of [path.join(APPDATA, 'lodes'), path.join(ROOT, 'assets', 'lodes')]) {
@@ -169,6 +169,6 @@ export const openLedgerDb = () => {
   const { DatabaseSync } = require('node:sqlite')
   const file = path.join(APPDATA, 'mg.sqlite')
   if (!fs.existsSync(file)) return null
-  // 只读打开：回放绝不写用户的账本（WAL 模式下应用开着也能读，实测通过）
+  // 只读打开：回放绝不写维护者的游戏报文（WAL 模式下应用开着也能读，实测通过）
   return new DatabaseSync(file, { readOnly: true })
 }

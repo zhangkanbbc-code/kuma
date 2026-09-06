@@ -21,18 +21,20 @@ export const HOTKEY_DEFAULTS = {
   reload: 'F5',
   focus: 'F9',
   capture: 'Ctrl+Alt+S',
+  mute: 'Ctrl+M',
 } as const
 
 export type HotkeyId = keyof typeof HOTKEY_DEFAULTS
 export type ApplicationHotkeyId = Exclude<HotkeyId, 'boss'>
 
 export const HOTKEY_CONFIG_KEYS: Record<HotkeyId, string> = {
-  boss: 'kanso.hotkeys.boss',
-  reload: 'kanso.hotkeys.reload',
-  focus: 'kanso.hotkeys.focus',
-  capture: 'kanso.hotkeys.capture',
+  boss: 'kuma.hotkeys.boss',
+  reload: 'kuma.hotkeys.reload',
+  focus: 'kuma.hotkeys.focus',
+  capture: 'kuma.hotkeys.capture',
+  mute: 'kuma.hotkeys.mute',
 }
-export const BOSS_HOTKEY_ENABLED_CONFIG_KEY = 'kanso.hotkeys.bossEnabled'
+export const BOSS_HOTKEY_ENABLED_CONFIG_KEY = 'kuma.hotkeys.bossEnabled'
 
 const SPECIAL_KEY_ALIASES: Record<string, string> = {
   esc: 'escape',

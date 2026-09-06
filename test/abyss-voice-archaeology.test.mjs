@@ -261,8 +261,8 @@ test('第二批真样本（本机实际请求过的那些）同样走得通这�
 
 // ---- 调试门与三条纪律 ----
 
-test('试听 UI 整块受 KANSO_DEBUG_UI 管，发布形态里一个字都不生成', () => {
-  assert.match(ji, /const DEBUG_UI = process\.env\.KANSO_DEBUG_UI === '1'/)
+test('试听 UI 整块受 KUMA_DEBUG_UI 管，发布形态里一个字都不生成', () => {
+  assert.match(ji, /const DEBUG_UI = readEnv\('KUMA_DEBUG_UI'\) === '1'/)
   // 生成 DOM 的那一个函数**头一行就退出**，不是在外面包一层 if
   const at = ji.indexOf('const abyssGuessBlock =')
   assert.ok(at > 0, '找不到试听 UI 的渲染函数')

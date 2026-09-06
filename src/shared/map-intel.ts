@@ -1,6 +1,6 @@
 // 海域情报目录的内置兜底保留 1-1；完整常规海域由本地 map-intel 矿脉包覆盖。
 // 只记录“已确认能掉”和离散敌编成，不记录概率；未列出不等于确认不会出现。
-// 目录可由 %APPDATA%/kanso/lodes/map-intel.json 覆盖，UI 无需随资料更新而改代码。
+// 目录可由 %APPDATA%/kuma/lodes/map-intel.json 覆盖，UI 无需随资料更新而改代码。
 
 import {
   isActiveLimitedWindow,
@@ -127,7 +127,7 @@ export interface CatalogEncounterTally {
 /**
  * 「你的实测」与「确认目录」的对照表。
  *
- * 数据分层照旧**并列不合并**（2026-08-22 用户拍板）：目录是资料，实测是亲历，
+ * 数据分层照旧**并列不合并**（2026-08-22 维护者拍板）：目录是资料，实测是亲历，
  * 证据强度不同。这里算的只喂展示——同一套编成不必在一张卡上原样出现两遍。
  *
  * 定不到号的目录编成（`enemyCompIds` 给不出 ids）一律算「没遇过」照常列出：
@@ -189,6 +189,8 @@ export interface MapIntelDifficulty {
 export interface EventGimmick {
   title: string
   steps: string[]
+  /** 仅维护者订正的步骤带出处；键为 steps 中的完整文本。 */
+  stepSources?: Record<string, { basis: 'maintainer'; evidence: string; date: string }>
 }
 
 export interface EventSpecialShip {
@@ -198,8 +200,13 @@ export interface EventSpecialShip {
 }
 
 export interface EventFriendlyFleet {
-  ships: { id?: number; name: string }[]
+  ships: { id?: number; name: string; lv?: number }[]
   note?: string
+}
+
+export interface EventFriendlyFleetMap {
+  point: string
+  friendlyFleets: EventFriendlyFleet[]
 }
 
 export interface EventOperations {
@@ -220,10 +227,12 @@ export interface EventIntelLifecycle {
 }
 
 // 海域撃破ボーナス的一行：共通 + 各难度追加。text 是 wiki 原文照录
-// （日文装备名/选择肢/★+N/xN），展示层不拆不译，「なし」也原样保留。
+// （日文装备名/选择肢/★+N/xN），维护者订正另附出处；展示层不拆不译，「なし」也原样保留。
 export interface MapBreakthroughReward {
   scope: string // 共通 / 甲 / 乙 / 丙 / 丁
   text: string
+  /** 仅维护者订正的奖励组带出处；键为 text 中以「、」分隔的完整组。 */
+  rewardSources?: Record<string, { basis: 'maintainer'; evidence: string; date: string }>
 }
 
 export interface MapIntelMap {
@@ -243,6 +252,14 @@ export interface MapIntelMap {
   difficulties?: Partial<Record<EventDifficulty, MapIntelDifficulty>>
   // 活动图的海域撃破ボーナス（图级：各难度行同出一张表）
   rewards?: MapBreakthroughReward[]
+  /** 页面共通的特效分组/航程；读取时装配，不在包里复制四档。 */
+  operations?: Partial<EventOperations>
+  /** 未分难度、默认甲 S 的页面表，独立于四难度合算。 */
+  drops?: {
+    difficultyAgnostic: true
+    sourceNote: string
+    nodes: Record<string, ConfirmedDropShip[]>
+  }
   /**
    * 全难度合算掉落（图级，点名 → 舰）。来自上游「ドロップ艦一覧」那张**不分难度**的
    * 总表——它按点位铺开，把途中点也收了，而分难度那张「難易度別レア艦ドロップ」
@@ -258,6 +275,16 @@ export interface MapIntelMap {
 export interface MapIntelCatalog {
   schemaVersion: 1
   maps: Record<string, MapIntelMap>
+}
+
+export interface EventMapIntelCatalog {
+  schemaVersion: 1
+  maps: Record<string, Omit<MapIntelMap, 'difficulties'> & {
+    difficulties: Partial<Record<EventDifficulty, {
+      nodes: Record<string, MapIntelNode>
+      operations?: Partial<EventOperations>
+    }>>
+  }>
 }
 
 /**
@@ -638,11 +665,47 @@ const dropDomainSourced = (code: string): boolean =>
   Boolean(dropsCatalog?.maps[code]) ||
   Object.values(baseCatalog.maps[code]?.nodes ?? {}).some((node) => node.ships.length > 0)
 
+let eventMapIntelCatalog: EventMapIntelCatalog | null = null
+
+// 第五层是活动随包资料：底座 → 常规三域 → 活动包。每次重装顺序固定，
+// queryLode 到达顺序不影响结果；活动域逐字段覆盖，缺项保留开发机 map-intel 兜底。
+const overlayEventMapIntel = (base: MapIntelCatalog, overlay: EventMapIntelCatalog): MapIntelCatalog => {
+  const maps = { ...base.maps }
+  for (const [code, map] of Object.entries(overlay.maps)) {
+    const previous = maps[code]
+    const difficulties = { ...previous?.difficulties }
+    for (const difficulty of EVENT_DIFFICULTIES) {
+      const layer = map.difficulties[difficulty]
+      if (!layer) continue
+      const old = previous?.difficulties?.[difficulty]
+      const nodes = { ...old?.nodes }
+      for (const [node, value] of Object.entries(layer.nodes)) {
+        nodes[node] = { ...(old?.nodes[node] ?? value), enemyComps: value.enemyComps }
+      }
+      difficulties[difficulty] = { nodes, operations: {
+        gimmicks: [], specialShips: [], friendlyFleets: [], nodeDistances: {},
+        ...old?.operations, ...map.operations, ...layer.operations,
+      } }
+    }
+    maps[code] = { ...previous, ...map, difficulties }
+  }
+  return { schemaVersion: 1, maps }
+}
+
+export const applyEventMapIntel = (value: unknown): boolean => {
+  if (!value || typeof value !== 'object' || (value as any).schemaVersion !== 1 ||
+      !(value as any).maps || typeof (value as any).maps !== 'object') return false
+  eventMapIntelCatalog = value as EventMapIntelCatalog
+  rebuildCatalog()
+  return true
+}
+
 const rebuildCatalog = () => {
   let next = baseCatalog
   if (enemyCompsCatalog) next = overlayEnemyComps(next, enemyCompsCatalog)
   if (dropsCatalog) next = overlayDrops(next, dropsCatalog)
   if (dropWindowsCatalog) next = overlayLimited(next, dropWindowsCatalog, dropDomainSourced)
+  if (eventMapIntelCatalog) next = overlayEventMapIntel(next, eventMapIntelCatalog)
   activeCatalog = next
   dropIndex = null // 换了目录，反向索引跟着作废
   windowIndex = null
@@ -829,10 +892,31 @@ export const mapIntelMap = (
 ): ResolvedMapIntel | null => {
   const entry = mapIntelEntry(map)
   if (!entry) return null
-  if (entry.nodes) return { ...entry, nodes: entry.nodes }
+  if (entry.nodes) return { ...entry, nodes: entry.nodes, operations: entry.operations
+    ? { gimmicks: [], specialShips: [], friendlyFleets: [], nodeDistances: {}, ...entry.operations } : undefined }
   if (!difficulty) return null
   const layer = entry.difficulties?.[difficulty]
   return layer ? { ...entry, nodes: layer.nodes, difficulty, operations: layer.operations } : null
+}
+
+export const eventOperationsOf = (map: string, difficulty?: EventDifficulty): EventOperations | null => {
+  const operations = difficulty ? mapIntelMap(map, difficulty)?.operations : mapIntelEntry(map)?.operations
+  return operations ? { gimmicks: [], specialShips: [], friendlyFleets: [], nodeDistances: {}, ...operations } : null
+}
+
+/** 活动掉落图级入口：有随包表就展示一次，只有缺表才回退分难度目录。 */
+export const mapDropPool = (map: string, difficulty?: EventDifficulty): {
+  nodes: Record<string, MapIntelNode>
+  sourceNote?: string
+} | null => {
+  const entry = mapIntelEntry(map)
+  if (entry?.drops) return {
+    nodes: Object.fromEntries(Object.entries(entry.drops.nodes).map(([node, ships]) =>
+      [node, { ships, emptyDrop: 'unknown', enemyComps: [] }])),
+    sourceNote: entry.drops.sourceNote,
+  }
+  const resolved = mapIntelMap(map, difficulty)
+  return resolved ? { nodes: resolved.nodes } : null
 }
 
 export interface ConfirmedDropSite {
@@ -1015,7 +1099,7 @@ export const mapIntelNode = (
 /**
  * 一个点位的确认掉落目录，含「这份目录是哪一层给的」。
  *
- * 取舍规则（2026-08-26 用户拍板）：
+ * 取舍规则（2026-08-26 维护者拍板）：
  *   · 分难度层有数据（boss 点）→ **只**用分难度层，`allDifficulty` 为 false；
  *   · 分难度层没有、合算层有（P1 这类途中点）→ 用合算层，`allDifficulty` 为 true，
  *     展示层必须据此挂「不分难度」标注；
@@ -1028,6 +1112,8 @@ export interface NodeDropCatalog {
   ships: ConfirmedDropShip[]
   /** true = 这一格来自全难度合算层（上游那张不分难度的总表） */
   allDifficulty: boolean
+  /** 与 allDifficulty 互斥：未分难度、默认甲 S 的来源说明。 */
+  sourceNote?: string
   emptyDrop: 'confirmed' | 'unknown'
 }
 
@@ -1037,6 +1123,10 @@ export const nodeDropCatalog = (
   today = localDate(),
   difficulty?: EventDifficulty,
 ): NodeDropCatalog | null => {
+  const pageDrops = mapIntelEntry(map)?.drops
+  if (pageDrops?.nodes[node]?.length) {
+    return { ships: pageDrops.nodes[node], allDifficulty: false, sourceNote: pageDrops.sourceNote, emptyDrop: 'unknown' }
+  }
   const layer = mapIntelNode(map, node, today, difficulty)
   if (layer?.ships.length) {
     return { ships: layer.ships, allDifficulty: false, emptyDrop: layer.emptyDrop }

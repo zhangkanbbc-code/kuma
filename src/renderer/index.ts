@@ -228,7 +228,7 @@ const createGameView = () => {
   })
   // 渲染进程崩溃 → 原地重挂（poi 同款自愈）
   view.addEventListener('render-process-gone' as any, () => {
-    console.warn('[kanso] game webview crashed, remounting')
+    console.warn('[kuma] game webview crashed, remounting')
     view.remove()
     webview = createGameView()
   })
@@ -267,15 +267,15 @@ const captureGame = async () => {
   try {
     const dataUrl: string | undefined = await webview.executeJavaScript('window.capture()')
     if (!dataUrl) {
-      console.warn('[kanso] capture returned nothing (game canvas not found?)')
+      console.warn('[kuma] capture returned nothing (game canvas not found?)')
       return
     }
     fs.mkdirSync(SCREENSHOT_PATH, { recursive: true })
-    const file = path.join(SCREENSHOT_PATH, `kanso-${Date.now()}.png`)
+    const file = path.join(SCREENSHOT_PATH, `kuma-${Date.now()}.png`)
     fs.writeFileSync(file, Buffer.from(dataUrl.split(',')[1], 'base64'))
-    console.log('[kanso] screenshot saved:', file)
+    console.log('[kuma] screenshot saved:', file)
   } catch (e) {
-    console.error('[kanso] capture failed', e)
+    console.error('[kuma] capture failed', e)
   }
 }
 $('#btn-capture').addEventListener('click', () => void captureGame())
@@ -288,7 +288,7 @@ const validGameHost = (host: unknown): host is string =>
 
 // Chromium 会持久缓存远端静态资源，但生成资源 URL 仍需要服务器主机名。
 // 重启后先恢复上次识别值，避免图鉴必须等到首次 kcsapi 请求才出现图片。
-const rememberedGameHost = config.get('kanso.lastGameHost', '')
+const rememberedGameHost = config.get('kuma.lastGameHost', '')
 if (validGameHost(rememberedGameHost)) {
   setGameHost(rememberedGameHost)
   setVoiceHost(rememberedGameHost)
@@ -337,21 +337,21 @@ broadcaster.addListener('kancolle.bgm.archived', (entry: BgmArchiveEntry) => {
 /**
  * 「档案刚多了一份」的广播。**用 DOM 事件而不是直接调模块**：
  * 这里是装配层，不该知道哪个模块正开着哪一页；由模块自己判断
- *（同 kcs-image 的 `kanso:art-source-change` 那条既有路子）。
+ *（同 kcs-image 的 `kuma:art-source-change` 那条既有路子）。
  *
  * `mstId` 可能是 0——语音档案的归属是渲染时现算的，存的时候并不知道是谁
  *（见 shared/voice-archive-plan 的「先收后认」）。消费端因此不能只认 id 相等，
  * 0 要当成「不知道是谁，保险起见重画一次」。
  */
 function notifyArchiveLit(kind: 'art' | 'voice' | 'bgm', mstId: number) {
-  document.dispatchEvent(new CustomEvent('kanso:archive-lit', { detail: { kind, mstId } }))
+  document.dispatchEvent(new CustomEvent('kuma:archive-lit', { detail: { kind, mstId } }))
 }
 
 broadcaster.addListener('kancolle.server.change', (server: { name?: string; ip?: string }) => {
   // 美术资源未缓存时的回退目标（只在识别出服务器时才可能回退）
   setGameHost(server.ip ?? null)
   setVoiceHost(server.ip ?? null)
-  if (validGameHost(server.ip)) config.set('kanso.lastGameHost', server.ip)
+  if (validGameHost(server.ip)) config.set('kuma.lastGameHost', server.ip)
   // 泊地名后的地址收进悬停（2026-08-16 用户定的「可查不常驻」同口径）：
   // 常驻只留泊地名，IP 想查 hover 就有，截图也不再顺手带出服务器地址。
   if (server.name && server.name !== '__UNKNOWN') {
@@ -370,7 +370,7 @@ const initialServer = broadcaster.serverInfo as { name?: string; ip?: string }
 if (validGameHost(initialServer?.ip)) {
   setGameHost(initialServer.ip)
   setVoiceHost(initialServer.ip)
-  config.set('kanso.lastGameHost', initialServer.ip)
+  config.set('kuma.lastGameHost', initialServer.ip)
 }
 
 // ---- 坞位分隔条：拖动时游戏区冻结缩放 ----
@@ -408,7 +408,7 @@ const syncFocusBtn = (on: boolean) => {
 }
 focusBtn.addEventListener('click', () => syncFocusBtn(toggleFocus()))
 
-const hotkeyTitle = (id: 'reload' | 'focus' | 'capture'): string => {
+const hotkeyTitle = (id: 'reload' | 'focus' | 'capture' | 'mute'): string => {
   const configured = parseAccelerator(config.get(HOTKEY_CONFIG_KEYS[id], HOTKEY_DEFAULTS[id]))
   return formatAccelerator(
     configured && isAcceptableAccelerator(configured)
@@ -416,18 +416,40 @@ const hotkeyTitle = (id: 'reload' | 'focus' | 'capture'): string => {
       : (parseAccelerator(HOTKEY_DEFAULTS[id]) as NonNullable<typeof configured>),
   )
 }
+const muteBtn = $('#btn-mute')
+let audioMuted = false
+const syncMuteBtn = (muted: boolean) => {
+  audioMuted = muted
+  muteBtn.textContent = muted ? '已静音' : '静音'
+  muteBtn.title = `静音 kuma 全部声音，再按恢复（${hotkeyTitle('mute')}）`
+}
+const toggleMute = () => {
+  void ipcRenderer.invoke('audio:toggle-mute').then((muted: unknown) => {
+    if (typeof muted === 'boolean') syncMuteBtn(muted)
+  })
+}
+muteBtn.addEventListener('click', toggleMute)
 const syncHotkeyTitles = () => {
   $('#btn-focus').title = `专注模式：收起三坞只留游戏（${hotkeyTitle('focus')}）`
   $('#btn-capture').title = `保存游戏画面截图（${hotkeyTitle('capture')}）`
   $('#btn-reload').title = `刷新游戏页面（${hotkeyTitle('reload')}）`
+  syncMuteBtn(audioMuted)
 }
 syncHotkeyTitles()
-window.addEventListener('kanso-hotkeys-changed', syncHotkeyTitles)
+window.addEventListener('kuma-hotkeys-changed', syncHotkeyTitles)
 
-ipcRenderer.on('kanso:hotkey', (_event: unknown, id: unknown) => {
+ipcRenderer.on('kuma:mute-changed', (_event: unknown, muted: unknown) => {
+  if (typeof muted === 'boolean') syncMuteBtn(muted)
+})
+void ipcRenderer.invoke('audio:get-mute').then((muted: unknown) => {
+  if (typeof muted === 'boolean') syncMuteBtn(muted)
+})
+
+ipcRenderer.on('kuma:hotkey', (_event: unknown, id: unknown) => {
   if (id === 'reload') webview?.reload()
   else if (id === 'focus') syncFocusBtn(toggleFocus())
   else if (id === 'capture') void captureGame()
+  else if (id === 'mute') toggleMute()
 })
 
 document.addEventListener('keydown', (e) => {
@@ -487,7 +509,7 @@ try {
  * 每个 `pick()` 都在**第一幕最后一格亮透那一刻**才被调用（游戏区那 1.8 秒的淡入
  * 与各幕并排跑，不再干等），读到的是当时的实况：
  * 哪个模块还摆在屏幕上、面板里有几块内容。`hides` 是这一幕的预隐选择器，
- * 与样式表里那条 `body.kanso-ceremony …` 一一对应（护栏逐条对账，防止加了幕忘了预隐）。
+ * 与样式表里那条 `body.kuma-ceremony …` 一一对应（护栏逐条对账，防止加了幕忘了预隐）。
  *
  * 选择器全部取**结构位置**而不是内容类名（`.battle-col > *` 而不是逐个分区的类名）：
  * 模块内部改版时不至于静默失配。真失配了也只是退化成「只剩扫描线」或「整块直接现身」，
@@ -559,8 +581,8 @@ const LAUNCH_STAGES: readonly LaunchStage[] = [
     id: 'roster',
     hides: '.ws-pane.mod-ru .ships .ship',
     mark: 'roster',
-    animation: 'kanso-roster-row',
-    overlay: { className: 'kanso-roster-load', animation: 'kanso-roster-veil' },
+    animation: 'kuma-roster-row',
+    overlay: { className: 'kuma-roster-load', animation: 'kuma-roster-veil' },
     timing: LAUNCH_ROSTER_TIMING,
     pick: () => {
       const host = paneOf('ru')
@@ -575,8 +597,8 @@ const LAUNCH_STAGES: readonly LaunchStage[] = [
     id: 'battle',
     hides: '.ws-pane.mod-di .di-app',
     mark: 'battle',
-    animation: 'kanso-battle-',
-    overlay: { className: 'kanso-battle-scan', animation: 'kanso-battle-veil' },
+    animation: 'kuma-battle-',
+    overlay: { className: 'kuma-battle-scan', animation: 'kuma-battle-veil' },
     timing: LAUNCH_BATTLE_TIMING,
     pick: () => {
       const host = paneOf('di')
@@ -594,7 +616,7 @@ const LAUNCH_STAGES: readonly LaunchStage[] = [
     id: 'brief',
     hides: '.ws-pane.mod-du .du-app',
     mark: 'brief',
-    animation: 'kanso-brief-drop',
+    animation: 'kuma-brief-drop',
     timing: LAUNCH_BRIEF_TIMING,
     pick: () => {
       const host = paneOf('du')
@@ -616,7 +638,7 @@ const LAUNCH_STAGES: readonly LaunchStage[] = [
     id: 'tome',
     hides: '.ws-pane.mod-ji .ji-app > *:not(.book-tabs)',
     mark: 'tome',
-    animation: 'kanso-tome-lit',
+    animation: 'kuma-tome-lit',
     timing: LAUNCH_TOME_TIMING,
     pick: () => {
       const host = paneOf('ji')
@@ -635,7 +657,7 @@ const LAUNCH_STAGES: readonly LaunchStage[] = [
     id: 'order',
     hides: '.ws-pane.mod-qn .q-work',
     mark: 'order',
-    animation: 'kanso-order-in',
+    animation: 'kuma-order-in',
     timing: LAUNCH_ORDER_TIMING,
     pick: () => {
       const host = paneOf('qn')
@@ -649,7 +671,7 @@ const LAUNCH_STAGES: readonly LaunchStage[] = [
     id: 'dispatch',
     hides: '.ws-pane.mod-bi .elist',
     mark: 'dispatch',
-    animation: 'kanso-dispatch-tick',
+    animation: 'kuma-dispatch-tick',
     timing: LAUNCH_DISPATCH_TIMING,
     pick: () => {
       const host = paneOf('bi')
@@ -670,7 +692,7 @@ const LAUNCH_STAGES: readonly LaunchStage[] = [
     id: 'zi',
     hides: '.ws-pane.mod-zi .side > *',
     mark: 'zi',
-    animation: 'kanso-zi-lit',
+    animation: 'kuma-zi-lit',
     timing: LAUNCH_ZI_TIMING,
     alignEnd: digitsEnd,
     pick: () => {
@@ -697,7 +719,7 @@ const LAUNCH_STAGES: readonly LaunchStage[] = [
     id: 'badge',
     hides: '#header-status .hs-group:not(.resources)',
     mark: 'badge',
-    animation: 'kanso-badge-lit',
+    animation: 'kuma-badge-lit',
     timing: LAUNCH_BADGE_TIMING,
     alignEnd: digitsEnd,
     pick: () => {
@@ -820,5 +842,5 @@ void (async () => {
   }
   if (welcome) welcome.done(ignite)
   else ignite()
-  console.log('[kanso] renderer ready')
+  console.log('[kuma] renderer ready')
 })()

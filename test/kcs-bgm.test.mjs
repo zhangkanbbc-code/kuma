@@ -729,10 +729,10 @@ test('按号试听:曲名走那一份收口,播放走既有的那条链,不新�
   // 档案实物优先：留下来的那一份是零联网的，词条也该标出来
   const kept = mountMgstate({
     debugUi: true,
-    archive: { 'battle/153': 'file:///kanso/bgm/153.mp3' },
+    archive: { 'battle/153': 'file:///kuma/bgm/153.mp3' },
   })
   kept.typeBgmNo(153)
-  assert.match(kept.probeHtml(), /class="bgm-pv kept" data-bgm-url="file:\/\/\/kanso\/bgm\/153\.mp3"/)
+  assert.match(kept.probeHtml(), /class="bgm-pv kept" data-bgm-url="file:\/\/\/kuma\/bgm\/153\.mp3"/)
   assert.match(kept.probeHtml(), /档案实物 · 零联网/)
 
   // 钥里关掉「不联网补取」而档案里又没有：退化成说明文字，不渲染点不响的死按钮。

@@ -9,6 +9,7 @@
 // 实测：不带 → `at Object.boom (a.js:24:9)`；带 → `at Object.boom (a.ts:5:9)`。
 process.setSourceMapsEnabled?.(true)
 
+import { readEnv } from '../shared/env-names'
 import { app } from 'electron'
 import fs from 'fs'
 import os from 'os'
@@ -16,7 +17,7 @@ import path from 'path'
 
 import { dataDirCandidates, planDataDir } from '../shared/data-dir'
 
-export const KANSO_VERSION = app.getVersion()
+export const KUMA_VERSION = app.getVersion()
 export const ROOT = path.join(__dirname, '..', '..') // dist/main → 仓库根
 
 // 端到端验收（scripts/quit-e2e.ps1）必须在**打包产物**上跑，又绝不能碰用户的正式账本。
@@ -24,7 +25,8 @@ export const ROOT = path.join(__dirname, '..', '..') // dist/main → 仓库根
 // 2026-08-20 实测（electron 43，本机）：APPDATA 指到临时目录后
 // app.getPath('appData') 仍然返回真实的 ...\AppData\Roaming。
 // 所以只能自己开一个口子：显式的数据目录覆盖。仅供验收用，正式运行不设。
-export const DATA_DIR_OVERRIDDEN = Boolean(process.env.KANSO_DATA_DIR)
+const dataDirOverride = readEnv('KUMA_DATA_DIR')
+export const DATA_DIR_OVERRIDDEN = Boolean(dataDirOverride)
 
 const existsSafe = (dir: string): boolean => {
   try {
@@ -45,8 +47,8 @@ const existsSafe = (dir: string): boolean => {
 const resolveDataDir = (): { dir: string; error: string | null } => {
   // 冒烟测试用独立临时目录：绝不碰真实实例的配置/账本/缓存（避免文件锁撞车）。
   // 它与正式目录没有继承关系，不参与搬迁。
-  if (!process.env.KANSO_DATA_DIR && process.env.KANSO_SMOKE) {
-    return { dir: path.join(os.tmpdir(), 'kanso-smoke'), error: null }
+  if (!dataDirOverride && readEnv('KUMA_SMOKE')) {
+    return { dir: path.join(os.tmpdir(), 'kuma-smoke'), error: null }
   }
   const appData = app.getPath('appData')
   const candidates = dataDirCandidates(appData)
@@ -54,7 +56,7 @@ const resolveDataDir = (): { dir: string; error: string | null } => {
     appData,
     legacyExists: existsSafe(candidates.legacyDir),
     currentExists: existsSafe(candidates.dir),
-    override: process.env.KANSO_DATA_DIR ? path.resolve(process.env.KANSO_DATA_DIR) : null,
+    override: dataDirOverride ? path.resolve(dataDirOverride) : null,
   })
   if (!plan.migrate) return { dir: plan.dir, error: null }
   try {
@@ -79,7 +81,7 @@ export const DATA_DIR_MIGRATION_ERROR = dataDir.error
 export const DEFAULT_CACHE_PATH = path.join(APPDATA_PATH, 'MyCache')
 export const DEFAULT_SCREENSHOT_PATH = path.join(APPDATA_PATH, 'screenshots')
 
-global.KANSO_VERSION = KANSO_VERSION
+global.KUMA_VERSION = KUMA_VERSION
 global.ROOT = ROOT
 global.APPDATA_PATH = APPDATA_PATH
 global.DEFAULT_CACHE_PATH = DEFAULT_CACHE_PATH

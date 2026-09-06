@@ -37,7 +37,7 @@ export interface PreviewPlayerHandle {
 export type PreviewStopReason = 'pause' | 'ended' | 'error'
 
 // 主进程侧的收货口在 src/main/index.ts（游戏 webContents 那一段）
-const ACTIVE_CHANNEL = 'kanso:preview-audio-active'
+const ACTIVE_CHANNEL = 'kuma:preview-audio-active'
 
 const players = new Map<PreviewOwner, PreviewPlayerHandle>()
 const playing = new Set<PreviewOwner>()

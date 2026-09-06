@@ -18,7 +18,7 @@ export interface PreparedMaterialHistory {
 }
 
 /**
- * 把账本原始行裁到 [startTs, endTs] 并补齐两端。
+ * 把游戏报文原始行裁到 [startTs, endTs] 并补齐两端。
  *
  * - 越过 endTs 的行直接丢；
  * - 窗口前的那条把时刻挪到 startTs（曲线是阶梯状的，它就是起始余额）；

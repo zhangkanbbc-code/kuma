@@ -1,0 +1,1218 @@
+{
+  "meta": {
+    "id": "construction-facts",
+    "name": "建造参考",
+    "version": "2026.09.06",
+    "source": "kuma 汇编 · 参考舰娘百科",
+    "sourceUrl": "https://zh.kcwiki.cn/wiki/建造",
+    "license": "CC-BY-NC-SA-3.0",
+    "fetchedAt": "2026-09-06T11:07:54.118Z",
+    "upstreamUpdatedAt": "2026-04-25T13:26:23Z",
+    "note": "已核对的建造时间、普通或大型建造归属与部分普通建造配方"
+  },
+  "data": {
+    "schemaVersion": 1,
+    "ships": {
+      "1": {
+        "time": "00:18:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "2": {
+        "time": "00:18:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "6": {
+        "time": "00:18:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "7": {
+        "time": "00:18:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "9": {
+        "time": "00:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "10": {
+        "time": "00:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "11": {
+        "time": "00:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "12": {
+        "time": "00:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "13": {
+        "time": "00:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "14": {
+        "time": "00:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "15": {
+        "time": "00:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "16": {
+        "time": "00:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "17": {
+        "time": "00:24:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "18": {
+        "time": "00:24:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "19": {
+        "time": "00:24:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "20": {
+        "time": "00:24:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            250,
+            30,
+            200,
+            30
+          ]
+        ]
+      },
+      "21": {
+        "time": "01:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "22": {
+        "time": "01:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "23": {
+        "time": "01:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "24": {
+        "time": "01:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "25": {
+        "time": "01:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            30,
+            30,
+            30,
+            30
+          ]
+        ]
+      },
+      "26": {
+        "time": "04:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            400,
+            30,
+            600,
+            30
+          ]
+        ]
+      },
+      "27": {
+        "time": "04:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            400,
+            30,
+            600,
+            30
+          ]
+        ]
+      },
+      "28": {
+        "time": "00:18:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "29": {
+        "time": "00:18:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "30": {
+        "time": "00:18:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "31": {
+        "time": "00:18:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "32": {
+        "time": "00:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "33": {
+        "time": "00:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "34": {
+        "time": "00:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "35": {
+        "time": "00:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "36": {
+        "time": "00:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "37": {
+        "time": "00:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "38": {
+        "time": "00:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "39": {
+        "time": "00:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "40": {
+        "time": "00:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "41": {
+        "time": "00:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "42": {
+        "time": "00:22:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "43": {
+        "time": "00:22:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "44": {
+        "time": "00:22:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "45": {
+        "time": "00:22:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "46": {
+        "time": "00:22:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "47": {
+        "time": "00:22:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "48": {
+        "time": "00:22:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "49": {
+        "time": "00:22:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "50": {
+        "time": "00:30:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            250,
+            30,
+            200,
+            30
+          ]
+        ]
+      },
+      "51": {
+        "time": "01:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "52": {
+        "time": "01:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "53": {
+        "time": "01:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "54": {
+        "time": "01:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "55": {
+        "time": "01:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "56": {
+        "time": "01:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "59": {
+        "time": "01:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "60": {
+        "time": "01:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "61": {
+        "time": "01:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "62": {
+        "time": "01:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            250,
+            30,
+            200,
+            30
+          ],
+          [
+            400,
+            30,
+            600,
+            30
+          ]
+        ]
+      },
+      "63": {
+        "time": "01:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            250,
+            30,
+            200,
+            30
+          ],
+          [
+            400,
+            30,
+            600,
+            30
+          ]
+        ]
+      },
+      "64": {
+        "time": "01:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            250,
+            30,
+            200,
+            30
+          ],
+          [
+            400,
+            30,
+            600,
+            30
+          ]
+        ]
+      },
+      "65": {
+        "time": "01:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            250,
+            30,
+            200,
+            30
+          ],
+          [
+            400,
+            30,
+            600,
+            30
+          ]
+        ]
+      },
+      "66": {
+        "time": "01:25:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            250,
+            30,
+            200,
+            30
+          ]
+        ]
+      },
+      "67": {
+        "time": "01:25:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            250,
+            30,
+            200,
+            30
+          ]
+        ]
+      },
+      "68": {
+        "time": "01:25:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "69": {
+        "time": "01:25:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "70": {
+        "time": "01:30:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "71": {
+        "time": "01:30:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            250,
+            30,
+            200,
+            30
+          ]
+        ]
+      },
+      "72": {
+        "time": "01:30:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            250,
+            30,
+            200,
+            30
+          ]
+        ]
+      },
+      "74": {
+        "time": "02:40:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "75": {
+        "time": "03:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "76": {
+        "time": "02:50:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "77": {
+        "time": "04:30:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "78": {
+        "time": "04:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "79": {
+        "time": "04:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "80": {
+        "time": "05:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            400,
+            30,
+            600,
+            30
+          ]
+        ]
+      },
+      "81": {
+        "time": "05:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            400,
+            30,
+            600,
+            30
+          ]
+        ]
+      },
+      "83": {
+        "time": "04:30:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            300,
+            30,
+            400,
+            300
+          ]
+        ]
+      },
+      "84": {
+        "time": "04:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            300,
+            30,
+            400,
+            300
+          ]
+        ]
+      },
+      "85": {
+        "time": "04:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "86": {
+        "time": "04:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "87": {
+        "time": "04:30:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "89": {
+        "time": "02:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "90": {
+        "time": "04:10:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            300,
+            30,
+            400,
+            300
+          ]
+        ]
+      },
+      "91": {
+        "time": "04:10:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            300,
+            30,
+            400,
+            300
+          ]
+        ]
+      },
+      "92": {
+        "time": "03:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "93": {
+        "time": "00:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "94": {
+        "time": "00:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "95": {
+        "time": "00:22:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "96": {
+        "time": "00:22:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "97": {
+        "time": "00:22:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "98": {
+        "time": "00:22:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "99": {
+        "time": "01:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "100": {
+        "time": "01:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "101": {
+        "time": "01:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "102": {
+        "time": "02:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "103": {
+        "time": "02:20:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "110": {
+        "time": "06:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            300,
+            30,
+            400,
+            300
+          ]
+        ]
+      },
+      "111": {
+        "time": "06:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            300,
+            30,
+            400,
+            300
+          ]
+        ]
+      },
+      "113": {
+        "time": "01:15:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            250,
+            30,
+            200,
+            30
+          ]
+        ]
+      },
+      "114": {
+        "time": "01:15:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "115": {
+        "time": "01:22:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            30,
+            30,
+            30,
+            30
+          ]
+        ]
+      },
+      "116": {
+        "time": "02:40:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            300,
+            30,
+            400,
+            300
+          ]
+        ]
+      },
+      "120": {
+        "time": "01:30:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "123": {
+        "time": "01:00:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "124": {
+        "time": "01:30:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            400,
+            30,
+            600,
+            30
+          ]
+        ]
+      },
+      "125": {
+        "time": "01:30:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            400,
+            30,
+            600,
+            30
+          ]
+        ]
+      },
+      "126": {
+        "time": "00:22:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            250,
+            30,
+            200,
+            30
+          ]
+        ]
+      },
+      "127": {
+        "time": "00:22:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            250,
+            30,
+            200,
+            30
+          ]
+        ]
+      },
+      "128": {
+        "time": "00:22:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            250,
+            30,
+            200,
+            30
+          ]
+        ]
+      },
+      "131": {
+        "time": "08:00:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "132": {
+        "time": "00:24:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "137": {
+        "time": "01:00:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "138": {
+        "time": "01:00:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "139": {
+        "time": "01:00:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "143": {
+        "time": "08:00:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "153": {
+        "time": "06:40:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "154": {
+        "time": "01:10:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": [
+          [
+            250,
+            30,
+            200,
+            30
+          ]
+        ]
+      },
+      "155": {
+        "time": "03:20:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "161": {
+        "time": "02:30:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "162": {
+        "time": "02:20:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "163": {
+        "time": "00:17:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "164": {
+        "time": "00:18:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "171": {
+        "time": "05:00:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "174": {
+        "time": "00:24:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "175": {
+        "time": "00:24:00",
+        "modes": [
+          "normal"
+        ],
+        "recipes": []
+      },
+      "182": {
+        "time": "03:40:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "331": {
+        "time": "03:30:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "332": {
+        "time": "03:30:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "433": {
+        "time": "05:30:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "439": {
+        "time": "04:40:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "440": {
+        "time": "08:20:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "444": {
+        "time": "04:00:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "448": {
+        "time": "01:10:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "449": {
+        "time": "01:10:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "451": {
+        "time": "02:20:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "460": {
+        "time": "03:40:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "465": {
+        "time": "01:10:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "492": {
+        "time": "05:00:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "493": {
+        "time": "03:20:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      },
+      "927": {
+        "time": "04:40:00",
+        "modes": [
+          "large"
+        ],
+        "recipes": []
+      }
+    }
+  }
+}

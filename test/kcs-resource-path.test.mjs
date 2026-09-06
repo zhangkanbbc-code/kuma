@@ -15,7 +15,7 @@ const {
 } = require('../assets/preload/kcs-resource-path.js')
 
 const withTempDir = (fn) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-resource-lookup-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-resource-lookup-'))
   try {
     return fn(dir)
   } finally {
@@ -102,7 +102,7 @@ test('自动建出来的空目录：热路径仍然全未命中，且只 readdir
 })
 
 test('MyCache 不存在时，进战斗连打上百次 Image.src 一次也不打磁盘', () => {
-  const lookup = createResourceLookup(path.join(os.tmpdir(), 'kanso-no-mycache-should-not-exist'))
+  const lookup = createResourceLookup(path.join(os.tmpdir(), 'kuma-no-mycache-should-not-exist'))
   const n = countAccessSync(() => {
     for (let i = 0; i < 200; i += 1) {
       assert.equal(
@@ -125,10 +125,10 @@ test('图片默认只认魔改覆盖，普通缓存文件留给脚本恢复', ()
     const lookup = createResourceLookup(dir)
     const url = `https://w00g.kancolle-server.com${pathname}`
     assert.equal(lookup(url), undefined, '有普通缓存也不该改 Image.src')
-    assert.equal(lookup(url, true), `kanso-cache://resource${pathname}`)
+    assert.equal(lookup(url, true), `kuma-cache://resource${pathname}`)
     fs.writeFileSync(hackPath, 'hack')
     const lookup2 = createResourceLookup(dir)
-    assert.equal(lookup2(url), `kanso-cache://resource${pathname}`)
+    assert.equal(lookup2(url), `kuma-cache://resource${pathname}`)
   })
 })
 

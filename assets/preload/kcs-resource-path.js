@@ -1,5 +1,5 @@
 // Adapted from poi (https://github.com/poooi/poi) assets/js/kcs-resource-path.js
-// MIT License, Copyright (c) poi contributors — 移植与改造：艦素 kanso 项目。
+// MIT License, Copyright (c) poi contributors — 移植与改造：kuma 项目。
 // 缓存路径逻辑：纯 CommonJS、无 Electron 依赖，主进程（kcs-resource.ts）与
 // webview preload 隔离世界（resource-hack.js）两头共用。
 const fs = require('fs')
@@ -58,7 +58,7 @@ const findHackFilePath = (cacheDir, pathname = '') => {
 //
 // 进战斗 PIXI 会连打几十上百次 src。旧实现每张图都 config.get（同步 IPC）+
 // 两次 accessSync；用户机器上 MyCache 目录根本不存在，等于空跑把游戏线程卡住，
-// 艦素自己的 UI（大破闪烁）还在动——那是另一个渲染进程。
+// kuma自己的 UI（大破闪烁）还在动——那是另一个渲染进程。
 //
 // 规则：KanColle 树里没东西 → 整段会话一次 readdir 之后全部未命中；
 // 图片默认只认 .hack 覆盖（注释里的「只动魔改图」）；脚本恢复才看普通缓存文件。
@@ -100,7 +100,7 @@ const createResourceLookup = (cacheDir) => {
           }
         }
       }
-      const result = found ? `kanso-cache://resource${pathname}` : ''
+      const result = found ? `kuma-cache://resource${pathname}` : ''
       memo.set(key, result)
       return result || undefined
     } catch (_e) {

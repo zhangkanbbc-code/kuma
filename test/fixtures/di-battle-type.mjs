@@ -38,7 +38,7 @@ export { isDamageOnlyBattle, isDayFlowBattle, battleTypeLabel, battleForecastLea
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-di-battle-type-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-di-battle-type-'))
   const entry = path.join(dir, 'kind.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'kind.cjs')

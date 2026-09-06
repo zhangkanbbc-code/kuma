@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url'
 
 import { buildSync } from 'esbuild'
 
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-item-use-materials-'))
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-item-use-materials-'))
 const output = path.join(tempDir, 'item-use-materials.cjs')
 buildSync({
   entryPoints: [fileURLToPath(new URL('../src/shared/item-use-materials.ts', import.meta.url))],

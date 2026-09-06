@@ -2,6 +2,7 @@
 // 舰娘、NPC 与深海台词均来自本地矿脉；中文缺失时才回退日文。
 // 非战斗语音显示在游戏画面底部，战斗语音改为顶层弹幕：
 // 我方（含友军舰队）自左向右，敌方自右向左。
+import { readEnv } from '../shared/env-names'
 import {
   masterShipName,
   mg,
@@ -14,7 +15,6 @@ import { resolveVoiceRequest, setShipGraph, type VoiceRequestCue } from './kcs-v
 import { entityNamePlain, localizedEntityId } from './localization'
 import {
   buildVoiceFallbackIds,
-  buildVoiceTranslationIndex,
   normalizeVoiceLine,
 } from '../shared/voice-lineage'
 import { voicePlaybackObservationAt } from '../shared/voice-playback-observations'
@@ -41,7 +41,17 @@ import {
   VOICE_CAPTION_SIZE_PATH,
 } from '../shared/voice-caption-size'
 import { isUntranslatedVoiceText, normalizeVoiceText } from '../shared/voice-text'
-import { applyVoiceOverlay, voiceOverlayJaIndex } from '../shared/voice-overlay'
+import {
+  applyVoiceOverlay,
+  buildVoiceZhByJa,
+  supplementVoiceZhByJa,
+  voiceOverlayJaIndex,
+} from '../shared/voice-overlay'
+import {
+  abyssVoiceRowsForMst,
+  buildAbyssVoiceSameNameForms,
+  parseAbyssVoiceFile,
+} from '../shared/abyss-voice-file'
 import { installZhSimplifier, simplifyZh } from './zh-simplify'
 
 const remote = require('@electron/remote')
@@ -90,6 +100,25 @@ interface WikiwikiAbyssVoiceLine {
 
 type WikiwikiAbyssVoiceTable = Record<string, WikiwikiAbyssVoiceLine[]>
 
+interface KumaAbyssVoiceLine {
+  key: string
+  scene: string
+  ja: string
+  zh: string
+  suffix?: number
+  ambiguous?: true
+  draft?: true
+}
+
+type KumaAbyssVoiceTable = Record<string, KumaAbyssVoiceLine[]>
+
+interface KumaVoiceLine {
+  slot: number
+  ja: string
+  zh: string
+  basis?: 'key-confirmed' | 'wikiwiki-mapped' | 'divergent' | 'ambiguous'
+}
+
 interface CaptionLine {
   speaker: string
   text: string
@@ -115,9 +144,15 @@ let subtitleNpc: ExtraSubtitleTable = {}
 let subtitleEnemies: ExtraSubtitleTable = {}
 let wikiwikiVoice: WikiwikiVoiceTable = {}
 let wikiwikiAbyssVoice: WikiwikiAbyssVoiceTable = {}
+let kumaAbyssVoice: KumaAbyssVoiceTable = {}
+let abyssMstIds = new Set<number>()
+let abyssSameNameForms = new Map<number, number[]>()
 /** 短剧/群像语音（kc9997）的译文表，档名（裸编号）→ 一段中文。 */
 let seasonalSkits: Record<string, { season?: string; scene?: string; zh?: string }> = {}
 let voiceZhByJa = new Map<string, string>()
+let kumaVoiceBySlot = new Map<number, Map<number, KumaVoiceLine[]>>()
+/** 深海原文 → 舰娘百科中文；与我方索引同在 loadData 从 kcwiki 日中对照一次建完。 */
+let abyssZhByJa = new Map<string, string>()
 let voiceOverlayZhByJa = new Map<string, string>()
 /**
  * 被季节语音占着的槽位（形态 mstId → 槽位集合）。判据与图鉴侧同一份，
@@ -131,6 +166,9 @@ let seasonOccupied = new Map<number, Set<number>>()
  * 而主来源 `kcwiki-voice` 早就随包、NOTICE 在册，只是没接进来。
  * 它**只补空格**，同一格 subtitle 有值一律不覆盖（音轨转写是文本权威）。
  * 译文 overlay 也只补仍判缺译、且日文原文没有变化的上游行；上游补上中文即退役。
+ *
+ * wikiwiki 的同句反查索引在 loadData 只建一次，依次由 subtitle、kcwiki、译文 overlay、
+ * 第一方自译包补空；只认归一化日文原文，不按形态或槽位借，原文一变旧译即自动失效。
  */
 let kcwikiBySlot = new Map<number, Map<number, KcwikiSlotLine>>()
 /**
@@ -157,7 +195,7 @@ let hourlyTimer: ReturnType<typeof setTimeout> | null = null
 const lineTimers = new Set<ReturnType<typeof setTimeout>>()
 let friendlyLane = 0
 let enemyLane = 0
-let captionsEnabled = Boolean(config.get('kanso.voiceCaptions', true))
+let captionsEnabled = Boolean(config.get('kuma.voiceCaptions', true))
 
 /**
  * 底部字幕的世代号。**每出一句就自增，清场也自增。**
@@ -205,7 +243,7 @@ export const setVoiceCaptionSize = (px: unknown) => {
 setVoiceCaptionSize(config.get(VOICE_CAPTION_SIZE_PATH, VOICE_CAPTION_SIZE_DEFAULT))
 
 const loadData = async () => {
-  const [raw, zh, ja, npc, enemies, wikiwiki, wikiwikiAbyss, seasonal, kcwikiVoice, kcwikiShips, voiceOverlay, opencc] =
+  const [raw, zh, ja, npc, enemies, wikiwiki, wikiwikiAbyss, abyssVoice, seasonal, kcwikiVoice, kcwikiShips, voiceOverlay, kumaVoice, opencc] =
     await Promise.all([
       queryMasterRaw(),
       queryLode('subtitle-zh'),
@@ -214,12 +252,14 @@ const loadData = async () => {
       queryLode('subtitle-enemies'),
       queryLode('wikiwiki-voice'),
       queryLode('wikiwiki-abyss-voice'),
+      queryLode('kuma-abyss-voice'),
       queryLode('kcwiki-seasonal-voice'),
       // 后两个只为算「哪些槽位被季节语音占着」——判据要与图鉴侧一字不差，
       // 而那份判据要的就是这几个源（见 seasonOccupiedSlots）
       queryLode('kcwiki-voice'),
       queryLode('kcwiki-ships'),
-      queryLode('kanso-voice-zh'),
+      queryLode('kuma-voice-zh'),
+      queryLode('kuma-voice'),
       queryLode('opencc-t2s'),
     ])
   installZhSimplifier(opencc)
@@ -238,10 +278,21 @@ const loadData = async () => {
   )
   for (const warning of [...regularOverlay.warnings, ...seasonalOverlay.warnings]) {
     console.warn(
-      `[kanso] 台词译文自补层跳过 ${warning.pack}/${warning.key}：上游日文原文已变化`,
+      `[kuma] 台词译文自补层跳过 ${warning.pack}/${warning.key}：上游日文原文已变化`,
     )
   }
   setShipGraph(raw?.data?.api_mst_shipgraph ?? [])
+  const rawAbyssShips = (raw?.data?.api_mst_ship ?? []).filter(
+    (ship: { api_id?: unknown; api_name?: unknown; api_sortno?: unknown }) =>
+      !ship?.api_sortno && Number.isInteger(Number(ship?.api_id)),
+  )
+  abyssMstIds = new Set(rawAbyssShips.map((ship: { api_id: unknown }) => Number(ship.api_id)))
+  abyssSameNameForms = buildAbyssVoiceSameNameForms(
+    rawAbyssShips.map((ship: { api_id: unknown; api_name?: unknown }) => ({
+      id: Number(ship.api_id),
+      name: `${ship.api_name ?? ''}`,
+    })),
+  )
   voiceFallbackOf = buildVoiceFallbackIds(
     raw?.data?.api_mst_ship ?? [],
     raw?.data?.api_mst_shipupgrade ?? [],
@@ -252,12 +303,45 @@ const loadData = async () => {
   subtitleEnemies = (enemies?.data ?? {}) as ExtraSubtitleTable
   wikiwikiVoice = (wikiwiki?.data ?? {}) as WikiwikiVoiceTable
   wikiwikiAbyssVoice = (wikiwikiAbyss?.data ?? {}) as WikiwikiAbyssVoiceTable
+  kumaAbyssVoice = (abyssVoice?.data?.ships ?? {}) as KumaAbyssVoiceTable
   seasonalSkits = (seasonal?.data?.skits ?? {}) as typeof seasonalSkits
   seasonalShips = seasonalOverlay.data as typeof seasonalShips
-  voiceZhByJa = buildVoiceTranslationIndex(subtitleJa, subtitleZh)
+  voiceZhByJa = buildVoiceZhByJa(
+    subtitleJa,
+    subtitleZh,
+    regularOverlay.data,
+    voiceOverlay?.data,
+    kumaVoice?.data?.ships ?? {},
+  )
+  abyssZhByJa = new Map()
+  for (const [id, lines] of Object.entries(regularOverlay.data)) {
+    if (Number(id) >= 1_500) supplementVoiceZhByJa(abyssZhByJa, lines)
+  }
+  for (const lines of Object.values(kumaAbyssVoice)) {
+    supplementVoiceZhByJa(abyssZhByJa, lines)
+  }
+  for (const raw of Object.values(subtitleEnemies)) {
+    const lines = (Array.isArray(raw) ? raw : [raw]).map((line) => ({
+      ja: line?.jp,
+      zh: line?.zh,
+    }))
+    supplementVoiceZhByJa(abyssZhByJa, lines)
+  }
   voiceOverlayZhByJa = voiceOverlayJaIndex(voiceOverlay?.data ?? null)
-  for (const [key, value] of voiceOverlayZhByJa) {
-    if (!voiceZhByJa.has(key)) voiceZhByJa.set(key, value)
+  const kumaVoiceShips = (kumaVoice?.data?.ships ?? {}) as Record<
+    string,
+    KumaVoiceLine[] | undefined
+  >
+  kumaVoiceBySlot = new Map()
+  // `draft` 是维护者侧把握度，不是显示闸；与图鉴现行口径一致，这里不排它。
+  for (const [rawId, lines] of Object.entries(kumaVoiceShips)) {
+    const bySlot = new Map<number, KumaVoiceLine[]>()
+    for (const line of lines ?? []) {
+      const rows = bySlot.get(line.slot)
+      if (rows) rows.push(line)
+      else bySlot.set(line.slot, [line])
+    }
+    kumaVoiceBySlot.set(Number(rawId), bySlot)
   }
   // 分拣**只跑一次**，导出两张表：季节闸 + kcwiki 按槽位查表。
   // 各调一次就是把 17434 行的分拣跑两遍（实测一遍 ~83ms）。
@@ -279,7 +363,7 @@ const loadData = async () => {
 const ensureData = () => {
   loading ??= loadData().catch((error) => {
     loading = null
-    console.warn('[kanso] 游戏语音字幕资料加载失败', error)
+    console.warn('[kuma] 游戏语音字幕资料加载失败', error)
   })
   return loading
 }
@@ -419,15 +503,27 @@ const shipCaption = (cue: Extract<VoiceRequestCue, { kind: 'ship' }>): CaptionLi
     const zh = captionText(row?.zh)
     return zh ? simplifyZh(normalizeVoiceText(zh)) : captionText(row?.ja)
   }
-  // 实体级回退：当前形态整份资料都不存在时，才沿改装链找最近的前置形态。
-  // 当前形态只要已有任一语言的表，就不拿前置形态补单个缺行，避免新旧台词混拼。
+  /** 这一形态的第一方自译台词：恰一行才取，多候选不赌。 */
+  const kumaVoiceAt = (id: number): string => {
+    const rows = kumaVoiceBySlot.get(id)?.get(cue.voiceId)
+    if (rows?.length !== 1) return ''
+    const zh = captionText(rows[0].zh)
+    return zh ? simplifyZh(normalizeVoiceText(zh)) : captionText(rows[0].ja)
+  }
+  // 实体级回退：subtitle 是完整字幕包，本形态有表就不拿前置形态补单个缺行；
+  // wikiwiki 与 kuma-voice 都按当前槽逐格判，没有行才沿改装链找最近的前置形态。
   //
-  // ⚠️ **选形态只看 subtitle / wikiwiki 有没有整份表，kcwiki 不参与选形态**。
+  // ⚠️ **主循环认 subtitle、wikiwiki、kuma-voice 三种表；只有 subtitle 按整表停链，
+  // wikiwiki 与 kuma-voice 按当前槽逐格判，kcwiki 不参与选形态**。
   // 把 kcwiki 也算进「本形态有源」会重演「小桶挡整页」：早霜改二自己只有 7 行
   // kcwiki、没有 subtitle 表，而 早霜改 有整整 52 格——让它在自己这一层停下，
   // 屏幕上就从 52 格掉回 7 格。实测这么改会让 8 个形态共 225 格倒退
   //（早霜改二/初月改二/Richelieu Deux/早波改二/秋月改二/初雪改二/藤波改二/白雪改二）。
-  // kcwiki 的位置是**选定形态之后补空格**，以及全链一份表都没有时单独扛起一个形态。
+  // 补空层的位置是**选定形态之后补空格**：先查上游 kcwiki 同槽，再查第一方
+  // kuma-voice 同槽；后者按槽位级退位纪律本就不与上游撞槽。主循环没有选定
+  // 三种表之一时，仍由 kcwiki 单独扛起一个形态。
+  // 2026-09-06 加第二层：霧島改/朝霜改虽有 subtitle 表，整段時報 30–53 却缺槽；
+  // 旧链一见整表就停，开发机与玩家机都会空着，必须在选定形态内按槽补上。
   //
   // ⚠️ **「有表」判的是「还剩常规台词」，不是「表这个对象存不存在」**。
   // 2026-08-27 用户实测的杰维斯改（394）中破无字幕就死在这一字之差上：
@@ -456,7 +552,8 @@ const shipCaption = (cue: Extract<VoiceRequestCue, { kind: 'ship' }>): CaptionLi
       isSeasonalText,
     }).length > 0
     const wikiLines = wikiwikiVoice[`${id}`]
-    if (!hasSubtitle && !wikiLines?.length) continue
+    const kumaSlots = kumaVoiceBySlot.get(id)
+    if (!hasSubtitle && !wikiLines?.length && !kumaSlots?.size) continue
     sourceId = id
     if (hasSubtitle) {
       // 中文那一支过一道**标点体例归一**（行尾不写句号、省略号后不许再接句号），
@@ -473,12 +570,21 @@ const shipCaption = (cue: Extract<VoiceRequestCue, { kind: 'ship' }>): CaptionLi
         : zhLine
           ? simplifyZh(normalizeVoiceText(zhLine))
           : jaLine
-    } else {
+    } else if (wikiLines?.length) {
       const line = wikiLines!.find((entry) => entry.voiceId === cue.voiceId)
-      const reused = line ? voiceZhByJa.get(normalizeVoiceLine(line.ja)) : ''
+      if (!line) {
+        text = kcwikiAt(id) || kumaVoiceAt(id)
+        if (text) break
+        sourceId = null
+        continue
+      }
+      // wikiwiki 会用「（大破結婚後）」这类全括号短句表示有场合但没有转写。
+      // 与 subtitle 的长占位句走同一道滤：当空，交给下面的 kcwiki 补空层。
+      const jaLine = captionText(line?.ja)
+      const reused = jaLine ? voiceZhByJa.get(normalizeVoiceLine(jaLine)) : ''
       const kcwikiZh = captionText(kcwikiBySlot.get(id)?.get(cue.voiceId)?.zh)
-      const overlayZh = line
-        ? (voiceOverlayZhByJa.get(normalizeVoiceLine(line.ja)) ?? '')
+      const overlayZh = jaLine
+        ? (voiceOverlayZhByJa.get(normalizeVoiceLine(jaLine)) ?? '')
         : ''
       text = reused
         ? simplifyZh(normalizeVoiceText(reused))
@@ -486,20 +592,34 @@ const shipCaption = (cue: Extract<VoiceRequestCue, { kind: 'ship' }>): CaptionLi
           ? simplifyZh(normalizeVoiceText(kcwikiZh))
           : overlayZh
             ? simplifyZh(normalizeVoiceText(overlayZh))
-            : `${line?.ja ?? ''}`
+            : jaLine
+    } else {
+      const rows = kumaSlots!.get(cue.voiceId)
+      if (!rows?.length) {
+        text = kcwikiAt(id) || kumaVoiceAt(id)
+        if (text) break
+        sourceId = null
+        continue
+      }
+      // ambiguous 在包里表现为同一槽保留多条候选；至多一条能对应音轨，不赌。
+      if (rows.length !== 1) break
+      text = kumaVoiceAt(id)
     }
-    // 同一形态内补空：subtitle 那一格没有转写（或写的是占位句）时才轮到 kcwiki。
+    // 同一形态内补空：subtitle 那一格没有转写（或写的是占位句）时先轮到 kcwiki，
+    // kcwiki 也空才轮到 kuma-voice。
     // wikiwiki 日文是音轨转写、不是译文，不能挡住 kcwiki 中文；上面的 wikiwiki 分支
     // 只拿 kcwiki 补中文，不拿它的日文覆盖 wikiwiki 转写。
-    if (!text) text = kcwikiAt(id)
+    if (!text) text = kcwikiAt(id) || kumaVoiceAt(id)
     break
   }
-  // 全链一份 subtitle/wikiwiki 表都没有：这时 kcwiki 单独扛起一个形态。
+  // 主循环没有为这一格选定 subtitle/wikiwiki/kuma-voice 形态：
+  // 这时 kcwiki 单独扛起一个形态。
   // 新实装的那批舰就落在这里——从前她们一个字都没有。
   //
-  // ⚠️ 这一支**逐格沿链**，与上面主循环的「有表就停在本形态」不是一回事，也不矛盾：
-  // 主循环那道闸防的是**新旧台词混拼**——本形态有整份自己的台词，就不该拿前置形态
-  // 的旧词去补它的单个缺行。而这里本形态压根没有「自己的那份台词」，kcwiki 又只是
+  // ⚠️ 这一支**逐格沿链**，与上面 subtitle 的「有表就停在本形态」不是一回事，也不矛盾：
+  // subtitle 那道闸防的是**新旧台词混拼**——本形态有整份自己的台词，就不该拿前置形态
+  // 的旧词去补它的单个缺行。而这里本形态没有当前槽的 wikiwiki/kuma-voice 行，
+  // kcwiki 又只是
   // 补空层（对改形态它只收与未改**有差分**的台词，缺的那些格本来就等于「沿用未改」）。
   // 于是本形态该格取不到时接着往前置形态借，与它的定位一致。
   // 杰维斯改 394 的中破正是这一格：她的 kcwiki 桶有 32 格却没有 21，
@@ -604,6 +724,8 @@ const extraCaptions = (
   const flavorVoices = mg.sortie?.battle?.flavorVoices ?? []
   const exact = flavorVoices.find((entry) => entry.voiceId === cue.voiceId)
   if (exact) {
+    // 报文与 wikiwiki 都只拿日文原文做同句键；百科原文变化时旧译自然失配并退回日文。
+    const zh = abyssZhByJa.get(normalizeVoiceLine(exact.message))
     return [{
       speaker: flavorSpeaker(
         exact.className,
@@ -613,35 +735,58 @@ const extraCaptions = (
           exact.shipName || masterShipName(exact.mstId),
         ),
       ),
-      text: exact.message,
+      text: zh ? simplifyZh(normalizeVoiceText(zh)) : exact.message,
       delay: 0,
       ...enemyToneOf(exact.mstId),
     }]
   }
 
   // 开幕报文给出当前深海形态、音轨键与原文。后续攻击/受创/击沉音轨沿用同一键前缀，
-  // 最后两位是场景后缀；仅在 WIKIWIKI 同一精确 No. 已收录该后缀时补字幕。
+  // 最后两位是场景后缀；护卫舰没有开幕报文时才用官方档名反解。多解就是不解。
   const stem = cue.voiceId.slice(0, -2)
   const opening = flavorVoices.find(
     (entry) => entry.voiceId.endsWith('10') && entry.voiceId.slice(0, -2) === stem,
   )
-  const suffix = Number.parseInt(cue.voiceId.slice(-2), 10)
-  const line = opening && Number.isInteger(suffix)
-    ? wikiwikiAbyssVoice[`${opening.mstId}`]?.find((entry) => entry.suffix === suffix)
-    : null
-  if (!opening || !line) return []
+  const parsed = opening ? null : parseAbyssVoiceFile(cue.voiceId, (id) => abyssMstIds.has(id))
+  if (!opening && (!parsed || parsed.lineNo == null)) return []
+  const mstId = opening?.mstId ?? parsed!.mstId
+  const suffix = opening
+    ? Number.parseInt(cue.voiceId.slice(-2), 10)
+    : Number.parseInt(parsed!.lineNo!, 10)
+  if (!Number.isInteger(suffix)) return []
+
+  // 第一方随包层先补发行版的空白；本机另装 wikiwiki 底本时仍留作最后一档。
+  // wikiwiki 按角色建页，同名难度形态没逐个挂行时，两档都按同一族查表。
+  const bundled = abyssVoiceRowsForMst(
+    kumaAbyssVoice,
+    abyssSameNameForms,
+    mstId,
+    suffix,
+  )
+  if (bundled?.rows.some((line) => line.ambiguous === true)) return []
+  const line =
+    bundled?.rows[0] ??
+    abyssVoiceRowsForMst(
+      wikiwikiAbyssVoice,
+      abyssSameNameForms,
+      mstId,
+      suffix,
+    )?.rows[0]
+  if (!line) return []
+  const ownZh = 'zh' in line ? `${line.zh ?? ''}`.trim() : ''
+  const zh = ownZh || abyssZhByJa.get(normalizeVoiceLine(line.ja))
   return [{
     speaker: flavorSpeaker(
-      opening.className,
+      opening?.className,
       entityNamePlain(
         'abyssShip',
-        opening.mstId,
-        opening.shipName || masterShipName(opening.mstId),
+        mstId,
+        opening?.shipName || masterShipName(mstId),
       ),
     ),
-    text: line.ja,
+    text: zh ? simplifyZh(normalizeVoiceText(zh)) : line.ja,
     delay: 0,
-    ...enemyToneOf(opening.mstId),
+    ...enemyToneOf(mstId),
   }]
 }
 
@@ -678,7 +823,7 @@ const voiceAudioMs = (pathname: string | undefined): Promise<number | null> => {
   const webview = document.querySelector<GameWebview>('#game-wrapper webview')
   if (!webview) return Promise.resolve(null)
   return webview
-    .executeJavaScript('window.kansoGameAudioStats ? window.kansoGameAudioStats() : null')
+    .executeJavaScript('window.kumaGameAudioStats ? window.kumaGameAudioStats() : null')
     .then((result) => {
       const frames = Array.isArray(result) ? result : []
       let longest: number | null = null
@@ -865,14 +1010,14 @@ const consume = (event: VoiceEvent) => {
 }
 
 /**
- * **仅调试**：放一条已经解析好的语音提示（门控同诊断面板 KANSO_DEBUG_UI）。
+ * **仅调试**：放一条已经解析好的语音提示（门控同诊断面板 KUMA_DEBUG_UI）。
  *
  * 婚礼台词（24 号槽）一艘舰一生只播一次，戒指又不可再生——染粉这件事在真机上
  * 没有第二次验收机会。所以编的只有 cue 本身：取词、回退、染色、展示全部走
  * 生产路径（captionsFor → displayAtPlaybackTime），看到的就是真播那一句的样子。
  */
 export const debugShowVoiceCue = (cue: VoiceRequestCue) => {
-  if (process.env.KANSO_DEBUG_UI !== '1') return
+  if (readEnv('KUMA_DEBUG_UI') !== '1') return
   void ensureData().then(() => displayAtPlaybackTime(cue))
 }
 

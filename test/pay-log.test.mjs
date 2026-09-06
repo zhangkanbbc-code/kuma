@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 
 import { buildSync } from 'esbuild'
 
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-pay-log-'))
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-pay-log-'))
 const output = path.join(tempDir, 'pay-log.cjs')
 buildSync({
   entryPoints: [fileURLToPath(new URL('../src/shared/pay-log.ts', import.meta.url))],

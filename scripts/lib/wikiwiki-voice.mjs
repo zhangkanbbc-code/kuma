@@ -1,6 +1,58 @@
 import { htmlText, tableGrid } from '../map-intel.mjs'
+import { decodeVoiceHtmlEntities, normalizeVoiceLine } from '../../src/shared/voice-lineage.ts'
+import { foldVoiceLineForCompare } from '../../src/shared/voice-scene-slots.ts'
 
 const CIRCLE = /^[○◯〇⭕]+$/
+
+const explicitSmallDamageSlot = (scene) => {
+  const number = /(^|\/)\s*小破([12])\s*($|\/)/.exec(scene.normalize('NFKC'))?.[2]
+  return number ? 18 + Number(number) : null
+}
+
+/** 单一形态的已解析行；key 保留公开表格的页、表与行序，输入不改写。 */
+export const normalizeWikiwikiVoiceRows = (rows) => {
+  const groups = new Map()
+  for (const line of rows) {
+    const match = /^(.*)#(\d+)-(\d+)$/.exec(line.key)
+    if (!match) throw new Error(`wikiwiki 行缺少表内行序：${line.key}`)
+    const group = `${match[1]}#${match[2]}`
+    const entries = groups.get(group) ?? []
+    entries.push({ line, row: Number(match[3]) })
+    groups.set(group, entries)
+  }
+  const replacements = new Map()
+  for (const entries of groups.values()) {
+    const lines = entries.sort((a, b) => a.row - b.row).map(entry => entry.line)
+      .filter(line => line.ja?.trim() && line.ja.trim() !== 'セリフ')
+    const sameLine = (left, right) =>
+      foldVoiceLineForCompare(normalizeVoiceLine(left.ja)) ===
+      foldVoiceLineForCompare(normalizeVoiceLine(right.ja))
+    let smallDamageIndex = 0
+    for (const line of lines) {
+      // wikiwiki 花月表（2026-09-07）：显式小破1/2（含全角与①②）直接归 19/20，不推进按列计数。
+      const explicitSlot = explicitSmallDamageSlot(line.scene)
+      if (explicitSlot != null) {
+        replacements.set(line, { ...line, voiceId: explicitSlot })
+        continue
+      }
+      // wikiwiki 霧島改二丙表（2026-09-07）：小破按各形态的 ○ 行计数，占位词不占槽。
+      if (/(^|\/)小破($|\/)/.test(line.scene)) {
+        replacements.set(line, { ...line, voiceId: Math.min(20, 19 + smallDamageIndex++) })
+        continue
+      }
+      // 舰娘百科 024/196-FleetOrg、024/196-Sortie、621-FleetOrg（2026-09-07）：
+      // 出撃中与同形态編成同句的行属于 13，保留編成行即可。
+      if (/(^|\/)出撃($|\/)/.test(line.scene) &&
+          lines.some(other => /(^|\/)編成($|\/)/.test(other.scene) && sameLine(line, other))) continue
+      // wikiwiki 霧島改二丙／飛龍改三／玉波改二表（2026-09-07）：
+      // 旗艦大破重复同形态小破②或中破，不另占 20；独有句仍保留 20。
+      if (/旗艦大破/.test(line.scene) &&
+          lines.some(other => !/旗艦大破/.test(other.scene) && sameLine(line, other))) continue
+      replacements.set(line, /旗艦大破/.test(line.scene) ? { ...line, voiceId: 20 } : { ...line })
+    }
+  }
+  return rows.flatMap(line => replacements.has(line) ? [replacements.get(line)] : [])
+}
 
 export const normalizeWikiwikiShipName = (value) =>
   `${value ?? ''}`
@@ -60,6 +112,8 @@ const coreVoiceId = (scene, smallDamageIndex) => {
   if (/戦闘4|夜戦攻撃/.test(scene)) return 17
   if (/戦闘3|夜戦開始/.test(scene)) return 18
   if (/旗艦大破/.test(scene)) return 20
+  const explicitSlot = explicitSmallDamageSlot(scene)
+  if (explicitSlot != null) return explicitSlot
   if (/(^|\/)小破($|\/)/.test(scene)) return Math.min(20, 19 + smallDamageIndex)
   if (/中破|大破/.test(scene)) return 21
   if (/轟沈/.test(scene)) return 22
@@ -105,26 +159,23 @@ const voiceTable = (tableHtml, pageName, tableIndex) => {
 
   const hourly = grid[headerIndex].some((cell) => cell?.text === '時刻')
   const out = new Map()
-  let smallDamageIndex = 0
   for (let rowIndex = formHeaderIndex + 1; rowIndex < grid.length; rowIndex++) {
     const row = grid[rowIndex]
-    const ja = `${row[sentenceCol]?.text ?? ''}`.trim()
-    if (!ja) continue
+    const ja = decodeVoiceHtmlEntities(row[sentenceCol]?.text).trim()
+    if (!ja || ja === 'セリフ') continue
     const applicable = formColumns.filter(({ col }) => CIRCLE.test(`${row[col]?.text ?? ''}`.trim()))
     if (!applicable.length) continue
 
     const sceneParts = uniqueParts(row.slice(0, sentenceCol))
     const scene = sceneParts.join(' / ')
-    let voiceId = null
+    let hourlyVoiceId = null
     if (hourly) {
       const hour = Number.parseInt(sceneParts.at(-1) ?? '', 10)
-      if (Number.isInteger(hour) && hour >= 0 && hour <= 23) voiceId = 30 + hour
-    } else {
-      voiceId = coreVoiceId(scene, smallDamageIndex)
-      if (/(^|\/)小破($|\/)/.test(scene) && !/旗艦大破/.test(scene)) smallDamageIndex++
+      if (Number.isInteger(hour) && hour >= 0 && hour <= 23) hourlyVoiceId = 30 + hour
     }
 
     for (const { name } of applicable) {
+      const voiceId = hourly ? hourlyVoiceId : coreVoiceId(scene, 0)
       const lines = out.get(name) ?? []
       const key = `${pageName}#${tableIndex}-${rowIndex}`
       const line = {
@@ -157,7 +208,7 @@ export const parseWikiwikiVoicePage = (html, pageName) => {
     }
   }
 
-  return [...merged].map(([name, lines]) => ({ name, lines }))
+  return [...merged].map(([name, lines]) => ({ name, lines: normalizeWikiwikiVoiceRows(lines) }))
 }
 
 const abyssVoiceSlot = (scene) => {
@@ -197,7 +248,7 @@ export const parseWikiwikiAbyssVoicePage = (html, pageName) => {
     for (let rowIndex = headerIndex + 1; rowIndex < grid.length; rowIndex++) {
       const row = grid[rowIndex]
       const scene = `${row[0]?.text ?? ''}`.trim()
-      const ja = `${row[1]?.text ?? ''}`.trim()
+      const ja = decodeVoiceHtmlEntities(row[1]?.text).trim()
       if (
         !scene ||
         !ja ||

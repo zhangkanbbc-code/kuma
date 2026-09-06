@@ -115,15 +115,15 @@ export const setVoiceHost = (host: string | null) => {
   gameHost = host && /^[\w.-]+$/.test(host) ? host : null
 }
 /**
- * 与立绘同一个开关（`kanso.remoteArt`），初值同样自己去读配置、不写死 true——
+ * 与立绘同一个开关（`kuma.remoteArt`），初值同样自己去读配置、不写死 true——
  * 理由与判据逐字同 kcs-image 里那一段：钥装配得晚（order 8.8），写死默认开的话，
  * 关着开关的玩家在装配之前那几秒仍会放行远端取音。这里也走同步通道，拿到的是真值。
  */
 const configuredAllowRemoteVoice = (): boolean => {
   try {
-    return remote.require('./config').get('kanso.remoteArt', true) !== false
+    return remote.require('./config').get('kuma.remoteArt', true) !== false
   } catch (error) {
-    console.warn('[kanso] 远端取音开关读取失败，按默认（开）继续', error)
+    console.warn('[kuma] 远端取音开关读取失败，按默认（开）继续', error)
     return true
   }
 }
@@ -157,7 +157,7 @@ export const voiceUrl = (mstId: number, voiceId: number): string | null => {
   const file = cachedFile(pathname)
   if (file) return pathToFileURL(file).href
   // 未缓存时回退游戏自己的资源服务器，**受钥里那个开关管**——
-  // 与立绘同一个开关（`kanso.remoteArt`，钥里写的就是「未缓存的立绘/语音…」）。
+  // 与立绘同一个开关（`kuma.remoteArt`，钥里写的就是「未缓存的立绘/语音…」）。
   // 三类网络边界（kcsapi 红线 / 静态资源白区受开关 / 档案零网络）
   // 写在 main/archive-capture 的文件头，别在这里各记一份。
   return allowRemote && gameHost ? `https://${gameHost}${pathname}` : null
@@ -172,7 +172,7 @@ export const voicePathname = (mstId: number, voiceId: number): string | null =>
   voiceSoundPathname(graphOf.get(mstId) ?? null, mstId, voiceId)
 
 /**
- * 「播放即入档」：艦素自己刚把这一句播出去了，顺手让主进程留一份进档案。
+ * 「播放即入档」：kuma自己刚把这一句播出去了，顺手让主进程留一份进档案。
  *
  * 此前语音档案只有一条进货渠道——**游戏页面**播放时锚在 onBeforeRequest 里挂钩。
  * 玩家在图鉴里点播放钮同样是「这一句在这台机器上响过」，一样该入档；
@@ -183,7 +183,7 @@ export const voicePathname = (mstId: number, voiceId: number): string | null =>
 export const noteVoicePlayed = (pathname: string, url: string): void => {
   if (!pathname || !url) return
   try {
-    ipcRenderer.send('kanso:archive-capture-voice', { pathname, url })
+    ipcRenderer.send('kuma:archive-capture-voice', { pathname, url })
   } catch (_error) {
     // 入档失败只是这一条没留住，不该影响正在播的这一句
   }
@@ -217,8 +217,8 @@ export const voiceState = () => ({
 export const previewVoiceVolume = (): number => {
   try {
     const config = remote.require('./config')
-    const master = Number(config.get('kanso.gameAudio.volume', 1))
-    const voice = Number(config.get('kanso.gameAudio.voiceVolume', 1))
+    const master = Number(config.get('kuma.gameAudio.volume', 1))
+    const voice = Number(config.get('kuma.gameAudio.voiceVolume', 1))
     const combined = (Number.isFinite(master) ? master : 1) * (Number.isFinite(voice) ? voice : 1)
     return Math.max(0, Math.min(1, combined))
   } catch (_e) {

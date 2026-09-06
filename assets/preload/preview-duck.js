@@ -7,7 +7,7 @@
 //
 // 单独成文件是为了能被测试直接 require：webview-preload 顶上就要
 // @electron/remote，在普通 node 里 require 不动。
-const PREVIEW_DUCK_CHANNEL = 'kanso:preview-audio-duck'
+const PREVIEW_DUCK_CHANNEL = 'kuma:preview-audio-duck'
 
 /**
  * 装上收货口，返回「现在的系数」。

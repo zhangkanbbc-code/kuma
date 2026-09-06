@@ -111,7 +111,7 @@ export { berthViewHtml, berthHeaderHtml, fleetTabsHtml, BERTH_TAB_ID, REPAIR_FAC
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-ru-berth-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-ru-berth-'))
   const entry = path.join(dir, 'berth.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'berth.cjs')

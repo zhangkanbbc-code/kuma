@@ -40,8 +40,8 @@ const STEPS_DESC = [...GAME_SCALE_STEPS].sort((a, b) => b - a)
  * 父对象就地变成「只有这一个键」的半份对象，整对象读到那份半份就不再回落默认值。
  */
 export const GAME_SCALE_PATHS = {
-  mode: 'kanso.gameScale.mode',
-  step: 'kanso.gameScale.step',
+  mode: 'kuma.gameScale.mode',
+  step: 'kuma.gameScale.step',
 } as const
 
 /** 默认 = 可配之前那个写死的行为（自适应）。老玩家一个键都没存过，读出来的仍是原样 */

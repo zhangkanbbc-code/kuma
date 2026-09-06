@@ -4,7 +4,7 @@
 //      `data-ycard`——漏一张、重一张、跑到别的类里去，这里当场红。
 //      只断言源码文本是不够的：注册表少接一张卡，源码看着照样齐整。
 //   ③ **两种形态各数一遍**：矿脉健康度、游戏音频链路自检都是维护者工具，
-//      只在 `KANSO_DEBUG_UI=1` 下装配（发行版 23 张 / 调试 25 张）。
+//      只在 `KUMA_DEBUG_UI=1` 下装配（发行版 23 张 / 调试 25 张）。
 //      玩家那份产物里连那两张卡的影子都不许有。
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
@@ -31,7 +31,7 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url))
 
 test('运行诊断在版本读取失败时警告并显示失败标签', () => {
   const source = fs.readFileSync(path.join(ROOT, 'src', 'renderer', 'modules', 'yu.ts'), 'utf8')
-  assert.match(source, /console\.warn\('\[kanso\] 版本读取失败', error\)/)
+  assert.match(source, /console\.warn\('\[kuma\] 版本读取失败', error\)/)
   assert.match(source, /kumaVersion === '版本读取失败'\s*\? '版本读取失败'/)
 })
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8')
@@ -234,7 +234,7 @@ test('魔改文件夹：玩家卡，紧跟缓存修复，按钮走主进程开�
   assert.ok(yu.invoked.includes('yu:open-mod-dir'), '点了「打开文件夹」却没往主进程发')
 })
 
-test('快捷键：玩家卡紧跟托盘，四行与游戏画面内生效说明都真渲染', async () => {
+test('快捷键：玩家卡紧跟托盘，五行与游戏画面内生效说明都真渲染', async () => {
   const yu = mountYu({ ui: { [SETTINGS_SECTION_UI_KEY]: 'ui' } })
   await yu.settled()
   const cards = cardsIn(yu.pane.innerHTML)
@@ -245,6 +245,7 @@ test('快捷键：玩家卡紧跟托盘，四行与游戏画面内生效说明�
   assert.match(card, /data-hotkey-row="reload"[\s\S]*刷新游戏[\s\S]*F5/)
   assert.match(card, /data-hotkey-row="focus"[\s\S]*专注模式[\s\S]*F9/)
   assert.match(card, /data-hotkey-row="capture"[\s\S]*截图[\s\S]*Ctrl \+ Alt \+ S/)
+  assert.match(card, /data-hotkey-row="mute"[\s\S]*静音[\s\S]*Ctrl \+ M/)
   assert.match(card, /隐藏 kuma 全部窗口并静音，再按一次恢复/)
   assert.match(card, /可用/)
 })
@@ -266,7 +267,7 @@ test('调试态：矿脉健康度回来了，且归在「资料」这一类', ()
 })
 
 test('那道门与铭／锚的诊断模块是同一句，不是另发明的开关', () => {
-  const gate = /process\.env\.KANSO_DEBUG_UI === '1'/
+  const gate = /readEnv\('KUMA_DEBUG_UI'\) === '1'/
   assert.match(read('src/renderer/mu.ts'), gate, '铆那道门的写法变了，钥要跟着改')
   assert.match(read('src/renderer/modules/yu.ts'), gate, '钥没有沿用同一道门')
   // 判据本身在 shared，渲染层只把结果传进去（脱开 DOM 可测）
@@ -345,7 +346,7 @@ test('页签：换一类就回到顶部，上一类翻到哪儿不跟过来', ()
 })
 
 test('启动点亮那个开关：翻一下浮层入场当场跟着切，不用等重启', () => {
-  const key = 'kanso.launchGlow'
+  const key = 'kuma.launchGlow'
   const yu = mountYu({ config: { [key]: false } })
   // 装配时先按配置对一次表（重试装配＝重读一次，与旁边那几个热切开关同一条）
   assert.deepEqual(yu.overlayEntrance(), [false], '装配时没按配置把浮层入场对上')
@@ -375,7 +376,7 @@ test('界面提示那张卡：抬头写的生效时机不许和卡里那条自�
 test('切分类不重播浮层入场：产物里一个进场标记都没有', () => {
   const yu = mountYu({ ui: { [SETTINGS_SECTION_UI_KEY]: 'ui' } })
   yu.click({ ysection: 'archive' })
-  assert.ok(!/data-kanso-open/.test(yu.pane.innerHTML))
+  assert.ok(!/data-kuma-open/.test(yu.pane.innerHTML))
   // 入场只挂在「开浮层那一瞬间」（铆的 openOverlay），钥自己一次都不许放
   const source = read('src/renderer/modules/yu.ts')
   assert.ok(!/playOverlayEntrance|openOverlay/.test(source), '钥里出现了浮层入场的调用')

@@ -219,6 +219,13 @@
       border-bottom: 1px dotted currentColor;
     }
     .replay-jump:hover { color: var(--accent); }
+    .life-more {
+      display: block; min-width: 112px; margin: 12px auto 0; padding: 4px 14px;
+      border: 1px solid var(--line); border-radius: 5px;
+      background: var(--bg2); color: var(--sub); font-size: 10px;
+    }
+    .life-more:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .life-more:disabled { color: var(--dim); cursor: default; }
 
     .empty { padding: 26px 4px; color: var(--dim); font-size: 10.5px; line-height: 1.7; }
     .loading, .fatal {

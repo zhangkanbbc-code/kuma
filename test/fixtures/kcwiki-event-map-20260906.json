@@ -1,0 +1,31 @@
+{
+  "license": "CC-BY-NC-SA-3.0",
+  "capturedAt": "2026-09-06",
+  "pages": [
+    {
+      "map": "62-1",
+      "source": "https://zh.kcwiki.cn/wiki/2026年夏季活动/E-1",
+      "sha256": "095ce9744f6e7f39dc8feb9630e482b652811c932df245291e55ef59aad84ed9"
+    },
+    {
+      "map": "62-2",
+      "source": "https://zh.kcwiki.cn/wiki/2026年夏季活动/E-2",
+      "sha256": "8a0e87ac99e6d8fc0ae291b3204e87dc14e8e08e1af02fed7471ccc60ce5364f"
+    },
+    {
+      "map": "62-3",
+      "source": "https://zh.kcwiki.cn/wiki/2026年夏季活动/E-3",
+      "sha256": "6ca548be4026c1ac37781c28be55b62c1183032065941f430f4b2dcfce4141df"
+    },
+    {
+      "map": "62-4",
+      "source": "https://zh.kcwiki.cn/wiki/2026年夏季活动/E-4",
+      "sha256": "1df4f38ccac8e3d863eeb97ee8815ca920226ef305485f2d47ba01db4471d848"
+    },
+    {
+      "map": "62-5",
+      "source": "https://zh.kcwiki.cn/wiki/2026年夏季活动/E-5",
+      "sha256": "b3d3898a0b2ee5746d68b3b6f737f0c9440565cf7101a840270a1c3c9105c0a0"
+    }
+  ]
+}

@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 
 import { buildSync } from 'esbuild'
 
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-senka-'))
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-senka-'))
 const output = path.join(tempDir, 'senka.cjs')
 buildSync({
   entryPoints: [fileURLToPath(new URL('../src/shared/senka.ts', import.meta.url))],

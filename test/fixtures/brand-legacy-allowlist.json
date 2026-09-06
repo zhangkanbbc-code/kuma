@@ -1,0 +1,380 @@
+[
+  {
+    "file": "docs/player-view-audit.md",
+    "pattern": "来源目录默认 `%APPDATA%/kuma`，新目录不存在时回退到已有的 `%APPDATA%/kanso`；可用 `KUMA_DATA_DIR` 指向另一份资料目录，旧名 `KANSO_DATA_DIR` 同样可用，新名优先（显式空串也屏蔽旧名）；维护者文件只读。",
+    "max": 1,
+    "why": "兼容旧环境变量名与旧数据目录的文档说明。"
+  },
+  {
+    "file": "test/env-names.test.mjs",
+    "pattern": "  const env = { APPDATA: root, KANSO_DATA_DIR: legacyOverride }",
+    "max": 1,
+    "why": "兼容旧环境变量名的测试。"
+  },
+  {
+    "file": "test/env-names.test.mjs",
+    "pattern": "  const legacy = path.join(root, 'kanso')",
+    "max": 1,
+    "why": "兼容旧环境变量名时沿用旧数据目录回退的测试。"
+  },
+  {
+    "file": "README.md",
+    "pattern": "- 旧名 `KANSO_DATA_DIR` / `KANSO_SMOKE` / `KANSO_DEBUG_UI` 仍认。",
+    "max": 1,
+    "why": "文档说明三个永久环境变量别名仍认。"
+  },
+  {
+    "file": "scripts/ipc-channel-audit.mjs",
+    "pattern": "const allowKanso = process.argv.includes('--allow-kanso')",
+    "max": 1,
+    "why": "旧 IPC 名扫描规则及其开关、计数，必须继续识别旧通道。"
+  },
+  {
+    "file": "scripts/ipc-channel-audit.mjs",
+    "pattern": "const channelPattern = /^(?:kanso|kuma):[\\w-]+$/",
+    "max": 1,
+    "why": "旧 IPC 名扫描规则及其开关、计数，必须继续识别旧通道。"
+  },
+  {
+    "file": "scripts/ipc-channel-audit.mjs",
+    "pattern": "const oldChannels = scanMatches(/kanso:[\\w-]+/g)",
+    "max": 1,
+    "why": "旧 IPC 名扫描规则及其开关、计数，必须继续识别旧通道。"
+  },
+  {
+    "file": "scripts/ipc-channel-audit.mjs",
+    "pattern": "const dynamicChannels = scanMatches(/(?:kanso|kuma):\\$\\{/g)",
+    "max": 1,
+    "why": "旧 IPC 名扫描规则及其开关、计数，必须继续识别旧通道。"
+  },
+  {
+    "file": "scripts/ipc-channel-audit.mjs",
+    "pattern": "  const pattern = /\\bconfig\\.get\\s*\\(\\s*(['\"`])((?:kanso|kuma):[^'\"`\\r\\n]+)\\1/g",
+    "max": 1,
+    "why": "旧 IPC 名扫描规则及其开关、计数，必须继续识别旧通道。"
+  },
+  {
+    "file": "scripts/ipc-channel-audit.mjs",
+    "pattern": "  `old kanso channels: ${countOccurrences(oldChannels)} occurrences, ${oldChannels.size} unique`,",
+    "max": 1,
+    "why": "旧 IPC 名扫描规则及其开关、计数，必须继续识别旧通道。"
+  },
+  {
+    "file": "scripts/ipc-channel-audit.mjs",
+    "pattern": "  (!allowKanso && oldChannels.size > 0)",
+    "max": 1,
+    "why": "旧 IPC 名扫描规则及其开关、计数，必须继续识别旧通道。"
+  },
+  {
+    "file": "scripts/lib/data-dir.mjs",
+    "pattern": "// `%APPDATA%\\kanso` 整体搬过来（判定在 src/shared/data-dir.ts，搬迁在 src/main/env.ts）。",
+    "max": 1,
+    "why": "旧数据目录读取兼容与迁移说明。"
+  },
+  {
+    "file": "scripts/lib/data-dir.mjs",
+    "pattern": "export const LEGACY_DATA_DIR_NAME = 'kanso'",
+    "max": 1,
+    "why": "旧数据目录读取兼容与迁移说明。"
+  },
+  {
+    "file": "scripts/quest-progress-recompute.mjs",
+    "pattern": "      path.resolve(process.env.APPDATA, 'kanso', 'mg.sqlite'),",
+    "max": 1,
+    "why": "拒绝对用户旧目录中的正式账本重算。"
+  },
+  {
+    "file": "src/main/env.ts",
+    "pattern": " * 数据目录 + 首启搬迁（2026-08-28 产品改名 艦素 → kuma）。",
+    "max": 1,
+    "why": "产品改名沿革注释，保留日期与历史名称。"
+  },
+  {
+    "file": "src/main/yu.ts",
+    "pattern": "const BACKUP_MAGIC = Buffer.from('KANSO-BACKUP\\0', 'ascii')",
+    "max": 1,
+    "why": "保留备份格式魔数与旧备份扩展名的导入兼容。"
+  },
+  {
+    "file": "src/main/yu.ts",
+    "pattern": "      { name: 'kuma 备份', extensions: ['kuma-backup', 'kanso-backup', 'sqlite', 'db'] },",
+    "max": 1,
+    "why": "保留备份格式魔数与旧备份扩展名的导入兼容。"
+  },
+  {
+    "file": "src/renderer/art-archive.ts",
+    "pattern": " *（面板不 active 不画、手指按着的时候推迟，见 memory/kanso-perf-architecture）。",
+    "max": 1,
+    "why": "引用未改名的共享记忆书。"
+  },
+  {
+    "file": "src/renderer/index.ts",
+    "pattern": "// 浏览窗引的是同一个——这里原先自己写了一份找 `kanso/` 的正则，改名之后一直空转。",
+    "max": 1,
+    "why": "UA 旧标记兼容的故障沿革说明。"
+  },
+  {
+    "file": "src/renderer/modules/ji.ts",
+    "pattern": "    // 与「手指按着时推迟」（memory/kanso-perf-architecture）。这里只多一层过滤：",
+    "max": 1,
+    "why": "引用未改名的共享记忆书。"
+  },
+  {
+    "file": "src/shared/config-namespace.ts",
+    "pattern": "export const LEGACY_CONFIG_ROOT = 'kanso'",
+    "max": 1,
+    "why": "旧配置根只用于迁移与读取兼容。"
+  },
+  {
+    "file": "src/shared/data-dir.ts",
+    "pattern": "// 2026-08-28 产品改名，数据目录跟着从 `%APPDATA%\\kanso` 换成 `%APPDATA%\\kuma`。",
+    "max": 1,
+    "why": "旧数据目录名及迁移所需伴生说明。"
+  },
+  {
+    "file": "src/shared/data-dir.ts",
+    "pattern": "export const LEGACY_DATA_DIR_NAME = 'kanso'",
+    "max": 1,
+    "why": "旧数据目录名及迁移所需伴生说明。"
+  },
+  {
+    "file": "src/shared/data-dir.ts",
+    "pattern": "  /** 旧目录 `<appData>/kanso` 在不在。 */",
+    "max": 1,
+    "why": "旧数据目录名及迁移所需伴生说明。"
+  },
+  {
+    "file": "src/shared/env-names.ts",
+    "pattern": "  KUMA_DATA_DIR: 'KANSO_DATA_DIR',",
+    "max": 1,
+    "why": "永久环境变量别名：用户验收配方、共享记忆与家法模板仍使用。"
+  },
+  {
+    "file": "src/shared/env-names.ts",
+    "pattern": "  KUMA_SMOKE: 'KANSO_SMOKE',",
+    "max": 1,
+    "why": "永久环境变量别名：用户验收配方、共享记忆与家法模板仍使用。"
+  },
+  {
+    "file": "src/shared/env-names.ts",
+    "pattern": "  KUMA_DEBUG_UI: 'KANSO_DEBUG_UI',",
+    "max": 1,
+    "why": "永久环境变量别名：用户验收配方、共享记忆与家法模板仍使用。"
+  },
+  {
+    "file": "src/shared/env-names.ts",
+    "pattern": "  KUMA_DEVTOOLS: 'KANSO_DEVTOOLS',",
+    "max": 1,
+    "why": "运行时环境变量旧别名，保留到下下版。"
+  },
+  {
+    "file": "src/shared/env-names.ts",
+    "pattern": "  KUMA_QUIT_TRACE: 'KANSO_QUIT_TRACE',",
+    "max": 1,
+    "why": "运行时环境变量旧别名，保留到下下版。"
+  },
+  {
+    "file": "src/shared/env-names.ts",
+    "pattern": "  KUMA_PERF_SLOW_MS: 'KANSO_PERF_SLOW_MS',",
+    "max": 1,
+    "why": "运行时环境变量旧别名，保留到下下版。"
+  },
+  {
+    "file": "src/shared/env-names.ts",
+    "pattern": "  KUMA_PERF_PART_MS: 'KANSO_PERF_PART_MS',",
+    "max": 1,
+    "why": "运行时环境变量旧别名，保留到下下版。"
+  },
+  {
+    "file": "src/shared/env-names.ts",
+    "pattern": "  KUMA_PERF_LONGTASK_MS: 'KANSO_PERF_LONGTASK_MS',",
+    "max": 1,
+    "why": "运行时环境变量旧别名，保留到下下版。"
+  },
+  {
+    "file": "src/shared/hist-fleets.ts",
+    "pattern": "// **不做任何「及之后」的结构推断**（kanso-disciplines 一之一）。",
+    "max": 1,
+    "why": "引用未改名的共享记忆书。"
+  },
+  {
+    "file": "src/shared/user-agent.ts",
+    "pattern": "// 各写各的正则是这条曾经空转的原因——原先游戏页那份找的是 `kanso/`，",
+    "max": 1,
+    "why": "UA 同时剥除新旧产品标记，保留修复沿革。"
+  },
+  {
+    "file": "src/shared/user-agent.ts",
+    "pattern": "const NOISE = /\\s?(?:Electron|kuma|kanso)\\/\\S+/gi",
+    "max": 1,
+    "why": "UA 同时剥除新旧产品标记，保留修复沿革。"
+  },
+  {
+    "file": "test/browse-window.test.mjs",
+    "pattern": "  for (const mark of ['kuma', 'kanso', 'Electron']) {",
+    "max": 1,
+    "why": "UA 新旧标记兼容的行为回归与故障沿革说明。"
+  },
+  {
+    "file": "test/browse-window.test.mjs",
+    "pattern": "  // 改名前的旧标记也还认（用过老版本、UA 里还写着 kanso 的情形）",
+    "max": 1,
+    "why": "UA 新旧标记兼容的行为回归与故障沿革说明。"
+  },
+  {
+    "file": "test/browse-window.test.mjs",
+    "pattern": "  assert.ok(!cleanUserAgent(raw.replace('kuma/', 'kanso/')).includes('kanso'))",
+    "max": 1,
+    "why": "UA 新旧标记兼容的行为回归与故障沿革说明。"
+  },
+  {
+    "file": "test/browse-window.test.mjs",
+    "pattern": "  // 各写各的正是这条曾经空转的原因：游戏页那份找的是 kanso/，改名之后一个字都没匹配上，",
+    "max": 1,
+    "why": "UA 新旧标记兼容的行为回归与故障沿革说明。"
+  },
+  {
+    "file": "test/config-namespace-migration.test.mjs",
+    "pattern": "  assert.equal(LEGACY_CONFIG_ROOT, 'kanso')",
+    "max": 1,
+    "why": "旧配置对象、读取兜底与迁移兼容回归。"
+  },
+  {
+    "file": "test/config-namespace-migration.test.mjs",
+    "pattern": "  kanso: {",
+    "max": 1,
+    "why": "旧配置对象、读取兜底与迁移兼容回归。"
+  },
+  {
+    "file": "test/config-namespace-migration.test.mjs",
+    "pattern": "  assert.equal(leaves(initial.kanso).length, 46)",
+    "max": 1,
+    "why": "旧配置对象、读取兜底与迁移兼容回归。"
+  },
+  {
+    "file": "test/config-namespace-migration.test.mjs",
+    "pattern": "  for (const [key, value] of leaves(initial.kanso)) {",
+    "max": 1,
+    "why": "旧配置对象、读取兜底与迁移兼容回归。"
+  },
+  {
+    "file": "test/config-namespace-migration.test.mjs",
+    "pattern": "  assert.deepEqual(migrated.kanso, initial.kanso)",
+    "max": 1,
+    "why": "旧配置对象、读取兜底与迁移兼容回归。"
+  },
+  {
+    "file": "test/config-namespace-migration.test.mjs",
+    "pattern": "  assert.deepEqual(migrated, { ...initial, kuma: initial.kanso })",
+    "max": 1,
+    "why": "旧配置对象、读取兜底与迁移兼容回归。"
+  },
+  {
+    "file": "test/config-namespace-migration.test.mjs",
+    "pattern": "  assert.equal(config.snapshot().kanso.window.x, initial.kanso.window.x, '新旧对象不能共用引用')",
+    "max": 1,
+    "why": "旧配置对象、读取兜底与迁移兼容回归。"
+  },
+  {
+    "file": "test/config-namespace-migration.test.mjs",
+    "pattern": "  const initial = { kanso: { x: 'old', onlyOld: 7 }, kuma: { x: 'new' }, ui: { x: 9 } }",
+    "max": 1,
+    "why": "旧配置对象、读取兜底与迁移兼容回归。"
+  },
+  {
+    "file": "test/config-namespace-migration.test.mjs",
+    "pattern": "test('旧配置只有 kanso.x：读时兜底只读不写，优先于默认值与调用方 fallback', (t) => {",
+    "max": 1,
+    "why": "旧配置对象、读取兜底与迁移兼容回归。"
+  },
+  {
+    "file": "test/config-namespace-migration.test.mjs",
+    "pattern": "  const old = { kanso: { x: { nested: ['old'] }, dmmcookie: false, n: null, empty: '', zero: 0 } }",
+    "max": 1,
+    "why": "旧配置对象、读取兜底与迁移兼容回归。"
+  },
+  {
+    "file": "test/config-namespace-migration.test.mjs",
+    "pattern": "  assert.deepEqual(config.get('kuma.x'), old.kanso.x)",
+    "max": 1,
+    "why": "旧配置对象、读取兜底与迁移兼容回归。"
+  },
+  {
+    "file": "test/config-namespace-migration.test.mjs",
+    "pattern": "  for (const key of ['n', 'empty', 'zero']) assert.equal(config.get(`kuma.${key}`, 'fallback'), old.kanso[key])",
+    "max": 1,
+    "why": "旧配置对象、读取兜底与迁移兼容回归。"
+  },
+  {
+    "file": "test/config-namespace-migration.test.mjs",
+    "pattern": "    kanso: { a: true, b: 1, c: 'old', d: 'old' },",
+    "max": 1,
+    "why": "旧配置对象、读取兜底与迁移兼容回归。"
+  },
+  {
+    "file": "test/core-regressions.test.mjs",
+    "pattern": "  assert.match(main, /KANSO-BACKUP/)",
+    "max": 1,
+    "why": "旧备份格式魔数的兼容回归。"
+  },
+  {
+    "file": "test/data-dir-migration.test.mjs",
+    "pattern": "// 改名首启的数据目录搬迁判定（2026-08-28 艦素 → kuma）。",
+    "max": 1,
+    "why": "产品改名沿革注释，保留日期与历史名称。"
+  },
+  {
+    "file": "test/data-dir-migration.test.mjs",
+    "pattern": "const OLD = `${APPDATA}\\\\kanso`",
+    "max": 1,
+    "why": "旧数据目录迁移兼容回归。"
+  },
+  {
+    "file": "test/data-dir-migration.test.mjs",
+    "pattern": "  assert.equal(LEGACY_DATA_DIR_NAME, 'kanso')",
+    "max": 1,
+    "why": "旧数据目录迁移兼容回归。"
+  },
+  {
+    "file": "test/data-dir-migration.test.mjs",
+    "pattern": "    legacyDir: '/home/t/.config/kanso',",
+    "max": 1,
+    "why": "旧数据目录迁移兼容回归。"
+  },
+  {
+    "file": "test/egress-inventory.test.mjs",
+    "pattern": "// 用户定的三层契约（见 kanso-disciplines「合规是发布门」）：",
+    "max": 1,
+    "why": "引用未改名的共享记忆书。"
+  },
+  {
+    "file": "test/forecast-assumption-fold.test.mjs",
+    "pattern": "// 胜率与大破率反而被挤下去。口径见 kanso-disciplines 七之四②「严谨性说明折叠即合规」、",
+    "max": 1,
+    "why": "引用未改名的共享记忆书。"
+  },
+  {
+    "file": "test/release-cleanup-checklist.test.mjs",
+    "pattern": "    line.includes('自动搬过来') && line.includes('kanso.')) + 1",
+    "max": 1,
+    "why": "迁移兼容：核实使用说明中的旧配置键迁移告知仍在。"
+  },
+  {
+    "file": "test/release-cleanup-checklist.test.mjs",
+    "pattern": "    assert.ok(guideLine > 0, '预发布版待撤项必须仍在：使用说明中含「自动搬过来」与「kanso.」的那句')",
+    "max": 1,
+    "why": "迁移兼容：核实使用说明中的旧配置键迁移告知仍在。"
+  },
+  {
+    "file": "使用说明.md",
+    "pattern": "用过改名前那一版（`%APPDATA%\\kanso`）的话不用管：首次启动时旧目录会整个搬到新目录，",
+    "max": 1,
+    "why": "玩家从旧数据目录与旧配置键自动迁移的说明。"
+  },
+  {
+    "file": "使用说明.md",
+    "pattern": "  如果你是从 beta.10 之前的版本更新上来的：那时以 `kanso.` 开头的配置键，会在首次启动时自动搬过来。",
+    "max": 1,
+    "why": "玩家从旧数据目录与旧配置键自动迁移的说明。"
+  }
+]

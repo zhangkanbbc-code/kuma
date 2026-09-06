@@ -906,7 +906,7 @@ const recountQuestSenka = async () => {
   try {
     removed = await clearAutoBookedSenkaQuests()
   } catch (error) {
-    console.warn('[kanso] 战果任务重算失败', error)
+    console.warn('[kuma] 战果任务重算失败', error)
     senkaRecountResult = '重算失败'
     await refreshSenkaDetail()
     return
@@ -920,7 +920,7 @@ const loadSenkaQuestOptions = async () => {
   try {
     senkaQuestOptions = await querySenkaQuestOptions()
   } catch (error) {
-    console.warn('[kanso] 战果任务补记选单读取失败', error)
+    console.warn('[kuma] 战果任务补记选单读取失败', error)
     senkaQuestOptions = []
   }
 }
@@ -931,7 +931,7 @@ const addManualQuestSenka = async (questId: number) => {
   try {
     reason = await addManualSenkaQuest(questId)
   } catch (error) {
-    console.warn('[kanso] 战果任务补记失败', questId, error)
+    console.warn('[kuma] 战果任务补记失败', questId, error)
     reason = 'failed'
   }
   // 补进去了就收表单；被挡回来的留着表单，玩家改选一条即可
@@ -947,7 +947,7 @@ const removeManualQuestSenka = async (id: number) => {
   try {
     if (!(await removeManualSenkaQuest(id))) senkaDelError = '只有补记行可删'
   } catch (error) {
-    console.warn('[kanso] 战果任务补记删除失败', id, error)
+    console.warn('[kuma] 战果任务补记删除失败', id, error)
     senkaDelError = '删除失败'
   }
   await loadSenkaQuestOptions()
@@ -1246,7 +1246,7 @@ const refresh = async () => {
     ])
   } catch (error) {
     if (generation !== refreshGeneration) return
-    console.warn('[kanso] 资源账本读取失败', error)
+    console.warn('[kuma] 资源账本读取失败', error)
     loadError = `${(error as Error)?.message ?? error}`
     scheduleDayRollover(now)
     deferPassive(pane, 'zi', render)
@@ -1261,7 +1261,7 @@ const refresh = async () => {
     try {
       qp = await queryQp()
     } catch (error) {
-      console.warn('[kanso] 战果自检读取精确计数失败', error)
+      console.warn('[kuma] 战果自检读取精确计数失败', error)
     }
     if (generation !== refreshGeneration) return
   }

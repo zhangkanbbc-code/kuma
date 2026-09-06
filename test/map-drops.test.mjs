@@ -284,10 +284,10 @@ test('待裁台账：2026-08-23 裁的那 7 条已结案，不再以未裁形态
   for (const one of limited) {
     assert.equal(one.verdict, 'limited', `${one.map}/${one.node}#${one.mstId} 还挂着未裁`)
     assert.equal(one.decidedAt, '2026-08-23')
-    // 台账里那一格的裁语要与源码那张表逐字一致——各写各的就会两边说不同的话
+    // 维护者侧旧记录保留原措辞；统一称谓后，公开裁语的来源与结论仍须逐字一致。
     const source = RESOLVED_MAP_DROP_CONFLICTS.find((row) => row.fingerprint === one.fingerprint)
     assert.ok(source, `${one.fingerprint} 在源码裁决表里找不到`)
-    assert.equal(one.why, source.why)
+    assert.equal(one.why.replaceAll('用户', '维护者'), source.why)
   }
   assert.deepEqual(
     limited.map((one) => `${one.map}/${one.node}#${one.mstId}`),

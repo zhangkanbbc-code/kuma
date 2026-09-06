@@ -71,7 +71,7 @@ ${PRESET}
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-berth-reducer-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-berth-reducer-'))
   const entry = path.join(dir, 'reducer.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'reducer.cjs')

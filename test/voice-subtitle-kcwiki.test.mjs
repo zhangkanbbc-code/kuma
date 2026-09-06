@@ -18,12 +18,37 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import test from 'node:test'
 
-import { captionOf, textOf } from './fixtures/render-ship-caption.mjs'
+import {
+  captionOf,
+  captionsFromLodes,
+  textOf,
+} from './fixtures/render-ship-caption.mjs'
 
 const chain = (...ids) => new Map([[ids[0], ids]])
 const simplifierPack = JSON.parse(
   fs.readFileSync(new URL('../assets/lodes/opencc-t2s.json', import.meta.url), 'utf8'),
 )
+
+test('飛龍改三按档名重归属的 621-FleetOrg 在没有 subtitle 表时仍出本形态编成中文', async () => {
+  const lodes = Object.fromEntries([
+    'kcwiki-ships', 'kcwiki-voice', 'kcwiki-seasonal-voice', 'subtitle-ja', 'subtitle-zh',
+    'kuma-voice', 'kuma-voice-zh', 'opencc-t2s',
+  ].map(id => [id, JSON.parse(fs.readFileSync(new URL(`../assets/lodes/${id}.json`, import.meta.url), 'utf8'))]))
+  assert.equal(lodes['subtitle-ja'].data[1031], undefined)
+  assert.ok(!lodes['kuma-voice'].data.ships[1031].some(row => row.slot === 13))
+  const ships = [
+    { api_id: 91, api_sortno: 1, api_aftershipid: 196 },
+    { api_id: 196, api_sortno: 1, api_aftershipid: 1031 },
+    { api_id: 1031, api_sortno: 1, api_aftershipid: 0 },
+  ]
+  const cue = { kind: 'ship', mstId: 1031, voiceId: 13 }
+  const lines = await captionsFromLodes({ lodes, ships }, cue)
+  assert.equal(lines[0]?.text, '好！第二航空战队，旗舰，改装飞龙！出击！上吧！')
+  const withSubtitle = await captionsFromLodes({
+    lodes: { ...lodes, 'subtitle-zh': { data: { 1031: { 13: '本形态字幕已有中文' } } } }, ships,
+  }, cue)
+  assert.equal(withSubtitle[0]?.text, '本形态字幕已有中文')
+})
 
 // ---- ① 补空不覆盖 ----
 
@@ -61,6 +86,52 @@ test('subtitle 缺这一格时 kcwiki 补上', () => {
   }
   assert.equal(textOf(setup, 100, 2), '有的那一格')
   assert.equal(textOf(setup, 100, 3), 'kcwiki 补的那一句', 'subtitle 空着的格没被 kcwiki 补上')
+})
+
+test('形态有 subtitle 表但该槽无行时，第一方自译包同槽恰一行补上中文', () => {
+  const text = textOf(
+    {
+      voiceFallbackOf: chain(100),
+      subtitleJa: { 100: { 2: '字幕表已有的另一格' } },
+      kumaVoiceBySlot: new Map([
+        [100, new Map([[3, [{ zh: '自译包补的那一句', ja: '自訳で補う台詞' }]]])],
+      ]),
+    },
+    100,
+    3,
+  )
+  assert.equal(text, '自译包补的那一句')
+})
+
+test('同槽 kcwiki 与第一方自译包都有时，kcwiki 优先', () => {
+  const text = textOf(
+    {
+      voiceFallbackOf: chain(100),
+      subtitleJa: { 100: { 2: '字幕表已有的另一格' } },
+      kcwikiBySlot: new Map([[100, new Map([[3, { zh: 'kcwiki 补的那一句', ja: '' }]])]]),
+      kumaVoiceBySlot: new Map([
+        [100, new Map([[3, [{ zh: '不该越过 kcwiki 的自译', ja: '自訳の台詞' }]]])],
+      ]),
+    },
+    100,
+    3,
+  )
+  assert.equal(text, 'kcwiki 补的那一句')
+})
+
+test('形态有 wikiwiki 表但该槽无行时，第一方自译包同槽补上中文', () => {
+  const text = textOf(
+    {
+      voiceFallbackOf: chain(100),
+      wikiwikiVoice: { 100: [{ voiceId: 2, ja: 'wikiwiki 表已有的另一格' }] },
+      kumaVoiceBySlot: new Map([
+        [100, new Map([[3, [{ zh: '自译包补的 wikiwiki 缺槽', ja: '自訳で補う台詞' }]]])],
+      ]),
+    },
+    100,
+    3,
+  )
+  assert.equal(text, '自译包补的 wikiwiki 缺槽')
 })
 
 test('subtitle 那一格写的是占位句时，也算空，kcwiki 顶上', () => {
@@ -143,6 +214,435 @@ test('只有 wikiwiki 表时 kcwiki 的日文不许顶掉 wikiwiki 转写', () =
     5,
   )
   assert.equal(text, 'wikiwiki の原文')
+})
+
+test('wikiwiki 全括号占位视同没有转写：无 kcwiki 不出字幕，有 kcwiki 出中文', () => {
+  const base = {
+    voiceFallbackOf: chain(747),
+    wikiwikiVoice: { 747: [{ voiceId: 20, ja: '（大破結婚後）' }] },
+  }
+  assert.deepEqual(captionOf(base, 747, 20), [], '全括号占位被当成台词打上屏了')
+  assert.equal(
+    textOf(
+      {
+        ...base,
+        kcwikiBySlot: new Map([[747, new Map([[20, { zh: 'kcwiki 的真实中文', ja: '' }]])]]),
+      },
+      747,
+      20,
+    ),
+    'kcwiki 的真实中文',
+  )
+})
+
+// ---- wikiwiki 改形态差分表逐格借格 ----
+
+test('改形态 wikiwiki 缺槽且同形态 kcwiki 也缺时，沿链借未改 kcwiki 同槽', () => {
+  const text = textOf(
+    {
+      voiceFallbackOf: chain(747, 991),
+      wikiwikiVoice: { 747: [{ voiceId: 10, ja: '改形态有差分的装备2' }] },
+      kcwikiBySlot: new Map([
+        [991, new Map([[9, { zh: '不错！费心了啊！', ja: '' }]])],
+      ]),
+    },
+    747,
+    9,
+  )
+  assert.equal(text, '不错！费心了啊！', 'wikiwiki 差分表缺槽仍挡住了未改形态')
+})
+
+test('改形态 wikiwiki 该槽是全括号占位时，不借未改形态旧句', () => {
+  const caption = captionOf(
+    {
+      voiceFallbackOf: chain(747, 991),
+      wikiwikiVoice: { 747: [{ voiceId: 20, ja: '（大破結婚後）' }] },
+      kcwikiBySlot: new Map([
+        [991, new Map([[20, { zh: '未改形态的旧句', ja: '' }]])],
+      ]),
+    },
+    747,
+    20,
+  )
+  assert.deepEqual(caption, [], '占位行表示确有差分，不能拿未改形态旧句冒充')
+})
+
+test('改形态有 subtitle 表但该槽缺失时，照旧不借未改形态', () => {
+  const caption = captionOf(
+    {
+      voiceFallbackOf: chain(747, 991),
+      subtitleZh: { 747: { 10: '改形态自己的装备2' }, 991: { 9: '未改 subtitle 的旧句' } },
+      kcwikiBySlot: new Map([
+        [991, new Map([[9, { zh: '未改 kcwiki 的旧句', ja: '' }]])],
+      ]),
+    },
+    747,
+    9,
+  )
+  assert.deepEqual(caption, [], '完整 subtitle 包的防混拼闸被拆掉了')
+})
+
+test('改形态 wikiwiki 该槽有真台词时，用本形态同槽词，不借未改', () => {
+  const text = textOf(
+    {
+      voiceFallbackOf: chain(747, 991),
+      wikiwikiVoice: { 747: [{ voiceId: 9, ja: '改形态自身的装备1' }] },
+      kcwikiBySlot: new Map([
+        [747, new Map([[9, { zh: '改形态自己的中文', ja: '' }]])],
+        [991, new Map([[9, { zh: '未改形态的旧句', ja: '' }]])],
+      ]),
+    },
+    747,
+    9,
+  )
+  assert.equal(text, '改形态自己的中文')
+})
+
+test('无 subtitle/wikiwiki 表时按同形态同槽显示第一方自译包中文', async () => {
+  const lines = await captionsFromLodes(
+    {
+      ships: [{ api_id: 991, api_sortno: 1, api_aftershipid: 0 }],
+      lodes: {
+        'kuma-voice': {
+          data: {
+            ships: {
+              991: [{
+                key: '991-5',
+                scene: '建造完成',
+                slot: 5,
+                basis: 'wikiwiki-mapped',
+                ja: '艦が完成した。',
+                zh: '艦隊的新成員來了。',
+              }],
+            },
+          },
+        },
+        'opencc-t2s': simplifierPack,
+      },
+    },
+    { kind: 'ship', mstId: 991, voiceId: 5 },
+  )
+  assert.equal(lines[0]?.text, '舰队的新成员来了')
+})
+
+test('第一方自译包同槽中文为空时显示日文原文', async () => {
+  const lines = await captionsFromLodes(
+    {
+      ships: [{ api_id: 991, api_sortno: 1, api_aftershipid: 0 }],
+      lodes: {
+        'kuma-voice': {
+          data: {
+            ships: {
+              991: [{
+                key: '991-5',
+                scene: '建造完成',
+                slot: 5,
+                basis: 'wikiwiki-mapped',
+                ja: '艦が完成した。',
+                zh: '',
+              }],
+            },
+          },
+        },
+      },
+    },
+    { kind: 'ship', mstId: 991, voiceId: 5 },
+  )
+  assert.equal(lines[0]?.text, '艦が完成した。')
+})
+
+test('第一方自译包同槽有两条 ambiguous 候选时不出字幕', () => {
+  const caption = captionOf(
+    {
+      voiceFallbackOf: chain(200, 100),
+      wikiwikiVoice: { 100: [{ voiceId: 5, ja: '前置形态的旧句' }] },
+      kumaVoiceBySlot: new Map([
+        [200, new Map([
+          [5, [
+            { slot: 5, basis: 'ambiguous', ja: '候補その一', zh: '候选一' },
+            { slot: 5, basis: 'ambiguous', ja: '候補その二', zh: '候选二' },
+          ]],
+        ])],
+      ]),
+    },
+    200,
+    5,
+  )
+  assert.deepEqual(caption, [])
+})
+
+test('同形态已有 wikiwiki 表时仍优先走 wikiwiki 分支', async () => {
+  const lines = await captionsFromLodes(
+    {
+      ships: [{ api_id: 991, api_sortno: 1, api_aftershipid: 0 }],
+      lodes: {
+        'wikiwiki-voice': {
+          data: {
+            991: [{
+              key: '991-5',
+              voiceId: 5,
+              scene: '建造完成',
+              ja: 'wikiwiki の原文',
+              page: 'test',
+            }],
+          },
+        },
+        'kuma-voice': {
+          data: {
+            ships: {
+              991: [{
+                key: '991-5',
+                scene: '建造完成',
+                slot: 5,
+                basis: 'wikiwiki-mapped',
+                ja: '自訳包の別文',
+                zh: '不该越级显示的自译包中文',
+              }],
+            },
+          },
+        },
+      },
+    },
+    { kind: 'ship', mstId: 991, voiceId: 5 },
+  )
+  assert.equal(lines[0]?.text, 'wikiwiki の原文')
+})
+
+test('只有 wikiwiki 表的形态按同句复用第一方自译包中文', async () => {
+  const ja = '第一方自译包だけにある台詞'
+  const lines = await captionsFromLodes(
+    {
+      ships: [{ api_id: 991, api_sortno: 1, api_aftershipid: 0 }],
+      lodes: {
+        'wikiwiki-voice': {
+          data: {
+            991: [{ key: '991-5', voiceId: 5, scene: '建造完成', ja, page: 'test' }],
+          },
+        },
+        'kuma-voice': {
+          data: {
+            ships: {
+              991: [{
+                key: '991-5',
+                scene: '建造完成',
+                slot: 5,
+                basis: 'wikiwiki-mapped',
+                ja,
+                zh: '第一方自译包里的中文',
+                draft: true,
+              }],
+            },
+          },
+        },
+      },
+    },
+    { kind: 'ship', mstId: 991, voiceId: 5 },
+  )
+  assert.equal(lines[0]?.text, '第一方自译包里的中文')
+})
+
+test('改形态的 wikiwiki 原文按同句复用未改形态舰娘百科中文', async () => {
+  const ja = '改装前後で同じ台詞'
+  const lines = await captionsFromLodes(
+    {
+      ships: [
+        { api_id: 100, api_sortno: 1, api_aftershipid: 200 },
+        { api_id: 200, api_sortno: 1, api_aftershipid: 0 },
+      ],
+      lodes: {
+        'wikiwiki-voice': {
+          data: {
+            200: [{ key: '200-5', voiceId: 5, scene: '建造完成', ja, page: 'test' }],
+          },
+        },
+        'kcwiki-voice': {
+          data: {
+            100: [{ key: '100-5', scene: '建造完成', ja, zh: '未改形态的百科中文' }],
+          },
+        },
+      },
+    },
+    { kind: 'ship', mstId: 200, voiceId: 5 },
+  )
+  assert.equal(lines[0]?.text, '未改形态的百科中文')
+})
+
+test('同一句 subtitle 与第一方自译包都有中文时仍取 subtitle', async () => {
+  const ja = '字幕包にも自訳にもある台詞'
+  const lines = await captionsFromLodes(
+    {
+      ships: [
+        { api_id: 100, api_sortno: 1, api_aftershipid: 200 },
+        { api_id: 200, api_sortno: 1, api_aftershipid: 0 },
+      ],
+      lodes: {
+        'subtitle-ja': { data: { 100: { 5: ja } } },
+        'subtitle-zh': { data: { 100: { 5: 'subtitle 的中文' } } },
+        'wikiwiki-voice': {
+          data: {
+            200: [{ key: '200-5', voiceId: 5, scene: '建造完成', ja, page: 'test' }],
+          },
+        },
+        'kuma-voice': {
+          data: {
+            ships: {
+              200: [{
+                key: '200-5',
+                scene: '建造完成',
+                slot: 5,
+                basis: 'wikiwiki-mapped',
+                ja,
+                zh: '第一方自译包的中文',
+              }],
+            },
+          },
+        },
+      },
+    },
+    { kind: 'ship', mstId: 200, voiceId: 5 },
+  )
+  assert.equal(lines[0]?.text, 'subtitle 的中文')
+})
+
+test('深海原文按同句复用舰娘百科中文，无中文时仍显示日文', async () => {
+  const exactJa = '深海の開幕原文'
+  const fallbackJa = '深海の攻撃原文'
+  const untranslatedJa = 'まだ訳のない深海原文'
+  const setup = {
+    lodes: {
+      'kcwiki-voice': {
+        data: {
+          1500: [
+            { key: '900-Attack', scene: '攻击', ja: fallbackJa, zh: '深海攻击中文' },
+          ],
+        },
+      },
+      'subtitle-enemies': {
+        data: {
+          other: { name: '别的深海舰', jp: exactJa, zh: '深海开幕中文' },
+        },
+      },
+      'wikiwiki-abyss-voice': {
+        data: {
+          1500: [
+            {
+              key: '90030',
+              scene: '攻击',
+              ja: fallbackJa,
+              page: 'test',
+              slot: 'attack',
+              suffix: 30,
+            },
+            {
+              key: '90031',
+              scene: '攻击',
+              ja: untranslatedJa,
+              page: 'test',
+              slot: 'attack',
+              suffix: 31,
+            },
+          ],
+        },
+      },
+    },
+    mg: {
+      master: { ships: { 1500: { name: '深海测试舰' } } },
+      sortie: {
+        battle: {
+          flavorVoices: [{
+            voiceId: '90010',
+            mstId: 1500,
+            className: '深海测试舰型',
+            shipName: '深海测试舰',
+            message: exactJa,
+          }],
+        },
+      },
+    },
+  }
+  const exact = await captionsFromLodes(setup, {
+    kind: 'enemy',
+    voiceId: '90010',
+  })
+  const fallback = await captionsFromLodes(setup, {
+    kind: 'enemy',
+    voiceId: '90030',
+  })
+  const untranslated = await captionsFromLodes(setup, {
+    kind: 'enemy',
+    voiceId: '90031',
+  })
+  assert.equal(exact[0]?.text, '深海开幕中文')
+  assert.equal(fallback[0]?.text, '深海攻击中文')
+  assert.equal(untranslated[0]?.text, untranslatedJa)
+})
+
+test('随包深海层靠档名反解出中文，ambiguous 与无归属音轨保持沉默', async () => {
+  const setup = {
+    ships: [
+      { api_id: 1668, api_name: '離島棲姫', api_sortno: 0 },
+      { api_id: 1672, api_name: '離島棲姫', api_sortno: 0 },
+      { api_id: 2317, api_name: '軽巡ム級', api_sortno: 0 },
+    ],
+    lodes: {
+      'wikiwiki-abyss-voice': null,
+      'kuma-abyss-voice': {
+        data: {
+          ships: {
+            2317: [
+              {
+                key: '2317-20',
+                scene: '砲撃',
+                suffix: 20,
+                ja: 'シズンデ？',
+                zh: '沉下去吧？',
+              },
+              {
+                key: '2317-30.1',
+                scene: '被弾',
+                suffix: 30,
+                ja: 'ウッ…',
+                zh: '唔…',
+                ambiguous: true,
+              },
+            ],
+            1672: [
+              {
+                key: '1672-10',
+                scene: '開幕前',
+                suffix: 10,
+                ja: 'ココマデ……クルトワ……ネ……',
+                zh: '竟然一路来到了这里……',
+              },
+            ],
+          },
+        },
+      },
+    },
+    mg: {
+      master: { ships: { 2317: { name: '轻巡MU级' } } },
+    },
+  }
+  const attack = await captionsFromLodes(setup, {
+    kind: 'enemy',
+    voiceId: '611231720',
+  })
+  const ambiguous = await captionsFromLodes(setup, {
+    kind: 'enemy',
+    voiceId: '611231730',
+  })
+  const unresolved = await captionsFromLodes(setup, {
+    kind: 'enemy',
+    voiceId: 'not-an-abyss-file',
+  })
+  const sameName = await captionsFromLodes(setup, {
+    kind: 'enemy',
+    voiceId: '6466810',
+  })
+  assert.equal(attack[0]?.text, '沉下去吧？')
+  assert.deepEqual(ambiguous, [])
+  assert.deepEqual(unresolved, [])
+  assert.equal(sameName[0]?.text, '竟然一路来到了这里……')
 })
 
 // ---- ② 小桶不许挡整页（这条是整批最容易写错的地方）----

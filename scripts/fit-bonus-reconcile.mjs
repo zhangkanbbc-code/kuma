@@ -51,7 +51,7 @@ const EO_STAT_TO_OURS = {
 }
 
 const fetchEo = async () => {
-  const cacheDir = path.join(os.tmpdir(), 'kanso-fit-bonus-reconcile')
+  const cacheDir = path.join(os.tmpdir(), 'kuma-fit-bonus-reconcile')
   mkdirSync(cacheDir, { recursive: true })
   const cache = path.join(cacheDir, 'eo-fit-bonuses.json')
   if (existsSync(cache)) {
@@ -60,7 +60,7 @@ const fetchEo = async () => {
       return JSON.parse(readFileSync(cache, 'utf8')).rows
     }
   }
-  const response = await fetch(EO_URL, { headers: { 'User-Agent': 'kanso-lodes' } })
+  const response = await fetch(EO_URL, { headers: { 'User-Agent': 'kuma-lodes' } })
   if (!response.ok) throw new Error(`EO FitBonuses: HTTP ${response.status}`)
   const rows = await response.json()
   writeFileSync(cache, JSON.stringify({ __fetchedAt: new Date().toISOString(), rows }))

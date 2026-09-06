@@ -11,7 +11,7 @@
 //     活动曲撤场之后这一档是唯一能响的来源，所以它排第一。
 //  ② **本机缓存文件**：Chromium 缓存里还在 → 同样是本地文件（kcs-image 的缓存优先）。
 //  ③ **现取**：向游戏自己的资源服务器要一次，**只在玩家点了那一下**。
-//     这一档受钥里「不联网补取美术资源」（`kanso.remoteArt`，与立绘/语音同一个开关）管：
+//     这一档受钥里「不联网补取美术资源」（`kuma.remoteArt`，与立绘/语音同一个开关）管：
 //     关掉之后 `bgmAudioUrl` 直接给 null，此时若档案里也没有，就诚实说明为什么不能听，
 //     **不渲染点不响的死按钮**。
 import { bgmAudioUrl, remoteArtState } from './kcs-image'
@@ -108,7 +108,7 @@ const start = (el: HTMLElement | null, url: string, restart: boolean, name: stri
     },
     (error) => {
       notePreviewStopped('bgm', 'error')
-      console.warn('[kanso] BGM 试听失败', url, error)
+      console.warn('[kuma] BGM 试听失败', url, error)
     },
   )
 }

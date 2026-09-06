@@ -39,7 +39,7 @@ const upsertSql = () => {
 
 const openDb = (t) => {
   const { DatabaseSync } = require('node:sqlite')
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-fit-obs-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-fit-obs-'))
   const db = new DatabaseSync(path.join(dir, 'test.sqlite'))
   db.exec(createTableSql())
   t.after(() => {

@@ -15,7 +15,7 @@ import shipProperName from '../dist/shared/ship-proper-name.js'
 import shipTypeName from '../dist/shared/ship-type-name.js'
 import shipClassName from '../dist/shared/ship-class-name.js'
 import kcwiki from '../dist/main/mg/kcwiki-quest-rules.js'
-import kanso from '../dist/main/mg/kanso-quest-rules.js'
+import kuma from '../dist/main/mg/kuma-quest-rules.js'
 import fleetRules from '../dist/main/mg/quest-fleet-rules.js'
 
 const { buildShipProperNameIndex, classifyShipProperToken, localizeShipProperWords } =
@@ -23,7 +23,7 @@ const { buildShipProperNameIndex, classifyShipProperToken, localizeShipProperWor
 const { localizeShipTypeWords, shipTypeLabelTokens } = shipTypeName
 const { buildShipClassNameIndex } = shipClassName
 const { buildKcwikiRuleContext, decodeKcwikiRequirement, augmentShipGroupsFromQuestText } = kcwiki
-const { buildKansoQuestRules } = kanso
+const { buildKumaQuestRules } = kuma
 const { buildFleetRuleContext, deriveFleetRule } = fleetRules
 
 const s2Url = new URL('../../s2.json', import.meta.url)
@@ -72,8 +72,8 @@ const world = () => {
     take(decoded.fleetGoal, `kcwiki/${quest?.code ?? questId}`)
     for (const task of decoded.tasks ?? []) take(task.fleetGoal, `kcwiki/${quest?.code ?? questId}`)
   }
-  for (const rule of buildKansoQuestRules(context, masterRaw, fcd)) {
-    const where = `艦素手写/${scn[rule.questId]?.code ?? rule.questId}`
+  for (const rule of buildKumaQuestRules(context, masterRaw, fcd)) {
+    const where = `kuma手写/${scn[rule.questId]?.code ?? rule.questId}`
     take(rule.fleetGoal, where)
     for (const task of rule.tasks ?? []) take(task.fleetGoal, where)
   }
@@ -89,7 +89,7 @@ const world = () => {
       `${raw?.memo2 ?? ''}`,
       fleetContext,
     )
-    take(derived?.fleetGoal, `艦素推导/${code || questId}`)
+    take(derived?.fleetGoal, `kuma推导/${code || questId}`)
   }
   assert.ok(labels.length > 500, `只扫到 ${labels.length} 条编成门,收集器多半坏了`)
   cached = {
@@ -301,9 +301,9 @@ test('护栏:放行清单——剩下的没有一个是该译没译的舰名/舰
   // 要么游戏里压根没实装这艘舰、随包资料给不出中文（那才是放行的正当理由）。
   const latin = kept.filter((token) => /[A-Za-z]/.test(token)).sort()
   assert.deepEqual(latin, [
-    // （原有第三个「John C.Butler级」已在源头改写中文——kanso-quest-rules Cy6
+    // （原有第三个「John C.Butler级」已在源头改写中文——kuma-quest-rules Cy6
     //   手写标签 2026-09-01 定稿为「约翰·C·巴特勒级」，不再经放行通道。）
-    // 「J级」是这一级在中文里通行的写法本身，不是没译的英文（kanso-quest-rules Cy1）。
+    // 「J级」是这一级在中文里通行的写法本身，不是没译的英文（kuma-quest-rules Cy1）。
     'J级驱逐舰',
     // 中文真名自带缩写字母「C」（Cy6 手写标签 2026-09-01 定稿），不是未译英文。
     '约翰·C·巴特勒级',

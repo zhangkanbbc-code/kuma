@@ -55,7 +55,7 @@ const {
   rippleRank,
   scrambleDigits,
 } = shared
-
+const ANIM_PREFIX = 'kuma-'
 // 定种子伪随机（mulberry32）。要的只是「同种子同结果、跨种子够散」，
 // 不是密码学质量——护栏喂它，运行时喂 Math.random。
 const rngOf = (seed) => {
@@ -240,7 +240,7 @@ test('坞的登记次序（洗牌前那份底稿）没变，定种子的护栏�
 
 test('开关默认开：默认值只有这一份，config 的 DEFAULTS 引的就是它', () => {
   assert.equal(LAUNCH_GLOW_DEFAULT, true, '2026-08-26 用户裁定默认开（此前默认关等他实机验收）')
-  assert.equal(LAUNCH_GLOW_CONFIG_KEY, 'kanso.launchGlow')
+  assert.equal(LAUNCH_GLOW_CONFIG_KEY, 'kuma.launchGlow')
   // 钉的是**接线**不是字面量：谁把 config 里那行改回写死的 true/false，这里当场红。
   const configSource = fs.readFileSync(
     fileURLToPath(new URL('../src/main/config.ts', import.meta.url)),
@@ -256,14 +256,14 @@ const styleSheet = () =>
 
 /** 取一套关键帧：[{ pct, opacity, easing }]，按百分比升序。 */
 const keyframesOf = (html, variant) => {
-  const block = new RegExp(`@keyframes kanso-glow-${variant}\\s*\\{([\\s\\S]*?)\\n    \\}`).exec(html)
-  assert.ok(block, `样式表里没有 kanso-glow-${variant}，JS 分配到它的格子会不动`)
+  const block = new RegExp(`@keyframes ${ANIM_PREFIX}glow-${variant}\\s*\\{([\\s\\S]*?)\\n    \\}`).exec(html)
+  assert.ok(block, `样式表里没有 ${ANIM_PREFIX}glow-${variant}，JS 分配到它的格子会不动`)
   const frames = [...block[1].matchAll(/(\d+(?:\.\d+)?)%\s*\{([^}]*)\}/g)].map((hit) => ({
     pct: Number(hit[1]),
     opacity: Number(/opacity:\s*([\d.]+)/.exec(hit[2])[1]),
     easing: /animation-timing-function:\s*([a-z-]+)/.exec(hit[2])?.[1] ?? null,
   }))
-  assert.ok(frames.length >= 4, `kanso-glow-${variant} 关键帧太少，成对平台撑不起来`)
+  assert.ok(frames.length >= 4, `${ANIM_PREFIX}glow-${variant} 关键帧太少，成对平台撑不起来`)
   return { frames, body: block[1] }
 }
 
@@ -276,10 +276,10 @@ test('三套点火关键帧与游戏区那套都真的写在样式表里，且�
     for (const prop of props) {
       assert.ok(
         prop === 'opacity' || prop === 'animation-timing-function',
-        `kanso-glow-${variant} 里冒出了 ${prop}：点亮只准动 opacity`,
+        `${ANIM_PREFIX}glow-${variant} 里冒出了 ${prop}：点亮只准动 opacity`,
       )
     }
-    assert.ok(!/filter/.test(body), `kanso-glow-${variant} 用了 filter`)
+    assert.ok(!/filter/.test(body), `${ANIM_PREFIX}glow-${variant} 用了 filter`)
   }
 })
 
@@ -290,7 +290,7 @@ test('点火关键帧：明暗切换只在 3~5% 的微斜坡里发生，其余�
     const { frames } = keyframesOf(html, variant)
     // 收尾那一段是 ease-out 的缓升，本来就不该受斜坡窗约束
     const settleAt = frames.findIndex((frame) => frame.easing === 'ease-out')
-    assert.ok(settleAt > 0, `kanso-glow-${variant} 没有 ease-out 收尾段`)
+    assert.ok(settleAt > 0, `${ANIM_PREFIX}glow-${variant} 没有 ease-out 收尾段`)
     let ramps = 0
     let plateaus = 0
     for (let i = 1; i <= settleAt; i++) {
@@ -302,16 +302,16 @@ test('点火关键帧：明暗切换只在 3~5% 的微斜坡里发生，其余�
       ramps += 1
       assert.ok(
         span >= 3 && span <= 5,
-        `kanso-glow-${variant} 在 ${frames[i - 1].pct}%→${frames[i].pct}% 的切换跨了 ${span}%`,
+        `${ANIM_PREFIX}glow-${variant} 在 ${frames[i - 1].pct}%→${frames[i].pct}% 的切换跨了 ${span}%`,
       )
       const ms = Math.round((fade * span) / 100)
       assert.ok(ms >= 25 && ms <= 42, `那一段实际 ${ms}ms，超出「快到像电火花、慢到不频闪」的窗`)
     }
-    assert.ok(plateaus >= ramps - 1, `kanso-glow-${variant} 平台比斜坡还少，成对关键帧没搭起来`)
+    assert.ok(plateaus >= ramps - 1, `${ANIM_PREFIX}glow-${variant} 平台比斜坡还少，成对关键帧没搭起来`)
     // 收尾之外全靠成对关键帧撑平台，所以整条动画的时间函数必须是 linear
     assert.match(
       html,
-      /body\.kanso-glow-run #element-rail,\s*\n\s*body\.kanso-glow-run \.dock-group \{\s*\n(?:[^}]*\n)?\s*animation-timing-function: linear;/,
+      /body\.kuma-glow-run #element-rail,\s*\n\s*body\.kuma-glow-run \.dock-group \{\s*\n(?:[^}]*\n)?\s*animation-timing-function: linear;/,
       'steps() 是零毫秒硬跳，用户实机报过闪眼睛；平台要靠成对关键帧撑',
     )
   }
@@ -324,15 +324,15 @@ test('点火关键帧：首燃之后 opacity 不跌破 .35，且每个暗谷都�
     const levels = frames
       .map((frame) => frame.opacity)
       .filter((value, index, all) => index === 0 || value !== all[index - 1])
-    assert.equal(levels[0], 0, `kanso-glow-${variant} 该从全暗起步`)
-    assert.equal(levels[levels.length - 1], 1, `kanso-glow-${variant} 该收在全亮`)
+    assert.equal(levels[0], 0, `${ANIM_PREFIX}glow-${variant} 该从全暗起步`)
+    assert.equal(levels[levels.length - 1], 1, `${ANIM_PREFIX}glow-${variant} 该收在全亮`)
 
     // 首燃 = 第一个非零亮度；从它往后，最暗的那一档就是「刺不刺眼」的判据
     const ignited = levels.slice(1)
     const floor = Math.min(...ignited)
     assert.ok(
       floor >= 0.3,
-      `kanso-glow-${variant} 首燃后跌到 ${floor}：亮→近黑→亮才是真正闪眼睛的那一下`,
+      `${ANIM_PREFIX}glow-${variant} 首燃后跌到 ${floor}：亮→近黑→亮才是真正闪眼睛的那一下`,
     )
 
     // 暗谷（内部极小值）必须一个比一个浅——整条要读成「越闪越亮」的预热
@@ -343,11 +343,11 @@ test('点火关键帧：首燃之后 opacity 不跌破 .35，且每个暗谷都�
     for (let i = 1; i < valleys.length; i++) {
       assert.ok(
         valleys[i] > valleys[i - 1],
-        `kanso-glow-${variant} 第 ${i + 1} 个暗谷 ${valleys[i]} 没比前一个 ${valleys[i - 1]} 浅`,
+        `${ANIM_PREFIX}glow-${variant} 第 ${i + 1} 个暗谷 ${valleys[i]} 没比前一个 ${valleys[i - 1]} 浅`,
       )
     }
-    assert.ok(valleys.length <= 2, `kanso-glow-${variant} 有 ${valleys.length} 个暗谷，明暗超过三次`)
-    assert.ok(valleys.length >= 1, `kanso-glow-${variant} 一个暗谷都没有，就不是点火了`)
+    assert.ok(valleys.length <= 2, `${ANIM_PREFIX}glow-${variant} 有 ${valleys.length} 个暗谷，明暗超过三次`)
+    assert.ok(valleys.length >= 1, `${ANIM_PREFIX}glow-${variant} 一个暗谷都没有，就不是点火了`)
   }
 })
 
@@ -624,7 +624,7 @@ test('乱滚：同一个种子跑两遍逐字符一样（随机是注入的，�
 
 test('第二幕的关键帧只动 opacity 与 transform', () => {
   const html = styleSheet()
-  for (const name of ['kanso-roster-veil', 'kanso-roster-sweep', 'kanso-roster-row']) {
+  for (const name of ['kuma-roster-veil', 'kuma-roster-sweep', 'kuma-roster-row']) {
     const block = new RegExp(`@keyframes ${name}\\s*\\{([\\s\\S]*?)\\n    \\}`).exec(html)
     assert.ok(block, `样式表里没有 ${name}`)
     const props = [...block[1].matchAll(/([a-z-]+)\s*:/g)].map((hit) => hit[1])
@@ -636,7 +636,7 @@ test('第二幕的关键帧只动 opacity 与 transform', () => {
     }
   }
   // 罩层不许挡点击——锐的加载光带与镝的扫描线共用同一条形态规则
-  const shell = /\.kanso-roster-load, \.kanso-battle-scan \{([^}]*)\}/.exec(html)
+  const shell = /\.kuma-roster-load, \.kuma-battle-scan \{([^}]*)\}/.exec(html)
   assert.ok(shell, '罩层的共用形态规则不见了')
   assert.match(shell[1], /pointer-events: none;/, '罩层没写 pointer-events:none，会把面板点死')
 })
@@ -815,7 +815,7 @@ const installDom = ({ reduce = false, cells = { left: 1, bottom: 3, right: 1 } }
 
 // 渲染层模块直接编出来跑：它只依赖 shared/launch-glow 与 document/window，
 // 不碰 electron，所以不必像铆那样打桩，原样 bundle 即可。
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-launch-glow-'))
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-launch-glow-'))
 const outfile = path.join(tempDir, 'launch-glow.cjs')
 buildSync({
   entryPoints: [fileURLToPath(new URL('../src/renderer/launch-glow.ts', import.meta.url))],
@@ -849,7 +849,7 @@ test('浮层入场：开关关着 = 彻底空转，一个标记都不打', () =>
   setOverlayEntranceEnabled(false)
   const { body, blocks } = fakeOverlayBody(3)
   playOverlayEntrance(body)
-  assert.ok(blocks.every((el) => el.dataset.kansoOpen === undefined))
+  assert.ok(blocks.every((el) => el.dataset.kumaOpen === undefined))
   assert.ok(blocks.every((el) => el.style.animationDelay === undefined))
   setOverlayEntranceEnabled(false) // 复位，别影响后面的用例
 })
@@ -859,7 +859,7 @@ test('浮层入场：系统要求减少动态效果时也不放', () => {
   setOverlayEntranceEnabled(true) // 开关开着，但 reduceMotion 该把它按下去
   const { body, blocks } = fakeOverlayBody(3)
   playOverlayEntrance(body)
-  assert.ok(blocks.every((el) => el.dataset.kansoOpen === undefined))
+  assert.ok(blocks.every((el) => el.dataset.kumaOpen === undefined))
   setOverlayEntranceEnabled(false)
 })
 
@@ -871,14 +871,14 @@ test('浮层入场：内容块拿到微错峰，总长不超 300ms', () => {
     playOverlayEntrance(body)
     const plan = launchOverlayPlan(3)
     blocks.forEach((el, index) => {
-      assert.equal(el.dataset.kansoOpen, '1', `第 ${index} 块没入场`)
+      assert.equal(el.dataset.kumaOpen, '1', `第 ${index} 块没入场`)
       assert.equal(el.style.animationDelay, `${plan.blocks[index].delay}ms`)
       assert.equal(el.style.animationDuration, `${LAUNCH_OVERLAY_TIMING.blockRow}ms`)
     })
     assert.ok(plan.total <= LAUNCH_OVERLAY_TIMING.cap)
     // 放完就擦干净：静止态不许留下任何行内动画属性（更不许留 transform）
-    blocks[2].fire('animationend', 'kanso-overlay-block')
-    assert.ok(blocks.every((el) => el.dataset.kansoOpen === undefined), '标记没摘')
+    blocks[2].fire('animationend', 'kuma-overlay-block')
+    assert.ok(blocks.every((el) => el.dataset.kumaOpen === undefined), '标记没摘')
     assert.ok(blocks.every((el) => el.style.animationDelay === ''), '行内延时没擦')
     assert.ok(blocks.every((el) => el.style.animationDuration === ''))
   } finally {
@@ -892,9 +892,9 @@ test('浮层入场：块数封顶——超出的随面板一起现身，不参�
   try {
     const { body, blocks } = fakeOverlayBody(9)
     playOverlayEntrance(body)
-    const marked = blocks.filter((el) => el.dataset.kansoOpen === '1')
+    const marked = blocks.filter((el) => el.dataset.kumaOpen === '1')
     assert.equal(marked.length, LAUNCH_OVERLAY_TIMING.blockCap, '封顶没生效，会超出 300ms')
-    assert.ok(blocks.slice(LAUNCH_OVERLAY_TIMING.blockCap).every((el) => el.dataset.kansoOpen === undefined))
+    assert.ok(blocks.slice(LAUNCH_OVERLAY_TIMING.blockCap).every((el) => el.dataset.kumaOpen === undefined))
   } finally {
     setOverlayEntranceEnabled(false)
   }
@@ -908,14 +908,14 @@ test('浮层入场：快速连开三次不叠加——上一次先收干净，�
     // 同一批元素被反复接手（浮层的 pane 是复用的，连开就是同一批节点）
     for (let round = 0; round < 3; round++) playOverlayEntrance(body)
     for (const el of blocks) {
-      assert.equal(el.dataset.kansoOpen, '1')
+      assert.equal(el.dataset.kumaOpen, '1')
       assert.ok(el.listenerCount <= 1, `连开三次之后监听叠了 ${el.listenerCount} 个`)
     }
     assert.equal(blocks[2].listenerCount, 1, '结束信号该只挂在最后一块上，且只有一份')
     assert.equal(blocks[0].listenerCount, 0)
     // 只需一次 animationend 就收干净——叠加的话会剩下没摘的标记
-    blocks[2].fire('animationend', 'kanso-overlay-block')
-    assert.ok(blocks.every((el) => el.dataset.kansoOpen === undefined))
+    blocks[2].fire('animationend', 'kuma-overlay-block')
+    assert.ok(blocks.every((el) => el.dataset.kumaOpen === undefined))
     assert.ok(blocks.every((el) => el.listenerCount === 0), '监听残留')
   } finally {
     setOverlayEntranceEnabled(false)
@@ -927,9 +927,9 @@ test('浮层入场：关掉开关会把还在演的那一次收掉', () => {
   setOverlayEntranceEnabled(true)
   const { body, blocks } = fakeOverlayBody(3)
   playOverlayEntrance(body)
-  assert.equal(blocks[0].dataset.kansoOpen, '1')
+  assert.equal(blocks[0].dataset.kumaOpen, '1')
   setOverlayEntranceEnabled(false)
-  assert.ok(blocks.every((el) => el.dataset.kansoOpen === undefined), '关了开关还留着标记')
+  assert.ok(blocks.every((el) => el.dataset.kumaOpen === undefined), '关了开关还留着标记')
   assert.ok(blocks.every((el) => el.listenerCount === 0))
 })
 
@@ -945,10 +945,10 @@ test('浮层入场：开着时内容重渲不重播——标记只挂在「打�
     for (const el of blocks) el.parentNode = null
     const fresh = Array.from({ length: 3 }, () => new FakeElement('div'))
     for (const el of fresh) app.appendChild(el)
-    assert.ok(fresh.every((el) => el.dataset.kansoOpen === undefined), '往重渲后的新 DOM 上重播了')
+    assert.ok(fresh.every((el) => el.dataset.kumaOpen === undefined), '往重渲后的新 DOM 上重播了')
     // 兜底收场只碰旧引用，新 DOM 一个字不动
     setOverlayEntranceEnabled(false)
-    assert.ok(fresh.every((el) => el.dataset.kansoOpen === undefined))
+    assert.ok(fresh.every((el) => el.dataset.kumaOpen === undefined))
     assert.ok(fresh.every((el) => el.style.animationDelay === undefined))
   } finally {
     setOverlayEntranceEnabled(false)
@@ -970,8 +970,8 @@ test('浮层入场：一块内容都没有时什么都不做', () => {
 
 test('浮层入场：样式与接线——关键帧只动 opacity/transform，铆在打开时调它', () => {
   const html = styleSheet()
-  const block = /@keyframes kanso-overlay-block\s*\{([\s\S]*?)\n    \}/.exec(html)
-  assert.ok(block, '没有 kanso-overlay-block')
+  const block = /@keyframes kuma-overlay-block\s*\{([\s\S]*?)\n    \}/.exec(html)
+  assert.ok(block, '没有 kuma-overlay-block')
   const props = [...block[1].matchAll(/([a-z-]+)\s*:/g)].map((hit) => hit[1])
   for (const prop of props) {
     assert.ok(prop === 'opacity' || prop === 'transform', `冒出了 ${prop}`)
@@ -980,7 +980,7 @@ test('浮层入场：样式与接线——关键帧只动 opacity/transform，�
   const shift = /translate3d\(0, (\d+)px, 0\)/.exec(block[1])
   assert.ok(shift && Number(shift[1]) <= 6, `位移 ${shift?.[1]}px 太大`)
   // 减少动态效果那一档有双保险
-  assert.match(html, /\[data-kanso-open\] \{ animation: none !important; \}/)
+  assert.match(html, /\[data-kuma-open\] \{ animation: none !important; \}/)
   // 接线：铆的 openOverlay 里调，而且排在 showModule 之后（那一步可能触发重渲）
   const mu = fs.readFileSync(
     fileURLToPath(new URL('../src/renderer/mu.ts', import.meta.url)),
@@ -1020,8 +1020,8 @@ test('开着：罩暗 → 逐格点火 → 放完把类、行内动画属性和�
   assert.ok(handle)
 
   // 装配之前就该是暗的：坞位还没铺，body 上的类先到位，第一帧就不会先亮一下
-  assert.ok(dom.body.classes.has('kanso-glow'))
-  assert.ok(!dom.body.classes.has('kanso-glow-run'))
+  assert.ok(dom.body.classes.has('kuma-glow'))
+  assert.ok(!dom.body.classes.has('kuma-glow-run'))
   assert.equal(dom.gameArea.children.length, 1)
   const veil = dom.gameArea.children[0]
   assert.equal(veil.id, 'game-glow')
@@ -1035,7 +1035,7 @@ test('开着：罩暗 → 逐格点火 → 放完把类、行内动画属性和�
       { dock: 'bottom', cells: 3, collapsed: false },
     ],
   })
-  assert.ok(dom.body.classes.has('kanso-glow-run'))
+  assert.ok(dom.body.classes.has('kuma-glow-run'))
 
   // 六个可见元素各拿到一套关键帧 + 自己的延时（JS 只写一趟，错峰交给 CSS）
   const lit = [
@@ -1049,19 +1049,19 @@ test('开着：罩暗 → 逐格点火 → 放完把类、行内动画属性和�
   const delays = lit.map((el) => Number.parseInt(el.style.animationDelay, 10))
   assert.equal(new Set(delays).size, lit.length, '有两格被排到了同一刻')
   for (const el of lit) {
-    assert.match(el.style.animationName, /^kanso-glow-[abc]$/, `没分到点火变体：${el.style.animationName}`)
+    assert.match(el.style.animationName, /^kuma-glow-[abc]$/, `没分到点火变体：${el.style.animationName}`)
     assert.equal(el.style.animationDuration, '840ms')
     assert.ok(Number.isFinite(Number.parseInt(el.style.animationDelay, 10)))
   }
   // 顺序每次随机，所以只钉「谁最后亮透」与罩层的接续关系，不钉具体是哪一格
   const litUntil = Math.max(...delays) + 840
-  assert.equal(veil.style.animationName, 'kanso-glow-game', '游戏区不该跟着硬闪')
+  assert.equal(veil.style.animationName, 'kuma-glow-game', '游戏区不该跟着硬闪')
   assert.equal(veil.style.animationDelay, `${litUntil + 300}ms`)
   assert.equal(veil.style.animationDuration, '1500ms')
 
   // 罩层是最后一个结束的，它的 animationend 就是「第一幕放完了」；
   // 这一局没给第二幕的取景函数，于是紧接着整场落幕
-  veil.fire('animationend', 'kanso-glow-game')
+  veil.fire('animationend', 'kuma-glow-game')
   assert.equal(dom.body.classes.size, 0, '类没撤干净：面板会永远停在动画的终态规则里')
   assert.equal(dom.gameArea.children.length, 0, '罩层没从 DOM 里摘掉：常驻合成层')
   for (const el of lit) {
@@ -1112,8 +1112,8 @@ const rosterStage = (pick) => ({
   id: 'roster',
   hides: '.ws-pane.mod-ru .ships .ship',
   mark: 'roster',
-  animation: 'kanso-roster-row',
-  overlay: { className: 'kanso-roster-load', animation: 'kanso-roster-veil' },
+  animation: 'kuma-roster-row',
+  overlay: { className: 'kuma-roster-load', animation: 'kuma-roster-veil' },
   timing: LAUNCH_ROSTER_TIMING,
   pick,
 })
@@ -1129,7 +1129,7 @@ const stagesOf = (roster, digits) => [
 ]
 
 /** 仪式态：漏摘一条退出路径 = 那一块内容永远隐身，是这套东西最大的风险面 */
-const CEREMONY = 'kanso-ceremony'
+const CEREMONY = 'kuma-ceremony'
 
 // 看门狗宽限与第一幕尾巴的长度：并行各幕从「最后一格亮透」起跑，与游戏区那段
 // 淡入并排走，所以「整场该在什么时候被强行收掉」要按两者里长的那个算。
@@ -1152,7 +1152,7 @@ const handOff = (dom) => {
 }
 
 /** 第一幕落幕：游戏区那层黑罩淡完 */
-const endAct1 = (dom) => dom.gameArea.children[0]?.fire('animationend', 'kanso-glow-game')
+const endAct1 = (dom) => dom.gameArea.children[0]?.fire('animationend', 'kuma-glow-game')
 
 /** 起一幕：装配 → 放第一幕 → 最后一格亮透，于是接上并行的各幕 */
 const playToAct2 = (roster, digits) => {
@@ -1188,13 +1188,13 @@ test('第二幕接在最后一格亮透处：游戏区还在淡入，加载罩�
   // 第一幕**还没收**：游戏区那层黑罩还在淡，坞位的点亮态也还挂着。
   // 各幕与它并排跑，这正是这次要的——尾巴上原先干等 1.8 秒。
   assert.equal(dom.gameArea.children.length, 1, '各幕接手时游戏区那层黑罩就该还在淡')
-  assert.ok(dom.body.classes.has('kanso-glow-run'), '第一幕还没放完，点亮态不该撤')
+  assert.ok(dom.body.classes.has('kuma-glow-run'), '第一幕还没放完，点亮态不该撤')
   assert.ok(!dom.body.classes.has(CEREMONY), '接手了却没摘仪式态：各幕会全程隐身')
 
   // 加载罩挂在锐的面板上，带一条扫动光带；两者的时长都由 JS 写在行内
   assert.equal(targets.host.children.length, 1)
   const loader = targets.host.children[0]
-  assert.equal(loader.className, 'kanso-roster-load')
+  assert.equal(loader.className, 'kuma-roster-load')
   assert.equal(loader.attrs['aria-hidden'], 'true')
   assert.equal(loader.style.animationDuration, `${LAUNCH_ROSTER_TIMING.loading}ms`)
   assert.equal(loader.children.length, 1, '缺了那条扫动光带')
@@ -1202,7 +1202,7 @@ test('第二幕接在最后一格亮透处：游戏区还在淡入，加载罩�
 
   const plan = launchStaggerPlan(6)
   targets.items.forEach((row, index) => {
-    assert.ok(row.dataset.kansoIn === 'roster', `第 ${index} 行没进场`)
+    assert.ok(row.dataset.kumaIn === 'roster', `第 ${index} 行没进场`)
     assert.equal(row.style.animationDelay, `${plan.rows[index].delay}ms`)
     assert.equal(row.style.animationDuration, `${plan.rows[index].duration}ms`)
   })
@@ -1211,10 +1211,10 @@ test('第二幕接在最后一格亮透处：游戏区还在淡入，加载罩�
   for (let i = 1; i < delays.length; i++) assert.ok(delays[i] > delays[i - 1])
 
   // 最后一行落定：这一幕自己收干净了，但整场还没落幕——游戏区那层黑罩还在淡
-  targets.items[5].fire('animationend', 'kanso-roster-row')
+  targets.items[5].fire('animationend', 'kuma-roster-row')
   assert.equal(targets.host.children.length, 0, '加载罩没摘掉')
   for (const row of targets.items) {
-    assert.ok(row.dataset.kansoIn !== 'roster')
+    assert.ok(row.dataset.kumaIn !== 'roster')
     assert.equal(row.style.animationDelay, '')
     assert.equal(row.style.animationName, '')
   }
@@ -1250,10 +1250,10 @@ test('尾巴不再空着：各幕开演早于游戏区淡完整整 gameGap + gam
     // 用户说的那 1.8 秒空窗，现在被各幕填上了
     const veil = dom.gameArea.children[0]
     assert.equal(endOf(veil), litUntil + ACT1_REST)
-    assert.ok(targets.items.every((row) => row.dataset.kansoIn === undefined), '还没到就先演了')
+    assert.ok(targets.items.every((row) => row.dataset.kumaIn === undefined), '还没到就先演了')
 
     handOff(dom)
-    assert.ok(targets.items.every((row) => row.dataset.kansoIn === 'roster'), '亮透了各幕还没接手')
+    assert.ok(targets.items.every((row) => row.dataset.kumaIn === 'roster'), '亮透了各幕还没接手')
   } finally {
     handle.cancel()
   }
@@ -1267,11 +1267,11 @@ test('接手认名字：格子里别的动画结束不算数（animationend 会�
     handle.run(ONLY_BOTTOM, stagesOf(() => targets))
     lastLitOf(dom).fire('animationend', 'ru-shatter-in')
     assert.ok(
-      targets.items.every((row) => row.dataset.kansoIn === undefined),
+      targets.items.every((row) => row.dataset.kumaIn === undefined),
       '被格子里无关的动画提前唤起来了：各幕会在格子还暗着的时候开演',
     )
     handOff(dom)
-    assert.ok(targets.items.every((row) => row.dataset.kansoIn === 'roster'))
+    assert.ok(targets.items.every((row) => row.dataset.kumaIn === 'roster'))
   } finally {
     handle.cancel()
   }
@@ -1289,10 +1289,10 @@ test('接手的兜底定时器：animationend 没来也会在 litUntil 那一刻
       Number.parseInt(signal.style.animationDelay, 10) +
       Number.parseInt(signal.style.animationDuration, 10)
     t.mock.timers.tick(litUntil - 1)
-    assert.ok(targets.items.every((row) => row.dataset.kansoIn === undefined), '提前开演了')
+    assert.ok(targets.items.every((row) => row.dataset.kumaIn === undefined), '提前开演了')
     t.mock.timers.tick(1)
     assert.ok(
-      targets.items.every((row) => row.dataset.kansoIn === 'roster'),
+      targets.items.every((row) => row.dataset.kumaIn === 'roster'),
       'animationend 丢了就再也接不上手：各幕连同仪式态一起被漏在半路',
     )
     // 迟到的 animationend 不许再放一遍（接手是幂等的）
@@ -1311,8 +1311,8 @@ test('第二幕认名字才收场：行里别的动画（击沉碎裂卡）结�
   // 碎裂卡的 animationend 会从子节点冒泡上来；不认名字的话整幕会被它提前收掉
   targets.items[2].fire('animationend', 'ru-shatter-in')
   assert.equal(targets.host.children.length, 1, '被无关动画提前收场了')
-  assert.ok(targets.items[0].dataset.kansoIn === 'roster')
-  targets.items[2].fire('animationend', 'kanso-roster-row')
+  assert.ok(targets.items[0].dataset.kumaIn === 'roster')
+  targets.items[2].fire('animationend', 'kuma-roster-row')
   assert.equal(targets.host.children.length, 0)
 })
 
@@ -1320,7 +1320,7 @@ test('第二幕门条：锐没摆出来就整幕跳过，一个节点都不加',
   const targets = fakeRoster(6)
   const { dom } = playToAct2(() => null)
   assert.equal(targets.host.children.length, 0)
-  assert.ok(targets.items.every((row) => row.dataset.kansoIn !== 'roster'))
+  assert.ok(targets.items.every((row) => row.dataset.kumaIn !== 'roster'))
   assert.ok(!dom.body.classes.has(CEREMONY), '整幕跳过也要摘仪式态')
   // 一幕都没得演也不当场落幕：游戏区那层黑罩还在淡，撕掉它画面会「啪」地跳亮
   assert.equal(dom.gameArea.children.length, 1)
@@ -1333,7 +1333,7 @@ test('第二幕空态：面板上一行都没有时只放加载段，不硬造�
   playToAct2(() => targets)
   assert.equal(targets.host.children.length, 1)
   // 这一局最后结束的是加载罩自己
-  targets.host.children[0].fire('animationend', 'kanso-roster-veil')
+  targets.host.children[0].fire('animationend', 'kuma-roster-veil')
   assert.equal(targets.host.children.length, 0)
 })
 
@@ -1346,9 +1346,9 @@ test('第一幕被点掉时第二幕不再上演（同一场仪式，一起取�
   dom.fireDoc('pointerdown')
   assert.equal(dom.gameArea.children.length, 0)
   assert.equal(targets.host.children.length, 0, '第一幕都跳过了，第二幕不该再来')
-  assert.ok(targets.items.every((row) => row.dataset.kansoIn !== 'roster'))
+  assert.ok(targets.items.every((row) => row.dataset.kumaIn !== 'roster'))
   // 迟到的罩层 animationend 也不该把第二幕唤起来（点掉之后整场就是落幕了）
-  veil.fire('animationend', 'kanso-glow-game')
+  veil.fire('animationend', 'kuma-glow-game')
   assert.equal(targets.host.children.length, 0)
   assert.equal(dom.docListenerCount(), 0)
 })
@@ -1363,7 +1363,7 @@ test('各幕与游戏区正并排跑时被点一下：两边一起到终态，�
   // 「点一下直接到位」是整场一起到位：并行开来之后多出的这段窗口里，
   // 收掉各幕却把游戏区那层黑罩留着，就是点完还得再等一秒八
   assert.equal(dom.gameArea.children.length, 0, '点了跳过，游戏区那层黑罩却还留着')
-  assert.ok(targets.items.every((row) => row.dataset.kansoIn !== 'roster'))
+  assert.ok(targets.items.every((row) => row.dataset.kumaIn !== 'roster'))
   assert.ok(targets.items.every((row) => row.style.animationDelay === ''))
   assert.equal(dom.body.classes.size, 0)
   assert.equal(dom.docListenerCount(), 0)
@@ -1388,13 +1388,13 @@ test('被模块重渲打断：体面收场——不重挂、不碰新 DOM、旧�
 
   // 新 DOM 一个字没被碰过：它本来就是终态，这才是「体面」
   for (const row of fresh) {
-    assert.ok(row.dataset.kansoIn !== 'roster', '往新 DOM 上重挂了动画')
+    assert.ok(row.dataset.kumaIn !== 'roster', '往新 DOM 上重挂了动画')
     assert.deepEqual(row.style, {})
   }
   assert.deepEqual(targets.host.children, fresh, '把新行挤掉了')
   // 旧引用上的残留状态清干净了（它们可能还被别处引用着）
   for (const row of targets.items) {
-    assert.ok(row.dataset.kansoIn !== 'roster')
+    assert.ok(row.dataset.kumaIn !== 'roster')
     assert.equal(row.style.animationDelay, '')
   }
   assert.equal(dom.docListenerCount(), 0)
@@ -1414,20 +1414,20 @@ test('仪式态从罩暗那一刻就挂上——不是等第二幕开场才藏�
   )
   // 而且是**和罩暗同时**上的，中间没有任何一拍空窗
   const added = classEvents.filter((e) => e.el === dom.body && e.action === 'add')
-  assert.deepEqual(added.map((e) => e.name), ['kanso-glow', CEREMONY])
+  assert.deepEqual(added.map((e) => e.name), ['kuma-glow', CEREMONY])
   handle.cancel() // 收掉装配看门狗，别让它把整个测试进程吊着
 })
 
 test('仪式态靠祖先规则压住锐的行：任何时刻新生的行天生隐身', () => {
   const html = styleSheet()
-  const rule = /body\.kanso-ceremony ([^{]+)\{([^}]*)\}/.exec(html)
+  const rule = /body\.kuma-ceremony ([^{]+)\{([^}]*)\}/.exec(html)
   assert.ok(rule, '样式表里没有仪式态压行的规则')
   const selector = rule[1].trim()
   // 必须是**祖先选择器**：不能要求行自己带某个类，否则第一幕期间锐重渲出来的新行
   // 就漏网了（这次的 bug 正是「藏」发生得太晚）
   assert.match(selector, /\.mod-ru/, '压的不是锐的面板')
   assert.match(selector, /\.ships \.ship$/, '压的不是舰娘行')
-  assert.ok(!/kanso-roster/.test(selector), '祖先规则不许依赖逐行加的类')
+  assert.ok(!/kuma-roster/.test(selector), '祖先规则不许依赖逐行加的类')
   // 只压 opacity：面板框架照常跟着格子点亮，也不许动布局
   const props = [...rule[2].matchAll(/([a-z-]+)\s*:/g)].map((hit) => hit[1])
   assert.deepEqual(props, ['opacity'], '仪式态只准压 opacity')
@@ -1446,7 +1446,7 @@ test('交接无闪帧：先给各行挂进场动画，再摘仪式态（次序�
   assert.ok(removeAt >= 0, '仪式态一直没摘')
   for (const row of targets.items) {
     const addAt = classEvents.findIndex(
-      (e) => e.el === row && e.action === 'mark' && e.name === 'kansoIn=roster',
+      (e) => e.el === row && e.action === 'mark' && e.name === 'kumaIn=roster',
     )
     assert.ok(addAt >= 0, '有行没拿到进场动画')
     assert.ok(
@@ -1479,7 +1479,7 @@ test('每一条退出路径都摘仪式态，且编队行与资源数字都回�
     setUp({ dom, handle, targets, cells })
     // 仪式态摘了 = 两处都不再被压着；数字还得是真值而不是停在乱滚的某一帧
     assert.ok(!dom.body.classes.has(CEREMONY), '漏摘仪式态：编队与资源数字会永远隐身')
-    assert.ok(targets.items.every((row) => row.dataset.kansoIn !== 'roster'))
+    assert.ok(targets.items.every((row) => row.dataset.kumaIn !== 'roster'))
     cells.forEach((cell, i) => assert.equal(cell.textContent, REAL[i], '数字停在乱滚态了'))
     assert.equal(dom.docListenerCount(), 0)
     return dom
@@ -1521,19 +1521,23 @@ test('每一条退出路径都摘仪式态，且编队行与资源数字都回�
   played(({ dom, handle, targets, cells }) => {
     handle.run(ONLY_BOTTOM, stagesOf(() => targets, () => cells))
     handOff(dom)
-    targets.items[5].fire('animationend', 'kanso-roster-row')
+    targets.items[5].fire('animationend', 'kuma-roster-row')
     handle.cancel() // 数字那幕还在滚，由收尾人一并收掉
   })
 })
 
 // ---- 第三幕：并行、接手、退出 ----
 
-test('第三幕与第二幕并行开演：数字在摘仪式态之前就被接手成乱滚态', () => {
-  const targets = fakeRoster(6)
-  const cells = fakeDigits('300,000', '90', '12.3k')
-  const real = ['300,000', '90', '12.3k']
-  const { dom, handle } = playToAct2(() => targets, () => cells)
+test('第三幕与第二幕并行开演：数字在摘仪式态之前就被接手成乱滚态', (t) => {
+  t.mock.timers.enable({ apis: ['setInterval', 'setTimeout', 'Date'] })
+  let handle = null
   try {
+    const targets = fakeRoster(6)
+    const cells = fakeDigits('300,000', '90', '12.3k')
+    const real = ['300,000', '90', '12.3k']
+    const started = playToAct2(() => targets, () => cells)
+    const { dom } = started
+    handle = started.handle
     // 长度与分隔符全程不动
     cells.forEach((cell, i) => {
       assert.equal(cell.textContent.length, real[i].length, '长度变了会抖动')
@@ -1556,9 +1560,10 @@ test('第三幕与第二幕并行开演：数字在摘仪式态之前就被接�
     }
     // 编队那边照常并行进行
     assert.equal(targets.host.children.length, 1, '第三幕不该妨碍第二幕')
-    assert.ok(targets.items[0].dataset.kansoIn === 'roster')
+    assert.ok(targets.items[0].dataset.kumaIn === 'roster')
   } finally {
-    handle.cancel()
+    handle?.cancel()
+    t.mock.timers.reset()
   }
 })
 
@@ -1569,7 +1574,7 @@ test('三方都收工才整场落幕：各幕之外，游戏区那段淡入也�
     const cells = fakeDigits('300,000')
     const { dom } = playToAct2(() => targets, () => cells)
     // 第二幕先收工（最后一行落定），第三幕还在滚
-    targets.items[5].fire('animationend', 'kanso-roster-row')
+    targets.items[5].fire('animationend', 'kuma-roster-row')
     assert.equal(targets.host.children.length, 0, '第二幕自己该收干净')
     assert.notEqual(cells[0].textContent, '300,000', '第三幕不该被第二幕拖着一起收')
     assert.equal(dom.docListenerCount(), 2, '还没落幕，跳过用的监听得留着')
@@ -1612,7 +1617,7 @@ test('第三幕只用一只共享 interval，收场即停', (t) => {
 test('第三幕门条：锱没展开且顶栏没数字时整幕跳过，不拦着第二幕落幕', () => {
   const targets = fakeRoster(6)
   const { dom } = playToAct2(() => targets, () => [])
-  targets.items[5].fire('animationend', 'kanso-roster-row')
+  targets.items[5].fire('animationend', 'kuma-roster-row')
   endAct1(dom)
   assert.equal(dom.docListenerCount(), 0, '第三幕空着却把落幕吊住了')
   assert.equal(dom.body.classes.size, 0)
@@ -1689,7 +1694,7 @@ test('第三幕被模块重渲打断：旧引用不写回旧值，新 DOM 一个
 
 test('仪式态把两处数字都压住：锱面板与顶栏各一条祖先规则', () => {
   const html = styleSheet()
-  const rule = /body\.kanso-ceremony ([^{]*\.hs-res b)[^{]*\{([^}]*)\}/.exec(html)
+  const rule = /body\.kuma-ceremony ([^{]*\.hs-res b)[^{]*\{([^}]*)\}/.exec(html)
   assert.ok(rule, '顶栏数字没被仪式态压住——它不在第一幕罩暗范围里，从头就看得见')
   assert.match(rule[1], /#header-status/)
   assert.match(rule[0], /\.mod-zi \.tiles \.tile \.v/, '锱的资源数字没被压住')
@@ -1709,7 +1714,7 @@ test('锱 · 资源盘那一幕：磁贴外壳与右栏各卡预隐，数字那�
   )
   // 预隐两条：磁贴外壳、右栏各卡。压的都是**块**这一层，不是块里的内容
   //（锱在第一幕期间随时可能首渲/重渲，压这一层才管得住那一刻新生的块）
-  const rule = /body\.kanso-ceremony (\.ws-pane\.mod-zi \.tiles \.tile,[^{]*)\{([^}]*)\}/.exec(html)
+  const rule = /body\.kuma-ceremony (\.ws-pane\.mod-zi \.tiles \.tile,[^{]*)\{([^}]*)\}/.exec(html)
   assert.ok(rule, '锱的磁贴外壳没被仪式态压住：第一幕点亮锱那一格时它会先露一遍')
   assert.match(rule[1], /\.ws-pane\.mod-zi \.side > \*/, '右栏各卡没被压住')
   const props = [...rule[2].matchAll(/([a-z-]+)\s*:/g)].map((hit) => hit[1])
@@ -1757,8 +1762,8 @@ const staggerStage = (over) => ({
   id: 'x',
   hides: '.x',
   mark: 'battle',
-  animation: 'kanso-battle-',
-  overlay: { className: 'kanso-battle-scan', animation: 'kanso-battle-veil' },
+  animation: 'kuma-battle-',
+  overlay: { className: 'kuma-battle-scan', animation: 'kuma-battle-veil' },
   timing: LAUNCH_BATTLE_TIMING,
   ...over,
 })
@@ -1776,20 +1781,20 @@ test('镝 · 战术屏：扫描线盖上去，左右两栏交错着相向合拢'
   const { dom, handle } = playStages([staggerStage({ pick: () => targets })])
   try {
     const scan = targets.host.children[0]
-    assert.equal(scan.className, 'kanso-battle-scan', '扫描线没盖上')
+    assert.equal(scan.className, 'kuma-battle-scan', '扫描线没盖上')
     assert.equal(scan.style.animationDuration, `${LAUNCH_BATTLE_TIMING.loading}ms`)
     assert.equal(scan.children.length, 1, '缺了那条扫描亮带')
     const plan = launchStaggerPlan(6, LAUNCH_BATTLE_TIMING)
     targets.items.forEach((el, index) => {
-      assert.equal(el.dataset.kansoIn, 'battle', `第 ${index} 块没进场`)
+      assert.equal(el.dataset.kumaIn, 'battle', `第 ${index} 块没进场`)
       assert.equal(el.style.animationDelay, `${plan.rows[index].delay}ms`)
       assert.equal(el.style.animationDuration, `${LAUNCH_BATTLE_TIMING.row}ms`)
     })
     assert.ok(!dom.body.classes.has(CEREMONY))
-    // 收场认的是**前缀**：一幕两条变体（左 kanso-battle-l / 右 kanso-battle-r）都收得住
-    targets.items[5].fire('animationend', 'kanso-battle-r')
+    // 收场认的是**前缀**：一幕两条变体（左 kuma-battle-l / 右 kuma-battle-r）都收得住
+    targets.items[5].fire('animationend', 'kuma-battle-r')
     assert.equal(targets.host.children.length, 0, '扫描线没摘掉')
-    assert.ok(targets.items.every((el) => el.dataset.kansoIn === undefined))
+    assert.ok(targets.items.every((el) => el.dataset.kumaIn === undefined))
   } finally {
     handle.cancel()
   }
@@ -1799,7 +1804,7 @@ test('镝 · 左栏那一条变体同样收得住（前缀匹配不是只认右�
   const targets = fakeRoster(3)
   const { handle } = playStages([staggerStage({ pick: () => targets })])
   try {
-    targets.items[2].fire('animationend', 'kanso-battle-l')
+    targets.items[2].fire('animationend', 'kuma-battle-l')
     assert.equal(targets.host.children.length, 0)
   } finally {
     handle.cancel()
@@ -1810,7 +1815,7 @@ test('镝 · 空态（待机/上次快照的空壳）只演扫描线，不硬造
   const targets = fakeRoster(0)
   const { dom } = playStages([staggerStage({ pick: () => targets })])
   assert.equal(targets.host.children.length, 1, '空态该只剩一条扫描线')
-  targets.host.children[0].fire('animationend', 'kanso-battle-veil')
+  targets.host.children[0].fire('animationend', 'kuma-battle-veil')
   assert.equal(targets.host.children.length, 0)
   endAct1(dom)
   assert.equal(dom.docListenerCount(), 0)
@@ -1823,7 +1828,7 @@ test('铎 · 作战公告不带罩：一个节点都不加，只逐块垂下', (
     id: 'brief',
     hides: '.y',
     mark: 'brief',
-    animation: 'kanso-brief-drop',
+    animation: 'kuma-brief-drop',
     timing: LAUNCH_BRIEF_TIMING,
     pick: () => targets,
   }
@@ -1833,7 +1838,7 @@ test('铎 · 作战公告不带罩：一个节点都不加，只逐块垂下', (
     const plan = launchStaggerPlan(5, LAUNCH_BRIEF_TIMING)
     assert.equal(plan.loading, 0)
     targets.items.forEach((el, index) => {
-      assert.equal(el.dataset.kansoIn, 'brief')
+      assert.equal(el.dataset.kumaIn, 'brief')
       assert.equal(el.style.animationDelay, `${plan.rows[index].delay}ms`)
     })
     assert.ok(!dom.body.classes.has(CEREMONY))
@@ -1849,7 +1854,7 @@ test('铎 · 不带罩又一块都没有 = 整幕跳过（活动期外它本来�
     id: 'brief',
     hides: '.y',
     mark: 'brief',
-    animation: 'kanso-brief-drop',
+    animation: 'kuma-brief-drop',
     timing: LAUNCH_BRIEF_TIMING,
     pick: () => targets,
   }
@@ -1868,11 +1873,11 @@ test('选择器失配的静默退化：带罩的只剩罩，不带罩的整幕�
   const noScan = fakeRoster(0)
   const { dom } = playStages([
     staggerStage({ pick: () => withScan }),
-    { kind: 'stagger', id: 'brief', hides: '.y', mark: 'brief', animation: 'kanso-brief-drop', timing: LAUNCH_BRIEF_TIMING, pick: () => noScan },
+    { kind: 'stagger', id: 'brief', hides: '.y', mark: 'brief', animation: 'kuma-brief-drop', timing: LAUNCH_BRIEF_TIMING, pick: () => noScan },
   ])
   assert.equal(withScan.host.children.length, 1, '带罩的幕该退化成「只剩罩」')
   assert.equal(noScan.host.children.length, 0, '不带罩的幕该整幕跳过')
-  withScan.host.children[0].fire('animationend', 'kanso-battle-veil')
+  withScan.host.children[0].fire('animationend', 'kuma-battle-veil')
   endAct1(dom)
   assert.equal(dom.body.classes.size, 0, '仪式没走完，内容会永远隐身')
   assert.equal(dom.docListenerCount(), 0)
@@ -1885,11 +1890,11 @@ test('并行各幕：全部收工才落幕，谁都不许拖垮别人', () => {
     rosterStage(() => a),
     staggerStage({ pick: () => b }),
   ])
-  a.items[3].fire('animationend', 'kanso-roster-row')
+  a.items[3].fire('animationend', 'kuma-roster-row')
   assert.equal(a.host.children.length, 0, '第一幕自己该收干净')
   assert.equal(b.host.children.length, 1, '被别人拖着一起收了')
   assert.equal(dom.docListenerCount(), 2, '还没落幕，跳过用的监听得留着')
-  b.items[2].fire('animationend', 'kanso-battle-l')
+  b.items[2].fire('animationend', 'kuma-battle-l')
   assert.equal(dom.docListenerCount(), 2, '游戏区还在淡入，不该落幕')
   endAct1(dom)
   assert.equal(dom.docListenerCount(), 0, '全收工了才该落幕')
@@ -1962,7 +1967,7 @@ test('骨架真的把 alignEnd 接到了排程上（注册表说要对齐，元�
       id: 'badge',
       hides: '.h',
       mark: 'badge',
-      animation: 'kanso-badge-lit',
+      animation: 'kuma-badge-lit',
       timing: LAUNCH_BADGE_TIMING,
       alignEnd: () => END,
       pick: () => targets,
@@ -1984,7 +1989,7 @@ test('骨架真的把 alignEnd 接到了排程上（注册表说要对齐，元�
         id: 'plain',
         hides: '.h',
         mark: 'badge',
-        animation: 'kanso-badge-lit',
+        animation: 'kuma-badge-lit',
         timing: LAUNCH_BADGE_TIMING,
         pick: () => plain,
       },
@@ -2001,8 +2006,8 @@ test('骨架真的把 alignEnd 接到了排程上（注册表说要对齐，元�
 
 test('顶栏角标：形态克制——顶栏只有一行高，位移必须很小', () => {
   const html = styleSheet()
-  const block = /@keyframes kanso-badge-lit\s*\{([\s\S]*?)\n    \}/.exec(html)
-  assert.ok(block, '没有 kanso-badge-lit')
+  const block = /@keyframes kuma-badge-lit\s*\{([\s\S]*?)\n    \}/.exec(html)
+  assert.ok(block, '没有 kuma-badge-lit')
   const shift = /translate3d\(0, (-?\d+)px, 0\)/.exec(block[1])
   assert.ok(shift, '角标的关键帧没写位移')
   assert.ok(Math.abs(Number(shift[1])) <= 3, `位移 ${shift[1]}px：顶栏只有一行高，会读成抖动`)
@@ -2011,9 +2016,9 @@ test('顶栏角标：形态克制——顶栏只有一行高，位移必须很�
 
 test('鉴/钦/镖三幕：不带罩，各自的标记与节拍都对得上', () => {
   const cases = [
-    ['tome', 'kanso-tome-lit', LAUNCH_TOME_TIMING, 9],
-    ['order', 'kanso-order-in', LAUNCH_ORDER_TIMING, 12],
-    ['dispatch', 'kanso-dispatch-tick', LAUNCH_DISPATCH_TIMING, 8],
+    ['tome', 'kuma-tome-lit', LAUNCH_TOME_TIMING, 9],
+    ['order', 'kuma-order-in', LAUNCH_ORDER_TIMING, 12],
+    ['dispatch', 'kuma-dispatch-tick', LAUNCH_DISPATCH_TIMING, 8],
   ]
   for (const [mark, animation, timing, count] of cases) {
     const targets = fakeRoster(count)
@@ -2024,7 +2029,7 @@ test('鉴/钦/镖三幕：不带罩，各自的标记与节拍都对得上', () 
       assert.equal(targets.host.children.length, 0, `${mark} 不带罩，不该往宿主里塞节点`)
       const plan = launchStaggerPlan(count, timing)
       targets.items.forEach((el, index) => {
-        assert.equal(el.dataset.kansoIn, mark, `${mark} 第 ${index} 个没进场`)
+        assert.equal(el.dataset.kumaIn, mark, `${mark} 第 ${index} 个没进场`)
         assert.equal(el.style.animationDelay, `${plan.rows[index].delay}ms`)
         assert.equal(el.style.animationDuration, `${timing.row}ms`)
       })
@@ -2033,7 +2038,7 @@ test('鉴/钦/镖三幕：不带罩，各自的标记与节拍都对得上', () 
       const delays = targets.items.map((el) => Number.parseInt(el.style.animationDelay, 10))
       for (let i = 1; i < delays.length; i++) assert.ok(delays[i] > delays[i - 1])
       targets.items[count - 1].fire('animationend', animation)
-      assert.ok(targets.items.every((el) => el.dataset.kansoIn === undefined), `${mark} 没清干净`)
+      assert.ok(targets.items.every((el) => el.dataset.kumaIn === undefined), `${mark} 没清干净`)
     } finally {
       handle.cancel()
     }
@@ -2048,7 +2053,7 @@ test('镖 · 右栏详情排在队尾：总表逐行点完，它才整块现身'
       id: 'dispatch',
       hides: '.h',
       mark: 'dispatch',
-      animation: 'kanso-dispatch-tick',
+      animation: 'kuma-dispatch-tick',
       timing: LAUNCH_DISPATCH_TIMING,
       pick: () => targets,
     },
@@ -2069,7 +2074,7 @@ test('鉴 · 空态（那一卷什么都没有）：整幕跳过，不拦着别�
       id: 'tome',
       hides: '.h',
       mark: 'tome',
-      animation: 'kanso-tome-lit',
+      animation: 'kuma-tome-lit',
       timing: LAUNCH_TOME_TIMING,
       pick: () => targets,
     },
@@ -2091,16 +2096,16 @@ test('鉴 · 大网格封顶：超出上限的不打标记，随所在区块整�
       id: 'tome',
       hides: '.h',
       mark: 'tome',
-      animation: 'kanso-tome-lit',
+      animation: 'kuma-tome-lit',
       timing: LAUNCH_TOME_TIMING,
       pick: () => ({ host, items: all.slice(0, LAUNCH_STAGE_ITEM_CAP) }),
     },
   ])
   try {
-    const marked = all.filter((el) => el.dataset.kansoIn === 'tome')
+    const marked = all.filter((el) => el.dataset.kumaIn === 'tome')
     assert.equal(marked.length, LAUNCH_STAGE_ITEM_CAP, '封顶没生效，几百格会各起一个合成层')
     assert.ok(
-      all.slice(LAUNCH_STAGE_ITEM_CAP).every((el) => el.dataset.kansoIn === undefined),
+      all.slice(LAUNCH_STAGE_ITEM_CAP).every((el) => el.dataset.kumaIn === undefined),
       '超出上限的还是被逐个铺了动画',
     )
     // 没打标记的那些不靠动画现身——摘掉仪式态它们就在了
@@ -2154,9 +2159,9 @@ test('减少动态效果：样式表那道双保险把点亮的每一处都摁�
   const rules = [...block.matchAll(/([^{}]+)\{([^}]*)\}/g)].map((hit) => [hit[1], hit[2]])
   const ruleFor = (selector) => rules.find((rule) => rule[0].includes(selector))
   for (const selector of [
-    'body.kanso-glow #element-rail',
-    'body.kanso-glow .dock-group',
-    '[data-kanso-in]',
+    'body.kuma-glow #element-rail',
+    'body.kuma-glow .dock-group',
+    '[data-kuma-in]',
   ]) {
     const rule = ruleFor(selector)
     assert.ok(rule, `${selector} 没有减少动态效果的兜底：它会一直停在暗态`)
@@ -2164,7 +2169,7 @@ test('减少动态效果：样式表那道双保险把点亮的每一处都摁�
     assert.match(rule[1], /opacity:\s*1\s*!important/, `${selector} 停了动画却还压着 opacity`)
   }
   // 游戏区那层黑罩反着来：终态是**透明**，照抄 opacity: 1 就是把游戏画面永久蒙黑
-  const veil = ruleFor('body.kanso-glow-run #game-glow')
+  const veil = ruleFor('body.kuma-glow-run #game-glow')
   assert.ok(veil, '游戏区那层黑罩没有兜底：减少动态效果时画面会一直黑着')
   assert.match(veil[1], /animation:\s*none\s*!important/)
   assert.match(veil[1], /opacity:\s*0\s*!important/, '把游戏画面永久蒙黑了')
@@ -2226,7 +2231,7 @@ test('注册表与样式表对账：每一幕都要有预隐规则、有关键�
     '对齐用的终点不是从资源数字那份 DOM 算出来的',
   )
 
-  const ceremonyRules = [...html.matchAll(/body\.kanso-ceremony[^{]*\{[^}]*\}/g)].join('\n')
+  const ceremonyRules = [...html.matchAll(/body\.kuma-ceremony[^{]*\{[^}]*\}/g)].join('\n')
   for (const selector of hides) {
     assert.ok(
       ceremonyRules.includes(selector),
@@ -2238,17 +2243,17 @@ test('注册表与样式表对账：每一幕都要有预隐规则、有关键�
   const keyframeNames = new Set()
   for (const mark of marks) {
     const rules = [...html.matchAll(
-      new RegExp(`\\[data-kanso-in='${mark}'\\][^{]*\\{([^}]*)\\}`, 'g'),
+      new RegExp(`\\[data-kuma-in='${mark}'\\][^{]*\\{([^}]*)\\}`, 'g'),
     )]
-    assert.ok(rules.length, `没有 [data-kanso-in='${mark}'] 的样式，这一幕打了标记也不会动`)
+    assert.ok(rules.length, `没有 [data-kuma-in='${mark}'] 的样式，这一幕打了标记也不会动`)
     for (const rule of rules) {
       const name = /animation-name:\s*([\w-]+)/.exec(rule[1])?.[1]
-      assert.ok(name, `[data-kanso-in='${mark}'] 那条没写 animation-name`)
+      assert.ok(name, `[data-kuma-in='${mark}'] 那条没写 animation-name`)
       keyframeNames.add(name)
     }
   }
   // 罩层用的那两条也一起查
-  for (const overlay of [...registry[1].matchAll(/animation: '(kanso-[\w-]+veil)'/g)]) {
+  for (const overlay of [...registry[1].matchAll(new RegExp(`animation: '(${ANIM_PREFIX}[\\w-]+veil)'`, 'g'))]) {
     keyframeNames.add(overlay[1])
   }
   assert.ok(keyframeNames.size >= 6, `只顺出了 ${keyframeNames.size} 条关键帧，对账不成立`)
@@ -2265,7 +2270,7 @@ test('注册表与样式表对账：每一幕都要有预隐规则、有关键�
     }
   }
   // 收场认的名字必须真的是某条关键帧的前缀，否则那一幕永远等不到「放完了」
-  for (const prefix of anims.filter((name) => name.startsWith('kanso-'))) {
+  for (const prefix of anims.filter((name) => name.startsWith(ANIM_PREFIX))) {
     assert.match(html, new RegExp(`@keyframes ${prefix}`), `没有以 ${prefix} 开头的关键帧`)
   }
   assert.ok(!/filter/.test(registry[1]))
@@ -2309,7 +2314,7 @@ test('看门狗兜底：animationend 一个都没来，第二幕也会自己收�
     assert.equal(targets.host.children.length, 1)
     t.mock.timers.tick(1) // 宽限到点（这一幕比游戏区那段淡入短，按长的那个算）
     assert.equal(targets.host.children.length, 0, '看门狗没把第二幕收掉')
-    assert.ok(targets.items.every((row) => row.dataset.kansoIn !== 'roster'))
+    assert.ok(targets.items.every((row) => row.dataset.kumaIn !== 'roster'))
     assert.equal(dom.docListenerCount(), 0)
   } finally {
     // 还原了才不会把后面的用例挂死（mock.timers 不还原＝测试没有输出地卡住）
@@ -2328,7 +2333,7 @@ test('看门狗兜底：animationend 一个都没来，第二幕也会自己收�
 // 撤掉是用户裁决；节点、类名、样式规则三处都对一遍，免得哪天顺手又摆回去。
 
 /** 屏幕上那一层（挂在 body 上，不挂进任何面板）。没挂上就是 null。 */
-const welcomeOf = (dom) => dom.body.children.find((child) => child.id === 'kanso-welcome') ?? null
+const welcomeOf = (dom) => dom.body.children.find((child) => child.id === 'kuma-welcome') ?? null
 
 /** 拆出屏幕上的东西：铭牌（含左右两段）、最底那行小字。 */
 const partsOf = (layer) => {
@@ -2489,22 +2494,22 @@ test('第零幕：屏幕上没有进度条——节点、类名、样式规则�
 
 test('第零幕：铭牌的字号档就是 13 / 24，两段分色', () => {
   const html = styleSheet()
-  assert.equal(cssDecl(html, '#kanso-welcome .kw-lead', 'font-size'), '13px')
-  assert.equal(cssDecl(html, '#kanso-welcome .kw-name', 'font-size'), '24px')
-  assert.equal(cssDecl(html, '#kanso-welcome .kw-lead', 'color'), 'var(--sub)')
-  assert.equal(cssDecl(html, '#kanso-welcome .kw-name', 'color'), 'var(--text)')
-  assert.equal(cssDecl(html, '#kanso-welcome .kw-lead', 'font-family'), 'var(--sans)')
-  assert.equal(cssDecl(html, '#kanso-welcome .kw-name', 'font-family'), 'var(--mono)')
+  assert.equal(cssDecl(html, '#kuma-welcome .kw-lead', 'font-size'), '13px')
+  assert.equal(cssDecl(html, '#kuma-welcome .kw-name', 'font-size'), '24px')
+  assert.equal(cssDecl(html, '#kuma-welcome .kw-lead', 'color'), 'var(--sub)')
+  assert.equal(cssDecl(html, '#kuma-welcome .kw-name', 'color'), 'var(--text)')
+  assert.equal(cssDecl(html, '#kuma-welcome .kw-lead', 'font-family'), 'var(--sans)')
+  assert.equal(cssDecl(html, '#kuma-welcome .kw-name', 'font-family'), 'var(--mono)')
   // 铭牌本体：一块框，不是一片空白
-  assert.equal(cssDecl(html, '#kanso-welcome .kw-box', 'background'), 'var(--bg1)')
-  assert.equal(cssDecl(html, '#kanso-welcome .kw-box', 'border'), '1px solid var(--line)')
+  assert.equal(cssDecl(html, '#kuma-welcome .kw-box', 'background'), 'var(--bg1)')
+  assert.equal(cssDecl(html, '#kuma-welcome .kw-box', 'border'), '1px solid var(--line)')
   // 提督名可长可短：一行装不下就省略号，不换行（换行会把铭牌撑成两层）
-  assert.equal(cssDecl(html, '#kanso-welcome .kw-box', 'white-space'), 'nowrap')
-  assert.equal(cssDecl(html, '#kanso-welcome .kw-box', 'text-overflow'), 'ellipsis')
+  assert.equal(cssDecl(html, '#kuma-welcome .kw-box', 'white-space'), 'nowrap')
+  assert.equal(cssDecl(html, '#kuma-welcome .kw-box', 'text-overflow'), 'ellipsis')
   // 最底那行小字维持原样：压暗一档、贴底 28px
-  assert.equal(cssDecl(html, '#kanso-welcome .kw-skip', 'font-size'), '10.5px')
-  assert.equal(cssDecl(html, '#kanso-welcome .kw-skip', 'color'), 'var(--dim)')
-  assert.equal(cssDecl(html, '#kanso-welcome .kw-skip', 'bottom'), '28px')
+  assert.equal(cssDecl(html, '#kuma-welcome .kw-skip', 'font-size'), '10.5px')
+  assert.equal(cssDecl(html, '#kuma-welcome .kw-skip', 'color'), 'var(--dim)')
+  assert.equal(cssDecl(html, '#kuma-welcome .kw-skip', 'bottom'), '28px')
 })
 
 test('第零幕：门没开就一直摆着，等多久都不自己落幕', (t) => {
@@ -2541,7 +2546,7 @@ test('第零幕：三件早早到齐也得把最短展示摆满，一秒都不�
     t.mock.timers.tick(1)
     assert.ok(layer.classes.has('kw-out'), '摆满了却不落幕')
     assert.equal(ignited, 0, '淡出还没完就点火了')
-    layer.fire('animationend', 'kanso-welcome-out')
+    layer.fire('animationend', 'kuma-welcome-out')
     assert.equal(welcomeOf(dom), null)
     assert.equal(ignited, 1)
   } finally {
@@ -2574,12 +2579,12 @@ test('第零幕：门开得比最短展示晚，就听门的——齐了才淡�
     assert.ok(layer.classes.has('kw-out'), '门开了却没落幕')
     assert.equal(layer.style.animationDuration, `${LAUNCH_WELCOME_TIMING.fade}ms`)
     assert.equal(ignited, 0, '淡出还没完就点火了：第一幕会在欢迎屏底下演')
-    assert.ok(!dom.body.classes.has('kanso-glow-run'))
+    assert.ok(!dom.body.classes.has('kuma-glow-run'))
 
-    layer.fire('animationend', 'kanso-welcome-out')
+    layer.fire('animationend', 'kuma-welcome-out')
     assert.equal(ignited, 1)
     assert.equal(welcomeOf(dom), null, '淡完了没把欢迎屏摘掉：它盖着整个窗口')
-    assert.ok(dom.body.classes.has('kanso-glow-run'), '第一幕没接上')
+    assert.ok(dom.body.classes.has('kuma-glow-run'), '第一幕没接上')
     // 收干净：表停了、接力不会被二次调起
     t.mock.timers.tick(LAUNCH_WELCOME_TIMING.cap * 2)
     assert.equal(ignited, 1, '落幕之后还有人来敲门')
@@ -2619,7 +2624,7 @@ test('第零幕：快照失败也算到齐——门照开，铭牌留在回退�
     t.mock.timers.tick(LAUNCH_WELCOME_TIMING.minShow)
     assert.equal(lead.textContent + name.textContent, '欢迎返港，提督')
     assert.ok(layer.classes.has('kw-out'), '一件抛异常就把玩家钉在了欢迎屏上')
-    layer.fire('animationend', 'kanso-welcome-out')
+    layer.fire('animationend', 'kuma-welcome-out')
     assert.equal(ignited, 1)
   } finally {
     t.mock.timers.reset()
@@ -2706,7 +2711,7 @@ test('第零幕：落幕比启动还早时，接力当场就调（第一幕不�
     const hello = armLaunchWelcome(true)
     allReady(hello)
     t.mock.timers.tick(LAUNCH_WELCOME_TIMING.minShow)
-    welcomeOf(dom).fire('animationend', 'kanso-welcome-out')
+    welcomeOf(dom).fire('animationend', 'kuma-welcome-out')
     let ignited = 0
     hello.done(() => { ignited += 1 }) // 装配比欢迎屏慢，这会儿才来注册
     assert.equal(ignited, 1, '落幕之后才注册的接力被吞了：第一幕永远等不到人')
@@ -2758,8 +2763,8 @@ test('两只看门狗的先后：第零幕封顶落幕时，第一幕还没被�
     hello.done(() => glow.run(ONLY_BOTTOM))
     t.mock.timers.tick(LAUNCH_WELCOME_TIMING.cap)
     assert.ok(dom.body.classes.has(CEREMONY), '第零幕还没落幕，仪式态就先被撤了')
-    welcomeOf(dom).fire('animationend', 'kanso-welcome-out')
-    assert.ok(dom.body.classes.has('kanso-glow-run'), '第零幕封顶落幕之后，第一幕点不着火了')
+    welcomeOf(dom).fire('animationend', 'kuma-welcome-out')
+    assert.ok(dom.body.classes.has('kuma-glow-run'), '第零幕封顶落幕之后，第一幕点不着火了')
     assert.equal(dom.gameArea.children.length, 1)
   } finally {
     t.mock.timers.reset()
@@ -2789,7 +2794,7 @@ test('第零幕对账：屏幕上用到的每一个类都在样式表里，关�
   }
   hello.cancel()
 
-  for (const name of ['kanso-welcome-in', 'kanso-welcome-out']) {
+  for (const name of ['kuma-welcome-in', 'kuma-welcome-out']) {
     const line = new RegExp(`@keyframes ${name} \\{.*`).exec(html)?.[0] ?? ''
     assert.ok(line, `样式表里没有 ${name}`)
     const props = [...line.matchAll(/([a-z-]+)\s*:/g)].map((hit) => hit[1])
@@ -2799,7 +2804,7 @@ test('第零幕对账：屏幕上用到的每一个类都在样式表里，关�
     }
   }
   // 淡出那个类是 JS 落幕时才加的，静止态的树上顺不到，单独对一次
-  assert.match(html, /#kanso-welcome\.kw-out/, '淡出那条规则不在样式表里')
+  assert.match(html, /#kuma-welcome\.kw-out/, '淡出那条规则不在样式表里')
 })
 
 test('第零幕接线对账：三件真事各有人报，且第一幕真的接在落幕之后', () => {

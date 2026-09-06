@@ -1,7 +1,7 @@
 // デッキビルダー（deck builder）v4 编成交换格式。
 //
 // 这是社区的事实标准：制空権シミュレータ、作戦室(Jervis)、各类模拟器都吃它。
-// 支持它就等于让艦素的编成不再是孤岛——「信息不孤岛」在编成侧最低成本的兑现。
+// 支持它就等于让kuma的编成不再是孤岛——「信息不孤岛」在编成侧最低成本的兑现。
 //
 // 规范出处：YSRKEN 的格式解说 gist
 // https://gist.github.com/YSRKEN/74219bd3f99624a38c8ecc0d32ddd257
@@ -11,7 +11,7 @@
 // 所以：**读要宽、写要定一种**。下面 numOf 对两种形态都收，导出统一写数字。
 //
 // 纪律：这个格式只用来「看」和「交换」。导入进来是拿去对照与核对的，
-// 艦素不会、也不能替你去游戏里编成。
+// kuma不会、也不能替你去游戏里编成。
 
 export interface DeckBuilderItem {
   mstId: number
@@ -123,7 +123,7 @@ export const deckBuilderJson = (deck: DeckBuilderDeck): string =>
 
 /**
  * 载入链接。**注意这串 URL 里带着你的编成数据**，
- * 所以只把它放进剪贴板，要不要贴出去由用户自己决定，艦素不会主动打开。
+ * 所以只把它放进剪贴板，要不要贴出去由用户自己决定，kuma不会主动打开。
  */
 export const deckBuilderUrl = (deck: DeckBuilderDeck): string =>
   `http://kancolle-calc.net/deckbuilder.html?predeck=${encodeURIComponent(deckBuilderJson(deck))}`

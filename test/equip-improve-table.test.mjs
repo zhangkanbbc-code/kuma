@@ -105,14 +105,14 @@ test('合成器幂等：重跑一遍产出同样的字节，不制造假的「�
   const before = fs.readFileSync(TABLE)
   // 产物改道到临时目录再比字节：node --test 多进程并行，另外两份测试正在读仓里那份，
   // 原地重写会让它们读到半截（2026-08-26 前四次「偶发红一条」全是这个）。
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-equip-improve-'))
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-equip-improve-'))
   const tmpOut = path.join(tmpDir, 'equip-improve.json')
   t.after(() => fs.rmSync(tmpDir, { recursive: true, force: true }))
   try {
     execFileSync(process.execPath, ['scripts/build-equip-improve.mjs'], {
       cwd: ROOT,
       stdio: 'pipe',
-      env: { ...process.env, KANSO_EQUIP_IMPROVE_OUT: tmpOut },
+      env: { ...process.env, KUMA_EQUIP_IMPROVE_OUT: tmpOut },
     })
   } catch (error) {
     assert.fail(`合成器跑不起来：${error.stderr?.toString() ?? error.message}`)
@@ -263,7 +263,7 @@ test('署名两处都到位：NOTICE 点得出文件，钥的资料页归得到�
   const credits = (await import('../dist/shared/lode-credits.js')).default
   const group = credits.LODE_CREDIT_SOURCES.find((one) => one.lodeIds.includes('equip-improve'))
   assert.ok(group, '钥的资料页里没有一组认领事实表')
-  assert.equal(group.key, 'kanso', '事实表被归到了别人名下——它是第一方整理')
+  assert.equal(group.key, 'kuma', '事实表被归到了别人名下——它是第一方整理')
 })
 
 test('NOTICE 的措辞红线：不出现「转载」「搬运」这类说法', () => {
@@ -275,9 +275,9 @@ test('NOTICE 的措辞红线：不出现「转载」「搬运」这类说法', (
 
 test('钥资料页那一组的措辞：说清置信怎么来的，不点名任何站点', async () => {
   const credits = (await import('../dist/shared/lode-credits.js')).default
-  const group = credits.LODE_CREDIT_SOURCES.find((one) => one.key === 'kanso')
+  const group = credits.LODE_CREDIT_SOURCES.find((one) => one.key === 'kuma')
   const text = `${group.provides}${group.detail}`
-  // 这一组是「艦素自行整理」，点名别人等于把署名散到这里来
+  // 这一组是「kuma自行整理」，点名别人等于把署名散到这里来
   for (const name of ['wikiwiki', 'kcwiki', '舰娘百科', 'KC3Kai', 'akashi']) {
     assert.ok(!text.includes(name), `第一方那一组的说明里出现了「${name}」`)
   }

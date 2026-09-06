@@ -1,6 +1,6 @@
 // Adapted from poi (https://github.com/poooi/poi) lib/kcs-resource.ts
-// MIT License, Copyright (c) poi contributors — 移植与改造：艦素 kanso 项目。
-// 锚：用特权 scheme（kanso-cache://）向游戏页面提供本地缓存/魔改资源。
+// MIT License, Copyright (c) poi contributors — 移植与改造：kuma 项目。
+// 锚：用特权 scheme（kuma-cache://）向游戏页面提供本地缓存/魔改资源。
 // secure + bypassCSP 使其可载入 https 游戏页；corsEnabled + ACAO 头保证游戏 canvas
 // 不被污染（截图可用）。script 只接受显式 .hack.* 覆盖——游戏脚本带版本号，
 // gadget 登录还有 script RPC，供上陈旧缓存会直接炸登录（原版血泪注释保留）。
@@ -30,7 +30,7 @@ const kcsResourcePath: {
 
 const { isStaticResource, getCacheCandidatePaths, getModRootPath } = kcsResourcePath
 
-const SCHEME = 'kanso-cache'
+const SCHEME = 'kuma-cache'
 let gameWebContentsId: number | null = null
 
 export const setKcsResourceGameWebContentsId = (id: number | null) => {
@@ -75,7 +75,7 @@ const HACKABLE_RESOURCE_TYPES = new Set(['stylesheet', 'media', 'font', 'script'
 // script 只接受显式 .hack.* 覆盖，绝不供纯缓存原文件（版本钉死 + 登录 RPC）
 const OVERRIDE_ONLY_RESOURCE_TYPES = new Set(['script'])
 
-const getCacheDir = (): string => config.get('kanso.cache.path', DEFAULT_CACHE_PATH)
+const getCacheDir = (): string => config.get('kuma.cache.path', DEFAULT_CACHE_PATH)
 
 /**
  * 魔改目录：`<缓存目录>\KanColle`。缓存路径在配置里改过就跟着走，**不写死默认值**。
@@ -94,7 +94,7 @@ export const ensureModDir = (): string => {
   try {
     mkdirSync(dir, { recursive: true })
   } catch (e) {
-    console.warn('[kanso] kcs-resource: 魔改目录建不出来', dir, e)
+    console.warn('[kuma] kcs-resource: 魔改目录建不出来', dir, e)
   }
   return dir
 }
@@ -201,7 +201,7 @@ export const primeArtArchiveFromCache = (
   artPrimeStarted = true
   const targets = artArchivePrimeTargets(learned, versionOf)
   if (!targets.length) return
-  console.log(`[kanso] 立绘档案：从浏览器缓存吸收 ${targets.length} 张候选（零网络，慢速）`)
+  console.log(`[kuma] 立绘档案：从浏览器缓存吸收 ${targets.length} 张候选（零网络，慢速）`)
   let index = 0
   const tick = () => {
     const contents = gameWebContents()
@@ -212,7 +212,7 @@ export const primeArtArchiveFromCache = (
       if (!artGate.shouldAsk(target, now)) continue
       for (const frame of [contents.mainFrame]) {
         try {
-          frame.send('kanso:art-archive-ask', target)
+          frame.send('kuma:art-archive-ask', target)
           sent++
         } catch (_e) {
           // 帧刚导航走/已销毁——这一张不吸收，不是错误
@@ -249,7 +249,7 @@ export const registerKcsResourceProtocol = () => {
   // 游戏对海图美术有**应用层**缓存,HTTP 层怎么改都探不到重开;陆航提示
   // 已改成全局常驻、不再依赖开图信号,这段就撤了,别留无用拦截。)
 
-  // 本地存在魔改/缓存文件时，把游戏静态资源请求重定向到 kanso-cache://
+  // 本地存在魔改/缓存文件时，把游戏静态资源请求重定向到 kuma-cache://
   ses.webRequest.onBeforeRequest(
     { urls: ['*://*/kcs/*', '*://*/kcs2/*', '*://*/gadget_html5/*'] },
     async (details, callback) => {
@@ -290,7 +290,7 @@ export const registerKcsResourceProtocol = () => {
               // 缓存键是完整 URL，丢了 query 就永远打不中（0 条实物的根因）。
               for (const frame of askableFrames(details)) {
                 try {
-                  frame.send('kanso:voice-archive-ask', details.url)
+                  frame.send('kuma:voice-archive-ask', details.url)
                 } catch (_e) {
                   // 帧刚导航走/已销毁——这一条不存，不是错误
                 }
@@ -319,7 +319,7 @@ export const registerKcsResourceProtocol = () => {
               // 传完整 URL（含 ?version=）：Chromium 的缓存键是完整 URL
               for (const frame of askableFrames(details)) {
                 try {
-                  frame.send('kanso:bgm-archive-ask', details.url)
+                  frame.send('kuma:bgm-archive-ask', details.url)
                 } catch (_e) {
                   // 帧刚导航走/已销毁——这一首不存，不是错误
                 }
@@ -329,7 +329,7 @@ export const registerKcsResourceProtocol = () => {
           // 「玩家打开了哪张海域」——kcsapi 里没有这个信息（选区、切区都不发请求，
           // 真正带图号的 api_req_map/start 时札已经打上了）。但打开海域必然要取
           // 那张图的美术，路径里就带着区号与图号。
-          // 只认游戏自己的请求：艦素的海域卷也会取同一批 JSON，那不算玩家打开了图。
+          // 只认游戏自己的请求：kuma的海域卷也会取同一批 JSON，那不算玩家打开了图。
           const opened = /^\/kcs2\/resources\/map\/(\d{3})\/(\d{2})[^/]*$/.exec(
             decodeURIComponent(pathname),
           )
@@ -342,7 +342,7 @@ export const registerKcsResourceProtocol = () => {
           }
           // 「这张图的真实路径长什么样」——新深海舰的立绘带一段推不出来的
           // 随机串（见 shared/ship-art-path.ts），只能这样记下来给图鉴用。
-          // 只认游戏自己的请求：艦素按老格式拼的那些 404 不该被记成事实。
+          // 只认游戏自己的请求：kuma按老格式拼的那些 404 不该被记成事实。
           const artPath = decodeURIComponent(pathname)
           if (rememberShipArtPath(artPath)) {
             const learned = parseShipArtPath(artPath)
@@ -366,7 +366,7 @@ export const registerKcsResourceProtocol = () => {
             if (wantArt && artGate.shouldAsk(artKeyOf(details.url), now)) {
               for (const frame of askableFrames(details)) {
                 try {
-                  frame.send('kanso:art-archive-ask', artKeyOf(details.url))
+                  frame.send('kuma:art-archive-ask', artKeyOf(details.url))
                 } catch (_e) {
                   // 帧刚导航走/已销毁——这一张不存，不是错误
                 }
@@ -415,7 +415,7 @@ export const registerKcsResourceProtocol = () => {
       }
       const resolved = path.resolve(filePath)
       if (!resolved.startsWith(path.resolve(cacheDir) + path.sep)) {
-        console.warn('[kanso] kcs-resource: refusing to serve path outside cache dir', resolved)
+        console.warn('[kuma] kcs-resource: refusing to serve path outside cache dir', resolved)
         return new Response(null, { status: 403 })
       }
       const fileResponse = await net.fetch(pathToFileURL(resolved).href)
@@ -431,7 +431,7 @@ export const registerKcsResourceProtocol = () => {
         headers,
       })
     } catch (e) {
-      console.warn('[kanso] kcs-resource: failed to serve', request.url, e)
+      console.warn('[kuma] kcs-resource: failed to serve', request.url, e)
       return new Response(null, { status: 500 })
     }
   })

@@ -8,7 +8,7 @@
 // kcwiki / wikiwiki / 明石的改修工坊之间确实会打架，所以歧义处要摆出各家的原话再裁。
 //
 // 可靠性阶梯（spec 的社区共识，从高到低）：
-//   装备后舰娘的最终面板（账本一手实测）
+//   装备后舰娘的最终面板（游戏报文一手实测）
 //     > 日文侧近期验证（wikiwiki / akashi，两者取更新日期近的）
 //     > kcwiki
 //     > EO（FitBonuses.json 自 2025-03-01 起停更）
@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url'
 import { parseAkashiFit } from './akashi-fit-parser.mjs'
 
 const root = path.join(fileURLToPath(import.meta.url), '..', '..')
-const cacheDir = path.join(os.tmpdir(), 'kanso-fit-bonus-votes')
+const cacheDir = path.join(os.tmpdir(), 'kuma-fit-bonus-votes')
 mkdirSync(cacheDir, { recursive: true })
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -43,7 +43,7 @@ const fetchWikiwiki = async (title) => {
     if (due > 0) await sleep(due)
     wikiLastAt = Date.now()
     const response = await fetch(`https://wikiwiki.jp/kancolle/${encodeURIComponent(title)}`, {
-      headers: { 'User-Agent': 'kanso-lodes' },
+      headers: { 'User-Agent': 'kuma-lodes' },
     })
     if (response.status === 429) {
       wikiPace = Math.min(180_000, wikiPace * 2)
@@ -71,7 +71,7 @@ const fetchAkashi = async (equipId) => {
   if (due > 0) await sleep(due)
   akashiLastAt = Date.now()
   const response = await fetch(`https://akashi-list.me/detail/w${equipId}.html`, {
-    headers: { 'User-Agent': 'kanso-lodes' },
+    headers: { 'User-Agent': 'kuma-lodes' },
   })
   if (!response.ok) {
     writeFileSync(cache, '')

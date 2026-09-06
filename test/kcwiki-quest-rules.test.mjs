@@ -10,7 +10,7 @@ import { buildSync } from 'esbuild'
 
 import { syntheticKcwikiRequirements } from './fixtures/quest-lodes.mjs'
 
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-kcwiki-quest-rules-'))
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-kcwiki-quest-rules-'))
 const output = path.join(tempDir, 'kcwiki-quest-rules.cjs')
 buildSync({
   entryPoints: [fileURLToPath(new URL('../src/main/mg/kcwiki-quest-rules.ts', import.meta.url))],
@@ -22,10 +22,24 @@ buildSync({
 })
 const require = createRequire(import.meta.url)
 const rules = require(output)
+const notesOutput = path.join(tempDir, 'quest-text-notes.cjs')
+buildSync({
+  entryPoints: [fileURLToPath(new URL('../src/main/mg/quest-text-notes.ts', import.meta.url))],
+  outfile: notesOutput,
+  bundle: true,
+  platform: 'node',
+  format: 'cjs',
+  logLevel: 'silent',
+})
+const { QUEST_TEXT_NOTES } = require(notesOutput)
 const requirementsUrl = new URL('../assets/lodes/kcwiki-quest-req.json', import.meta.url)
-const requirements = process.env.KANSO_TEST_FORCE_SYNTHETIC !== '1' && fs.existsSync(requirementsUrl)
+const requirements = process.env.KUMA_TEST_FORCE_SYNTHETIC !== '1' && fs.existsSync(requirementsUrl)
   ? JSON.parse(fs.readFileSync(requirementsUrl, 'utf8')).data
   : syntheticKcwikiRequirements
+const questsUrl = new URL('../assets/lodes/quests-scn.json', import.meta.url)
+const quests = fs.existsSync(questsUrl)
+  ? JSON.parse(fs.readFileSync(questsUrl, 'utf8')).data
+  : {}
 
 test.after(() => fs.rmSync(tempDir, { recursive: true, force: true }))
 
@@ -1064,4 +1078,186 @@ test('具名舰:素名整链、写明形态按字面,文本列举才补形态', 
   }
   rules.augmentShipGroupsFromQuestText(bare, context, '', new Map())
   assert.deepEqual(bare.fleetGoal.groups[0].ships, [102])
+})
+
+test('881 按第一方补录文本补入陽炎改二与不知火改二，其余门不变', {
+  skip: !requirements[881] || !quests[881],
+}, () => {
+  const ships = [
+    [17, '陽炎', 225],
+    [18, '不知火', 226],
+    [198, '霰改二', 0],
+    [464, '霞改二', 0],
+    [470, '霞改二乙', 0],
+    [225, '陽炎改', 566],
+    [226, '不知火改', 567],
+    [566, '陽炎改二', 0],
+    [567, '不知火改二', 0],
+  ].map(([api_id, api_name, api_aftershipid], index) => ({
+    api_id,
+    api_name,
+    api_aftershipid: `${api_aftershipid}`,
+    api_stype: 2,
+    api_soku: 10,
+    api_sortno: index + 1,
+  }))
+  const context = rules.buildKcwikiRuleContext({ api_mst_ship: ships, api_mst_shipupgrade: [] })
+  const decoded = rules.decodeKcwikiRequirement(requirements[881], context)
+  assert.ok(decoded?.fleetGoal)
+  assert.equal(decoded.fleetGoal.allowOnlyGoalShips, undefined)
+  assert.deepEqual(decoded.fleetGoal.groups.map((group) => group.ships), [
+    [198],
+    [464, 470],
+    [225],
+    [226],
+  ])
+
+  const quest = quests[881]
+  rules.augmentShipGroupsFromQuestText(
+    decoded,
+    context,
+    `${quest.desc ?? ''}｜${quest.memo2 ?? ''}｜${QUEST_TEXT_NOTES[881] ?? ''}`,
+    new Map([[566, '阳炎改二'], [567, '不知火改二']]),
+  )
+  assert.deepEqual(decoded.fleetGoal.groups.map((group) => group.ships), [
+    [198],
+    [464, 470],
+    [225, 566],
+    [226, 567],
+  ])
+  assert.equal(decoded.fleetGoal.allowOnlyGoalShips, undefined)
+})
+
+test('858 按第一方补录文本把三隈改二特补进三隈组', {
+  skip: !requirements[858] || !quests[858],
+}, () => {
+  const ships = [
+    [120, '三隈', 121],
+    [503, '鈴谷改二', 0],
+    [504, '熊野改二', 0],
+    [73, '最上改', 0],
+    [121, '三隈改', 506],
+    [506, '三隈改二', 507],
+    [507, '三隈改二特', 0],
+  ].map(([api_id, api_name, api_aftershipid], index) => ({
+    api_id,
+    api_name,
+    api_aftershipid: `${api_aftershipid}`,
+    api_stype: 6,
+    api_soku: 10,
+    api_sortno: index + 1,
+  }))
+  const context = rules.buildKcwikiRuleContext({ api_mst_ship: ships, api_mst_shipupgrade: [] })
+  const decoded = rules.decodeKcwikiRequirement(requirements[858], context)
+  assert.ok(decoded?.fleetGoal)
+  assert.deepEqual(decoded.fleetGoal.groups[3].ships, [121])
+
+  const quest = quests[858]
+  rules.augmentShipGroupsFromQuestText(
+    decoded,
+    context,
+    `${quest.desc ?? ''}｜${quest.memo2 ?? ''}｜${QUEST_TEXT_NOTES[858] ?? ''}`,
+    new Map([[507, '三隈改二特']]),
+  )
+  assert.deepEqual(decoded.fleetGoal.groups[3].ships, [121, 506, 507])
+})
+
+test('859 按第一方补录文本把伊势改二与日向改二补进一二号位两组', {
+  skip: !requirements[859] || !quests[859],
+}, () => {
+  const ships = [
+    [77, '伊勢', 82],
+    [87, '日向', 88],
+    [82, '伊勢改', 553],
+    [88, '日向改', 554],
+    [553, '伊勢改二', 0],
+    [554, '日向改二', 0],
+  ].map(([api_id, api_name, api_aftershipid], index) => ({
+    api_id,
+    api_name,
+    api_aftershipid: `${api_aftershipid}`,
+    api_stype: 10,
+    api_soku: 5,
+    api_sortno: index + 1,
+  }))
+  const context = rules.buildKcwikiRuleContext({ api_mst_ship: ships, api_mst_shipupgrade: [] })
+  const decoded = rules.decodeKcwikiRequirement(requirements[859], context)
+  assert.ok(decoded?.fleetGoal)
+  assert.deepEqual(decoded.fleetGoal.groups[0].ships, [82, 88])
+  assert.deepEqual(decoded.fleetGoal.groups[1].ships, [82, 88])
+
+  const quest = quests[859]
+  rules.augmentShipGroupsFromQuestText(
+    decoded,
+    context,
+    `${quest.desc ?? ''}｜${quest.memo2 ?? ''}｜${QUEST_TEXT_NOTES[859] ?? ''}`,
+    new Map([[553, '伊势改二'], [554, '日向改二']]),
+  )
+  assert.deepEqual(decoded.fleetGoal.groups[0].ships, [82, 88, 553, 554])
+  assert.deepEqual(decoded.fleetGoal.groups[1].ships, [82, 88, 553, 554])
+})
+
+test('879 的共享编成组补入伊势改二与日向改二，并供 and 两段任务共同使用', {
+  skip: !requirements[879] || !quests[879],
+}, () => {
+  const ships = [
+    [77, '伊勢', 82],
+    [87, '日向', 88],
+    [82, '伊勢改', 553],
+    [88, '日向改', 554],
+    [321, '大淀改', 0],
+    [553, '伊勢改二', 0],
+    [554, '日向改二', 0],
+  ].map(([api_id, api_name, api_aftershipid], index) => ({
+    api_id,
+    api_name,
+    api_aftershipid: `${api_aftershipid}`,
+    api_stype: api_id === 321 ? 3 : 10,
+    api_soku: api_id === 321 ? 10 : 5,
+    api_sortno: index + 1,
+  }))
+  const context = rules.buildKcwikiRuleContext({ api_mst_ship: ships, api_mst_shipupgrade: [] })
+  const decoded = rules.decodeKcwikiRequirement(requirements[879], context)
+  assert.ok(decoded?.fleetGoal)
+  assert.deepEqual(decoded.fleetGoal.groups[0].ships, [82])
+  assert.deepEqual(decoded.fleetGoal.groups[1].ships, [88])
+
+  const quest = quests[879]
+  rules.augmentShipGroupsFromQuestText(
+    decoded,
+    context,
+    `${quest.desc ?? ''}｜${quest.memo2 ?? ''}｜${QUEST_TEXT_NOTES[879] ?? ''}`,
+    new Map([[553, '伊势改二'], [554, '日向改二']]),
+  )
+  assert.deepEqual(decoded.fleetGoal.groups[0].ships, [82, 553])
+  assert.deepEqual(decoded.fleetGoal.groups[1].ships, [88, 554])
+  assert.ok(
+    decoded.tasks.every((task) => (task.fleetGoal ?? decoded.fleetGoal) === decoded.fleetGoal),
+    'and 两段展开出的每条任务都应使用补完后的共享编成组',
+  )
+})
+
+test('没有补录的任务保持原文本与写明形态', () => {
+  const context = rules.buildKcwikiRuleContext({
+    api_mst_ship: [
+      { api_id: 225, api_name: '陽炎改', api_aftershipid: '566', api_stype: 2, api_soku: 10, api_sortno: 1 },
+      { api_id: 566, api_name: '陽炎改二', api_aftershipid: '0', api_stype: 2, api_soku: 10, api_sortno: 2 },
+    ],
+    api_mst_shipupgrade: [],
+  })
+  const originalText = '包含阳炎改的舰队'
+  const questText = `${originalText}｜${QUEST_TEXT_NOTES[99999] ?? ''}`
+  assert.equal(questText, `${originalText}｜`)
+  const draft = {
+    fleetGoal: {
+      groups: [{ label: '陽炎改', ships: [225], stypes: [], amount: 1 }],
+    },
+  }
+  rules.augmentShipGroupsFromQuestText(
+    draft,
+    context,
+    questText,
+    new Map([[225, '阳炎改'], [566, '阳炎改二']]),
+  )
+  assert.deepEqual(draft.fleetGoal.groups[0].ships, [225])
 })

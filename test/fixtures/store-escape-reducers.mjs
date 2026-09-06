@@ -73,7 +73,7 @@ export { newSortie }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-escape-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-escape-'))
   const entry = path.join(dir, 'escape.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'escape.cjs')

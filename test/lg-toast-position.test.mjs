@@ -135,5 +135,5 @@ test('弹卡落点:四个角的偏移在 CSS 里都摆得出来', () => {
   assert.ok(base, '#lg-toasts 那条基础规则不见了')
   assert.doesNotMatch(base, /right:|bottom:|left:|top:/, '基础规则里还钉着某一条边')
   // 试听条只占右下角，抬高那一档不该跟去别的角
-  assert.match(html, /body\.kanso-preview-on #lg-toasts\[data-corner="br"\] \{ bottom: 54px; \}/)
+  assert.match(html, /body\.kuma-preview-on #lg-toasts\[data-corner="br"\] \{ bottom: 54px; \}/)
 })

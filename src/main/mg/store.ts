@@ -79,6 +79,7 @@ const state: MgState = {
     berthSince: {},
   },
   sortie: null,
+  lastSortieLevelUps: null,
   mapGauges: {},
   eventAreas: {},
   battleReconciliation: { checked: 0, mismatched: 0, records: [] },
@@ -188,7 +189,7 @@ export const hydrateDomain = (data: any) => {
   //
   // 陈旧性语义：完成时刻（mission[2] / completeTime）都是**绝对时间戳**，
   // 重启后倒计时天然算得对，连「已返港未收」也照实显示——游戏那头确实还没收。
-  // 但编成本身可能落后于真实（艦素关着时玩家在游戏里动过队），下一个权威报文
+  // 但编成本身可能落后于真实（kuma关着时玩家在游戏里动过队），下一个权威报文
   // （port / ship_deck / ship3 / deck）到达时整份覆盖，与既有哲学一致。
   //
   // 没有「重启复活旧状态」的风险：这三样都是纯数据，不像 sortie 那样带
@@ -226,7 +227,7 @@ export const domainSnapshot = () => ({
   payitems: state.player.payitems,
   mapGauges: state.mapGauges,
   eventAreas: state.eventAreas,
-  sortie: state.sortie,
+  sortie: state.sortie ? { ...state.sortie, levelUps: [] } : null,
   airBases: state.player.airBases,
   airBasesTs: state.player.airBasesTs,
   berthSince: state.player.berthSince,
@@ -736,6 +737,7 @@ const newSortie = (partial: Partial<SortieView>): SortieView => ({
   battle: null,
   battleCount: 0,
   drops: [],
+  levelUps: [],
   sunkShips: [],
   anchorageRepairs: [],
   escaped: [],
@@ -746,6 +748,18 @@ const newSortie = (partial: Partial<SortieView>): SortieView => ({
   updatedTs: 0,
   ...partial,
 })
+
+const beginSortie = (partial: Partial<SortieView>): SortieView => {
+  state.lastSortieLevelUps = null
+  return newSortie(partial)
+}
+
+const finishSortieLevelUps = (ts: number) => {
+  const entries = state.sortie?.levelUps ?? []
+  state.lastSortieLevelUps = entries.length
+    ? { entries: entries.map((entry) => ({ ...entry })), endedAt: ts }
+    : null
+}
 
 /**
  * `api_bosscomp`：游戏自报「这张图的 Boss 本期是否已击破」。
@@ -824,7 +838,7 @@ const runSortieHpAudit = (ts: number, announce: boolean): Section[] => {
   const path = `${battle.kind}${battle.hasNight ? '+night' : ''}`
   for (const m of mismatches) {
     console.warn(
-      `[kanso] 对账 hp: ${m.name} 我们 ${m.parsed} 游戏 ${m.authoritative}/${m.hpMax}` +
+      `[kuma] 对账 hp: ${m.name} 我们 ${m.parsed} 游戏 ${m.authoritative}/${m.hpMax}` +
         `${m.dangerous ? ' 漏报大破' : ''} @ ${at} ${path}`,
     )
   }
@@ -880,8 +894,8 @@ const collectSunkShips = (ts: number): boolean => {
 const onDayBattle = (apiPath: string) => (body: any, _post: Record<string, string>, ts: number): Section[] => {
   const battle = parseBattle(apiPath, body, fleetContext, ts)
   if (!state.sortie || !state.sortie.active) {
-    // 没有 map/start 的战斗（如中途启动 kanso）也能立一个最小会话
-    state.sortie = newSortie({ startTs: ts })
+    // 没有 map/start 的战斗（如中途启动 kuma）也能立一个最小会话
+    state.sortie = beginSortie({ startTs: ts })
   }
   state.sortie.battle = battle
   state.sortie.battleCount += 1
@@ -897,7 +911,7 @@ const onDayBattle = (apiPath: string) => (body: any, _post: Record<string, strin
 
 const onNightBattle = (apiPath: string) => (body: any, _post: Record<string, string>, ts: number): Section[] => {
   if (!state.sortie || !state.sortie.active) {
-    state.sortie = newSortie({ startTs: ts })
+    state.sortie = beginSortie({ startTs: ts })
   }
   const prev = state.sortie.battle
   // 只有「这一格刚打完的昼战」才配被夜战包并进去。三种不配：
@@ -980,6 +994,8 @@ const onBattleResult = (body: any, _post: Record<string, string>, ts: number): S
         if (typeof nextTotal === 'number') ship.expNextTotal = nextTotal
         const roster = ship.rosterId == null ? null : state.player.ships[ship.rosterId]
         if (roster && typeof row[0] === 'number') {
+          const from = roster.lv
+          const gainedLevels = Math.max(0, row.length - 2)
           roster.expTotal = row[0]
           roster.expNext =
             typeof nextTotal === 'number' && nextTotal >= row[0]
@@ -987,7 +1003,21 @@ const onBattleResult = (body: any, _post: Record<string, string>, ts: number): S
               : 0
           // api_get_exp_lvup 为 [结算后累计, 下一等级阈值]；
           // 每跨一级会在中间多插入一个阈值，故长度超出 2 的部分就是实际升级数。
-          roster.lv += Math.max(0, row.length - 2)
+          roster.lv += gainedLevels
+          if (gainedLevels > 0) {
+            const existing = sortie.levelUps.find((entry) => entry.rosterId === roster.id)
+            if (existing) {
+              existing.to = roster.lv
+              existing.at = ts
+            } else {
+              sortie.levelUps.push({
+                rosterId: roster.id,
+                from,
+                to: roster.lv,
+                at: ts,
+              })
+            }
+          }
           changedSections.add('ships')
         }
       }
@@ -1015,7 +1045,7 @@ const onBattleResult = (body: any, _post: Record<string, string>, ts: number): S
     reconciliation.records.length = Math.min(reconciliation.records.length, 100)
     const at = sortie.practice ? '演习' : `${sortie.mapArea}-${sortie.mapNo}`
     for (const item of discrepancies) {
-      console.warn(`[kanso] 对账 ${item.kind}: 我们 ${item.ours} 游戏 ${item.game} @ ${at}`)
+      console.warn(`[kuma] 对账 ${item.kind}: 我们 ${item.ours} 游戏 ${item.game} @ ${at}`)
     }
   }
   const node = sortie.nodes.find((n) => n.cell === sortie.currentCell)
@@ -1072,7 +1102,7 @@ const onBattleResult = (body: any, _post: Record<string, string>, ts: number): S
     )
   }
   // 结算点再收一次：昼夜两个报文各自解析时都收过，这里是幂等兜底
-  // （中途启动艦素、只赶上 battleresult 的那种场次靠它）。
+  // （中途启动kuma、只赶上 battleresult 的那种场次靠它）。
   collectSunkShips(ts)
   sortie.updatedTs = ts
   if (gaugeChanged) changedSections.add('mapGauges')
@@ -1095,7 +1125,7 @@ const onGobackPort = (_body: any, _post: Record<string, string>, ts: number): Se
   if (!sortie?.active || sortie.practice) return []
   const offer = sortie.battle?.result?.escapeOffer
   if (!offer) {
-    console.warn('[kanso] mg: goback_port 到了，但上一场战果里没有退避选项——这一次不记谁走了')
+    console.warn('[kuma] mg: goback_port 到了，但上一场战果里没有退避选项——这一次不记谁走了')
     return []
   }
   const combined = state.player.combinedFlag > 0 && sortie.deckId === 1
@@ -1457,7 +1487,7 @@ const reducers: Record<string, Reducer> = {
         prev.closed = false // 又出现了（同 id 复用极罕见，但不硬判死）
       } else {
         state.eventAreas[areaId] = { firstSeenTs: ts, lastSeenTs: ts, closed: false }
-        console.log(`[kanso] mg: 侦测到活动海域 ${areaId} 上线（首次观测 ${new Date(ts).toLocaleString()}）`)
+        console.log(`[kuma] mg: 侦测到活动海域 ${areaId} 上线（首次观测 ${new Date(ts).toLocaleString()}）`)
       }
       const period = state.eventAreas[areaId]
       const area = areas.find((candidate) => Number(candidate?.api_id) === areaId)
@@ -1476,7 +1506,7 @@ const reducers: Record<string, Reducer> = {
         // 两次登录之间发生的最后几天出击会被活动归档错误排除。
         period.lastSeenTs = ts
         ledger.closeEventMapCatalog(+idStr, ts)
-        console.log(`[kanso] mg: 活动海域 ${idStr} 已从主数据消失（判定活动结束）`)
+        console.log(`[kuma] mg: 活动海域 ${idStr} 已从主数据消失（判定活动结束）`)
         // 就地结账：events/material_log 是可清理的滚动表，活动约一个月，
         // 此刻数据还齐；等它们被清掉就再也算不回来了。归档表本身永久保留。
         ledger.archiveEvent(+idStr, period.firstSeenTs, period.lastSeenTs)
@@ -1592,6 +1622,7 @@ const reducers: Record<string, Reducer> = {
     sections.push(...runSortieHpAudit(ts, false))
     // 回港 = 出击/演习会话结束（保留最近一场供镝复盘，标记非现役）
     if (state.sortie?.active) {
+      if (!state.sortie.practice) finishSortieLevelUps(ts)
       state.sortie.active = false
       state.sortie.updatedTs = ts
       sections.push('sortie')
@@ -1895,7 +1926,7 @@ const reducers: Record<string, Reducer> = {
   // `api_get_member/ship3`，账本里 941/941 紧跟其后、且 200/200 请求的正是刚动过
   // 的那艘舰，间隔 ≤731ms——所以这个缺口平时只漏不到一秒，不是什么长期错账。
   // 补它是为了别把账面正确性挂在「客户端一定会补那一枪」上：那一枪掉了
-  // （断线、艦素中途启动、报文丢包）就再没有第二个人来纠。
+  // （断线、kuma中途启动、报文丢包）就再没有第二个人来纠。
 
   '/kcsapi/api_req_kaisou/slotset': (_body, post) => {
     const ship = state.player.ships[Number(post.api_id)]
@@ -2046,7 +2077,7 @@ const reducers: Record<string, Reducer> = {
   // 两次回港之间会一路偏高。所以先把被修舰当前的耐久记下来，覆盖之后再作差：
   // 回复耐久合计 ×3 = 钢材，另加緊急修理資材（useitem 91）一个。
   //
-  // 差值算不出来（账上还没有那艘舰：中途启动艦素）就**只扣资材、不扣钢材**——
+  // 差值算不出来（账上还没有那艘舰：中途启动kuma）就**只扣资材、不扣钢材**——
   // 资材是每次固定一个，那件事不需要知道回了多少；钢材需要，不知道就不猜。
   '/kcsapi/api_req_map/anchorage_repair': (body, _post, ts) => {
     if (!Array.isArray(body?.api_ship_data)) return []
@@ -2481,7 +2512,7 @@ const reducers: Record<string, Reducer> = {
 
   // 出击开始：postBody 有舰队号；body 有海域、首格、Boss 格
   '/kcsapi/api_req_map/start': (body, post, ts) => {
-    state.sortie = newSortie({
+    state.sortie = beginSortie({
       mapArea: body.api_maparea_id ?? 0,
       mapNo: body.api_mapinfo_no ?? 0,
       deckId: parseInt(post.api_deck_id, 10) || 1,
@@ -2825,7 +2856,7 @@ export const handle = (
   try {
     return reducer(body, postBody, ts)
   } catch (e) {
-    console.warn('[kanso] mg: reducer failed for', apiPath, e)
+    console.warn('[kuma] mg: reducer failed for', apiPath, e)
     return []
   }
 }

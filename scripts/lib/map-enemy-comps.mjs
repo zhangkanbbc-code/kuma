@@ -1,4 +1,4 @@
-// 常规海域敌编成的**第一方汇编**（用户 2026-08-22 拍板的多源汇编口径）。
+// 常规海域敌编成的**第一方汇编**（维护者 2026-08-22 拍板的多源汇编口径）。
 //
 // ---- 为什么是「汇编」而不是「换一个上游」----
 //
@@ -8,7 +8,7 @@
 //
 //   · 多源一致   ≥2 张独立票说过同一条
 //   · 单源待印证  只有一张票；**照收不丢**（5-6 不能因为只有一方收录就归零）
-//   · 冲突待裁    两票在同一条上互斥；进冲突台账等人裁，脚本不替用户拍板
+//   · 冲突待裁    两票在同一条上互斥；进冲突台账等人裁，脚本不替维护者拍板
 //
 // **票的独立性要逐域判，不能一刀切。** 本域的三张票是：
 //   ① kcwiki「深海配置」表——编辑者直接填 mstId（`(1501)` 就是号）
@@ -271,7 +271,7 @@ export const buildMapEnemyComps = ({
         if (!twin) stats.kcwikiOnly += 1
       }
 
-      // 现包独有的那些**照收不丢**（用户裁定：单源条目也是事实，5-6 不归零）。
+      // 现包独有的那些**照收不丢**（维护者裁定：单源条目也是事实，5-6 不归零）。
       // 它们写进包的只有 mstId 数组 + 阵形 + 经验——纯事实三元组，
       // 不含 wikiwiki 的标注文本（那些名字定号后就没进过这里）。
       for (const [key, pool] of legacyPool) {
@@ -308,7 +308,7 @@ export const buildMapEnemyComps = ({
       continue
     }
     maps[code] = {
-      source: 'kuma 汇编（舰娘百科「深海配置」× kuma 定号流水线 × 本机遭遇志）',
+      source: 'kuma 汇编（舰娘百科「深海配置」× kuma 定号流水线 × 游戏报文核对（维护者核 2026-09-06））',
       sourceUrl: `https://zh.kcwiki.cn/wiki/${encodeURI(page.title ?? code)}`,
       checkedAt,
       revision: checkedAt.replaceAll('-', '.'),
@@ -325,7 +325,7 @@ export const buildMapEnemyComps = ({
       voters: {
         kcwiki: '舰娘百科各海域页「深海配置」表——编辑者直接填 mstId',
         wikiwiki: '艦これ攻略 Wiki 敵編成表的标注名，经 kuma 定号流水线定成 mstId',
-        ledger: '本机遭遇志 encounters.comp——第一方一手实测',
+        ledger: '游戏报文核对（维护者核 2026-09-06） encounters.comp——第一方一手实测',
       },
       maps,
     },

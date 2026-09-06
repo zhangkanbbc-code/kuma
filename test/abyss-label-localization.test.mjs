@@ -230,7 +230,7 @@ const readSrc = (rel) => fs.readFileSync(srcFile(rel), 'utf8')
 const read = (file) => fs.readFileSync(file, 'utf8')
 
 const localization = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-l10n-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-l10n-'))
   const files = {
     'renderer/localization.ts': readSrc('renderer/localization.ts'),
     'renderer/kcwiki-zh.ts': readSrc('renderer/kcwiki-zh.ts'),

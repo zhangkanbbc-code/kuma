@@ -117,7 +117,9 @@ test('wikiwiki-routing 没有被顺手退役：它有 kcwiki 顶不上的两个�
   // 2026-08-23 核过一轮「该不该退役」：**不该**。逐条量过——
   // ① 路线页的日文一手分歧表（并列三证据里的一证）；
   // ② 镝的「能动分歧（玩家手选去向）」判据：`能動分岐` 标记 20 条 / 6 张图，
-  //    而 kcwiki-routing 全包 0 处。撤了它，2026-08-12 用户报的那个误标会复发。
+  //    而 kcwiki-routing 全包 0 处。撤了它，路线页会少一证；能动分歧点位已内置
+  //    （2026-08-12 用户报的「把能动分歧写成罗盘分歧」由 `active-branch-spots` 兜底），
+  //    只有矿脉新增的点位收不到。
   assert.ok(CONSUMED_LODE_IDS.includes('wikiwiki-routing'), 'wikiwiki-routing 被移出消费清单了')
   const di = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
   assert.match(di, /queryLode\('wikiwiki-routing'\)/)
@@ -152,7 +154,8 @@ test('台词域那两个 wikiwiki 包还在干活，别按「已降为维护者�
     assert.ok(CONSUMED_LODE_IDS.includes(id), `${id} 被移出消费清单了`)
     assert.match(ji, new RegExp(`queryLode\\('${id}'\\)`), `${id} 的运行时读取不见了`)
   }
-  // 合流层确实还在用它们兜底（第③层：本形态与自译层都没占到的格）
+  // 合流层确实还在用它们兜底（本形态没有行时，共享查表会继续找同名形态）
   assert.match(ji, /wikiwikiVoiceLode\?\.data\?\.\[`\$\{id\}`\]/)
-  assert.match(ji, /wikiwikiAbyssVoiceLode\?\.data\?\.\[`\$\{id\}`\]/)
+  assert.match(ji, /const wikiwikiAbyss = abyssVoiceRowsForMst/)
+  assert.match(ji, /wikiwikiAbyssVoiceLode\?\.data,\s*abyssSameNameForms,\s*id,/)
 })

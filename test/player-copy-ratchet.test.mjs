@@ -519,6 +519,18 @@ const STRUCTURAL_ALLOWLIST = [
   {
     rule: '②',
     file: 'src/renderer/modules/ji.ts',
+    phrase: '<div class="ak-empty">待补</div>',
+    why: '用户 2026-09-06 明石逐星施工单明确要求缺格与空段显示待补；仅豁免该占位节点',
+  },
+  {
+    rule: '②',
+    file: 'src/renderer/modules/ji.ts',
+    phrase: '<p class="ak-empty">待补</p>',
+    why: '用户 2026-09-06 明石逐星施工单明确要求图鉴说明缺失显示待补；仅豁免该占位节点',
+  },
+  {
+    rule: '②',
+    file: 'src/renderer/modules/ji.ts',
     phrase: '仅有拆解、素材消耗或击沉记录',
     why: 'mem-empty 在这里承载的是“仍有离库记录”的摘要，不是空集合或等待态',
   },
@@ -531,7 +543,7 @@ const STRUCTURAL_ALLOWLIST = [
   {
     rule: '③',
     file: 'src/renderer/modules/mgstate.ts',
-    phrase: 'KANSO_DEBUG_UI',
+    phrase: 'KUMA_DEBUG_UI',
     why: '两条均为审计 C 级调试模拟说明，本单明确要求 C 不动',
   },
 ]

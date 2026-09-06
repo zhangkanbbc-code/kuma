@@ -110,7 +110,7 @@ export { newSortie }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-anchorage-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-anchorage-'))
   const entry = path.join(dir, 'anchorage.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'anchorage.cjs')

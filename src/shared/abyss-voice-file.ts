@@ -20,7 +20,7 @@
 //       **首位是場合号**（1 開幕前 / 2 砲撃 / 3 被弾 / 4 撃沈 / 5 未知），个位分不出名堂——
 //       两者的实测依据、以及「为什么随包那两个 slot/suffix 字段不算证据」，
 //       见下半篇「行号 → 场合名」那一段。
-//       上界 5 是**本机实测顶出来的**：随包那 309 条只到 4，而本机未匹配台账里
+//       游戏音轨核对（2026-08-23）：随包 309 条行号最高为 4；补充资源中
 //       軽巡ム級（2317）的三条是 `611231720 / …730 / …750`——同一前缀、同一形态号，
 //       行号 50 确实存在。把上界卡在 4 会让那一条永远解不出归属。
 //
@@ -30,8 +30,7 @@
 //   · 309 条**全部**只解出唯一一个合法深海 mstId（0 条多解、0 条无解）；
 //   · 与那 234 条独立锚点逐条对照，**0 条冲突**；
 //   · 剩下 75 条是名字这条路认不出来的（译名对不上、同名多形态），结构规则照样解得出。
-// 另拿本机未匹配台账里的 25 条 kc9998 复核过一遍（那些是玩家真在战斗里听到、
-// 而文本源一条都没认领的），25 条全部解出归属，且同一形态的几条互相印证。
+// 游戏音轨档名核对（维护者核 2026-08-23）：补充音轨均可唯一解号。
 // 行号那两条约束是要害：放宽成「任意 1~2 位数字」会让 14 条出现两解
 //（`28205971` 既能读成 2059 也能读成 1597）。别照直觉放宽，先重跑这次对账。
 //
@@ -217,3 +216,43 @@ export const abyssArchiveKeysFor = (
   mstId: number,
   shown: ReadonlySet<string>,
 ): string[] => (grouped.get(mstId) ?? []).filter((file) => !shown.has(file))
+
+/** 深海主数据按 api_name 归并出的同名形态族；族内始终按 mstId 升序。 */
+export const buildAbyssVoiceSameNameForms = (
+  entries: Iterable<{ id: number; name: string }>,
+): Map<number, number[]> => {
+  const groups = new Map<string, number[]>()
+  for (const entry of entries) {
+    if (!Number.isInteger(entry.id) || entry.id < 1_500 || !entry.name) continue
+    groups.set(entry.name, [...(groups.get(entry.name) ?? []), entry.id])
+  }
+  const out = new Map<number, number[]>()
+  for (const ids of groups.values()) {
+    ids.sort((left, right) => left - right)
+    for (const id of ids) out.set(id, ids)
+  }
+  return out
+}
+
+/**
+ * 深海台词按「本形态优先，其次同名形态从小到大」取一桶。
+ *
+ * wikiwiki 按角色建页，同一角色的难度形态不一定各挂一份行；图鉴与实时字幕共用
+ * 这一道查表，避免一边借到同名族、另一边仍显示空白。
+ */
+export const abyssVoiceRowsForMst = <Row extends { suffix?: number }>(
+  table: Record<string, readonly Row[] | undefined> | null | undefined,
+  sameNameForms: ReadonlyMap<number, readonly number[]>,
+  mstId: number,
+  suffix?: number,
+): { mstId: number; rows: Row[] } | null => {
+  const family = sameNameForms.get(mstId) ?? [mstId]
+  const candidates = [mstId, ...family.filter((id) => id !== mstId)]
+  for (const candidateId of candidates) {
+    const rows = [...(table?.[`${candidateId}`] ?? [])].filter(
+      (row) => suffix === undefined || row.suffix === suffix,
+    )
+    if (rows.length) return { mstId: candidateId, rows }
+  }
+  return null
+}

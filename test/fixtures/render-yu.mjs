@@ -69,7 +69,7 @@ const STUBS = {
 }
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-yu-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-yu-'))
   fs.cpSync(path.join(ROOT, 'src'), path.join(dir, 'src'), { recursive: true })
   for (const [rel, source] of Object.entries(STUBS)) {
     fs.writeFileSync(path.join(dir, 'src', ...rel.split('/')), source)
@@ -137,13 +137,13 @@ export const mountYu = ({
   ui = {},
   config = {},
   lodes = null,
-  appdataPath = 'C:\\kanso',
+  appdataPath = 'C:\\kuma',
   debugUi = false,
 } = {}) => {
-  // 门与铭/锚同一道：`process.env.KANSO_DEBUG_UI === '1'`，在模块顶层求值。
+  // 门与铭/锚同一道：`process.env.KUMA_DEBUG_UI === '1'`，在模块顶层求值。
   // 每次 mountYu 都重新跑一遍 bundle，所以这里改了环境变量当场生效。
-  if (debugUi) process.env.KANSO_DEBUG_UI = '1'
-  else delete process.env.KANSO_DEBUG_UI
+  if (debugUi) process.env.KUMA_DEBUG_UI = '1'
+  else process.env.KUMA_DEBUG_UI = ''
   globalThis.__uiStore = ui
   globalThis.__uiWrites = []
   globalThis.__overlayEntrance = []

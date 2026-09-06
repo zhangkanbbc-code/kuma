@@ -52,7 +52,12 @@ type SortieEscapedShip = any
 type Deck = any
 type PlayerShip = any
 
-export const mg: any = { sortie: null, master: { ships: {} }, ndocks: [] }
+export const mg: any = {
+  sortie: null,
+  lastSortieLevelUps: null,
+  master: { ships: {} },
+  ndocks: [],
+}
 
 const ENT: any = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
 const esc = (v: unknown): string => String(v ?? '').replace(/[&<>"']/g, (c: string) => ENT[c])
@@ -95,7 +100,7 @@ export { shipRow, seenEscaped }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-ru-row-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-ru-row-'))
   const entry = path.join(dir, 'row.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'row.cjs')
@@ -112,14 +117,17 @@ const bundle = (() => {
 
 const loaded = createRequire(import.meta.url)(bundle)
 
+const completeSortie = (sortie) => sortie ? { levelUps: [], ...sortie } : null
+
 /**
  * 摆一局：出击切片 + 主数据舰名。
  *
  * 顺手把「上一帧见过谁退避」清空——那是一次性动画的记忆，逐例都要从零开始，
  * 否则第二个用例会因为第一个用例已经播过而拿不到 .leaving。
  */
-export const reset = ({ sortie = null, names = {}, sunk = [] } = {}) => {
-  loaded.mg.sortie = sortie
+export const reset = ({ sortie = null, lastSortieLevelUps = null, names = {}, sunk = [] } = {}) => {
+  loaded.mg.sortie = completeSortie(sortie)
+  loaded.mg.lastSortieLevelUps = lastSortieLevelUps
   loaded.mg.master.ships = {}
   for (const [mstId, name] of Object.entries(names)) loaded.mg.master.ships[+mstId] = { name }
   loaded.setSunkShipIds(sunk)
@@ -133,7 +141,7 @@ export const reset = ({ sortie = null, names = {}, sunk = [] } = {}) => {
  * 而不是靠谁记得去清它。
  */
 export const setSortie = (sortie) => {
-  loaded.mg.sortie = sortie
+  loaded.mg.sortie = completeSortie(sortie)
 }
 
 const DECK = { id: 1, name: '第一舰队', ships: [] }

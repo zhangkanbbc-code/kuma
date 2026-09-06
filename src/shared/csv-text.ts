@@ -18,7 +18,7 @@ export const csvCell = (value: string | number): string => {
 export const csvText = (rows: (string | number)[][]): string =>
   '﻿' + rows.map((row) => row.map(csvCell).join(',')).join('\r\n')
 
-/** 默认文件名的日期戳（本地日期）：kanso-ships-20260820.csv 这样。 */
+/** 默认文件名的日期戳（本地日期）：kuma-ships-20260820.csv 这样。 */
 export const stampedFileName = (
   prefix: string,
   extension: string,

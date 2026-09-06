@@ -94,6 +94,48 @@ test('上游日文原文变化时跳过并告警', () => {
   ])
 })
 
+test('上游 ja 为空且 zh 误填日文时叠上译文，已有 ja 的中文行不受影响', () => {
+  const result = applyVoiceOverlay(
+    {
+      993: [
+        {
+          key: '593-DockMedDmg',
+          scene: '中破入渠',
+          ja: '',
+          zh: 'やっべ、こりゃーダメだ。休むぜ～いいだろ？',
+        },
+        {
+          key: '593-Sec1',
+          scene: '秘书舰1',
+          ja: '日文原文',
+          zh: '正常译文里保留アカシ这个专名',
+        },
+      ],
+    },
+    {
+      entries: {
+        '593-DockMedDmg': {
+          pack: 'kcwiki-voice',
+          ja: 'やっべ、こりゃーダメだ。休むぜ～いいだろ？',
+          zh: '糟了，这下真不行了。让我歇会儿～可以吧？',
+        },
+        '593-Sec1': {
+          pack: 'kcwiki-voice',
+          ja: '日文原文',
+          zh: '不该覆盖',
+        },
+      },
+    },
+    'kcwiki-voice',
+  )
+
+  assert.equal(result.data[993][0].zh, '糟了，这下真不行了。让我歇会儿～可以吧？')
+  assert.equal(result.data[993][1].zh, '正常译文里保留アカシ这个专名')
+  assert.deepEqual(result.appliedKeys, ['593-DockMedDmg'])
+  assert.deepEqual(result.retiredKeys, ['593-Sec1'])
+  assert.deepEqual(result.warnings, [])
+})
+
 test('日文索引同时收 keyed 条目与 byJa 条目', () => {
   const index = voiceOverlayJaIndex({
     entries: {
@@ -120,22 +162,22 @@ test('图鉴常规行、图鉴季节行与实时字幕共用译文 overlay', () 
     'utf8',
   )
 
-  assert.match(catalog, /queryLode\('kanso-voice-zh'\)/)
+  assert.match(catalog, /queryLode\('kuma-voice-zh'\)/)
   assert.match(catalog, /applyVoiceOverlay\([\s\S]*?'kcwiki-voice'/)
   assert.match(catalog, /applyVoiceOverlay\([\s\S]*?'kcwiki-seasonal-voice'/)
   assert.match(
     catalog,
-    /lodeCreditMark\(kansoVoiceZhLode\.meta, '中文译文来源：kuma 自译'\)/,
+    /lodeCreditMark\(kumaVoiceZhLode\.meta, '中文译文来源：kuma 自译'\)/,
   )
-  assert.match(subtitle, /queryLode\('kanso-voice-zh'\)/)
+  assert.match(subtitle, /queryLode\('kuma-voice-zh'\)/)
   assert.match(subtitle, /const overlayZh = isUntranslatedVoiceText\(zhLine\)/)
   assert.equal(
-    [...catalog.matchAll(/if \(!voiceZhByJa\.has\(key\)\) voiceZhByJa\.set\(key, value\)/g)]
+    [...catalog.matchAll(/voiceZhByJa = buildVoiceZhByJa\(/g)]
       .length,
     1,
   )
   assert.equal(
-    [...subtitle.matchAll(/if \(!voiceZhByJa\.has\(key\)\) voiceZhByJa\.set\(key, value\)/g)]
+    [...subtitle.matchAll(/voiceZhByJa = buildVoiceZhByJa\(/g)]
       .length,
     1,
   )

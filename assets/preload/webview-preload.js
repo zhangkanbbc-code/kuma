@@ -1,9 +1,9 @@
 // Adapted from poi (https://github.com/poooi/poi) assets/js/webview-preload.js
-// MIT License, Copyright (c) poi contributors — 移植与改造：艦素 kanso 项目。
+// MIT License, Copyright (c) poi contributors — 移植与改造：kuma 项目。
 // 游戏 webview 的 preload。contextIsolation: true——本文件跑在隔离世界
 // （保有 Node / @electron/remote 权限），页面侧 hack 经
 // contextBridge.executeInMainWorld 推进页面主世界。两个世界之间靠下面
-// 暴露的 kansoPreloadBridge 通信。
+// 暴露的 kumaPreloadBridge 通信。
 const remote = require('@electron/remote')
 const { contextBridge, ipcRenderer } = require('electron')
 
@@ -35,7 +35,7 @@ const isAllowedMethod = (method) =>
 // 同时覆盖 /kcsapi/* 与游戏启动标记 /kcs2/js/main.js
 const isGamePath = (pathname) => typeof pathname === 'string' && pathname.startsWith('/kcs')
 
-// 艦素这边在试听（BGM ♪ 或语音）时把游戏声音压到 0，试听一停就恢复。
+// kuma这边在试听（BGM ♪ 或语音）时把游戏声音压到 0，试听一停就恢复。
 // 纯内存态：主进程也不落盘，重启天然就是「不压」。
 const previewDuckFactor = installPreviewDuck(ipcRenderer)
 
@@ -44,18 +44,18 @@ const previewDuckFactor = installPreviewDuck(ipcRenderer)
 // 抓包三连改走异步 IPC（同一 channel 保序）。以前经 @electron/remote 同步调主进程：
 // 游戏的 XHR loadend 要等整条记账链跑完，回港大包一到游戏就卡一下。
 // 主进程侧（game-api-broadcaster 的 ipcMain 接线）还有第二道同样的校验。
-contextBridge.exposeInMainWorld('kansoPreloadBridge', {
+contextBridge.exposeInMainWorld('kumaPreloadBridge', {
   sendRequest: (method, pathname, responseURL, request) => {
     if (!isAllowedMethod(method) || !isGamePath(pathname) || typeof responseURL !== 'string') {
       return
     }
-    ipcRenderer.send('kanso:game-api', 'request', { method, pathname, responseURL, request })
+    ipcRenderer.send('kuma:game-api', 'request', { method, pathname, responseURL, request })
   },
   sendResponse: (method, pathname, responseURL, request, response, responseType, status) => {
     if (!isAllowedMethod(method) || !isGamePath(pathname) || typeof responseURL !== 'string') {
       return
     }
-    ipcRenderer.send('kanso:game-api', 'response', {
+    ipcRenderer.send('kuma:game-api', 'response', {
       method,
       pathname,
       responseURL,
@@ -69,10 +69,10 @@ contextBridge.exposeInMainWorld('kansoPreloadBridge', {
     if (typeof responseURL !== 'string') {
       return
     }
-    ipcRenderer.send('kanso:game-api', 'error', { pathname, responseURL, status })
+    ipcRenderer.send('kuma:game-api', 'error', { pathname, responseURL, status })
   },
   resolveHackedResource: createResourceResolver(remote),
-  isNetworkAlertDisabled: () => config.get('kanso.disablenetworkalert', false),
+  isNetworkAlertDisabled: () => config.get('kuma.disablenetworkalert', false),
   getHomepageHost: () => {
     // normalizeGameUrl 已经把「配置里那条认不出」归到默认上，所以这里拿到的
     // 一定是渲染层真正加载的那一条——玩家把网址写坏时，主世界那道
@@ -84,10 +84,10 @@ contextBridge.exposeInMainWorld('kansoPreloadBridge', {
     }
   },
   getGameAudioSettings: () => {
-    const rawVolume = Number(config.get('kanso.gameAudio.volume', 1))
-    const rawVoiceVolume = Number(config.get('kanso.gameAudio.voiceVolume', 1))
-    const rawBgmVolume = Number(config.get('kanso.gameAudio.bgmVolume', 1))
-    const mode = config.get('kanso.gameAudio.mode', 'all')
+    const rawVolume = Number(config.get('kuma.gameAudio.volume', 1))
+    const rawVoiceVolume = Number(config.get('kuma.gameAudio.voiceVolume', 1))
+    const rawBgmVolume = Number(config.get('kuma.gameAudio.bgmVolume', 1))
+    const mode = config.get('kuma.gameAudio.mode', 'all')
     return {
       // 总音量额外乘一枚试听系数：试听在响时是 0，其余时候是 1。
       // 乘在这里而不是改钥里的值——它一秒后就要恢复，绝不该落盘。
@@ -118,7 +118,7 @@ const installInMainWorld = (name, func, args = []) => {
   try {
     contextBridge.executeInMainWorld({ func, args })
   } catch (e) {
-    console.error(`[kanso] failed to install ${name} in the game page's main world`, e)
+    console.error(`[kuma] failed to install ${name} in the game page's main world`, e)
   }
 }
 

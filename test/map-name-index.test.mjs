@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 
 import { buildSync } from 'esbuild'
 
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-map-name-index-'))
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-map-name-index-'))
 const require = createRequire(import.meta.url)
 
 const bundle = (source, name) => {

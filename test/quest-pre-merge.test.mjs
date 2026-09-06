@@ -32,7 +32,7 @@ test('补缺：kcwiki 没写前置而 wikiwiki 有明确前置的才补', () => 
 })
 
 test('修悬空：kcwiki 指向库外码时，wikiwiki 给得出现行链就换用', () => {
-  // F48 实锤形状：scn 写 C2+F44（C2 是改号前的旧码），ww 给 F4+F44
+  // F48 仲裁前的输入形状：C2 不在 KNOWN 中；此处只测无仲裁时的悬空修补，不推断改号关系
   const fixed = mergeQuestPre(['C2', 'F44'], ww({ pre: ['F4', 'F44'] }), KNOWN)
   assert.deepEqual(fixed.pre, ['F4', 'F44'])
   assert.equal(fixed.source, 'merged')
@@ -83,8 +83,59 @@ test('三源仲裁优先于一切合并规则，限时码保留给判定端退�
   assert.equal(plain.source, 'merged')
 })
 
+test('B211 现行仲裁仅 F132：玩家无 wikiwiki 与开发机检证中口径均剔除 2507C1', () => {
+  const arbitration = QUEST_PRE_ARBITRATION.get('B211')
+  assert.equal(arbitration.date, '2026-09-06')
+  assert.ok(arbitration.evidence.includes('totoneko.net 2025-07-26'))
+  for (const wikiwiki of [undefined, ww({ code: 'B211', pre: ['F132'], uncertain: true })]) {
+    const result = mergeQuestPre(['F132', '2507C1'], wikiwiki, new Set(['B211', 'F132']), arbitration)
+    assert.deepEqual(result.pre, ['F132'])
+    assert.equal(result.source, 'arbitrated')
+    assert.equal(result.basis, arbitration.basis)
+    assert.deepEqual(result.dangling, [])
+    assert.deepEqual(result.scnPre, ['2507C1', 'F132'], '保留上游主张供展示')
+    assert.equal(result.conflict, !!wikiwiki, '两 wiki 分歧仍如实带出')
+    assert.equal(result.wwUncertain, !!wikiwiki)
+  }
+})
+
+test('F48 四源仲裁为 F4、F44：玩家与开发机均不采 C2，Cd1 经 F44 传递不单列', () => {
+  const arbitration = QUEST_PRE_ARBITRATION.get('F48')
+  assert.equal(arbitration.date, '2026-09-06')
+  assert.ok(arbitration.evidence.includes('kcwiki 独有主张'))
+  for (const wikiwiki of [undefined, ww({ code: 'F48', pre: ['F44', 'F4'], condRaw: 'F4 要検証' })]) {
+    // 即使未来包内可解析 C2，裁决仍优先，不能退回依赖悬空修补的结果。
+    for (const known of [KNOWN, new Set([...KNOWN, 'C2', 'Cd1', 'B89'])]) {
+      const result = mergeQuestPre(['F44', 'C2'], wikiwiki, known, arbitration)
+      assert.deepEqual(result.pre, ['F4', 'F44'])
+      assert.equal(result.source, 'arbitrated')
+      assert.equal(result.basis, arbitration.basis)
+      assert.deepEqual(result.dangling, [])
+      assert.deepEqual(result.scnPre, ['C2', 'F44'], '保留 kcwiki 原始主张供展示')
+      assert.deepEqual(result.wwPre, wikiwiki ? ['F4', 'F44'] : null)
+      assert.equal(result.conflict, !!wikiwiki, '两 wiki 分歧仍如实带出')
+    }
+  }
+})
+
+test('B216 三家正面主张裁为 B207：玩家与开发机均采用仲裁，空栏不当作无前置', () => {
+  const arbitration = QUEST_PRE_ARBITRATION.get('B216')
+  assert.equal(arbitration.date, '2026-09-06')
+  assert.ok(arbitration.basis.includes('待实测'))
+  for (const wikiwiki of [undefined, ww({ code: 'B216', pre: ['B207'] })]) {
+    const result = mergeQuestPre([], wikiwiki, new Set(['B216', 'B207']), arbitration)
+    assert.deepEqual(result.pre, ['B207'])
+    assert.equal(result.source, 'arbitrated')
+    assert.equal(result.basis, arbitration.basis)
+    assert.deepEqual(result.dangling, [])
+    assert.deepEqual(result.scnPre, [], '保留 kcwiki 未登记的原始空栏')
+    assert.deepEqual(result.wwPre, wikiwiki ? ['B207'] : null)
+    assert.equal(result.conflict, !!wikiwiki, '既有仲裁分支仍标记两 wiki 集合不同，不改合并机制')
+  }
+})
+
 test('仲裁表自身健康：码型合法、裁决都带依据、与已知冲突清单对得上号', () => {
-  assert.equal(QUEST_PRE_ARBITRATION.size, 8, '2026-08-17 裁了 8 条；增删要有新证据')
+  assert.equal(QUEST_PRE_ARBITRATION.size, 11, '原 8 条 + 2026-09-06 B211、F48 与 B216 裁决')
   for (const [code, entry] of QUEST_PRE_ARBITRATION) {
     assert.match(code, /^[A-Z]{1,2}[a-z]?\d+$/, `${code} 码型`)
     assert.ok(entry.pre.length >= 1, `${code} 裁决不能是空前置`)

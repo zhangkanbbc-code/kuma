@@ -70,7 +70,7 @@ const offsetMs = (at) => -new Date(at).getTimezoneOffset() * 60000
 
 const openDb = (t) => {
   const { DatabaseSync } = require('node:sqlite')
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-material-daily-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-material-daily-'))
   const db = new DatabaseSync(path.join(dir, 'test.sqlite'))
   db.exec(materialDdl())
   t.after(() => {

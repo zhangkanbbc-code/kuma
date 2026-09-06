@@ -34,7 +34,7 @@ ${reducer}
 `
 
 const loaded = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-mission-state-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-mission-state-'))
   const entry = path.join(dir, 'reducer.ts')
   fs.writeFileSync(entry, harness)
   const outfile = path.join(dir, 'reducer.cjs')

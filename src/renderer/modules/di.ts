@@ -11,6 +11,7 @@ import { DAMAGE_TIER_WORDS, damageTierOf } from '../../shared/battle-damage'
 import { formationText, optionalFormationText } from '../../shared/enemy-formation'
 import { requiredSunkForA } from '../../shared/battle-rank'
 import { fcdTopologyUsable } from '../../shared/fcd-topology'
+import { isBuiltInActiveBranchSpot } from '../../shared/active-branch-spots'
 import { DAY_NIGHT_LABEL, battlePhaseOrder, dealtByPhaseOf } from '../../shared/battle-phase-damage'
 import { hpAtStage, hpBarSegments, segmentStartOf, shipHpTimeline } from '../../shared/battle-hp-timeline'
 import type { ShipHpTimeline } from '../../shared/battle-hp-timeline'
@@ -462,15 +463,18 @@ const abyssalStatsLodeTag = (): string =>
 // 会让玩家白担心被带偏(2026-08-12 用户报出)。判据两层:wikiwiki 航路表该点
 // 条件写明「能動分岐」(离线,覆盖未站上去的点);站上去时游戏发 api_select_route
 // 是权威实证(节点信息卡另判)。
+// 现在判据分两层：第一方内置表保证发行版可用，在场的矿脉标记并入以承接上游新增点。
 let routingLode: { meta: LodeMeta; data: any } | null | undefined
 const loadRouting = async () => {
   if (routingLode === undefined) routingLode = await queryLode('wikiwiki-routing')
   return routingLode
 }
-let activeBranchSpots: Set<string> | null = null
+let routingActiveBranchSpots: Set<string> | null = null
 const isActiveBranchSpot = (mapKey: string, letter: string): boolean => {
-  if (!activeBranchSpots) {
-    if (routingLode == null) return false
+  if (isBuiltInActiveBranchSpot(mapKey, letter)) return true
+  // 只缓存已解析且非 null 的矿脉结果；undefined 仍在加载，不能提前钉死矿脉并集。
+  if (routingLode == null) return false
+  if (!routingActiveBranchSpots) {
     const spots = new Set<string>()
     for (const [key, m] of Object.entries<any>(routingLode.data?.maps ?? {})) {
       for (const node of m?.nodes ?? []) {
@@ -479,9 +483,9 @@ const isActiveBranchSpot = (mapKey: string, letter: string): boolean => {
         }
       }
     }
-    activeBranchSpots = spots
+    routingActiveBranchSpots = spots
   }
-  return activeBranchSpots.has(`${mapKey}:${letter}`)
+  return routingActiveBranchSpots.has(`${mapKey}:${letter}`)
 }
 const branchLabelOf = (s: SortieView, letter: string): string =>
   isActiveBranchSpot(mapKeyOf(s), letter) ? '能动分歧（手选）' : '分歧点'
@@ -568,7 +572,7 @@ const routeTallyFor = (s: SortieView): RouteTallyState => {
       .catch((error) => {
         // 读不出来就说读不出来。返回空 Map 会被读成「你还没在这个点分歧过」，
         // 那是把故障说成事实。
-        console.warn('[kanso] di: 分歧实测读取失败', error)
+        console.warn('[kuma] di: 分歧实测读取失败', error)
         if (routeTallyByMap.get(mapKey) !== state) return
         // 把失败也钉在这个 key 上：否则「失败 → 重渲染 → 同 key 再查 → 再失败」
         // 会滚成 IPC + 全量重绘的风暴。走到下一格（key 变化）自然重试。
@@ -869,8 +873,9 @@ const confirmedDropPoolCardHtml = (
       }
     </div>
     <div class="dp-list">${rows}</div>
+    ${node.sourceNote ? `<div class="l dp-foot">${esc(node.sourceNote)}</div>` : ''}
     <div class="l dp-foot">
-      <span>${difficulty && !node.allDifficulty ? `${difficulty}难度 · ` : ''}<span class="credit-mark" title="${esc(credit.source)} · 核对 ${esc(credit.checkedAt)}">源</span></span>
+      <span>${difficulty && !node.allDifficulty && !node.sourceNote ? `${difficulty}难度 · ` : ''}<span class="credit-mark" title="${esc(credit.source)} · 核对 ${esc(credit.checkedAt)}">源</span></span>
       ${
         ships.length > 8
           ? `<span class="tg" data-act="drop-confirmed-expand" data-drop-key="${key}">${
@@ -1034,7 +1039,7 @@ const ensureChron = (s: SortieView, rerender: () => void) => {
     if (chronByScope.get(scope) !== chron) return
     chron.key = key
     chron.loading = false
-    console.warn('[kanso] 战斗预测样本读取失败', error)
+    console.warn('[kuma] 战斗预测样本读取失败', error)
     rerender()
   })
 }
@@ -4073,7 +4078,7 @@ const loadBattleHistory = async (rerender = true) => {
   try {
     nextHistory = await queryBattleSnapshots(40)
   } catch (error) {
-    console.warn('[kanso] 战斗快照索引读取失败', error)
+    console.warn('[kuma] 战斗快照索引读取失败', error)
   } finally {
     timedRun('async:di-battle-history', () => {
       if (nextHistory) battleHistory = nextHistory
@@ -4194,7 +4199,7 @@ const ensureReplayRunTrail = (
       // 取不到就用快照自己的路径，航迹短一点但不出错——不过还是要留声，
       // 静默吞掉的话「回放航迹莫名其妙变短」就查不出是账本读失败
       rememberRunTrail(snapshot.id, { state: 'failed' })
-      console.warn('[kanso] di: 同次出击最末快照读取失败', error)
+      console.warn('[kuma] di: 同次出击最末快照读取失败', error)
     })
 }
 
@@ -4217,7 +4222,7 @@ const openBattleSnapshot = async (id: number) => {
     activateModule('di')
     if (diPane) render(diPane)
   } catch (error) {
-    console.warn('[kanso] 战斗快照读取失败', error)
+    console.warn('[kuma] 战斗快照读取失败', error)
     replayOpenError = '战斗记录读取失败 · 请重试'
     activateModule('di')
     if (diPane) render(diPane)
@@ -4845,7 +4850,7 @@ export const bootstrapBattleReplay = (rerender: () => void) => {
   void loadBattleHistory(false).then(() => timedRun('async:di-battle-history', rerender))
   void Promise.all([loadFcd(), loadAbyssalStats(), loadRouting()])
     .then(rerender)
-    .catch((error) => console.warn('[kanso] di: 矿脉包读取失败', error))
+    .catch((error) => console.warn('[kuma] di: 矿脉包读取失败', error))
   void initMapIntel().then(rerender)
   void ensureFirstEncounters()
   onFirstEncountersChange(() => timedRun('async:di-first-seen', rerender))
@@ -4906,7 +4911,7 @@ registerModule({
         if (keys.includes('sortie') && practiceTs > 0 && practiceTs !== lastPracticePreviewTs) {
           lastPracticePreviewTs = practiceTs
           replay = null
-          activateModule('di')
+          activateModule('di', { auto: true })
         }
         if (keys.includes('sortie') && mg.sortie?.battle?.result) {
           void loadBattleHistory()

@@ -13,7 +13,7 @@ import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 
 import assert from 'node:assert/strict'
-import { buildSync } from 'esbuild'
+import { build, buildSync } from 'esbuild'
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url))
 const source = fs.readFileSync(path.join(ROOT, 'src', 'renderer', 'voice-subtitle.ts'), 'utf8')
@@ -57,6 +57,7 @@ export const stub: any = {
   voiceFallbackOf: new Map(),
   seasonOccupied: new Map(),
   kcwikiBySlot: new Map(),
+  kumaVoiceBySlot: new Map(),
   observations: new Map(),
   seasonalShips: {},
   seasonalFoldedByForm: new Map(),
@@ -70,6 +71,7 @@ const voiceOverlayZhByJa = { get: (k: string) => stub.voiceOverlayZhByJa.get(k) 
 const voiceFallbackOf = { get: (k: number) => stub.voiceFallbackOf.get(k) }
 const seasonOccupied = { get: (k: number) => stub.seasonOccupied.get(k) }
 const kcwikiBySlot = { get: (k: number) => stub.kcwikiBySlot.get(k) }
+const kumaVoiceBySlot = { get: (k: number) => stub.kumaVoiceBySlot.get(k) }
 const voicePlaybackObservationAt = (mstId: number, slot: number) =>
   stub.observations.get(\`\${mstId}:\${slot}\`) ?? null
 const seasonalShips: any = new Proxy({}, { get: (_t, k) => stub.seasonalShips[k as string] })
@@ -87,7 +89,7 @@ export { shipCaption, captionText, seasonalTextIndex, installZhSimplifier }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-ship-caption-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-ship-caption-'))
   const entry = path.join(dir, 'caption.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'caption.cjs')
@@ -116,6 +118,7 @@ export const captionOf = (setup, mstId, voiceId) => {
   stub.voiceFallbackOf = setup.voiceFallbackOf ?? new Map()
   stub.seasonOccupied = setup.seasonOccupied ?? new Map()
   stub.kcwikiBySlot = setup.kcwikiBySlot ?? new Map()
+  stub.kumaVoiceBySlot = setup.kumaVoiceBySlot ?? new Map()
   stub.observations = setup.observations ?? new Map()
   stub.seasonalShips = setup.seasonalShips ?? {}
   // 季节文本指纹**照 loadData 那样现搭**（同一个 `seasonalTextIndex`，不是另写一份）——
@@ -129,3 +132,137 @@ export const captionOf = (setup, mstId, voiceId) => {
 export const textOf = (setup, mstId, voiceId) => captionOf(setup, mstId, voiceId)[0]?.text ?? ''
 
 export const captionText = loaded.captionText
+
+// 需要验证 loadData 的跨源合并与深海分支时，编译整个生产模块；矿脉、主数据与
+// Electron 只在系统边界换成可注入桩。测试仍然只看 captionsFor 的最终返回值。
+const RUNTIME_STATE_KEY = '__kumaVoiceSubtitleTestState'
+const runtimeSource = (() => {
+  const sizeInit =
+    'setVoiceCaptionSize(config.get(VOICE_CAPTION_SIZE_PATH, VOICE_CAPTION_SIZE_DEFAULT))'
+  assert.ok(source.includes(sizeInit), 'voice-subtitle.ts 的字号初始化锚点变了')
+  return `${source.replace(sizeInit, '')}
+export { loadData as testLoadData, captionsFor as testCaptionsFor }
+`
+})()
+
+const runtimeBundle = await (async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-voice-subtitle-runtime-'))
+  const outfile = path.join(dir, 'voice-subtitle.cjs')
+  await build({
+    stdin: {
+      contents: runtimeSource,
+      loader: 'ts',
+      resolveDir: path.join(ROOT, 'src', 'renderer'),
+      sourcefile: 'voice-subtitle.ts',
+    },
+    outfile,
+    bundle: true,
+    platform: 'node',
+    format: 'cjs',
+    logLevel: 'silent',
+    plugins: [{
+      name: 'voice-subtitle-runtime-boundaries',
+      setup(build) {
+        build.onResolve({ filter: /^\.\/(?:kernel|abyssal-name|kcs-voice|localization)$/ }, (args) => ({
+          path: args.path.slice(2),
+          namespace: 'voice-runtime-stub',
+        }))
+        build.onResolve({ filter: /^(?:@electron\/remote|electron)$/ }, (args) => ({
+          path: args.path,
+          namespace: 'voice-runtime-stub',
+        }))
+        build.onLoad({ filter: /.*/, namespace: 'voice-runtime-stub' }, (args) => {
+          if (args.path === 'kernel') {
+            return {
+              contents: `
+const state = globalThis.${RUNTIME_STATE_KEY}
+export const mg = state.mg
+export const masterShipName = (id) => \`舰\${id}\`
+export const onMgChange = () => {}
+export const queryLode = async (id) => state.lodes[id] ?? null
+export const queryMasterRaw = async () => state.raw
+`,
+              loader: 'ts',
+            }
+          }
+          if (args.path === 'abyssal-name') {
+            return { contents: 'export const canonicalAbyssalSpeakerLabel = (value) => value' }
+          }
+          if (args.path === 'kcs-voice') {
+            return {
+              contents:
+                'export const resolveVoiceRequest = () => null; export const setShipGraph = () => {}',
+            }
+          }
+          if (args.path === 'localization') {
+            return {
+              contents:
+                "export const entityNamePlain = (_domain, _id, fallback) => fallback; export const localizedEntityId = () => ''",
+            }
+          }
+          if (args.path === '@electron/remote') {
+            return {
+              contents:
+                'module.exports = { require: () => ({ get: (_key, fallback) => fallback }) }',
+            }
+          }
+          return {
+            contents: 'module.exports = { ipcRenderer: { invoke: async () => null } }',
+          }
+        })
+      },
+    }],
+  })
+  return outfile
+})()
+
+const runtimeState = {
+  lodes: {},
+  raw: null,
+  mg: {
+    decks: [],
+    ships: {},
+    master: { ships: {} },
+    sortie: null,
+  },
+}
+globalThis[RUNTIME_STATE_KEY] = runtimeState
+const runtimeLoaded = createRequire(import.meta.url)(runtimeBundle)
+
+const emptyRuntimeLodes = () => ({
+  'subtitle-zh': { data: {} },
+  'subtitle-ja': { data: {} },
+  'subtitle-npc': { data: {} },
+  'subtitle-enemies': { data: {} },
+  'wikiwiki-voice': { data: {} },
+  'wikiwiki-abyss-voice': { data: {} },
+  'kuma-abyss-voice': { data: { ships: {} } },
+  'kcwiki-seasonal-voice': { data: { ships: {}, skits: {} } },
+  'kcwiki-voice': { data: {} },
+  'kcwiki-ships': null,
+  'kuma-voice': { data: { ships: {} } },
+  'kuma-voice-zh': null,
+  'opencc-t2s': null,
+})
+
+/** 真跑 loadData 后，按 cue 取最终字幕；只在查询边界摆测试资料。 */
+export const captionsFromLodes = async ({ lodes = {}, ships = [], mg = {} }, cue) => {
+  runtimeState.lodes = { ...emptyRuntimeLodes(), ...lodes }
+  runtimeState.raw = {
+    data: {
+      api_mst_shipgraph: [],
+      api_mst_ship: ships,
+      api_mst_shipupgrade: [],
+    },
+  }
+  for (const key of Object.keys(runtimeState.mg)) delete runtimeState.mg[key]
+  Object.assign(runtimeState.mg, {
+    decks: [],
+    ships: {},
+    master: { ships: {} },
+    sortie: null,
+    ...mg,
+  })
+  await runtimeLoaded.testLoadData()
+  return runtimeLoaded.testCaptionsFor(cue)
+}

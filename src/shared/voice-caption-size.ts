@@ -16,7 +16,7 @@
  * 叶子路径。**读写一律走叶子**，理由同 game-scale：config 的 setByPath 写叶子时会把
  * 父对象就地变成「只有这一个键」的半份对象，整对象读到那份半份就不再回落默认值。
  */
-export const VOICE_CAPTION_SIZE_PATH = 'kanso.voiceCaptionSize'
+export const VOICE_CAPTION_SIZE_PATH = 'kuma.voiceCaptionSize'
 
 /**
  * 默认 = 可配之前那条 CSS 的封顶值（`clamp(13px, 1.55vw, 20px)` 的 20px）。

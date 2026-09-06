@@ -1,5 +1,5 @@
 // Adapted from poi (https://github.com/poooi/poi) assets/js/capture-page.js
-// MIT License, Copyright (c) poi contributors — 移植与改造：艦素 kanso 项目。
+// MIT License, Copyright (c) poi contributors — 移植与改造：kuma 项目。
 // MAIN WORLD
 // window.capture 由宿主经 executeJavaScript 调用（页面主世界）。
 // 依赖 resource-hack 维持的 canvas 无污染状态。

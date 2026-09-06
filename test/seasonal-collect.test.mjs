@@ -132,7 +132,7 @@ test('季节台词区铺开时不发请求：采集钮上只有槽位参数，�
   assert.equal(/<img/.test(render), false, '采集钮渲染期摆了图片')
   assert.match(render, /data-voice-take="\$\{mstId\}\/\$\{slot\}"/)
   // 季节段整体也不许发探测（三态只查本机档案索引）
-  const seasons = ji.slice(end, ji.indexOf('interface KansoVoiceRow'))
+  const seasons = ji.slice(end, ji.indexOf('interface KumaVoiceRow'))
   assert.equal(/probeVoiceSlot/.test(seasons), false, '季节段渲染期发了探测')
 })
 
@@ -189,7 +189,7 @@ test('采集与回放分工写在注释里：播放钮永不回退 CDN，采集�
   // 回放那一支的地址仍旧只有两个来源：档案实物，或耳测台账确证「此刻挂的就是这一条」
   const seasons = stripComments(ji).slice(
     stripComments(ji).indexOf('const seasonalVoiceHtml'),
-    stripComments(ji).indexOf('interface KansoVoiceRow'),
+    stripComments(ji).indexOf('interface KumaVoiceRow'),
   )
   assert.match(seasons, /const liveUrl = mountedHere \? voiceUrl\(mstId, line\.slot!\) : null/)
   assert.equal(

@@ -1,5 +1,5 @@
 // Adapted from poi (https://github.com/poooi/poi) assets/js/cookie-hack.js
-// MIT License, Copyright (c) poi contributors — 移植与改造：艦素 kanso 项目。
+// MIT License, Copyright (c) poi contributors — 移植与改造：kuma 项目。
 // ISOLATED WORLD
 // Cookie/UA/重定向处理需要 @electron/remote + config，跑在 preload 隔离世界。
 // document.cookie、location 与 cookie 本身跨世界共享，在这里改照样影响页面。
@@ -11,7 +11,7 @@ const config = remote.require('./config')
 const { GAME_URL_CONFIG_KEY, normalizeGameUrl } = require('../../dist/shared/game-url')
 
 document.addEventListener('DOMContentLoaded', () => {
-  if (config.get('kanso.dmmcookie', true) && location.hostname.includes('dmm')) {
+  if (config.get('kuma.dmmcookie', true) && location.hostname.includes('dmm')) {
     const now = new Date()
     now.setFullYear(now.getFullYear() + 1)
     const expires = now.toUTCString()
@@ -47,9 +47,9 @@ document.addEventListener('DOMContentLoaded', () => {
 // MAIN WORLD
 // 覆写页面的 confirm/document.write/DMM 全局量必须在页面主世界做。
 // 经 contextBridge.executeInMainWorld 序列化；保持自包含，
-// 只引用全局量与 window.kansoPreloadBridge。
+// 只引用全局量与 window.kumaPreloadBridge。
 function installPageHooks() {
-  const bridge = window.kansoPreloadBridge
+  const bridge = window.kumaPreloadBridge
 
   document.addEventListener('DOMContentLoaded', () => {
     if (bridge.isNetworkAlertDisabled()) {

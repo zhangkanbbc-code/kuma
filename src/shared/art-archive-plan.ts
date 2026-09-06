@@ -48,7 +48,7 @@ export interface ArtArchiveEntry {
  *
  * 理由与语音侧同一条（见 voice-archive-plan 的 VOICE_ARCHIVE_MAX_BYTES）：
  * 「留不留、是不是太占位置」的决断交给每个玩家，默认一条都不淘汰。
- * 想设上限的在钥里填数（`kanso.archive.artMaxMB`），填了才启用淘汰，
+ * 想设上限的在钥里填数（`kuma.archive.artMaxMB`），填了才启用淘汰，
  * 而淘汰**永远绕开「不可再得」的条目**（见 artArchiveUnobtainable）。
  */
 export const ART_ARCHIVE_MAX_BYTES = 0
@@ -56,7 +56,7 @@ export const ART_ARCHIVE_MAX_BYTES = 0
 /**
  * 建议值：**2 GB**。只用于钥里的提示文案，不再是默认行为。
  *
- * 数字依据（2026-08-22 在本机 Chromium 缓存上实测，不是拍的）：
+ * 数字依据（2026-08-22 在对照资料 Chromium 缓存上实测，不是拍的）：
  * 缓存里 2938 张游戏 PNG，中位 92 KB、p75 144 KB、p90 327 KB、p99 1.58 MB、
  * 最大 6.73 MB；其中 200 KB 以上那批（立绘级）**均值 609 KB**。
  * 可收集的立绘槽位约「1200 形态 × 常服/中破 2 种」= 2400 张，
@@ -198,7 +198,7 @@ export const artArchiveHasBlobFor = (
 /**
  * 画廊尾接的「档案旧版卡」：档案里**不是官方现在放着的那几份**的实物。
  *
- * 2026-08-23 用户拍板拔掉收藏格 UI 之后，这是立绘档案**唯一**的展示面——
+ * 2026-08-23 维护者拍板拔掉收藏格 UI 之后，这是立绘档案**唯一**的展示面——
  * 图鉴的立绘画廊先摆官方现行那几张，末尾续排这里返回的这些
  *（原话「都显示在图鉴里面，接着放到这个角色『原版所有皮肤图』的下面接着展示」）。
  *

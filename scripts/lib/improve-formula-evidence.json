@@ -1,0 +1,6254 @@
+[
+  {
+    "category": "1",
+    "stat": "Mogadorその他フランス艦",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      534
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      534
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "1",
+    "stat": "Z1・Z3​ボーナス",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      78
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      78
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "1",
+    "stat": "その他",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      509
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      509
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "1",
+    "stat": "稲木改二",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      509
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      509
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "1",
+    "stat": "火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 9,
+    "sampleIds": [
+      1,
+      2,
+      3,
+      63,
+      78,
+      91,
+      122,
+      147,
+      229,
+      266,
+      267,
+      280,
+      282,
+      284,
+      293,
+      294,
+      295,
+      296,
+      297,
+      313,
+      366,
+      379,
+      382,
+      393,
+      394,
+      455,
+      470,
+      509,
+      529,
+      533,
+      534
+    ],
+    "matchedIds": [
+      78,
+      122,
+      294,
+      366,
+      379,
+      509,
+      529,
+      533,
+      534
+    ],
+    "mismatches": [
+      1,
+      2,
+      3,
+      63,
+      91,
+      147,
+      229,
+      266,
+      267,
+      280,
+      282,
+      284,
+      293,
+      295,
+      296,
+      297,
+      313,
+      382,
+      393,
+      394,
+      455,
+      470
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "1",
+    "stat": "海防艦時雨改三雪風改二由良改二",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      509
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      509
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "1",
+    "stat": "時雨改三",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      529
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      529
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "1",
+    "stat": "秋月型",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      122,
+      533
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      122,
+      533
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "1",
+    "stat": "春雨改二",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      529
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      529
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "1",
+    "stat": "深雪改二",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      294
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      294
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "1",
+    "stat": "対空",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 0.7,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 4,
+    "sampleIds": [
+      3,
+      91,
+      122,
+      229,
+      284,
+      295,
+      296,
+      313,
+      379,
+      382,
+      509,
+      533
+    ],
+    "matchedIds": [
+      122,
+      379,
+      509,
+      533
+    ],
+    "mismatches": [
+      3,
+      91,
+      229,
+      284,
+      295,
+      296,
+      313,
+      382
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "1",
+    "stat": "命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 9,
+    "sampleIds": [
+      1,
+      2,
+      3,
+      63,
+      78,
+      91,
+      122,
+      147,
+      229,
+      266,
+      267,
+      280,
+      282,
+      284,
+      293,
+      294,
+      295,
+      296,
+      297,
+      313,
+      366,
+      379,
+      382,
+      393,
+      394,
+      455,
+      470,
+      509,
+      529,
+      533,
+      534
+    ],
+    "matchedIds": [
+      78,
+      122,
+      294,
+      366,
+      379,
+      509,
+      529,
+      533,
+      534
+    ],
+    "mismatches": [
+      1,
+      2,
+      3,
+      63,
+      91,
+      147,
+      229,
+      266,
+      267,
+      280,
+      282,
+      284,
+      293,
+      295,
+      296,
+      297,
+      313,
+      382,
+      393,
+      394,
+      455,
+      470
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "1",
+    "stat": "夜戦火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 9,
+    "sampleIds": [
+      1,
+      2,
+      3,
+      63,
+      78,
+      91,
+      122,
+      147,
+      229,
+      266,
+      267,
+      280,
+      282,
+      284,
+      293,
+      294,
+      295,
+      296,
+      297,
+      313,
+      366,
+      379,
+      382,
+      393,
+      394,
+      455,
+      470,
+      509,
+      529,
+      533,
+      534
+    ],
+    "matchedIds": [
+      78,
+      122,
+      294,
+      366,
+      379,
+      509,
+      529,
+      533,
+      534
+    ],
+    "mismatches": [
+      1,
+      2,
+      3,
+      63,
+      91,
+      147,
+      229,
+      266,
+      267,
+      280,
+      282,
+      284,
+      293,
+      295,
+      296,
+      297,
+      313,
+      382,
+      393,
+      394,
+      455,
+      470
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "1",
+    "stat": "夜戦命中",
+    "proven": true,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.3,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 31,
+    "sampleIds": [
+      1,
+      2,
+      3,
+      63,
+      78,
+      91,
+      122,
+      147,
+      229,
+      266,
+      267,
+      280,
+      282,
+      284,
+      293,
+      294,
+      295,
+      296,
+      297,
+      313,
+      366,
+      379,
+      382,
+      393,
+      394,
+      455,
+      470,
+      509,
+      529,
+      533,
+      534
+    ],
+    "matchedIds": [
+      1,
+      2,
+      3,
+      63,
+      78,
+      91,
+      122,
+      147,
+      229,
+      266,
+      267,
+      280,
+      282,
+      284,
+      293,
+      294,
+      295,
+      296,
+      297,
+      313,
+      366,
+      379,
+      382,
+      393,
+      394,
+      455,
+      470,
+      509,
+      529,
+      533,
+      534
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "1",
+    "stat": "陽炎型改二",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      529
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      529
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "1:高角砲・対空7以下",
+    "stat": "艦隊防空",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 2,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      3,
+      91,
+      229,
+      284,
+      313,
+      379,
+      382,
+      509
+    ],
+    "matchedIds": [
+      379,
+      509
+    ],
+    "mismatches": [
+      3,
+      91,
+      229,
+      284,
+      313,
+      382
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "1:高角砲・対空8以上",
+    "stat": "艦隊防空",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 3,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      122,
+      295,
+      296,
+      533
+    ],
+    "matchedIds": [
+      122,
+      533
+    ],
+    "mismatches": [
+      295,
+      296
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "2",
+    "stat": "火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 9,
+    "sampleIds": [
+      4,
+      5,
+      6,
+      50,
+      65,
+      90,
+      119,
+      123,
+      139,
+      162,
+      235,
+      303,
+      310,
+      356,
+      357,
+      359,
+      362,
+      363,
+      386,
+      387,
+      407,
+      518,
+      520,
+      536
+    ],
+    "matchedIds": [
+      123,
+      310,
+      359,
+      362,
+      363,
+      386,
+      387,
+      518,
+      536
+    ],
+    "mismatches": [
+      4,
+      5,
+      6,
+      50,
+      65,
+      90,
+      119,
+      139,
+      162,
+      235,
+      303,
+      356,
+      357,
+      407,
+      520
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "2",
+    "stat": "艦隊防空",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 3,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      362,
+      363
+    ],
+    "matchedIds": [
+      362,
+      363
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "2",
+    "stat": "対空",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 0.7,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      362,
+      363
+    ],
+    "matchedIds": [
+      362,
+      363
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "2",
+    "stat": "日進ボーナス",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      310
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      310
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "2",
+    "stat": "命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 9,
+    "sampleIds": [
+      4,
+      5,
+      6,
+      50,
+      65,
+      90,
+      119,
+      123,
+      139,
+      162,
+      235,
+      303,
+      310,
+      356,
+      357,
+      359,
+      362,
+      363,
+      386,
+      387,
+      407,
+      518,
+      520,
+      536
+    ],
+    "matchedIds": [
+      123,
+      310,
+      359,
+      362,
+      363,
+      386,
+      387,
+      518,
+      536
+    ],
+    "mismatches": [
+      4,
+      5,
+      6,
+      50,
+      65,
+      90,
+      119,
+      139,
+      162,
+      235,
+      303,
+      356,
+      357,
+      407,
+      520
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "2",
+    "stat": "夜戦火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 9,
+    "sampleIds": [
+      4,
+      5,
+      6,
+      50,
+      65,
+      90,
+      119,
+      123,
+      139,
+      162,
+      235,
+      303,
+      310,
+      356,
+      357,
+      359,
+      362,
+      363,
+      386,
+      387,
+      407,
+      518,
+      520,
+      536
+    ],
+    "matchedIds": [
+      123,
+      310,
+      359,
+      362,
+      363,
+      386,
+      387,
+      518,
+      536
+    ],
+    "mismatches": [
+      4,
+      5,
+      6,
+      50,
+      65,
+      90,
+      119,
+      139,
+      162,
+      235,
+      303,
+      356,
+      357,
+      407,
+      520
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "2",
+    "stat": "夜戦命中",
+    "proven": true,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.3,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 24,
+    "sampleIds": [
+      4,
+      5,
+      6,
+      50,
+      65,
+      90,
+      119,
+      123,
+      139,
+      162,
+      235,
+      303,
+      310,
+      356,
+      357,
+      359,
+      362,
+      363,
+      386,
+      387,
+      407,
+      518,
+      520,
+      536
+    ],
+    "matchedIds": [
+      4,
+      5,
+      6,
+      50,
+      65,
+      90,
+      119,
+      123,
+      139,
+      162,
+      235,
+      303,
+      310,
+      356,
+      357,
+      359,
+      362,
+      363,
+      386,
+      387,
+      407,
+      518,
+      520,
+      536
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "2",
+    "stat": "夕張改二(特/丁)ボーナス",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      310
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      310
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "2",
+    "stat": "練巡ボーナス",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      310
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      310
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "3",
+    "stat": "Bismarck",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      114
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      114
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "3",
+    "stat": "火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.5,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 6,
+    "sampleIds": [
+      7,
+      8,
+      9,
+      76,
+      103,
+      104,
+      105,
+      114,
+      117,
+      128,
+      133,
+      137,
+      161,
+      183,
+      190,
+      192,
+      231,
+      232,
+      236,
+      245,
+      246,
+      276,
+      281,
+      289,
+      290,
+      298,
+      299,
+      300,
+      318,
+      328,
+      329,
+      330,
+      331,
+      332,
+      381,
+      385,
+      390,
+      468,
+      502,
+      507,
+      508,
+      530
+    ],
+    "matchedIds": [
+      114,
+      385,
+      390,
+      468,
+      502,
+      530
+    ],
+    "mismatches": [
+      7,
+      8,
+      9,
+      76,
+      103,
+      104,
+      105,
+      117,
+      128,
+      133,
+      137,
+      161,
+      183,
+      190,
+      192,
+      231,
+      232,
+      236,
+      245,
+      246,
+      276,
+      281,
+      289,
+      290,
+      298,
+      299,
+      300,
+      318,
+      328,
+      329,
+      330,
+      331,
+      332,
+      381,
+      507,
+      508
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "3",
+    "stat": "命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 6,
+    "sampleIds": [
+      7,
+      8,
+      9,
+      76,
+      103,
+      104,
+      105,
+      114,
+      117,
+      128,
+      133,
+      137,
+      161,
+      183,
+      190,
+      192,
+      231,
+      232,
+      236,
+      245,
+      246,
+      276,
+      281,
+      289,
+      290,
+      298,
+      299,
+      300,
+      318,
+      328,
+      329,
+      330,
+      331,
+      332,
+      381,
+      385,
+      390,
+      468,
+      502,
+      507,
+      508,
+      530
+    ],
+    "matchedIds": [
+      114,
+      385,
+      390,
+      468,
+      502,
+      530
+    ],
+    "mismatches": [
+      7,
+      8,
+      9,
+      76,
+      103,
+      104,
+      105,
+      117,
+      128,
+      133,
+      137,
+      161,
+      183,
+      190,
+      192,
+      231,
+      232,
+      236,
+      245,
+      246,
+      276,
+      281,
+      289,
+      290,
+      298,
+      299,
+      300,
+      318,
+      328,
+      329,
+      330,
+      331,
+      332,
+      381,
+      507,
+      508
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "3",
+    "stat": "夜戦火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 6,
+    "sampleIds": [
+      7,
+      8,
+      9,
+      76,
+      103,
+      104,
+      105,
+      114,
+      117,
+      128,
+      133,
+      137,
+      161,
+      183,
+      190,
+      192,
+      231,
+      232,
+      236,
+      245,
+      246,
+      276,
+      281,
+      289,
+      290,
+      298,
+      299,
+      300,
+      318,
+      328,
+      329,
+      330,
+      331,
+      332,
+      381,
+      385,
+      390,
+      468,
+      502,
+      507,
+      508,
+      530
+    ],
+    "matchedIds": [
+      114,
+      385,
+      390,
+      468,
+      502,
+      530
+    ],
+    "mismatches": [
+      7,
+      8,
+      9,
+      76,
+      103,
+      104,
+      105,
+      117,
+      128,
+      133,
+      137,
+      161,
+      183,
+      190,
+      192,
+      231,
+      232,
+      236,
+      245,
+      246,
+      276,
+      281,
+      289,
+      290,
+      298,
+      299,
+      300,
+      318,
+      328,
+      329,
+      330,
+      331,
+      332,
+      381,
+      507,
+      508
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "3",
+    "stat": "夜戦命中",
+    "proven": true,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.3,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 42,
+    "sampleIds": [
+      7,
+      8,
+      9,
+      76,
+      103,
+      104,
+      105,
+      114,
+      117,
+      128,
+      133,
+      137,
+      161,
+      183,
+      190,
+      192,
+      231,
+      232,
+      236,
+      245,
+      246,
+      276,
+      281,
+      289,
+      290,
+      298,
+      299,
+      300,
+      318,
+      328,
+      329,
+      330,
+      331,
+      332,
+      381,
+      385,
+      390,
+      468,
+      502,
+      507,
+      508,
+      530
+    ],
+    "matchedIds": [
+      7,
+      8,
+      9,
+      76,
+      103,
+      104,
+      105,
+      114,
+      117,
+      128,
+      133,
+      137,
+      161,
+      183,
+      190,
+      192,
+      231,
+      232,
+      236,
+      245,
+      246,
+      276,
+      281,
+      289,
+      290,
+      298,
+      299,
+      300,
+      318,
+      328,
+      329,
+      330,
+      331,
+      332,
+      381,
+      385,
+      390,
+      468,
+      502,
+      507,
+      508,
+      530
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "4",
+    "stat": "火力",
+    "proven": false,
+    "convention": "先乘系数再四舍五入（1位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 39,
+          "family": "linear",
+          "a": 0.2,
+          "b": 0
+        }
+      ],
+      "rounding": "round",
+      "format": {
+        "digits": 1,
+        "plus": true
+      }
+    },
+    "matchedCount": 8,
+    "sampleIds": [
+      10,
+      11,
+      12,
+      66,
+      71,
+      130,
+      134,
+      135,
+      220,
+      234,
+      247,
+      275,
+      358,
+      464,
+      524
+    ],
+    "matchedIds": [
+      10,
+      66,
+      71,
+      220,
+      275,
+      358,
+      464,
+      524
+    ],
+    "mismatches": [
+      11,
+      12,
+      130,
+      134,
+      135,
+      234,
+      247
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "4",
+    "stat": "対空",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 0.7,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 3,
+    "sampleIds": [
+      10,
+      66,
+      71,
+      130,
+      135,
+      220,
+      275,
+      358,
+      464,
+      524
+    ],
+    "matchedIds": [
+      130,
+      358,
+      524
+    ],
+    "mismatches": [
+      10,
+      66,
+      71,
+      135,
+      220,
+      275,
+      464
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "4",
+    "stat": "命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 4,
+    "sampleIds": [
+      10,
+      11,
+      12,
+      66,
+      71,
+      130,
+      134,
+      135,
+      220,
+      234,
+      247,
+      275,
+      358,
+      464,
+      524
+    ],
+    "matchedIds": [
+      130,
+      247,
+      358,
+      524
+    ],
+    "mismatches": [
+      10,
+      11,
+      12,
+      66,
+      71,
+      134,
+      135,
+      220,
+      234,
+      275,
+      464
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "4",
+    "stat": "夜戦火力",
+    "proven": false,
+    "convention": "先乘系数再四舍五入（1位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 39,
+          "family": "linear",
+          "a": 0.2,
+          "b": 0
+        }
+      ],
+      "rounding": "round",
+      "format": {
+        "digits": 1,
+        "plus": true
+      }
+    },
+    "matchedCount": 7,
+    "sampleIds": [
+      10,
+      11,
+      12,
+      66,
+      71,
+      130,
+      134,
+      135,
+      220,
+      234,
+      247,
+      275,
+      358,
+      464,
+      524
+    ],
+    "matchedIds": [
+      10,
+      66,
+      71,
+      220,
+      275,
+      464,
+      524
+    ],
+    "mismatches": [
+      11,
+      12,
+      130,
+      134,
+      135,
+      234,
+      247,
+      358
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "4",
+    "stat": "夜戦命中",
+    "proven": true,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.3,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 14,
+    "sampleIds": [
+      10,
+      11,
+      12,
+      66,
+      71,
+      130,
+      134,
+      135,
+      220,
+      234,
+      247,
+      275,
+      464,
+      524
+    ],
+    "matchedIds": [
+      10,
+      11,
+      12,
+      66,
+      71,
+      130,
+      134,
+      135,
+      220,
+      234,
+      247,
+      275,
+      464,
+      524
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "4:高角砲・対空7以下",
+    "stat": "艦隊防空",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 2,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      10,
+      66,
+      71,
+      220,
+      358,
+      524
+    ],
+    "matchedIds": [
+      358,
+      524
+    ],
+    "mismatches": [
+      10,
+      66,
+      71,
+      220
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "4:高角砲・対空8以上",
+    "stat": "艦隊防空",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 3,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      130,
+      135,
+      275,
+      464
+    ],
+    "matchedIds": [
+      130
+    ],
+    "mismatches": [
+      135,
+      275,
+      464
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "5",
+    "stat": "竹​ボーナス",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      286
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      286
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "5",
+    "stat": "白露/朝潮/夕雲型改二",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      286
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      286
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "5",
+    "stat": "夜戦火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 3,
+    "sampleIds": [
+      13,
+      14,
+      15,
+      58,
+      125,
+      174,
+      179,
+      283,
+      285,
+      286,
+      314
+    ],
+    "matchedIds": [
+      174,
+      285,
+      286
+    ],
+    "mismatches": [
+      13,
+      14,
+      15,
+      58,
+      125,
+      179,
+      283,
+      314
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "5",
+    "stat": "夜戦命中",
+    "proven": true,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.3,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 9,
+    "sampleIds": [
+      13,
+      14,
+      15,
+      58,
+      125,
+      174,
+      179,
+      283,
+      314
+    ],
+    "matchedIds": [
+      13,
+      14,
+      15,
+      58,
+      125,
+      174,
+      179,
+      283,
+      314
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "5",
+    "stat": "陽炎型改二​ボーナス",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      286
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      286
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "5",
+    "stat": "雷撃",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.2,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 3,
+    "sampleIds": [
+      13,
+      14,
+      15,
+      58,
+      125,
+      174,
+      179,
+      283,
+      285,
+      286,
+      314
+    ],
+    "matchedIds": [
+      174,
+      285,
+      286
+    ],
+    "mismatches": [
+      13,
+      14,
+      15,
+      58,
+      125,
+      179,
+      283,
+      314
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "5",
+    "stat": "雷撃命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 2,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 3,
+    "sampleIds": [
+      13,
+      14,
+      15,
+      58,
+      125,
+      174,
+      179,
+      283,
+      285,
+      286,
+      314
+    ],
+    "matchedIds": [
+      174,
+      285,
+      286
+    ],
+    "mismatches": [
+      13,
+      14,
+      15,
+      58,
+      125,
+      179,
+      283,
+      314
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "6",
+    "stat": "対空",
+    "proven": true,
+    "convention": "先乘系数再四舍五入（1位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "linear",
+          "a": 0.2,
+          "b": 0
+        }
+      ],
+      "rounding": "round",
+      "format": {
+        "digits": 1,
+        "plus": true
+      }
+    },
+    "matchedCount": 21,
+    "sampleIds": [
+      19,
+      20,
+      21,
+      55,
+      96,
+      109,
+      110,
+      152,
+      153,
+      156,
+      157,
+      181,
+      182,
+      184,
+      197,
+      198,
+      205,
+      206,
+      228,
+      249,
+      271,
+      486
+    ],
+    "matchedIds": [
+      19,
+      20,
+      21,
+      55,
+      96,
+      109,
+      110,
+      152,
+      153,
+      156,
+      157,
+      181,
+      182,
+      184,
+      197,
+      198,
+      205,
+      206,
+      228,
+      249,
+      271
+    ],
+    "mismatches": [
+      486
+    ],
+    "exceptions": [
+      {
+        "id": 486,
+        "formula": {
+          "segments": [
+            {
+              "from": 0,
+              "to": 9,
+              "family": "linear",
+              "a": 0.3,
+              "b": 0
+            }
+          ],
+          "rounding": "round",
+          "format": {
+            "digits": 1,
+            "plus": true
+          }
+        },
+        "cells": {
+          "0": "+0.3",
+          "1": "+0.6",
+          "2": "+0.9",
+          "3": "+1.2",
+          "4": "+1.5",
+          "5": "+1.8",
+          "6": "+2.1",
+          "7": "+2.4",
+          "8": "+2.7",
+          "9": "+3.0"
+        }
+      }
+    ]
+  },
+  {
+    "category": "6",
+    "stat": "鈴谷航改二熊野航改二龍鳳改二/戊",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      271
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      271
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "7:艦爆",
+    "stat": "対潜",
+    "proven": true,
+    "convention": "先乘系数再四舍五入（1位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "linear",
+          "a": 0.2,
+          "b": 0
+        }
+      ],
+      "rounding": "round",
+      "format": {
+        "digits": 1,
+        "plus": true
+      }
+    },
+    "matchedCount": 17,
+    "sampleIds": [
+      23,
+      24,
+      57,
+      99,
+      100,
+      195,
+      248,
+      277,
+      316,
+      320,
+      391,
+      392,
+      419,
+      420,
+      421,
+      541,
+      544
+    ],
+    "matchedIds": [
+      23,
+      24,
+      57,
+      99,
+      100,
+      195,
+      248,
+      277,
+      316,
+      320,
+      391,
+      392,
+      419,
+      420,
+      421,
+      541,
+      544
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "7:艦爆",
+    "stat": "爆装",
+    "proven": true,
+    "convention": "先乘系数再四舍五入（1位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "linear",
+          "a": 0.2,
+          "b": 0
+        }
+      ],
+      "rounding": "round",
+      "format": {
+        "digits": 1,
+        "plus": true
+      }
+    },
+    "matchedCount": 17,
+    "sampleIds": [
+      23,
+      24,
+      57,
+      99,
+      100,
+      195,
+      248,
+      277,
+      316,
+      320,
+      391,
+      392,
+      419,
+      420,
+      421,
+      541,
+      544
+    ],
+    "matchedIds": [
+      23,
+      24,
+      57,
+      99,
+      100,
+      195,
+      248,
+      277,
+      316,
+      320,
+      391,
+      392,
+      419,
+      420,
+      421,
+      541,
+      544
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "7:零式爆戦",
+    "stat": "装備可能艦",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      447
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      447
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "7:零式爆戦",
+    "stat": "対空",
+    "proven": false,
+    "convention": "先乘系数再四舍五入（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "linear",
+          "a": 0.25,
+          "b": 0
+        }
+      ],
+      "rounding": "round",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 4,
+    "sampleIds": [
+      60,
+      154,
+      219,
+      447
+    ],
+    "matchedIds": [
+      60,
+      154,
+      219,
+      447
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "7:零式爆戦",
+    "stat": "対潜",
+    "proven": false,
+    "convention": "先乘系数再四舍五入（1位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "linear",
+          "a": 0.2,
+          "b": 0
+        }
+      ],
+      "rounding": "round",
+      "format": {
+        "digits": 1,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      487
+    ],
+    "matchedIds": [
+      487
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "8",
+    "stat": "対潜",
+    "proven": true,
+    "convention": "先乘系数再四舍五入（1位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "linear",
+          "a": 0.2,
+          "b": 0
+        }
+      ],
+      "rounding": "round",
+      "format": {
+        "digits": 1,
+        "plus": true
+      }
+    },
+    "matchedCount": 18,
+    "sampleIds": [
+      16,
+      17,
+      18,
+      52,
+      82,
+      93,
+      94,
+      98,
+      144,
+      196,
+      242,
+      243,
+      256,
+      344,
+      372,
+      424,
+      425,
+      542
+    ],
+    "matchedIds": [
+      16,
+      17,
+      18,
+      52,
+      82,
+      93,
+      94,
+      98,
+      144,
+      196,
+      242,
+      243,
+      256,
+      344,
+      372,
+      424,
+      425,
+      542
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "8",
+    "stat": "雷装",
+    "proven": true,
+    "convention": "先乘系数再四舍五入（1位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "linear",
+          "a": 0.2,
+          "b": 0
+        }
+      ],
+      "rounding": "round",
+      "format": {
+        "digits": 1,
+        "plus": true
+      }
+    },
+    "matchedCount": 18,
+    "sampleIds": [
+      16,
+      17,
+      18,
+      52,
+      82,
+      93,
+      94,
+      98,
+      144,
+      196,
+      242,
+      243,
+      256,
+      344,
+      372,
+      424,
+      425,
+      542
+    ],
+    "matchedIds": [
+      16,
+      17,
+      18,
+      52,
+      82,
+      93,
+      94,
+      98,
+      144,
+      196,
+      242,
+      243,
+      256,
+      344,
+      372,
+      424,
+      425,
+      542
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "9",
+    "stat": "空母​ボーナス",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      54
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      54
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "9",
+    "stat": "索敵値",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.2,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      54,
+      61,
+      151,
+      543
+    ],
+    "matchedIds": [
+      54,
+      543
+    ],
+    "mismatches": [
+      61,
+      151
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "9",
+    "stat": "瑞鳳改二乙​鈴谷航改二​熊野航改二",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      61
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      61
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "10",
+    "stat": "BismarckPrinz Eugen",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      115
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      115
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "10",
+    "stat": "アメリカ艦",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      171
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      171
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "10",
+    "stat": "索敵値",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.2,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 5,
+    "sampleIds": [
+      25,
+      59,
+      102,
+      115,
+      118,
+      163,
+      171,
+      238,
+      304,
+      370,
+      371,
+      414,
+      471,
+      539
+    ],
+    "matchedIds": [
+      115,
+      118,
+      171,
+      414,
+      471
+    ],
+    "mismatches": [
+      25,
+      59,
+      102,
+      163,
+      238,
+      304,
+      370,
+      371,
+      539
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "10",
+    "stat": "大淀​ボーナス",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      118
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      118
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "10",
+    "stat": "米国巡洋艦​ボーナス",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      414
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      414
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "10",
+    "stat": "米国戦艦​ボーナス",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      414
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      414
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "11",
+    "stat": "索敵値",
+    "proven": true,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.15,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 10,
+    "sampleIds": [
+      26,
+      79,
+      80,
+      81,
+      194,
+      207,
+      237,
+      322,
+      367,
+      368
+    ],
+    "matchedIds": [
+      26,
+      79,
+      80,
+      81,
+      194,
+      207,
+      237,
+      322,
+      367,
+      368
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "11",
+    "stat": "爆装",
+    "proven": true,
+    "convention": "先乘系数再四舍五入（1位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "linear",
+          "a": 0.2,
+          "b": 0
+        }
+      ],
+      "rounding": "round",
+      "format": {
+        "digits": 1,
+        "plus": true
+      }
+    },
+    "matchedCount": 10,
+    "sampleIds": [
+      26,
+      79,
+      80,
+      81,
+      194,
+      207,
+      237,
+      322,
+      367,
+      368
+    ],
+    "matchedIds": [
+      26,
+      79,
+      80,
+      81,
+      194,
+      207,
+      237,
+      322,
+      367,
+      368
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "12",
+    "stat": "艦隊防空",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      27,
+      106,
+      315,
+      450
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      27,
+      106,
+      315,
+      450
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "12",
+    "stat": "索敵値",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.4,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      27,
+      28,
+      29,
+      88,
+      106,
+      240,
+      315,
+      450,
+      517
+    ],
+    "matchedIds": [
+      517
+    ],
+    "mismatches": [
+      27,
+      28,
+      29,
+      88,
+      106,
+      240,
+      315,
+      450
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "12",
+    "stat": "夜戦命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.6,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 6,
+    "sampleIds": [
+      27,
+      28,
+      29,
+      88,
+      106,
+      240,
+      315,
+      450,
+      517
+    ],
+    "matchedIds": [
+      28,
+      29,
+      88,
+      240,
+      315,
+      517
+    ],
+    "mismatches": [
+      27,
+      106,
+      450
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "12:命中2以下",
+    "stat": "命中",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      27,
+      106,
+      450
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      27,
+      106,
+      450
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "12:命中3以上",
+    "stat": "命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.7,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      28,
+      29,
+      88,
+      240,
+      315,
+      517
+    ],
+    "matchedIds": [
+      517
+    ],
+    "mismatches": [
+      28,
+      29,
+      88,
+      240,
+      315
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "13",
+    "stat": "ドイツ艦",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      124
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      124
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "13",
+    "stat": "艦隊防空",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.5,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      30,
+      32,
+      89,
+      124,
+      142,
+      278,
+      279,
+      410,
+      411
+    ],
+    "matchedIds": [
+      124,
+      411
+    ],
+    "mismatches": [
+      30,
+      32,
+      89,
+      142,
+      278,
+      279,
+      410
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "13",
+    "stat": "索敵値",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.4,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      30,
+      31,
+      32,
+      89,
+      124,
+      141,
+      142,
+      278,
+      279,
+      410,
+      411
+    ],
+    "matchedIds": [
+      124,
+      411
+    ],
+    "mismatches": [
+      30,
+      31,
+      32,
+      89,
+      141,
+      142,
+      278,
+      279,
+      410
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "13",
+    "stat": "夜戦命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.6,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 9,
+    "sampleIds": [
+      30,
+      31,
+      32,
+      89,
+      124,
+      141,
+      142,
+      278,
+      279,
+      410,
+      411
+    ],
+    "matchedIds": [
+      31,
+      32,
+      89,
+      124,
+      141,
+      142,
+      279,
+      410,
+      411
+    ],
+    "mismatches": [
+      30,
+      278
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "13:命中2以下",
+    "stat": "命中",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      30,
+      278
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      30,
+      278
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "13:命中3以上",
+    "stat": "命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.7,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      31,
+      32,
+      89,
+      124,
+      141,
+      142,
+      279,
+      410,
+      411
+    ],
+    "matchedIds": [
+      124,
+      411
+    ],
+    "mismatches": [
+      31,
+      32,
+      89,
+      141,
+      142,
+      279,
+      410
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "14",
+    "stat": "火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 0.75,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      46,
+      47,
+      149,
+      260,
+      438
+    ],
+    "matchedIds": [
+      438
+    ],
+    "mismatches": [
+      46,
+      47,
+      149,
+      260
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "14",
+    "stat": "対潜",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 0.6666666666666666,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      46,
+      47,
+      149,
+      260,
+      438
+    ],
+    "matchedIds": [
+      438
+    ],
+    "mismatches": [
+      46,
+      47,
+      149,
+      260
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "14",
+    "stat": "対潜命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.3,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      46,
+      47,
+      149,
+      260,
+      438
+    ],
+    "matchedIds": [
+      438
+    ],
+    "mismatches": [
+      46,
+      47,
+      149,
+      260
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "14",
+    "stat": "雷撃回避",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.5,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      46,
+      47,
+      149,
+      260,
+      438
+    ],
+    "matchedIds": [
+      438
+    ],
+    "mismatches": [
+      46,
+      47,
+      149,
+      260
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "15",
+    "stat": "火力",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      44,
+      45,
+      287,
+      346
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      44,
+      45,
+      287,
+      346
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "15",
+    "stat": "改修ボーナス対潜",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      227
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      227
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "15",
+    "stat": "対潜",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 0.6666666666666666,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      44,
+      45,
+      226,
+      227,
+      287,
+      346,
+      488
+    ],
+    "matchedIds": [
+      227,
+      488
+    ],
+    "mismatches": [
+      44,
+      45,
+      226,
+      287,
+      346
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "17",
+    "stat": "回避",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.5,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      34,
+      87
+    ],
+    "matchedIds": [
+      34,
+      87
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "17",
+    "stat": "金剛型改二丙​ボーナス",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      87
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      87
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "17",
+    "stat": "天津風改二​ボーナス",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      87
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      87
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "18",
+    "stat": "火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      35,
+      317,
+      483
+    ],
+    "matchedIds": [
+      317,
+      483
+    ],
+    "mismatches": [
+      35
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "18",
+    "stat": "命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      35,
+      317,
+      483
+    ],
+    "matchedIds": [
+      317,
+      483
+    ],
+    "mismatches": [
+      35
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "18",
+    "stat": "夜戦火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      35,
+      317,
+      483
+    ],
+    "matchedIds": [
+      317,
+      483
+    ],
+    "mismatches": [
+      35
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "18",
+    "stat": "夜戦命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.3,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 3,
+    "sampleIds": [
+      35,
+      317,
+      483
+    ],
+    "matchedIds": [
+      35,
+      317,
+      483
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "19",
+    "stat": "火力",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      36,
+      116,
+      365
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      36,
+      116,
+      365
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "19",
+    "stat": "命中",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      36,
+      116,
+      365
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      36,
+      116,
+      365
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "19",
+    "stat": "夜戦火力",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      36,
+      116,
+      365
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      36,
+      116,
+      365
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "19",
+    "stat": "夜戦命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.3,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 3,
+    "sampleIds": [
+      36,
+      116,
+      365
+    ],
+    "matchedIds": [
+      36,
+      116,
+      365
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "21",
+    "stat": "その他艦​ボーナス",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      84
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      84
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "21",
+    "stat": "加重対空",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 4,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 7,
+    "sampleIds": [
+      37,
+      38,
+      39,
+      40,
+      49,
+      51,
+      84,
+      92,
+      131,
+      173,
+      191,
+      274
+    ],
+    "matchedIds": [
+      37,
+      38,
+      39,
+      40,
+      49,
+      84,
+      92
+    ],
+    "mismatches": [
+      51,
+      131,
+      173,
+      191,
+      274
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "21",
+    "stat": "火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 6,
+    "sampleIds": [
+      37,
+      38,
+      39,
+      40,
+      49,
+      51,
+      84,
+      92,
+      131,
+      173,
+      191,
+      274
+    ],
+    "matchedIds": [
+      40,
+      49,
+      84,
+      173,
+      191,
+      274
+    ],
+    "mismatches": [
+      37,
+      38,
+      39,
+      51,
+      92,
+      131
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "21",
+    "stat": "発動率",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      274
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      274
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "21",
+    "stat": "雷撃",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.2,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 6,
+    "sampleIds": [
+      37,
+      38,
+      39,
+      40,
+      49,
+      51,
+      84,
+      92,
+      131,
+      173,
+      191,
+      274
+    ],
+    "matchedIds": [
+      40,
+      49,
+      84,
+      173,
+      191,
+      274
+    ],
+    "mismatches": [
+      37,
+      38,
+      39,
+      51,
+      92,
+      131
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "22",
+    "stat": "夜戦火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      41,
+      309
+    ],
+    "matchedIds": [
+      41,
+      309
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "24",
+    "stat": "一装備",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      68,
+      193
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      68,
+      193
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "24",
+    "stat": "遠征報酬",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      166,
+      408,
+      409
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      166,
+      408,
+      409
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "24",
+    "stat": "火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      68,
+      166,
+      193,
+      408,
+      409
+    ],
+    "matchedIds": [
+      408,
+      409
+    ],
+    "mismatches": [
+      68,
+      166,
+      193
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "24",
+    "stat": "三装備",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      68,
+      193
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      68,
+      193
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "24",
+    "stat": "四装備",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      68,
+      193
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      68,
+      193
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "24",
+    "stat": "二装備",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      68,
+      193
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      68,
+      193
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "24",
+    "stat": "砲台特効倍率",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      68,
+      166,
+      193,
+      408,
+      409
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      68,
+      166,
+      193,
+      408,
+      409
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "24",
+    "stat": "命中",
+    "proven": true,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 5,
+    "sampleIds": [
+      68,
+      166,
+      193,
+      408,
+      409
+    ],
+    "matchedIds": [
+      68,
+      166,
+      193,
+      408,
+      409
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "24",
+    "stat": "夜戦火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      68,
+      166,
+      193,
+      408,
+      409
+    ],
+    "matchedIds": [
+      408,
+      409
+    ],
+    "mismatches": [
+      68,
+      166,
+      193
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "24",
+    "stat": "夜戦命中",
+    "proven": true,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.3,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 5,
+    "sampleIds": [
+      68,
+      166,
+      193,
+      408,
+      409
+    ],
+    "matchedIds": [
+      68,
+      166,
+      193,
+      408,
+      409
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "25",
+    "stat": "対潜",
+    "proven": false,
+    "convention": "先乘系数再四舍五入（1位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "linear",
+          "a": 0.3,
+          "b": 0
+        }
+      ],
+      "rounding": "round",
+      "format": {
+        "digits": 1,
+        "plus": true
+      }
+    },
+    "matchedCount": 3,
+    "sampleIds": [
+      69,
+      324,
+      325,
+      326,
+      327
+    ],
+    "matchedIds": [
+      325,
+      326,
+      327
+    ],
+    "mismatches": [
+      69,
+      324
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "26",
+    "stat": "あきつ丸改",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      451
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      451
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "26",
+    "stat": "索敵値",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      70,
+      451
+    ],
+    "matchedIds": [
+      70,
+      451
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "26",
+    "stat": "対潜",
+    "proven": false,
+    "convention": "先乘系数再四舍五入（1位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "linear",
+          "a": 0.2,
+          "b": 0
+        }
+      ],
+      "rounding": "round",
+      "format": {
+        "digits": 1,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      70
+    ],
+    "matchedIds": [
+      70
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "27",
+    "stat": "装甲",
+    "proven": false,
+    "convention": "先乘系数再四舍五入（1位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "linear",
+          "a": 0.2,
+          "b": 0
+        }
+      ],
+      "rounding": "round",
+      "format": {
+        "digits": 1,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      72,
+      203
+    ],
+    "matchedIds": [
+      72,
+      203
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "28",
+    "stat": "装甲",
+    "proven": false,
+    "convention": "先乘系数再四舍五入（1位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "linear",
+          "a": 0.3,
+          "b": 0
+        }
+      ],
+      "rounding": "round",
+      "format": {
+        "digits": 1,
+        "plus": true
+      }
+    },
+    "matchedCount": 3,
+    "sampleIds": [
+      73,
+      136,
+      204
+    ],
+    "matchedIds": [
+      73,
+      136,
+      204
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "29",
+    "stat": "火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      74
+    ],
+    "matchedIds": [
+      74
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "29",
+    "stat": "敵CI率",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      74
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      74
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "29",
+    "stat": "被弾",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      74
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      74
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "29",
+    "stat": "命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      74
+    ],
+    "matchedIds": [
+      74
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "29",
+    "stat": "夜戦火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      74
+    ],
+    "matchedIds": [
+      74
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "29",
+    "stat": "夜戦命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.3,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      74
+    ],
+    "matchedIds": [
+      74
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "32",
+    "stat": "装備ボーナス",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      383
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      383
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "32",
+    "stat": "夜戦火力",
+    "proven": true,
+    "convention": "先乘系数再四舍五入（1位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 39,
+          "family": "linear",
+          "a": 0.2,
+          "b": 0
+        }
+      ],
+      "rounding": "round",
+      "format": {
+        "digits": 1,
+        "plus": true
+      }
+    },
+    "matchedCount": 9,
+    "sampleIds": [
+      95,
+      213,
+      383,
+      440,
+      441,
+      442,
+      457,
+      511,
+      512
+    ],
+    "matchedIds": [
+      95,
+      213,
+      383,
+      440,
+      441,
+      442,
+      457,
+      511,
+      512
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "32",
+    "stat": "夜戦命中",
+    "proven": true,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.3,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 9,
+    "sampleIds": [
+      95,
+      213,
+      383,
+      440,
+      441,
+      442,
+      457,
+      511,
+      512
+    ],
+    "matchedIds": [
+      95,
+      213,
+      383,
+      440,
+      441,
+      442,
+      457,
+      511,
+      512
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "32",
+    "stat": "雷撃",
+    "proven": true,
+    "convention": "先乘系数再四舍五入（1位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 39,
+          "family": "linear",
+          "a": 0.2,
+          "b": 0
+        }
+      ],
+      "rounding": "round",
+      "format": {
+        "digits": 1,
+        "plus": true
+      }
+    },
+    "matchedCount": 9,
+    "sampleIds": [
+      95,
+      213,
+      383,
+      440,
+      441,
+      442,
+      457,
+      511,
+      512
+    ],
+    "matchedIds": [
+      95,
+      213,
+      383,
+      440,
+      441,
+      442,
+      457,
+      511,
+      512
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "35",
+    "stat": "火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      478
+    ],
+    "matchedIds": [
+      478
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "35",
+    "stat": "火力ボーナス",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      478
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      478
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "35",
+    "stat": "回避ボーナス",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      478
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      478
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "35",
+    "stat": "対空ボーナス",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      478
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      478
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "35",
+    "stat": "爆装ボーナス",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      478
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      478
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "35",
+    "stat": "命中ボーナス",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      478
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      478
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "35",
+    "stat": "夜戦火力(空母)",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 0.7,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      478
+    ],
+    "matchedIds": [
+      478
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "35",
+    "stat": "夜戦火力(空母以外)",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      478
+    ],
+    "matchedIds": [
+      478
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "35",
+    "stat": "雷装ボーナス",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      478
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      478
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "36",
+    "stat": "火力",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      120,
+      121
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      120,
+      121
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "36",
+    "stat": "艦隊防空",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      120,
+      121
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      120,
+      121
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "36",
+    "stat": "対空",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      120,
+      121
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      120,
+      121
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "36",
+    "stat": "命中",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      120,
+      121
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      120,
+      121
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "36",
+    "stat": "夜戦火力",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      120,
+      121
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      120,
+      121
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "36",
+    "stat": "夜戦命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.3,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      120,
+      121
+    ],
+    "matchedIds": [
+      120,
+      121
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "37",
+    "stat": "火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      348
+    ],
+    "matchedIds": [
+      348
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "37",
+    "stat": "夜戦火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      348
+    ],
+    "matchedIds": [
+      348
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "39",
+    "stat": "火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      129,
+      412
+    ],
+    "matchedIds": [
+      129,
+      412
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "39",
+    "stat": "命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      129,
+      412
+    ],
+    "matchedIds": [
+      129,
+      412
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "39",
+    "stat": "夜戦火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 2,
+    "sampleIds": [
+      129,
+      412
+    ],
+    "matchedIds": [
+      129,
+      412
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "40",
+    "stat": "火力",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      132
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      132
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "40",
+    "stat": "対潜",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      132
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      132
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "40",
+    "stat": "対潜命中",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      132
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      132
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "40",
+    "stat": "雷撃回避",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      132
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      132
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "42",
+    "stat": "火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      140
+    ],
+    "matchedIds": [
+      140
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "42",
+    "stat": "敵CI率",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      140
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      140
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "42",
+    "stat": "被弾",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      140
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      140
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "42",
+    "stat": "命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      140
+    ],
+    "matchedIds": [
+      140
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "42",
+    "stat": "夜戦火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      140
+    ],
+    "matchedIds": [
+      140
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "42",
+    "stat": "夜戦命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.3,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      140
+    ],
+    "matchedIds": [
+      140
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "45",
+    "stat": "改修ボーナス",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      485
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      485
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "45",
+    "stat": "対空",
+    "proven": true,
+    "convention": "先乘系数再四舍五入（1位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "linear",
+          "a": 0.2,
+          "b": 0
+        }
+      ],
+      "rounding": "round",
+      "format": {
+        "digits": 1,
+        "plus": true
+      }
+    },
+    "matchedCount": 6,
+    "sampleIds": [
+      164,
+      165,
+      215,
+      216,
+      217,
+      485
+    ],
+    "matchedIds": [
+      164,
+      165,
+      215,
+      216,
+      217,
+      485
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "46",
+    "stat": "遠征報酬",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      167
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      167
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "46",
+    "stat": "火力",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      167
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      167
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "46",
+    "stat": "砲台特効倍率",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      167
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      167
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "46",
+    "stat": "命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      167
+    ],
+    "matchedIds": [
+      167
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "46",
+    "stat": "夜戦火力",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      167
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      167
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "46",
+    "stat": "夜戦命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.3,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      167
+    ],
+    "matchedIds": [
+      167
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "47",
+    "stat": "(対駆逐)",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 0.7,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      224
+    ],
+    "matchedIds": [
+      224
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "47",
+    "stat": "対空",
+    "proven": true,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 0.5,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 10,
+    "sampleIds": [
+      168,
+      169,
+      170,
+      180,
+      186,
+      187,
+      224,
+      401,
+      403,
+      493
+    ],
+    "matchedIds": [
+      168,
+      169,
+      170,
+      180,
+      186,
+      187,
+      224,
+      401,
+      403,
+      493
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "47",
+    "stat": "爆装",
+    "proven": true,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 0.7,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 10,
+    "sampleIds": [
+      168,
+      169,
+      170,
+      180,
+      186,
+      187,
+      224,
+      401,
+      403,
+      493
+    ],
+    "matchedIds": [
+      168,
+      169,
+      170,
+      180,
+      186,
+      187,
+      224,
+      401,
+      403,
+      493
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "47",
+    "stat": "雷撃",
+    "proven": true,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 0.7,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 10,
+    "sampleIds": [
+      168,
+      169,
+      170,
+      180,
+      186,
+      187,
+      224,
+      401,
+      403,
+      493
+    ],
+    "matchedIds": [
+      168,
+      169,
+      170,
+      180,
+      186,
+      187,
+      224,
+      401,
+      403,
+      493
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "48",
+    "stat": "対空",
+    "proven": true,
+    "convention": "先乘系数再四舍五入（1位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "linear",
+          "a": 0.2,
+          "b": 0
+        }
+      ],
+      "rounding": "round",
+      "format": {
+        "digits": 1,
+        "plus": true
+      }
+    },
+    "matchedCount": 13,
+    "sampleIds": [
+      176,
+      177,
+      185,
+      201,
+      202,
+      218,
+      221,
+      222,
+      250,
+      251,
+      445,
+      446,
+      452
+    ],
+    "matchedIds": [
+      176,
+      177,
+      185,
+      201,
+      202,
+      218,
+      221,
+      222,
+      250,
+      251,
+      445,
+      446,
+      452
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "53",
+    "stat": "対空",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 0.5,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      395
+    ],
+    "matchedIds": [
+      395
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "53",
+    "stat": "爆装",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 0.7,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      395
+    ],
+    "matchedIds": [
+      395
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "53",
+    "stat": "雷撃",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 0.7,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      395
+    ],
+    "matchedIds": [
+      395
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "54",
+    "stat": "煙幕発動率",
+    "proven": false,
+    "convention": "—",
+    "formula": null,
+    "matchedCount": 0,
+    "sampleIds": [
+      500
+    ],
+    "matchedIds": [],
+    "mismatches": [
+      500
+    ],
+    "exceptions": []
+  },
+  {
+    "category": "54",
+    "stat": "火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      500
+    ],
+    "matchedIds": [
+      500
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "54",
+    "stat": "命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      500
+    ],
+    "matchedIds": [
+      500
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "54",
+    "stat": "夜戦火力",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      500
+    ],
+    "matchedIds": [
+      500
+    ],
+    "mismatches": [],
+    "exceptions": []
+  },
+  {
+    "category": "54",
+    "stat": "夜戦命中",
+    "proven": false,
+    "convention": "先乘系数再截断（2位小数）",
+    "formula": {
+      "segments": [
+        {
+          "from": 0,
+          "to": 9,
+          "family": "sqrt",
+          "a": 1.3,
+          "b": 0
+        }
+      ],
+      "rounding": "truncate",
+      "format": {
+        "digits": 2,
+        "plus": true
+      }
+    },
+    "matchedCount": 1,
+    "sampleIds": [
+      500
+    ],
+    "matchedIds": [
+      500
+    ],
+    "mismatches": [],
+    "exceptions": []
+  }
+]

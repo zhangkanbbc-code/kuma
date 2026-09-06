@@ -1,10 +1,10 @@
 // Adapted from poi (https://github.com/poooi/poi) assets/js/xhr-hack.js
-// MIT License, Copyright (c) poi contributors — 移植与改造：艦素 kanso 项目。
+// MIT License, Copyright (c) poi contributors — 移植与改造：kuma 项目。
 // MAIN WORLD
 // 经 contextBridge.executeInMainWorld 序列化进页面主世界，替换 XMLHttpRequest
-// 以截获游戏自身请求。必须自包含：只引用全局量与 window.kansoPreloadBridge。
+// 以截获游戏自身请求。必须自包含：只引用全局量与 window.kumaPreloadBridge。
 function installXhrHack() {
-  const bridge = window.kansoPreloadBridge
+  const bridge = window.kumaPreloadBridge
 
   const toPathname = (rawUrl) => {
     try {

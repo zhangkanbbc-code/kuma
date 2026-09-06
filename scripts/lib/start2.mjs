@@ -1,6 +1,6 @@
 // api_start2 主数据快照的读取口。
 //
-// 主数据是游戏数据，不入仓库——本机跑过一次 kuma 并登录游戏后就会有快照。
+// 主数据是游戏数据，不入仓库——对照资料跑过一次 kuma 并登录游戏后就会有快照。
 // 三个候选按「越具体越优先」排：显式指定 > 应用自己落的快照 > 仓库上一级的 s2.json
 //（后者是历史上手工放的一份样本，多个 map-intel 脚本还在读它）。
 //
@@ -25,7 +25,7 @@ const findNestedArray = (value, key, seen = new Set()) => {
 
 export const start2Candidates = (root) =>
   [
-    process.env.KANSO_START2_SNAPSHOT,
+    process.env.KUMA_START2_SNAPSHOT,
     userDataPathIfAny('snapshots', 'kcsapi_api_start2_getData.json'),
     root ? path.join(root, '..', 's2.json') : null,
   ].filter(Boolean)

@@ -77,7 +77,7 @@ export const makeLedger = (db: any) => new QuestSenkaLedger(db)
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-senka-quest-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-senka-quest-'))
   for (const name of ['senka.ts', 'quest-period.ts', 'senka-quest-book.ts']) {
     fs.copyFileSync(path.join(ROOT, 'src', 'shared', name), path.join(dir, name))
   }
@@ -189,7 +189,7 @@ test('跨年：1 月的月界在去年 12/31 22:00，季任要等 1/1 05:00', ()
 // ---- 撤回：重算任务战果 ----
 
 const openLedger = (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-senka-quest-db-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-senka-quest-db-'))
   const db = new DatabaseSync(path.join(dir, 'mg.sqlite'))
   db.exec(senkaLogDdl)
   // manual 是后加的列（建表语句里没有，ledger 用 ALTER 补）；撤回的 WHERE 里

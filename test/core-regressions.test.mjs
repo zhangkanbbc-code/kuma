@@ -239,7 +239,7 @@ const makeAudioWindow = (settings) => {
       HTMLMediaElement: FakeMedia,
       document: { addEventListener: () => {} },
       setInterval: () => 1,
-      kansoPreloadBridge: { getGameAudioSettings: () => settings },
+      kumaPreloadBridge: { getGameAudioSettings: () => settings },
     },
   }
 }
@@ -259,7 +259,7 @@ const withAudioWindow = (settings, body) => {
 
 /**
  * 游戏用 howler 2.2.0 装语音：`open` → `responseType='arraybuffer'` →
- * **装 onload** → `send`。艦素从前把「记下资源地址」挂在 `send` 里，
+ * **装 onload** → `send`。kuma从前把「记下资源地址」挂在 `send` 里，
  * 于是它的监听器排在游戏 onload 后面：decodeAudioData 拿到 ArrayBuffer 时
  * 地址还没记上，语音就落进「其他」——只乘总音量，语音滑条 100% 和 30% 一样响
  *（2026-08-26 用户实机报的就是这个）。BGM 因为走 `<audio>` 那条链，一直是好的。
@@ -329,7 +329,7 @@ test('game audio: 自检快照按帧报回捕获计数与最近解码', () => {
       ctx.decodeAudioData(xhr.response, () => {})
     }
     xhr.send()
-    return window.kansoGameAudioStats()
+    return window.kumaGameAudioStats()
   })
   assert.equal(snapshot.length, 1, '顶层帧那份快照没登记上')
   assert.ok(snapshot[0].captures.xhr >= 1, 'XHR 那条捕获路一次都没记上')
@@ -362,7 +362,7 @@ test('game audio: 语音的真实时长单独记一份，SE 不占这个环', ()
     const ctx = new window.AudioContext()
     load(window, ctx, 'https://w09s.kancolle-server.com/kcs/sound/kc9999/414.mp3?version=112')
     load(window, ctx, 'https://w09s.kancolle-server.com/kcs2/resources/se/241.mp3')
-    return window.kansoGameAudioStats()
+    return window.kumaGameAudioStats()
   })
   // 秒 → 毫秒；键是 pathname（?version= 不进去），与 kcs-resource emit 给字幕层的那一份对得上
   assert.deepEqual(snapshot[0].voiceDurations, [{ path: '/kcs/sound/kc9999/414.mp3', ms: 18_400 }])
@@ -380,7 +380,7 @@ test('game audio: 时长环收 24 条，满了扔最旧的——战斗里的音�
       }
       xhr.send()
     }
-    return window.kansoGameAudioStats()
+    return window.kumaGameAudioStats()
   })
   const paths = snapshot[0].voiceDurations.map((entry) => entry.path)
   assert.equal(paths.length, 24)
@@ -414,7 +414,7 @@ test('game audio controls install before game scripts and notifications reset pe
     config,
     /gameAudio: \{ volume: 1, voiceVolume: 1, bgmVolume: 1, mode: 'all' \}/,
   )
-  assert.match(fallback, /window\.kansoAudioControlInstalled/)
+  assert.match(fallback, /window\.kumaAudioControlInstalled/)
   assert.match(preload, /voiceVolume: Number\.isFinite\(rawVoiceVolume\)/)
   assert.match(preload, /bgmVolume: Number\.isFinite\(rawBgmVolume\)/)
   assert.match(settings, /data-audio-volume="\$\{field\}"/)
@@ -463,7 +463,7 @@ test('game audio controls install before game scripts and notifications reset pe
       URL: class TestUrl {},
       location: { href: 'https://example.invalid/' },
       setInterval: () => 1,
-      kansoPreloadBridge: {
+      kumaPreloadBridge: {
         getGameAudioSettings: () => ({
           volume: 0.5,
           voiceVolume: 1.5,
@@ -473,8 +473,8 @@ test('game audio controls install before game scripts and notifications reset pe
       },
     }
     installGameAudioControl(GAME_AUDIO_POLICY)
-    assert.equal(globalThis.window.kansoAudioControlInstalled, true)
-    assert.equal(typeof globalThis.window.installKansoAudioControl, 'function')
+    assert.equal(globalThis.window.kumaAudioControlInstalled, true)
+    assert.equal(typeof globalThis.window.installKumaAudioControl, 'function')
   } finally {
     if (previousWindow === undefined) delete globalThis.window
     else globalThis.window = previousWindow
@@ -2496,8 +2496,9 @@ test('opening the expedition screen follows the bottom 远征 tab and restores o
   assert.match(host, /followGameMissionScene/)
   assert.match(host, /restoreGameMissionScene/)
   assert.match(host, /missionTabRestore = \{ dock: at\.dock, gi: at\.gi, id: prev \}/)
-  assert.match(host, /if \(prev !== 'bi'\) activateModule\('bi'\)/)
+  assert.match(host, /if \(prev !== 'bi'\) activateModule\('bi', \{ auto: true \}\)/)
   assert.match(host, /group\.active === saved\.id/)
+  assert.match(host, /activateModule\(saved\.id, \{ auto: true \}\)/)
   // 出发/强制归还/结算都还在远征流程里，不能当成离开。
   const sceneBlock = main.slice(
     main.indexOf("if (apiPath === '/kcsapi/api_get_member/mission')"),
@@ -3251,18 +3252,18 @@ test('intentional view switches animate without making live data refreshes flash
   const expedition = fs.readFileSync(new URL('../src/renderer/modules/bi.ts', import.meta.url), 'utf8')
   const review = fs.readFileSync(new URL('../src/renderer/modules/shi.ts', import.meta.url), 'utf8')
   assert.match(modules, /paneOf\.get\(other\)\?\.classList\.toggle\('active', on\)/)
-  assert.match(html, /\.ws-pane\.active\s*\{[^}]*animation:\s*kanso-view-enter/)
-  assert.match(html, /@keyframes kanso-view-enter/)
+  assert.match(html, /\.ws-pane\.active\s*\{[^}]*animation:\s*kuma-view-enter/)
+  assert.match(html, /@keyframes kuma-view-enter/)
   assert.match(html, /#overlay-host\.show\s*\{[^}]*visibility:\s*visible;[^}]*opacity:\s*1;/)
   assert.match(html, /#overlay-host\.show \.ov-panel\s*\{[^}]*transform:\s*none;/)
-  assert.match(html, /\.mod-ji \.ship-subview\.enter\s*\{[^}]*animation:\s*kanso-subview-enter/)
+  assert.match(html, /\.mod-ji \.ship-subview\.enter\s*\{[^}]*animation:\s*kuma-subview-enter/)
   assert.match(catalog, /function shipDetailPanelHtml\(enter = false\)/)
   assert.match(catalog, /panel\.innerHTML = shipDetailPanelHtml\(true\)/)
   assert.match(catalog, /const abyssDetailPanelHtml = \(ship: any, enter = false\)/)
   assert.match(catalog, /panel\.innerHTML = abyssDetailPanelHtml\(ship, true\)/)
-  assert.match(html, /\.mod-shi \.shi-view\.enter\s*\{[^}]*animation:\s*kanso-subview-enter/)
+  assert.match(html, /\.mod-shi \.shi-view\.enter\s*\{[^}]*animation:\s*kuma-subview-enter/)
   assert.match(review, /enterNextView = true\s+render\(\)/)
-  assert.doesNotMatch(html, /\.mod-ji \.panel\.on\s*\{[^}]*animation:\s*kanso-view-enter/)
+  assert.doesNotMatch(html, /\.mod-ji \.panel\.on\s*\{[^}]*animation:\s*kuma-view-enter/)
   assert.match(catalog, /id="ji-ship-panel"/)
   assert.match(catalog, /shipState\.dtab = next\s+updateShipDetailPanel\(\)/)
   assert.match(catalog, /shipState\.dtab === 'p-drop'[\s\S]*updateShipDetailPanel\(\)/)
@@ -3282,7 +3283,7 @@ test('intentional view switches animate without making live data refreshes flash
   assert.match(html, /\.mod-ji \.drawer\.stable\s*\{[^}]*transition:\s*none/)
   assert.match(html, /\.mod-bi \.detail\.stable\s*\{[^}]*transition:\s*none/)
   assert.match(html, /\.mod-ji \.book-wrap\.open \.drawer:not\(\.stable\)/)
-  assert.match(html, /\.mod-qa \.qa-detail\.enter\s*\{[^}]*animation:\s*kanso-subview-enter/)
+  assert.match(html, /\.mod-qa \.qa-detail\.enter\s*\{[^}]*animation:\s*kuma-subview-enter/)
   assert.match(html, /\.mod-bi \.bi-app\.open \.detail:not\(\.stable\)/)
   assert.match(html, /\.peek\.show\s*\{[^}]*visibility:\s*visible;[^}]*opacity:\s*1;/)
   assert.match(html, /\.cmenu\.show\s*\{[^}]*visibility:\s*visible;[^}]*opacity:\s*1;/)
@@ -4000,7 +4001,7 @@ test('settings report live network health and provide verified ledger backup and
   assert.match(login, /ipcMain\.handle\('yu:login-health'/)
   assert.match(login, /lastFlushedAt/)
   assert.match(appMain, /app\.setPath\('userData', APPDATA_PATH\)/)
-  assert.doesNotMatch(appMain, /if \(process\.env\.KANSO_SMOKE\) \{\s*app\.setPath\('userData'/)
+  assert.doesNotMatch(appMain, /if \(readEnv\('KUMA_SMOKE'\)\) \{\s*app\.setPath\('userData'/)
   assert.match(ledger, /VACUUM INTO/)
   assert.match(ledger, /PRAGMA integrity_check\(1\)/)
   assert.match(main, /ipcMain\.handle\('yu:backup-ledger'/)
@@ -4412,7 +4413,7 @@ test('offline routing rules evaluate fleet composition, random branches, and LOS
 })
 
 const routingPackUrl = new URL('../assets/lodes/kcwiki-routing.json', import.meta.url)
-const hasFullRoutingPack = process.env.KANSO_TEST_FORCE_SYNTHETIC !== '1'
+const hasFullRoutingPack = process.env.KUMA_TEST_FORCE_SYNTHETIC !== '1'
   && fs.existsSync(routingPackUrl)
 
 test('the full local routing catalog remains executable', {
@@ -4982,7 +4983,7 @@ test('quest details link expedition API ids and give inventory-aware choice rewa
   // EO（quest-trackers）2026-08-21 整层退场：源号、解码器、包名一个都不许回潮
   assert.doesNotMatch(counter, /quest-trackers|source: 'eo'|decodeCond|decodeTask/)
   // 点位边号零硬编码：血条号 → 格子字母走九行校准表，边号由 poi-fcd 现算
-  assert.match(counter, /buildKansoQuestRules\(kcwikiContext, masterRaw, fcdPack\?\.data as any\)/)
+  assert.match(counter, /buildKumaQuestRules\(kcwikiContext, masterRaw, fcdPack\?\.data as any\)/)
   assert.match(counter, /partial: derived\.partial/)
   assert.match(qpTypes, /partial: boolean/)
   assert.match(notices, /if \(tracker\.partial\) continue/)
@@ -5002,9 +5003,9 @@ test('quest details link expedition API ids and give inventory-aware choice rewa
   assert.match(qpTypes, /领取状态仍为上一周期/)
   assert.match(qpTypes, /请在游戏内领取任务并打开一次任务页/)
   assert.match(quest, /领取状态确认于 \$\{fmtTime\(mg\.questActiveTs\)\}/)
-  // 「艦素在线时领取、取消会即时同步」是实现自述，2026-08-26 按族 C 删了。
+  // 「kuma在线时领取、取消会即时同步」是实现自述，2026-08-26 按族 C 删了。
   // 这一格要守的是「新鲜度说得出来」，由上一行的时间戳钉着；改钉那句不许回潮。
-  assert.doesNotMatch(quest, /(?:艦素|kuma)在线时领取/, 'qn: 受领同步的实现自述又回来了')
+  assert.doesNotMatch(quest, /(?:kuma|kuma)在线时领取/, 'qn: 受领同步的实现自述又回来了')
   assert.match(quest, /另有非计数条件 · 计数完成不等于可交付/)
   assert.match(types, /questsTs: number \| null/)
   assert.match(types, /questActiveTs: number \| null/)
@@ -5095,6 +5096,7 @@ test('game voice requests show Chinese-first UI captions and directional battle 
   assert.match(subtitle, /queryLode\('subtitle-enemies'\)/)
   assert.match(subtitle, /queryLode\('wikiwiki-voice'\)/)
   assert.match(subtitle, /queryLode\('wikiwiki-abyss-voice'\)/)
+  assert.match(subtitle, /queryLode\('kuma-abyss-voice'\)/)
   assert.match(subtitle, /queryLode\('opencc-t2s'\)/)
   assert.match(subtitle, /battle\?\.flavorVoices/)
   assert.match(subtitle, /ipcRenderer\.invoke\('mg:voice-unmatched'/)
@@ -5104,15 +5106,20 @@ test('game voice requests show Chinese-first UI captions and directional battle 
   assert.match(subtitle, /wikiLines!?\.find\(\(entry\) => entry\.voiceId === cue\.voiceId\)/)
   // wikiwiki 分支的中文候选都还接着；精确优先序由 voice-subtitle-kcwiki 的
   // shipCaption 行为测试钉，源码守卫只防整条来源被误删。
-  assert.match(subtitle, /const reused = line \? voiceZhByJa\.get\(normalizeVoiceLine\(line\.ja\)\) : ''/)
+  assert.match(subtitle, /const jaLine = captionText\(line\?\.ja\)/)
+  assert.match(
+    subtitle,
+    /const reused = jaLine \? voiceZhByJa\.get\(normalizeVoiceLine\(jaLine\)\) : ''/,
+  )
   assert.match(
     subtitle,
     /const kcwikiZh = captionText\(kcwikiBySlot\.get\(id\)\?\.get\(cue\.voiceId\)\?\.zh\)/,
   )
-  assert.match(subtitle, /voiceOverlayZhByJa\.get\(normalizeVoiceLine\(line\.ja\)\)/)
+  assert.match(subtitle, /voiceOverlayZhByJa\.get\(normalizeVoiceLine\(jaLine\)\)/)
   assert.doesNotMatch(subtitle, /simplifyZh\(\s*`\$\{line\?\.ja/)
   assert.match(catalog, /queryLode\('wikiwiki-voice'\)/)
   assert.match(catalog, /queryLode\('wikiwiki-abyss-voice'\)/)
+  assert.match(catalog, /queryLode\('kuma-abyss-voice'\)/)
   // 深海字幕支仍旧拿**官方档名**当 key（能拼地址的只有这一组）。场合那一列
   // 2026-08-23 从写死的「音轨 #档名」改成 `abyssVoiceRowLabel` 实测补名——
   // 这一条只盯「key 还是 line.key、名字走那个共用函数」，补名本身的判据
@@ -5429,8 +5436,8 @@ test('the Windows one-click launcher starts from its own folder and preserves st
   assert.match(packager, /留在原地不阻断打包/)
   assert.match(packager, /'requested-execution-level': 'asInvoker'/)
   assert.match(packager, /const shortcut = path\.join\(root, 'kuma\.lnk'\)/)
-  assert.match(packager, /\$link\.TargetPath = \$env:KANSO_EXE/)
-  assert.match(packager, /\$link\.IconLocation = \\"\$env:KANSO_EXE,0\\"/)
+  assert.match(packager, /\$link\.TargetPath = \$env:KUMA_EXE/)
+  assert.match(packager, /\$link\.IconLocation = \\"\$env:KUMA_EXE,0\\"/)
   assert.match(readme, /启动kuma\.cmd/)
   assert.match(readme, /release\/kuma-win32-x64\/kuma\.exe/)
 })
@@ -5575,7 +5582,7 @@ test('diagnostic status, event log, and DevTools stay out of the normal top bar'
   const html = rendererSource
 
   assert.match(host, /DIAGNOSTIC_MODULES = new Set\(\['mgstate', 'anchor'\]\)/)
-  assert.match(host, /DEBUG_UI = process\.env\.KANSO_DEBUG_UI === '1'/)
+  assert.match(host, /DEBUG_UI = readEnv\('KUMA_DEBUG_UI'\) === '1'/)
   assert.match(
     host,
     /!hiddenModules\.has\(id\) && \(DEBUG_UI \|\| !DIAGNOSTIC_MODULES\.has\(id\)\)/,
@@ -5676,16 +5683,17 @@ test('native master and sortie fields stay connected to player-facing decisions'
   assert.match(upgrade, /const KCWIKI_EQUIP_ALIAS: Record<string, number> = \{\s*新型高温高压锅炉: 87,/)
   assert.match(upgrade, /if \(equipId != null\) return \{ kind: 'slotitem', id: equipId \}/)
   assert.match(catalog, /const alias = kcwikiUpgradeNeedAlias\(name\)/)
-  assert.match(catalog, /const alias = kcwikiUpgradeNeedAlias\(rawName\)/)
+  // 反查改为复用真实 chip 消费，分档与别名不再另写一遍；行为护栏见 remodel-facts.test。
+  assert.match(catalog, /const result = needChipsHtml\(kcwikiByMst.get\(mstId\)/)
   assert.doesNotMatch(catalog, /\{ id: 75,[^}]+field:/)
   assert.match(types, /boilerCount: number/)
   assert.match(store, /boilerCount: Number\(raw\.api_boiler_count\) \|\| 0/)
-  assert.match(catalog, /queryLode\('wikiwiki-remodel'\)/)
+  assert.match(catalog, /queryLode\('remodel-facts'\)/)
   assert.match(catalog, /covered\.has\(key\)/)
-  assert.match(catalog, /needChipsHtml\(wiki\?\.图纸, mstId, predecessorId\)/)
+  assert.match(catalog, /needChipsHtml\(wiki\?\.图纸, mstId, predecessorId, instances.length/)
   assert.match(catalog, /wikiwiki 改造チャート补 API 表外素材/)
   assert.match(catalog, /let remodelEquipNeeds = new Map<number, RemodelNeed\[\]>\(\)/)
-  assert.match(catalog, /const targetMap = kind === 'slotitem' \? remodelEquipNeeds : remodelNeeds/)
+  assert.match(catalog, /const targetMap = need.kind === 'slotitem' \? remodelEquipNeeds : remodelNeeds/)
   assert.match(catalog, /const equipRemodelUsageHtml = \(equipId: number\)/)
   assert.match(catalog, /\$\{equipRemodelUsageHtml\(e\.api_id\)\}/)
   // 2026-08-16 出处收纳：整行「数据来源 …」收成悬停小记号，行内只剩 remodelNeedCredit() 的记号
@@ -5695,7 +5703,9 @@ test('native master and sortie fields stay connected to player-facing decisions'
   assert.match(catalog, /api_mst_equip_limit_exslot/)
   assert.match(expedition, /游戏官方示例编成/)
   assert.match(expedition, /不代表成功条件或最优方案/)
-  assert.match(expedition, /queryLode\('wikiwiki-expedition'\)/)
+  // 远征机制改由随包第一方层补齐；wikiwiki 只在维护者侧对照。
+  assert.match(expedition, /queryLode\('expedition-facts'\)/)
+  assert.doesNotMatch(expedition, /queryLode\('wikiwiki-expedition'\)/)
   // 这栏要守的是「奖励来自游戏内建字段、明细还没有」这条交代仍在，
   // 字段名按裁定不再上屏，所以钉「待资料补充」这半句，不钉 api_ 名。
   assert.match(expedition, /游戏内建奖励栏 · 概率与资源明细待资料补充/)
@@ -5730,7 +5740,7 @@ test('native master and sortie fields stay connected to player-facing decisions'
   // 正文直接 esc(conditionJp) 输出，没有任何转换。
   assert.match(catalog, /日文一手分歧说明/)
   assert.match(catalog, /esc\(route\?\.conditionJp \?\? ''\)/)
-  // 敌情卡脚注里那句「艦素不会代为操作」按裁定 2 撤下（纯机制处的顺带声明，
+  // 敌情卡脚注里那句「kuma不会代为操作」按裁定 2 撤下（纯机制处的顺带声明，
   // 封禁承诺只留在用户真有顾虑的位置）。只读纪律的护栏没丢：同一份 di.ts 由
   // 「演习只记录不代打」那条测试钉着 /挑谁打在游戏里点/。这里改钉脚注还在说
   // 阵型默认值这件事本身，别把整条脚注也删空。
@@ -5754,7 +5764,7 @@ test('native master and sortie fields stay connected to player-facing decisions'
   assert.match(catalog, /官方构图锚点/)
   // 「横幅与卡面已经裁切，不会重复套用坐标」这半句是 UI 自述，已随文案清理删。
   // 「游戏拿这些坐标…」那句也按本次文案清扫裁定（族 3 玩家常识）删了。
-  // 两句护的都是同一条真行为：这组坐标只是给游戏完整画布用的资料，艦素自己绝不拿它摆位。
+  // 两句护的都是同一条真行为：这组坐标只是给游戏完整画布用的资料，kuma自己绝不拿它摆位。
   // 文案没了，行为钉不能松——下面那条「坐标只被那张只读锚点表读一次」原样保留。
   assert.equal(
     (catalog.match(/shipGraphLayout\(/g) ?? []).length,
@@ -5876,7 +5886,7 @@ test('quit guard kills harvested renderer pids at the very last moment of a norm
   // 只杀「收割过 ∩ 此刻仍是同映像」的，防 PID 复用误杀。
   //
   // ⚠ 2026-08-20 第四种形态：上面那套写完之后**一枪没开过**。在打包产物上开
-  // KANSO_QUIT_TRACE 实测：关窗退出时 before-quit 才触发，窗口与 webview guest 的
+  // KUMA_QUIT_TRACE 实测：关窗退出时 before-quit 才触发，窗口与 webview guest 的
   // webContents 早已销毁，`getAllWebContents()` 返回空数组，收割集空 → 'quit' 里
   // 第一行就 return。所以 PID 必须**在渲染进程出生时**记下，不能等退出时现问。
   // 这几条只钉源码形状，真正的判据在 `npm run quit:e2e`（打包产物 + 真关窗）。
@@ -5898,7 +5908,18 @@ test('quit guard kills harvested renderer pids at the very last moment of a norm
   assert.match(guard, /启动时清掉上次残留的 \$\{stale\.length\} 个同映像进程/)
   // 旧的两条防线保留（主进程卡死兜底 + 启动清扫），不许因为新防线把它们拆了
   assert.match(guard, /killOwnProcessTree\(\)/)
-  assert.match(guard, /export const reapOrphanKansoProcesses = /)
+  assert.match(guard, /export const reapOrphanKumaProcesses = /)
+})
+
+test('main process raises the listener ceiling before independent before-quit fallbacks register', () => {
+  const main = fs.readFileSync(new URL('../src/main/index.ts', import.meta.url), 'utf8')
+  const ceiling = main.indexOf('app.setMaxListeners(20)')
+  assert.ok(ceiling > 0, 'Electron app 的监听上限没有抬到 20')
+  assert.ok(
+    ceiling < main.indexOf("require('./login-keeper')"),
+    'login-keeper 会先注册 before-quit，上限必须在加载它之前设置',
+  )
+  assert.match(main.slice(ceiling - 300, ceiling), /before-quit 共 11 个登记方/)
 })
 
 test('fleet equip strip shows empty slots with capacity hover and marks an open ex slot', () => {
@@ -5986,7 +6007,7 @@ test('practice opponent selection immediately opens a legacy-safe prebattle fore
   // 具体断言见「演习对手不按裸装建模」那条测试
   assert.match(forecast, /stockEquipmentFor/)
   assert.match(combat, /practiceOpponentPreviewHtml/)
-  assert.match(combat, /activateModule\('di'\)/)
+  assert.match(combat, /activateModule\('di', \{ auto: true \}\)/)
   // 2026-08-19 文案体检：预览态页脚声明条（被动只读/开战自动切换）随「常驻声明
   // 悬停化」口径一并撤下——切换行为本身由 verdictHtml 的实时态呈现，无需预告
   // 2026-08-20 发布侧文案清理：「为什么显示区间」整块（practice-preview-caveat）已删。
@@ -6012,7 +6033,7 @@ test('combined fleet formation updates the fleet view without waiting for port',
 })
 
 test('atomic JSON writes replace an existing Windows file cleanly', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-atomic-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-atomic-'))
   const file = path.join(dir, 'state.json')
   try {
     atomicWriteJsonSync(file, { version: 1 })
@@ -6105,7 +6126,7 @@ test('演习名簿与建造坞不再只活在悬停文本里', () => {
   // 初值自己从 config 读（钥装配失败时用户设置不该静默失效），默认仍是关
   assert.match(
     notices,
-    /let buildSpoilerEnabled = Boolean\(config\.get\('kanso\.buildSpoiler', false\)\)/,
+    /let buildSpoilerEnabled = Boolean\(config\.get\('kuma\.buildSpoiler', false\)\)/,
     '提前显示建造结果必须默认关，且初值不能只等钥推送',
   )
   assert.match(notices, /const spoil = buildSpoilerEnabled && dock\.createdShipId > 0/)
@@ -6115,7 +6136,7 @@ test('演习名簿与建造坞不再只活在悬停文本里', () => {
   // 2026-08-12 起预览卡的剧透扩到建造中(带小头像),门仍是同一个开关
   assert.match(header, /isBuildSpoilerEnabled\(\) && dock\.state >= 2 && dock\.createdShipId > 0/)
   const settings = fs.readFileSync(new URL('../src/renderer/modules/yu.ts', import.meta.url), 'utf8')
-  assert.match(settings, /config\.get\('kanso\.buildSpoiler', false\)/)
+  assert.match(settings, /config\.get\('kuma\.buildSpoiler', false\)/)
   assert.match(settings, /'提前显示建造结果'/)
   // 抬头待领芯片默认写「待领」(2026-08-16 空闲态两字宽后跟进,状态词与
   // 任务「待领取」同一套话);剧透开关开着时换成所造舰娘名字头两个字
@@ -6148,13 +6169,13 @@ test('托盘只做入口，不改默认的退出语义、也不自己判定未�
 
   // ✕ 的语义默认不变：悄悄把「关闭」变成「隐藏」，用户会以为已经退出，
   // 实际进程还占着账本与登录态。要改必须在钥里显式打开。
-  assert.match(tray, /config\.get\('kanso\.tray\.closeToTray', false\)/)
-  assert.match(tray, /config\.get\('kanso\.tray\.minimizeToTray', false\)/)
-  assert.match(settings, /'kanso\.tray\.closeToTray'/)
+  assert.match(tray, /config\.get\('kuma\.tray\.closeToTray', false\)/)
+  assert.match(tray, /config\.get\('kuma\.tray\.minimizeToTray', false\)/)
+  assert.match(settings, /'kuma\.tray\.closeToTray'/)
   assert.match(settings, /关闭：✕ 退出程序 · 开启：✕ 收起窗口，托盘菜单退出/)
 
   // 托盘让进程在窗口关闭后继续活着；冒烟就永远等不到退出
-  assert.match(tray, /if \(process\.env\.KANSO_SMOKE \|\| !trayEnabled\(\)\) return/)
+  assert.match(tray, /if \(readEnv\('KUMA_SMOKE'\) \|\| !trayEnabled\(\)\) return/)
 
   // 未读与勿扰的判定都归铃，托盘只显示。两处各存一份就会互相打架。
   assert.match(notifications, /void pushTrayUnread\(unread\)/)
@@ -6162,7 +6183,7 @@ test('托盘只做入口，不改默认的退出语义、也不自己判定未�
   assert.match(tray, /getWindow\(\)\?\.webContents\.send\('tray:toggle-dnd'\)/)
   assert.doesNotMatch(tray, /new Notification|displayBalloon/)
 
-  // 退出中必须放行 close，否则「退出艦素」会被隐藏逻辑吃掉，永远退不掉
+  // 退出中必须放行 close，否则「退出kuma」会被隐藏逻辑吃掉，永远退不掉
   assert.match(tray, /if \(quitting \|\| !closeToTray\(\)\) return false/)
   assert.match(tray, /app\.on\('before-quit', \(\) => \{\s*quitting = true/)
 
@@ -6221,7 +6242,7 @@ test('装备有了在籍轴，且与舰娘那一侧同口径', () => {
 
   // 不代操作：废弃/改修/卸装都在游戏里做
   // 「废弃与改修请在游戏里操作」那句是能力边界表白，按文案清扫裁定（族 2）删。
-  // 它护的是「艦素不代操作」这条真行为——那条行为的钉子本来就是下面这一行，
+  // 它护的是「kuma不代操作」这条真行为——那条行为的钉子本来就是下面这一行，
   // 措辞没了它照旧红：只要有人接了废弃接口就当场失败。
   assert.doesNotMatch(stock, /api_req_kousyou\/destroyitem/)
 })
@@ -6252,9 +6273,9 @@ test('远征编成不再先到先得，多队一起凑', () => {
   assert.match(planner, /liftFleetLevel\(allSlots, holder, pool, group\.exped\.wiki\.fleetLv, offset, offset \+ span\)/)
 
   // 匹配只保证舰种与旗舰 Lv；合计 Lv、属性合计这些总量门槛要靠换人抬，
-  // 否则方案自带一个 ✗。抬不动就如实报「仍差 N 项」，不假装凑齐。
+  // 否则方案自带一个 ✗/待核。下限没到的待核也算未满足，不能拿面值凑绿。
   assert.match(planner, /const liftToPass = /)
-  assert.match(planner, /checkShips\(e, segment\(\)\)\.fails/)
+  assert.match(planner, /const unmet = verdict\.fails \+ verdict\.unknowns/)
   assert.match(planner, /const CANDIDATE_SCAN = /)
   assert.match(planner, /const LIFT_ROUNDS = /)
 
@@ -6262,6 +6283,7 @@ test('远征编成不再先到先得，多队一起凑', () => {
   assert.match(planner, /const clash = picked\.length !== new Set\(picked\)\.size/)
   // 「人凑得出」不等于「条件过得了」——只查前者会让尾注和逐队判定自相矛盾
   assert.match(planner, /const failing = plans\.filter\(\(p\) => p\.verdict\.fails > 0\)/)
+  assert.match(planner, /const pending = plans\.filter\(\(p\) => p\.verdict\.fails === 0 && p\.verdict\.unknowns > 0\)/)
   assert.match(planner, /条件满足 · 无舰娘冲突/)
 
   // 旗舰仍必须落在首位（判定按 ships\[0\] 认旗舰）
@@ -6297,11 +6319,11 @@ test('编成能与社区格式互通，但导入只作对照（审计 C5）', ()
 
   // 载入链接带着用户的编成数据：只进剪贴板，不主动打开外部站点
   assert.match(codec, /只把它放进剪贴板/)
-  // 那两句自表白（「艦素不会自己打开它」「这是只读对照」）2026-08-26 按族 2 删了。
+  // 那两句自表白（「kuma不会自己打开它」「这是只读对照」）2026-08-26 按族 2 删了。
   // 它们守的事一直由上下这两条结构护栏真正守着：不开外链、不发编成请求——不放松。
   assert.doesNotMatch(fleet, /shell\.openExternal|window\.open/)
 
-  // 导入不能落地：艦素不代操作游戏
+  // 导入不能落地：kuma不代操作游戏
   assert.doesNotMatch(fleet, /api_req_hensei/)
 
   // 五格舰（大和改二）：格式层放开到 i5 的行为测试在 deck-builder.test.mjs；
@@ -6409,7 +6431,7 @@ test('札只报事实，不替玩家判「能不能进」', () => {
   const resource = fs.readFileSync(new URL('../src/main/kcs-resource.ts', import.meta.url), 'utf8')
   assert.match(resource, /\/\^\\\/kcs2\\\/resources\\\/map\\\/\(\\d\{3\}\)\\\/\(\\d\{2\}\)/)
   assert.match(resource, /kancolle\.map\.open/)
-  // 只认游戏自己的请求：艦素的海域卷也取同一批 JSON，那不算玩家打开了图
+  // 只认游戏自己的请求：kuma的海域卷也取同一批 JSON，那不算玩家打开了图
   const openBlock = resource.slice(resource.indexOf('const opened ='), resource.indexOf('kancolle.map.open') + 200)
   assert.ok(
     resource.slice(0, resource.indexOf('const opened =')).lastIndexOf('gameWebContentsId') >
@@ -6503,7 +6525,7 @@ test('矿脉清单与源码实际读取一致，健康度分清「没装」与�
     /const selfFetch = missing\.filter\(\(row\) => !manualOnlyReason\(row\.id\) && isSelfFetchLode\(row\.id\)\)/,
   )
   assert.match(settings, /const shouldBeBundled = missing\.filter\(/)
-  // 这张卡 2026-08-24 起只在 KANSO_DEBUG_UI=1 下装配（维护者工具，判据在
+  // 这张卡 2026-08-24 起只在 KUMA_DEBUG_UI=1 下装配（维护者工具，判据在
   // shared/settings-sections 的 DEBUG_ONLY_CARDS，行为级护栏在 test/settings-sections）。
   // 所以卡上出现维护者命令名是对的；这条钉的仍是行为：
   // 拉不回来的那批要单列成「需要手动导入」，并把不能自动的原因原样摊出来。
@@ -6614,7 +6636,7 @@ test('引用的 CSS 变量必须真有定义，别靠裸 hex 兜底', () => {
   }
   assert.deepEqual([...missing], [], `这些变量只被引用、从未被定义：${[...missing].join(', ')}`)
   // 反向：速查浮层要引 token 本身，不许再退回「变量 + 裸 hex 兜底」的写法
-  assert.match(html, /#kanso-command-palette \.cp-box \{[^}]*background: var\(--bg1\);/)
+  assert.match(html, /#kuma-command-palette \.cp-box \{[^}]*background: var\(--bg1\);/)
 })
 
 test('度量行：宽档与裁决共线一行，窄档才堆叠', () => {
@@ -6696,6 +6718,7 @@ test('顶栏去掉字标，动作组收进菜单，所有按钮继续共用形�
     '<button id="btn-focus" title="专注模式：收起三坞只留游戏（F9）">专注</button>',
     '<button id="btn-capture" title="保存游戏画面截图（Ctrl + Alt + S）">截图</button>',
     '<button id="btn-reload" title="刷新游戏页面（F5）">刷新</button>',
+    '<button id="btn-mute" title="静音 kuma 全部声音，再按恢复（Ctrl + M）">静音</button>',
     '<button id="btn-browse" title="新开浏览窗 · 可多开 · 与游戏共用登录与代理">新窗</button>',
   ]) {
     assert.ok(actions[1].includes(button), `动作没有留在下拉里：${button}`)
@@ -6703,8 +6726,8 @@ test('顶栏去掉字标，动作组收进菜单，所有按钮继续共用形�
   assert.match(renderer, /document\.addEventListener\('click',[\s\S]*headerActions\.classList\.toggle\('open'\)[\s\S]*headerActions\.classList\.remove\('open'\)/)
   assert.match(renderer, /e\.key === 'Escape'[\s\S]*headerActions\.classList\.remove\('open'\)/)
   assert.doesNotMatch(renderer, /e\.key === 'F9'/, 'F9 仍在 DOM 处理，会与主进程拦截切两次')
-  assert.match(renderer, /ipcRenderer\.on\('kanso:hotkey'/)
-  assert.match(renderer, /window\.addEventListener\('kanso-hotkeys-changed', syncHotkeyTitles\)/)
+  assert.match(renderer, /ipcRenderer\.on\('kuma:hotkey'/)
+  assert.match(renderer, /window\.addEventListener\('kuma-hotkeys-changed', syncHotkeyTitles\)/)
 
   // 常驻弹窗组、动作菜单入口与下拉动作项仍共用 `header button` 这一套形态。
   const shared = /\n    header button \{([^}]*)\}/.exec(html)
@@ -6720,6 +6743,34 @@ test('顶栏去掉字标，动作组收进菜单，所有按钮继续共用形�
   // 激活态与角标锚点是它真正独有的，别连坐删掉
   assert.match(html, /\.ov-btn \{ position: relative; \}/)
   assert.match(html, /\.ov-btn\.on \{ background: var\(--accent-dim\);/)
+})
+
+test('全局静音落盘、套住新页面，并在老板键恢复后以配置态兜底', () => {
+  const hotkeys = fs.readFileSync(new URL('../src/main/hotkeys.ts', import.meta.url), 'utf8')
+  const renderer = fs.readFileSync(new URL('../src/renderer/index.ts', import.meta.url), 'utf8')
+
+  assert.match(hotkeys, /let muted = config\.get\('kuma\.gameAudio\.muted', false\) === true/)
+  assert.match(hotkeys, /config\.set\('kuma\.gameAudio\.muted', muted\)/)
+  assert.match(
+    hotkeys,
+    /export const applyMute = \(\) => \{\s*for \(const contents of webContents\.getAllWebContents\(\)\) \{\s*contents\.setAudioMuted\(muted\)/,
+  )
+  assert.match(
+    hotkeys,
+    /app\.on\('web-contents-created', \(_event, contents\) => \{\s*contents\.setAudioMuted\(muted\)/,
+  )
+
+  const restore = /export const restoreFromBoss = \(\): boolean => \{([\s\S]*?)\n\}/.exec(hotkeys)?.[1] ?? ''
+  assert.ok(restore, '找不到老板键恢复段')
+  assert.ok(
+    restore.indexOf('executeBossAction(action)') < restore.indexOf('applyMute()'),
+    '老板键还原快照后没有再按全局静音配置兜底',
+  )
+
+  assert.match(hotkeys, /ipcMain\.handle\('audio:toggle-mute', \(\) => toggleMute\(\)\)/)
+  assert.match(hotkeys, /mainWindow\.webContents\.send\('kuma:mute-changed', muted\)/)
+  assert.match(renderer, /ipcRenderer\.on\('kuma:mute-changed'/)
+  assert.match(renderer, /else if \(id === 'mute'\) toggleMute\(\)/)
 })
 
 test('快捷键录入态跟随宿主页寿命，离开时恢复全部快捷键', () => {
@@ -7360,6 +7411,11 @@ test('玩家要能直接打开的三份文档：仓库里在、且真的会被�
     ['wikiwiki-routing', '分歧说明'],
   ]) {
     if (!selfFetchIds.includes(id)) continue
+    if (id === 'akashi-list' && bundled.includes('kcwiki-akashi-improve')) {
+      assert.match(limits, /逐星加成与装备图鉴说明已部分随包/)
+      assert.match(limits, /核对一致的资料才收录，缺格显示「待补」/)
+      continue
+    }
     assert.ok(
       notBundledBullet.includes(keyword),
       `${id} 不随包，「已知限制」那条却没提到「${keyword}」这个域`,
@@ -8740,22 +8796,24 @@ test('沙盘能当一支舰队拿去推演海域，且永远不算联合编组',
   assert.ok(ji.includes('sandboxRosterIds().length ? '), '空沙盘也进了舰队选择器')
 })
 
-test('开发表按日文名匹配，出货率标成估算而不是规则', () => {
+test('开发参考按装备编号匹配，不收社区出货率且保留个人实测', () => {
   const ji = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
   const at = ji.indexOf('const devRecipeHtml')
   assert.ok(at > 0, '没有开发段')
   const fn = ji.slice(at, ji.indexOf('\nconst abyssCatalogHtml', at))
 
   // 表里用的是日文名，按 api_name 直查；绝不做模糊匹配——猜错会把配方安到别的装备上
-  assert.ok(fn.includes('equipment?.[jpName]'), '没有按日文名直查')
+  // 2026-09-06：名称精确解号移到生成器，运行时按 mstId 读取随包表。
+  assert.ok(fn.includes('equipment?.[mstId]'), '没有按装备编号直查')
   assert.match(ji, /devRecipeHtml\(e\.api_name,/, '装备详情没传日文名')
 
   // 游戏内部的开发表不公开，页面上的百分比是玩家攒出来的。那条口径折叠按文案
   // 清扫裁定（族 4）删了，但「必须标成估算」这条不放松——短词落在抬头 aux 上，
   // 与数值同屏，比折叠里那句更早被看到。
-  assert.ok(fn.includes('社区统计估算'), '没把出货率标成估算')
+  // 原估算百分比已退出本节；生成器与生产消费的无概率护栏在 development-facts.test.mjs。
+  assert.doesNotMatch(fn.slice(0, fn.indexOf('\n/**')), /entry\.rate|社区统计估算/)
   // 没收录的装备不摆空段——但你自己的开发实测是另一份数据，它该照常出现
-  assert.ok(fn.includes('if (!list?.length) return mine'), '没收录时该整段不出现（自己的实测除外）')
+  assert.ok(fn.includes("if (!list?.length) return factoryOwnHtml(mstId, 'item')"), '没收录时该整段不出现（自己的实测除外）')
 
   // wiki 的推定出货率与自己的实测并列，不合并：样本量差几个数量级
   assert.match(ji, /const factoryOwnHtml = /)
@@ -9938,15 +9996,15 @@ test('体检回归（2026-08 第二轮）：性能与健壮性专项不许回潮
   // 抓包桥必须是异步 IPC：回到 @electron/remote 同步调用，游戏的 XHR 回调
   // 就得等主进程把整条记账链跑完（回港大包一到游戏就卡一下）
   const preload = read('../assets/preload/webview-preload.js')
-  assert.match(preload, /ipcRenderer\.send\('kanso:game-api', 'response'/)
+  assert.match(preload, /ipcRenderer\.send\('kuma:game-api', 'response'/)
   assert.doesNotMatch(preload, /remote\.require\('\.\/game-api-broadcaster'\)/)
   const broadcaster = read('../src/main/game-api-broadcaster.ts')
-  assert.match(broadcaster, /ipcMain\.on\('kanso:game-api'/)
+  assert.match(broadcaster, /ipcMain\.on\('kuma:game-api'/)
   assert.match(broadcaster, /getType\(\) !== 'webview'/, 'IPC 对任意渲染进程可达，主进程侧要有第二道门')
 
   // 游戏 Image.src 热路径：cacheDir 只在 preload 初始化读一次，查找走带记忆的 lookup。
   // 以前每张图 config.get（同步 IPC）+ 两次 accessSync；MyCache 不存在时仍空跑，
-  // 进战斗只卡游戏画面、艦素大破闪烁还在动。
+  // 进战斗只卡游戏画面、kuma大破闪烁还在动。
   const resourceHack = read('../assets/preload/resource-hack.js')
   assert.match(resourceHack, /const cacheDir = config\.get\([\s\S]*?return createResourceLookup\(cacheDir\)/)
   assert.doesNotMatch(resourceHack, /findHackFilePath\(/)
@@ -9979,8 +10037,8 @@ test('体检回归（2026-08 第二轮）：性能与健壮性专项不许回潮
   assert.match(quitGuard, /taskkill[\s\S]*\/T[\s\S]*\/PID/)
   // 清残留仍在，但调用点挪到了「拿到单实例锁之后」——挂在 installQuitGuard 里会
   // 在第二个实例启动时误杀正在用的那个。时机与实现的护栏在 process-reap.test.mjs
-  assert.match(quitGuard, /export const reapOrphanKansoProcesses/)
-  assert.match(read('../src/main/index.ts'), /reapOrphanKansoProcesses\(\)/)
+  assert.match(quitGuard, /export const reapOrphanKumaProcesses/)
+  assert.match(read('../src/main/index.ts'), /reapOrphanKumaProcesses\(\)/)
 
   // config：get 不许把 DEFAULTS 子对象的引用交出去；set 对对象不许 === 早退
   const config = read('../src/main/config.ts')
@@ -10046,8 +10104,8 @@ test('导出成文件只剩一份：转义/BOM/文件名戳收口，反馈仍归
   assert.equal(text, '﻿舰名,备注\r\n雪风,"带,逗号"')
 
   // 文件名戳按**本地**日期（不是 UTC）：跨零点导出的文件名不该跳到别的日子
-  assert.equal(stampedFileName('kanso-ships', 'csv', new Date(2026, 7, 5)), 'kanso-ships-20260805.csv')
-  assert.equal(stampedFileName('kanso-deck', 'json', new Date(2026, 11, 31)), 'kanso-deck-20261231.json')
+  assert.equal(stampedFileName('kuma-ships', 'csv', new Date(2026, 7, 5)), 'kuma-ships-20260805.csv')
+  assert.equal(stampedFileName('kuma-deck', 'json', new Date(2026, 11, 31)), 'kuma-deck-20261231.json')
 
   // 三处调用方都走共用收口，各自不再自留一份转义/写盘
   const exporters = [
@@ -10230,16 +10288,21 @@ test('升级表同目标多行必须全留，素材按来路各归各', () => {
   assert.match(types, /upgrades: Record<number, MasterShipUpgrade\[\]>/)
   assert.match(store, /\(upgrades\[targetShipId\] \?\?= \[\]\)\.push\(/)
   // 需求反查：原生逐行读、wikiwiki 挂前进路径、去重键含前置
-  assert.match(catalog, /for \(const upgrade of upgradeRows\) \{\s*for \(const spec of NATIVE_UPGRADE_NEEDS\)/)
+  // 反查现经 needChipsHtml 共用逐来路原生层；API 零与来路隔离由执行用例守住。
+  assert.match(catalog, /for \(const spec of NATIVE_UPGRADE_NEEDS\)/)
+  assert.match(catalog, /const result = needChipsHtml\(kcwikiByMst.get\(mstId\)/)
   // 原生行在场时 0 也是权威（榛名乙→丙原生全零，wiki 把累计素材写在丙页上，
   // 不封口就凭空造需求）；回环边真消耗的三例（鈴谷/熊野航改二、三隈改二特）
   // 原生给正数，不受影响
   assert.match(
     catalog,
-    /covered\.add\(`\$\{spec\.kind\}:\$\{targetId\}:\$\{upgrade\.currentShipId\}:\$\{spec\.id\}`\)/,
+    /covered\.add\(identity\)/,
   )
-  assert.match(catalog, /targetRows\.find\(\(row\) => !isFormSwitch\(row\.currentShipId, targetId\)\)/)
-  assert.match(catalog, /const key = `\$\{kind\}:\$\{targetId\}:\$\{predecessorId\}:\$\{itemId\}`/)
+  // 2026-09-06：前置启发式已退役；逐边行为见 remodel-facts.test。
+  assert.match(catalog, /edge\.split\('→'\)\.map\(Number\)/)
+  // 逐边集合只展开一次，素材去重在共享消费函数内进行，不再依赖旧反查的四段键。
+  assert.match(catalog, /const edges = new Set<string>\(\)/)
+  assert.match(catalog, /const key = needIdentity\(need\)/)
   // 改装链抽屉：素材取链上显示的那条来路
   assert.match(catalog, /upgradeRows\.find\(\(row\) => Number\(row\.api_current_ship_id\) === chain\[i - 1\]\)/)
   // 指明来路却无此行 → 原生层不越权拿别行
@@ -10253,26 +10316,22 @@ test('wikiwiki 改造明细按边取用，对不上来路就空着不错拿', ()
   // 解锁（改二→乙）的 開発資材×390。真值按边——主条目/edges 各带 fromShipId，
   // 指明来路却无匹配明细时交给 kcwiki 逐边兜底，绝不错拿别的边。
   const catalog = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
-  // needChipsHtml：先对主条目声明的来路，再找 edges，最后才容旧格式（无声明）
-  assert.match(catalog, /if \(Number\(wikiwikiEntry\.fromShipId\) === currentShipId\) return wikiwikiEntry/)
-  assert.match(catalog, /edges\.find\(\(entry: any\) => Number\(entry\?\.fromShipId\) === currentShipId\)/)
-  assert.match(catalog, /return Number\(wikiwikiEntry\.fromShipId\) > 0 \? null : wikiwikiEntry/)
-  // 需求反查：主条目/edges 逐条按声明的来路挂账，没声明才退回前进路径启发
-  assert.match(catalog, /const details = \[entry, \.\.\.\(Array\.isArray\(entry\?\.edges\) \? entry\.edges : \[\]\)\]/)
-  assert.match(catalog, /Number\(detail\?\.fromShipId\) \|\| \(detail === entry \? heuristicPredecessorId : 0\)/)
+  // 2026-09-06：旧层来路启发退役，实际逐边隔离、API零与回程由 remodel-facts.test 执行验证。
+  assert.doesNotMatch(catalog, /queryLode\('wikiwiki-remodel'\)/)
   // 抽屉：可逆一对的素材检测按方向各自独立（用户指出此前只检向右），
   // 排布「空间即方向」：⇄ 居中、上组前进、下组回程，不画 →/← 小箭头；
   // 回程行的弹钢/等级取本节点自己的原生字段；回程素材只认 wikiwiki
   // 回程边（kcwiki 没写回程，raw 传 null）
   assert.match(catalog, /const paired = isFormSwitch\(predecessorId, mstId\)/)
-  assert.match(catalog, /needChipsHtml\(null, predecessorId, mstId\)\.needs/)
+  // 回程继续独立取边，并携带同一 roster；两档由结果分组显示。
+  assert.match(catalog, /needChipsHtml\(null, predecessorId, mstId, instances.length/)
   assert.match(catalog, /rm-arrow bi/)
   assert.match(catalog, /bi-glyph">⇄/)
   assert.match(catalog, /改造素材 · 改往/)
   assert.match(catalog, /改造素材 · 改回/)
   assert.match(catalog, /<span class="back">Lv \$\{s\.api_afterlv \?\? '\?'\}/)
   // kcwiki 图纸串兜底同理跳过全部形态切换边
-  assert.match(catalog, /if \(afterId > 0 && isFormSwitch\(entry\.ID, afterId\)\) continue/)
+  assert.match(catalog, /String\(convertible \? '' : raw \?\? ''\)/)
   // 装配层：チャート首次出现是主条目（链上首解锁），再次出现与脚注回程进
   // edges；总表回程行（条件「-」+tooltip）补页落定后挂边
   const fetcher = fs.readFileSync(new URL('../scripts/fetch-lodes.mjs', import.meta.url), 'utf8')
@@ -10517,7 +10576,7 @@ test('三维端点换源：运行时只认第一方汇编包，wikiwiki-ship-max
   // 但小节抬头的常驻署名尾注不许回来（2026-08-20 用户拍板）
   assert.doesNotMatch(catalog, /敌我固定标尺/)
   assert.doesNotMatch(catalog, /三维上限取游戏一手/)
-  // 「成长值疑似过时」台账只在诊断面板（铭，KANSO_DEBUG_UI 才装配）：
+  // 「成长值疑似过时」台账只在诊断面板（铭，KUMA_DEBUG_UI 才装配）：
   // 玩家玩游戏时不需要看「哪张社区表过期了」，闸门已经替他把错数挡掉了。
   const diagnostics = fs.readFileSync(
     new URL('../src/renderer/modules/mgstate.ts', import.meta.url),
@@ -10813,6 +10872,7 @@ test('装备类别图标优先游戏图集，陆航归属按大分類逐件判�
   const icon = fs.readFileSync(new URL('../src/renderer/equip-icon.ts', import.meta.url), 'utf8')
   const images = fs.readFileSync(new URL('../src/renderer/kcs-image.ts', import.meta.url), 'utf8')
   const category = fs.readFileSync(new URL('../src/renderer/equip-category.ts', import.meta.url), 'utf8')
+  const fleet = fs.readFileSync(new URL('../src/renderer/modules/ru.ts', import.meta.url), 'utf8')
   const html = rendererSource
   // 图集：游戏一手图形经 provider 注入；独立小窗没接线时仍是 SVG → 文字
   assert.match(icon, /setEquipIconSpriteProvider/)
@@ -10829,7 +10889,10 @@ test('装备类别图标优先游戏图集，陆航归属按大分類逐件判�
   assert.match(category, /舰载机: \[6, 7, 8, 9, 25, 26, 56, 57, 58, 59, 91, 94\]/)
   assert.match(category, /陆航: \[47, 48, 49, 53\]/)
   assert.match(category, /LAND_ONLY_T0 = new Set\(\[21, 22, 25, 26\]\)/)
-  assert.match(category, /AVIATION_TYPES\.has\(type2\) && LAND_ONLY_T0\.has\(type0\)/)
+  assert.match(category, /export const isAviationEquipType/)
+  assert.match(category, /isAviationEquipType\(type2\) && LAND_ONLY_T0\.has\(type0\)/)
+  assert.match(fleet, /isAviationEquipType\(mst\.type2\)/)
+  assert.doesNotMatch(fleet, /PLANE_ICONS/, '编队搭载数不许再按图标猜是不是飞机')
   // 调用点必须把 api_type\[0\] 传进来，否则逐件例外是死代码
   const catalogSrc = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
   const stock = fs.readFileSync(new URL('../src/renderer/modules/equip-stock.ts', import.meta.url), 'utf8')
@@ -11006,10 +11069,10 @@ test('慢操作哨兵:分发计时归因 + 主进程网络事件计时 + 渲染�
   assert.match(kernel, /timedEach\('kernel:tick', tickListeners, siteOf, \(cb\) => cb\(\)\)/)
   assert.match(kernel, /listenerSites\.set\(cb, captureListenerSite\(\)\)/)
   // 每个监听器开跑前先报面包屑——挂死时这就是看门狗要写的凶手
-  assert.match(guard, /kanso:perf-breadcrumb/)
+  assert.match(guard, /kuma:perf-breadcrumb/)
   // 诊断会话可用 env 调低两档阈值；无效值分别回落到原默认 80ms / 8ms。
-  assert.match(guard, /configuredSlowDispatchMs = Number\(process\.env\.KANSO_PERF_SLOW_MS\)/)
-  assert.match(guard, /configuredPartMs = Number\(process\.env\.KANSO_PERF_PART_MS\)/)
+  assert.match(guard, /configuredSlowDispatchMs = Number\(readEnv\('KUMA_PERF_SLOW_MS'\)\)/)
+  assert.match(guard, /configuredPartMs = Number\(readEnv\('KUMA_PERF_PART_MS'\)\)/)
   assert.match(
     guard,
     /Number\.isFinite\(configuredSlowDispatchMs\) && configuredSlowDispatchMs > 0\s*\n\s*\? configuredSlowDispatchMs\s*\n\s*: 80/,
@@ -11019,8 +11082,8 @@ test('慢操作哨兵:分发计时归因 + 主进程网络事件计时 + 渲染�
     /Number\.isFinite\(configuredPartMs\) && configuredPartMs > 0 \? configuredPartMs : 8/,
   )
   // ping 必须由主进程发起:页面隐藏时渲染层定时器被节流,自报心跳会误报挂死
-  assert.match(guard, /ipcRenderer\.on\('kanso:perf-ping'/)
-  assert.match(perfLog, /win\.webContents\.send\('kanso:perf-ping'\)/)
+  assert.match(guard, /ipcRenderer\.on\('kuma:perf-ping'/)
+  assert.match(perfLog, /win\.webContents\.send\('kuma:perf-ping'\)/)
   assert.match(perfLog, /最后开跑未完成的监听器/)
   // 滚动限流与 crash.log 共用一份纪律(体积截半 + 同类限流)
   assert.match(crashLog, /export const createRollingLog = /)
@@ -11039,9 +11102,9 @@ test('渲染长任务达到阈值后沿用 perf 落盘通道', () => {
   assert.match(longTaskObserver, /entry\.duration < LONGTASK_MS/)
   assert.match(
     longTaskObserver,
-    /ipcRenderer\.send\('kanso:perf', \{ scope: 'longtask', ms: entry\.duration, detail \}\)/,
+    /ipcRenderer\.send\('kuma:perf', \{ scope: 'longtask', ms: entry\.duration, detail \}\)/,
   )
-  assert.doesNotMatch(longTaskObserver, /kanso:perf-longtask/)
+  assert.doesNotMatch(longTaskObserver, /kuma:perf-longtask/)
   for (const field of ['name', 'containerType', 'containerSrc', 'containerId', 'containerName']) {
     assert.match(longTaskObserver, new RegExp(`item\\.${field}`))
   }
@@ -11049,7 +11112,7 @@ test('渲染长任务达到阈值后沿用 perf 落盘通道', () => {
 
 test('长任务阈值接受正数环境变量，无效值回落到 50ms', () => {
   const guard = fs.readFileSync(new URL('../src/renderer/perf-guard.ts', import.meta.url), 'utf8')
-  assert.match(guard, /configuredLongTaskMs = Number\(process\.env\.KANSO_PERF_LONGTASK_MS\)/)
+  assert.match(guard, /configuredLongTaskMs = Number\(readEnv\('KUMA_PERF_LONGTASK_MS'\)\)/)
   const longTaskDefault = Number(
     guard.match(
       /Number\.isFinite\(configuredLongTaskMs\) && configuredLongTaskMs > 0\s*\n\s*\? configuredLongTaskMs\s*\n\s*:\s*(\d+)/,
@@ -11067,7 +11130,7 @@ test('长任务阈值接受正数环境变量，无效值回落到 50ms', () => 
 test('主进程按 longtask scope 选择独立的耗时标签', () => {
   const perfLog = fs.readFileSync(new URL('../src/main/perf-log.ts', import.meta.url), 'utf8')
   const rendererPerfHandler = perfLog.match(
-    /ipcMain\.on\('kanso:perf',([\s\S]*?)\n  \}\)/,
+    /ipcMain\.on\('kuma:perf',([\s\S]*?)\n  \}\)/,
   )?.[1]
   assert.ok(rendererPerfHandler, '找不到 renderer perf IPC 处理器')
   const scopeLabels = rendererPerfHandler.match(
@@ -11845,8 +11908,8 @@ test('图鉴台词试听吃钥的音量设置,不再只随系统音量', () => {
   // 游戏页内增益的);每次播放前重取,改完设置立即跟上。
   const voice = fs.readFileSync(new URL('../src/renderer/kcs-voice.ts', import.meta.url), 'utf8')
   const catalog = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
-  assert.match(voice, /kanso\.gameAudio\.volume/)
-  assert.match(voice, /kanso\.gameAudio\.voiceVolume/)
+  assert.match(voice, /kuma\.gameAudio\.volume/)
+  assert.match(voice, /kuma\.gameAudio\.voiceVolume/)
   assert.match(voice, /Math\.max\(0, Math\.min\(1, combined\)\)/)
   assert.match(catalog, /voiceAudio\.volume = previewVoiceVolume\(\)/)
 })
@@ -11878,7 +11941,7 @@ test('道具「可兑换列表」:固定手录+矿脉历年合流,兑换所得�
   assert.match(shared, /\{ cost: 1, gets: '改修資材x4' \}/)
   const atlas = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
   assert.match(atlas, /\$\{itemExchangeHtml\(u\.api_id\)\}/)
-  assert.match(atlas, /queryLode\('wikiwiki-item-exchange'\)/)
+  assert.match(atlas, /queryLode\('item-facts'\)/)
   // 兑换所得文字里的装备/道具名做实体链接:最长匹配扫描,全角／＋＆归一后精确命中才联
   // (＆是 2026-08-18 用户问日语时带出的漏联:wiki 全角、主数据半角「寒冷地装備&甲板要員」)
   assert.match(atlas, /text\.replace\(\/／\/g, '\/'\)\.replace\(\/＋\/g, '\+'\)\.replace\(\/＆\/g, '&'\)/)
@@ -11891,7 +11954,8 @@ test('道具「可兑换列表」:固定手录+矿脉历年合流,兑换所得�
   assert.match(atlas, /\.replace\(\/（\/g, '\('\)\.replace\(\/）\/g, '\)'\)/)
   assert.match(atlas, /装备\/道具\/舰娘名称可打开详情/)
   // 同类补漏:建造参考的備考(「まるゆ狙い」这类点名别的舰)走同一套索引联实体
-  assert.match(atlas, /<span class="br-note">\$\{exchangeGetsHtml\(note\)\}/)
+  // 2026-09-06：建造参考不再消费社区备注；数字配方与缺资料行为由 construction-facts 测试执行生产函数核对。
+  assert.doesNotMatch(atlas.slice(atlas.indexOf('const buildRefHtml ='), atlas.indexOf('const abyssShipGroupsHtml =')), /exchangeGetsHtml\(note\)/)
   // 索引随主数据规模重建:首开道具页时装备表可能没就绪,一次性缓存会让装备名
   // 永远联不上(2026-08-18 用户实锤:道具联上了、装备全白字);给糧艦「伊良湖」
   // 这类带前缀道具名的内名一并入索引
@@ -12095,8 +12159,8 @@ test('手机推送：默认全关、目标可选（ntfy 默认 / Bark 次选）�
   for (const [name, src] of [['main/push.ts', push], ['modules/yu.ts', yu], ['modules/lg.ts', lg]]) {
     assert.doesNotMatch(
       src,
-      /config\.(get|set)\(\s*'kanso\.push(\.ntfy|\.bark)?'\s*[,)]/,
-      name + ' 整对象读写了 kanso.push',
+      /config\.(get|set)\(\s*'kuma\.push(\.ntfy|\.bark)?'\s*[,)]/,
+      name + ' 整对象读写了 kuma.push',
     )
   }
   assert.match(push, /readPushSettings\(\(path, fallback\) => config\.get\(path, fallback\)\)/)
@@ -12175,7 +12239,7 @@ test('手机推送：默认全关、目标可选（ntfy 默认 / Bark 次选）�
   assert.doesNotMatch(lg, /pushEnabledHint && routed|routed\('push'\) && pushEnabledHint/, '铃里长出了第二道推送门')
 
   // —— 钥的配置卡：安卓/ntfy 主叙事，Bark 收成次级选项 ——
-  // 标签只写平台和目标名。艦素是要发布的产品，设置界面不许假定用的人是谁——
+  // 标签只写平台和目标名。kuma是要发布的产品，设置界面不许假定用的人是谁——
   // 「（家人）」这种只有作者自己看得懂的括注属于个人语境，回潮一次就被下面那条抓住。
   assert.match(yu, /\['ntfy', '安卓 · ntfy'\],\s*\n\s*\['bark', 'iOS · Bark'\],/, 'ntfy 不再是首选项')
   const pushCard = yu.slice(yu.indexOf('const PUSH_PROVIDER_LABELS'), yu.indexOf('const render ='))
@@ -12551,7 +12615,7 @@ test('婚礼台词的字幕按语音槽位精确匹配，不靠时间窗，也�
   assert.match(html, /#voice-danmaku \.voice-danmaku-item\.voice-wedding \{ color: var\(--wedding\); \}/)
 })
 
-test('友方被击沉：艦素界面失色到返港，游戏画面不动，编队卡碎裂，且可整体关掉', () => {
+test('友方被击沉：kuma界面失色到返港，游戏画面不动，编队卡碎裂，且可整体关掉', () => {
   const kernel = fs.readFileSync(new URL('../src/renderer/kernel.ts', import.meta.url), 'utf8')
   const lg = fs.readFileSync(new URL('../src/renderer/modules/lg.ts', import.meta.url), 'utf8')
   const fleet = fs.readFileSync(new URL('../src/renderer/modules/ru.ts', import.meta.url), 'utf8')
@@ -12590,11 +12654,11 @@ test('友方被击沉：艦素界面失色到返港，游戏画面不动，编�
   const dayBattle = store.slice(store.indexOf('const onDayBattle'), store.indexOf('const onNightBattle'))
   assert.match(dayBattle, /collectSunkShips\(ts\)/, '昼战包不再即时收沉没名单了')
 
-  // ③ 失色只作用于艦素外壳；游戏画面容器蓄意不在名单里。
-  // 扫**全文里每一条**带 kanso-mourning 的选择器，而不是截一段来看：
-  // 早先这里按「从 body.kanso-mourning header 那行往后截」来查，结果把
-  // `body.kanso-mourning #game-area,` 插在那一行**之前**就查不出来（变异实测漏网）。
-  const mourningSelectors = [...html.matchAll(/(body\.kanso-mourning[^,{}]*)\s*[,{]/g)]
+  // ③ 失色只作用于kuma外壳；游戏画面容器蓄意不在名单里。
+  // 扫**全文里每一条**带 kuma-mourning 的选择器，而不是截一段来看：
+  // 早先这里按「从 body.kuma-mourning header 那行往后截」来查，结果把
+  // `body.kuma-mourning #game-area,` 插在那一行**之前**就查不出来（变异实测漏网）。
+  const mourningSelectors = [...html.matchAll(/(body\.kuma-mourning[^,{}]*)\s*[,{]/g)]
     .map(([, selector]) => selector.trim())
   assert.ok(mourningSelectors.length >= 4, `哀悼态选择器只找到 ${mourningSelectors.length} 条`)
   for (const selector of mourningSelectors) {
@@ -12612,20 +12676,20 @@ test('友方被击沉：艦素界面失色到返港，游戏画面不动，编�
       )
     }
   }
-  for (const wanted of ['body.kanso-mourning header', 'body.kanso-mourning #element-rail', 'body.kanso-mourning .dock']) {
+  for (const wanted of ['body.kuma-mourning header', 'body.kuma-mourning #element-rail', 'body.kuma-mourning .dock']) {
     assert.ok(mourningSelectors.includes(wanted), `${wanted} 不在失色名单里了`)
   }
-  // 挂在 body 上的那一层（大浮层 / 富提示 / 钉住卡）也是艦素界面，反着写才不会漏
+  // 挂在 body 上的那一层（大浮层 / 富提示 / 钉住卡）也是kuma界面，反着写才不会漏
   assert.ok(
-    mourningSelectors.includes('body.kanso-mourning > *:not(#app):not(#lg-banners):not(#lg-toasts)'),
+    mourningSelectors.includes('body.kuma-mourning > *:not(#app):not(#lg-banners):not(#lg-toasts)'),
     'body 直属那一层不再失色了：大浮层/富提示会在灰底上突然彩色',
   )
   const mourn = html.slice(
-    html.indexOf('body.kanso-mourning header'),
+    html.indexOf('body.kuma-mourning header'),
     html.indexOf('@keyframes lg-frame-breathe'),
   )
   assert.match(mourn, /filter: grayscale\(1\)/)
-  // 过渡写在**基础规则**上，否则解除时元素已不匹配 .kanso-mourning，颜色会「啪」地弹回来
+  // 过渡写在**基础规则**上，否则解除时元素已不匹配 .kuma-mourning，颜色会「啪」地弹回来
   assert.match(html, /transition: filter var\(--motion-solemn\) ease;/)
   assert.match(html, /transition: flex-basis var\(--motion-view\) var\(--motion-ease\), border-color var\(--motion-fast\) ease, filter var\(--motion-solemn\) ease;/)
 
@@ -12639,15 +12703,15 @@ test('友方被击沉：艦素界面失色到返港，游戏画面不动，编�
 
   // ⑤ 一个开关管住两样（失色 + 碎裂），默认开；关掉后击沉照样进通知记录
   assert.match(config, /sunkEffects: true/)
-  assert.match(kernel, /let sunkEffectsOn = Boolean\(kernelConfig\.get\('kanso\.sunkEffects', true\)\)/)
+  assert.match(kernel, /let sunkEffectsOn = Boolean\(kernelConfig\.get\('kuma\.sunkEffects', true\)\)/)
   assert.match(
     kernel,
-    /document\.body\.classList\.toggle\('kanso-mourning', sunkEffectsOn && sortieSunkShips\(\)\.length > 0\)/,
+    /document\.body\.classList\.toggle\('kuma-mourning', sunkEffectsOn && sortieSunkShips\(\)\.length > 0\)/,
     '失色没被开关管住',
   )
   assert.match(settings, /击沉哀悼特效/)
   assert.match(settings, /setSunkEffectsEnabled\(next\)/)
-  assert.match(settings, /'kanso\.sunkEffects',\n\s*'kanso\.tray\.enabled'/, '默认开的项没进取反白名单：第一次点会「开→开」')
+  assert.match(settings, /'kuma\.sunkEffects',\n\s*'kuma\.tray\.enabled'/, '默认开的项没进取反白名单：第一次点会「开→开」')
   // 通知那条不受开关影响——开关只管画不画
   const sunkDetector = lg.slice(lg.indexOf('let sunkSeen'), lg.indexOf('// ---- 通知中心面板 ----'))
   assert.doesNotMatch(
@@ -12680,16 +12744,16 @@ test('新事件的默认路由保守：横幅与记录为主，声音与推送�
   assert.match(events, /id: 'shipSunk'[^\n]*jump: 'di'/)
 })
 
-test('战斗特效模拟台只在 KANSO_DEBUG_UI 下存在，且走生产代码路径', () => {
+test('战斗特效模拟台只在 KUMA_DEBUG_UI 下存在，且走生产代码路径', () => {
   const debugPanel = fs.readFileSync(new URL('../src/renderer/modules/mgstate.ts', import.meta.url), 'utf8')
   const kernel = fs.readFileSync(new URL('../src/renderer/kernel.ts', import.meta.url), 'utf8')
 
-  assert.match(debugPanel, /const DEBUG_UI = process\.env\.KANSO_DEBUG_UI === '1'/)
+  assert.match(debugPanel, /const DEBUG_UI = readEnv\('KUMA_DEBUG_UI'\) === '1'/)
   // 发布形态零痕迹：卡片 HTML 与它的点击委托都在门后
   assert.match(debugPanel, /const simCardHtml = \(\): string =>\s*\n\s*DEBUG_UI\s*\n\s*\?/)
   assert.match(debugPanel, /if \(DEBUG_UI\) \{\s*\n[\s\S]{0,220}?pane\.addEventListener\('click'/)
   // 模拟只编输入补丁，探测/排序/失色推导全走真的那一份
-  assert.match(kernel, /export const debugApplyPatch = \(patch: MgPatch\) => \{\s*\n\s*if \(process\.env\.KANSO_DEBUG_UI !== '1'\) return\s*\n\s*applyMgPatch\(patch\)/)
+  assert.match(kernel, /export const debugApplyPatch = \(patch: MgPatch\) => \{\s*\n\s*if \(readEnv\('KUMA_DEBUG_UI'\) !== '1'\) return\s*\n\s*applyMgPatch\(patch\)/)
   assert.match(debugPanel, /debugApplyPatch\(roster \? \{ sortie, ships: roster \} : \{ sortie \}\)/)
   // 八个入口：大破 / 要員 / 女神 / 两档同屏 / 击沉 / 婚舰 / 婚舰认不出 / 返港
   const actions = debugPanel.slice(debugPanel.indexOf('const SIM_ACTIONS'), debugPanel.indexOf('const simCardHtml'))
@@ -12707,13 +12771,13 @@ test('战斗特效模拟台只在 KANSO_DEBUG_UI 下存在，且走生产代码�
   assert.match(actions, /simWeddingVoice\(/, '婚舰模拟少了字幕染粉那一路，粉色档就没法验收')
   assert.match(
     kernel,
-    /export const debugEmitMarriage = \(cue: MarriageCue\) => \{\s*\n\s*if \(process\.env\.KANSO_DEBUG_UI !== '1'\) return\s*\n\s*dispatchMarriage\(cue\)/,
+    /export const debugEmitMarriage = \(cue: MarriageCue\) => \{\s*\n\s*if \(readEnv\('KUMA_DEBUG_UI'\) !== '1'\) return\s*\n\s*dispatchMarriage\(cue\)/,
     '婚舰模拟没走内核那条真的派发（报文到达与模拟必须同一条路）',
   )
   const subtitle = fs.readFileSync(new URL('../src/renderer/voice-subtitle.ts', import.meta.url), 'utf8')
   assert.match(
     subtitle,
-    /export const debugShowVoiceCue = \(cue: VoiceRequestCue\) => \{\s*\n\s*if \(process\.env\.KANSO_DEBUG_UI !== '1'\) return\s*\n\s*void ensureData\(\)\.then\(\(\) => displayAtPlaybackTime\(cue\)\)/,
+    /export const debugShowVoiceCue = \(cue: VoiceRequestCue\) => \{\s*\n\s*if \(readEnv\('KUMA_DEBUG_UI'\) !== '1'\) return\s*\n\s*void ensureData\(\)\.then\(\(\) => displayAtPlaybackTime\(cue\)\)/,
     '字幕模拟绕开了 captionsFor/displayAtPlaybackTime 这条生产路径',
   )
 })
@@ -12844,7 +12908,7 @@ test('第三批：严谨说明只在折叠/悬停里，停更与新鲜度只在�
     ]],
     ['bi', expedition, [
       /title="示例编成不代表成功条件或最优方案">口径<\/span>/,
-      /title="属性合计包含舰载机数值 · 与判定值口径不同">口径<\/span>/,
+      /title="\$\{esc\(EXPEDITION_STAT_FOOTER_BASIS\)\}">口径<\/span>/,
     ]],
     // qn 这三条 2026-08-26 第三批清扫：前两条缩短后仍住在悬停里（照钉，措辞跟着改），
     // 第三条「这一格只显示游戏自报的粗档」是能力边界表白，整句根除，改钉下方 doesNotMatch
@@ -12873,7 +12937,7 @@ test('第三批：严谨说明只在折叠/悬停里，停更与新鲜度只在�
   assert.doesNotMatch(resource, /class="senka-foot"/, 'zi: 战果换算口径又铺回常驻脚注了')
   assert.doesNotMatch(review, /class="shi-note">这是本机记录/, 'shi: 演习口径又铺回常驻脚注了')
   assert.doesNotMatch(catalog, /class="index-foot">普通消耗/, 'ji: 改修可行性口径又铺回索引脚注了')
-  assert.doesNotMatch(quests, /(?:艦素|kuma) ?不猜/, 'qn: 产品自述（七之二）又回来了')
+  assert.doesNotMatch(quests, /(?:kuma|kuma) ?不猜/, 'qn: 产品自述（七之二）又回来了')
   // 2026-08-26 文案清扫：这三句从「收进悬停」升级为「整句根除」，改钉不许回潮
   assert.doesNotMatch(battle, /未列出不等于确认不会掉/, 'di: 「未列出 ≠ 确认不掉」又回来了')
   assert.doesNotMatch(review, /不代表游戏服务器的永久战绩/, 'shi: 演习口径的自证句又回来了')

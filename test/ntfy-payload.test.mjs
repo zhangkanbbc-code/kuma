@@ -1,6 +1,6 @@
 // ntfy 载荷构造（安卓那一侧的默认目标）。
 //
-// 这里钉的第一条是**实测出来的硬约束**：艦素的通知标题全是中文，而 node 的
+// 这里钉的第一条是**实测出来的硬约束**：kuma的通知标题全是中文，而 node 的
 // fetch（undici）在遇到非 ASCII 头值时**直接抛 TypeError**——不是发出去乱码，
 // 是在进程里就炸，一条也发不出去。官方文档给的解法是把头按 RFC 2047 编码
 // （"you may also encode any header (including the title) as RFC 2047"），
@@ -29,7 +29,7 @@ const {
   PUSH_PLACEHOLDER_BODY,
 } = configModule
 
-const TOPIC = 'kansoTestTopic7f3Kd9Qm'
+const TOPIC = 'kumaTestTopic7f3Kd9Qm'
 const BASE = { server: 'https://ntfy.sh', topic: TOPIC, titleOnly: false }
 
 /** 把 RFC 2047 的 base64 encoded-word 解回来，模拟服务端那一侧 */
@@ -123,7 +123,7 @@ test('生成的频道名足够长、且落在 ntfy 允许的字符集里（它�
   }
   assert.equal(seen.size, 50, '生成器出现重复，随机源有问题')
   assert.equal(isWeakNtfyTopic(generateNtfyTopic()), false, '生成的频道名被判成「太短」')
-  assert.equal(isWeakNtfyTopic('kanso'), true, '短频道名没被提示')
+  assert.equal(isWeakNtfyTopic('kuma'), true, '短频道名没被提示')
   assert.equal(isWeakNtfyTopic(''), false, '空频道名不该报「太短」，那是「还没填」')
 })
 
@@ -135,7 +135,7 @@ test('频道名校验：认出 ntfy 的字符集与长度限制', () => {
   assert.equal(checkNtfyTopic('我的频道').value, null, '中文频道名被放行了')
   assert.equal(checkNtfyTopic('a'.repeat(NTFY_TOPIC_MAX + 1)).value, null)
   assert.equal(checkNtfyTopic('a'.repeat(NTFY_TOPIC_MAX)).value, 'a'.repeat(NTFY_TOPIC_MAX))
-  assert.equal(checkNtfyTopic('  kanso-alerts_1  ').value, 'kanso-alerts_1')
+  assert.equal(checkNtfyTopic('  kuma-alerts_1  ').value, 'kuma-alerts_1')
 })
 
 test('服务器校验：认出「把整条频道 URL 贴进服务器格」这个最常犯的错', () => {

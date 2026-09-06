@@ -11,7 +11,7 @@ import { ipcMain, net } from 'electron'
 
 import config from './config'
 
-const CHANNEL = 'kanso:map-art-json'
+const CHANNEL = 'kuma:map-art-json'
 
 /**
  * 只放行游戏自己的两类静态元数据：海域美术 JSON，以及装备类别图标图集
@@ -39,16 +39,16 @@ const allowed = (raw: string): URL | null => {
 export const registerMapArtJson = () => {
   ipcMain.handle(CHANNEL, async (_event, raw: unknown) => {
     if (typeof raw !== 'string') return null
-    // 钥里那个开关（`kanso.remoteArt`）在主进程这一侧也要认一次。
+    // 钥里那个开关（`kuma.remoteArt`）在主进程这一侧也要认一次。
     // 渲染层本来就有一道（`readStaticJson` 关着时 `remoteUrl()` 返回 null，
     // 压根不会调这个通道），但**闸门不能只有渲染层那一份**：这个通道对页面敞开，
     // 而三条会真出网的路里另外两条（archive-capture / voice-probe）都在主进程
     // 自己判了一次。少这一份的后果不是「现在会漏」，是「以后谁在渲染层新开一条
     // 调用就绕过了开关」——2026-08-23 全出口审计逐条对齐时补上。
-    if (!config.get('kanso.remoteArt', true)) return null
+    if (!config.get('kuma.remoteArt', true)) return null
     const url = allowed(raw)
     if (!url) {
-      console.warn('[kanso] 拒绝读取非海域美术元数据的地址')
+      console.warn('[kuma] 拒绝读取非海域美术元数据的地址')
       return null
     }
     try {
@@ -66,12 +66,12 @@ export const registerMapArtJson = () => {
       // 这两个 JSON 正常在几十 KB 量级；给个上限，别让异常响应把渲染层撑爆
       const text = await response.text()
       if (text.length > 3 * 1024 * 1024) {
-        console.warn('[kanso] 海域美术元数据过大，丢弃', url.pathname)
+        console.warn('[kuma] 海域美术元数据过大，丢弃', url.pathname)
         return null
       }
       return JSON.parse(text)
     } catch (error) {
-      console.warn('[kanso] 海域美术元数据读取失败', url.pathname, error)
+      console.warn('[kuma] 海域美术元数据读取失败', url.pathname, error)
       return null
     }
   })

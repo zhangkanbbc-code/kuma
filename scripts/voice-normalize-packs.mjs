@@ -53,10 +53,13 @@ const normalizePack = (id, walk) => {
 }
 
 const results = [
-  normalizePack('kanso-voice', (data, visit) => {
+  normalizePack('kuma-voice', (data, visit) => {
     for (const rows of Object.values(data?.ships ?? {})) for (const row of rows) visit(row, 'zh')
   }),
-  normalizePack('kanso-voice-zh', (data, visit) => {
+  normalizePack('kuma-abyss-voice', (data, visit) => {
+    for (const rows of Object.values(data?.ships ?? {})) for (const row of rows) visit(row, 'zh')
+  }),
+  normalizePack('kuma-voice-zh', (data, visit) => {
     for (const row of Object.values(data?.entries ?? {})) visit(row, 'zh')
     for (const row of data?.byJa ?? []) visit(row, 'zh')
   }),

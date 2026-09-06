@@ -97,7 +97,7 @@ export { newSortie, onDayBattle, onNightBattle, parseBaseDefenseBattle, fleetCon
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-battle-reducers-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-battle-reducers-'))
   const entry = path.join(dir, 'reducers.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'reducers.cjs')

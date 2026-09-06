@@ -912,7 +912,7 @@ const exportCsv = async (rows: Row[]) => {
   const outcome = await saveTextFile(
     {
       title: '导出舰娘列表',
-      defaultPath: stampedFileName('kanso-ships', 'csv'),
+      defaultPath: stampedFileName('kuma-ships', 'csv'),
       filters: [{ name: 'CSV', extensions: ['csv'] }],
       logLabel: '舰娘列表 CSV 导出',
     },
@@ -948,7 +948,7 @@ const loadLife = async (rosterId: number) => {
   } catch (error) {
     // 不要塞一份全 0 的报告顶上——那等于告诉玩家「这艘舰没打过任何仗」，
     // 是把读取故障报告成事实。记成失败，让 UI 照实说读不出来。
-    console.warn('[kanso] 舰娘人生记录读取失败', rosterId, error)
+    console.warn('[kuma] 舰娘人生记录读取失败', rosterId, error)
     lifeFailed.add(rosterId)
     // 失败也记为「这一代已处理」，否则每次重渲染都会再打一遍同一个必败的查询
     lifeLoaded.set(rosterId, generation)

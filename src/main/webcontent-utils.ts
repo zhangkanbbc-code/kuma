@@ -1,5 +1,5 @@
 // Adapted from poi (https://github.com/poooi/poi) lib/webcontent-utils.ts
-// MIT License, Copyright (c) poi contributors — 移植与改造：艦素 kanso 项目
+// MIT License, Copyright (c) poi contributors — 移植与改造：kuma 项目。
 // （M0 略去插件窗口部分，铆模块实装时再补）。
 import { shell, webContents, webFrameMain } from 'electron'
 
@@ -35,7 +35,7 @@ export function handleWebviewPreloadHack(id: number) {
         const frame = webFrameMain.fromId(frameProcessId, frameRoutingId)
         if (frame && url !== 'about:blank') {
           if (!(await frame.executeJavaScript('window.xhrHacked || false'))) {
-            console.warn('[kanso] iframe failed to load preload script, loading xhr hack from parent', url)
+            console.warn('[kuma] iframe failed to load preload script, loading xhr hack from parent', url)
             await frame.executeJavaScript(`
             (() => {
               let cur = window.parent
@@ -53,7 +53,7 @@ export function handleWebviewPreloadHack(id: number) {
           `)
           }
           if (!(await frame.executeJavaScript('window.resourceHacked || false'))) {
-            console.warn('[kanso] iframe failed to load preload script, loading image hack from parent', url)
+            console.warn('[kuma] iframe failed to load preload script, loading image hack from parent', url)
             await frame.executeJavaScript(`
             (() => {
               let cur = window.parent
@@ -70,14 +70,14 @@ export function handleWebviewPreloadHack(id: number) {
             })()
           `)
           }
-          if (!(await frame.executeJavaScript('window.kansoAudioControlInstalled || false'))) {
-            console.warn('[kanso] iframe failed to load audio control, loading it from parent', url)
+          if (!(await frame.executeJavaScript('window.kumaAudioControlInstalled || false'))) {
+            console.warn('[kuma] iframe failed to load audio control, loading it from parent', url)
             await frame.executeJavaScript(`
             (() => {
               let cur = window.parent
               while (true) {
-                if (cur.installKansoAudioControl) {
-                  cur.installKansoAudioControl(window)
+                if (cur.installKumaAudioControl) {
+                  cur.installKumaAudioControl(window)
                   break
                 } else if (cur.parent !== cur) {
                   cur = cur.parent
@@ -107,7 +107,7 @@ export function handleNewWindow(id: number) {
       const protocol = new URL(url).protocol
       if (protocol === 'http:' || protocol === 'https:') {
         void shell.openExternal(url).catch((e) => {
-          console.warn('[kanso] failed to open external URL', e)
+          console.warn('[kuma] failed to open external URL', e)
         })
       }
     } catch (_e) {

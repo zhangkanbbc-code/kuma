@@ -63,7 +63,7 @@ app.on('ready', () => {
     // 只处理新增/更新的会话 cookie；复写后的 cookie 带过期时间，
     // 再次触发本监听时 cookie.session 为 false，不会死循环
     if (removed || !cookie.session) return
-    if (!config.get('kanso.persistLogin', true)) return
+    if (!config.get('kuma.persistLogin', true)) return
     if (!shouldPersist(cookie.domain)) return
     try {
       const host = (cookie.domain ?? '').replace(/^\./, '')

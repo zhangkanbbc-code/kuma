@@ -64,7 +64,7 @@ ${SET_FRIENDLY}
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-friendly-request-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-friendly-request-'))
   const entry = path.join(dir, 'reducer.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'reducer.cjs')

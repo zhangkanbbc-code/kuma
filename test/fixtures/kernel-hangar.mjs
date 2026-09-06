@@ -43,7 +43,7 @@ ${HANGAR}
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-kernel-hangar-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-kernel-hangar-'))
   const entry = path.join(dir, 'hangar.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'hangar.cjs')

@@ -27,7 +27,7 @@ const cardOf = (yu) => cardHtml(yu.pane.innerHTML, 'game-url')
 
 test('默认值就是原先写死的那条 DMM 游戏页', () => {
   assert.equal(DEFAULT_GAME_URL, 'https://play.games.dmm.com/game/kancolle')
-  assert.equal(GAME_URL_CONFIG_KEY, 'kanso.homepage')
+  assert.equal(GAME_URL_CONFIG_KEY, 'kuma.homepage')
   assert.ok(isValidGameUrl(DEFAULT_GAME_URL), '默认值自己都过不了判据')
   assert.equal(normalizeGameUrl(DEFAULT_GAME_URL), DEFAULT_GAME_URL)
 })
@@ -48,7 +48,7 @@ test('只收 http / https，别的协议一律不算网址', () => {
     'javascript:alert(1)',
     'data:text/html,<h1>hi</h1>',
     'chrome://settings',
-    'kanso-cache://x/kcs/foo.png',
+    'kuma-cache://x/kcs/foo.png',
   ]) {
     assert.equal(isValidGameUrl(bad), false, `${bad} 不该被当成游戏页网址`)
     assert.equal(normalizeGameUrl(bad), DEFAULT_GAME_URL)
@@ -106,7 +106,7 @@ test('游戏页 preload 认宿主与被丢到 /foreign/ 时，用的是同一条
   // 曾经是 getDefault：玩家换了网址、被 DMM 甩到 /foreign/ 之后会被拉回官方页，
   // 表现正好是「改了没用」
   assert.match(cookieHack, /location\.href = normalizeGameUrl\(config\.get\(GAME_URL_CONFIG_KEY\)\)/)
-  assert.ok(!cookieHack.includes("getDefault('kanso.homepage')"), '还在硬拉回默认页')
+  assert.ok(!cookieHack.includes("getDefault('kuma.homepage')"), '还在硬拉回默认页')
 })
 
 // ---- ③ 设置里那张卡 ----

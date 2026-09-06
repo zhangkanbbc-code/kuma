@@ -75,7 +75,7 @@ if (masterNames) {
 const now = new Date()
 const checkedAt = jstDate(now)
 const cacheSlot = now.toISOString().slice(0, 13).replaceAll(':', '-')
-const cacheDir = path.join(os.tmpdir(), 'kanso-map-intel-event-cache', cacheSlot)
+const cacheDir = path.join(os.tmpdir(), 'kuma-map-intel-event-cache', cacheSlot)
 const unresolved = []
 // 第一方那张票只读一次（整场活动的遭遇志），逐图逐难度按键取用
 const ledger = loadLedgerEventVotes({ mapAreaId: config.mapAreaId })
@@ -85,9 +85,9 @@ const review = {
   voters: {
     kcwiki: '舰娘百科活动海域页「深海配置」——按甲乙丙丁四个 tab 分难度，编辑者直接填 mstId',
     wikiwiki: '艦これ攻略 Wiki 活动页的敵編成表 / 難易度別ドロップ表——只给日文标注名，从不给号',
-    ledger: '本机遭遇志 encounters——第一方一手，且带 difficulty 列，能钉到难度层',
+    ledger: '游戏报文核对（维护者核 2026-09-06） encounters——第一方一手，且带 difficulty 列，能钉到难度层',
     kcnav:
-      'KCNav 人肉见证台账——用户人工浏览该站记下的实测样本（kuma 对该站零请求）；' +
+      'KCNav 人肉见证台账——该站公开编成统计（维护者核 2026-09-06）（kuma 对该站零请求）；' +
       '只在逐格数值指纹钉得住那一条的身份时才发票',
   },
   transcription: {},
@@ -234,7 +234,7 @@ for (const { phase, mapNo } of due) {
   review.maps[code] = mapReview
 
   candidate.data.maps[code] = {
-    source: 'kuma 汇编（艦これ攻略 Wiki 难度别掉落/标注 × 舰娘百科「深海配置」定号 × 本机遭遇志）',
+    source: 'kuma 汇编（艦これ攻略 Wiki 难度别掉落/标注 × 舰娘百科「深海配置」定号 × 游戏报文核对（维护者核 2026-09-06））',
     sourceUrl: url,
     kcwikiUrl,
     checkedAt,

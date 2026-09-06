@@ -69,7 +69,7 @@ export { abyssShipGroupsHtml }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-abyss-groups-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-abyss-groups-'))
   const entry = path.join(dir, 'abyss.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'abyss.cjs')

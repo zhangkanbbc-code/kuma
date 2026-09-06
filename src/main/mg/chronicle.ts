@@ -230,7 +230,7 @@ export const onChronicleApi = (apiPath: string, body: any, _post: Record<string,
       if (isBoss) ledger.markBossSample(sortie.startTs, rank)
     }
   } catch (e) {
-    console.warn('[kanso] chronicle failed', apiPath, e)
+    console.warn('[kuma] chronicle failed', apiPath, e)
   }
 }
 

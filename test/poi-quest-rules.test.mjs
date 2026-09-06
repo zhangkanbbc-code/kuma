@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 
 import { buildSync } from 'esbuild'
 
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-poi-quest-rules-'))
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-poi-quest-rules-'))
 const output = path.join(tempDir, 'poi-quest-rules.cjs')
 buildSync({
   entryPoints: [fileURLToPath(new URL('../src/main/mg/poi-quest-rules.ts', import.meta.url))],

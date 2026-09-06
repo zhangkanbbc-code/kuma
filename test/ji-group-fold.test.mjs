@@ -65,6 +65,28 @@ test('两支记的是相反的账：常规段记「开着的」，分组段记�
   assert.deepEqual([...opened], ['有关任务'], '分组段不该碰 opened 那本')
 })
 
+test('筛选期折起的命中组仍展开，且不改原来的 closed 账', () => {
+  let filtering = false
+  const spec = { openAllByDefault: true, forceOpen: () => filtering }
+  const opened = new Set()
+  const closed = new Set(['ship:駆逐艦'])
+  filtering = true
+  assert.equal(sectionIsOpen(spec, 'ship:駆逐艦', opened, closed), true, '筛选命中的折起组必须露出来')
+  toggleSectionFold(spec, 'ship:駆逐艦', opened, closed)
+  assert.deepEqual([...closed], ['ship:駆逐艦'], '强制展开期间的显示与点击都不能改 closed 账')
+})
+
+test('清掉筛选后，临时展开的组回到原来的折起状态', () => {
+  let filtering = true
+  const spec = { openAllByDefault: true, forceOpen: () => filtering }
+  const opened = new Set()
+  const closed = new Set(['equip:小口径主砲'])
+  assert.equal(sectionIsOpen(spec, 'equip:小口径主砲', opened, closed), true)
+  filtering = false
+  assert.equal(sectionIsOpen(spec, 'equip:小口径主砲', opened, closed), false, '清筛选后应重新读原来的 closed 账')
+  assert.deepEqual([...closed], ['equip:小口径主砲'])
+})
+
 // ---- ②③④ 深海卷：按舰种分组 ----
 
 const 舰种表 = { 2: '駆逐艦', 3: '軽巡洋艦', 8: '戦艦', 9: '戦艦' }

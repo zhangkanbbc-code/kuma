@@ -124,7 +124,7 @@ export const makeLedger = (db: any) => new QuestSenkaLedger(db)
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-senka-evidence-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-senka-evidence-'))
   for (const name of ['senka.ts', 'quest-period.ts', 'senka-quest-book.ts']) {
     fs.copyFileSync(path.join(ROOT, 'src', 'shared', name), path.join(dir, name))
   }
@@ -328,7 +328,7 @@ assert.ok(
 )
 
 const openLedger = (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-senka-evidence-db-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-senka-evidence-db-'))
   const db = new DatabaseSync(path.join(dir, 'mg.sqlite'))
   db.exec(SCHEMA)
   db.exec('ALTER TABLE senka_log ADD COLUMN manual INTEGER')

@@ -380,7 +380,7 @@ test('KCNav lode intake never automates the upstream routing API', () => {
     'utf8',
   )
   assert.doesNotMatch(source, /\/api\/routing\//)
-  assert.match(source, /KANSO_KCNAV_EXPORT/)
+  assert.match(source, /KUMA_KCNAV_EXPORT/)
   assert.match(source, /拒绝未授权 API 自动化/)
 })
 

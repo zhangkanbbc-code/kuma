@@ -40,8 +40,8 @@ export const TOAST_ANCHORS_READY: readonly ToastAnchor[] = ['game', 'app']
  * 父对象就地变成「只有这一个键」的半份对象，整对象读到那份半份就不再回落默认值。
  */
 export const TOAST_POSITION_PATHS = {
-  anchor: 'kanso.toast.anchor',
-  corner: 'kanso.toast.corner',
+  anchor: 'kuma.toast.anchor',
+  corner: 'kuma.toast.corner',
 } as const
 
 /**

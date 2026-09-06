@@ -42,7 +42,7 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const OUT =
-  process.env.KANSO_PLANE_GROUPS_OUT || path.join(ROOT, 'assets', 'lodes', 'event-plane-groups.json')
+  process.env.KUMA_PLANE_GROUPS_OUT || path.join(ROOT, 'assets', 'lodes', 'event-plane-groups.json')
 
 /** 这张表属于哪一期。与 event-bonus 包的 `page=` 期号对得上才生效——换期后整表自动退场。 */
 const EVENT_PAGE = '2026年夏季活动'
@@ -155,7 +155,7 @@ const pack = {
         `kcwiki《2026年夏季活动海外舰载机倍卡分组》，37/37 完全一致。` +
         `**但两家都写明转自同一份社区分类表**（Google 表格「海外艦載機/基地特効分類2026 V0.9」，` +
         `自称最终更新 ${UPSTREAM_UPDATED_AT}）——同源转录，不算两票独立。` +
-        `一致只证明誊抄没串行，不证明上游那张表本身对；要升格得靠账本实测。`,
+        `一致只证明誊抄没串行，不证明上游那张表本身对；要升格得靠游戏结算报文核对（维护者核 2026-09-06）。`,
       '两个解析坑（都踩过）：kcwiki wikitext 的 `|}` 是表尾不是单元格，漏掉它会让每张表的最后一行整体错位一格' +
         '（Do 17 Z-2 / Mosquito PR Mk.IV / Ho229 三件会被读成邻组）；' +
         'wikiwiki HTML 的 rowspan 额度要在本行就扣，晚扣一行会让「機種」列失效的那几行整体左移。',

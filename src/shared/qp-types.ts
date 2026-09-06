@@ -1,5 +1,5 @@
 // 任务精确计数（quest progress）——主进程引擎与钦共用的展示类型。
-// 判定规则由四层规则源装配（kcwiki-quest-req → poi-quest-goal → 艦素自研 → 中文正文兜底），
+// 判定规则由四层规则源装配（kcwiki-quest-req → poi-quest-goal → kuma自研 → 中文正文兜底），
 // 口径见 src/main/mg/quest-counter.ts 的文件头。
 
 export type QpMapRef = [area: number, info: number]
@@ -72,7 +72,7 @@ export type QpAction =
   | 'sortie' // 出击
   | 'expedition_start' // 派出任意远征（初次远征任务）
 
-export type QpTrackerSource = 'kcwiki' | 'poi' | 'text' | 'kanso'
+export type QpTrackerSource = 'kcwiki' | 'poi' | 'text' | 'kuma'
 
 export type QpStockGoal =
   | { kind: 'equip'; id: number; label: string; count: number }

@@ -8,11 +8,12 @@
 // 最左是模块导航条：按功能名列出全部模块，点亮=已装配，点击=切到该模块（自动展开所在坞）。
 // 布局（分格/分配/尺寸/折叠/激活页）本地持久化。
 
+import { readEnv } from '../shared/env-names'
 import { recordCrash } from './crash-guard'
 
 export type DockId = 'left' | 'right' | 'bottom'
 
-export interface KansoModule {
+export interface KumaModule {
   id: string // 模块代码 id，如 'ru'（内部标识，玩家看不到）
   title: string // 功能名：Tab 标题、导航条、浮层页签都用它
   order?: number // Tab 排序（模块间 import 依赖会打乱注册顺序，显式声明）
@@ -44,10 +45,10 @@ const NAV_MODULES: [string, string][] = [
 const SYSTEM_ACTIVE = new Set(['mgstate', 'mu', 'link'])
 
 // 顶栏独立模块不占坞位，以大浮层承载回顾、通知与设置。
-// 状态/事件流仍保留实现供诊断，但正式界面不装配；显式设置 KANSO_DEBUG_UI=1 才出现。
+// 状态/事件流仍保留实现供诊断，但正式界面不装配；显式设置 KUMA_DEBUG_UI=1 才出现。
 const OVERLAY_MODULES = ['shi', 'lg', 'yu', 'mgstate', 'anchor']
 const DIAGNOSTIC_MODULES = new Set(['mgstate', 'anchor'])
-const DEBUG_UI = process.env.KANSO_DEBUG_UI === '1'
+const DEBUG_UI = readEnv('KUMA_DEBUG_UI') === '1'
 
 // 默认坞位与分格（用户实机布局，2026-08-03 定）：
 //   左 = 查阅（图鉴/列表）；右 = 临战（战斗/活动）；
@@ -132,7 +133,7 @@ try {
 // missionTabRestore 在下面几十行处声明，这里靠函数体延迟求值拿到它。
 const saveLayout = () => uiSet(LAYOUT_KEY, layoutForPersist(layout, missionTabRestore))
 
-const modules: KansoModule[] = []
+const modules: KumaModule[] = []
 const paneOf = new Map<string, HTMLElement>()
 const tabOf = new Map<string, HTMLElement>()
 // 临时模块（目前是活动仪表盘）可按游戏主数据动态退场。这里只隐藏装配，
@@ -144,7 +145,7 @@ const moduleVisible = (id: string) =>
 const isShelved = (id: string) => layout.shelved.includes(id)
 const displayed = (id: string) => moduleVisible(id) && !isShelved(id)
 
-export const registerModule = (mod: KansoModule) => {
+export const registerModule = (mod: KumaModule) => {
   modules.push(mod)
 }
 
@@ -494,12 +495,17 @@ const buildOverlay = () => {
 }
 
 // 切到指定模块（链的跳转路由用）：展开所在坞 / 弹出浮层，退出专注模式
-export const activateModule = (id: string) => {
+export const activateModule = (id: string, opts?: { auto?: boolean }) => {
   if (isOverlay(id)) {
     if (overlayOpen !== id) openOverlay(id)
     return
   }
   if (!moduleVisible(id)) return
+  if (opts?.auto && layout.focus) {
+    const at = locate(id)
+    if (at) activateIn(at.dock, at.gi, id)
+    return
+  }
   // 被搁置的模块要能被跳转唤回——链接指过来却毫无反应等于坏了
   if (isShelved(id)) {
     layout.shelved = layout.shelved.filter((x) => x !== id)
@@ -522,6 +528,7 @@ export const activateModule = (id: string) => {
 // **这是临时视图，不是玩家的选择**：它非空期间 saveLayout 会把这一格的 active
 // 写成 `id`（进页前那一页）而不是当下的 bi，否则每天开局派一次远征就把默认页
 // 钉死成远征一次（2026-08-22 用户实机报出）。判据在 shared/dock-layout。
+// 专注态也同理：只在收起的坞里换好页签，不替玩家退出专注或展开坞。
 let missionTabRestore: { dock: DockId; gi: number; id: string } | null = null
 
 const followGameMissionScene = () => {
@@ -533,7 +540,7 @@ const followGameMissionScene = () => {
   const prev = group.active ?? group.mods.find(displayed)
   if (!prev) return
   missionTabRestore = { dock: at.dock, gi: at.gi, id: prev }
-  if (prev !== 'bi') activateModule('bi')
+  if (prev !== 'bi') activateModule('bi', { auto: true })
 }
 
 const restoreGameMissionScene = () => {
@@ -542,7 +549,7 @@ const restoreGameMissionScene = () => {
   if (!saved) return
   const group = layout.docks[saved.dock][saved.gi]
   if (!group?.mods.includes(saved.id) || group.active === saved.id) return
-  activateModule(saved.id)
+  activateModule(saved.id, { auto: true })
 }
 
 // 该模块此刻是否真的看得见
@@ -826,8 +833,8 @@ const mountedModules = new Set<string>()
 const crashedModules = new Set<string>()
 let expectedModules = 0
 const syncMountReport = () => {
-  document.body.dataset.kansoMounted = `${mountedModules.size}/${expectedModules}`
-  document.body.dataset.kansoCrashed = crashedModules.size
+  document.body.dataset.kumaMounted = `${mountedModules.size}/${expectedModules}`
+  document.body.dataset.kumaCrashed = crashedModules.size
     ? [...crashedModules].join(',')
     : ''
 }
@@ -861,7 +868,7 @@ const freshPane = (id: string, stale: HTMLElement): HTMLElement => {
 // 装配隔离：从前这里是裸 `mod.mount(pane)`，一个模块抛异常，整个装配循环当场结束，
 // 排在它后面的模块全部装不上——那就是黑屏。现在坏掉的模块只黑自己那一格，
 // 并把错误原文摆在格子里（正式包没有 DevTools，不摆出来就查无可查），旁边给一个重试。
-const mountModule = (mod: KansoModule, pane: HTMLElement): boolean => {
+const mountModule = (mod: KumaModule, pane: HTMLElement): boolean => {
   // 重试前把上次 mount 挂了一半的内核订阅退掉，否则成功那次会双注册：
   // tick 探测双跑、托盘勿扰点一次翻转两次。首次装配时这是空转。
   runMountCleanup(mod.id)

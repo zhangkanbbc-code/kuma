@@ -1,4 +1,4 @@
-// 艦素实际会去读的矿脉包。
+// kuma实际会去读的矿脉包。
 //
 // 这张表是**健康度面板的判据**：不在表里的包就算装了也没人用，
 // 在表里却缺失的包会让对应功能静默降级——那正是要报出来的东西。
@@ -22,7 +22,7 @@ export interface ConsumedLode {
    * 缺了之后**哪个面板的哪一格**会降级。写具体的格，别写「相关功能」。
    *
    * 判据：这句话要能让维护者判断「这包值不值得补／换源排在多前面」。
-   *（它落在钥的矿脉健康度卡上，而那张卡 2026-08-24 起只在 `KANSO_DEBUG_UI=1` 下装配。）
+   *（它落在钥的矿脉健康度卡上，而那张卡 2026-08-24 起只在 `KUMA_DEBUG_UI=1` 下装配。）
    * 写不出具体的格，多半说明这个包其实没人读——那它就不该在这张表里。
    */
   impact: string
@@ -52,21 +52,14 @@ export interface ConsumedLode {
 
 export const CONSUMED_LODES: readonly ConsumedLode[] = [
   { id: 'abyssal-stats', impact: '战斗的敌舰卡与图鉴深海卷少了深海舰的数值（火力/装甲/雷装等）' },
-  {
-    id: 'dev-recipes',
-    selfFetch: true,
-    impact: '装备详情里的「开发配方」那一节不出',
-  },
-  {
-    id: 'build-recipes',
-    selfFetch: true,
-    impact: '舰娘详情里的「建造配方」那一节不出',
-  },
+  { id: 'development-facts', impact: '装备详情缺少随包开发参考' },
+  { id: 'kcwiki-akashi-improve', impact: '装备的逐星加成与图鉴说明缺少随包资料，无本机补充时显示待补' },
+  { id: 'construction-facts', impact: '舰娘详情缺少随包建造参考' },
   { id: 'ship-exp', impact: '舰娘卷的「还差多少经验」与练级换算只能给到粗略档位' },
   {
     id: 'akashi-list',
     selfFetch: true,
-    impact: '改修工厂的「逐星加成」列空着（周历与消耗另有来源，不受影响）',
+    impact: '逐星加成与图鉴说明中，随包资料未收录的格显示待补',
   },
   {
     // 2026-08-25 起是**第一方事实表且随包**：改修的消耗、二号舰、开放星期、更新链
@@ -85,6 +78,8 @@ export const CONSUMED_LODES: readonly ConsumedLode[] = [
     impact: '基地航空「推荐搭配」的回避档一列显示未收录，排序退成只看攻击力与耗铝',
   },
   { id: 'event-bonus', impact: '活动海域的特效倍率（倍卡）不出，编成推演里那一项按 1.0 算' },
+  { id: 'event-friendly-fleets', impact: '活动友军编成退回 map-intel 资料；两包都缺时只显示本机遭遇志' },
+  { id: 'event-map-intel', impact: '只影响活动海域那几张图的详情（各难度层的节点、掉落、敌编成、解谜与陆航所需半径）；常规 37 图一格不差' },
   {
     id: 'event-lifecycle',
     impact: '海域卷活动期间仅显示本地记录 · 官方公告结束日暂不显示',
@@ -109,6 +104,7 @@ export const CONSUMED_LODES: readonly ConsumedLode[] = [
     impact: '海域卷的路线页少一栏「实测编成频率」；带路的文字条件不受影响',
   },
   { id: 'kcwiki-expedition', impact: '远征卷的收益、时长与成功条件整块显示待补' },
+  { id: 'expedition-facts', impact: '远征卷缺少部分舰队属性门槛、运输桶总量、可行编成与大成功条件' },
   {
     id: 'kcwiki-localization',
     impact: '全应用的中文名会退回日文原名（舰娘、装备、深海舰、道具、舰种、海域）',
@@ -118,9 +114,9 @@ export const CONSUMED_LODES: readonly ConsumedLode[] = [
     impact: '任务计数的第一规则源没了，那 424 条任务退到后面三层去判（多数仍数得出来）',
     // 上游 2022-04 就停了，健康度卡会点名它。但这件事**不该按通用话说**：
     // 停更的含义是「2022 之后新加入的任务不在它里面」，而那些任务由后面三层
-    // （poi-quest-goal / 艦素自研 / 中文正文兜底）接住——本机实测 644 条追踪器全部就绪。
+    // （poi-quest-goal / kuma自研 / 中文正文兜底）接住——对照资料实测 644 条追踪器全部就绪。
     upstreamNote:
-      '它只是任务计数的第一规则源；2022 之后的新任务由后面三层（poi 目标表、kuma 自研规则、中文正文）接住，本机 644 条任务追踪器全部就绪',
+      '它只是任务计数的第一规则源；2022 之后的新任务由后面三层（poi 目标表、kuma 自研规则、中文正文）接住，对照资料 644 条任务追踪器全部就绪',
   },
   // 战斗曲曲名（2026-08-24 新开）：战斗树资源号 → 官方曲名。
   // 游戏主数据 `api_mst_bgm` 只给**母港树**的号，与战斗树是两套编号
@@ -141,18 +137,22 @@ export const CONSUMED_LODES: readonly ConsumedLode[] = [
   },
   // 台词自补层（2026-08-22 新开）：**第一方译文**。上游两家（舰娘百科 / poi-plugin-subtitle）
   // 都没收录的形态，中文层整片是空的——玩家点开吞武里的台词卷只看得到一片空白。
-  // 唯一有那些台词的机读源只给日文、且无许可声明不随包，所以中文由艦素自己译；
+  // 唯一有那些台词的机读源只给日文、且无许可声明不随包，所以中文由kuma自己译；
   // 日文原文那一列 2026-08-22 起也随包（与 kcwiki-voice.ja / subtitle-ja 同级）。
   // 与 `map-drop-windows` 同属 `FIRST_PARTY_LODE_IDS`：抓不回来，随源码走。
   // 2026-08-23 kcwiki 两轮重抓（末轮页清单换穷举、372→765 形态）追录了本层原先独扛的
   // 一大批形态，本层按「只补空」逐槽退位，现留任 49 个形态 / 1453 行——其中 22 个形态
   // 上游两家仍是整卷零行（三隈改二特、清霜改二、雾岛改二丙、吹雪改三……）。
   {
-    id: 'kanso-voice',
-    impact: '上游两家仍没收的那 22 个形态（三隈改二特、清霜改二等）台词卷整页空白，另 27 个形态缺一大片',
+    id: 'kuma-voice',
+    impact: '图鉴台词卷缺少上游两家仍未收录的 22 个形态（三隈改二特、清霜改二等），另有 27 个形态缺失大量台词；实时字幕里这些台词只剩日文',
   },
   {
-    id: 'kanso-voice-zh',
+    id: 'kuma-abyss-voice',
+    impact: '图鉴深海台词卷里 449 个深海形态整卷空白；战斗里这些深海舰的攻击、被弹与击沉台词不出字幕',
+  },
+  {
+    id: 'kuma-voice-zh',
     impact: '上游已有台词但中文栏仍为空或照抄英文的行不再由第一方译文补齐',
   },
   // 季节限定台词（中文译文）。2026-08-22 起是一个**新开的域**：
@@ -190,14 +190,13 @@ export const CONSUMED_LODES: readonly ConsumedLode[] = [
     selfFetch: true,
     impact: '深海舰台词卷只剩字幕包覆盖到的那些形态有词（这一层按官方 No. 精确补到形态）',
   },
-  { id: 'wikiwiki-expedition', selfFetch: true, impact: '远征卷少一份日文一手对照（中文那层不受影响）' },
-  { id: 'wikiwiki-item-exchange', selfFetch: true, impact: '道具图鉴的「兑换目录」那一节不出' },
+  { id: 'item-facts', impact: '道具详情缺少随包用途与固定兑换' },
   {
     id: 'wikiwiki-quests',
     selfFetch: true,
     impact: '任务前置链少一层补缺：舰娘百科没收的开放条件与失效前置码不再被补上／标出',
   },
-  { id: 'wikiwiki-remodel', selfFetch: true, impact: '改造卷的素材与可逆改造的「回程成本」显示待补' },
+  { id: 'remodel-facts', impact: '改造卷的素材与可逆改造的「回程成本」显示待补' },
   {
     id: 'wikiwiki-routing',
     selfFetch: true,
@@ -205,8 +204,9 @@ export const CONSUMED_LODES: readonly ConsumedLode[] = [
     // 逐条量过：① 路线页的日文一手分歧表（并列三证据里的一证，README 写明是有意为之）；
     // ② 镝的「能动分歧（玩家手选去向）」判据——`能動分岐` 标记 20 条 / 6 张图
     //（4-5、5-3、5-5、6-3、7-4、7-5），而 kcwiki-routing 全包 0 处。
-    // 撤了它，2026-08-12 用户报的「把能动分歧写成罗盘分歧」会原样复发。
-    impact: '路线页少一栏日文一手分歧说明；战斗也认不出「能动分歧」（玩家手选去向）那几个点',
+    // 撤了它，路线页会少一证；能动分歧点位已内置（2026-08-12 用户报的「把能动分歧写成罗盘分歧」由
+    // `active-branch-spots` 兜底），只有矿脉新增的点位收不到。
+    impact: '路线页少一栏日文一手分歧说明；能动分歧点位只认内置事实表',
   },
   // wikiwiki-ship-max 2026-08-22 起**运行时零读取**，降为维护者侧选票（eo-quests 地位）：
   // 它只在 `lodes:fetch` 汇编 ship-stats 时逐格投票，供值的是 kcwiki 基座与第一方补丁台账。

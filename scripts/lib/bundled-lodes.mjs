@@ -9,7 +9,7 @@
 // 而 `bundle` 能不能是 true，取决于那一条的许可标识——
 // 只有数据本身所在的源有明确、允许再分发的许可声明（MIT / Apache-2.0 / CC BY-NC-SA 3.0），
 // 或明确登记为第一方产物才行。
-// 无声明或明文禁止的一律换源，不留中间路（2026-08-21 用户定稿的发布侧口径）。
+// 无声明或明文禁止的一律换源，不留中间路（2026-08-21 维护者定稿的发布侧口径）。
 
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -40,7 +40,7 @@ export const REDISTRIBUTABLE_LICENSES = new Set([
  * 于是事实自己记一份台账（哪张图哪个点从哪天起掉哪条船，是运营行为事实），
  * 抓取脚本降为维护者侧对照工具（scripts/refresh-map-intel-limited.mjs）。
  *
- * 第二个住户是 `kanso-voice`（2026-08-22）：台词自补层。
+ * 第二个住户是 `kuma-voice`（2026-08-22）：台词自补层。
  * 舰娘百科与 poi-plugin-subtitle 都没收录的形态，中文层整片是空的；
  * 唯一有那些台词的机读源（wikiwiki）无许可声明、不随包，且只有日文。
  * 于是**中文译文由 kuma 自己译**——译文是第一方劳动，与舰娘百科做翻译是同一种姿态。
@@ -49,7 +49,7 @@ export const REDISTRIBUTABLE_LICENSES = new Set([
  * 同级同灰度，挡住它只会让台词卷变成半张对照表。
  * 它同样抓不回来：`lodes:fetch` 一行都不该动它，逐句订正直接改包文件。
  *
- * `kanso-voice-zh`（2026-09-04）是同域的译文 overlay：上游已有台词行，
+ * `kuma-voice-zh`（2026-09-04）是同域的译文 overlay：上游已有台词行，
  * 但中文栏为空或照抄英文原文时才把第一方译文叠上去。它从仓内维护者清单和两份
  * 随包上游台词生成，通用抓取不碰；上游补上中文即退役，日文原文漂移即停用。
  *
@@ -84,17 +84,26 @@ export const REDISTRIBUTABLE_LICENSES = new Set([
  * **但两家都写明转自同一份社区分类表**——同源转录，不算两票，basis 照此写。
  * 它按期号（`data.event`）与 event-bonus 的 `page=` 对齐，换期对不上就整表不生效。
  *
+ * 第六个住户是 `kuma-abyss-voice`（2026-09-06）：深海台词自补层。
+ * 发行版的两份上游深海台词都未认领的形态，由 kuma 自行翻译中文；日文原文列与
+ * `kuma-voice` 同一法理——逐字转写的权利归游戏方，与随包已有的
+ * `kcwiki-voice.ja`、整份 `subtitle-ja` 同源同性质、同样的灰度。
+ * 它由对照资料底本与仓内译文源生成，`lodes:fetch` 一行都不该动它。
+ *
  * event-lifecycle 登记活动开始、结束与分期开图日期（2026-09-03）。
  * 它由独立生成器从维护者登记表重建；随包与否只认 lode-sources.json 的 bundle 标志。
  */
 export const FIRST_PARTY_LODE_IDS = [
   'map-drop-windows',
-  'kanso-voice',
-  'kanso-voice-zh',
+  'kuma-voice',
+  'kuma-abyss-voice',
+  'kuma-voice-zh',
   'equip-improve',
   'equip-aa-evasion',
   'event-plane-groups',
   'event-lifecycle',
+  'expedition-facts',
+  'remodel-facts',
 ]
 
 /**
@@ -106,6 +115,8 @@ export const FIRST_PARTY_LODE_IDS = [
  * 因为「忘了加白名单」和「明知故犯地钉死」是两件事，后者要留得下痕迹。
  */
 export const NEVER_BUNDLED_LODE_IDS = [
+  'wikiwiki-remodel', // 2026-09-06：改造仅维护者对照，运行时由 remodel-facts 接管
+  'wikiwiki-expedition', // 2026-09-06：仅维护者对照，运行时由 expedition-facts 接管
   'eo-quests',
   'fit-bonus',
   'wikiwiki-ship-max',

@@ -74,7 +74,7 @@ export const cause = (ts: number, next: any = {}) => {
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-shi-cause-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-shi-cause-'))
   const entry = path.join(dir, 'cause.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'cause.cjs')

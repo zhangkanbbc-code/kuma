@@ -42,7 +42,7 @@ export const loadVoiceAbsent = (): Promise<void> => {
     })
     .catch((error: unknown) => {
       loading = null
-      console.warn('[kanso] 语音探测台账读取失败', error)
+      console.warn('[kuma] 语音探测台账读取失败', error)
     })
   return loading
 }
@@ -58,12 +58,12 @@ export const reloadVoiceAbsent = async (): Promise<void> => {
     absent = readAbsentList(await ipcRenderer.invoke('mg:voice-absent'))
     ready = true
   } catch (error) {
-    console.warn('[kanso] 语音探测台账重读失败', error)
+    console.warn('[kuma] 语音探测台账重读失败', error)
     return
   }
   // 装配层那条既有路子：广播一个 DOM 事件，由模块自己判断要不要重画
-  //（这里不该知道哪个模块正开着哪一页，同 kcs-image 的 kanso:art-source-change）
-  document.dispatchEvent(new CustomEvent('kanso:voice-absent-change'))
+  //（这里不该知道哪个模块正开着哪一页，同 kcs-image 的 kuma:art-source-change）
+  document.dispatchEvent(new CustomEvent('kuma:voice-absent-change'))
 }
 
 /** 索引到位没有。没到位时**不摆无配音态**——那会把「还不知道」显示成「官方没有」。 */
@@ -136,7 +136,7 @@ export const probeVoiceSlotDetailed = async (
     if (verdict === 'kept') absent.delete(pathname)
     return { verdict, sha1: `${result?.sha1 ?? ''}` }
   } catch (error) {
-    console.warn('[kanso] 语音探测失败', pathname, error)
+    console.warn('[kuma] 语音探测失败', pathname, error)
     return { verdict: 'error', sha1: '' }
   }
 }

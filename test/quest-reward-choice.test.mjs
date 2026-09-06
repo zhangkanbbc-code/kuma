@@ -41,7 +41,7 @@ const quests = readLode('quests-scn')
 const l10n = readLode('kcwiki-localization')
 
 // 归一化住在渲染层（索引也在那儿），单独编一份出来喂给解析
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-quest-reward-'))
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-quest-reward-'))
 const bundled = path.join(tempDir, 'task-entity-match.cjs')
 buildSync({
   entryPoints: [fileURLToPath(new URL('../src/renderer/task-entity-match.ts', import.meta.url))],

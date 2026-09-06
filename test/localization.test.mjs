@@ -95,7 +95,7 @@ test('舰娘译名的第一方增补只覆盖 kcwiki 尚未收录的形态', () 
   if (!fs.existsSync(packUrl)) return
   const ships = JSON.parse(fs.readFileSync(packUrl, 'utf8')).data.entities.ship
   for (const id of Object.keys(FIRST_PARTY_SHIP_ZH)) {
-    assert.equal(ships[id]?.source, 'kanso-supplement', `${id} 已被上游收录就该从增补表里删掉`)
+    assert.equal(ships[id]?.source, 'kuma-supplement', `${id} 已被上游收录就该从增补表里删掉`)
   }
 })
 

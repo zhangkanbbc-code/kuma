@@ -134,7 +134,7 @@ export {
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-routing-fleet-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-routing-fleet-'))
   const entry = path.join(dir, 'routing.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'routing.cjs')

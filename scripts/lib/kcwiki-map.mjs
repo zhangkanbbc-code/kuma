@@ -367,7 +367,7 @@ export const fetchKcwikiMapPages = async ({
     let hitNetwork = true
     try {
       const res = await fetchImpl(kcwikiMapPageQuery(code), {
-        headers: { 'User-Agent': 'kanso-lodes' },
+        headers: { 'User-Agent': 'kuma-lodes' },
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
@@ -391,7 +391,7 @@ export const fetchKcwikiPageContentDate = async (title, fetchImpl = fetch) => {
     const url =
       `${KCWIKI_API}?action=query&prop=revisions&rvprop=timestamp|comment&rvlimit=30` +
       `&format=json&formatversion=2&titles=${encodeURIComponent(title)}`
-    const json = await (await fetchImpl(url, { headers: { 'User-Agent': 'kanso-lodes' } })).json()
+    const json = await (await fetchImpl(url, { headers: { 'User-Agent': 'kuma-lodes' } })).json()
     const revisions = json?.query?.pages?.[0]?.revisions ?? []
     const human = revisions.find((revision) => !/^文本替换/.test(revision.comment ?? ''))
     return (human ?? revisions[0])?.timestamp?.slice(0, 10) ?? null

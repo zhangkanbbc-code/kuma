@@ -1,6 +1,6 @@
 // 退出兜底：确保子进程跟着主进程一起走。
 //
-// 实测过四次：艦素退出后 %APPDATA% 与 release 目录仍被占用（打包报 EPERM）。
+// 实测过四次：kuma退出后 %APPDATA% 与 release 目录仍被占用（打包报 EPERM）。
 // 残留的永远是同一种东西——`--type=renderer` 的 webview guest：无窗口、父 PID 已死。
 // CloseMainWindow 对它无效（没有窗口句柄）。
 //
@@ -16,6 +16,7 @@
 // 端到端验收：`npm run quit:e2e`（打包产物 + 真关窗 + 数进程）。
 // 这类东西单元测试盯不住，源码形状的护栏只拦「代码被改回去」。
 
+import { readEnv } from '../shared/env-names'
 import { execFileSync, spawn } from 'child_process'
 import path from 'path'
 
@@ -29,7 +30,7 @@ import { parseTasklistPids } from '../shared/process-reap'
 // 于是「没运行」和「运行了没杀」分不开——2026-08-20 排查第四种形态时就卡在这里
 // （crash.log 自防线上线起一条没有）。正式运行仍然只记异常（见下面几处 appendCrash），
 // 详细流水挂在环境开关上，端到端脚本打开它，用户日常跑不会看到一个字。
-const QUIT_TRACE = Boolean(process.env.KANSO_QUIT_TRACE)
+const QUIT_TRACE = Boolean(readEnv('KUMA_QUIT_TRACE'))
 const trace = (message: string) => {
   if (!QUIT_TRACE) return
   appendCrash({ source: 'main', scope: 'quit-guard-trace', message, ts: Date.now() })
@@ -81,7 +82,7 @@ const runCriticalQuitWork = () => {
     try {
       work()
     } catch (error) {
-      safeConsole('warn', '[kanso] 退出收尾动作失败', error)
+      safeConsole('warn', '[kuma] 退出收尾动作失败', error)
     }
   }
 }
@@ -142,7 +143,7 @@ const killOwnProcessTree = () => {
 }
 
 /**
- * 清掉上次留下的残留 艦素.exe（只动打包产物，不碰开发态的 electron.exe）。
+ * 清掉上次留下的残留 kuma.exe（只动打包产物，不碰开发态的 electron.exe）。
  *
  * **必须在拿到单实例锁之后调用**：拿到锁就说明没有别的正常实例在跑，
  * 于是同名进程一律是上次没退干净的僵尸——包括它的 renderer 子进程，
@@ -153,7 +154,7 @@ const killOwnProcessTree = () => {
  * 加全进程枚举要 1.2–1.4 秒，第二个实例往往 1 秒就因单实例锁退出了。
  * 换成同步的 tasklist + Node 原生 kill：不依赖外部进程活过父进程，也不用等冷启动。
  */
-export const reapOrphanKansoProcesses = () => {
+export const reapOrphanKumaProcesses = () => {
   if (process.platform !== 'win32' || !app.isPackaged) return
   // 数据目录被覆盖 = 这是一个验收副本实例，同映像的进程**不一定是它的**
   // （用户的正式实例同名同 exe）。这条防线按映像名开杀，副本实例绝不能碰。
@@ -171,7 +172,7 @@ export const reapOrphanKansoProcesses = () => {
       }
     }
     if (stale.length) {
-      safeConsole('warn', `[kanso] 清掉上次残留的 ${stale.length} 个进程`)
+      safeConsole('warn', `[kuma] 清掉上次残留的 ${stale.length} 个进程`)
       // 落盘留证：能走到这里就说明**上一次退出漏了孤儿**——这正是要排查的事实本身，
       // 而且按定义罕见（正常退出这里是空的），不会刷日志。
       appendCrash({
@@ -184,7 +185,7 @@ export const reapOrphanKansoProcesses = () => {
       trace('启动清残留：没有同映像残留进程')
     }
   } catch (error) {
-    safeConsole('warn', '[kanso] 清理孤儿进程失败', error)
+    safeConsole('warn', '[kuma] 清理孤儿进程失败', error)
     appendCrash({
       source: 'main',
       scope: 'quit-guard',
@@ -206,7 +207,7 @@ export const reapOrphanKansoProcesses = () => {
  * 活过父进程的外部命令。防 PID 复用误杀：只杀「收割过 ∩ 此刻仍是同映像」的。
  *
  * ⚠ 2026-08-20：上面这套写出来之后**一次都没开过火**（crash.log 自它上线起零条）。
- * 在打包产物上开 KANSO_QUIT_TRACE 实测，根因是收割源选错了：
+ * 在打包产物上开 KUMA_QUIT_TRACE 实测，根因是收割源选错了：
  * 用户关窗退出这条路上，`window-all-closed` → `app.quit()`，等 before-quit 触发时
  * **主窗口与游戏 webview 的 webContents 早已销毁**，`getAllWebContents()` 返回空数组，
  * 收割集是空的，'quit' 里第一行 `if (!size) return` 直接走人。
@@ -219,7 +220,7 @@ export const installQuitGuard = (graceMs = 4000) => {
   let quitting = false
   const rendererPids = new Set<number>()
   const harvestRendererPids = () => {
-    // 源一：Electron 认得的 webContents。托盘「退出艦素」这类窗口还在的路径上有货。
+    // 源一：Electron 认得的 webContents。托盘「退出kuma」这类窗口还在的路径上有货。
     for (const contents of webContents.getAllWebContents()) {
       try {
         const pid = contents.getOSProcessId()
@@ -240,7 +241,7 @@ export const installQuitGuard = (graceMs = 4000) => {
         }
       }
     } catch (error) {
-      safeConsole('warn', '[kanso] 收割渲染进程 PID 失败', error)
+      safeConsole('warn', '[kuma] 收割渲染进程 PID 失败', error)
     }
   }
   // 源三、也是唯一靠得住的一个：**渲染进程一出生就记下来**。
@@ -254,7 +255,7 @@ export const installQuitGuard = (graceMs = 4000) => {
   //
   // PID 复用不构成误杀风险：开枪名单是「本进程亲自收割过的 PID」，退出时再与
   // 「此刻仍是同映像」取交集——交集只会缩小名单，而缩小之前那一侧本来就只有自己的
-  // 子进程。（单实例锁按数据目录发放，KANSO_DATA_DIR 覆盖时同映像的另一个实例可以
+  // 子进程。（单实例锁按数据目录发放，KUMA_DATA_DIR 覆盖时同映像的另一个实例可以
   // 并存，所以「同映像」并不等于「就是自己的」，靠得住的是收割集那一侧。）
   const rememberPidOf = (contents: Electron.WebContents) => {
     try {
@@ -323,12 +324,12 @@ export const installQuitGuard = (graceMs = 4000) => {
       try {
         if (!contents.isDestroyed()) contents.close()
       } catch (error) {
-        safeConsole('warn', '[kanso] 退出时关闭 webContents 失败', error)
+        safeConsole('warn', '[kuma] 退出时关闭 webContents 失败', error)
       }
     }
     // 宽限期必须长于账本存盘。铭的 before-quit 存盘是同步的，先于这个定时器完成。
     const bail = setTimeout(() => {
-      safeConsole('warn', '[kanso] 退出超时，强制结束进程树（避免残留孤儿渲染进程）')
+      safeConsole('warn', '[kuma] 退出超时，强制结束进程树（避免残留孤儿渲染进程）')
       // 这条从前只进 console——而打包版是 GUI 子系统，stdout 没有接收方，
       // 于是「兜底开火了」在 crash.log 里完全看不见，排查时只能靠猜。
       // 兜底触发本身就是异常（退出卡了 4 秒），罕见，值得落盘。
@@ -353,7 +354,7 @@ export const installQuitGuard = (graceMs = 4000) => {
     const killed = terminateSurvivors('quit') // 收割里也兜了一遍 before-quit 之后的变化
     if (!killed.length) return
     // **杀了不等于杀掉**。这才是值得报警的那一格：防线开了火却没打死，
-    // 用户下次就会看到「关了艦素但进程还在」。正常退出复核一定是空的，不落盘。
+    // 用户下次就会看到「关了kuma但进程还在」。正常退出复核一定是空的，不落盘。
     const stubborn = stillAlive(killed)
     if (stubborn.length) {
       appendCrash({

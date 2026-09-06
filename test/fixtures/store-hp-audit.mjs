@@ -129,7 +129,7 @@ export { newSortie, runSortieHpAudit, applyShipUpdates }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-hp-audit-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-hp-audit-'))
   const entry = path.join(dir, 'audit.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'audit.cjs')

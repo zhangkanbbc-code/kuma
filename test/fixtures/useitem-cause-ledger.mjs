@@ -66,7 +66,7 @@ export const makeLedger = (db: any) => new UseitemCauseLedger(db)
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-useitem-cause-ledger-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-useitem-cause-ledger-'))
   const entry = path.join(dir, 'ledger.ts')
   const outfile = path.join(dir, 'ledger.cjs')
   fs.writeFileSync(entry, HARNESS)

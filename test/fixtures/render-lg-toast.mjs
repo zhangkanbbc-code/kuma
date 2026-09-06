@@ -115,7 +115,7 @@ ${ESCORT_STATE}
 }
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-lg-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-lg-'))
   fs.cpSync(path.join(ROOT, 'src'), path.join(dir, 'src'), { recursive: true })
   const lgPath = path.join(dir, 'src', 'renderer', 'modules', 'lg.ts')
   const lgSource = fs.readFileSync(lgPath, 'utf8')

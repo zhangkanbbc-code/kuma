@@ -72,7 +72,7 @@ export const makeLedger = (db: any) => new EoLedger(db)
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-eo-senka-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-eo-senka-'))
   for (const name of ['senka.ts', 'quest-period.ts']) {
     fs.copyFileSync(path.join(ROOT, 'src', 'shared', name), path.join(dir, name))
   }
@@ -92,7 +92,7 @@ const bundle = (() => {
 const { EO_SENKA, makeLedger, senkaMonthStart } = require(bundle)
 
 const openLedger = (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-eo-db-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-eo-db-'))
   const db = new DatabaseSync(path.join(dir, 'mg.sqlite'))
   db.exec(senkaLogDdl)
   t.after(() => {

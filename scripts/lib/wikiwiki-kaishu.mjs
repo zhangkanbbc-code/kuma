@@ -71,6 +71,7 @@ const parseTable = (tableHtml) => {
   }
   return rows
 }
+export { parseTable as parseWikiwikiTable }
 
 // 名字归一:全半角/波浪线/ASCII 大小写的差异只在排版,不构成不同装备/舰
 // (wiki 出现过「Saratoga MK.II」对主数据「Saratoga Mk.II」;主数据内部无

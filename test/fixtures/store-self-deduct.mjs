@@ -75,7 +75,7 @@ ${OPEN_EXSLOT}
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-selfdeduct-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-selfdeduct-'))
   const entry = path.join(dir, 'selfdeduct.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'selfdeduct.cjs')

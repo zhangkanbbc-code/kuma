@@ -28,7 +28,7 @@ export const EXTRA_VOICE_DIRS: Record<'skit' | 'enemy' | 'npc', string> = {
  * 一手依据是 KC3Kai `src/library/modules/Meta.js` 的 `getFilenameByVoiceLine`：
  *   `lineNum <= 53 ? 100000 + 17*(ship_id+7)*diffs[lineNum-1] % 99173 : lineNum`
  * ——**编号 ≤53 才混淆，54 起一律裸编号直出**。
- * 此前 kanso 只认 `0 / 141 / 241` 三个裸编号，那是 poi-plugin-subtitle 的局限
+ * 此前 kuma 只认 `0 / 141 / 241` 三个裸编号，那是 poi-plugin-subtitle 的局限
  *（它 `getVoiceMap()` 里只写了 141/241，注释还标着 HACK），不是游戏的局限；
  * 于是本机台账里 Richelieu改 与 大和改二重 的 `900.mp3` 被记成「认不出」16+7 次。
  *

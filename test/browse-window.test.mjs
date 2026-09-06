@@ -54,13 +54,13 @@ test('http / https 原样收，别的协议一律不认', () => {
   ]) {
     assert.equal(normalizeBrowseInput(ok), ok, `${ok} 该被原样收下`)
   }
-  // 这一层网页与游戏共用 defaultSession（kanso-cache:// 就注册在这个会话上）
+  // 这一层网页与游戏共用 defaultSession（kuma-cache:// 就注册在这个会话上）
   for (const bad of [
     'file:///C:/Windows/System32/drivers/etc/hosts',
     'javascript:alert(1)',
     'data:text/html,<h1>hi</h1>',
     'chrome://settings',
-    'kanso-cache://resource/kcs/foo.png',
+    'kuma-cache://resource/kcs/foo.png',
     'about:blank',
   ]) {
     assert.equal(normalizeBrowseInput(bad), null, `${bad} 不该能从地址栏进得来`)

@@ -105,7 +105,7 @@ const CRASH_STUB = [
 // 临时目录要**照着源码树的形状**摆（renderer/ 与 shared/ 并列）：
 // mu.ts 除了同目录那两个相对 import，还引 `../shared/dock-layout`——
 // 那一个不桩、直接把真文件拷进来跟着一起编（它是纯逻辑，正该跑真的）。
-const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-mount-retry-'))
+const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-mount-retry-'))
 const tempDir = path.join(tempRoot, 'renderer')
 const sharedDir = path.join(tempRoot, 'shared')
 fs.mkdirSync(tempDir, { recursive: true })
@@ -120,6 +120,11 @@ fs.copyFileSync(
 fs.copyFileSync(
   fileURLToPath(new URL('../src/shared/compact-mode.ts', import.meta.url)),
   path.join(sharedDir, 'compact-mode.ts'),
+)
+// 环境变量读取也跑共享实现，复制后的铆不能丢掉新增依赖。
+fs.copyFileSync(
+  fileURLToPath(new URL('../src/shared/env-names.ts', import.meta.url)),
+  path.join(sharedDir, 'env-names.ts'),
 )
 // 铆的 openOverlay 会调启动动画的浮层入场。同样不打桩、拷真文件跟着一起编：
 // 开关默认关，playOverlayEntrance 是彻底的空转，装配这条路上它一个字都不做。

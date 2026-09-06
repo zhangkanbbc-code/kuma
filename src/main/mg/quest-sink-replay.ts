@@ -247,13 +247,13 @@ const replayOneQuest = (
       if (row.ts < periodStart || row.body == null) continue
       const parsedBody = parseJson(row.body)
       if (!parsedBody.ok) {
-        console.warn(`[kanso] 任务回算事件正文损坏 quest=${questId} event=${row.id}`)
+        console.warn(`[kuma] 任务回算事件正文损坏 quest=${questId} event=${row.id}`)
         failed = true
         break
       }
       const parsedPost = row.postBody == null ? { ok: true as const, value: {} } : parseJson(row.postBody)
       if (!parsedPost.ok) {
-        console.warn(`[kanso] 任务回算任务参数损坏 quest=${questId} event=${row.id}`)
+        console.warn(`[kuma] 任务回算任务参数损坏 quest=${questId} event=${row.id}`)
         failed = true
         break
       }
@@ -276,7 +276,7 @@ const replayOneQuest = (
             if (targetActive) {
               missingBattleSnapshots.push(row.id)
               console.warn(
-                `[kanso] 任务回算战斗快照损坏 quest=${questId} event=${row.id} snapshot=${snapshot.id}`,
+                `[kuma] 任务回算战斗快照损坏 quest=${questId} event=${row.id} snapshot=${snapshot.id}`,
               )
               failed = true
               break
@@ -286,7 +286,7 @@ const replayOneQuest = (
           state.sortie = null
           if (targetActive) {
             missingBattleSnapshots.push(row.id)
-            console.warn(`[kanso] 任务回算缺少战斗快照 quest=${questId} event=${row.id}`)
+            console.warn(`[kuma] 任务回算缺少战斗快照 quest=${questId} event=${row.id}`)
             failed = true
             break
           }
@@ -419,7 +419,7 @@ export const planQuestProgressChanges = (
     if (oldRow) {
       const parsed = countsOf(oldRow.counts)
       if (!parsed.ok) {
-        console.warn(`[kanso] 任务回算旧进度损坏 quest=${questId}`)
+        console.warn(`[kuma] 任务回算旧进度损坏 quest=${questId}`)
         return []
       }
       oldCounts = parsed.value

@@ -1,6 +1,10 @@
+import { akashiImproveItem } from '../../shared/akashi-improve'
+import { remodelCycles, remodelStagesFor, REMODEL_STAGE_COPY, type RemodelHistory, type RemodelStage } from '../../shared/remodel-stage'
+import { queryShipLife } from '../kernel'
 // 鉴 (Ji) · 图鉴与在籍列表：舰娘 / 列表 / 装备 / 深海 / 海域 / 道具。
 // 时效纪律：主数据来自 api_start2 快照，页脚标注快照时间；
 // 掉落/台词/加成等第三方口径未接入前只挂牌注明来源，绝不硬造。
+import { readEnv } from '../../shared/env-names'
 import {
   airThresholds,
   engagedShips,
@@ -124,8 +128,10 @@ import {
 import type { BareArchiveVoiceRow } from '../../shared/voice-probe-plan'
 import {
   abyssArchiveKeysFor,
+  abyssVoiceRowsForMst,
   abyssVoiceRowLabel,
   abyssWikiVoiceScene,
+  buildAbyssVoiceSameNameForms,
   groupAbyssVoiceFiles,
   parseAbyssVoiceFile,
 } from '../../shared/abyss-voice-file'
@@ -166,8 +172,12 @@ import {
   voiceSlotOfKey,
 } from '../../shared/voice-scene-slots'
 import type { CorrectedVoiceRow, VoiceFallbackSource } from '../../shared/voice-scene-slots'
-import { normalizeVoiceText } from '../../shared/voice-text'
-import { applyVoiceOverlay, voiceOverlayJaIndex } from '../../shared/voice-overlay'
+import { isUntranslatedVoiceText, normalizeVoiceText } from '../../shared/voice-text'
+import {
+  applyVoiceOverlay,
+  supplementVoiceZhByJa,
+  buildVoiceZhByJa,
+} from '../../shared/voice-overlay'
 import { voicePlaybackObservationAt } from '../../shared/voice-playback-observations'
 import {
   simplifyFitBonusData,
@@ -204,6 +214,7 @@ import {
   toggleFavoriteShipRoot,
 } from '../ship-personal'
 import { shipLifeDamageText } from '../../shared/ship-life-damage'
+import { parseNoteTags } from '../../shared/note-tags'
 import { levelGrowth, MARRIED_LEVEL_CAP, marriageHpBonus, marriedMaxHp } from '../../shared/ship-growth'
 import type { ShipGrowthKey } from '../../shared/ship-growth'
 import {
@@ -237,11 +248,12 @@ import {
   mapIntelEntries,
   mapIntelGeneration,
   mapIntelMap,
+  mapIntelEntry,
+  mapDropPool,
   mapIntelNode,
 } from '../../shared/map-intel'
 import {
   buildVoiceFallbackIds,
-  buildVoiceTranslationIndex,
   normalizeVoiceLine,
 } from '../../shared/voice-lineage'
 import {
@@ -253,6 +265,11 @@ import {
 } from '../../shared/ship-nationality'
 import { mapFleetAllowanceLabels } from '../../shared/map-sally'
 import { evaluateRoutingRules } from '../../shared/routing-engine'
+import {
+  buildRoutingRuleShipNameIndex,
+  normalizeRoutingRuleShipNames,
+  type RoutingRuleShipNameIndex,
+} from '../../shared/routing-rule-name'
 import {
   estimateKcnavBranch,
   kcnavFleetComposition,
@@ -565,6 +582,7 @@ let voiceFallbackOf: Map<number, number[]> = new Map() // 当前形态 → 最�
 let equipTypes: Map<number, string> = new Map() // equiptype id → 名
 let friendlyEquips: Map<number, any> = new Map() // mst slotitem（非深海）
 let abyssalShips: Map<number, any> = new Map() // 深海舰（无図鑑号）
+let abyssSameNameForms = new Map<number, number[]>()
 let resolveAbyssalName: (label: string) => number | null = () => null
 let abyssalEquips: Map<number, any> = new Map() // 深海装备（id ≥ 1500）
 let useitemMst: Map<number, any> = new Map() // mst useitem
@@ -579,12 +597,12 @@ const equipVisualLink = (mstId: number, label?: string): string => {
   return `<span class="entity-visual">${equipTypeIconHtml(iconId, { className: 'xs', title: name })}${elink('mstEquip', mstId, name)}</span>`
 }
 let voiceLode: { meta: LodeMeta; data: any } | null = null
-// 台词自补层（艦素自行翻译，第一方）。与 kcwiki 是**同一个域的两层**，不是两个域：
+// 台词自补层（kuma自行翻译，第一方）。与 kcwiki 是**同一个域的两层**，不是两个域：
 // kcwiki 没收的形态，中文层整片是空的（吞武里、Gloire、Wasp、大泊……玩家点开只看到空白），
 // 这一层把那些形态的台词自己译成中文补上。合流按**槽位**填空、kcwiki 胜——
 // 它是社区共识层；同一格两层都有时不并排显示，也不做行内混拼。
-let kansoVoiceLode: { meta: LodeMeta; data: any } | null = null
-let kansoVoiceZhLode: { meta: LodeMeta; data: any } | null = null
+let kumaVoiceLode: { meta: LodeMeta; data: any } | null = null
+let kumaVoiceZhLode: { meta: LodeMeta; data: any } | null = null
 let voiceOverlayRegularKeys = new Set<string>()
 let voiceOverlaySeasonalKeys = new Set<string>()
 // kcwiki 台词行按档名的形态码重排后的视图（归属/槽位/文本三类校正，判据见
@@ -597,7 +615,8 @@ let correctedVoiceRows = new Map<number, CorrectedVoiceRow[]>()
 let seasonalVoiceLode: { meta: LodeMeta; data: any } | null = null
 let wikiwikiVoiceLode: { meta: LodeMeta; data: any } | null = null
 let wikiwikiAbyssVoiceLode: { meta: LodeMeta; data: any } | null = null
-let wikiwikiRemodelLode: { meta: LodeMeta; data: any } | null = null
+let kumaAbyssVoiceLode: { meta: LodeMeta; data: any } | null = null
+let remodelFactsLode: { meta: LodeMeta; data: any } | null = null
 // 三维 Lv99 上限的社区基准（艦船最大値总表）：2026-08-11 账本一手仲裁后
 // 压过 kcwiki（覆盖 834 形态 vs kcwiki 缺 41 项；错误率 0.69% vs 0.62% 相当）。
 // 层级：①游戏一手（持有形态） ②本包 ③kcwiki；初始值仍以 kcwiki 为批量基准。
@@ -610,6 +629,7 @@ let subtitleJa: { meta: LodeMeta; data: any } | null = null
 let subtitleEnemiesLode: { meta: LodeMeta; data: any } | null = null
 let abyssSubtitleByMst = new Map<number, { key: string; ja: string; zh: string }[]>()
 let voiceZhByJa = new Map<string, string>()
+let abyssZhByJa = new Map<string, string>()
 let mapAreas: Map<number, string> = new Map() // 海域区 id → 名
 let eventAreaIds = new Set<number>()
 let mapInfos: any[] = [] // mst mapinfo
@@ -630,6 +650,7 @@ let abyssalLode: { meta: LodeMeta; data: any } | null = null
 let fcdMapLode: { meta: LodeMeta; data: any } | null = null // poi fcd：海域字母/坐标
 let eventLifecycleLode: { meta: LodeMeta; data: any } | null = null
 let routingLode: { meta: LodeMeta; data: any } | null = null // kcwiki：各图带路条件
+let routingRuleShipNameIndex: RoutingRuleShipNameIndex = []
 let wikiwikiRoutingLode: { meta: LodeMeta; data: any } | null = null // wikiwiki：日文一手分歧说明
 let kcnavRoutingLode: { meta: LodeMeta; data: any } | null = null
 const { ipcRenderer: jiIpc } = require('electron')
@@ -789,7 +810,7 @@ const ensureMapChronicle = (mapId: number) => {
     if ((mapChronicleGeneration.get(mapId) ?? 0) === generation) {
       mapChronicleErrors.add(mapId)
     }
-    console.warn('[kanso] 海域本地记录读取失败', error)
+    console.warn('[kuma] 海域本地记录读取失败', error)
   }).finally(() => {
     mapChronicleLoading.delete(mapId)
     if (activeBook === 'map' && mapState.open && mapState.selected === mapId) scheduleRender()
@@ -814,7 +835,7 @@ const ensureMapClearFleets = (mapId: number) => {
       mapClearFleetsLoaded.set(mapId, generation)
     })
     .catch((error: unknown) => {
-      console.warn('[kanso] 通关阵容读取失败', error)
+      console.warn('[kuma] 通关阵容读取失败', error)
       if ((mapChronicleGeneration.get(mapId) ?? 0) === generation) {
         mapClearFleetsErrors.set(mapId, generation)
       }
@@ -831,6 +852,7 @@ let itemExchangeLode: { meta: LodeMeta; data: any } | null = null
 // 舰娘档案补缺(wikiwiki 舰页):只覆盖 kcwiki-ships 停收的形态,实体级回退
 let shipProfileLode: { meta: LodeMeta; data: any } | null = null
 let shipProfileByMst: Map<number, any> = new Map()
+let kcwikiAkashiLode: { meta: LodeMeta; data: any } | null = null
 let akashiListLode: { meta: LodeMeta; data: any } | null = null
 let devRecipeLode: { meta: LodeMeta; data: any } | null = null
 let buildRecipeLode: { meta: LodeMeta; data: any } | null = null
@@ -855,6 +877,7 @@ const buildIndex = () => {
   equipTypes = new Map()
   friendlyEquips = new Map()
   abyssalShips = new Map()
+  abyssSameNameForms = new Map()
   useitemMst = new Map()
   mapAreas = new Map()
   eventAreaIds = new Set()
@@ -886,6 +909,9 @@ const buildIndex = () => {
       name: `${ship.api_name ?? ''}`,
       yomi: `${ship.api_yomi ?? ''}`,
     })),
+  )
+  abyssSameNameForms = buildAbyssVoiceSameNameForms(
+    [...abyssalShips].map(([id, ship]) => ({ id, name: `${ship.api_name ?? ''}` })),
   )
   for (const u of mst.api_mst_useitem ?? []) {
     useitemMst.set(u.api_id, u)
@@ -2047,13 +2073,11 @@ const shipCatalogHtml = () => {
           const allSisters = ctype ? rootsOfClass(ctype) : members
           const classOwned = allSisters.filter((root) => chainInstances(root.api_id).length > 0).length
           const collapsible = ctype > 0 && allSisters.length > 1
-          // 搜索与“直达舰级/国籍/编队”期间临时展开，避免明明命中却只剩一个目录头。
+          // 搜索 / 分类筛选期间临时展开，避免明明命中却只剩一个目录头。
+          // 与外层舰种分组共用 catalogGroupsForcedOpen，不另写一套筛选判据。
           const collapsed =
             collapsible &&
-            !shipState.search &&
-            !shipState.classFilter &&
-            !shipState.nationalityFilter &&
-            !shipState.fleetFilter &&
+            !catalogGroupsForcedOpen() &&
             collapsedShipClasses.has(ctype)
           // 每个官方 ctype 都必须有自己的舰级标题。过去只给“至少两条根舰”的舰级画标题，
           // 会让后续单舰级（如衣阿华级、甘古特级）视觉上黏进前一个利托里奥级。
@@ -2296,7 +2320,7 @@ const loadShipMemorial = (chain: number[]) => {
     .catch((error: unknown) => {
       // 读失败要说读失败：空报告会被渲染成「暂无拆解、素材消耗或击沉记录」，
       // 那是把故障说成事实（全文件唯一丢掉 error 的 catch，一并补上）
-      console.warn('[kanso] 收容库读取失败', key, error)
+      console.warn('[kuma] 收容库读取失败', key, error)
       shipMemorial = {
         key,
         report: { scrapped: 0, materials: 0, sunk: 0, entries: [] },
@@ -2356,6 +2380,9 @@ const bindShipPanelControls = (scope: ParentNode) => {
   scope.querySelectorAll<HTMLInputElement>('[data-roster-note]').forEach((input) => {
     input.addEventListener('change', () => {
       setShipRosterNote(parseInt(input.dataset.rosterNote!, 10), input.value)
+      // 保存回执跟着写成功后再画：把刚认出的 #标签 摆到框下。
+      // change 可能由下一次 mousedown 的失焦触发，走被动闸门才不会重建 DOM 吞掉 click。
+      deferPassive(pane, 'ji:detail', updateShipDetailPanel)
     })
     input.addEventListener('keydown', (e) => {
       // 同上：敲定候选的回车不是「写完了」，失焦会把词打断在半路
@@ -2498,7 +2525,7 @@ const getmesHtml = (mstId: number): string => {
  * 而 kcwiki 包里的「日文WIKI」「英文WIKI」两个字段一直躺着没人用。
  *
  * 这里不抄外站正文（授权不明），只把链接摆出来，由系统浏览器打开。
- * 舰史本身不入库：kanso 的资料包都没有史实条目，编一段出来就是在造假。
+ * 舰史本身不入库：kuma 的资料包都没有史实条目，编一段出来就是在造假。
  */
 const shipWikiLinksHtml = (mstId: number): string => {
   const entry = kcwikiByMst.get(mstId)
@@ -2571,6 +2598,7 @@ const shipDrawerHtml = () => {
 
   // 改装链：等级/弹药/钢材沿用舰船资料；特殊材料按
   // 游戏 API → wikiwiki 改造チャート → kcwiki 图纸串三级降级。
+  // 2026-09-06：中间层已换为 remodel-facts 第一方事实表。
   // 升级表索引由 buildIndex 建好复用（每次渲染重建一张全表 Map 是纯重复）
   const upgradeByTarget = shipUpgradeByTarget
   const chainHtml = chain
@@ -2589,10 +2617,9 @@ const shipDrawerHtml = () => {
         <div class="n">${entityNameHtml('ship', mstId, s.api_name, { compact: true })}</div><div class="l">Lv ${i === 0 ? 1 : level}</div></div>`
       if (i === 0) return node
       const wiki = kcwikiByMst.get(predecessorId)?.改造
-      const specialNeeds = needChipsHtml(wiki?.图纸, mstId, predecessorId)
+      const specialNeeds = needChipsHtml(wiki?.图纸, mstId, predecessorId, instances.length === 1 ? instances[0].id : undefined)
       // 素材原本整排铺在箭头下面，一条链就被撑得没法看（而且「×10」紧挨着库存
       // 「672」会被读成 10672）。这里只留一枚摘要，明细收进悬停的小卡。
-      const needList = specialNeeds.needs
       const needPillOf = (list: UpgradeNeedChip[], tipTitle: string, label: string): string => {
         if (!list.length) return ''
         const shortage = list.filter((need) => !needStockOf(need).enough).length
@@ -2606,6 +2633,11 @@ const shipDrawerHtml = () => {
           tipTitle,
         )}" data-tip="${esc(tip)}">${label} ${list.length} 项${shortage ? ` · 缺 ${shortage}` : ' ✓'}</span>`
       }
+      const stagePills = (result: ReturnType<typeof needChipsHtml>, title: string): string => result.stages.map(group => {
+        if (!group.needs.length && !group.missing) return ''
+        const label = remodelStageLabelHtml(group.stage)
+        return `${label} ${needPillOf(group.needs, `${title} · ${REMODEL_STAGE_COPY[group.stage].label}`, '素材')}${group.missing ? ' 素材待补' : ''}`
+      }).join('<br>')
       // kcsapi 字段名陷阱：api_afterbull=弹药、api_afterfuel=钢材（两张改装画面
       // 实拍交叉核定，见 MasterShip 注释）。此前写反，kcwiki 缺值时弹钢会互换。
       const fwdStats = `弹${
@@ -2622,11 +2654,7 @@ const shipDrawerHtml = () => {
         : '前置形态'
       const arrowTitle = `${from} ${paired ? '⇄' : '→'} ${entityNamePlain('ship', mstId, s.api_name)}`
       if (!paired) {
-        const needPill = needPillOf(
-          needList,
-          `改造素材 · ${entityNamePlain('ship', mstId, s.api_name)}`,
-          '素材',
-        )
+        const needPill = stagePills(specialNeeds, `改造素材 · ${entityNamePlain('ship', mstId, s.api_name)}`)
         // 与 ⇄ 同一套网格：符号一律压在节点中线上（用户 2026-08-11 定的排布），
         // Lv/弹钢在符号上方、素材药丸在下方
         return `<div class="rm-arrow" title="${esc(arrowTitle)}">
@@ -2637,13 +2665,9 @@ const shipDrawerHtml = () => {
       }
       // 空间即方向（用户 2026-08-11 定的排布）：⇄ 居中，上组=前进、下组=回程，
       // 不再画 →/← 小箭头——位置本身说明方向，悬停标题写目的形态名。
-      const fwdPill = needPillOf(
-        needList,
-        `改造素材 · 改往${entityNamePlain('ship', mstId, s.api_name)}`,
-        '素材',
-      )
-      const backNeeds = needChipsHtml(null, predecessorId, mstId).needs
-      const backPill = needPillOf(backNeeds, `改造素材 · 改回${from}`, '素材')
+      const fwdPill = stagePills(specialNeeds, `改造素材 · 改往${entityNamePlain('ship', mstId, s.api_name)}`)
+      const backNeeds = needChipsHtml(null, predecessorId, mstId, instances.length === 1 ? instances[0].id : undefined)
+      const backPill = stagePills(backNeeds, `改造素材 · 改回${from}`)
       const fwdLine = `Lv ${wiki?.等级 ?? level} ${fwdStats}`
       const backLine = `<span class="back">Lv ${s.api_afterlv ?? '?'} 弹${
         s.api_afterbull ?? '?'
@@ -2674,7 +2698,13 @@ const shipDrawerHtml = () => {
         if (current.cond >= 50) chips.push(`<span class="ro-chip sp">✦ 士气 ${current.cond}</span>`)
         chips.push(`<span class="ro-chip">${current.locked ? '已锁定 ●' : '<span style="color:var(--warn)">未锁定 ⚠</span>'}</span>`)
       }
+      const nextId = Number(friendlyShips.get(entry.shipId)?.api_aftershipid)
+      if (nextId > 0 && convertibleTargets().has(nextId)) {
+        const nextNeeds = needChipsHtml(kcwikiByMst.get(entry.shipId)?.改造?.图纸, nextId, entry.shipId, entry.id)
+        chips.push(`<span class="ro-chip">→ ${entityNameHtml('ship', nextId, friendlyShips.get(nextId)?.api_name ?? '')} ${nextNeeds.html}</span>`)
+      }
       const personalNote = shipRosterNote(entry.id)
+      const personalTags = parseNoteTags(personalNote)
       return `<div class="ro-row">
         <span class="ro-stage">${entityNameHtml('ship', entry.shipId, stageName, { compact: true })}</span>
         <span class="ro-lv">Lv ${entry.lv}</span>
@@ -2682,7 +2712,12 @@ const shipDrawerHtml = () => {
         <span class="ro-go" data-roster-go="${entry.id}" title="在舰娘列表中定位这一艘">前往列表 →</span>
         <label class="ro-note"><span>这一艘的备注 · ID ${entry.id}</span>
           <input data-roster-note="${entry.id}" maxlength="120" value="${esc(personalNote)}"
-            placeholder="例如：对陆、二号机、保留特殊改装……"></label>
+            placeholder="例如：对陆、二号机、保留特殊改装……">
+          ${
+            personalTags.length
+              ? `<span class="ro-note-tags">${personalTags.map((tag) => `<i>#${esc(tag)}</i>`).join('')}</span>`
+              : ''
+          }</label>
       </div>`
     })
     .join('')
@@ -3003,7 +3038,8 @@ const shipSourceFootHtml = (usesKcwiki: boolean): string => {
       masterTs ? fmtDateTime(masterTs) : '—'
     }</div>`,
     `<div>改造需求 · 游戏基础数据优先${
-      wikiwikiRemodelLode ? ` → ${esc(lodeCreditShort(wikiwikiRemodelLode.meta))}` : ' → 改造资料包待补'
+      remodelFactsLode ? ` → ${esc(lodeCreditShort(remodelFactsLode.meta))}` :
+        Object.keys(mg.master.upgrades).length || kcwikiLode ? '' : ' → 改造资料包待补'
     }${kcwikiLode ? ` → 补充来源 ${esc(lodeCreditShort(kcwikiLode.meta))}` : ''}</div>`,
     usesKcwiki && kcwikiLode
       ? `<div>属性（含回避/对潜/索敌）· 初始装备 · ${esc(lodeCreditShort(kcwikiLode.meta))}</div>`
@@ -3142,7 +3178,7 @@ const voicePlaybackFor = (
 /**
  * 这一格没有钮，是因为**钥里把「未缓存的立绘/语音从游戏资源服务器取」关掉了**。
  *
- * 那个开关立绘与语音同管（`kanso.remoteArt`）。关掉之后，没进过缓存也没进过档案的
+ * 那个开关立绘与语音同管（`kuma.remoteArt`）。关掉之后，没进过缓存也没进过档案的
  * 那些格子就取不到地址——这与「我们主动拒绝播」不是一回事，得分开说，
  * 否则玩家会以为是资料的问题。档案里有实物的格照旧能播（档案零网络）。
  */
@@ -3207,8 +3243,8 @@ const voiceRow = (
       ? '与游戏当前音轨对不上'
       : voiceRemoteOffNote(playbackMstId, noteSlot))
   const translationCredit =
-    correction?.textSource !== 'subtitle' && voiceOverlayRegularKeys.has(k) && kansoVoiceZhLode
-      ? lodeCreditMark(kansoVoiceZhLode.meta, '中文译文来源：kuma 自译')
+    correction?.textSource !== 'subtitle' && voiceOverlayRegularKeys.has(k) && kumaVoiceZhLode
+      ? lodeCreditMark(kumaVoiceZhLode.meta, '中文译文来源：kuma 自译')
       : ''
   return voiceRowWithUrl(
     k,
@@ -3231,7 +3267,7 @@ const voiceRowWithUrl = (
   url: string | null,
   offNote = '',
   /** 这一行的文本来自哪一层。只在**不是**默认那一层时标角标，免得整页都是角标 */
-  textSource?: 'kcwiki' | 'subtitle' | 'kanso',
+  textSource?: 'kcwiki' | 'subtitle' | 'kuma',
   /**
    * 这一格的音轨路径（档案里的身份）。地址现取时才有——播成功之后拿它入档，
    * 「播过的」从此点亮并升档（见 kcs-voice 的 noteVoicePlayed）。
@@ -3242,11 +3278,11 @@ const voiceRowWithUrl = (
   const badge =
     textSource === 'subtitle'
       ? '<span class="vo-src" title="台词资料与游戏音轨不一致 · 按音轨内容显示">音轨</span>'
-      : textSource === 'kanso'
-        ? '<span class="vo-src kanso" title="中文译文来源：kuma 自译">自译</span>'
+      : textSource === 'kuma'
+        ? '<span class="vo-src kuma" title="中文译文来源：kuma 自译">自译</span>'
         : ''
   // 中文这一列**逐行过一道标点体例归一**（行尾不写句号、`……。` 是病句）。
-  // 放在这里是因为台词卷是多层混排的：同一页上可能一半行来自舰娘百科、一半是艦素自译，
+  // 放在这里是因为台词卷是多层混排的：同一页上可能一半行来自舰娘百科、一半是kuma自译，
   // 还有几行来自 poi-plugin-subtitle——自译行没有行尾句号、隔壁行拖着一个，
   // 读起来就是两拨人写的。判据与理由见 shared/voice-text.ts。
   // 繁→简与标点归一同一位置、同一纪律：显示期过，上游文件不改。
@@ -3295,7 +3331,7 @@ const ensureAbyssVoiceSightings = () => {
       scheduleRender()
     })
     .catch((error: unknown) => {
-      console.warn('[kanso] 深海语音亲历台账读取失败', error)
+      console.warn('[kuma] 深海语音亲历台账读取失败', error)
     })
 }
 
@@ -3317,7 +3353,7 @@ const abyssHeardSighting = (mstId: number, suffix: unknown): AbyssVoiceSighting 
 const abyssHeardVoiceId = (mstId: number, suffix: unknown): string | null =>
   abyssHeardSighting(mstId, suffix)?.voiceId ?? null
 
-// ---- 按推测档名试听：往期 boss 的语音考古（KANSO_DEBUG_UI=1 才存在）----
+// ---- 按推测档名试听：往期 boss 的语音考古（KUMA_DEBUG_UI=1 才存在）----
 //
 // ---- 补的是哪个洞 ----
 // 上面那条亲历台账只覆盖得到「玩家自己打过」的 boss。**往期活动的 boss 没有亲历机会**，
@@ -3339,7 +3375,7 @@ const abyssHeardVoiceId = (mstId: number, suffix: unknown): string | null =>
 // ③ **归属由档名结构自证**：候选一律先反解回本形态才摆出来（`parseAbyssVoiceFile`）。
 //    提督的耳朵只判「响没响、像不像那句台词」，不负责认领归属——
 //    这一族的错法是把 A 的声音记到 B 名下，而界面上它和对的长得一模一样。
-const DEBUG_UI = process.env.KANSO_DEBUG_UI === '1'
+const DEBUG_UI = readEnv('KUMA_DEBUG_UI') === '1'
 
 /** 展开中的那一行（`mstId/行号`）。**一次只展开一条**——一次一条人肉点。 */
 let abyssGuessOpen = ''
@@ -3442,7 +3478,7 @@ const abyssGuessBlock = (mstId: number, lineNo: unknown): string => {
     })
     .join('')
   return `<div class="ji-ag ji-ag-open">
-    <div class="ji-ag-head">按推测档名试听（KANSO_DEBUG_UI）·前缀猜不准，候选按可能性排好了，一个一个点，听到响的那条再收录</div>
+    <div class="ji-ag-head">按推测档名试听（KUMA_DEBUG_UI）·前缀猜不准，候选按可能性排好了，一个一个点，听到响的那条再收录</div>
     <div class="ji-ag-list">${chips || '<span class="ji-ag-note">这个形态附近一条已知档名都没有，推不出候选——直接填前缀试</span>'}</div>
     <div class="ji-ag-manual">
       <span>都不响？直接填前缀（2–3 位），回车生效</span>
@@ -3674,8 +3710,8 @@ const seasonalVoiceHtml = (mstId: number): string => {
         const seasonZh = simplifyZh(normalizeVoiceText(line.zh))
         const seasonJa = `${line.ja ?? ''}`
         const translationCredit =
-          voiceOverlaySeasonalKeys.has(line.key) && kansoVoiceZhLode
-            ? lodeCreditMark(kansoVoiceZhLode.meta, '中文译文来源：kuma 自译')
+          voiceOverlaySeasonalKeys.has(line.key) && kumaVoiceZhLode
+            ? lodeCreditMark(kumaVoiceZhLode.meta, '中文译文来源：kuma 自译')
             : ''
         return `<div class="vo-row vo-${state}">
         <span class="vo-k">${esc(line.scene || line.key)}</span>
@@ -3703,7 +3739,7 @@ const seasonalVoiceHtml = (mstId: number): string => {
   </div>`
 }
 
-// ---- 自补层（艦素自行翻译）----
+// ---- 自补层（kuma自行翻译）----
 //
 // 这一层只做一件事：**填 kcwiki 空着的格**。同形态同槽两层都有时 kcwiki 胜——
 // 它是社区共识层，也是玩家在别处见惯的那一份；自补层是补缺，不是改写。
@@ -3716,7 +3752,7 @@ const seasonalVoiceHtml = (mstId: number): string => {
 // 注意这里**没有 `draft`**：包里那个字段是维护者侧的「这一句我拿不准」标记，
 // 界面上一个字都不该出现。类型里不声明 + 取数时逐字段重建（见下面的 fill），
 // 两道加起来才是结构性的保证——只靠「记得别渲染它」迟早会漏。
-interface KansoVoiceRow {
+interface KumaVoiceRow {
   key: string
   scene: string
   slot?: number
@@ -3732,12 +3768,12 @@ interface KansoVoiceRow {
   zh: string
 }
 
-const KANSO_VOICE_CREDIT_NOTE =
+const KUMA_VOICE_CREDIT_NOTE =
   '资料未收录形态 · 中文译文来源：kuma 自译'
 
 /** 这个形态由自补层补上的那几行（kcwiki 已经占了的槽位一律让给 kcwiki）。 */
-const kansoVoiceFillFor = (mstId: number, taken: CorrectedVoiceRow[]): KansoVoiceRow[] => {
-  const lines: KansoVoiceRow[] | undefined = kansoVoiceLode?.data?.ships?.[`${mstId}`]
+const kumaVoiceFillFor = (mstId: number, taken: CorrectedVoiceRow[]): KumaVoiceRow[] => {
+  const lines: KumaVoiceRow[] | undefined = kumaVoiceLode?.data?.ships?.[`${mstId}`]
   if (!lines?.length) return []
   const used = new Set<number>()
   for (const row of taken) {
@@ -3772,15 +3808,15 @@ const kansoVoiceFillFor = (mstId: number, taken: CorrectedVoiceRow[]): KansoVoic
  *
  * 具体给哪个地址（档案实物还是现取）由 `voicePlaybackFor` 统一裁，与其它层一条判据。
  */
-const kansoVoiceUrl = (
+const kumaVoiceUrl = (
   playbackMstId: number,
-  line: KansoVoiceRow,
+  line: KumaVoiceRow,
 ): ReturnType<typeof voicePlaybackFor> => {
   if (line.basis !== 'key-confirmed' && line.basis !== 'wikiwiki-mapped') return null
   return voicePlaybackFor(playbackMstId, line.slot ?? null)
 }
 
-const kansoVoiceOffNote = (playbackMstId: number, line: KansoVoiceRow): string => {
+const kumaVoiceOffNote = (playbackMstId: number, line: KumaVoiceRow): string => {
   if (line.basis === 'ambiguous') {
     return '当前场合有多个候选 · 对应台词未确定'
   }
@@ -3975,7 +4011,7 @@ const abyssArchiveRows = (mstId: number, shown: ReadonlySet<string>): string[] =
  * ---- 它补的是哪个洞（2026-08-23 用户拍板）----
  * 展示侧那张裸编号表是「主动摆行」的判据，只认写死的名单——对，但必然滞后：
  * 官方新发明一个编号（下一期活动的友军舰队、某舰的新特殊攻击），从玩家在游戏里
- * 听到、到艦素的表收进来，那一句在图鉴里不存在。而这段时间里**实物早就躺在档案里**
+ * 听到、到kuma的表收进来，那一句在图鉴里不存在。而这段时间里**实物早就躺在档案里**
  *（拦截侧 08-22 起按值域认裸编号来路并入档）。这一段把判据倒过来：
  * **存在性由实物本身背书**，玩家听过一次即自动显形，不必等表更新。
  *
@@ -4078,11 +4114,47 @@ const archiveVariantRows = (
   return out
 }
 
+// 深海正文和「语音」入口共用这份来源清单：同名族回退与 kcwiki 重归属过滤也只在这里做。
+// 顺序仍是字幕音轨 → kcwiki → 随包自译 → wikiwiki；正文命中一源就停。
+const abyssVoiceSourcesFor = (id: number) => {
+  const enemySubtitle = abyssSubtitleByMst.get(id) ?? []
+  const kept = (correctedVoiceRows.get(id) ?? []).filter((row) => row.fix !== 'reattributed')
+  const kumaAbyss = abyssVoiceRowsForMst<{
+    key: string
+    scene: string
+    suffix?: number
+    ja: string
+    zh: string
+  }>(
+    kumaAbyssVoiceLode?.data?.ships,
+    abyssSameNameForms,
+    id,
+  )
+  const wikiwikiAbyss = abyssVoiceRowsForMst<{
+    key: string
+    scene: string
+    ja: string
+    page: string
+    slot?: 'opening' | 'attack' | 'damage' | 'sunk'
+    suffix?: number
+  }>(
+    wikiwikiAbyssVoiceLode?.data,
+    abyssSameNameForms,
+    id,
+  )
+  return {
+    enemySubtitle,
+    kept,
+    kumaAbyss: kumaAbyss?.rows ?? [],
+    wikiwikiAbyss: wikiwikiAbyss?.rows ?? [],
+  }
+}
+
 /**
  * 常规台词（她平时会说什么）。**三层按槽位叠**，同一格只出一行，不做字段级混拼：
  *
  *   ① 本形态自己的 kcwiki 行（校正后的视图）——带场合，且已按本形态音轨逐行交叉校验；
- *   ② 本形态自己的自补层译文——上游没收的那些格，由艦素自译（角标「自译」）；
+ *   ② 本形态自己的自补层译文——上游没收的那些格，由kuma自译（角标「自译」）；
  *   ③ 底层：**沿改装链按槽位续填**（每一级里 kcwiki 桶 → wikiwiki → poi-subtitle），
  *      只填上面两层没占到的格。判据与实测在 shared/voice-scene-slots 的
  *      `planVoiceFallbackChain` 头注；深海不进这条路，见下面那一支。
@@ -4111,7 +4183,7 @@ const regularVoiceHtml = (mstId: number): string => {
 
   // ---- ①② 本形态自己的两层 ----
   const own: CorrectedVoiceRow[] = abyss ? [] : (correctedVoiceRows.get(mstId) ?? [])
-  const filled = abyss ? [] : kansoVoiceFillFor(mstId, own)
+  const filled = abyss ? [] : kumaVoiceFillFor(mstId, own)
   const slotOfRow = (row: CorrectedVoiceRow) => row.slot ?? voiceSlotOfKey(row.key)
   const covered = new Set<number>()
   for (const row of own) {
@@ -4129,7 +4201,7 @@ const regularVoiceHtml = (mstId: number): string => {
     push(slotOfRow(row), voiceRow(mstId, mstId, row.key, row.scene, row.ja, row.zh, row))
   }
   for (const row of filled) {
-    const play = kansoVoiceUrl(mstId, row)
+    const play = kumaVoiceUrl(mstId, row)
     push(
       row.slot ?? null,
       voiceRowWithUrl(
@@ -4138,8 +4210,8 @@ const regularVoiceHtml = (mstId: number): string => {
         row.ja,
         row.zh,
         play?.url ?? null,
-        kansoVoiceOffNote(mstId, row),
-        'kanso',
+        kumaVoiceOffNote(mstId, row),
+        'kuma',
         play?.pathname,
       ),
     )
@@ -4170,9 +4242,9 @@ const regularVoiceHtml = (mstId: number): string => {
   const shownAbyssKeys = new Set<string>()
 
   if (abyss) {
-    // 深海侧**整条不动**：只有单 id，而且这三个源各有各的播放契约——只有
+    // 深海侧保持「命中即停」：四个源各有各的播放契约——只有
     // subtitle-enemies 的 key 是完整官方档名，别的都不能拼地址，叠起来既没有意义
-    // 也不安全。所以深海照旧走老口径的「命中即停」。
+    // 也不安全。新包与 wikiwiki 按同名形态族取一桶，仍不跨来源混拼。
     //
     // 老口径这条链后面还挂着 wikiwiki 舰娘页与 poi-subtitle 两支，深海走不到：
     // 那两个包都按舰娘 mstId 编键，深海形态数为 0（实测）。这一条不是推断出来的，
@@ -4180,11 +4252,12 @@ const regularVoiceHtml = (mstId: number): string => {
     // 那条会当场红，而不是在这里悄悄少两行。
     const uncovered = (slot: number | null) => slot == null || !covered.has(slot)
     for (const id of tryIds) {
+      const sources = abyssVoiceSourcesFor(id)
       // 深海字幕包的 key 就是 kc9998 的完整官方文件名，优先展示这一组才能可靠试听。
       // 其它深海资料只给场景/后缀或 wiki 资源键，不能套舰娘算法伪造播放地址。
       // （`abyss ?` 在这个分支里恒真，留着是因为 core-regressions 那条「深海字幕必须
       //   排在 kcwiki 之前」的顺序断言按这一行的文本定位深海支。）
-      const enemySubtitle = abyss ? abyssSubtitleByMst.get(id) : undefined
+      const enemySubtitle = abyss ? sources.enemySubtitle : undefined
       if (enemySubtitle?.length) {
         for (const line of enemySubtitle) {
           // 这一档名已经带着译文摆出来了；下面的档案追加段据此不再重复摆一行
@@ -4198,7 +4271,7 @@ const regularVoiceHtml = (mstId: number): string => {
       // 首选：kcwiki（带场合）。**只认留在自己桶里的行**，理由见函数头。
       // ⚠️ 这一支必须排在上面深海字幕那一支之后：深海的 key 是完整官方档名，
       // 只有那一组能可靠试听（core-regressions 里有一条顺序断言盯着这件事）。
-      const kept = (correctedVoiceRows.get(id) ?? []).filter((row) => row.fix !== 'reattributed')
+      const kept = sources.kept
       if (kept.length) {
         for (const row of kept.filter((row) => uncovered(slotOfRow(row)))) {
           push(slotOfRow(row), voiceRow(id, mstId, row.key, row.scene, row.ja, row.zh, row))
@@ -4208,22 +4281,45 @@ const regularVoiceHtml = (mstId: number): string => {
           : ''
         break
       }
-      // 深海精确形态补录：只接受页面列出的 No. 与当前 mstId 对上的行。
-      const wikiwikiAbyss:
-        | {
-            key: string
-            scene: string
-            ja: string
-            page: string
-            slot?: 'opening' | 'attack' | 'damage' | 'sunk'
-            suffix?: number
-          }[]
-        | undefined = wikiwikiAbyssVoiceLode?.data?.[`${id}`]
-      if (wikiwikiAbyss?.length) {
+      const kumaAbyss = sources.kumaAbyss
+      if (kumaAbyss.length) {
+        ensureAbyssVoiceSightings()
+        for (const line of kumaAbyss) {
+          const scene = abyssWikiVoiceScene(line.suffix, line.scene)
+          const zh =
+            `${line.zh ?? ''}`.trim() ||
+            abyssZhByJa.get(normalizeVoiceLine(line.ja)) ||
+            ''
+          const heard = abyssHeardVoiceId(id, line.suffix)
+          push(
+            null,
+            heard
+              ? voiceRowWithUrl(
+                  line.key,
+                  scene,
+                  line.ja,
+                  zh,
+                  extraVoiceUrl('enemy', heard),
+                  '',
+                  undefined,
+                  `/kcs/sound/kc9998/${heard}.mp3`,
+                )
+              : voiceRow(id, mstId, line.key, scene, line.ja, zh) +
+                abyssGuessBlock(id, line.suffix),
+          )
+        }
+        baseFoot = kumaAbyssVoiceLode
+          ? lodeCreditMark(kumaAbyssVoiceLode.meta, '')
+          : ''
+        break
+      }
+      // 深海底本补录：本形态没有行时，退到同名难度形态。
+      const wikiwikiAbyss = sources.wikiwikiAbyss
+      if (wikiwikiAbyss.length) {
         ensureAbyssVoiceSightings()
         for (const line of wikiwikiAbyss) {
           const scene = abyssWikiVoiceScene(line.suffix, line.scene)
-          const zh = voiceZhByJa.get(normalizeVoiceLine(line.ja)) ?? ''
+          const zh = abyssZhByJa.get(normalizeVoiceLine(line.ja)) ?? ''
           // 玩家亲历过这一族场合的话，官方在战斗报文里已经把档名告诉过我们——
           // 那就不再是「无法验证的地址」，这一行可以给钮（家法不变，是证据补上了）。
           const heard = abyssHeardVoiceId(id, line.suffix)
@@ -4410,7 +4506,7 @@ const regularVoiceHtml = (mstId: number): string => {
     ? `共 ${textRows} 条${
         filled.length
           ? `（其中 ${filled.length} 条为自译 ${
-              kansoVoiceLode ? lodeCreditMark(kansoVoiceLode.meta, KANSO_VOICE_CREDIT_NOTE) : ''
+              kumaVoiceLode ? lodeCreditMark(kumaVoiceLode.meta, KUMA_VOICE_CREDIT_NOTE) : ''
             }）`
           : ''
       }${skeletonNote ? ` · 另 ${skeletonNote}` : ''}`
@@ -4427,10 +4523,11 @@ const voicePanelHtml = (mstId: number): string => {
   const abyss = mstId >= 1500
   if (
     !voiceLode &&
-    !kansoVoiceLode &&
+    !kumaVoiceLode &&
     !seasonalVoiceLode &&
     !wikiwikiVoiceLode &&
     !wikiwikiAbyssVoiceLode &&
+    !kumaAbyssVoiceLode &&
     !subtitleZh &&
     !subtitleJa &&
     !subtitleEnemiesLode
@@ -4451,23 +4548,25 @@ const voicePanelHtml = (mstId: number): string => {
     }</div>`
 }
 
-const hasVoiceLines = (mstId: number): boolean =>
-  Boolean(
-    // 校正后的视图而不是包的原样：重归属会让一个原本 kcwiki 全空的形态第一次有行，
-    // 拿原样判会让那 113 个形态的「语音」tab 无故是灭的。
-    correctedVoiceRows.get(mstId)?.length ||
-      kansoVoiceLode?.data?.ships?.[`${mstId}`]?.length ||
-      seasonalVoiceLode?.data?.ships?.[`${mstId}`]?.length ||
-      abyssSubtitleByMst.get(mstId)?.length ||
-      wikiwikiAbyssVoiceLode?.data?.[`${mstId}`]?.length ||
-      wikiwikiVoiceLode?.data?.[`${mstId}`]?.length ||
-      Object.keys(subtitleZh?.data?.[`${mstId}`] ?? {}).length ||
-      Object.keys(subtitleJa?.data?.[`${mstId}`] ?? {}).length ||
+const hasVoiceLines = (mstId: number): boolean => {
+  if (mstId >= 1500) {
+    return Object.values(abyssVoiceSourcesFor(mstId)).some((rows) => rows.length > 0) ||
       // 深海侧：一个文本源都没收，但档案里躺着玩家战斗中听到过的音轨——那也是「有」。
       // 少了这一句，「语音」tab 根本不出现，档案追加段就永远见不到光（深海抽屉的
       // tab 条按这个函数拼，见 abyssDetailTabs）。
-      abyssArchiveIndex().get(mstId)?.length,
+      Boolean(abyssArchiveIndex().get(mstId)?.length)
+  }
+  return Boolean(
+    // 校正后的视图而不是包的原样：重归属会让一个原本 kcwiki 全空的形态第一次有行，
+    // 拿原样判会让那 113 个形态的「语音」tab 无故是灭的。
+    correctedVoiceRows.get(mstId)?.length ||
+      kumaVoiceLode?.data?.ships?.[`${mstId}`]?.length ||
+      seasonalVoiceLode?.data?.ships?.[`${mstId}`]?.length ||
+      wikiwikiVoiceLode?.data?.[`${mstId}`]?.length ||
+      Object.keys(subtitleZh?.data?.[`${mstId}`] ?? {}).length ||
+      Object.keys(subtitleJa?.data?.[`${mstId}`] ?? {}).length,
   )
+}
 
 // ---- 装备加成：随包的 kcwiki 底表给「预期值」，面板反推给「你的实测」----
 //
@@ -4741,7 +4840,7 @@ const ensureFitObservations = (equipMstId: number) => {
     })
     .catch((error: unknown) => {
       // 读失败要说读失败：空列表会被渲染成「你从没测过」，那是把故障说成事实
-      console.warn('[kanso] 实测历史读取失败', error)
+      console.warn('[kuma] 实测历史读取失败', error)
       state.failed = true
       state.ts = Date.now() // 墓碑
       state.loading = false
@@ -6015,13 +6114,15 @@ const equipDrawerHtml = () => {
     ? `<span class="misc-stat" title="废弃这件装备返还的资材">废弃返还 <b>燃${e.api_broken[0]}/弹${e.api_broken[1]}/钢${e.api_broken[2]}/铝${e.api_broken[3]}</b></span>`
     : ''
   // 図鑑説明:主数据快照不含 api_info,akashi-list 的 item_intro 是同文照录(日文)
-  const intro = `${akashiListLode?.data?.items?.[`${e.api_id}`]?.item_intro ?? ''}`.trim()
+  // 2026-09-06：CC 随包格优先，开发机 akashi-list 只补缺。
+  const introLode = kcwikiAkashiLode?.data?.items?.[`${e.api_id}`]?.item_intro ? kcwikiAkashiLode : akashiListLode
+  const intro = `${akashiImproveItem(e.api_id, kcwikiAkashiLode?.data, akashiListLode?.data).item_intro}`.trim()
   const introHtml = intro
     ? foldedNote(
         '图鉴说明<span style="color:var(--dim);font-weight:400">（日文原文）</span>',
-        `<p style="line-height:1.9">${esc(intro)}</p>${akashiListLode ? `<p style="color:var(--dim)">${esc(lodeCreditShort(akashiListLode.meta))}</p>` : ''}`,
+        `<p style="line-height:1.9">${esc(intro)}</p>${introLode ? `<p style="color:var(--dim)">${esc(lodeCreditShort(introLode.meta))}</p>` : ''}`,
       )
-    : ''
+    : foldedNote('图鉴说明<span style="color:var(--dim);font-weight:400">（日文原文）</span>', '<p class="ak-empty">待补</p>')
 
   return `
   <div class="d-head">
@@ -6304,6 +6405,7 @@ const improveSectionHtml = (e: any, instances: [string, { level?: number }][]): 
           ? `改修表暂未收录这件${improveCoverageMax ? `（只到第 ${improveCoverageMax} 号）` : ''}`
           : '改修表暂无当前装备 · 不可改修'
       }</div>
+      <details class="ak-grow"><summary>逐星加成</summary><div class="ak-empty">待补</div></details>
     </div>`
   }
   const imps = eo.improvement as any[]
@@ -6444,7 +6546,10 @@ const improveSectionHtml = (e: any, instances: [string, { level?: number }][]): 
     .join('')
 
   // 逐星加成（独立子域，基准 = akashi-list 的 item_remodel：逐列展示 ★1—★10 累计值）
-  const remodelStats = akashiListLode?.data?.items?.[`${e.api_id}`]?.item_remodel
+  // 2026-09-06：逐格优先取 CC 随包；缺格原位留空，由渲染显示待补。
+  const starItem = akashiImproveItem(e.api_id, kcwikiAkashiLode?.data, akashiListLode?.data)
+  const remodelStats = starItem.item_remodel
+  const starLode = kcwikiAkashiLode?.data?.items?.[`${e.api_id}`]?.item_remodel ? kcwikiAkashiLode : akashiListLode
   const statLabels: Record<string, string> = {
     対空: '对空',
     対潜: '对潜',
@@ -6463,25 +6568,25 @@ const improveSectionHtml = (e: any, instances: [string, { level?: number }][]): 
   }
   const starRows = remodelStats
     ? Object.entries<any>(remodelStats)
-        .filter(([, arr]) => Array.isArray(arr) && arr.length >= 10 && arr.slice(0, 10).some((v: unknown) => `${v ?? ''}`.trim()))
+        .filter(([, arr]) => Array.isArray(arr) && arr.length >= 10)
         .map(
           ([stat, arr]) => `<tr><th>${esc(statLabels[stat] ?? stat)}</th>${arr
             .slice(0, 10)
-            .map((value: unknown) => `<td>${`${value ?? ''}`.trim() ? esc(`${value}`) : '—'}</td>`)
+            .map((value: unknown, index: number) => `<td>${`${value ?? ''}`.trim() ? esc(`${value}`) : '待补'}${starItem.remodel_basis[stat]?.[index]?.basis === 'formula' ? '<small class="muted" title="按装备类别公式推算，未经游戏内实测"> 推算</small>' : ''}</td>`)
             .join('')}</tr>`,
         )
         .join('')
     : ''
   const starTable = starRows
     ? `<details class="ak-grow">
-        <summary>逐星加成${akashiListLode ? ` ${lodeCreditMark(akashiListLode.meta, '逐星加成来源')}` : ''}</summary>
+        <summary>逐星加成${starLode ? ` ${lodeCreditMark(starLode.meta, '逐星加成来源')}` : ''}</summary>
         <div class="grow-cap">各列为达到该星级后的累计提升</div>
         <div class="improve-star-wrap"><table class="improve-star-table">
           <thead><tr><th>属性</th>${Array.from({ length: 10 }, (_, index) => `<th>★${index + 1}</th>`).join('')}</tr></thead>
           <tbody>${starRows}</tbody>
         </table></div>
       </details>`
-    : ''
+    : '<details class="ak-grow"><summary>逐星加成</summary><div class="ak-empty">待补</div></details>'
   return `<div class="sec">
     <div class="sec-h">改修工厂<span class="aux${openToday ? ' ok' : ''}" title="改修日程">${JST_WEEKDAY_LABELS[today]} · ${openToday ? '今日可改修 ✓' : '今日不可改修 ✗'}</span><span class="sp"></span>${eoLode ? lodeCreditMark(eoLode.meta) : ''}</div>
     <div class="akashi">
@@ -6771,7 +6876,7 @@ const ensureFactoryStats = () => {
     })
     .catch((error: unknown) => {
       // 读失败要说读失败：空报告会被渲染成「你没造出过她」，那是把故障说成事实
-      console.warn('[kanso] 工厂实测读取失败', error)
+      console.warn('[kuma] 工厂实测读取失败', error)
       factoryStatsFailed = true
       factoryStatsTs = Date.now() // 墓碑：这一轮别再重试，等 TTL
       factoryStatsLoading = false
@@ -6838,42 +6943,17 @@ const factoryOwnHtml = (mstId: number, kind: 'ship' | 'item'): string => {
  * 按日文名匹配——表里用的就是日文名，不做任何模糊匹配。
  */
 const devRecipeHtml = (jpName: string, mstId: number): string => {
-  const list = devRecipeLode?.data?.equipment?.[jpName] as
-    | { secretary: string; table: string; rate: number }[]
-    | undefined
-  const mine = factoryOwnHtml(mstId, 'item')
-  if (!list?.length) return mine
+  const list = devRecipeLode?.data?.equipment?.[mstId]
+  if (!list?.length) return factoryOwnHtml(mstId, 'item')
+  // 2026-09-06：随包表直接给出已核对的投入；以下保留旧社区参考推导的机制记录。
   // 投料参考是本地推导：理論値（廃棄資材×10、每项下限 10）+ 目标表资材抬到
   // 严格最高，两条都是 wiki 明文规则。46cm 弹药表由此得 10/251/250/10。
   // 行序「秘书舰 → 投多少 → 几率」先回答玩家要做的事；「表」是机制归类，
   // 降级成暗色小标注，因果讲解放进悬停——第一次见的人不该先撞上行话。
-  const broken = friendlyEquips.get(mstId)?.api_broken
-  const rows = list
-    .map((entry) => {
-      const reference = devReferenceRecipe(broken, entry.table)
-      const maxed = entry.table === '弹药' ? '弹药' : entry.table === '铝' ? '铝' : '钢（或燃料）'
-      const explain = reference
-        ? `秘书舰：${entry.secretary} · 投料 燃${reference[0]}/弹${reference[1]}/钢${reference[2]}/铝${reference[3]} · 估算出货率 ${entry.rate}% · 最高投入项：${maxed} · 达到开发理论值后结果池不变`
-        : `秘书舰：${entry.secretary} · 最高投入项：${maxed} · 估算出货率 ${entry.rate}%`
-      return `<div class="dv-row" title="${esc(explain)}">
-      <span class="dv-sec">${esc(entry.secretary)}</span>
-      <span class="dv-recipe">${reference ? reference.join('/') : '—'}</span>
-      <span class="dv-tab">${esc(entry.table)}表</span>
-      <span class="dv-rate">${entry.rate}%</span>
-    </div>`
-    })
-    .join('')
-  return `<div class="sec"><div class="sec-h">开发<span class="aux">社区统计估算 ${
-    devRecipeLode?.meta
-      ? lodeCreditMark(
-          devRecipeLode.meta,
-          '开发结果条件：秘书舰类型 + 最高投入项（「所属表」；钢与燃共用一表）。投料参考为达到开发理论值的最低值（该装备废弃返还 ×10、每项下限 10）；同表额外投入不改变结果池',
-        )
-      : ''
-  }</span></div>
-    <div class="dv-head">秘书舰 · 投料参考（燃/弹/钢/铝） · 所属表 → 出货率</div>
-    ${rows}
-  </div>`
+  const rows = list.map((entry: { secretary: string; recipe: number[] }) =>
+    `<div class="dv-row"><span class="dv-sec">${esc(entry.secretary)}</span><span class="dv-recipe">${entry.recipe.join('/')}</span></div>`).join('')
+  return `<div class="sec"><div class="sec-h">开发参考<span class="aux">${lodeCreditMark(devRecipeLode!.meta)}</span></div>
+    <div class="dv-head">秘书舰类别 · 投入（燃料/弹药/钢材/铝土）</div>${rows}</div>`
 }
 
 /**
@@ -6899,44 +6979,18 @@ const BUILD_TARGET_BY_STYPE: Record<number, string> = {
 }
 
 const buildRefHtml = (mstId: number): string => {
-  const data = buildRecipeLode?.data
-  if (!data) return ''
-  const root = friendlyShips.get(rootOf.get(mstId) ?? mstId)
-  if (!root) return ''
-  const name = `${root.api_name}`
-  const hits = (data.times as { time: string; stype: string; ships: string[]; largeOnly: string[] }[])
-    .map((row) => ({ row, normal: row.ships.includes(name), large: row.largeOnly.includes(name) }))
-    .filter((hit) => hit.normal || hit.large)
-  if (!hits.length) return '' // 通常与大型名单都没有她；获取途径由掉落区回答
-  const normalBuildable = hits.some((hit) => hit.normal)
-  const recipes = normalBuildable
-    ? ((data.recipes as { target: string; recipe: number[]; note: string }[]).filter(
-        (entry) => entry.target === BUILD_TARGET_BY_STYPE[root.api_stype],
-      ))
-    : [] // 大型限定舰：这页只有通常建造的配方池
-  const timeLine = hits
-    .map(({ row, normal, large }) =>
-      `<b>${esc(row.time)}</b>（${normal && large ? '通常・大型' : large ? '大型艦建造限定' : '通常建造'}）`)
-    .join(' · ')
-  const recipeRows = recipes
-    .slice(0, 8)
-    .map((entry) => {
-      const note = entry.note.length > 90 ? `${entry.note.slice(0, 90)}…` : entry.note
-      // 備考里点到的舰名/装备名走同一套名字索引联实体（「まるゆ狙い」这类）
-      return `<div class="br-row"><span class="br-recipe">${entry.recipe.join('/')}</span><span class="br-note">${exchangeGetsHtml(note)}</span></div>`
-    })
-    .join('')
-  return `<div class="sec"><div class="sec-h">建造参考<span class="aux">社区报告口径 ${
-    buildRecipeLode?.meta
-      ? lodeCreditMark(
-          buildRecipeLode.meta,
-          '配方（燃/弹/钢/铝）按舰种汇总社区报告 · 非概率表；单舰出货依据备注报告；特殊条件见来源页',
-        )
-      : ''
-  }</span></div>
-    <div class="dv-head">建造時間 ${timeLine}</div>
-    ${recipeRows}
-    ${recipes.length > 8 ? `<div class="q-foot">另有 ${recipes.length - 8} 条同舰种配方未展开</div>` : ''}
+  const row = buildRecipeLode?.data?.ships?.[rootOf.get(mstId) ?? mstId]
+  if (!row) return ''
+  // 2026-09-06：随包事实表按舰娘列已核对配方；下列注释记录旧社区表的处理口径。
+  // 通常与大型名单都没有她；获取途径由掉落区回答
+  // 大型限定舰：这页只有通常建造的配方池
+  // 備考里点到的舰名/装备名走同一套名字索引联实体（「まるゆ狙い」这类）
+  const mode = row.modes.map((v: string) => v === 'normal' ? '普通建造' : '大型建造').join(' · ')
+  const recipes = row.recipes.map((r: number[]) =>
+    `<div class="br-row"><span class="br-recipe">${r.join('/')}</span><span class="br-note">普通建造 · 开发资材×1</span></div>`).join('')
+  return `<div class="sec"><div class="sec-h">建造参考<span class="aux">${lodeCreditMark(buildRecipeLode!.meta)}</span></div>
+    <div class="dv-head">建造时间 <b>${esc(row.time)}</b>（${esc(mode)}）</div>
+    ${recipes ? '<div class="q-foot">配方投入：燃料/弹药/钢材/铝土</div>' + recipes : ''}
   </div>`
 }
 
@@ -7113,7 +7167,7 @@ const loadMapRouteTally = (code: string, mapId: number) => {
     })
     .catch((error: unknown) => {
       // 读失败要说读失败：留空会被渲染成「你还没在这张图分歧过」，那是把故障说成事实
-      console.warn('[kanso] 分歧实测读取失败', code, error)
+      console.warn('[kuma] 分歧实测读取失败', code, error)
       if (mapRouteTallyPending !== code) return
       mapRouteTallyPending = ''
       mapRouteTally = { code, tally: new Map(), branches: null, total: 0, failed: true }
@@ -7151,7 +7205,7 @@ const loadShipDrops = (mstId: number) => {
   }).catch((error: unknown) => {
     // 读失败要说读失败。留空会被渲染成「你还没在任何海域捞到过这一舰」——
     // 那是把故障报告成事实，正是这轮要清掉的东西。
-    console.warn('[kanso] 掉落海域读取失败', mstId, error)
+    console.warn('[kuma] 掉落海域读取失败', mstId, error)
     if (shipDropsPending !== mstId) return
     shipDropsPending = 0
     shipDrops = { mstId, sites: [], failed: true }
@@ -7291,7 +7345,7 @@ const ensureAbyssKills = () => {
       // 失败不清手上这份；也不立刻重试（脏标记清掉，等下一次 sortie 变化）
       abyssKillsStale = false
       abyssKillsLoading = false
-      console.warn('[kanso] 深海战绩读取失败', error)
+      console.warn('[kuma] 深海战绩读取失败', error)
     })
 }
 
@@ -7310,7 +7364,7 @@ const abyssSeenMaps = (mstId: number): AbyssSeenMap[] => {
       abyssMapsCache = { at: Date.now(), data: m }
       scheduleRender()
     }).catch((error: unknown) => {
-      console.warn('[kanso] 深海出现海域读取失败', error)
+      console.warn('[kuma] 深海出现海域读取失败', error)
       // 失败也把时间戳推后：否则每次重渲染都会再打一遍同一个必败的查询
       abyssMapsCache = { at: Date.now(), data: abyssMapsCache?.data ?? new Map() }
     }).finally(() => {
@@ -7989,7 +8043,7 @@ const mergeArchivedEventMaps = () => {
               api_level: 0,
               api_required_defeat_count: 0,
               api_max_maphp: 0,
-              __kansoArchiveFallback: true,
+              __kumaArchiveFallback: true,
             }]
           })
     const archivedMaps = archive.maps?.length ? archive.maps : fallbackMaps
@@ -8271,7 +8325,7 @@ const ensureMapForecast = (info: any, difficulty: EventDifficulty | undefined) =
   }).catch((error: unknown) => {
     if (mapForecastState.key !== key) return
     mapForecastState.loading = false
-    console.warn('[kanso] 海域整图预测样本读取失败', error)
+    console.warn('[kuma] 海域整图预测样本读取失败', error)
     if (activeBook === 'map' && mapState.open) scheduleRender()
   })
 }
@@ -9426,7 +9480,7 @@ const routingHtml = (code: string): string => {
     .map(
       (n: { from: string; rules: string[] }) => `<div class="rt-row">
         <span class="rt-from">${esc(n.from)}</span>
-        <div class="rt-rules">${n.rules.map((r) => `<div class="rt-r${r.startsWith('└') ? ' sub' : ''}">${esc(r)}</div>`).join('')}</div>
+        <div class="rt-rules">${n.rules.map((r) => `<div class="rt-r${r.startsWith('└') ? ' sub' : ''}">${esc(normalizeRoutingRuleShipNames(r, routingRuleShipNameIndex))}</div>`).join('')}</div>
       </div>`,
     )
     .join('')
@@ -9521,8 +9575,9 @@ const confirmedDropPoolHtml = (
   mapId: number,
   difficulty?: EventDifficulty,
 ): string | null => {
-  const intel = mapIntelMap(code, difficulty)
-  if (!intel) return null
+  const intel = mapIntelEntry(code)
+  const pool = mapDropPool(code, difficulty)
+  if (!intel || !pool) return null
   const byShip = new Map<
     number,
     {
@@ -9532,8 +9587,8 @@ const confirmedDropPoolHtml = (
     }
   >()
   const emptyNodes: string[] = []
-  for (const node of Object.keys(intel.nodes).sort()) {
-    const current = mapIntelNode(code, node, undefined, difficulty)
+  for (const node of Object.keys(pool.nodes).sort()) {
+    const current = pool.sourceNote ? pool.nodes[node] : mapIntelNode(code, node, undefined, difficulty)
     if (!current) continue
     if (current.emptyDrop === 'confirmed') emptyNodes.push(node)
     for (const ship of current.ships) {
@@ -9597,7 +9652,8 @@ const confirmedDropPoolHtml = (
   // 要说它自己的日期——照读底座的，就是拿另一个包的日期给这一段背书。
   const credit = mapDropsInfo(code) ?? intel
   return `<div class="sec"><div class="sec-h">确认掉落
-      <span class="aux">${difficulty ? `${difficulty}难度 · ` : ''}${dropNode ? `${dropNode}点 ${ships.length}/${allShips.length}` : ships.length} 舰 <span class="credit-mark" title="离线海域资料 · 修订 ${esc(credit.revision)}">源</span></span></div>
+      <span class="aux">${difficulty && !pool.sourceNote ? `${difficulty}难度 · ` : ''}${dropNode ? `${dropNode}点 ${ships.length}/${allShips.length}` : ships.length} 舰 <span class="credit-mark" title="离线海域资料 · 修订 ${esc(credit.revision)}">源</span></span></div>
+    ${pool.sourceNote ? `<div class="q-foot">${esc(pool.sourceNote)}</div>` : ''}
     <div class="mi-summary">
       <span class="own-pill">已确认 <b>${ships.length}</b> 舰</span>
       ${limitedShips.length ? `<span class="own-pill mi-gold">限时掉落 <b>${limitedShips.length}</b></span>` : ''}
@@ -9722,7 +9778,7 @@ const playVoiceUrl = (
     })
     .catch((e) => {
       notePreviewStopped('voice', 'error')
-      console.warn('[kanso] 语音播放失败', url, e)
+      console.warn('[kuma] 语音播放失败', url, e)
       return 'failed' as const
     })
 }
@@ -9992,7 +10048,7 @@ const mapDrawerHtml = () => {
     ${mapForecastHtml(info, code, difficulty)}
     ${prefetchHtml(code, difficulty)}
     ${dropPoolHtml(code, Number(info.api_id) || 0, difficulty)}
-    <div class="foot"><span class="credit-mark" title="海域名称 ${info.__kansoArchiveFallback ? '旧归档仅保存编号' : eventPeriod?.ended ? '来自活动期间保存的游戏数据' : `来自游戏基础数据 · 更新于 ${masterTs ? fmtDate(masterTs) : '—'}`}${fcdMapLode ? ` ｜ 海图 ${esc(lodeCreditShort(fcdMapLode.meta))}` : ''}${eventLifecycleCredit ? ` ｜ ${esc(lodeCredit(eventLifecycleCredit.meta))}` : ''}">源</span></div>
+    <div class="foot"><span class="credit-mark" title="海域名称 ${info.__kumaArchiveFallback ? '旧归档仅保存编号' : eventPeriod?.ended ? '来自活动期间保存的游戏数据' : `来自游戏基础数据 · 更新于 ${masterTs ? fmtDate(masterTs) : '—'}`}${fcdMapLode ? ` ｜ 海图 ${esc(lodeCreditShort(fcdMapLode.meta))}` : ''}${eventLifecycleCredit ? ` ｜ ${esc(lodeCredit(eventLifecycleCredit.meta))}` : ''}">源</span></div>
   </div>`
 }
 
@@ -10371,6 +10427,7 @@ interface UpgradeNeedChip {
   id?: number
   name: string
   count: number
+  stage?: RemodelStage
 }
 
 const upgradeNeedChipHtml = ({ kind, id, name, count }: UpgradeNeedChip): string => {
@@ -10396,14 +10453,52 @@ const upgradeNeedChipHtml = ({ kind, id, name, count }: UpgradeNeedChip): string
 const needIdentity = (need: Pick<UpgradeNeedChip, 'kind' | 'id' | 'name'>) =>
   `${need.kind}:${need.id ?? need.name}`
 
+const remodelHistories = new Map<number, RemodelHistory>()
+let remodelHistoryGeneration = 0
+let remodelConvertibleGroups: number[][] | null = null
+const convertibleGroups = (): number[][] => remodelConvertibleGroups ??= remodelCycles(
+  Object.entries(mg.master.upgrades).flatMap(([to, rows]) => rows.map(row => [row.currentShipId, Number(to)] as [number, number])),
+)
+const convertibleTargets = (): Set<number> => new Set(convertibleGroups().flat())
+const refreshRemodelHistories = async () => {
+  const generation = ++remodelHistoryGeneration
+  remodelConvertibleGroups = null
+  const targets = convertibleTargets()
+  const roster = Object.values(mg.ships).filter(ship => targets.has(ship.shipId) || targets.has(Number(friendlyShips.get(ship.shipId)?.api_aftershipid)))
+  // 原生变化后立刻撤下旧判档，查询失败或尚未返回时显示两档，不能借用另一艘的历史。
+  remodelHistories.clear()
+  buildRemodelNeeds()
+  const results = await Promise.allSettled(roster.map(ship => queryShipLife(ship.id, 1)))
+  if (generation !== remodelHistoryGeneration) return
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      if (result.value.remodelHistory) remodelHistories.set(roster[index].id, result.value.remodelHistory)
+    } else console.warn('[kuma] 改装经历读取失败', roster[index].id, result.reason)
+  })
+  buildRemodelNeeds()
+}
+
+const remodelStageLabelHtml = (stage: RemodelStage): string =>
+  `<span title="${REMODEL_STAGE_COPY[stage].tip}">${REMODEL_STAGE_COPY[stage].label}</span>`
+
+interface RemodelStageNeeds {
+  stage: RemodelStage
+  needs: UpgradeNeedChip[]
+  missing: boolean
+}
+
 // 游戏原生字段优先；wikiwiki 补 API 表外素材；kcwiki 字符串只给旧包/缺页作最终兜底。
+// 2026-09-06：上述旧 wikiwiki 层退役，API → 事实表 → kcwiki，保留零值与来路规则。
 // 原生字段即使为 0 也有权威性，对应 Wiki 项不能再重复或反向覆盖。
 // 同目标多行时按来路选行：不指明来路则取前进路径（非回转）那一行。
+// 2026-09-06：仅出发与目标同属 api_mst_shipupgrade 循环的边分档；单向进入边固定初次，不标不确定。
+// 反查等级以主数据 api_afterlv 为准（2026-09-06 跨版本对账确认为纠错）：取出发形态，替代旧 wiki 明细回退值。
 const needChipsHtml = (
   raw: string | null | undefined,
   targetShipId: number,
   currentShipId?: number,
-): { html: string; needs: UpgradeNeedChip[] } => {
+  rosterId?: number,
+): { html: string; needs: UpgradeNeedChip[]; stages: RemodelStageNeeds[] } => {
   const upgradeRows = mg.master.upgrades[targetShipId] ?? []
   // 指明了来路却没有对应行 → 原生层对这条路径没有话语权，交给 wiki/kcwiki 兜底，
   // 绝不错拿别的来路（回转行全零，会把真需求吞掉；前进行有料，会凭空造需求）
@@ -10413,78 +10508,80 @@ const needChipsHtml = (
       : upgradeRows.find((row) => !isFormSwitch(row.currentShipId, targetShipId)) ??
         upgradeRows[0] ??
         null
-  const covered = new Set<string>()
-  const needs = new Map<string, UpgradeNeedChip>()
-  if (upgrade) {
-    for (const spec of NATIVE_UPGRADE_NEEDS) {
-      if (!Object.prototype.hasOwnProperty.call(upgrade, spec.field)) continue
-      const identity = `${spec.kind}:${spec.id}`
-      covered.add(identity)
-      const count = Number(upgrade[spec.field]) || 0
-      if (count > 0) {
-        needs.set(identity, {
-          kind: spec.kind,
-          id: spec.id,
-          name: spec.name,
-          count,
-        })
+  const fromShipId = currentShipId ?? upgrade?.currentShipId
+  const convertible = fromShipId != null && convertibleGroups().some(group => group.includes(fromShipId) && group.includes(targetShipId))
+  const selectedStages = remodelStagesFor(convertible, targetShipId, rosterId == null ? undefined : remodelHistories.get(rosterId))
+  const stages = selectedStages.map((stage): RemodelStageNeeds => {
+    const covered = new Set<string>()
+    const needs = new Map<string, UpgradeNeedChip>()
+    if (upgrade) {
+      for (const spec of NATIVE_UPGRADE_NEEDS) {
+        if (!Object.prototype.hasOwnProperty.call(upgrade, spec.field)) continue
+        const identity = `${spec.kind}:${spec.id}`
+        covered.add(identity)
+        const count = Number(upgrade[spec.field]) || 0
+        if (count > 0) {
+          needs.set(identity, {
+            kind: spec.kind,
+            id: spec.id,
+            name: spec.name,
+            count,
+          })
+        }
       }
     }
-  }
-  // wikiwiki 明细按边取：主条目/edges 各自声明来路（fromShipId）。指明了来路
-  // 却对不上任何明细时宁可空着交给 kcwiki 逐边兜底，也不错拿别的边——
-  // 榛名丙→乙曾因拿了首次解锁（改二→乙）的明细被挂上 開発資材×390。
-  const wikiwikiEntry = wikiwikiRemodelLode?.data?.[`${targetShipId}`]
-  const wikiwiki = (() => {
-    if (!wikiwikiEntry) return null
-    if (currentShipId == null) return wikiwikiEntry
-    if (Number(wikiwikiEntry.fromShipId) === currentShipId) return wikiwikiEntry
-    const edges = Array.isArray(wikiwikiEntry.edges) ? wikiwikiEntry.edges : []
-    const edge = edges.find((entry: any) => Number(entry?.fromShipId) === currentShipId)
-    if (edge) return edge
-    return Number(wikiwikiEntry.fromShipId) > 0 ? null : wikiwikiEntry
-  })()
-  for (const rawNeed of Array.isArray(wikiwiki?.needs) ? wikiwiki.needs : []) {
-    const kind =
-      rawNeed?.kind === 'slotitem'
-        ? 'slotitem'
-        : rawNeed?.kind === 'useitem'
-          ? 'useitem'
-          : 'unknown'
-    const id = Number.isInteger(rawNeed?.id) ? Number(rawNeed.id) : undefined
-    const rawName = `${rawNeed?.nameJp ?? ''}`.trim()
-    const name =
-      kind === 'slotitem' && id
-        ? entityNamePlain('equip', id, mg.master.slotitems[id]?.name ?? rawName)
-        : kind === 'useitem' && id
-          ? entityNamePlain('item', id, useitemMst.get(id)?.api_name ?? rawName)
-          : rawName
-    const count = Number(rawNeed?.count) || 0
-    if (!name || count <= 0) continue
-    const need: UpgradeNeedChip = { kind, ...(id ? { id } : {}), name, count }
-    const key = needIdentity(need)
-    if (covered.has(key)) continue
-    covered.add(key)
-    needs.set(key, need)
-  }
-  for (const match of String(raw ?? '').matchAll(/([^\sx×]+)\s*[x×]\s*(\d+)/g)) {
-    const name = match[1]
-    const count = parseInt(match[2], 10) || 1
-    const alias = kcwikiUpgradeNeedAlias(name)
-    const need: UpgradeNeedChip = {
-      kind: alias?.kind ?? 'unknown',
-      ...(alias ? { id: alias.id } : {}),
-      name,
-      count,
+    // wikiwiki 明细按边取：主条目/edges 各自声明来路（fromShipId）。指明了来路
+    // 却对不上任何明细时宁可空着交给 kcwiki 逐边兜底，也不错拿别的边——
+    // 榛名丙→乙曾因拿了首次解锁（改二→乙）的明细被挂上 開発資材×390。
+    // 2026-09-06：上段记录旧层事故；现改用第一方逐边事实，wikiwiki 仅维护者对账。
+    const facts = fromShipId == null ? null : remodelFactsLode?.data?.[`${fromShipId}→${targetShipId}`]?.stages?.[stage]
+    for (const [identity, countValue] of Object.entries(facts ?? {})) {
+      const [materialKind, materialId] = identity.split(':')
+      const rawNeed = { kind: materialKind, id: materialKind === 'unknown' ? undefined : Number(materialId),
+        nameJp: materialKind === 'unknown' ? identity.slice(8) : '', count: countValue }
+      const kind =
+        rawNeed?.kind === 'slotitem'
+          ? 'slotitem'
+          : rawNeed?.kind === 'useitem'
+            ? 'useitem'
+            : 'unknown'
+      const id = Number.isInteger(rawNeed?.id) ? Number(rawNeed.id) : undefined
+      const rawName = `${rawNeed?.nameJp ?? ''}`.trim()
+      const name =
+        kind === 'slotitem' && id
+          ? entityNamePlain('equip', id, mg.master.slotitems[id]?.name ?? rawName)
+          : kind === 'useitem' && id
+            ? entityNamePlain('item', id, useitemMst.get(id)?.api_name ?? rawName)
+            : rawName
+      const count = Number(rawNeed?.count) || 0
+      if (!name) continue
+      const need: UpgradeNeedChip = { kind, ...(id ? { id } : {}), name, count }
+      const key = needIdentity(need)
+      if (covered.has(key)) continue
+      covered.add(key)
+      if (count > 0) needs.set(key, need)
     }
-    const key = needIdentity(need)
-    if (covered.has(key)) continue
-    covered.add(key)
-    const previous = needs.get(key)
-    if (!previous || count > previous.count) needs.set(key, need)
-  }
-  const list = [...needs.values()]
-  return { html: list.map(upgradeNeedChipHtml).join(''), needs: list }
+    // 循环形态的旧图纸串没有档名，不能把待裁的初次消耗从旧包填回来。
+    for (const match of String(convertible ? '' : raw ?? '').matchAll(/([^\sx×]+)\s*[x×]\s*(\d+)/g)) {
+      const name = match[1]
+      const count = parseInt(match[2], 10) || 1
+      const alias = kcwikiUpgradeNeedAlias(name)
+      const need: UpgradeNeedChip = {
+        kind: alias?.kind ?? 'unknown',
+        ...(alias ? { id: alias.id } : {}),
+        name,
+        count,
+      }
+      const key = needIdentity(need)
+      if (covered.has(key)) continue
+      covered.add(key)
+      const previous = needs.get(key)
+      if (!previous || count > previous.count) needs.set(key, need)
+    }
+    const list = [...needs.values()]
+    return { stage, needs: list.map(need => ({ ...need, stage })), missing: convertible && facts == null }
+  })
+  return { html: stages.map(group => `${convertible ? remodelStageLabelHtml(group.stage) : ''}${group.needs.map(upgradeNeedChipHtml).join('')}${group.missing ? '<span class="nd">素材待补</span>' : ''}`).join(''), needs: stages.flatMap(group => group.needs), stages }
 }
 
 /** 一条素材需求「够不够」。拿不到库存口径时按不够处理，不假装满足。 */
@@ -10504,6 +10601,8 @@ interface RemodelNeed {
   lv: number // 所需等级
   count: number // 该道具需要几个
   rawName: string // 来源原始写法（未对齐时照实显示）
+  stage: RemodelStage
+  uncertain: boolean // 无账本时两档并列，仅供查看，不把两套备选消耗相加
 }
 
 // 可逆改装判定：从改造后的形态沿改造边（aftershipid + 原生升级表）还能走回
@@ -10553,113 +10652,45 @@ const buildRemodelNeeds = () => {
   remodelNeeds = new Map()
   remodelEquipNeeds = new Map()
   remodelForwardEdges = null // 需求表重建时主数据/升级表可能刚到齐，边缓存一并重来
-  const covered = new Set<string>()
-  const add = (
-    kind: 'useitem' | 'slotitem',
-    itemId: number,
-    targetId: number,
-    predecessorId: number,
-    count: number,
-    rawName: string,
-    level?: number,
-  ) => {
-    if (itemId <= 0 || targetId <= 0 || predecessorId <= 0 || count <= 0) return
+  remodelConvertibleGroups = null
+  // 2026-09-06 分档：以下旧层机制说明保留；数量统一经 needChipsHtml 判档，防止反查与图鉴各算一套。
     // 去重键必须含前置：同一目标的不同来路是不同的改装路径，素材各归各
-    const key = `${kind}:${targetId}:${predecessorId}:${itemId}`
-    if (covered.has(key)) return
-    covered.add(key)
-    const targetMap = kind === 'slotitem' ? remodelEquipNeeds : remodelNeeds
-    const afterRawName = friendlyShips.get(targetId)?.api_name ?? ''
-    const list = targetMap.get(itemId) ?? []
-    list.push({
-      mstId: predecessorId,
-      targetId,
-      afterName: entityNamePlain('ship', targetId, afterRawName),
-      lv: level ?? friendlyShips.get(predecessorId)?.api_afterlv ?? 0,
-      count,
-      rawName,
-    })
-    targetMap.set(itemId, list)
-  }
   // 1) 游戏原生数量字段——逐行读：每条来路的素材各归各（赤城改二←改要弹射器，
   //    ←戊全零；从前按目标收单行，弹射器被挂到了戊的回转上）。
-  for (const [targetText, upgradeRows] of Object.entries(mg.master.upgrades)) {
-    const targetId = Number(targetText)
-    for (const upgrade of upgradeRows) {
-      for (const spec of NATIVE_UPGRADE_NEEDS) {
-        const count = Number(upgrade[spec.field]) || 0
-        if (count > 0) {
-          add(spec.kind, spec.id, targetId, upgrade.currentShipId, count, spec.name)
-        }
         // 原生行在场，这些字段 0 也是权威（用户拿游戏改装画面实锤：榛名乙→丙
         // 原生全零，wiki 图表却把「抵达丙的累计素材」写在丙页上，照抄就凭空造
         // 需求）。真在回环边上逐次消耗的原生自己会给正数——鈴谷/熊野航改二、
         // 三隈改二特是全表仅有的三例，不会被这道闸误伤。
-        if (upgrade.currentShipId > 0) {
-          covered.add(`${spec.kind}:${targetId}:${upgrade.currentShipId}:${spec.id}`)
-        }
-      }
-    }
-  }
   // 2) wikiwiki 改造チャート补 API 表外素材。主条目/edges 各自声明来路
   //    （fromShipId），素材挂声明的那条边；没声明来路的旧格式条目才退回
   //    「前进路径」启发（チャート写的是常规改装，不是可逆回转）。
-  for (const [targetText, entry] of Object.entries<any>(wikiwikiRemodelLode?.data ?? {})) {
-    const targetId = Number(targetText)
-    const targetRows = mg.master.upgrades[targetId] ?? []
-    const heuristicPredecessorId =
-      (targetRows.find((row) => !isFormSwitch(row.currentShipId, targetId)) ?? targetRows[0])
-        ?.currentShipId ??
-      [...friendlyShips.values()].find(
-        (ship) => Number.parseInt(`${ship.api_aftershipid ?? ''}`, 10) === targetId,
-      )?.api_id ??
-      0
-    const details = [entry, ...(Array.isArray(entry?.edges) ? entry.edges : [])]
-    for (const detail of details) {
-      const predecessorId =
-        Number(detail?.fromShipId) || (detail === entry ? heuristicPredecessorId : 0)
-      for (const need of Array.isArray(detail?.needs) ? detail.needs : []) {
-        if (
-          !['useitem', 'slotitem'].includes(`${need?.kind}`) ||
-          !Number.isInteger(need?.id)
-        ) {
-          continue
-        }
-        add(
-          need.kind,
-          Number(need.id),
-          targetId,
-          predecessorId,
-          Number(need.count) || 0,
-          `${need.nameJp ?? ''}`,
-          Number(detail?.level ?? entry?.level) || undefined,
-        )
-      }
-    }
-  }
+  // 2026-09-06：旧层启发式退役；事实表键固定出发→目标，回程同样按方向取。
+      // 事实表允许显式零；同一素材的 kcwiki 兜底也不能反向覆盖它。
   // 3) kcwiki 图纸串只补仍未覆盖的旧条目。形态切换边整个跳过：kcwiki 没写
   //    回程（用户 2026-08-11 校准），循环形态上挂的图纸串来路不明，回程
   //    明细只认 wikiwiki 的总表回程行与舰页脚注。
-  for (const entry of kcwikiByMst.values()) {
-    const bp = entry?.改造?.图纸
-    if (!bp || !entry.ID) continue
-    const after = friendlyShips.get(entry.ID)?.api_aftershipid
-    const afterId = after ? parseInt(after, 10) : 0
-    if (afterId > 0 && isFormSwitch(entry.ID, afterId)) continue
-    for (const m of String(bp).matchAll(/([^\sx×]+)\s*[x×]\s*(\d+)/g)) {
-      const rawName = m[1]
-      const count = parseInt(m[2], 10) || 1
-      const alias = kcwikiUpgradeNeedAlias(rawName)
-      if (!alias) continue
-      add(
-        alias.kind,
-        alias.id,
-        afterId,
-        entry.ID,
-        count,
-        rawName,
-        entry.改造?.等级 ?? friendlyShips.get(entry.ID)?.api_afterlv ?? 0,
-      )
+  const edges = new Set<string>()
+  for (const [to, rows] of Object.entries(mg.master.upgrades)) {
+    for (const row of rows) if (row.currentShipId > 0) edges.add(`${row.currentShipId}→${to}`)
+  }
+  for (const edge of Object.keys(remodelFactsLode?.data ?? {})) edges.add(edge)
+  for (const ship of friendlyShips.values()) {
+    if (Number(ship.api_aftershipid) > 0) edges.add(`${ship.api_id}→${Number(ship.api_aftershipid)}`)
+  }
+  for (const edge of edges) {
+    const [mstId, targetId] = edge.split('→').map(Number)
+    const owned = topLevelInstanceOf(mstId)
+    const result = needChipsHtml(kcwikiByMst.get(mstId)?.改造?.图纸, targetId, mstId, owned?.id)
+    for (const group of result.stages) {
+      for (const need of group.needs) {
+        if (need.id == null || need.kind === 'unknown') continue
+        const targetMap = need.kind === 'slotitem' ? remodelEquipNeeds : remodelNeeds
+        const rows = targetMap.get(need.id) ?? []
+        rows.push({ mstId, targetId, afterName: entityNamePlain('ship', targetId, friendlyShips.get(targetId)?.api_name ?? ''),
+          lv: friendlyShips.get(mstId)?.api_afterlv ?? 0, count: need.count, rawName: need.name,
+          stage: group.stage, uncertain: result.stages.length > 1 })
+        targetMap.set(need.id, rows)
+      }
     }
   }
   // 隔离派发：订阅者是别的模块的整块 render（锱），它抛异常不该把 buildRemodelNeeds
@@ -10670,7 +10701,8 @@ const buildRemodelNeeds = () => {
 const remodelNeedCredit = () => {
   const chain = [
     '游戏 API',
-    wikiwikiRemodelLode ? lodeCredit(wikiwikiRemodelLode.meta) : '改造资料待补',
+    remodelFactsLode ? lodeCredit(remodelFactsLode.meta) :
+      Object.keys(mg.master.upgrades).length || kcwikiLode ? '' : '改造资料待补',
     kcwikiLode ? `补充来源 ${lodeCredit(kcwikiLode.meta)}` : '',
   ]
     .filter(Boolean)
@@ -10687,7 +10719,7 @@ const remodelUsageRowsHtml = (needs: RemodelNeed[]) =>
         <span class="u-nm">${elink('mstShip', need.mstId, masterShipName(need.mstId))}</span>
         <span class="u-to">→ ${esc(need.afterName || '改装')}</span>
         <span class="u-lv">Lv${need.lv}</span>
-        <span class="u-n">×${need.count}</span>
+        <span class="u-n">${remodelStageLabelHtml(need.stage)} ×${need.count}</span>
       </div>`,
     )
     .join('')
@@ -10732,7 +10764,7 @@ export const useitemDemand = (itemId: number): UseitemDemand | null => {
   }
   for (const need of needs) {
     const owned = topLevelInstanceOf(need.mstId)
-    if (!owned) continue
+    if (!owned || need.uncertain) continue
     if (isFormSwitch(need.mstId, need.targetId)) {
       out.switchShips++
       out.switchNeed += need.count
@@ -10781,7 +10813,10 @@ const itemQueueHtml = (itemId: number) => {
     const formSwitch = isFormSwitch(need.mstId, need.targetId)
     let mark: string
     let rank: number
-    if (formSwitch) {
+    if (need.uncertain) {
+      mark = remodelStageLabelHtml(need.stage)
+      rank = 3
+    } else if (formSwitch) {
       mark = `<span class="q-dim" title="${esc(masterShipName(need.mstId))} ⇄ ${esc(
         need.afterName,
       )} 的切换用量，不计入缺口">⇄ 形态切换</span>`
@@ -10811,7 +10846,7 @@ const itemQueueHtml = (itemId: number) => {
         <span class="q-nm">${elink('mstShip', need.mstId, masterShipName(need.mstId))}</span>
         <span class="q-lv">Lv ${owned.lv}</span>
         <span class="q-to">→ ${esc(need.afterName || '下一改装')} · Lv${need.lv}</span>
-        <span class="q-n">需 ×${need.count}</span>
+        <span class="q-n">${remodelStageLabelHtml(need.stage)} 需 ×${need.count}</span>
         ${mark}
       </div>`,
     })
@@ -10983,7 +11018,7 @@ const itemFunctionHtml = (itemId: number): string => {
         .join('')}</div>`
     : ''
   const credit = itemExchangeLode
-    ? lodeCreditMark(itemExchangeLode.meta, '总表摘要 ·「用途」小节明细 · 装备/道具/舰娘名称可打开详情')
+    ? lodeCreditMark(itemExchangeLode.meta, '常驻道具用途 · 固定兑换 · 装备/道具/舰娘名称可打开详情')
     : ''
   return `<div class="sec"><div class="sec-h">具体作用<span class="aux">${
     entry.usage?.length ? `含用途明细 ${entry.usage.length} 行 ` : ''
@@ -11015,7 +11050,7 @@ const itemExchangeHtml = (itemId: number): string => {
           <span class="iex-to">→</span><span class="iex-gets">${exchangeGetsHtml(exchangeGetsZh(entry.gets))}</span></div>`
       })
       .join('')
-    blocks.push(`<div class="iex-block"><div class="iex-bh">兑换选项<span class="aux">当届需求数量及截止日期：游戏内公告</span></div>${rows}</div>`)
+    blocks.push(`<div class="iex-block"><div class="iex-bh">固定兑换<span class="aux">游戏内道具使用界面的常设选项</span></div>${rows}</div>`)
   }
   if (lodeEntry?.yearly?.length) {
     // 年份倒序分组；同年内保持 wiki 行序
@@ -11138,7 +11173,7 @@ const loadEventArchives = () => {
     deferPassive(pane, 'ji', render)
   }).catch((error: unknown) => {
     // 活动归档只影响海域卷里几张已结束的图，读不到就维持现状，不清空已有的
-    console.warn('[kanso] 活动归档读取失败', error)
+    console.warn('[kuma] 活动归档读取失败', error)
     if (pendingMapOpen == null) return
     // 但等着补开的那张图不能一直挂着「还在读取」——读没读成得如实说
     pendingMapOpen = null
@@ -11298,6 +11333,57 @@ const jiNavButtonsHtml = (): string => {
   </span>`
 }
 
+interface BookHomeStates {
+  ship: typeof shipState
+  equip: typeof equipState
+  abyss: typeof abyssState
+  map: typeof mapState
+  item: typeof itemState
+}
+
+interface BookHomeResult {
+  patch: Partial<BookHomeStates>
+  wasHome: boolean
+}
+
+/** 当前卷回到目录层；只改页面层级，搜索、分类与实体选择留给原状态。 */
+export const bookHomeState = (
+  book: Book,
+  states: BookHomeStates,
+): BookHomeResult => {
+  if (book === 'ship') {
+    return {
+      patch: { ship: { ...states.ship, open: false, memorialOpen: 0 } },
+      wasHome: !states.ship.open,
+    }
+  }
+  if (book === 'equip') {
+    return {
+      patch: { equip: { ...states.equip, open: false, mode: 'catalog' } },
+      wasHome: !states.equip.open && states.equip.mode === 'catalog',
+    }
+  }
+  if (book === 'abyss') {
+    return {
+      patch: { abyss: { ...states.abyss, open: false } },
+      wasHome: !states.abyss.open,
+    }
+  }
+  if (book === 'map') {
+    return {
+      patch: { map: { ...states.map, open: false } },
+      wasHome: !states.map.open,
+    }
+  }
+  if (book === 'item') {
+    return {
+      patch: { item: { ...states.item, open: false } },
+      wasHome: !states.item.open,
+    }
+  }
+  return { patch: {}, wasHome: true }
+}
+
 const BOOKS: [Book, string][] = [
   ['ship', '舰娘'],
   ['equip', '装备'],
@@ -11307,6 +11393,16 @@ const BOOKS: [Book, string][] = [
   ['roster', '列表'],
   ['stock', '仓库'],
 ]
+
+const BOOK_HOME_SCROLL_SELECTORS: Record<Book, string> = {
+  ship: '.book-wrap .ship-list',
+  equip: '.book-wrap .ship-list',
+  abyss: '.book-wrap .ship-list',
+  map: '.book-wrap .ship-list',
+  item: '.book-wrap .ship-list',
+  roster: '.roster-book .twrap, .roster-book .qa-app',
+  stock: '.stock-book .es-table-wrap, .stock-book .es-furniture',
+}
 
 /** 实验室宿主：接回落点 + 重绘。宿主自带接线与内部状态，重复调用是幂等的。 */
 const refreshLabHost = () => {
@@ -11328,7 +11424,10 @@ const render = () => {
   // 也必须赶在 innerHTML 重建之前——入栈时抓的滚动剖面读的还是旧页的 DOM。
   jiNavTrack()
   const bookTabs = BOOKS.map(
-    ([id, label]) => `<button class="book-tab${activeBook === id ? ' on' : ''}" data-book="${id}">${label}</button>`,
+    ([id, label]) => {
+      const active = activeBook === id
+      return `<button class="book-tab${active ? ' on' : ''}" data-book="${id}"${active ? ' title="再点一次回到本卷首页"' : ''}>${label}</button>`
+    },
   ).join('')
 
   const drawerWasOpen = !!pane.querySelector('.book-wrap.open')
@@ -11470,7 +11569,7 @@ function wireShipDetailPanel(panel: HTMLElement) {
         .then((verdict) => {
           probeButton.classList.remove('busy')
           if (verdict === 'kept') {
-            // 进了档案：广播会把索引更新掉，`kanso:archive-lit` 顺带触发重画，
+            // 进了档案：广播会把索引更新掉，`kuma:archive-lit` 顺带触发重画，
             // 那一格随即变成正常的档案实物钮。这里只管把它当场播出来。
             // 重探撞上这一支就是「官方后来实装了」——台账那条已经当场作废。
             const archived = archivedVoiceUrl(mstId, slot)
@@ -11544,7 +11643,7 @@ function wireShipDetailPanel(panel: HTMLElement) {
       return
     }
 
-    // ---- 深海往期语音的按号试听（KANSO_DEBUG_UI=1 才有这几个钮）----
+    // ---- 深海往期语音的按号试听（KUMA_DEBUG_UI=1 才有这几个钮）----
     //
     // **一次点击一条**，与上面探测钮同一条家法：这里没有任何循环、没有「全试一遍」。
     // 地址走既有出口 `extraVoiceUrl`，一个 https 都不在这儿拼。
@@ -11608,7 +11707,7 @@ function wireShipDetailPanel(panel: HTMLElement) {
         })
         .catch((error: unknown) => {
           keepButton.classList.remove('busy')
-          console.warn('[kanso] 深海语音收录失败', error)
+          console.warn('[kuma] 深海语音收录失败', error)
         })
       return
     }
@@ -11634,7 +11733,7 @@ function wireShipDetailPanel(panel: HTMLElement) {
       return
     }
   })
-  // 手输前缀（KANSO_DEBUG_UI）：**边打字边记、回车才重画**。
+  // 手输前缀（KUMA_DEBUG_UI）：**边打字边记、回车才重画**。
   // 每敲一个键就重画会把光标冲掉（整块面板是 innerHTML 重建的），
   // 而记下来这一步不能省——别处触发一次重渲就会把输入框清空。
   panel.addEventListener('input', (event) => {
@@ -11656,6 +11755,36 @@ const ALWAYS_OPEN = new Set(['属性', '数值', '装备槽', '装备加成', '�
 // 玩家点进一件装备十有八九就是来看它今天能不能改
 const OPEN_BY_DEFAULT = new Set(['改修工厂'])
 
+/**
+ * 当前目录是否被搜索 / 分类条件收窄。
+ *
+ * 所有 `.grp-box` 共用这一处：section-fold 只负责按判据临时展开，不认识各卷 state；
+ * 判据撤掉后它仍照原来的 closed 账渲染，不把筛选期的显示态写回去。
+ */
+const catalogGroupsForcedOpen = (): boolean => {
+  if (activeBook === 'ship') {
+    return !!(
+      shipState.search ||
+      shipState.chip !== '全部' ||
+      shipState.classFilter ||
+      shipState.typeFilter ||
+      shipState.nationalityFilter ||
+      shipState.fleetFilter ||
+      shipState.huntFilter
+    )
+  }
+  if (activeBook === 'equip') {
+    return !!(equipState.search || equipState.chip !== '全部' || equipState.typeFilter)
+  }
+  if (activeBook === 'abyss') {
+    return abyssState.tab === 'ship'
+      ? !!(abyssState.search || abyssState.shipChip !== '全部' || abyssState.shipTypeFilter)
+      : !!(abyssState.search || abyssState.equipChip !== '全部' || abyssState.equipTypeFilter)
+  }
+  if (activeBook === 'item') return !!(itemState.search || itemState.cat !== 'all')
+  return false
+}
+
 const wireSectionFolding = (root: HTMLElement) => {
   installSectionFolding(root, [
     {
@@ -11673,6 +11802,7 @@ const wireSectionFolding = (root: HTMLElement) => {
       head: '.grp',
       title: groupKeyTitle,
       openAllByDefault: true,
+      forceOpen: catalogGroupsForcedOpen,
     },
   ])
 }
@@ -11846,7 +11976,27 @@ const wire = () => {
     }
     const tab = (e.target as HTMLElement).closest<HTMLElement>('.book-tab')
     if (!tab) return
-    activeBook = tab.dataset.book as Book
+    if (tab.dataset.book === activeBook) {
+      const { patch, wasHome } = bookHomeState(activeBook, {
+        ship: shipState,
+        equip: equipState,
+        abyss: abyssState,
+        map: mapState,
+        item: itemState,
+      })
+      if (patch.ship) Object.assign(shipState, patch.ship)
+      if (patch.equip) Object.assign(equipState, patch.equip)
+      if (patch.abyss) Object.assign(abyssState, patch.abyss)
+      if (patch.map) Object.assign(mapState, patch.map)
+      if (patch.item) Object.assign(itemState, patch.item)
+      if (wasHome) {
+        pane.querySelectorAll<HTMLElement>(BOOK_HOME_SCROLL_SELECTORS[activeBook]).forEach((container) => {
+          container.scrollTop = 0
+        })
+      }
+    } else {
+      activeBook = tab.dataset.book as Book
+    }
     moreCategoriesOpen = false // 换一卷就收起来，两卷的分类面板不是同一个东西
     missNotice = null // 换卷＝那条回执看完了
     pendingMapOpen = null
@@ -12845,12 +12995,13 @@ registerEntityRoute('mstEquip', {
         ((imp?.helpers ?? []) as any[]).flatMap((h) => h.days ?? []),
       ),
     ).size
-    const remodel = akashiListLode?.data?.items?.[`${mstId}`]?.item_remodel
+    const starItem = akashiImproveItem(mstId, kcwikiAkashiLode?.data, akashiListLode?.data)
+    const remodel = starItem.item_remodel
     const starHighlights = remodel
       ? Object.entries<any>(remodel)
           .filter(([, arr]) => Array.isArray(arr) && arr.length >= 10)
           .slice(0, 3)
-          .map(([stat, arr]) => `${esc(stat)}${esc(arr[9])}`)
+          .map(([stat, arr]) => `${esc(stat)}${arr[9] == null || arr[9] === '' ? '待补' : esc(arr[9])}${starItem.remodel_basis[stat]?.[9]?.basis === 'formula' ? '<small class="muted" title="按装备类别公式推算，未经游戏内实测"> 推算</small>' : ''}`)
           .join(' ')
       : ''
     return {
@@ -12866,7 +13017,7 @@ registerEntityRoute('mstEquip', {
           ? `持有 ×${instances.length}${distText ? `（${distText}）` : ''} · 装备中 ${equipped}`
           : '未持有',
         eo?.improvement?.length
-          ? `可改修 · 每周 ${dayCount} 天${starHighlights ? ` · ★10 ${starHighlights}` : ''}`
+          ? `可改修 · 每周 ${dayCount} 天 · ★10 ${starHighlights || '待补'}`
           : // 「表里没有」不等于「不可改修」：落在改修表覆盖范围之外的（刚实装的那些）
             // 只能说资料还没收录，替官方下「不可改修」这个结论是编（同抽屉里那一段）
             improvePackUncovered(
@@ -12874,8 +13025,8 @@ registerEntityRoute('mstEquip', {
                 mstId,
                 improveCoverageMax,
               )
-            ? '改修资料暂无收录'
-            : '不可改修',
+            ? '改修资料暂无收录 · ★10 待补'
+            : '不可改修 · ★10 待补',
       ],
       primary: '装备图鉴',
     }
@@ -13244,8 +13395,8 @@ registerModule({
       if (mstId && mstId !== showing && costumeOwnerOf(mstId) !== showing) return
       scheduleRender()
     }
-    document.addEventListener('kanso:archive-lit', onArchiveLit)
-    trackMountCleanup(() => document.removeEventListener('kanso:archive-lit', onArchiveLit))
+    document.addEventListener('kuma:archive-lit', onArchiveLit)
+    trackMountCleanup(() => document.removeEventListener('kuma:archive-lit', onArchiveLit))
     // ---- 玩家在钥里清了「官方没有」台账：那些格子该回到可探测态 ----
     //
     // 清理只可能由他自己按出来（钥里那个钮），所以这里没有轮询也不需要节流；
@@ -13255,14 +13406,14 @@ registerModule({
     // 与上面那条同理，只是不按形态过滤：一份图鉴报文一次带来几十条归属，
     // 跨多少艘舰不知道。`scheduleRender` 自带的两道闸门照旧管着。
     const onCostumesChange = () => scheduleRender()
-    document.addEventListener('kanso:ship-costumes-change', onCostumesChange)
+    document.addEventListener('kuma:ship-costumes-change', onCostumesChange)
     trackMountCleanup(() =>
-      document.removeEventListener('kanso:ship-costumes-change', onCostumesChange),
+      document.removeEventListener('kuma:ship-costumes-change', onCostumesChange),
     )
     const onVoiceAbsentChange = () => scheduleRender()
-    document.addEventListener('kanso:voice-absent-change', onVoiceAbsentChange)
+    document.addEventListener('kuma:voice-absent-change', onVoiceAbsentChange)
     trackMountCleanup(() =>
-      document.removeEventListener('kanso:voice-absent-change', onVoiceAbsentChange),
+      document.removeEventListener('kuma:voice-absent-change', onVoiceAbsentChange),
     )
     void ensureFirstEncounters()
     onFirstEncountersChange(() => {
@@ -13282,10 +13433,11 @@ registerModule({
         abyssalLode,
         eoLode,
         akashiListLode,
+        kcwikiAkashiLode,
         kcwikiLode,
         fcdMapLode,
         eventLifecycleLode,
-        wikiwikiRemodelLode,
+        remodelFactsLode,
         devRecipeLode,
         buildRecipeLode,
         shipStatsLode,
@@ -13294,12 +13446,13 @@ registerModule({
         queryLode('abyssal-stats'),
         queryLode('equip-improve'),
         queryLode('akashi-list'),
+        queryLode('kcwiki-akashi-improve'),
         queryLode('kcwiki-ships'),
         queryLode('poi-fcd-map'),
         queryLode('event-lifecycle'),
-        queryLode('wikiwiki-remodel'),
-        queryLode('dev-recipes'),
-        queryLode('build-recipes'),
+        queryLode('remodel-facts'),
+        queryLode('development-facts'),
+        queryLode('construction-facts'),
         queryLode('ship-stats'),
         queryLode('wikiwiki-ship-profile'),
       ])
@@ -13318,11 +13471,16 @@ registerModule({
         if (Number(entry?.shipId) > 0) shipProfileByMst.set(Number(entry.shipId), entry)
       }
       await initMapIntel()
-      ;[routingLode, wikiwikiRoutingLode, kcnavRoutingLode] = await Promise.all([
+      const [routingPack, wikiwikiRoutingPack, kcnavRoutingPack, localizationPack] = await Promise.all([
         queryLode('kcwiki-routing'),
         queryLode('wikiwiki-routing'),
         queryLode('kcnav-routing'),
+        queryLode('kcwiki-localization'),
       ])
+      routingLode = routingPack
+      wikiwikiRoutingLode = wikiwikiRoutingPack
+      kcnavRoutingLode = kcnavRoutingPack
+      routingRuleShipNameIndex = buildRoutingRuleShipNameIndex(localizationPack?.data)
       loadEventArchives()
       // 深海战绩不在这里预拉：ensureAbyssKills 才是它的状态机（在途/脏标记/失败
       // 都记在那儿），这里再来一份就是绕过它——并发覆盖，且初始 render 不看
@@ -13337,7 +13495,7 @@ registerModule({
         improveCoverageMax = improvePackCoverageMax(eoLode!.data as EquipUpgradeRow[])
       }
       // 台词包（日中对照）：只在图鉴模块用，按需加载
-      void queryLode('wikiwiki-item-exchange').then((pack) => {
+      void queryLode('item-facts').then((pack) => {
         itemExchangeLode = pack
         if (itemState.open) deferPassive(pane, 'ji', render)
       })
@@ -13346,33 +13504,35 @@ registerModule({
         queryLode('kcwiki-seasonal-voice'),
         queryLode('wikiwiki-voice'),
         queryLode('wikiwiki-abyss-voice'),
+        queryLode('kuma-abyss-voice'),
         queryLode('subtitle-zh'),
         queryLode('subtitle-ja'),
         queryLode('subtitle-enemies'),
         queryLode('kcwiki-fit-bonus'),
-        queryLode('kanso-voice'),
-        queryLode('kanso-voice-zh'),
+        queryLode('kuma-voice'),
+        queryLode('kuma-voice-zh'),
         queryLode('subtitle-npc'),
         queryLode('opencc-t2s'),
-      ]).then(([v, sv, w, a, z, j, e, f, kv, kvZh, npc, opencc]) => {
+      ]).then(([v, sv, w, a, ka, z, j, e, f, kv, kvZh, npc, opencc]) => {
         installZhSimplifier(opencc)
         voiceLode = v
         seasonalVoiceLode = sv
         wikiwikiVoiceLode = w
         wikiwikiAbyssVoiceLode = a
+        kumaAbyssVoiceLode = ka
         subtitleZh = z
         subtitleJa = j
         subtitleEnemiesLode = e
-        kansoVoiceLode = kv
-        kansoVoiceZhLode = kvZh
+        kumaVoiceLode = kv
+        kumaVoiceZhLode = kvZh
         const regularOverlay = applyVoiceOverlay(
           voiceLode?.data ?? {},
-          kansoVoiceZhLode?.data ?? null,
+          kumaVoiceZhLode?.data ?? null,
           'kcwiki-voice',
         )
         const seasonalOverlay = applyVoiceOverlay(
           seasonalVoiceLode?.data?.ships ?? {},
-          kansoVoiceZhLode?.data ?? null,
+          kumaVoiceZhLode?.data ?? null,
           'kcwiki-seasonal-voice',
         )
         voiceOverlayRegularKeys = new Set(regularOverlay.appliedKeys)
@@ -13386,7 +13546,7 @@ registerModule({
         }
         for (const warning of [...regularOverlay.warnings, ...seasonalOverlay.warnings]) {
           console.warn(
-            `[kanso] 台词译文自补层跳过 ${warning.pack}/${warning.key}：上游日文原文已变化`,
+            `[kuma] 台词译文自补层跳过 ${warning.pack}/${warning.key}：上游日文原文已变化`,
           )
         }
         // 分组与排序在这里算一次，逐行渲染只查表（与下面那三类校正同一条纪律）
@@ -13436,12 +13596,26 @@ registerModule({
             }
           }
         }
-        voiceZhByJa = buildVoiceTranslationIndex(
+        voiceZhByJa = buildVoiceZhByJa(
           (subtitleJa?.data ?? {}) as Record<string, Record<string, string>>,
           (subtitleZh?.data ?? {}) as Record<string, Record<string, string>>,
+          regularOverlay.data,
+          kumaVoiceZhLode?.data,
+          kumaVoiceLode?.data?.ships ?? {},
         )
-        for (const [key, value] of voiceOverlayJaIndex(kansoVoiceZhLode?.data ?? null)) {
-          if (!voiceZhByJa.has(key)) voiceZhByJa.set(key, value)
+        abyssZhByJa = new Map()
+        for (const [id, lines] of Object.entries<any>(regularOverlay.data)) {
+          if (Number(id) >= 1_500) supplementVoiceZhByJa(abyssZhByJa, lines)
+        }
+        for (const lines of Object.values<any>(kumaAbyssVoiceLode?.data?.ships ?? {})) {
+          supplementVoiceZhByJa(abyssZhByJa, lines)
+        }
+        for (const raw of Object.values<any>(subtitleEnemiesLode?.data ?? {})) {
+          const lines = (Array.isArray(raw) ? raw : [raw]).map((line) => ({
+            ja: line?.jp,
+            zh: line?.zh,
+          }))
+          supplementVoiceZhByJa(abyssZhByJa, lines)
         }
         // 三层第一方台账在**加载时**依次叠上去：不改 CC 包文件，也不让消费端各自记得去叠。
         //   ① 修正台账：上游那几行的数错了 —— 自失效判据是「被盯的行变了没」；
@@ -13456,7 +13630,7 @@ registerModule({
                   simplifyFitBonusData(f.data as FitBonusData),
                   (correction, reason, detail) => {
                     console.warn(
-                      `[kanso] 装备加成修正作废：${correction.equipId} ${correction.equipName}（${reason}）${detail}`,
+                      `[kuma] 装备加成修正作废：${correction.equipId} ${correction.equipName}（${reason}）${detail}`,
                     )
                   },
                 ).data,
@@ -13464,7 +13638,7 @@ registerModule({
                   // `empty` 是本来就没规则的条目（确认无 / 整件挂牌），不是异常，不吵
                   if (reason !== 'recall') return
                   console.warn(
-                    `[kanso] 装备加成自补条目召回复审：${entry.equipId} ${entry.equipName}（${reason}）${detail}`,
+                    `[kuma] 装备加成自补条目召回复审：${entry.equipId} ${entry.equipName}（${reason}）${detail}`,
                   )
                 },
               ).data,
@@ -13479,15 +13653,19 @@ registerModule({
         }
       }
       buildRemodelNeeds()
+      await refreshRemodelHistories()
       deferPassive(pane, 'ji', render)
     })().catch((error: unknown) => {
       // 这条链上十来个 queryLode / initMapIntel，任一 reject 就在那一行断掉：
       // 后面的索引再也不建，模块只显示半截，而 mountModule 早已把 mount 算成功。
       // 记一笔才有痕迹——否则正是「隔离做完之后冒烟一片绿」的那个盲区。
       recordCrash('ji:mount-atlas-data', error)
-      console.warn('[kanso] 图鉴资料装配中断，部分内容将缺失', error)
+      console.warn('[kuma] 图鉴资料装配中断，部分内容将缺失', error)
     })
     onMgChange((keys) => {
+      if (keys.some(key => ['ships', 'master'].includes(key))) {
+        void refreshRemodelHistories().then(() => deferPassive(pane, 'ji', render)).catch(error => recordCrash('ji:remodel-history', error))
+      }
       // 只推进代号，不清空：正开着的「收容库」继续显示手上这份，新的到了静默换上
       if (keys.some((k) => ['ships', 'sortie'].includes(k))) shipMemorialGeneration += 1
       // 仓库卷的行缓存要跟着这三样走：装备本身、装备的去处（舰上）、陆航的格子。
@@ -13531,7 +13709,7 @@ registerModule({
         })().catch((error: unknown) => {
           // 主数据重取失败不该静默：索引会停在旧的一份，界面看着正常却不再跟游戏走
           recordCrash('ji:master-refresh', error)
-          console.warn('[kanso] 主数据重取失败，索引仍停在上一份', error)
+          console.warn('[kuma] 主数据重取失败，索引仍停在上一份', error)
         })
       } else if (jiBookNeedsRender(keys, activeBook)) {
         // 在籍归并/持有数/道具所持联动。必须合并到同一帧：materials 每场战斗都推，

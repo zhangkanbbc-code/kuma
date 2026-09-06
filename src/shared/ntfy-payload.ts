@@ -10,7 +10,7 @@
 //    给的规范名与别名：`X-Title`（别名 `Title`、`t`）、`X-Priority`
 //    （别名 `Priority`、`prio`、`p`）、`X-Tags`、`X-Markdown`、`Authorization`……
 //    优先级取值 1=min / 2=low / 3=default / 4=high / 5=max(urgent)。
-//    艦素一律用 `X-` 规范名：服务端 readParam 按 `x-title, title, t` 顺序取，
+//    kuma一律用 `X-` 规范名：服务端 readParam 按 `x-title, title, t` 顺序取，
 //    `X-` 那个排第一；而裸 `Priority` 还会撞上 RFC 9218 那个同名头——
 //    ntfy 的 maybeIgnoreSpecialHeader 专门把 Cloudflare 加的 `Priority: u=3, i`
 //    忽略掉（server/util.go），用 `X-Priority` 完全绕开这摊事。
@@ -21,7 +21,7 @@
 //    形如 `=?UTF-8?B?8J+HqfCfh6o=?=`（base64）或 `=?UTF-8?Q?=C3=84pfel?=`。
 //    实测（node v24 / undici）：`new Headers({ Title: '远征 21 返港' })` 直接抛
 //    TypeError —— "Cannot convert argument to a ByteString because the character
-//    at index 0 has a value of 36828 which is greater than 255"。艦素的标题**全是中文**，
+//    at index 0 has a value of 36828 which is greater than 255"。kuma的标题**全是中文**，
 //    所以不编码就等于一条也发不出去（还是在进程内就炸，连请求都没发）。
 //    服务端侧也已确认收得回来：server/util.go 的 maybeDecodeHeader 对每个
 //    参数头都跑一遍 Go 的 `mime.WordDecoder.DecodeHeader`，解不开才退回原文。
@@ -29,7 +29,7 @@
 // ③ 频道名即口令 —— 文档「Picking a topic」原话：
 //    "Since there is no sign-up, **the topic is essentially a password**, so pick
 //    something that's not easily guessable."，且限定字符集 `[-_A-Za-z0-9]`、最长 64。
-//    所以这里的「生成频道名」给的是 24 位随机串，而不是让人自己起个 kanso-alerts。
+//    所以这里的「生成频道名」给的是 24 位随机串，而不是让人自己起个 kuma-alerts。
 //
 // ④ 访问令牌 —— 文档「Access tokens」：`Authorization: Bearer tk_xxx`
 //    （自架并开了鉴权时才需要；公共服务器上的公开频道不需要）。
@@ -57,7 +57,7 @@ export interface NtfyRequestOptions {
   token?: string | null
   /** 只推标题：正文不出本机 */
   titleOnly: boolean
-  /** 1–5，默认 3。艦素一律用 3：默认开的都是「时刻」，不是急事，不该震到底 */
+  /** 1–5，默认 3。kuma一律用 3：默认开的都是「时刻」，不是急事，不该震到底 */
   priority?: number
 }
 

@@ -1,13 +1,13 @@
 // 台词自补层的**审稿单**：逐形态、逐行的「场合 | 日文 | 译文 | 状态」四列对照。
 //
 // ---- 为什么它只落 assets/review/ ----
-// 日文原文本身 2026-08-22 起已经随包（`kanso-voice` 有 `ja` 列），所以这份材料不再是
+// 日文原文本身 2026-08-22 起已经随包（`kuma-voice` 有 `ja` 列），所以这份材料不再是
 // 「日文的唯一去处」；它留在 review 里的理由换成了**它是给人读的整理稿**：
 // 逐形态分节、带抽检建议、带待复核清单与颜表情发放面，这些都不该塞进运行时的数据包。
 // `assets/review/` 既在 .gitignore 里，也在打包排除清单里，两道都挡着。
 //
 // ---- 它是「重跑得出来」的，不是一次性产物 ----
-// 日中两列都取自 `assets/lodes/kanso-voice.json`（入仓、随包）。改完包重跑一次，
+// 日中两列都取自 `assets/lodes/kuma-voice.json`（入仓、随包）。改完包重跑一次，
 // 审稿单就跟着新了。所以逐句订正的流程是：改包 → 重跑这个脚本 → 拿新审稿单再过一遍。
 //
 //   node scripts/voice-translate-review.mjs
@@ -41,10 +41,16 @@ const readPack = (id, required) => {
   return JSON.parse(readFileSync(file, 'utf8'))
 }
 
-const kansoPack = readPack('kanso-voice', true)
-const kanso = kansoPack.data?.ships ?? {}
-const overlayPack = readPack('kanso-voice-zh', true)
+const kumaPack = readPack('kuma-voice', true)
+const kuma = kumaPack.data?.ships ?? {}
+const overlayPack = readPack('kuma-voice-zh', true)
 const overlay = overlayPack.data ?? {}
+const abyssPack = readPack('kuma-abyss-voice', true)
+const abyss = abyssPack.data?.ships ?? {}
+const abyssSource = JSON.parse(
+  readFileSync(path.join(root, 'scripts', 'abyss-voice-zh.json'), 'utf8'),
+)
+const abyssWiki = readPack('wikiwiki-abyss-voice', true).data ?? {}
 const regularPack = readPack('kcwiki-voice', true)
 const seasonalPack = readPack('kcwiki-seasonal-voice', true)
 const localization = readPack('kcwiki-localization', false).data?.entities?.ship ?? {}
@@ -53,7 +59,7 @@ const shipName = (mstId) => localization?.[`${mstId}`]?.zh || `#${mstId}`
 const escapeCell = (value) =>
   `${value ?? ''}`.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ⏎ ').trim()
 
-const forms = Object.keys(kanso)
+const forms = Object.keys(kuma)
   .map(Number)
   .sort((left, right) => left - right)
 
@@ -77,7 +83,7 @@ const draftIndex = []
 const personaRoster = []
 
 for (const mstId of forms) {
-  const rows = kanso[`${mstId}`] ?? []
+  const rows = kuma[`${mstId}`] ?? []
   const lines = []
   let emoticonHere = 0
   for (const row of rows) {
@@ -133,11 +139,11 @@ const head = [
   '# 台词自补层 · 审稿单',
   '',
   '> **这份文件只在维护者本机存在**：不入仓、不随分发物。',
-  '> 它是给人读的整理稿——日中两列都取自随包的 `kanso-voice`，另加抽检建议、待复核清单、',
+  '> 它是给人读的整理稿——日中两列都取自随包的 `kuma-voice`，另加抽检建议、待复核清单、',
   '> 颜表情发放面。日文原文本身 2026-08-22 起已随包（包里有 `ja` 列）。',
   '> 由 `node scripts/voice-translate-review.mjs` 生成，改完包重跑一次即可刷新。',
   '',
-  `- 包版本：\`${kansoPack.meta?.version ?? '?'}\`（编译于 ${kansoPack.data?.compiledAt ?? '?'}）`,
+  `- 包版本：\`${kumaPack.meta?.version ?? '?'}\`（编译于 ${kumaPack.data?.compiledAt ?? '?'}）`,
   `- 覆盖形态：**${forms.length}**；译文行：**${totalRows}**`,
   `- 待复核（\`draft\`）：**${draftRows}** 行，占 ${((draftRows / Math.max(1, totalRows)) * 100).toFixed(1)}%`,
   `- 没有日文原文的行：**${unmatched}**${unmatched ? '（上游那一页只填了中文；照实留空，不据中文回译）' : ''}`,
@@ -297,13 +303,71 @@ const overlaySections = [
   '',
 ]
 
+const abyssForms = new Set(Object.keys(abyss))
+const abyssPageRows = new Map()
+for (const [mstId, rows] of Object.entries(abyssWiki)) {
+  if (!abyssForms.has(mstId)) continue
+  for (const row of rows ?? []) {
+    const key = normalizeVoiceLine(row.ja)
+    if (!key || row.scene === 'CV' || `${row.ja ?? ''}`.startsWith('CV：') ||
+        `${row.ja ?? ''}`.includes('イラストレーター')) continue
+    const byPage = abyssPageRows.get(key) ?? new Map()
+    const scenes = byPage.get(row.page) ?? new Set()
+    scenes.add(row.scene)
+    byPage.set(row.page, scenes)
+    abyssPageRows.set(key, byPage)
+  }
+}
+
+const abyssByPage = new Map()
+for (const entry of abyssSource.byJa ?? []) {
+  const byPage = abyssPageRows.get(normalizeVoiceLine(entry.ja))
+  for (const [page, scenes] of byPage ?? []) {
+    const rows = abyssByPage.get(page) ?? []
+    rows.push({ entry, scenes: [...scenes] })
+    abyssByPage.set(page, rows)
+  }
+}
+const abyssRoleSections = [...abyssByPage]
+  .sort(([left], [right]) => left.localeCompare(right, 'ja'))
+  .map(([page, rows]) => {
+    rows.sort(
+      (left, right) =>
+        Number(Boolean(right.entry.draft)) - Number(Boolean(left.entry.draft)) ||
+        left.scenes.join('／').localeCompare(right.scenes.join('／'), 'ja'),
+    )
+    return [
+      `### ${page}（${rows.length} 句）`,
+      '',
+      '| 场合 | 日文原文 | 中文译文 | 状态 |',
+      '|---|---|---|---|',
+      ...rows.map(({ entry, scenes }) => {
+        const flags = []
+        if (entry.draft) flags.push('**待复核**')
+        if (entry.note) flags.push(entry.note)
+        if (entry.skip) flags.push('跳过')
+        return `| ${escapeCell(scenes.join('／'))} | ${escapeCell(entry.ja)} | ${escapeCell(entry.zh)} | ${escapeCell(flags.join('；')) || '可用'} |`
+      }),
+      '',
+    ].join('\n')
+  })
+const abyssSections = [
+  '## 深海台词自译层',
+  '',
+  `- 译文源：**${abyssSource.byJa?.length ?? 0}** 句；覆盖角色页：**${abyssByPage.size}**`,
+  `- 待复核（\`draft\`）：**${(abyssSource.byJa ?? []).filter((entry) => entry?.draft).length}**`,
+  '',
+  ...abyssRoleSections,
+]
+
 mkdirSync(reviewDir, { recursive: true })
 const outFile = path.join(reviewDir, 'voice-translate-review.md')
-writeFileSync(outFile, [...head, ...sections, ...overlaySections].join('\n'))
+writeFileSync(outFile, [...head, ...sections, ...abyssSections, ...overlaySections].join('\n'))
 console.log(
   `[review] 审稿单已写出：${path.relative(root, outFile)}` +
     `（${forms.length} 形态 / ${totalRows} 行 / 待复核 ${draftRows} 行` +
     `${unmatched ? ` / 无日文原文 ${unmatched} 行` : ''}` +
+    ` / 深海自译 ${abyssSource.byJa?.length ?? 0} 句` +
     ` / 译文 overlay ${Object.keys(overlay.entries ?? {}).length} + ${byJaRows.length} 行` +
     ` / 可删 ${retiredRows.length} 行）`,
 )

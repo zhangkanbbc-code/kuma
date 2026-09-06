@@ -32,7 +32,7 @@ const ruleBody = (css, selector) => {
 }
 
 const bundleHarness = (t, name, source) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `kanso-${name}-`))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `kuma-${name}-`))
   const entry = path.join(dir, `${name}.ts`)
   const output = path.join(dir, `${name}.cjs`)
   fs.writeFileSync(entry, source)
@@ -280,6 +280,26 @@ test('both ship-life battle buttons open the shared replay window without routin
   assert.match(life, /title="打开本战复盘"/)
 })
 
+test('ship-life shows load more at 200 events and the click raises the query limit to 400', () => {
+  const life = read('src/renderer/ship-life-window.ts')
+  const ledger = read('src/main/mg/ledger.ts')
+  const query = sliceBetween(
+    ledger,
+    '  queryShipLife = (rosterId: number, limit = 80): ShipLifeReport => {',
+    '\n  /**\n   * 这一艘给谁送过终。',
+    'queryShipLife',
+  )
+  assert.match(life, /const EVENT_PAGE_SIZE = 200/)
+  assert.match(life, /report\.events\.length >= eventLimit[\s\S]*?data-life-more>加载更多<\/button>/)
+  assert.match(life, /const nextLimit = eventLimit \+ EVENT_PAGE_SIZE/)
+  assert.match(life, /queryShipLife\(rosterId, nextLimit\)/)
+  assert.match(life, /target\.closest<HTMLButtonElement>\('\[data-life-more\]'\)/)
+  assert.match(life, /timeline\.insertAdjacentHTML\('beforeend', appended\)/)
+  assert.match(life, /body\.scrollTop = scrollTop/)
+  assert.match(query, /\.all\(rosterId, Math\.max\(1, limit \| 0\)\)/)
+  assert.doesNotMatch(query, /Math\.min\(200,\s*limit/)
+})
+
 test('main process owns one replay window on the sender display and leaves the legacy route intact', () => {
   const main = read('src/main/index.ts')
   const open = sliceBetween(
@@ -289,7 +309,7 @@ test('main process owns one replay window on the sender display and leaves the l
     'openBattleReplayWindow',
   )
   assert.match(main, /let battleReplayWindow: BrowserWindow \| null = null/)
-  assert.match(open, /config\.get\('kanso\.battleReplayWindow'/)
+  assert.match(open, /config\.get\('kuma\.battleReplayWindow'/)
   assert.match(open, /BrowserWindow\.fromWebContents\(sender\)/)
   assert.match(open, /screen\.getDisplayMatching\(senderBounds\)/)
   assert.match(open, /workArea\.width - width/)

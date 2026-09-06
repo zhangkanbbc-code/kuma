@@ -16,8 +16,47 @@ interface ShipUpgradeLike {
 
 type SubtitleTables = Record<string, Record<string, string> | undefined>
 
+const VOICE_HTML_NAMED_ENTITIES: Record<string, string> = {
+  amp: '&',
+  apos: "'",
+  gt: '>',
+  lt: '<',
+  quot: '"',
+  nbsp: '\u00a0',
+  ccedil: 'ç',
+  Ccedil: 'Ç',
+  eacute: 'é',
+  Eacute: 'É',
+  ecirc: 'ê',
+  Ecirc: 'Ê',
+  egrave: 'è',
+  Egrave: 'È',
+  euml: 'ë',
+  Euml: 'Ë',
+}
+
+/**
+ * wikiwiki 的表格文本偶尔残留 HTML 实体。命名实体只收台词底本实际会用到的
+ * 法语字母与 HTML 基础项；十进制/十六进制数字实体覆盖全部合法 Unicode 标量。
+ * 未知命名实体原样保留，避免把新写法静默吞掉。
+ */
+export const decodeVoiceHtmlEntities = (value: unknown): string =>
+  `${value ?? ''}`.replace(
+    /&(?:#(\d+)|#x([0-9a-f]+)|([a-z][a-z0-9]+));/gi,
+    (entity, decimal: string | undefined, hexadecimal: string | undefined, named: string | undefined) => {
+      if (named != null) return VOICE_HTML_NAMED_ENTITIES[named] ?? entity
+      const codePoint = Number.parseInt(decimal ?? hexadecimal ?? '', decimal != null ? 10 : 16)
+      return Number.isInteger(codePoint) &&
+        codePoint >= 0 &&
+        codePoint <= 0x10ffff &&
+        !(codePoint >= 0xd800 && codePoint <= 0xdfff)
+        ? String.fromCodePoint(codePoint)
+        : entity
+    },
+  )
+
 export const normalizeVoiceLine = (value: unknown): string =>
-  `${value ?? ''}`
+  decodeVoiceHtmlEntities(value)
     .normalize('NFKC')
     .replace(/\s+/g, '')
     .trim()
@@ -82,11 +121,11 @@ export const buildVoiceFallbackIds = (
     }
     // ---- shipupgrade 没说话的那些边，用 aftershipid 补上（**只填空，不覆盖**）----
     //
-    // 2026-08-27 实测本机 start2 快照：`api_mst_shipupgrade` 359 行里只有 259 行
+    // 2026-08-27 实测对照资料 start2 快照：`api_mst_shipupgrade` 359 行里只有 259 行
     // 建得出前置边（其余是 `api_current_ship_id: 0` 的链首行），而 `api_aftershipid`
     // 给得出 555 条。差出来的那些形态**整条链只剩它自己**，于是「沿改装链借文本」
     // 对它们从来没生效过——杰维斯（519 → 394）正是其中一个：她在 shipupgrade 里
-    // 一行都没有，改形态的中破字幕因此无处可借（用户实测无字幕的直接成因）。
+    // 一行都没有，改形态的中破字幕因此无处可借（维护者实测无字幕的直接成因）。
     //
     // 冲突时仍以 shipupgrade 为准（`parentOf.has` 就跳过）：它能表达分支与可逆改装，
     // 而 aftershipid 是单向单链、遇到可逆改装会把方向猜反。这里只在它**沉默**的地方

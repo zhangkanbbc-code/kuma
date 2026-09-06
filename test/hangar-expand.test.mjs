@@ -1,6 +1,6 @@
 // 格納庫増設（useitem 105，2026-06-26 实装）：逐槽抬高舰载机搭载上限。
 //
-// 用户实弹撞出来的缺口：这个端点艦素全仓零处理，道具走通用报酬路径记了 +1、
+// 用户实弹撞出来的缺口：这个端点kuma全仓零处理，道具走通用报酬路径记了 +1、
 // 消耗没人扣，于是道具页的持有数一直停在消耗前。报文里**既没有 api_material
 // 也没有 useitem 字段**，消耗只能按端点自扣——与开增设槽 / 结婚 / 泊地修理同族。
 //
@@ -43,7 +43,7 @@ test('格納庫増設到达：useitem 105 −1，且这一笔进账本', () => {
 })
 
 test('认不出是哪一艘也照扣：道具确实少了一个', () => {
-  reset({}) // 账上没有 939（中途启动艦素）
+  reset({}) // 账上没有 939（中途启动kuma）
   const sections = feedReducerOnly(REAL_POST, REAL_BODY)
   assert.equal(useitems()[105], 2)
   assert.deepEqual(sections, ['useitems'], '认不出舰就不该报 ships')

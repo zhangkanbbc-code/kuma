@@ -202,37 +202,75 @@ export const parseEventSpecialShips = (html, shipsPack) => {
 // 上游一格写的是 `梅改 (魚魚主&主魚電&魚水電)`——括号里是連撃/CI 型与装备缩写，
 // 其中的「電」是**電探**的简写。而 shipMatcher 是纯子串匹配（最长名优先、不重叠），
 // 整格文本一起喂进去，注记里的每一个「電」都会变成一位并不存在的随伴舰電（mstId 37）。
-// 2026-08-27 实测 E4：10 条编成里 6 条被塞进 1–4 位假電，而用户当天在 62-4 丙 Boss 点
-// 实遇的三支里一位電都没有——两层一对照，假舰当场现形。
+// wikiwiki E4 编成表核对（2026-08-27）：10 条编成中 6 条因注记被误加 1–4 位電；
+// 括号外舰名与报文编成核对均不支持这些额外舰名。
 // 舰名一律写在括号外，所以整段抹掉是安全的；半角全角都要抹。
 const withoutAnnotations = (text) => text.replace(/[(（][^)）]*[)）]/g, ' ')
 
+// 2026-09-06 逐页核对 wiki 原文：活动 E3 把一处 Heywood 的大写 L 写成了小写 l；
+// 活动 E4 分别把 Maestrale、Aquila 拼成 Marstrale、Aqulia。这里只收这三处已知原文，
+// 其余拼写不做模糊猜测，继续留给未命中核对。
+const FRIENDLY_FLEET_SHIP_ALIASES = new Map([
+  ['Heywood l.E.改', 'Heywood L.E.改'], // 反撃！第三十一戦隊の戦い/E3
+  ['Marstrale改', 'Maestrale改'], // 反撃！第三十一戦隊の戦い/E4
+  ['Aqulia改', 'Aquila改'], // 反撃！第三十一戦隊の戦い/E4
+])
+
+const normalizeFriendlyFleetShipNames = (text) => {
+  let normalized = text
+  for (const [wikiName, shipName] of FRIENDLY_FLEET_SHIP_ALIASES) {
+    normalized = normalized.replaceAll(wikiName, shipName)
+  }
+  return normalized
+}
+
 export const parseEventFriendlyFleets = (html, shipsPack) => {
   const section = sectionFromAnchorToNextHeading(html, 'friend')
-  const table = tablesIn(section).find((candidate) => /旗艦/.test(htmlText(candidate.html)) && /随伴艦/.test(htmlText(candidate.html)))
-  if (!table) return []
+  const tables = tablesIn(section).filter(
+    (candidate) => /旗艦/.test(htmlText(candidate.html)) && /随伴艦/.test(htmlText(candidate.html)),
+  )
+  if (!tables.length) return []
   const matchShips = shipMatcher(shipsPack)
-  const grid = tableGrid(table.html)
-  const headerAt = grid.findIndex((row) => row.some((cell) => /旗艦/.test(cell?.text ?? '')))
-  if (headerAt < 0) return []
-  const body = grid.slice(headerAt + 1)
-  const shipsTextOf = (row) => withoutAnnotations(row.map((cell) => cell?.text ?? '').join(' '))
-  // 先看整张表有没有任何一条真舰名。一条都没有 = 还是空模板，整张表不作数。
-  // 这一步同样要走抹注记后的文本：否则空模板里 `()` 注记撞上一个短舰名，
-  // 整张模板就会被判成「已实装」，铎那一格转而端出一副由装备缩写拼成的假编成。
-  if (!body.some((row) => matchShips(shipsTextOf(row)).length)) {
-    return []
-  }
+  const shipsTextOf = (row) =>
+    normalizeFriendlyFleetShipNames(
+      withoutAnnotations(row.map((cell) => cell?.text ?? '').join(' ')),
+    )
+  const entries = tables
+    .map((table) => {
+      const grid = tableGrid(table.html)
+      const headerAt = grid.findIndex((row) =>
+        row.some((cell) => /旗艦/.test(cell?.text ?? '')),
+      )
+      return {
+        body: headerAt < 0 ? [] : grid.slice(headerAt + 1),
+        context: htmlText(section.slice(Math.max(0, table.at - 1200), table.at)),
+      }
+    })
+    // 每张表各自判空模板；本队实装后，折叠区里的先遣队表也要继续收进包。
+    .filter(({ body }) => body.some((row) => matchShips(shipsTextOf(row)).length))
+  const hasAdvanceArchive = entries.some(({ context }) => /友軍本隊追加前/.test(context))
+  const pageSaysMain = /友軍：[\s\S]{0,500}?本隊:\s*\d{2}\/\d{2}/.test(html)
   const fleets = []
-  for (const row of body) {
-    const whole = row.map((cell) => cell?.text ?? '').join(' ')
-    if (/艦娘名/.test(whole) && !/来援なし/.test(whole)) continue
-    const matches = matchShips(shipsTextOf(row))
-    const note = translateOperation(row.at(-1)?.html ?? row.at(-1)?.text ?? '')
-    if (matches.length) {
-      fleets.push({ ships: matches.map((ship) => ({ id: ship.id, name: ship.name })), ...(note ? { note } : {}) })
-    } else if (/友軍来援なし/.test(whole)) {
-      fleets.push({ ships: [], note: '无友军来援' })
+  for (const { body, context } of entries) {
+    const wave = /友軍本隊追加前/.test(context)
+      ? '先遣队'
+      : /友軍(?:本隊|艦隊)追加後/.test(context) || hasAdvanceArchive || pageSaysMain
+        ? '本队'
+        : ''
+    for (const row of body) {
+      const whole = row.map((cell) => cell?.text ?? '').join(' ')
+      if (/艦娘名/.test(whole) && !/来援なし/.test(whole)) continue
+      const matches = matchShips(shipsTextOf(row))
+      const detail = translateOperation(row.at(-1)?.html ?? row.at(-1)?.text ?? '')
+      const note = [wave, detail].filter(Boolean).join(' · ')
+      if (matches.length) {
+        fleets.push({
+          ships: matches.map((ship) => ({ id: ship.id, name: ship.name })),
+          ...(note ? { note } : {}),
+        })
+      } else if (/友軍来援なし/.test(whole)) {
+        fleets.push({ ships: [], note: [wave, '无友军来援'].filter(Boolean).join(' · ') })
+      }
     }
   }
   return fleets

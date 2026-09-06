@@ -130,7 +130,7 @@ export const set = (code: string, letter: string) => {
   return Object.keys(routeTargets)
 }
 `
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-route-target-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-route-target-'))
   const file = path.join(dir, 'store.cjs')
   fs.writeFileSync(file, transformSync(source, { loader: 'ts', format: 'cjs' }).code)
   return createRequire(fileURLToPath(import.meta.url))(file)

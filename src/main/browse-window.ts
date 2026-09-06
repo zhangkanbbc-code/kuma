@@ -26,7 +26,7 @@ import { stopFileNavigate } from './webcontent-utils'
 
 const MIN_WIDTH = 640
 const MIN_HEIGHT = 480
-const BOUNDS_KEY = 'kanso.browseWindow'
+const BOUNDS_KEY = 'kuma.browseWindow'
 /** 多扇同时开着时错开一点，免得后开的把先开的整个盖住、看着像只开了一扇。 */
 const CASCADE_STEP = 28
 
@@ -99,7 +99,7 @@ export const openBrowseWindow = (rawUrl?: unknown) => {
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
 
   // 里面那层网页的参数在这里定死，不看 <webview> 标签上写了什么。
-  // **preload 一定要清掉**：游戏 preload 是抓包桥与 kanso-cache 换出的入口，
+  // **preload 一定要清掉**：游戏 preload 是抓包桥与 kuma-cache 换出的入口，
   // 这一层拿到它就等于多出一个能伪造游戏流量的页面。
   win.webContents.on('will-attach-webview', (_event, webPreferences) => {
     delete webPreferences.preload

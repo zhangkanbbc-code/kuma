@@ -40,7 +40,7 @@ export type LimitedDropStatus =
  *
  * `kind` 的优先次序就是可靠性次序：
  *   · `official`  游戏内公告 / 官方推文——运营自己说的，最硬；
- *   · `ledger`    本机遭遇志 `encounters.drop_mst` 的实测日期——第一方一手，但只有下界；
+ *   · `ledger`    对照资料战斗报文 `encounters.drop_mst` 的实测日期——第一方一手，但只有下界；
  *   · `community` 社区资料整理——**写明是参考**，不冒充一手。
  */
 export type LimitedEvidenceKind = 'official' | 'ledger' | 'community'
@@ -139,9 +139,9 @@ export const limitedWindowText = (window: LimitedWindow) => {
 }
 
 /**
- * 本机确认层的一条观测该摆在哪个语境里（用户 2026-08-22 拍板的 ⑤-裁-2）。
+ * 对照资料确认层的一条观测该摆在哪个语境里（维护者 2026-08-22 拍板的 ⑤-裁-2）。
  *
- * **永不删除，只换语境。**「你在这里捞到过」是永真的历史事实，本机确认层的
+ * **永不删除，只换语境。**「你在这里捞到过」是永真的历史事实，对照资料确认层的
  * 措辞本来就是过去式；窗口结束后要变的是呈现，不是数据：
  *   · 最近一次捞到的日子落在**已收窗**的窗口内 → `past`，挂「限定期捞到 · 窗口已结束」
  *     折进往期，不再混在面向当下的清单里；

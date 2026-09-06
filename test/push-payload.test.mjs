@@ -268,10 +268,10 @@ test('配置一律按叶子路径读：整对象读会拿到写叶子时留下�
     return fallback
   })
   assert.deepEqual(asked.sort(), Object.values(PUSH_CONFIG_PATHS).sort())
-  // 「叶子」的结构判据：没有哪条路径是另一条的前缀。读 kanso.push 或
-  // kanso.push.ntfy 都会被这一条抓住——它们是别人的父节点。
+  // 「叶子」的结构判据：没有哪条路径是另一条的前缀。读 kuma.push 或
+  // kuma.push.ntfy 都会被这一条抓住——它们是别人的父节点。
   for (const path of asked) {
-    assert.match(path, /^kanso\.push\./, `${path} 跑出 kanso.push 之外了`)
+    assert.match(path, /^kuma\.push\./, `${path} 跑出 kuma.push 之外了`)
     const parents = asked.filter((other) => other !== path && other.startsWith(`${path}.`))
     assert.deepEqual(parents, [], `${path} 是整对象读，它下面还有 ${parents.length} 个叶子`)
   }

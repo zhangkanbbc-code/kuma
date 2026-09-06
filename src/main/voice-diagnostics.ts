@@ -50,7 +50,7 @@ const load = (): VoiceUnmatchedRecord[] => {
     records = Array.isArray(raw?.records) ? raw.records.slice(-MAX_RECORDS) : []
   } catch (error: any) {
     if (error?.code !== 'ENOENT') {
-      console.warn('[kanso] voice diagnostics: failed to read unmatched log', error)
+      console.warn('[kuma] voice diagnostics: failed to read unmatched log', error)
     }
     records = []
   }
@@ -84,7 +84,7 @@ export const flushVoiceUnmatched = () => {
       records,
     })
   } catch (error) {
-    console.warn('[kanso] voice diagnostics: failed to write unmatched log', error)
+    console.warn('[kuma] voice diagnostics: failed to write unmatched log', error)
   }
 }
 

@@ -65,7 +65,7 @@ if (nowText !== undefined) {
 }
 const write = flag('write')
 const dataDir = path.dirname(dbPath)
-process.env.KANSO_DATA_DIR = dataDir
+process.env.KUMA_DATA_DIR = dataDir
 
 const {
   QUEST_LODE_IDS,

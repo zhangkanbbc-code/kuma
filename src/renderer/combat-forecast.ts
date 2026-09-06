@@ -279,7 +279,7 @@ const ensureStockEquip = () => {
     .catch((error) => {
       // 失败要放行下次重试：置位不复原的话，本会话的通用配装就永远缺席了
       stockEquipRequested = false
-      console.warn('[kanso] 演习配装矿脉读取失败', error)
+      console.warn('[kuma] 演习配装矿脉读取失败', error)
       return null
     })
     .then((lode) => {

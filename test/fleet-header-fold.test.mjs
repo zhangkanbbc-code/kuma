@@ -40,6 +40,28 @@ const loadPlanner = () => {
   return new Function(param, bundle.slice(open + 1, close))
 }
 
+const loadPureFunction = (name) => {
+  const bundle = read('dist/renderer/index.js')
+  const head = new RegExp(`\\b${name}\\w* = \\(([^)]*)\\) => \\{`).exec(bundle)
+  assert.ok(head, `编译产物里找不到 ${name} —— 纯函数被改名或被内联了`)
+  const params = head[1].split(',').map((item) => item.trim()).filter(Boolean)
+  const open = bundle.indexOf('{', head.index + head[0].length - 1)
+  let depth = 0
+  let close = -1
+  for (let i = open; i < bundle.length; i += 1) {
+    if (bundle[i] === '{') depth += 1
+    else if (bundle[i] === '}') {
+      depth -= 1
+      if (depth === 0) {
+        close = i
+        break
+      }
+    }
+  }
+  assert.ok(close > open, `${name} 的函数体没能完整切出来`)
+  return new Function(...params, bundle.slice(open + 1, close))
+}
+
 /** 六枚一样宽的芯片：宽 40、间距 4、「⋯N」宽 30。 */
 const scene = (avail, keys = ['air', 'los', 'comp', 'soku', 'lv', 'tp'], width = 40) => ({
   widths: new Map(keys.map((key) => [key, width])),
@@ -204,6 +226,53 @@ test('两条度量行都走同一个收纳出口，芯片各自带 key', () => {
   for (const key of ['areas', 'squads', 'short', 'tired']) {
     assert.match(source, new RegExp(`data-mkey="${key}"`), `陆航度量缺 ${key} 的 key`)
   }
+  // 右键菜单只委托一次，浮层按需建一枚并挂 body；两条行各自持久化
+  assert.match(source, /closest<HTMLElement>\('\.metrics\[data-mrow\]'\)/)
+  assert.match(source, /event\.preventDefault\(\)[\s\S]{0,120}showMetricsMenu\(rowId, event\.clientX, event\.clientY\)/)
+  assert.match(source, /metricsMenu\.className = 'cmenu'/)
+  assert.match(source, /document\.body\.appendChild\(metricsMenu\)/)
+  assert.match(source, /uiGet<string\[]>\('ru\.metricsHidden\.fleet', \[\]\)/)
+  assert.match(source, /uiGet<string\[]>\('ru\.metricsHidden\.airbase', \[\]\)/)
+  assert.match(source, /uiSet\(`ru\.metricsHidden\.\$\{rowId\}`/)
+  assert.match(source, />显示哪些</)
+  assert.match(source, />全部显示</)
+})
+
+test('反选 TP 与航速后不渲染这两枚，收纳序仍保留完整口径', () => {
+  const markup = loadPureFunction('metricsRowMarkup')
+  const order = ['tp', 'comp', 'lv', 'soku', 'cmb', 'los', 'air']
+  const html = markup(
+    'fleet',
+    order,
+    ['tp', 'soku'],
+    order.map((key) => `<span class="mchip" data-mkey="${key}">${key}</span>`),
+  )
+  assert.doesNotMatch(html, /data-mkey="tp"/)
+  assert.doesNotMatch(html, /data-mkey="soku"/)
+  assert.match(html, /data-mkey="air"/)
+  assert.match(html, /data-mfold="tp,comp,lv,soku,cmb,los,air"/)
+})
+
+test('全部反选时度量行只留下自身收起的「⋯」', () => {
+  const markup = loadPureFunction('metricsRowMarkup')
+  const order = ['areas', 'squads', 'short', 'tired']
+  assert.equal(
+    markup(
+      'airbase',
+      order,
+      order,
+      order.map((key) => `<span class="mchip" data-mkey="${key}">${key}</span>`),
+    ),
+    '<div class="metrics" data-mrow="airbase" data-mfold="areas,squads,short,tired"><span class="mchip mfold m-folded" data-metrics-fold tabindex="0" aria-label="展开收起的度量">⋯<b>0</b></span></div>',
+  )
+})
+
+test('「全部显示」清空隐藏项，单项仍可连续反选与找回', () => {
+  const next = loadPureFunction('nextMetricHidden')
+  const order = ['tp', 'comp', 'lv', 'soku']
+  assert.deepEqual(next(order, ['tp', 'soku'], null), [])
+  assert.deepEqual(next(order, ['tp'], 'soku'), ['tp', 'soku'])
+  assert.deepEqual(next(order, ['tp', 'soku'], 'tp'), ['soku'])
 })
 
 test('收纳在渲染那一帧就定下来，宽度变了会重量、同宽不重算', () => {

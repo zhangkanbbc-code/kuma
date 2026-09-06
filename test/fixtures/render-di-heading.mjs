@@ -61,7 +61,7 @@ export { outcomeBannerHtml }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-di-heading-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-di-heading-'))
   fs.mkdirSync(path.join(dir, 'shared'))
   fs.copyFileSync(
     path.join(ROOT, 'src', 'shared', 'sortie-route.ts'),

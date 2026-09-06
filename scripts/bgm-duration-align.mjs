@@ -5,7 +5,7 @@
 // 命中的号要不要收编，人看过再说。
 //
 // 用法：`npm run bgm:align`
-//   本机侧：`%APPDATA%/kanso/bgm-archive/bgm/battle/NNN_XXXX.<sha1>.mp3`
+//   本机侧：`%APPDATA%/kuma/bgm-archive/bgm/battle/NNN_XXXX.<sha1>.mp3`
 //     ——「响过即存」攒下的实物，零网络（档案空着就如实说空着）。
 //   誊写侧：zh.kcwiki 拆包BGM列表（与 kcwiki-bgm 矿脉包同源同页，一次请求）。
 import fs from 'fs'
@@ -158,7 +158,7 @@ const main = async () => {
     )
     return
   }
-  const response = await fetch(PAGE_URL, { headers: { 'User-Agent': 'kanso-lodes' } })
+  const response = await fetch(PAGE_URL, { headers: { 'User-Agent': 'kuma-lodes' } })
   if (!response.ok) throw new Error(`拆包BGM列表取不下来：HTTP ${response.status}`)
   const entries = wikiEntries(await response.text())
   const taken = knownNames()

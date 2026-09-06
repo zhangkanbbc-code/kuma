@@ -64,7 +64,7 @@ const readFromCache = async (rawUrl) => {
     if (!response.ok) return
     const buffer = await response.arrayBuffer()
     if (!buffer.byteLength || buffer.byteLength > MAX_BYTES) return
-    ipcRenderer.send('kanso:art-archive-blob', {
+    ipcRenderer.send('kuma:art-archive-blob', {
       // 路径是档案里的身份（与图鉴逐格点亮的判据同一个键）；
       // 完整 URL 一并交回，主进程从里面取版本参数当季节差分的身份。
       pathname,
@@ -81,7 +81,7 @@ const readFromCache = async (rawUrl) => {
 }
 
 const installArtArchive = () => {
-  ipcRenderer.on('kanso:art-archive-ask', (_event, url) => {
+  ipcRenderer.on('kuma:art-archive-ask', (_event, url) => {
     // 游戏发起请求与响应落进缓存之间有一小段；等一拍再读，命中率高得多。
     // 主进程那边的「自己发的那次请求」认领窗口按这个 1.2 秒定的（4 秒，三倍余量），
     // 改这个数字要同步看 shared/voice-request-gate 的 SELF_FETCH_WINDOW_MS。

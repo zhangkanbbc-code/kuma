@@ -84,7 +84,7 @@ await build({
   //
   // 发行版连外挂那份也不生成（三个 map 合计 5.46MB，占 app.asar 的 18%）。
   // 上一段那句「唯一读它的是 DevTools」在正式包里就是判死：DevTools 由
-  // KANSO_DEVTOOLS 环境变量把门，玩家那边根本不会开，而真要开它调渲染层的人
+  // KUMA_DEVTOOLS 环境变量把门，玩家那边根本不会开，而真要开它调渲染层的人
   // 手上有源码、自己 npm run build 就有 map。
   sourcemap: RELEASE ? false : true,
 })
@@ -112,4 +112,4 @@ rmSync(path.join(rendererOut, 'assets'), { recursive: true, force: true })
 cpSync(path.join(root, 'src', 'renderer', 'assets'), path.join(rendererOut, 'assets'), {
   recursive: true,
 })
-console.log(`[kanso] build ok${RELEASE ? '（发行版：渲染层不出 sourcemap）' : ''}`)
+console.log(`[kuma] build ok${RELEASE ? '（发行版：渲染层不出 sourcemap）' : ''}`)

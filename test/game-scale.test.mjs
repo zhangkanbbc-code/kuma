@@ -53,8 +53,8 @@ test('默认就是从前那一档：自适应、主档 100%', () => {
   assert.equal(GAME_WIDTH, 1200)
   assert.equal(GAME_HEIGHT, 720)
   // 叶子路径：整对象读会读到 setByPath 留下的半份对象，从此不再回落默认值
-  assert.equal(GAME_SCALE_PATHS.mode, 'kanso.gameScale.mode')
-  assert.equal(GAME_SCALE_PATHS.step, 'kanso.gameScale.step')
+  assert.equal(GAME_SCALE_PATHS.mode, 'kuma.gameScale.mode')
+  assert.equal(GAME_SCALE_PATHS.step, 'kuma.gameScale.step')
 })
 
 test('档位表升序、含主档 1，且每一档都能被判据认回来', () => {

@@ -336,7 +336,7 @@ test('取字节那一半结构上发不出网络请求：只用 only-if-cached',
 //
 // 用户实机报的那处脱节：整张立绘好端端显示着，收集格却写「0/6 图种」。
 // 两本账各说各的——**显示**走缓存命中 + 游戏资源服务器回退，**点亮**认档案层，
-// 而档案层此前只收「游戏页面自己请求资源」那条钩子，艦素自己摆出来的图不经过它。
+// 而档案层此前只收「游戏页面自己请求资源」那条钩子，kuma自己摆出来的图不经过它。
 // 补法不是把点亮判据放宽去认缓存（缓存会被整盘丢弃，收集进度会随时蒸发），
 // 而是把显示这件事本身变成一次入档。
 
@@ -347,7 +347,7 @@ test('显示成功的那一格会入档，且带的是与点亮判据同一个�
   // 而漂移的表现正是「图显示出来了、格子却不亮」，不报错
   assert.match(image, /export const shipImagePath = /)
   assert.match(image, /export const noteShipArtDisplayed = /)
-  assert.match(image, /ipcRenderer\.send\('kanso:archive-capture-art'/)
+  assert.match(image, /ipcRenderer\.send\('kuma:archive-capture-art'/)
   // 格子上带着那条身份，load 之后拿它入档
   assert.match(ji, /data-cg-path="\$\{esc\(im\.pathname\)\}"/)
   assert.match(ji, /data-cg-path="\$\{esc\(image\.pathname\)\}"/)
@@ -359,7 +359,7 @@ test('显示成功的那一格会入档，且带的是与点亮判据同一个�
   assert.match(image, /export const noteShipArtDisplayed = \(pathname: string, url: string, version\?: string\)/)
   assert.match(image, /version: version \?\? ''/)
   // **不在热路径上**：单向 send，显示不等转存
-  assert.equal(/invoke\('kanso:archive-capture-art'/.test(image), false, '入档不该用会等结果的 invoke')
+  assert.equal(/invoke\('kuma:archive-capture-art'/.test(image), false, '入档不该用会等结果的 invoke')
 })
 
 test('入档取字节：本机缓存文件优先，回退受开关管，且不重试不换取法', () => {
@@ -377,7 +377,7 @@ test('入档取字节：本机缓存文件优先，回退受开关管，且不�
   const remote = code.indexOf('await remoteBytes(')
   assert.ok(cached > 0 && remote > cached, '本机缓存文件必须排在回退之前')
   // 回退受钥里那个开关管（立绘与语音同一个）
-  assert.match(code, /if \(!config\.get\('kanso\.remoteArt', true\)\) return null/)
+  assert.match(code, /if \(!config\.get\('kuma\.remoteArt', true\)\) return null/)
   // 只指向游戏自己的服务器，且不重试、不换取法、不碰第三方站
   assert.match(code, /url\.protocol !== 'https:'/)
   assert.equal(/wikia|fandom|kcwiki|tsunkit|XMLHttpRequest|\.retry|setInterval/i.test(code), false)
@@ -694,15 +694,15 @@ test('入档之后界面要跟上：新并进来的那一条会广播，正看�
   // ② 装配层据此广播（用 DOM 事件，它不该知道哪个模块开着哪一页）
   assert.match(index, /if \(noteArtArchived\(entry\)\) notifyArchiveLit\('art', entry\.mstId\)/)
   assert.match(index, /if \(noteVoiceArchived\(entry\)\) notifyArchiveLit\('voice', entry\.mstId\)/)
-  assert.match(index, /new CustomEvent\('kanso:archive-lit'/)
+  assert.match(index, /new CustomEvent\('kuma:archive-lit'/)
   // ③ 图鉴听它，并且**只在看着那一页时**重画（两道性能闸门由 scheduleRender 自己管）
-  assert.match(ji, /document\.addEventListener\('kanso:archive-lit', onArchiveLit\)/)
+  assert.match(ji, /document\.addEventListener\('kuma:archive-lit', onArchiveLit\)/)
   // 衣装那一份记在**构图编号**下（5xxx/6xxx），要先换算回形态再比，
   // 否则玩家正看着的那一页刚入档一套衣装，会被当成「别人的事」不重画
   assert.match(ji, /if \(mstId && mstId !== showing && costumeOwnerOf\(mstId\) !== showing\) return/)
   assert.match(ji, /scheduleRender\(\)/)
   // 订阅要退订：图鉴会被重复装配，漏退就是双重订阅
-  assert.match(ji, /trackMountCleanup\(\(\) => document\.removeEventListener\('kanso:archive-lit', onArchiveLit\)\)/)
+  assert.match(ji, /trackMountCleanup\(\(\) => document\.removeEventListener\('kuma:archive-lit', onArchiveLit\)\)/)
   // ④ 那条已经作废的注释不许原样留着骗下一个人
   const stripped = stripComments(art)
   assert.equal(stripped.includes('这里不主动重渲'), false)

@@ -85,7 +85,7 @@ export const wipe = () => { db.exec('DELETE FROM friendly_fleets') }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-friendly-ledger-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-friendly-ledger-'))
   const entry = path.join(dir, 'ledger-slice.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'ledger-slice.cjs')

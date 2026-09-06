@@ -91,7 +91,7 @@ KCNav 在线接口明确拒绝未授权 API 自动化，所以抓取器不会模
 只有从官方途径或由用户手动取得离线包后才导入：
 
 ```powershell
-$env:KANSO_KCNAV_EXPORT = 'C:\path\to\kcnav-routing.json'
+$env:KUMA_KCNAV_EXPORT = 'C:\path\to\kcnav-routing.json'
 npm run lodes:fetch -- --only=kcnav-routing
 ```
 

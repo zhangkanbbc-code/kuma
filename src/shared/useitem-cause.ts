@@ -1,6 +1,6 @@
 // 道具变动归因：只让一个端点解释它在机制上可能造成的方向与道具。
 //
-// 编号来源（2026-09-02 本机 api_start2 主数据 + events/useitem_log 实账核对）：
+// 编号来源（2026-09-02 对照资料 api_start2 主数据 + events/useitem_log 实账核对）：
 // · 44 家具コイン → api_req_furniture/buy
 // · 55 書類一式＆指輪 → api_req_kaisou/marriage
 // · 64 補強増設 → api_req_kaisou/open_exslot

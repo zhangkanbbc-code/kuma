@@ -63,7 +63,7 @@ if (!lodes['quests-scn']) {
   process.exit(2)
 }
 if (!snapshot) {
-  console.error('缺 %APPDATA%/kanso/snapshots/kcsapi_api_start2_getData.json——主数据未就绪')
+  console.error('缺 %APPDATA%/kuma/snapshots/kcsapi_api_start2_getData.json——主数据未就绪')
   process.exit(2)
 }
 

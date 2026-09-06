@@ -194,7 +194,7 @@ test('生产引擎按各自当前周期重放受领、放弃、交付与真实�
 })
 
 const openDb = (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-quest-progress-v13-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-quest-progress-v13-'))
   const file = path.join(dir, 'mg.sqlite')
   const db = new DatabaseSync(file)
   db.exec(`
@@ -310,7 +310,7 @@ test('事件正文 JSON 损坏时警告并保留该任务原进度', (t) => {
 
   const { value: result, warnings } = collectWarnings(() => replayFromDb(db, [211]))
   assert.deepEqual(result.failedQuestIds, [211])
-  assert.match(warnings.join('\n'), /\[kanso\].*事件正文损坏.*quest=211/)
+  assert.match(warnings.join('\n'), /\[kuma\].*事件正文损坏.*quest=211/)
   assert.deepEqual(planQuestProgressChanges(db, result), [])
   overwriteQuestProgress(db, [])
   assert.equal(db.prepare('SELECT counts FROM quest_progress WHERE quest_id = 211').get().counts, '[9]')
@@ -327,7 +327,7 @@ test('任务参数 JSON 损坏时警告并保留该任务原进度', (t) => {
 
   const { value: result, warnings } = collectWarnings(() => replayFromDb(db, [217]))
   assert.deepEqual(result.failedQuestIds, [217])
-  assert.match(warnings.join('\n'), /\[kanso\].*任务参数损坏.*quest=217/)
+  assert.match(warnings.join('\n'), /\[kuma\].*任务参数损坏.*quest=217/)
   assert.deepEqual(planQuestProgressChanges(db, result), [])
   assert.equal(db.prepare('SELECT counts FROM quest_progress WHERE quest_id = 217').get().counts, '[1]')
 })
@@ -342,7 +342,7 @@ test('战斗快照 JSON 损坏时计入 missingBattleSnapshots 并保留该任�
   const { value: result, warnings } = collectWarnings(() => replayFromDb(db, [220]))
   assert.deepEqual(result.failedQuestIds, [220])
   assert.deepEqual(result.missingBattleSnapshots, [eventId])
-  assert.match(warnings.join('\n'), /\[kanso\].*战斗快照损坏.*quest=220/)
+  assert.match(warnings.join('\n'), /\[kuma\].*战斗快照损坏.*quest=220/)
   assert.deepEqual(planQuestProgressChanges(db, result), [])
   assert.equal(db.prepare('SELECT counts FROM quest_progress WHERE quest_id = 220').get().counts, '[14]')
 })
@@ -356,7 +356,7 @@ test('旧 counts 损坏与无旧记录分开处理：损坏时警告并保留原
     planQuestProgressChanges(db, replay()),
   )
   assert.deepEqual(changes.map((change) => change.questId), [217, 220])
-  assert.match(warnings.join('\n'), /\[kanso\].*旧进度损坏.*quest=211/)
+  assert.match(warnings.join('\n'), /\[kuma\].*旧进度损坏.*quest=211/)
   overwriteQuestProgress(db, changes)
   assert.equal(db.prepare('SELECT counts FROM quest_progress WHERE quest_id = 211').get().counts, '{')
 
@@ -437,7 +437,7 @@ test('维护者脚本默认只读 dry-run，--write 才覆盖同一副本', (t) 
 })
 
 test('ledger 构造器在临时 SQLite 真跑 v13，升版、覆盖与重跑幂等', async (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-ledger-v13-constructor-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-ledger-v13-constructor-'))
   const file = path.join(dir, 'mg.sqlite')
   const seed = new DatabaseSync(file)
   seed.exec(`

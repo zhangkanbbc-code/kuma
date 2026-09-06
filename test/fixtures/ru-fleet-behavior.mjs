@@ -94,7 +94,7 @@ export { warnSortieReadiness }
 `
 
 const loaded = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-ru-fleet-behavior-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-ru-fleet-behavior-'))
   const entry = path.join(dir, 'ru-fleet-behavior.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'ru-fleet-behavior.cjs')

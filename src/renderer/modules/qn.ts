@@ -1,7 +1,7 @@
 // 钦 (Qn) · 任务：顶部分类与周期筛选 + 全宽任务列表 + 侧滑详情。
 // 数据单基准：任务文本/前置链/报酬 = 简中任务库 quests-scn（zh.kcwiki 任务页直取）；
 // 进行状态/粗档进度 = 游戏 questlist 被动观测；
-// 精确计数与编成条件 = 铭的计数引擎（艦素自研为主，kcwiki/poi 两个 MIT 源补位）——
+// 精确计数与编成条件 = 铭的计数引擎（kuma自研为主，kcwiki/poi 两个 MIT 源补位）——
 // 本地事件流计数，与服务器进度可能有出入，游戏自报粗档并列展示作对照。
 import type { Quest } from '../../shared/mg-types'
 import { QP_BLOCK_TEXT, QP_RANK_NAME, qpTaskGroups } from '../../shared/qp-types'
@@ -216,7 +216,7 @@ const refreshFleetCheck = async () => {
     fleetCheckFailed = false
   } catch (error) {
     // 失效不丢数据：旧结论留着显示，失败本身摆到检查区里说，不静默吞
-    console.warn('[kanso] qn: 编成条件读取失败', error)
+    console.warn('[kuma] qn: 编成条件读取失败', error)
     fleetCheckFailed = true
   }
   quickCountEpoch += 1

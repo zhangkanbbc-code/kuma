@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta
     http-equiv="Content-Security-Policy"
-    content="default-src 'self' data: file: https: kanso-cache:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file: https: kanso-cache:; media-src 'self' data: file: https: kanso-cache:; connect-src 'self' https:; object-src 'none'; base-uri 'none'"
+    content="default-src 'self' data: file: https: kuma-cache:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file: https: kuma-cache:; media-src 'self' data: file: https: kuma-cache:; connect-src 'self' https:; object-src 'none'; base-uri 'none'"
   />
   <title>kuma</title>
   <style>
@@ -191,7 +191,7 @@
       background: var(--bg1);
       border-bottom: 1px solid var(--line);
       position: relative;
-      transition: filter var(--motion-solemn) ease; /* 哀悼态失色（见 body.kanso-mourning） */
+      transition: filter var(--motion-solemn) ease; /* 哀悼态失色（见 body.kuma-mourning） */
     }
     /* 泊地槽位定宽保底（2026-08-16 用户定的）：识别前后宽度不跳；IP 在悬停里 */
     #server-badge { color: var(--dim); font-size: 12px; display: inline-block; min-width: 72px; cursor: help; }
@@ -384,11 +384,11 @@
     #header-status .hs-res.glow-up::after, .mod-zi .tile.glow-up::after { background: color-mix(in srgb, var(--ok) 26%, transparent); box-shadow: inset 0 0 0 1px var(--ok); }
     #header-status .hs-res.glow-down::after, .mod-zi .tile.glow-down::after { background: color-mix(in srgb, var(--bad) 26%, transparent); box-shadow: inset 0 0 0 1px var(--bad); }
     #header-status .hs-res.glow-up::after, #header-status .hs-res.glow-down::after,
-    .mod-zi .tile.glow-up::after, .mod-zi .tile.glow-down::after { animation: kanso-res-glow-in 240ms ease-out both; animation-delay: calc(-1 * var(--glow-elapsed, 0ms)); }
+    .mod-zi .tile.glow-up::after, .mod-zi .tile.glow-down::after { animation: kuma-res-glow-in 240ms ease-out both; animation-delay: calc(-1 * var(--glow-elapsed, 0ms)); }
     #header-status .hs-res.glow-up.leaving::after, #header-status .hs-res.glow-down.leaving::after,
-    .mod-zi .tile.glow-up.leaving::after, .mod-zi .tile.glow-down.leaving::after { animation: kanso-res-glow-out 420ms ease-in forwards; animation-delay: calc(-1 * var(--glow-elapsed, 0ms)); }
-    @keyframes kanso-res-glow-in { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes kanso-res-glow-out { from { opacity: 1; } to { opacity: 0; } }
+    .mod-zi .tile.glow-up.leaving::after, .mod-zi .tile.glow-down.leaving::after { animation: kuma-res-glow-out 420ms ease-in forwards; animation-delay: calc(-1 * var(--glow-elapsed, 0ms)); }
+    @keyframes kuma-res-glow-in { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes kuma-res-glow-out { from { opacity: 1; } to { opacity: 0; } }
     #header-status .hs-res:hover, #header-status .hs-chip:hover, #header-status .hs-cap:hover,
     .header-fold-pop .hs-chip:hover { background: var(--bg3); color: var(--accent); }
     #header-status .hs-res .material-icon.xs { width: 12px; height: 12px; }
@@ -624,8 +624,8 @@
       display: flex; flex-direction: column; gap: 2px;
       padding: 5px 0; overflow: hidden;
       background: var(--bg1); border-right: 1px solid var(--line);
-      /* filter 在列表里是给哀悼态失色用的（见 body.kanso-mourning）：
-         过渡必须写在**基础规则**上，写进 .kanso-mourning 那一条的话，
+      /* filter 在列表里是给哀悼态失色用的（见 body.kuma-mourning）：
+         过渡必须写在**基础规则**上，写进 .kuma-mourning 那一条的话，
          解除时元素已经不匹配那条选择器，颜色会「啪」地弹回来。 */
       transition: width var(--motion-fast) ease, padding var(--motion-fast) ease, box-shadow var(--motion-fast) ease, filter var(--motion-solemn) ease;
     }
@@ -758,9 +758,9 @@
     .ws-pane { display: none; flex: 1; min-height: 0; min-width: 0; flex-direction: column; }
     .ws-pane.active {
       display: flex;
-      animation: kanso-view-enter var(--motion-view) var(--motion-ease) both;
+      animation: kuma-view-enter var(--motion-view) var(--motion-ease) both;
     }
-    @keyframes kanso-view-enter {
+    @keyframes kuma-view-enter {
       from { opacity: .35; transform: translate3d(0, 5px, 0) scale(.997); }
       to { opacity: 1; transform: none; }
     }
@@ -797,21 +797,21 @@
        时长（淡入淡出）由 renderer/launch-glow.ts 从 shared 的 LAUNCH_WELCOME_TIMING
        写在行内，这里同样不写死任何毫秒数；减少动态效果时那几个行内值根本不写，
        0ms 就是「直接就位」。 */
-    #kanso-welcome {
+    #kuma-welcome {
       position: fixed; inset: 0; z-index: 9500;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       background: var(--bg0);
       user-select: none; cursor: default;
     }
     /* 淡入挂在两块内容上、淡出挂在整层上——同一个元素放不下两条动画名 */
-    #kanso-welcome > * {
-      animation-name: kanso-welcome-in;
+    #kuma-welcome > * {
+      animation-name: kuma-welcome-in;
       animation-timing-function: ease;
       animation-fill-mode: both;
       animation-duration: 0ms;
     }
-    #kanso-welcome.kw-out {
-      animation-name: kanso-welcome-out;
+    #kuma-welcome.kw-out {
+      animation-name: kuma-welcome-out;
       animation-timing-function: ease;
       animation-fill-mode: forwards;
       animation-duration: 0ms;
@@ -824,7 +824,7 @@
        那一下比截断难看得多。
        line-height 显式取 normal：body 那份 1.5 会把牌子撑高一截，而更小的值又会
        在 overflow: hidden 下切掉 24px 那行的上下沿。 */
-    #kanso-welcome .kw-box {
+    #kuma-welcome .kw-box {
       display: inline-block;
       padding: 14px 18px;
       border: 1px solid var(--line); border-radius: 5px;
@@ -834,26 +834,26 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     /* 招呼那半句退到副色小字：它是称呼的前缀，真正要看的是右边那个名字 */
-    #kanso-welcome .kw-lead {
+    #kuma-welcome .kw-lead {
       font-family: var(--sans); font-size: 13px; color: var(--sub);
       margin-right: 10px;
     }
-    #kanso-welcome .kw-name {
+    #kuma-welcome .kw-name {
       font-family: var(--mono); font-size: 24px; font-weight: 600;
       letter-spacing: 1px; color: var(--text);
     }
     /* 最底一行：只是告诉你「这屏可以跳过」，不该跟铭牌抢眼睛，所以贴底、压暗一档 */
-    #kanso-welcome .kw-skip {
+    #kuma-welcome .kw-skip {
       position: absolute; bottom: 28px;
       font-size: 10.5px; letter-spacing: .5px; color: var(--dim);
     }
-    @keyframes kanso-welcome-in { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes kanso-welcome-out { from { opacity: 1; } to { opacity: 0; } }
+    @keyframes kuma-welcome-in { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes kuma-welcome-out { from { opacity: 1; } to { opacity: 0; } }
 
-    body.kanso-glow #element-rail,
-    body.kanso-glow .dock-group { opacity: 0; }
-    body.kanso-glow-run #element-rail,
-    body.kanso-glow-run .dock-group {
+    body.kuma-glow #element-rail,
+    body.kuma-glow .dock-group { opacity: 0; }
+    body.kuma-glow-run #element-rail,
+    body.kuma-glow-run .dock-group {
       /* linear + **成对关键帧**：每个亮度靠「到达帧 + 保持帧」两帧撑成平台，
          明暗切换只发生在相邻 3~5% 的那一小段里（840ms 下 25~42ms 的插值窗）。
          2026-08-23 用户实机：上一版用 steps(1, end) 零毫秒硬跳，「闪的有点闪眼睛」
@@ -861,7 +861,7 @@
          倒数第二帧里改回 ease-out。 */
       animation-timing-function: linear;
       animation-fill-mode: both; /* 延时期间保持暗、放完保持亮，中间不用 JS 插手 */
-      animation-name: kanso-glow-a; /* 兜底：JS 会逐个改成分配到的变体 */
+      animation-name: kuma-glow-a; /* 兜底：JS 会逐个改成分配到的变体 */
       animation-duration: 0ms; /* JS 没写到的元素直接就位，不会卡在暗态 */
     }
     /* 三套点火节奏，由同一个随机流分配到各格，**相邻两格必不同**
@@ -869,7 +869,7 @@
        ① **首次点亮之后 opacity 不再跌破 .35**——真正刺眼的是「亮→近黑→亮」，
           不是切换本身；② **每个暗谷都比前一个浅**，于是整条读成「越闪越亮」的
           预热，而不是忽明忽暗的故障告警。每格明暗至多三次，b 只留两次。 */
-    @keyframes kanso-glow-a { /* 稳中带闪：着火早，两谷渐浅地站稳（斜坡窗 4%） */
+    @keyframes kuma-glow-a { /* 稳中带闪：着火早，两谷渐浅地站稳（斜坡窗 4%） */
       0% { opacity: 0; }
       12% { opacity: 0; }
       16% { opacity: .55; }
@@ -882,7 +882,7 @@
       76% { opacity: .55; animation-timing-function: ease-out; }
       100% { opacity: 1; }
     }
-    @keyframes kanso-glow-b { /* 迟疑后猛亮：暗得久、先弱着一会儿、抖一下才轰起来（斜坡窗 5%） */
+    @keyframes kuma-glow-b { /* 迟疑后猛亮：暗得久、先弱着一会儿、抖一下才轰起来（斜坡窗 5%） */
       0% { opacity: 0; }
       25% { opacity: 0; }
       30% { opacity: .44; }
@@ -893,7 +893,7 @@
       78% { opacity: .9; animation-timing-function: ease-out; }
       100% { opacity: 1; }
     }
-    @keyframes kanso-glow-c { /* 先爆后稳：开头一记大亮，再两下越来越浅的回落（斜坡窗 3%） */
+    @keyframes kuma-glow-c { /* 先爆后稳：开头一记大亮，再两下越来越浅的回落（斜坡窗 3%） */
       0% { opacity: 0; }
       9% { opacity: 0; }
       12% { opacity: .88; }
@@ -915,13 +915,13 @@
     }
     /* 游戏区**不跟着硬闪**：整块画面明暗硬跳太刺眼。只给两段很轻的脉冲再放亮，
        时间函数另起一条——上面那条 steps 只作用在坞位与导航条上。 */
-    body.kanso-glow-run #game-glow {
+    body.kuma-glow-run #game-glow {
       animation-timing-function: ease-in-out;
       animation-fill-mode: both;
-      animation-name: kanso-glow-game;
+      animation-name: kuma-glow-game;
       animation-duration: 0ms;
     }
-    @keyframes kanso-glow-game {
+    @keyframes kuma-glow-game {
       0% { opacity: 1; }
       24% { opacity: .84; }
       38% { opacity: .93; }
@@ -938,38 +938,38 @@
        被动重渲的逐字节闸门照旧无感。只压 opacity，不动布局——面板框架
        （标签/抬头/度量/页脚）照常跟着格子一起点亮，用户点名的只是舰娘行。
        摘除时机与「漏摘就是编队永远隐身」的防线见 renderer/launch-glow.ts 的 CEREMONY_CLASS。 */
-    body.kanso-ceremony .ws-pane.mod-ru .ships .ship { opacity: 0; }
+    body.kuma-ceremony .ws-pane.mod-ru .ships .ship { opacity: 0; }
     /* 第三幕（资源数字自检）同理，压的只是**数字本身**：顶栏的图标照常随格点亮。
        顶栏尤其要压——它压根不在第一幕的罩暗范围里、从头就看得见，
        不压就是「先看真值再重演」。 */
-    body.kanso-ceremony .ws-pane.mod-zi .tiles .tile .v,
-    body.kanso-ceremony #header-status .hs-res b { opacity: 0; }
+    body.kuma-ceremony .ws-pane.mod-zi .tiles .tile .v,
+    body.kuma-ceremony #header-status .hs-res b { opacity: 0; }
     /* 锱 · 资源盘那一幕：磁贴**外壳**与右栏各卡整块预隐。数字本身归上面那条
        （自检幕已经接管 `.tile .v`，这里不再隐第二次——两幕压同一个元素，
        摘的时候就要靠运气了）。压的是磁贴与卡片这一层而不是它们的内容：
        锱在第一幕期间随时可能首渲/重渲，压这一层才管得住那一刻新生的块。 */
-    body.kanso-ceremony .ws-pane.mod-zi .tiles .tile,
-    body.kanso-ceremony .ws-pane.mod-zi .side > * { opacity: 0; }
+    body.kuma-ceremony .ws-pane.mod-zi .tiles .tile,
+    body.kuma-ceremony .ws-pane.mod-zi .side > * { opacity: 0; }
     /* 顶栏其余几组角标（远/渠/建/演/库）整组预隐；顶栏自身的底色、提督名与 BGM
        那一段是框架，照常随第一幕亮着。 */
-    body.kanso-ceremony #header-status .hs-group:not(.resources) { opacity: 0; }
+    body.kuma-ceremony #header-status .hs-group:not(.resources) { opacity: 0; }
     /* 镝与铎共用右坞那一格，当前页是谁谁演——两页的**内容区**都从开场就隐身，
        页签/抬头随第一幕照常点亮。压的是内容容器而不是逐块：镝的分区、铎的卡片
        在第一幕期间随时可能首渲/重渲，压容器才管得住那一刻新生的东西。 */
-    body.kanso-ceremony .ws-pane.mod-di .di-app,
-    body.kanso-ceremony .ws-pane.mod-du .du-app { opacity: 0; }
+    body.kuma-ceremony .ws-pane.mod-di .di-app,
+    body.kuma-ceremony .ws-pane.mod-du .du-app { opacity: 0; }
     /* 鉴/钦/镖：压的都是**内容**，各自的框架照常随第一幕点亮——
        鉴留卷标签（.book-tabs）、钦留筛选条、镖留搜索与筛选条。
        压容器而不是逐块：这几个面板在第一幕期间随时可能首渲/重渲。 */
-    body.kanso-ceremony .ws-pane.mod-ji .ji-app > *:not(.book-tabs),
-    body.kanso-ceremony .ws-pane.mod-qn .q-work,
-    body.kanso-ceremony .ws-pane.mod-bi .elist,
-    body.kanso-ceremony .ws-pane.mod-bi .detail { opacity: 0; }
+    body.kuma-ceremony .ws-pane.mod-ji .ji-app > *:not(.book-tabs),
+    body.kuma-ceremony .ws-pane.mod-qn .q-work,
+    body.kuma-ceremony .ws-pane.mod-bi .elist,
+    body.kuma-ceremony .ws-pane.mod-bi .detail { opacity: 0; }
     /* 乱滚期间每一位都在换字形：等宽 + tabular-nums 才不会逐帧改宽度、把面板抖出重排。
        顶栏那份本来就写了（.hs-res b），这里给锱的数字补上。 */
     .mod-zi .tile .v { font-variant-numeric: tabular-nums; }
 
-    /* ══ 并行各幕 · 入场（同一个 kanso.launchGlow 开关，接在最后一格亮透那一刻，
+    /* ══ 并行各幕 · 入场（同一个 kuma.launchGlow 开关，接在最后一格亮透那一刻，
        与游戏区那 1.8 秒的淡入并排跑）══
        节点与 data 标记都是 renderer/launch-glow.ts 在**挂载后的真实 DOM 上**加的，
        一个字都不进模块的 HTML 输出管线（被动重渲的逐字节闸门要拿那份输出做比较）。
@@ -984,7 +984,7 @@
        加第五幕＝一条注册 + 这里一段关键帧 + 一条预隐规则，别的都不用动。 */
 
     /* 罩层（锐的加载光带 / 镝的扫描线）共用的形态：绝对定位、不挡点击、随宿主被裁 */
-    .kanso-roster-load, .kanso-battle-scan {
+    .kuma-roster-load, .kuma-battle-scan {
       position: absolute; inset: 0; z-index: 4;
       pointer-events: none; /* 纯视觉，不挡任何点击 */
       overflow: hidden;
@@ -992,43 +992,43 @@
       animation-fill-mode: both;
       animation-duration: 0ms; /* JS 逐个写行内值；没写到的直接就位，不会赖着不走 */
     }
-    .kanso-roster-load > i, .kanso-battle-scan > i {
+    .kuma-roster-load > i, .kuma-battle-scan > i {
       position: absolute; top: 0; bottom: 0;
       animation-timing-function: ease-in-out;
       animation-fill-mode: both;
       animation-duration: 0ms;
     }
     /* 逐元素进场：轮到它之前保持在起点（fill-mode both），不用 JS 逐帧插手 */
-    [data-kanso-in] {
+    [data-kuma-in] {
       animation-timing-function: var(--motion-ease);
       animation-fill-mode: both;
       animation-duration: 0ms;
     }
 
     /* ── 锐 · 编队入场：加载光带扫过，舰娘行一排排落位 ── */
-    .kanso-roster-load { background: color-mix(in srgb, var(--bg1) 74%, transparent); animation-name: kanso-roster-veil; }
+    .kuma-roster-load { background: color-mix(in srgb, var(--bg1) 74%, transparent); animation-name: kuma-roster-veil; }
     /* 扫动光带：一条细亮带横过面板一次。不做转圈 spinner——那个老气，
        而且转圈是「不知道要多久」的语气，这里明明马上就好。 */
-    .kanso-roster-load > i {
+    .kuma-roster-load > i {
       left: 0; width: 30%;
       background: linear-gradient(90deg,
         transparent,
         color-mix(in srgb, var(--accent) 22%, transparent),
         transparent);
-      animation-name: kanso-roster-sweep;
+      animation-name: kuma-roster-sweep;
     }
-    @keyframes kanso-roster-veil {
+    @keyframes kuma-roster-veil {
       0% { opacity: 0; }
       16% { opacity: 1; }
       74% { opacity: 1; }
       100% { opacity: 0; }
     }
-    @keyframes kanso-roster-sweep {
+    @keyframes kuma-roster-sweep {
       from { transform: translate3d(-110%, 0, 0); }
       to { transform: translate3d(370%, 0, 0); }
     }
-    [data-kanso-in='roster'] { animation-name: kanso-roster-row; }
-    @keyframes kanso-roster-row {
+    [data-kuma-in='roster'] { animation-name: kuma-roster-row; }
+    @keyframes kuma-roster-row {
       from { opacity: 0; transform: translate3d(0, 6px, 0); }
       to { opacity: 1; transform: none; }
     }
@@ -1036,42 +1036,42 @@
     /* ── 镝 · 战术屏开机：一道扫描线横扫，随后左右两栏相向合拢 ──
        战斗面板的气质是敌我对阵，所以两栏**相向归位**：左栏从更左、右栏从更右
        各推 10px 回到中线两侧。扫描线比锐的光带更窄更亮，读作「自检」而不是「加载」。 */
-    .kanso-battle-scan { background: color-mix(in srgb, var(--bg0) 62%, transparent); animation-name: kanso-battle-veil; }
-    .kanso-battle-scan > i {
+    .kuma-battle-scan { background: color-mix(in srgb, var(--bg0) 62%, transparent); animation-name: kuma-battle-veil; }
+    .kuma-battle-scan > i {
       left: 0; width: 14%;
       background: linear-gradient(90deg,
         transparent,
         color-mix(in srgb, var(--accent) 34%, transparent),
         transparent);
-      animation-name: kanso-battle-sweep;
+      animation-name: kuma-battle-sweep;
     }
-    @keyframes kanso-battle-veil {
+    @keyframes kuma-battle-veil {
       0% { opacity: 0; }
       14% { opacity: 1; }
       72% { opacity: 1; }
       100% { opacity: 0; }
     }
-    @keyframes kanso-battle-sweep {
+    @keyframes kuma-battle-sweep {
       from { transform: translate3d(-120%, 0, 0); }
       to { transform: translate3d(800%, 0, 0); }
     }
     /* 一幕两条变体：JS 只打一个标记，左右由**祖先**决定走哪一条
-       （收场认的是 `kanso-battle-` 这个前缀，两条都收得住）。 */
-    .mod-di .battle-col > [data-kanso-in='battle'] { animation-name: kanso-battle-l; }
-    .mod-di .sidebar > [data-kanso-in='battle'] { animation-name: kanso-battle-r; }
-    @keyframes kanso-battle-l {
+       （收场认的是 `kuma-battle-` 这个前缀，两条都收得住）。 */
+    .mod-di .battle-col > [data-kuma-in='battle'] { animation-name: kuma-battle-l; }
+    .mod-di .sidebar > [data-kuma-in='battle'] { animation-name: kuma-battle-r; }
+    @keyframes kuma-battle-l {
       from { opacity: 0; transform: translate3d(-10px, 0, 0); }
       to { opacity: 1; transform: none; }
     }
-    @keyframes kanso-battle-r {
+    @keyframes kuma-battle-r {
       from { opacity: 0; transform: translate3d(10px, 0, 0); }
       to { opacity: 1; transform: none; }
     }
 
     /* ── 铎 · 作战公告揭幕：自上而下逐块垂下，不带罩 ──
        公告的气质是「一段段展开」，先蒙一层反而多此一举，所以这一幕 loading = 0。 */
-    [data-kanso-in='brief'] { animation-name: kanso-brief-drop; }
-    @keyframes kanso-brief-drop {
+    [data-kuma-in='brief'] { animation-name: kuma-brief-drop; }
+    @keyframes kuma-brief-drop {
       from { opacity: 0; transform: translate3d(0, -8px, 0); }
       to { opacity: 1; transform: none; }
     }
@@ -1079,32 +1079,32 @@
     /* ── 鉴 · 开卷：书架按对角线波纹一格格点起来 ──
        藏书楼的气质：不是滑进来，是**就地亮起来**，所以位移只留一点点缩放感的下沉，
        主要靠 opacity。次序由 shared 的 rippleOrder 按左上→右下排，元素数封顶 24。 */
-    [data-kanso-in='tome'] { animation-name: kanso-tome-lit; }
-    @keyframes kanso-tome-lit {
+    [data-kuma-in='tome'] { animation-name: kuma-tome-lit; }
+    @keyframes kuma-tome-lit {
       from { opacity: 0; transform: translate3d(0, 4px, 0) scale(.985); }
       to { opacity: 1; transform: none; }
     }
 
     /* ── 钦 · 军令下达：任务行从左侧轻推入 ──
        与锐的纵向错峰形成横纵对照：那边是一层层落下，这边是一条条递进来。 */
-    [data-kanso-in='order'] { animation-name: kanso-order-in; }
-    @keyframes kanso-order-in {
+    [data-kuma-in='order'] { animation-name: kuma-order-in; }
+    @keyframes kuma-order-in {
       from { opacity: 0; transform: translate3d(-8px, 0, 0); }
       to { opacity: 1; transform: none; }
     }
 
     /* ── 顶栏浮层（铃/史/钥）· 打开时的内容入场 ──
-       **与启动仪式无关**：触发是每次打开浮层，所以不走 body.kanso-ceremony 预隐，
+       **与启动仪式无关**：触发是每次打开浮层，所以不走 body.kuma-ceremony 预隐，
        起点由动画自己的 fill-mode 管。面板本体的淡入/位移是上面 .ov-panel 那条
        早就有的过渡（与开关无关），这里只加内容区那一层很快的微错峰。
        三家共用同一段——给每家做专属性格是过度设计。关闭是瞬时的，不做退场。 */
-    [data-kanso-open] {
-      animation-name: kanso-overlay-block;
+    [data-kuma-open] {
+      animation-name: kuma-overlay-block;
       animation-timing-function: var(--motion-ease);
       animation-fill-mode: both;
       animation-duration: 0ms; /* JS 逐个写行内值 */
     }
-    @keyframes kanso-overlay-block {
+    @keyframes kuma-overlay-block {
       from { opacity: 0; transform: translate3d(0, 6px, 0); }
       to { opacity: 1; transform: none; }
     }
@@ -1112,8 +1112,8 @@
     /* ── 顶栏角标 · 逐组点亮 ──
        形态刻意克制：顶栏只有一行高，位移大一点就成了抖动。淡入 + 2px 上抬 + 一丝
        缩放，读作「这一组仪表通电了」。收官时刻与资源数字对齐（见注册表的 alignEnd）。 */
-    [data-kanso-in='badge'] { animation-name: kanso-badge-lit; }
-    @keyframes kanso-badge-lit {
+    [data-kuma-in='badge'] { animation-name: kuma-badge-lit; }
+    @keyframes kuma-badge-lit {
       from { opacity: 0; transform: translate3d(0, 2px, 0) scale(.97); }
       to { opacity: 1; transform: none; }
     }
@@ -1122,16 +1122,16 @@
        磁贴是密排的方格，位移大一点整片就成了抖动，所以只抬 3px；右栏各卡跟着同一条
        （一幕一个标记，不给同一幕做两条变体）。收官时刻对齐资源数字的共同终点
        ——数字就住在磁贴里，两边不同刻落定就读不成「一台仪表同时完成自检」。 */
-    [data-kanso-in='zi'] { animation-name: kanso-zi-lit; }
-    @keyframes kanso-zi-lit {
+    [data-kuma-in='zi'] { animation-name: kuma-zi-lit; }
+    @keyframes kuma-zi-lit {
       from { opacity: 0; transform: translate3d(0, 3px, 0); }
       to { opacity: 1; transform: none; }
     }
 
     /* ── 镖 · 出航调度：时刻表逐行快速点亮，右栏详情随后整块现身 ──
        调度板刷新的利落劲：位移极小（2px），几乎就是「啪啪啪」地亮过去。 */
-    [data-kanso-in='dispatch'] { animation-name: kanso-dispatch-tick; }
-    @keyframes kanso-dispatch-tick {
+    [data-kuma-in='dispatch'] { animation-name: kuma-dispatch-tick; }
+    @keyframes kuma-dispatch-tick {
       from { opacity: 0; transform: translate3d(0, -2px, 0); }
       to { opacity: 1; transform: none; }
     }
@@ -1229,7 +1229,7 @@
     /* ══ 铭 · 状态（验收工具页）══ */
     .mod-mgstate { overflow-y: auto; padding: 10px; gap: 12px; container-type: inline-size; }
     .mod-mgstate .mg-section-title { color: var(--dim); font-size: 11px; margin-bottom: 4px; letter-spacing: 1px; }
-    /* 战斗特效模拟台。只在 KANSO_DEBUG_UI=1 时由 mgstate 生成，发布形态里没有这段 DOM。 */
+    /* 战斗特效模拟台。只在 KUMA_DEBUG_UI=1 时由 mgstate 生成，发布形态里没有这段 DOM。 */
     .mod-mgstate .mg-sim { display: flex; flex-wrap: wrap; gap: 6px; }
     .mod-mgstate .mg-sim button {
       background: var(--bg2); color: var(--sub); border: 1px solid var(--line);
@@ -1237,7 +1237,7 @@
     }
     .mod-mgstate .mg-sim button:hover { color: var(--text); border-color: var(--accent-dim); }
     .mod-mgstate .mg-sim-note { margin-top: 5px; color: var(--dim); font-size: 10.5px; line-height: 1.5; }
-    /* 按号试听。同上，只在 KANSO_DEBUG_UI=1 时生成；♪ 本身用全局的 .bgm-pv 样式。 */
+    /* 按号试听。同上，只在 KUMA_DEBUG_UI=1 时生成；♪ 本身用全局的 .bgm-pv 样式。 */
     .mod-mgstate .mg-bgm-probe { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .mod-mgstate .mg-bgm-no, .mod-mgstate .mg-bgm-tree {
       background: var(--bg2); color: var(--text); border: 1px solid var(--line);
@@ -1821,6 +1821,17 @@
     .fleet-skin .who > span em { font-style: normal; color: var(--sub); }
     .fleet-skin .who > span em.next-kai { color: var(--accent); }
     .fleet-skin .who > span em.next-kai.ready { color: var(--ok); }
+    .fleet-skin .who > span em.lvup {
+      display: inline-block; overflow: hidden; max-width: 6em; vertical-align: baseline;
+      color: var(--ok); font-size: 9px; font-weight: 700; pointer-events: none;
+      animation: ru-lvup-hint 6000ms linear forwards;
+      animation-delay: calc(-1 * var(--lvup-elapsed, 0ms));
+    }
+    .fleet-skin .who > span em.lvup.hold { animation: none; opacity: 1; max-width: 6em; }
+    @keyframes ru-lvup-hint {
+      0%, 90% { opacity: 1; max-width: 6em; }
+      100% { opacity: 0; max-width: 0; margin: 0; padding: 0; }
+    }
     /* 出击识别札：活动期贴在血条左边。只标号不编名字——号对应哪支部队要看攻略表 */
     .fleet-skin .hpc { display: flex; align-items: center; gap: 6px; }
     .fleet-skin .hpc .hpbody { flex: 1; min-width: 0; }
@@ -2970,6 +2981,7 @@
       font-size: 11.5px; color: #c3d1dc; cursor: pointer;
     }
     .cmenu .mi:hover { background: var(--bg3); color: var(--text); }
+    .cmenu .mi.on::before { content: '✓'; width: 10px; color: var(--ok); font-weight: 700; }
     .cmenu .mi .k { margin-left: auto; font-size: 9px; color: var(--dim); font-family: var(--mono); }
     .cmenu .mi.pri { color: var(--accent-ink); }
     .cmenu .mi.dis { opacity: 0.45; cursor: default; }
@@ -3358,30 +3370,30 @@
     .mod-ji .ak-grow[open] > summary::before { content: '▾ '; }
     .mod-ji .grow-cap { margin: 4px 0; font-size: 10.5px; color: var(--dim); }
     /* 全局速查（Ctrl+K） */
-    #kanso-command-palette { display: none; position: fixed; inset: 0; z-index: 9000; background: rgba(0,0,0,.45); }
-    #kanso-command-palette.open { display: block; }
-    #kanso-command-palette .cp-box {
+    #kuma-command-palette { display: none; position: fixed; inset: 0; z-index: 9000; background: rgba(0,0,0,.45); }
+    #kuma-command-palette.open { display: block; }
+    #kuma-command-palette .cp-box {
       width: min(560px, 92vw); margin: 12vh auto 0; background: var(--bg1);
       border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 18px 50px rgba(0,0,0,.55);
       overflow: hidden; display: flex; flex-direction: column; max-height: 70vh;
     }
-    #kanso-command-palette .cp-input { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
-    #kanso-command-palette .cp-input span { color: var(--dim); }
-    #kanso-command-palette .cp-input input {
+    #kuma-command-palette .cp-input { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+    #kuma-command-palette .cp-input span { color: var(--dim); }
+    #kuma-command-palette .cp-input input {
       flex: 1; background: transparent; border: 0; outline: none; color: var(--text); font-size: 14px;
     }
-    #kanso-command-palette .cp-list { overflow-y: auto; }
-    #kanso-command-palette .cp-row {
+    #kuma-command-palette .cp-list { overflow-y: auto; }
+    #kuma-command-palette .cp-row {
       display: grid; grid-template-columns: 46px 1fr auto; gap: 9px; align-items: baseline;
       padding: 6px 12px; cursor: pointer; font-size: 12.5px;
     }
-    #kanso-command-palette .cp-row.on { background: rgba(120,150,220,.14); }
-    #kanso-command-palette .cp-row:hover { background: rgba(255,255,255,.05); }
-    #kanso-command-palette .cp-kind { font-size: 10px; color: var(--dim); }
-    #kanso-command-palette .cp-row b { color: var(--text); font-weight: 600; }
-    #kanso-command-palette .cp-row i { font-style: normal; font-size: 10px; color: var(--dim); font-family: var(--mono); }
-    #kanso-command-palette .cp-empty { padding: 14px 12px; font-size: 11.5px; color: var(--dim); }
-    #kanso-command-palette .cp-foot { padding: 6px 12px; border-top: 1px solid var(--line); font-size: 10px; color: var(--dim); }
+    #kuma-command-palette .cp-row.on { background: rgba(120,150,220,.14); }
+    #kuma-command-palette .cp-row:hover { background: rgba(255,255,255,.05); }
+    #kuma-command-palette .cp-kind { font-size: 10px; color: var(--dim); }
+    #kuma-command-palette .cp-row b { color: var(--text); font-weight: 600; }
+    #kuma-command-palette .cp-row i { font-style: normal; font-size: 10px; color: var(--dim); font-family: var(--mono); }
+    #kuma-command-palette .cp-empty { padding: 14px 12px; font-size: 11.5px; color: var(--dim); }
+    #kuma-command-palette .cp-foot { padding: 6px 12px; border-top: 1px solid var(--line); font-size: 10px; color: var(--dim); }
     /* 预测区间的微条：先扫形状再读数——条靠右 = 高，条越长 = 越不确定 */
     .mod-ji .map-model-node .mbar {
       display: block; height: 2px; margin: 2px 0 1px; border-radius: 1px;
@@ -3901,8 +3913,8 @@
       color: var(--dim); border: 1px solid var(--line-soft); border-radius: 3px;
       padding: 0 4px; cursor: help; white-space: nowrap;
     }
-    .mod-ji .vo-src.kanso { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
-    /* 深海往期语音的「按推测档名试听」。只在 KANSO_DEBUG_UI=1 时由 ji 生成，
+    .mod-ji .vo-src.kuma { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+    /* 深海往期语音的「按推测档名试听」。只在 KUMA_DEBUG_UI=1 时由 ji 生成，
        发布形态里没有这段 DOM。负 margin 是把 .vo-list 那 6px 的 gap 吃掉——
        它要和上面那一行**贴成同一张卡**，提督照着那句台词对音节。 */
     .mod-ji .ji-ag {
@@ -4317,6 +4329,13 @@
     }
     .mod-ji .ro-note input { width: 100%; padding: 2px 6px; }
     .mod-ji .ro-note input:focus, .mod-ji .personal-note textarea:focus { color: var(--text); border-color: var(--accent-dim); }
+    /* 输入框本身描不了 #标签；保存后在原行下方逐字回执认出的标签 */
+    .mod-ji .ro-note-tags { grid-column: 2; display: flex; gap: 5px; flex-wrap: wrap; }
+    .mod-ji .ro-note-tags i {
+      max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      color: var(--sub); border: 1px dashed var(--line); border-radius: 3px;
+      padding: 1px 6px; font: 9.5px var(--mono); font-style: normal;
+    }
     .mod-ji .personal-note textarea { display: block; width: 100%; min-height: 58px; resize: vertical; padding: 6px 8px; }
     .mod-ji .mem-counts { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
     .mod-ji .mem-counts span {
@@ -4400,9 +4419,9 @@
     .mod-ji .panel { display: none; padding: 13px 20px 20px; }
     .mod-ji .panel.on { display: block; }
     .mod-ji .ship-subview.enter {
-      animation: kanso-subview-enter var(--motion-fast) var(--motion-ease) both;
+      animation: kuma-subview-enter var(--motion-fast) var(--motion-ease) both;
     }
-    @keyframes kanso-subview-enter {
+    @keyframes kuma-subview-enter {
       from { opacity: .55; transform: translate3d(0, 2px, 0); }
       to { opacity: 1; transform: none; }
     }
@@ -4971,7 +4990,7 @@
     /* 单独界面（2026-08-11 用户拍板）：点行后整面板切到这一艘的详情页。
        原「右侧栏预览 + 窄态行下展开」两套版式被否掉，一律接管式。 */
     .mod-qa .qa-detail { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--bg0); }
-    .mod-qa .qa-detail.enter { animation: kanso-subview-enter var(--motion-view) var(--motion-ease) both; }
+    .mod-qa .qa-detail.enter { animation: kuma-subview-enter var(--motion-view) var(--motion-ease) both; }
     .mod-qa .dv-head {
       display: flex; align-items: center; gap: 9px; padding: 8px 12px; flex-wrap: wrap;
       background: var(--bg1); border-bottom: 1px solid var(--line); font-size: 11.5px;
@@ -5235,7 +5254,7 @@
     .mod-qn .q-nm .t b { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .mod-qn .q-nm .plain { display: block; font-size: 10.5px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     /* 追踪器解出的条件顶掉正文那一行：占的就是 .plain 的位置（同一个类、不另加行高，
-       窄态的显隐也跟着它走），只在字色上偏一档冷蓝，让人分得清这句是艦素提炼的、
+       窄态的显隐也跟着它走），只在字色上偏一档冷蓝，让人分得清这句是kuma提炼的、
        不是游戏原话。别再亮，否则一屏五百行全在抢眼 */
     .mod-qn .q-nm .plain.q-need { color: color-mix(in srgb, var(--accent-ink) 55%, var(--sub)); }
     .mod-qn .q-prog { flex: none; width: 130px; }
@@ -6347,23 +6366,23 @@
       100% { transform: translate3d(var(--petal-drift), 118vh, 0) rotate(560deg); opacity: 0; }
     }
     /* ── 哀悼态：出击中沉了舰，到返港为止 ──
-       只失色**艦素自己的外壳**：顶栏 / 侧栏导航 / 三坞。
+       只失色**kuma自己的外壳**：顶栏 / 侧栏导航 / 三坞。
        #game-area 蓄意不在名单里——这次出击还得靠游戏画面收尾，
        把它一起涂灰就是拿仪式感换掉可用性。
        置顶横幅（#lg-banners）与 Toast 也不在名单里：哀悼期间照样会有大破、
        应急修理这类要人当场处理的提醒，它们必须仍然是彩色的。
        状态类挂在 body 上，判据见 kernel.ts syncMourning（从 sortie 状态推导）。 */
-    body.kanso-mourning header,
-    body.kanso-mourning #element-rail,
-    body.kanso-mourning .dock,
-    /* 挂在 body 上的那一层也算艦素界面：大浮层（回顾/通知/设置/诊断）、
+    body.kuma-mourning header,
+    body.kuma-mourning #element-rail,
+    body.kuma-mourning .dock,
+    /* 挂在 body 上的那一层也算kuma界面：大浮层（回顾/通知/设置/诊断）、
        富提示、钉住卡、命令面板、灯箱……逐个列会漏，所以反着写——
        #app 那棵树上面已经逐块处理过（要把游戏区摘出来），
        两层通知（横幅 / Toast）留彩色。 */
     /* 这一条的过渡写在规则内部（不像上面三个写在基础规则上）：body 直属层多是
        开合式浮层，不会一直挂在屏幕上跨越解除那一刻，为它们给每个 body 直属子元素
        都加一条 transition 反而会覆盖掉浮层自己的进出场过渡。进场仍是渐变的。 */
-    body.kanso-mourning > *:not(#app):not(#lg-banners):not(#lg-toasts) {
+    body.kuma-mourning > *:not(#app):not(#lg-banners):not(#lg-toasts) {
       filter: grayscale(1) brightness(.94);
       transition: filter var(--motion-solemn) ease;
     }
@@ -6394,7 +6413,7 @@
     #game-wrapper > #lg-toasts { position: absolute; }
     #game-wrapper > #lg-toasts[data-corner^="t"] { top: 12px; }
     /* 试听条也占右下角：它在的时候整摞 Toast 抬高一档，两者不叠 */
-    body.kanso-preview-on #lg-toasts[data-corner="br"] { bottom: 54px; }
+    body.kuma-preview-on #lg-toasts[data-corner="br"] { bottom: 54px; }
     .lg-toast { pointer-events: auto; display: flex; gap: 9px; align-items: flex-start; position: relative; overflow: hidden; background: rgba(21, 28, 35, 0.96); border: 1px solid var(--line); border-left-width: 3px; border-radius: 7px; padding: 8px 10px 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); cursor: pointer; }
     .lg-toast .ic { width: 24px; height: 24px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; }
     .lg-toast .tx { flex: 1; min-width: 0; }
@@ -6883,9 +6902,9 @@
     .mod-shi .shi-battle-drawer {
       flex: 0 0 min(58%, 720px); min-width: 360px; min-height: 0; display: flex; flex-direction: column;
       border-left: 1px solid var(--line); background: var(--bg0);
-      box-shadow: -12px 0 28px rgba(0, 0, 0, .2); animation: kanso-detail-enter var(--motion-fast) ease both;
+      box-shadow: -12px 0 28px rgba(0, 0, 0, .2); animation: kuma-detail-enter var(--motion-fast) ease both;
     }
-    @keyframes kanso-detail-enter {
+    @keyframes kuma-detail-enter {
       from { opacity: .7; transform: translate3d(12px, 0, 0); }
       to { opacity: 1; transform: none; }
     }
@@ -6915,7 +6934,7 @@
       font-size: 10px; text-align: center;
     }
     .mod-shi .shi-view { min-width: 0; }
-    .mod-shi .shi-view.enter { animation: kanso-subview-enter var(--motion-fast) ease both; }
+    .mod-shi .shi-view.enter { animation: kuma-subview-enter var(--motion-fast) ease both; }
     .mod-shi .shi-view-head {
       min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
       gap: 6px 12px; margin-bottom: 8px;
@@ -7527,19 +7546,19 @@
       .mod-shi .shi-battle-drawer { animation: none; }
       .dock,
       /* 浮层打开时的内容入场：JS 那边 reduceMotion 就直接不放了，这条是双保险 */
-      [data-kanso-open] { animation: none !important; }
+      [data-kuma-open] { animation: none !important; }
       /* 启动点亮的其余几处，同样是双保险。JS 那边 armLaunchGlow 直接返回 null，
          所以正常路径上这几条一辈子用不上；真会咬人的是**仪式放到一半系统才被切成
          减少动态效果**——matchMedia 在罩暗那一刻已经问过了，JS 不会回头，
          全靠 CSS 让这几处当场就位。
          坞位与导航条从罩暗那一刻起就压着 opacity: 0，所以「就位」＝ 1；
-         各幕的元素同理（`!important` 是为了压过 body.kanso-ceremony 那族预隐）。 */
-      body.kanso-glow #element-rail,
-      body.kanso-glow .dock-group,
-      [data-kanso-in] { animation: none !important; opacity: 1 !important; }
+         各幕的元素同理（`!important` 是为了压过 body.kuma-ceremony 那族预隐）。 */
+      body.kuma-glow #element-rail,
+      body.kuma-glow .dock-group,
+      [data-kuma-in] { animation: none !important; opacity: 1 !important; }
       /* 游戏区那层黑罩反着来：它的终态是**透明**，照抄 opacity: 1 就是把游戏画面
          永久蒙黑——比没有动画糟得多。 */
-      body.kanso-glow-run #game-glow { animation: none !important; opacity: 0 !important; }
+      body.kuma-glow-run #game-glow { animation: none !important; opacity: 0 !important; }
       #overlay-host,
       #overlay-host .ov-panel,
       .mod-ji .drawer,
@@ -7604,6 +7623,7 @@
         <button id="btn-focus" title="专注模式：收起三坞只留游戏（F9）">专注</button>
         <button id="btn-capture" title="保存游戏画面截图（Ctrl + Alt + S）">截图</button>
         <button id="btn-reload" title="刷新游戏页面（F5）">刷新</button>
+        <button id="btn-mute" title="静音 kuma 全部声音，再按恢复（Ctrl + M）">静音</button>
         <button id="btn-browse" title="新开浏览窗 · 可多开 · 与游戏共用登录与代理">新窗</button>
       </span>
     </header>

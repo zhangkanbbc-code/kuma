@@ -48,7 +48,7 @@ export { mapGains, nodeNote, bossClearedOf }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-store-map-readers-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-store-map-readers-'))
   const entry = path.join(dir, 'readers.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'readers.cjs')

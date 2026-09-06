@@ -18,7 +18,7 @@ import { buildSync } from 'esbuild'
 const ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-section-fold-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-section-fold-'))
   fs.writeFileSync(
     path.join(dir, 'kernel.ts'),
     'export const registerViewSettler = (_root: unknown, _fn: () => void) => {}\n',

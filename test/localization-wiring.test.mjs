@@ -31,7 +31,7 @@ const ENTITIES = lodeFile('kcwiki-localization.json').data.entities
 
 // ---- 把真的 localization.ts 编出来跑；kernel 只给它用到的两样 ----
 const localization = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-l10n-wire-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-l10n-wire-'))
   const files = {
     'entry.ts': [
       "export * from './renderer/localization'",

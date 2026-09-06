@@ -101,3 +101,10 @@ test('voice translations reuse only an unambiguous exact Japanese line', () => {
   assert.equal(index.get(normalizeVoiceLine('同じ原文')), '同一译文')
   assert.equal(index.has(normalizeVoiceLine('曖昧')), false)
 })
+
+test('voice line normalization treats encoded and decoded HTML entities as the same line', () => {
+  assert.equal(
+    normalizeVoiceLine('Enchant&eacute;e / &Ccedil;a / arr&egrave;s-midi / &#233; / &#xEA;'),
+    normalizeVoiceLine('Enchantée / Ça / arrès-midi / é / ê'),
+  )
+})

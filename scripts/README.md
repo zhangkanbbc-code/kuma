@@ -33,7 +33,7 @@ node scripts/asr-audit.mjs --refresh          # 强制重转写（会重新花�
 node scripts/asr-audit.mjs --model=fun-asr-flash-2026-06-15
 ```
 
-断点续跑：结果按 `文件名 + 模型 + 偏置词` 缓存在 `%APPDATA%\kanso\asr-cache.json`
+断点续跑：结果按 `文件名 + 模型 + 偏置词` 缓存在 `%APPDATA%\kuma\asr-cache.json`
 （**在仓库外**）。网络失败与转写被拒**不进缓存**，下次还会重试；两者在报告里分开记。
 
 ### 选型：为什么是 base64 直传

@@ -129,7 +129,7 @@ export const toggleState = () => hideFurnitureBox
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-shi-items-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-shi-items-'))
   const entry = path.join(dir, 'items.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'items.cjs')

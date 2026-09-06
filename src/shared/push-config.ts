@@ -18,24 +18,24 @@ export const PUSH_PROVIDERS = ['ntfy', 'bark'] as const
 export type PushProvider = (typeof PUSH_PROVIDERS)[number]
 
 /**
- * 全部叶子路径。**读写一律走叶子**，不许 `config.get('kanso.push')` 或
- * `config.get('kanso.push.ntfy')` 整对象读：config 的 setByPath 写叶子时会把
+ * 全部叶子路径。**读写一律走叶子**，不许 `config.get('kuma.push')` 或
+ * `config.get('kuma.push.ntfy')` 整对象读：config 的 setByPath 写叶子时会把
  * 父对象就地变成「只有这一个键」的半份对象，整对象读到那份半份就不再回落
  * 默认值（代理面板栽过一次：改完主机后端口框空了，而主进程按叶子读到的仍是
  * 旧值，显示与生效值从此对不上）。
  */
 export const PUSH_CONFIG_PATHS = {
-  enabled: 'kanso.push.enabled',
-  provider: 'kanso.push.provider',
-  titleOnly: 'kanso.push.titleOnly',
-  ntfyServer: 'kanso.push.ntfy.server',
-  ntfyTopic: 'kanso.push.ntfy.topic',
-  ntfyToken: 'kanso.push.ntfy.token',
-  barkEndpoint: 'kanso.push.bark.endpoint',
-  barkEncrypt: 'kanso.push.bark.encrypt',
-  barkKey: 'kanso.push.bark.key',
-  presenceHold: 'kanso.push.presence.hold',
-  presenceIdleMinutes: 'kanso.push.presence.idleMinutes',
+  enabled: 'kuma.push.enabled',
+  provider: 'kuma.push.provider',
+  titleOnly: 'kuma.push.titleOnly',
+  ntfyServer: 'kuma.push.ntfy.server',
+  ntfyTopic: 'kuma.push.ntfy.topic',
+  ntfyToken: 'kuma.push.ntfy.token',
+  barkEndpoint: 'kuma.push.bark.endpoint',
+  barkEncrypt: 'kuma.push.bark.encrypt',
+  barkKey: 'kuma.push.bark.key',
+  presenceHold: 'kuma.push.presence.hold',
+  presenceIdleMinutes: 'kuma.push.presence.idleMinutes',
 } as const
 
 export type PushConfigField = keyof typeof PUSH_CONFIG_PATHS
@@ -43,7 +43,7 @@ export type PushConfigField = keyof typeof PUSH_CONFIG_PATHS
 /**
  * ntfy 服务器**没有默认值**——空串。
  *
- * 2026-08-23 撤掉原来的 `https://ntfy.sh` 预置。艦素不替玩家挑第三方主机：
+ * 2026-08-23 撤掉原来的 `https://ntfy.sh` 预置。kuma不替玩家挑第三方主机：
  * 推送是全程唯一一条会打到非游戏服务器的出网路径，预置一个地址等于替他决定了
  * 「东西发给谁」。留空的后果是明确的——`checkNtfyServer('')` 判「还没填」，
  * 一个请求都不会发（main/push 的 `prepareNtfy` 拿不到 value 就直接不推）。
@@ -70,7 +70,7 @@ export const PUSH_IDLE_MINUTES_MIN = 1
 export const PUSH_IDLE_MINUTES_MAX = 30
 
 /**
- * 默认值只写在这里一处（config.ts 的 DEFAULTS 里没有 kanso.push.*，
+ * 默认值只写在这里一处（config.ts 的 DEFAULTS 里没有 kuma.push.*，
  * 各处 config.get 都得自带 fallback——两处各写一份就会分家）。
  *
  * enabled 默认关：推送是唯一的主动出网动作，必须由用户亲手打开且亲手填地址。

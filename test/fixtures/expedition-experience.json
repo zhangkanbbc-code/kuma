@@ -1,0 +1,8 @@
+[
+  { "ts": 1788652800000, "path": "/kcsapi/api_req_mission/result", "body": { "api_result": 1, "api_data": { "api_quest_name": "西方海域偵察作戦", "api_clear_result": 1, "api_ship_id": [-1, 11, 12, 13], "api_get_ship_exp": [135, 90, 90] } } },
+  { "ts": 1788652801000, "path": "/kcsapi/api_req_mission/result", "body": { "api_result": 1, "api_data": { "api_quest_name": "西方海域偵察作戦", "api_clear_result": 1, "api_ship_id": [-1, 11, 12, 13], "api_get_ship_exp": [67, 45, 45] } } },
+  { "ts": 1788652802000, "path": "/kcsapi/api_req_mission/result", "body": { "api_result": 1, "api_data": { "api_quest_name": "西方海域偵察作戦", "api_clear_result": 2, "api_get_ship_exp": [30, 20, 20] } } },
+  { "ts": 1788652803000, "path": "/kcsapi/api_req_mission/result", "body": { "api_result": 1, "api_data": { "api_quest_name": "西方海域偵察作戦", "api_clear_result": 0, "api_get_ship_exp": [0, 0, 0] } } },
+  { "ts": 1788652804000, "path": "/kcsapi/api_req_mission/result", "body": { "api_result": 1, "api_data": { "api_quest_name": "西方海域偵察作戦", "api_clear_result": 1, "api_get_ship_exp": [15] } } },
+  { "ts": 1788652805000, "path": "/kcsapi/api_req_mission/result", "body": { "api_result": 1, "api_data": { "api_quest_name": "長距離練習航海", "api_clear_result": 2, "api_get_ship_exp": [90, 60, 60] } } }
+]

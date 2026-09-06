@@ -140,6 +140,7 @@ const pickSections = (sections: Section[]) => {
         break
       case 'sortie':
         patch.sortie = state.sortie
+        patch.lastSortieLevelUps = state.lastSortieLevelUps
         break
       case 'mapGauges':
         patch.mapGauges = state.mapGauges
@@ -602,12 +603,12 @@ const backfillShipCostumes = () => {
     }
     noteShipCostumeBackfill(lastId)
     if (learned) {
-      console.log(`[kanso] mg: 衣装归属回灌 ${learned} 条（扫到 events #${lastId}）`)
+      console.log(`[kuma] mg: 衣装归属回灌 ${learned} 条（扫到 events #${lastId}）`)
       broadcaster.emit('kancolle.shipcostume.learn', shipCostumes())
     }
   } catch (error) {
     // 回灌失败只是历史归属没补上，实时那一路照旧；绝不让它拦住启动
-    console.warn('[kanso] mg: 衣装归属回灌失败', error)
+    console.warn('[kuma] mg: 衣装归属回灌失败', error)
   }
 }
 setTimeout(backfillShipCostumes, 3_000).unref?.()
@@ -706,7 +707,7 @@ ipcMain.handle('mg:abyss-voice-record', (_event, input: unknown) =>
 // 路径的形状由 voice-archive 那边的白名单正则再判一次，字节由它的大小上限拦一次。
 // 最坏情况是页面往档案里塞了一段自己的音频——它塞不进别的目录（路径正则钉死
 // /kcs/sound/ 且文件名由主进程按内容指纹另起），也塞不满盘（500 MB 上限 + 淘汰）。
-ipcMain.on('kanso:voice-archive-blob', (event, input: unknown) => {
+ipcMain.on('kuma:voice-archive-blob', (event, input: unknown) => {
   if (!isGameWebContents(event.sender.id)) return
   if (!input || typeof input !== 'object') return
   const payload = input as { pathname?: unknown; url?: unknown; bytes?: unknown }
@@ -735,7 +736,7 @@ ipcMain.handle('mg:voice-archive-entries', () => voiceArchiveEntries())
 // 各拦一次。最坏情况是页面往档案里塞了一张自己的 PNG：它塞不进别的目录
 //（路径正则钉死 /kcs2/resources/ship/ 且文件名由主进程按内容指纹另起），
 // 也塞不满盘（2 GB 上限 + 淘汰）。
-ipcMain.on('kanso:art-archive-blob', (event, input: unknown) => {
+ipcMain.on('kuma:art-archive-blob', (event, input: unknown) => {
   if (!isGameWebContents(event.sender.id)) return
   if (!input || typeof input !== 'object') return
   const payload = input as { pathname?: unknown; url?: unknown; bytes?: unknown }
@@ -751,16 +752,16 @@ ipcMain.on('kanso:art-archive-blob', (event, input: unknown) => {
   if (kept) broadcaster.emit('kancolle.shipart.archived', kept)
 })
 
-// ---- 「显示/播放即入档」：艦素自己摆出来/播出去的那一份也进档案 ----
+// ---- 「显示/播放即入档」：kuma自己摆出来/播出去的那一份也进档案 ----
 //
 // 用户 2026-08-23 实机报的那处脱节：整张立绘好端端显示着，收集格却写「0/6 图种」。
 // 根因是两本账——显示走缓存+回退，点亮认档案，而档案此前只收游戏页面那条钩子。
 // 补法与判据写在 main/archive-capture 的文件头（含三类网络边界）。
 //
-// ⚠️ 这两个 channel 的发起方是**艦素自己的渲染层**，不是游戏页——所以这里
+// ⚠️ 这两个 channel 的发起方是**kuma自己的渲染层**，不是游戏页——所以这里
 // 不能套 `isGameWebContents`（那会把自家的调用全挡掉）。形状仍旧不裸信：
 // 路径正则与字节上限在 archive-capture 与两个 archive 模块里各判一次。
-ipcMain.on('kanso:archive-capture-art', (_event, input: unknown) => {
+ipcMain.on('kuma:archive-capture-art', (_event, input: unknown) => {
   if (!input || typeof input !== 'object') return
   const payload = input as { pathname?: unknown; url?: unknown; version?: unknown }
   void captureDisplayedArt(payload.pathname, payload.url, payload.version).then((kept) => {
@@ -770,7 +771,7 @@ ipcMain.on('kanso:archive-capture-art', (_event, input: unknown) => {
   })
 })
 
-ipcMain.on('kanso:archive-capture-voice', (_event, input: unknown) => {
+ipcMain.on('kuma:archive-capture-voice', (_event, input: unknown) => {
   if (!input || typeof input !== 'object') return
   const payload = input as { pathname?: unknown; url?: unknown }
   void captureDisplayedVoice(payload.pathname, payload.url).then((kept) => {
@@ -832,7 +833,7 @@ ipcMain.handle('mg:voice-absent-clear', (_event, input: unknown) => {
 // 字节由它的大小上限拦一次。最坏情况是页面往档案里塞了一段自己的 mp3：
 // 它塞不进别的目录（路径正则钉死 /kcs2/resources/bgm/ 且文件名由主进程按内容
 // 指纹另起），也塞不满盘（单条 8 MB 上限 + 玩家可设的总量上限与淘汰）。
-ipcMain.on('kanso:bgm-archive-blob', (event, input: unknown) => {
+ipcMain.on('kuma:bgm-archive-blob', (event, input: unknown) => {
   if (!isGameWebContents(event.sender.id)) return
   if (!input || typeof input !== 'object') return
   const payload = input as { pathname?: unknown; url?: unknown; bytes?: unknown }
@@ -869,7 +870,7 @@ ipcMain.handle('mg:art-archive-entries', () => {
     primeArtArchiveFromCache(shipArtPaths(), (mstId) => versionOf.get(mstId) ?? null)
   } catch (error) {
     // 吸收是补历史，失败只是少补几张；绝不能因此让档案索引拉不到
-    console.warn('[kanso] 立绘档案吸收启动失败', error)
+    console.warn('[kuma] 立绘档案吸收启动失败', error)
   }
   return artArchiveEntries()
 })
@@ -1029,13 +1030,13 @@ ipcMain.handle('mg:senka', (_event, at?: number) => {
   // EO 自动对账（2026-08-17 用户提议）：查账前先按本月海域页观测补齐漏记的
   // EO——重置点后观测到 cleared=1 必属本月，去重与实时路径共用账本同月同图闸
   const booked = ledger.autoBookEoFromMapinfo(when)
-  if (booked.length) console.log(`[kanso] mg: senka 自动补记 EO ${booked.join(',')}`)
+  if (booked.length) console.log(`[kuma] mg: senka 自动补记 EO ${booked.join(',')}`)
   // 任务侧同款（2026-09-01 重立）：只按账本里存着的 clearitemget 报文补，
   // 入账时刻取报文观测时刻。资料包没装就整段跳过——跳过是「这次没补」，
   // 而按不全的资料去解会把「解不出分值」记成「不是战果任务」，游标一过就永远补不回来。
   if (getLode('quests-scn')) {
     const quests = ledger.autoBookQuestSenkaFromEvents(when, questSenkaInfo)
-    if (quests.length) console.log(`[kanso] mg: senka 自动补记任务 ${quests.join(',')}`)
+    if (quests.length) console.log(`[kuma] mg: senka 自动补记任务 ${quests.join(',')}`)
   }
   const summary = ledger.querySenka(when)
   // 实际校准：renderer 经 uiSet 写进 config（ui.senka.calibration），这里组装。
@@ -1246,11 +1247,11 @@ export const rehydrate = () => {
     ledger.saveDomainState('domain', store.domainSnapshot())
   }
   if (domain) {
-    console.log(`[kanso] mg: domain state restored (${new Date(domain.ts).toLocaleString()})`)
+    console.log(`[kuma] mg: domain state restored (${new Date(domain.ts).toLocaleString()})`)
   }
   reconcileQuestProgress()
   primeShipLife(store.getState().player.lastPortTs ?? Date.now())
-  console.log('[kanso] mg: rehydrated from snapshots')
+  console.log('[kuma] mg: rehydrated from snapshots')
 }
 
 rehydrate()

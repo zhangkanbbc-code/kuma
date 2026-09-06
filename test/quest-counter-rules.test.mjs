@@ -19,7 +19,7 @@ import battleModule from '../dist/main/mg/battle.js'
 
 const { mergeNight, parseBattle } = battleModule
 
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-quest-counter-rules-'))
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-quest-counter-rules-'))
 const output = path.join(tempDir, 'quest-counter-rules.cjs')
 buildSync({
   entryPoints: [fileURLToPath(new URL('../src/main/mg/quest-counter-rules.ts', import.meta.url))],
@@ -38,7 +38,7 @@ const lodeUrls = {
   poi: new URL('../assets/lodes/poi-quest-goal.json', import.meta.url),
   expedition: new URL('../assets/lodes/kcwiki-expedition.json', import.meta.url),
 }
-const usingFullLodes = process.env.KANSO_TEST_FORCE_SYNTHETIC !== '1'
+const usingFullLodes = process.env.KUMA_TEST_FORCE_SYNTHETIC !== '1'
   && Object.values(lodeUrls).every((url) => fs.existsSync(url))
 const loadLode = (url, fallback) => (
   usingFullLodes ? JSON.parse(fs.readFileSync(url, 'utf8')) : fallback
@@ -132,8 +132,10 @@ globalThis.__qpSnapshot = {
       { api_id: 2310, api_name: '軽母ヌ級 elite', api_stype: 7, api_sortno: 0 },
     ],
     api_mst_slotitem: [
-      { api_id: 10, api_name: '零式艦戦21型', api_type: [0, 0, 6, 0] },
-      { api_id: 11, api_name: '九六式艦戦', api_type: [0, 0, 6, 0] },
+      { api_id: 10, api_name: '12.7cm連装高角砲', api_type: [1, 2, 4, 16, 0] },
+      { api_id: 11, api_name: '15.2cm単装砲', api_type: [1, 2, 4, 4, 0] },
+      { api_id: 20, api_name: '零式艦戦21型', api_type: [3, 5, 6, 6, 11] },
+      { api_id: 19, api_name: '九六式艦戦', api_type: [3, 5, 6, 6, 11] },
     ],
     api_mst_slotitem_equiptype: [],
     api_mst_useitem: [],
@@ -180,9 +182,9 @@ globalThis.__qpStore = {
       2002: { id: 2002, shipId: 2002, lv: 90 },
     },
     slotitems: {
-      200: { mstId: 10, level: 0, alv: 5, locked: true },
-      201: { mstId: 11, level: 0, alv: 0, locked: false },
-      202: { mstId: 10, level: 0, alv: 0, locked: false },
+      200: { mstId: 20, level: 0, alv: 5, locked: true },
+      201: { mstId: 19, level: 0, alv: 0, locked: false },
+      202: { mstId: 20, level: 0, alv: 0, locked: false },
     },
     materials: [10000, 10000, 10000, 10000, 100, 100, 100, 100],
     useitems: {},
@@ -302,11 +304,11 @@ test('quest counter reports the audited synthetic-master coverage split', () => 
   if (usingFullLodes) {
     // ⚠ 这几个数只在**这份十条舰的合成主数据**下成立，不是真机口径：
     // 自研那几档要拿真实主数据解具名舰/装备/点位，合成主数据下大批规则整条弃用
-    // （日志里那串「艦素规则 xxx 跳过」正是护栏在起作用）。真机数字看 packCredit。
+    // （日志里那串「kuma规则 xxx 跳过」正是护栏在起作用）。真机数字看 packCredit。
     //
     // EO（quest-trackers）2026-08-21 整层退场，原来钉的 eo 163 一并撤销；
     // 它供的那 164 条现在按优先级落回 kcwiki / poi / 自研三层，
-    // 所以 kcwiki 与 kanso 两栏都涨了，总数则因为「合成主数据解不出的整条弃用」而下降。
+    // 所以 kcwiki 与 kuma 两栏都涨了，总数则因为「合成主数据解不出的整条弃用」而下降。
     assert.equal(Object.keys(state.trackers).length, 247)
     // 2026-08-20 第二批文案清扫：逐源拆分与源站名号撤出 packCredit（那是发布侧悬停），
     // 审计本身改从 trackers 直接算——覆盖数字仍要逐源钉死，只是不再摆给玩家。
@@ -317,10 +319,10 @@ test('quest counter reports the audited synthetic-master coverage split', () => 
     // 2026-08-27 接上 kcwiki 的 simple/scrapship：603（原落中文散文兜底）与 609（原落 poi
     // 的 destroy_ship）改由结构化层供规则，kcwiki +2、text −1、poi −1，总数 249 不变。
     // 2026-08-30 近代化改修族：714-717 从文本兜底（都被解成「1 次就满」）改由自研层接住，
-    // text −4、kanso +4；718/719 的最上型条件要从主数据查舰级，这份十条舰的合成主数据里
-    // 没有最上，两条按纪律整条弃用（日志里那两行「艦素规则 G10/G11 跳过」），kanso −2、
+    // text −4、kuma +4；718/719 的最上型条件要从主数据查舰级，这份十条舰的合成主数据里
+    // 没有最上，两条按纪律整条弃用（日志里那两行「kuma规则 G10/G11 跳过」），kuma −2、
     // 总数 −2。真机主数据下这两条照常在位——见下面那组近代化改修用例，它们自带最上型。
-    assert.deepEqual(split, { kcwiki: 148, poi: 25, text: 15, kanso: 59 })
+    assert.deepEqual(split, { kcwiki: 148, poi: 25, text: 15, kuma: 59 })
     assert.match(state.packCredit, /精确计数覆盖 247 \/ 644 条/)
     assert.match(state.packCredit, / · 规则更新 \d{4}-\d{2}-\d{2}$/)
     assert.doesNotMatch(state.packCredit, /EO|KCWiki|poi/, '发布侧署名不该回潮')
@@ -330,22 +332,58 @@ test('quest counter reports the audited synthetic-master coverage split', () => 
   assert.ok(Object.keys(state.trackers).length >= 10)
 })
 
-test('quest rule sources keep KCWiki, poi, kanso, and text in strict priority order', () => {
+test('quest rule sources keep KCWiki, poi, kuma, and text in strict priority order', () => {
   const state = globalThis.__qpHandlers['qp:get']()
   assert.equal(state.trackers[410].source, 'kcwiki')
   assert.equal(state.trackers[605].source, 'poi')
-  // 艦素自研排在两个上游之后、文本兜底之前：342/Cq4 两个上游都没有，落到自研；
+  // kuma自研排在两个上游之后、文本兜底之前：342/Cq4 两个上游都没有，落到自研；
   // 601/F1「「建造」舰船1次」自研这套也解不出（不是演习/远征/废弃），继续由文本兜底。
-  assert.equal(state.trackers[342].source, 'kanso')
+  assert.equal(state.trackers[342].source, 'kuma')
   assert.equal(state.trackers[601].source, 'text')
   // 上游有的，自研一条都不许抢——410 是 kcwiki 的远征任务，正是自研这批的射程之内
-  assert.equal(state.trackers[433].source, 'kanso')
+  assert.equal(state.trackers[433].source, 'kuma')
   assert.equal(state.trackers[402].source, 'kcwiki')
   // EO（quest-trackers）2026-08-21 整层退场：这个源号不该以任何形式回潮
   assert.ok(
     Object.values(state.trackers).every((tracker) => tracker.source !== 'eo'),
     'EO 已退场，不该再有 source==="eo" 的追踪器',
   )
+})
+
+test('quest counter feeds the 881 note into the shared longest-match augmentation', {
+  skip: !usingFullLodes,
+}, () => {
+  const ships = [
+    [17, '陽炎', 225],
+    [18, '不知火', 226],
+    [198, '霰改二', 0],
+    [464, '霞改二', 0],
+    [470, '霞改二乙', 0],
+    [225, '陽炎改', 566],
+    [226, '不知火改', 567],
+    [566, '陽炎改二', 0],
+    [567, '不知火改二', 0],
+  ].map(([api_id, api_name, api_aftershipid], index) => ({
+    api_id,
+    api_name,
+    api_aftershipid: `${api_aftershipid}`,
+    api_stype: 2,
+    api_soku: 10,
+    api_sortno: index + 1,
+  }))
+  try {
+    engine.initQuestCounter({ api_mst_ship: ships, api_mst_shipupgrade: [] })
+    const goal = globalThis.__qpHandlers['qp:get']().trackers[881].fleetGoal
+    assert.deepEqual(goal.groups.map((group) => group.ships), [
+      [198],
+      [464, 470],
+      [225, 566],
+      [226, 567],
+    ])
+    assert.equal(goal.allowOnlyGoalShips, undefined)
+  } finally {
+    engine.initQuestCounter()
+  }
 })
 
 test('one expedition result advances a shared alternative slot only once', () => {
@@ -436,7 +474,7 @@ test('model conversion scraps count only while the secretary equipment gate is s
   check = globalThis.__qpHandlers['qp:check-fleet']()
   assert.equal(check[626].stateGoal.ok, false)
   assert.match(
-    check[626].stateGoal.lines.find((line) => line.label === '零式艦戦21型').issue,
+    check[626].stateGoal.lines.find((line) => line.label === '零式舰战21型').issue,
     /练度不满/,
   )
 
@@ -1009,8 +1047,8 @@ test('the same batch still advances a named-equipment scrap quest once per item'
   // 626 是「零式艦戦21型×2、九六式艦戦×1」——指定装备件数任务，一次弃两件目标装备就该 +2。
   player.slotitems = { ...player.slotitems }
   player.slotitems[200].alv = 7 // 秘书舰装备门（同上一条用例）
-  player.slotitems[210] = { mstId: 10, level: 0, alv: 0, locked: false }
-  player.slotitems[211] = { mstId: 10, level: 0, alv: 0, locked: false }
+  player.slotitems[210] = { mstId: 20, level: 0, alv: 0, locked: false }
+  player.slotitems[211] = { mstId: 20, level: 0, alv: 0, locked: false }
   const slot0 = globalThis.__qpHandlers['qp:get']().progress[626]?.[0] ?? 0
   engine.onQuestApi(
     '/kcsapi/api_req_kousyou/destroyitem2',
@@ -1106,7 +1144,7 @@ test('convertible remodels still satisfy bare-name fleet gates after reinit', ()
 //
 // 玩家反馈（2026-08-30）：Gy1 要成功两次，kuma 一次就报满。根因是 714-717 一路掉到
 // 中文正文兜底——正文里「成功2次」与「近代化改修」不在同一小句、够不着取数窗口，
-// 四条全解成 count 1。现在改由 kanso-quest-rules 逐条接住，并按**这一次用了谁改谁**
+// 四条全解成 count 1。现在改由 kuma-quest-rules 逐条接住，并按**这一次用了谁改谁**
 // 校验目标舰与素材舰。
 //
 // 报文形状取自本机账本 events 表的真实 powerup 样本（125 条形状一致）：
@@ -1192,7 +1230,7 @@ test('modernization quests keep the real two-success target instead of the text 
 }, () => {
   withModernizationWorld(({ powerup, state, count }) => {
     const tracker = state().trackers[714]
-    assert.equal(tracker.source, 'kanso', '714 得由自研层接住，掉回正文兜底就又会变成 1 次满')
+    assert.equal(tracker.source, 'kuma', '714 得由自研层接住，掉回正文兜底就又会变成 1 次满')
     assert.equal(tracker.approx, false)
     assert.equal(tracker.partial, false)
     assert.deepEqual(

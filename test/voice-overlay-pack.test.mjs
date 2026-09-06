@@ -9,8 +9,11 @@ const { normalizeVoiceLine } = voiceLineage
 const { isUntranslatedVoiceText, isVoiceTextNormalized } = voiceText
 const root = new URL('../assets/lodes/', import.meta.url)
 const read = (id) => JSON.parse(fs.readFileSync(new URL(`${id}.json`, root), 'utf8'))
+const overlaySource = JSON.parse(
+  fs.readFileSync(new URL('../scripts/voice-overlay-zh.json', import.meta.url), 'utf8'),
+)
 
-const overlay = read('kanso-voice-zh').data
+const overlay = read('kuma-voice-zh').data
 const regular = read('kcwiki-voice').data
 const seasonal = read('kcwiki-seasonal-voice').data.ships
 const subtitleJa = read('subtitle-ja').data
@@ -35,12 +38,19 @@ const rowsByPack = Object.fromEntries(
   }),
 )
 
-test('译文 overlay 包保持 188 个 keyed 条目与 1 个 byJa 条目', () => {
-  assert.equal(Object.keys(overlay.entries).length, 188)
-  assert.equal(overlay.byJa.length, 1)
+test('译文 overlay 包保持 189 个 keyed 条目与 25 个唯一 byJa 条目', () => {
+  assert.equal(Object.keys(overlay.entries).length, 189)
+  assert.equal(overlay.byJa.length, 25)
+  assert.equal(new Set(overlay.byJa.map((entry) => normalizeVoiceLine(entry.ja))).size, 25)
+  assert.equal(overlaySource.byJa.length, 25)
+  assert.equal(
+    overlaySource.byJa.every((entry) => `${entry.note ?? ''}`.trim().length > 0),
+    true,
+    '源码 byJa 每条都要注明覆盖形态',
+  )
   assert.equal(
     Object.values(overlay.entries).filter((entry) => entry.pack === 'kcwiki-voice').length,
-    121,
+    122,
   )
   assert.equal(
     Object.values(overlay.entries).filter((entry) => entry.pack === 'kcwiki-seasonal-voice').length,
@@ -58,8 +68,14 @@ test('每个 keyed 条目仍在对应上游、仍判缺译，且日文原文没�
       missing.push(`${entry.pack}/${key}`)
       continue
     }
-    if (!isUntranslatedVoiceText(row.zh)) retired.push(`${entry.pack}/${key}`)
-    if (normalizeVoiceLine(row.ja) !== normalizeVoiceLine(entry.ja)) {
+    const misplacedJapaneseSource =
+      `${row.ja ?? ''}`.trim() === '' &&
+      (`${row.zh ?? ''}`.match(/[ぁ-ゖァ-ヺ]/g)?.length ?? 0) >= 2
+    const upstreamJa = misplacedJapaneseSource ? row.zh : row.ja
+    if (!misplacedJapaneseSource && !isUntranslatedVoiceText(row.zh)) {
+      retired.push(`${entry.pack}/${key}`)
+    }
+    if (normalizeVoiceLine(upstreamJa) !== normalizeVoiceLine(entry.ja)) {
       changed.push(`${entry.pack}/${key}`)
     }
   }

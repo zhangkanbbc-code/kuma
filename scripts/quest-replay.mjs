@@ -66,7 +66,7 @@ const kindMatches = (tasks) => {
 
 const db = openLedgerDb()
 if (!db) {
-  console.error('账本不存在（%APPDATA%/kanso/mg.sqlite）——没有流水可回放')
+  console.error('账本不存在（%APPDATA%/kuma/mg.sqlite）——没有流水可回放')
   process.exit(2)
 }
 const snapshot = loadMasterSnapshot()
@@ -81,7 +81,7 @@ if (SELF) for (const id of UPSTREAM_LODES) lodes[id] = null
 const store = await loadStore()
 const { createQuestEngine } = await loadQuestEngine()
 
-// 从零开始重放：不读用户账本里那份进度快照，也不写回去。
+// 从零开始重放：不读维护者游戏报文里那份进度快照，也不写回去。
 const engine = createQuestEngine(
   offlineHost({
     lodes,
@@ -162,7 +162,7 @@ let replayed = 0
 let countableSeen = 0
 try {
   for (const row of rows) {
-    if (row.body == null) continue // 快照路径：body 不入账本（start2 / port / require_info / ship2 / ship3）
+    if (row.body == null) continue // 快照路径：body 不入游戏报文（start2 / port / require_info / ship2 / ship3）
     let parsed
     let post
     try {

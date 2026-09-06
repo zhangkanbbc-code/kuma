@@ -39,7 +39,7 @@ import { KCWIKI_EQUIP_ALIAS, KCWIKI_ITEM_ALIAS } from '../../shared/kcwiki-upgra
 import { buildShipRemodelChains } from '../../shared/ship-remodel-chain'
 import { detectEventAreas } from '../../shared/event-area'
 import { FRIENDLY_REQUEST_NAME, type FriendlyFleetRecord } from '../../shared/friendly-fleet'
-import { EVENT_DIFFICULTIES, mapIntelEntry, mapIntelMap, type EventOperations } from '../../shared/map-intel'
+import { EVENT_DIFFICULTIES, eventOperationsOf, mapIntelEntry, mapIntelMap, type EventOperations, type EventFriendlyFleetMap } from '../../shared/map-intel'
 import { mapFleetAllowanceLabels } from '../../shared/map-sally'
 import {
   CAMPAIGN_PERIOD_LABEL,
@@ -70,6 +70,9 @@ let aaEvasion: Map<number, AaEvasionRow> = new Map()
 // 只是活动图上认不出特効机，退成纯二期的按威力排。
 let planeGroups: PlaneGroupTable | null = null
 let planeGroupsMeta: LodeMeta | null = null
+let friendlyFleetMaps: Record<string, EventFriendlyFleetMap> = {}
+let friendlyFleetMeta: LodeMeta | null = null
+let mapIntelMeta: LodeMeta | null = null
 // 「推荐搭配」默认收起，不持久化——它是查一次的东西，不该开着占版面
 let adviceOpen = false
 // 打哪一类目标。一期只有对舰/对陆两档（雷装 or 爆装）；二期细到具名陆上型，
@@ -181,7 +184,7 @@ const refreshSpent = async (areaId: number) => {
     spentEnds = ends
     spentFailedAreaId = 0
   } catch (error) {
-    console.warn('[kanso] 活动期资源变化读取失败', error)
+    console.warn('[kuma] 活动期资源变化读取失败', error)
     spentAreaId = 0
     spentEnds = EMPTY_SPENT
     spentFailedAreaId = areaId
@@ -226,7 +229,7 @@ const ensureFriendlyFleets = (mapId: number, difficulty: number) => {
     })
     .catch((error) => {
       // 手上已有的旧记录不清：那是真发生过的遭遇，读新的失败不能把它抹掉
-      console.warn('[kanso] 友军遭遇志读取失败', error)
+      console.warn('[kuma] 友军遭遇志读取失败', error)
       friendlyFailedScope = scope
     })
     .finally(() => {
@@ -281,7 +284,7 @@ const difficultyOf = (info: any) =>
 
 const operationsOf = (info: any): EventOperations | null => {
   const difficulty = difficultyOf(info)
-  return difficulty ? (mapIntelMap(mapKeyOfInfo(info), difficulty)?.operations ?? null) : null
+  return eventOperationsOf(mapKeyOfInfo(info), difficulty)
 }
 
 const airTargetKey = (info: any): string =>
@@ -925,7 +928,9 @@ const friendlyFleetsHtml = (
   }
   const packRow = (fleet: EventOperations['friendlyFleets'][number]) =>
     `<div class="op-friend"><div class="op-friend-ships">${
-      fleet.ships.map((ship) => shipCell(ship.id, ship.name)).join('') || '无友军支援'
+      fleet.ships.map((ship) => shipCell(ship.id, ship.name, {
+        tail: ship.lv === undefined ? '' : `<i>Lv${ship.lv}</i>`,
+      })).join('') || '无友军支援'
     }</div>${fleet.note ? `<span class="op-fnote">${esc(fleet.note)}</span>` : ''}</div>`
   const layerHtml = <T,>(
     rows: T[],
@@ -945,6 +950,20 @@ const friendlyFleetsHtml = (
   return seenHtml || packHtml
     ? `${seenHtml}${packHtml}`
     : '<div class="sub9">这个难度暂无友军编成资料</div>'
+}
+
+// 资料层先读第一方随包；该图没有条目才回落开发机 map-intel。本机遭遇志照旧并列。
+const friendlyFleetMaterialsHtml = (
+  mapKey: string,
+  operations: EventOperations | null,
+  seen: FriendlyFleetRecord[],
+): string => {
+  const bundled = friendlyFleetMaps[mapKey]
+  const pack = bundled?.friendlyFleets ?? operations?.friendlyFleets ?? []
+  const meta = bundled ? friendlyFleetMeta : mapIntelMeta
+  const point = bundled ? ` <span class="sub9">出现点：${esc(bundled.point)}</span>` : ''
+  const credit = pack.length && meta ? ` title="${esc(lodeCredit(meta))}"` : ''
+  return `<div class="op-head"${credit}>友军舰队${point}</div>${friendlyFleetsHtml(seen, pack)}`
 }
 
 const extrasCardHtml = (info: any): string => {
@@ -968,16 +987,17 @@ const extrasCardHtml = (info: any): string => {
     : '<div class="sub9">这个难度暂无特效舰资料</div>'
   const difficultyRank = mg.mapGauges[info.api_id]?.selectedRank ?? 0
   ensureFriendlyFleets(info.api_id, difficultyRank)
-  const friendHtml = friendlyFleetsHtml(
+  const friendHtml = friendlyFleetMaterialsHtml(
+    mapKey,
+    operations,
     friendlyFleetsOf(info.api_id, difficultyRank),
-    operations?.friendlyFleets ?? [],
   )
   return `
   <div class="card" style="--hc:#e08a97">
     <div class="h"><b>限时掉落 · 敌编成</b></div>
     <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px">${layers}</div>
     <div class="op-head">当前仓库的特效舰匹配 / 完整倍率</div>${specialHtml}
-    <div class="op-head">友军舰队</div>${friendHtml}
+    ${friendHtml}
   </div>`
 }
 
@@ -1360,11 +1380,12 @@ registerModule({
       render()
     })
     void (async () => {
-      const [raw, catalog, evasion, groups] = await Promise.all([
+      const [raw, catalog, evasion, groups, friends] = await Promise.all([
         queryMasterRaw(),
         queryLode('quests-scn'),
         queryLode('equip-aa-evasion'),
         queryLode('event-plane-groups'),
+        queryLode('event-friendly-fleets'),
         initMapIntel(),
         // 倍卡包与镝共用同一份模块级缓存，这里只负责把它取回来
         loadEventBonusLode(),
@@ -1380,6 +1401,9 @@ registerModule({
       // 同上：缺分组表就认不出特効机，活动图退成纯二期的按威力排
       planeGroups = ((groups as any)?.data ?? null) as PlaneGroupTable | null
       planeGroupsMeta = ((groups as any)?.meta ?? null) as LodeMeta | null
+      friendlyFleetMaps = friends?.data?.maps ?? {}
+      friendlyFleetMeta = friends?.meta ?? null
+      mapIntelMeta = (await queryLode('map-intel'))?.meta ?? null
       syncModuleVisibility()
       deferPassive(pane, 'du', render)
     })()

@@ -91,7 +91,7 @@ export { detectTaiha }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-escape-consumers-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-escape-consumers-'))
   const entry = path.join(dir, 'consumers.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'consumers.cjs')

@@ -3,6 +3,7 @@
 // 这一层是舰娘列表筛选片的唯一输入：玩家在「这一艘的备注」里写 `#水打`，
 // 筛选区才有那枚片。解析写歪一格，症状是「写了没反应」——而不是报错。
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
 import test from 'node:test'
 
 import noteTags from '../dist/shared/note-tags.js'
@@ -101,4 +102,13 @@ test('emoji / 箭头这类符号是边界，不会被吞进标签里', () => {
   // 反着写成「不是空白和标点」的话，下面这条会解出一个 `高速→夜战`
   assert.deepEqual(parseNoteTags('#高速→#夜战'), ['高速', '夜战'])
   assert.deepEqual(parseNoteTags('#高速🚀'), ['高速'])
+})
+
+test('图鉴保存带 #标签的实例备注后，就地重画抽屉里的标签片', () => {
+  const ji = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
+  const saveAt = ji.indexOf("scope.querySelectorAll<HTMLInputElement>('[data-roster-note]')")
+  const saveBlock = ji.slice(saveAt, saveAt + 900)
+  assert.match(saveBlock, /setShipRosterNote\([\s\S]*?deferPassive\(pane, 'ji:detail', updateShipDetailPanel\)/)
+  assert.match(ji, /const personalTags = parseNoteTags\(personalNote\)/)
+  assert.match(ji, /class="ro-note-tags"[\s\S]*?<i>#\$\{esc\(tag\)\}<\/i>/)
 })

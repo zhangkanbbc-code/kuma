@@ -1,4 +1,4 @@
-import { normalizeVoiceLine } from './voice-lineage'
+import { buildVoiceTranslationIndex, normalizeVoiceLine } from './voice-lineage'
 import { isUntranslatedVoiceText } from './voice-text'
 
 export type VoiceOverlayPackId = 'kcwiki-voice' | 'kcwiki-seasonal-voice'
@@ -34,6 +34,9 @@ export interface VoiceOverlayResult<Row extends VoiceOverlaySourceRow> {
   warnings: VoiceOverlayWarning[]
 }
 
+const hasMisplacedJapaneseSource = (row: VoiceOverlaySourceRow): boolean =>
+  row.ja.trim() === '' && (row.zh.match(/[ぁ-ゖァ-ヺ]/g)?.length ?? 0) >= 2
+
 /**
  * 第一方译文只叠在仍缺译、且日文原文未漂移的上游行上。
  * 返回新行表，不改传入的上游对象。
@@ -57,16 +60,20 @@ export const applyVoiceOverlay = <Row extends VoiceOverlaySourceRow>(
     data[group] = rows.map((row) => {
       const entry = entries[row.key]
       if (!entry || entry.pack !== pack) return { ...row }
-      if (normalizeVoiceLine(row.ja) !== normalizeVoiceLine(entry.ja)) {
+      // kcwiki 偶有把日文原文误填进 zh、ja 留空的行。只在 ja 为空且 zh 至少含
+      // 两个假名时，把那一列当作本行的日文锚点；已有 ja 的正常中文译文不受影响。
+      const misplacedJapaneseSource = hasMisplacedJapaneseSource(row)
+      const upstreamJa = misplacedJapaneseSource ? row.zh : row.ja
+      if (normalizeVoiceLine(upstreamJa) !== normalizeVoiceLine(entry.ja)) {
         warnings.push({
           key: row.key,
           pack,
-          upstreamJa: row.ja,
+          upstreamJa,
           overlayJa: entry.ja,
         })
         return { ...row }
       }
-      if (!isUntranslatedVoiceText(row.zh)) {
+      if (!misplacedJapaneseSource && !isUntranslatedVoiceText(row.zh)) {
         retiredKeys.push(row.key)
         return { ...row }
       }
@@ -76,6 +83,18 @@ export const applyVoiceOverlay = <Row extends VoiceOverlaySourceRow>(
   }
 
   return { data, appliedKeys, retiredKeys, warnings }
+}
+
+export const supplementVoiceZhByJa = (
+  index: Map<string, string>,
+  lines: { ja?: unknown; zh?: unknown }[] | null | undefined,
+): void => {
+  for (const line of lines ?? []) {
+    const key = normalizeVoiceLine(line?.ja)
+    const value = `${line?.zh ?? ''}`.trim()
+    if (!key || !value || isUntranslatedVoiceText(value) || index.has(key)) continue
+    index.set(key, value)
+  }
 }
 
 /** overlay 全部 keyed 条目与字幕专用 byJa 条目共用的日文原文 → 中文译文索引。 */
@@ -92,5 +111,24 @@ export const voiceOverlayJaIndex = (
     const key = normalizeVoiceLine(entry.ja)
     if (key) index.set(key, entry.zh)
   }
+  return index
+}
+
+/** 舰娘同句译文：字幕对 → kcwiki（非深海）→ 译文覆盖层 → kuma-voice，后源只补空。 */
+export const buildVoiceZhByJa = (
+  subtitleJa: Parameters<typeof buildVoiceTranslationIndex>[0],
+  subtitleZh: Parameters<typeof buildVoiceTranslationIndex>[1],
+  kcwiki: Record<string, { ja?: unknown; zh?: unknown }[] | undefined>,
+  overlay: VoiceOverlayData | null | undefined,
+  kuma: Record<string, { ja?: unknown; zh?: unknown }[] | undefined>,
+): Map<string, string> => {
+  const index = buildVoiceTranslationIndex(subtitleJa, subtitleZh)
+  for (const [id, lines] of Object.entries(kcwiki)) {
+    if (Number(id) < 1_500) supplementVoiceZhByJa(index, lines)
+  }
+  for (const [key, value] of voiceOverlayJaIndex(overlay)) {
+    if (!index.has(key)) index.set(key, value)
+  }
+  for (const lines of Object.values(kuma)) supplementVoiceZhByJa(index, lines)
   return index
 }

@@ -6,7 +6,7 @@
 // ---- 三条边界，与档案层同一套（别在这里放松）----
 //  ① **kcsapi 红线**：`/kcsapi/*` 永不主动请求，与开关无关。这里取的是
 //     `/kcs/sound/**.mp3`——静态音频，与游戏自己播一句是同一件事。
-//  ② **受钥里那个开关管**（`kanso.remoteArt`，立绘与语音同一个）：关掉就一次都不发。
+//  ② **受钥里那个开关管**（`kuma.remoteArt`，立绘与语音同一个）：关掉就一次都不发。
 //  ③ **一次点击一次请求**：这个模块**没有**批量入口，也不许有。
 //     打开一页扫 53 个槽就是把一次浏览变成对游戏服务器的 53 连发——
 //     整个域的前提就是玩家逐个点，护栏钉着这件事。
@@ -58,7 +58,7 @@ const load = () => {
   } catch (error: any) {
     if (error?.code !== 'ENOENT') {
       // 读不出来就当空台账继续：最坏结果是那几格重探一次，绝不拦住启动
-      safeConsole('warn', '[kanso] 语音探测台账读取失败，按空台账继续', error)
+      safeConsole('warn', '[kuma] 语音探测台账读取失败，按空台账继续', error)
     }
     absent = new Map()
   }
@@ -75,7 +75,7 @@ const flush = () => {
       entries: [...absent.values()],
     })
   } catch (error) {
-    safeConsole('warn', '[kanso] 语音探测台账落盘失败', error)
+    safeConsole('warn', '[kuma] 语音探测台账落盘失败', error)
   }
 }
 
@@ -141,7 +141,7 @@ export const probeVoiceSlot = async (
     return { verdict: 'absent', absentAt: known?.at }
   }
   // 边界②：钥里关掉了就一次都不发
-  if (!config.get('kanso.remoteArt', true)) return { verdict: 'blocked' }
+  if (!config.get('kuma.remoteArt', true)) return { verdict: 'blocked' }
   let url: URL
   try {
     url = new URL(rawHref)

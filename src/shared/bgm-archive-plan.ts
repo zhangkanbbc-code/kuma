@@ -36,27 +36,8 @@ export interface BgmArchiveEntry {
 }
 
 /**
- * 一条档案记录必须带齐的字段。护栏逐项核对它不许少。
- *
- * `kind` 与 `id` 少不得：**两棵树同号是两首不同的曲子**
- *（battle/118 是「梅雨明けの白露」，port/118 是「鎮守府の秋祭り」），
- * 丢了 kind 的档案没法回放也没法归位。
- */
-export const BGM_ARCHIVE_REQUIRED_FIELDS = [
-  'pathname',
-  'kind',
-  'id',
-  'version',
-  'sha1',
-  'bytes',
-  'firstHeard',
-  'lastHeard',
-  'heard',
-] as const
-
-/**
  * 档案上限的默认值：**0 = 不限量**，与语音/立绘同一条口径
- *（2026-08-23 用户拍板：留不留交给玩家自己定）。
+ *（2026-08-23 维护者拍板：留不留交给玩家自己定）。
  * 不设上限就一条都不淘汰，档案只在玩家自己在钥里清空时才变小。
  */
 export const BGM_ARCHIVE_MAX_BYTES = 0

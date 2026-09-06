@@ -80,11 +80,23 @@ test('非舰载机格不出角标，也就无所谓上色', () => {
   // 第 2 格换成小口径主砲：onslot 有值也不出角标
   reset(ZUIHO_MAX_EQ, [18, 15, 15, 2], {
     iconIds: [PLANE_ICON_ID, GUN_ICON_ID, PLANE_ICON_ID, PLANE_ICON_ID],
+    type2s: [8, 1, 8, 8],
   })
   assert.deepEqual(badgesOf(renderEquipChips()), [
     ['g', 18],
     ['g', 15],
     ['g', 2],
+  ])
+})
+
+test('搭载角标按装备类别判航空：夜瑞云与夜攻出数，ドラム缶不出数', () => {
+  reset([7, 7, 7], [7, 7, 7], {
+    iconIds: [51, 46, 25],
+    type2s: [11, 8, 30],
+  })
+  assert.deepEqual(badgesOf(renderEquipChips()), [
+    ['g', 7],
+    ['g', 7],
   ])
 })
 

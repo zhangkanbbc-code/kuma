@@ -41,7 +41,7 @@ export { forecastAssumptionsHtml }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-forecast-note-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-forecast-note-'))
   const entry = path.join(dir, 'note.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'note.cjs')

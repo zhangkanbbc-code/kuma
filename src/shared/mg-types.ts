@@ -205,8 +205,8 @@ export interface PowerupResultCue {
  * ケッコンカッコカリ（婚舰）的瞬时提示。与 PowerupResultCue 同族：不进领域状态、
  * 不可回灌，主进程在报文到达那一刻做一次，渲染层只负责当场的庆祝视觉。
  *
- * **一手信号是 path 到达本身**，不是响应体里的某个字段：本机账本里这条 path
- * 零样本（这台机器的婚舰都在艦素诞生前），响应形状未经本地实证，所以这里只带
+ * **一手信号是 path 到达本身**，不是响应体里的某个字段：对照资料游戏报文里这条 path
+ * 零样本（这台机器的婚舰都在kuma诞生前），响应形状未经本地实证，所以这里只带
  * 三样能从**请求侧**与**结婚前的状态快照**取到的东西。
  *
  * rosterId 为 null = 没认出是哪一艘（post/body 都没给出可用的 api_id）。
@@ -434,7 +434,7 @@ export interface BattleStageView {
   air: AirCombatView | null
   squadronPlanes?: { mstId: number; count: number }[] // 基地航空本波实际出击机种
   /**
-   * api_air_base_attack[].api_base_id：这一波是**第几基地**出的（账本实测恒 1–3）。
+   * api_air_base_attack[].api_base_id：这一波是**第几基地**出的（游戏报文实测恒 1–3）。
    * 报文没给（旧快照 / 非陆航段）就不写，显示端退回按全局波次编号。
    */
   airBaseId?: number
@@ -533,6 +533,18 @@ export interface BattleFlavorVoice {
   message: string
 }
 
+export interface BattleLevelUp {
+  rosterId: number
+  from: number
+  to: number
+  at: number
+}
+
+export interface LastSortieLevelUps {
+  entries: BattleLevelUp[]
+  endedAt: number
+}
+
 export interface BattleView {
   kind:
     | 'day' // 通常昼战；hasNight=true 时为昼战后追击夜战
@@ -561,16 +573,8 @@ export interface BattleView {
   /**
    * `api_friendly_info.api_production_type` 的原值。**语义未定，UI 一律不标**。
    *
-   * 本机账本全量只有两条带 api_friendly_info 的报文（2026-08-26 穷举）：
-   * · 21:09:09 `ec_midnight_battle` → 2，编成 伊勢改二 · 日向改二 · 梅改 · 桃改（4 舰）
-   * · 21:25:07 `ec_midnight_battle` → 3，编成 伊勢改二 · 日向改二 · 酒匂改 · 梅改 · 桃改（5 舰）
-   *
-   * 用户亲证 21:09 那场是強友軍要請；21:25 同一晚同一图、友军参战有目击。
-   * 两场值不同而后一场编成**更大**，所以「2 = 強力」讲不通——这个字段看着是在
-   * 标**编成变体**（同一支伊勢型友军的不同抽取结果），不是強/通常的档位。
-   * 一度打算按 `=== 2` 挂「强友军」标，被这第二条样本证伪：那样会把小的那次标成强、
-   * 大的那次不标。**要标之前先拿到「确证是通常友军」的对照样本**（本机零样本），
-   * 在此之前原值只留在数据层备查。缺省（没开友军要請、旧快照）为 null。
+   * 战斗报文核对（维护者核 2026-08-26）：取值 2/3 不能直接推定强弱，
+   * 编成变体解释尚待验证；缺省为 null，原值只留数据层。
    */
   friendlyProductionType: number | null
   stages: BattleStageView[]
@@ -668,7 +672,7 @@ export interface SortieSunkShip {
  * 与 `sunkShips` 同一种累积口径：出击级事实攒在出击上，返港时随 `active` 落下自然失效。
  * 修理量是**算出来的**——报文只给修完之后的整支舰队（`api_ship_data`），
  * 所以 `before` 取覆盖前账上那一刻的耐久，`after` 取报文里的新值，两者之差就是这一次回了多少。
- * 现状里查不到那艘舰（中途启动艦素、账上还没有她）时整条不落：宁可少记，不猜一个数。
+ * 现状里查不到那艘舰（中途启动kuma、账上还没有她）时整条不落：宁可少记，不猜一个数。
  */
 export interface SortieAnchorageRepair {
   cell: number // 在哪一格修的
@@ -712,6 +716,8 @@ export interface SortieView {
   battle: BattleView | null // 当前节点战斗（昼夜合并推演）
   battleCount: number
   drops: { cell: number; mstId: number; name: string }[] // 本轮捞到的舰（保持到下次出击）
+  // 本次出击实际跨级的在籍舰：每舰一条，跨节点累计，返港前一直显示。
+  levelUps: BattleLevelUp[]
   // 本轮沉掉的舰（跨节点累积，返港时随 active 落下自然失效）。演习不入此表。
   sunkShips: SortieSunkShip[]
   // 本轮做过的緊急泊地修理（同上，出击级累积）。演习不入此表。
@@ -739,7 +745,7 @@ export interface SortieView {
    * 权威 HP 对账把「解析说没大破」纠正成「权威说大破」的次数（出击级，回港随 sortie 失效）。
    *
    * 铃拿它当补发大破通知的信号：数字一跳就绕过去重再喊一次，措辞前缀「修正：」。
-   * 对账本体与时序实测见 shared/sortie-hp-audit。
+   * 对报文体与时序的核对见 shared/sortie-hp-audit。
    * 可选：本功能之前存下的战斗快照没有这个键，读的地方一律 `?? 0`。
    */
   taihaCorrections?: number
@@ -851,7 +857,7 @@ export interface MgPlayer {
   useitems: Record<number, number> // useitem id → 所持数
   useitemsTs: number | null // 最近一次完整同步 api_useitem 的时刻；缺席条目只有在此后才能判定为 0
   // 持有家具（api_get_member/require_info 与 /furniture 的 api_furniture_id，升序去重）。
-  // null = 这份账本还没同步过家具（旧版快照）——消费方当「未知」处理，绝不能当「没有」
+  // null = 这份游戏报文还没同步过家具（旧版快照）——消费方当「未知」处理，绝不能当「没有」
   // 去标灰（2026-08-17 用户点名的坑：识别不到就会出现「有但是是灰色」）。
   furnitures: number[] | null
   // 母港滚动消息（port api_log，游戏自报的「最近发生」，6 条日文原文）
@@ -880,13 +886,8 @@ export interface MgPlayer {
    * · `flag` = 1 要請开
    * · `type` = 0 通常 / 1 強力
    *
-   * 出处：本机账本 events 里 2026-08-26 的两条实测（18:39 `flag=1 type=1`、
-   * 18:47 `flag=1 type=0`），是用户当场两次切换留下的双样本，`type` 的两个取值靠它钉死。
-   * `flag` 两条都是 1（那两次切的是种类），0 值本机未观测到，按端点语义记作「关」。
-   *
-   * **字段缺失 = 未知，不等于「关」**：游戏只在玩家动这个开关时才下发这条报文，
-   * 冷启动、或这台机器从没切过，就一条也不会有。消费端必须按未知处理——
-   * 少说不错说，不许把未知当成「没开」去下结论。
+   * 游戏要請报文核对（维护者核 2026-08-26）：type=1/0 表示种类切换。
+   * flag=0 尚无独立核对结论，按端点语义记作关。
    */
   friendlyRequest?: { flag: number; type: number }
   // 基地航空队 + 快照时点（打开出击海域选择页才有，重启回灌）
@@ -896,7 +897,7 @@ export interface MgPlayer {
   /**
    * 母港泊地修理的计时锚点：deckId → 该队计时**最近一次归零**的时刻。
    *
-   * 游戏对母港泊地修理零报文，这个数没有任何一手来源，只能由本机观测拼出来
+   * 游戏对母港泊地修理零报文，这个数没有任何一手来源，只能由对照资料观测拼出来
    * （判据与出处见 shared/berth-repair.ts 的 `BERTH_RESET_REASONS`）。
    * 必须跨重启保留：舰队在港里停了三小时，重启一次就报「刚停下」是纯粹的错值，
    * 所以它进 `domainSnapshot`。缺号 = 没观测到过这支队的归零点，那就什么都不报。
@@ -918,6 +919,7 @@ export interface MgState {
   master: MgMaster
   player: MgPlayer
   sortie: SortieView | null
+  lastSortieLevelUps: LastSortieLevelUps | null
   mapGauges: Record<number, MapGauge> // mapId(area*10+no) → 进度
   eventAreas: Record<number, EventArea> // 活动区 id → 观测窗口
   battleReconciliation: BattleReconciliationSession
@@ -971,6 +973,7 @@ export interface MgPatch {
   furnitures?: number[] | null
   portLogs?: { type: number; message: string }[]
   sortie?: SortieView | null
+  lastSortieLevelUps?: LastSortieLevelUps | null
   mapGauges?: Record<number, MapGauge>
   eventAreas?: Record<number, EventArea>
   practice?: MgPlayer['practice']
@@ -1079,7 +1082,7 @@ export interface LocalDropShip {
 }
 
 /**
- * 「本机确认掉落」——第一方一手的掉落证据（2026-08-22 起）。
+ * 「对照资料确认掉落」——第一方一手的掉落证据（2026-08-22 起）。
  *
  * 与离线目录**并列显示，不合并**：目录说的是「社区确认这里掉这条船」，
  * 这一层说的是「我自己在这儿捞到过」。合并会让第一方观测冒充社区确认。
@@ -1331,6 +1334,7 @@ export interface ShipLifeReport {
   bossBattles: number
   mvps: number
   remodels: number
+  remodelHistory?: { hasEvents: boolean; afterMstIds: number[] } // 全账本摘要，不受 events 分页限制
   // 累计承受伤害（掉的 HP）、被打进大破的场次、累计造成伤害，出击与演习合计。
   // 造成伤害只含**有明确施加方**的：航空战/基地航空/支援是阶段伤害，
   // 游戏不给逐舰归属，不摊给任何人。

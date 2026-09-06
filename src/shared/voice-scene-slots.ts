@@ -33,7 +33,7 @@ export interface VoiceSceneSlot {
   /**
    * **适用范围**：这一格只在这几个形态身上存在（不写＝全局，所有形态都摆）。
    *
-   * 2026-08-23 用户拍板加的字段，判例是 917/918（Graf Zeppelin 系专用夜战）：
+   * 2026-08-23 维护者拍板加的字段，判例是 917/918（Graf Zeppelin 系专用夜战）：
    * 全局收进表就等于在别的 800+ 形态页上各铺两行**死格**——点下去必 404、
    * 顺手把台账撑大一圈。而不收又回到「她确实说了，图鉴里一行都没有」。
    * 有了这个字段，两难消失：**存在面窄的槽位按舰限定摆**。
@@ -106,12 +106,12 @@ export const hourlyVoiceSlot = (token: string): VoiceSceneSlot | null => {
 // ---- 出处（双源一致）----
 // KC3Kai `src/library/modules/Translation.js` 的 `_descToId` 表，
 // 与 GotoBrowser 的 `quotes_label.json`。同一份出处里记着的那几族，
-// 2026-08-23 用户逐族拍板，收法各不相同——**取舍的量纲是「存在面 × 每形态成本」**：
+// 2026-08-23 维护者逐族拍板，收法各不相同——**取舍的量纲是「存在面 × 每形态成本」**：
 //   · **129 = 放置②**（好感/士气 ≥50 时的另一句放置台词）→ **全局收**。
 //     性质与时报一样：存在面广、一行成本，没有这一格的舰点一次 404 自剪。
 //   · **917 / 918 = Graf Zeppelin 系专用夜战** → **按舰限定收**（`onlyMst`）。
 //     存在面只有一家，全局摆就是在 800+ 形态页上各铺两行死格。
-//     Graf 家的形态号是**从本机主数据快照实测的**（`api_mst_ship` 按舰名匹配
+//     Graf 家的形态号是**从对照资料主数据快照实测的**（`api_mst_ship` 按舰名匹配
 //     「Graf Zeppelin」全形态）：432 = Graf Zeppelin，353 = Graf Zeppelin改，共两个。
 //   · **141~161 / 241~261 / 342~350 = 友军舰队**（末两位是活动海域号）→ **只收 141/241**。
 //     只有这一对在随包字幕里有文本实证（4 艘：43/145/243/961，原文都是
@@ -123,8 +123,8 @@ export const hourlyVoiceSlot = (token: string): VoiceSceneSlot | null => {
 /**
  * Graf Zeppelin 系的全部形态。
  *
- * **实测得来，不是拍脑袋写死的数字**：2026-08-23 读本机主数据快照
- * `%APPDATA%\kanso\snapshots\kcsapi_api_start2_getData.json`（`{ts, body}` 两层，
+ * **实测得来，不是拍脑袋写死的数字**：2026-08-23 读对照资料主数据快照
+ * `%APPDATA%\kuma\snapshots\kcsapi_api_start2_getData.json`（`{ts, body}` 两层，
  * 主数据在 `body.api_data`），按 `api_name` 匹配 “Graf Zeppelin” 得两条，
  * 与 `api_yomi`「グラーフ・ツェッペリン」一致，无第三个形态：
  *   · 432 = Graf Zeppelin（音轨目录 tepoqqczfonx）
@@ -146,7 +146,7 @@ export const SPECIAL_VOICE_SLOTS: readonly VoiceSceneSlot[] = [
   // 西村舰队的联合作战台词。它们**不是**结婚语音（婚礼是常规 24 号槽）——
   // 这条订正的实证在 renderer/kcs-voice 的文件头里。
   // 命名按 KC3 语义（末两位=活动海域编号）：41 = 2018 冬「捷号决战」后篇，
-  // 時雨这两句正是那一期的西村舰队增援台词。2026-08-23 用户拍板从「特殊（西村舰队）」改。
+  // 時雨这两句正是那一期的西村舰队增援台词。2026-08-23 维护者拍板从「特殊（西村舰队）」改。
   { slot: 141, scene: '友军舰队（海域41）一' },
   { slot: 241, scene: '友军舰队（海域41）二' },
   // 特殊攻击（SpCutin）。本机台账里 Richelieu改 与 大和改二重 的 `900.mp3`
@@ -205,7 +205,7 @@ export const specialVoiceScene = (slot: number): string => SPECIAL_BY_SLOT.get(s
 // 这一条管的是**已经发生过的事**：档案里躺着的那一格，是玩家在游戏里真听到过、
 // 字节都留下来了的。它的存在性判据是**实物本身**，不需要表来背书，也不发一次请求。
 // 于是官方将来发明任何新裸编号，玩家听过一次就自动显形，**不必等表更新**——
-// 「表外新编号的收编时差」由此闭环（2026-08-23 用户拍板）。
+// 「表外新编号的收编时差」由此闭环（2026-08-23 维护者拍板）。
 //
 // 名字怎么给：友军舰队那三段有 KC3 语义（末两位 = 活动海域号），照它推；
 // 其余给中性的「音轨 #N」——不知道是什么场合就**不编一个**，编号本身是唯一诚实的说法。
@@ -284,11 +284,11 @@ export const parseVoiceKey = (rawKey: string): ParsedVoiceKey => {
 /** 只要槽位这一个数。认不出返回 null——**不猜**，认不出的行如实不给播放钮。 */
 export const voiceSlotOfKey = (rawKey: string): number | null => parseVoiceKey(rawKey).slot
 
-// ---- 补键前的逐行交叉校验（2026-08-22 用户实测播错句后加的）----
+// ---- 补键前的逐行交叉校验（2026-08-22 维护者实测播错句后加的）----
 //
 // ---- 为什么光有场合表还不够 ----
 // 场合表回答的是「这个 token 一般对应哪个槽位」，**不保证某一艘舰身上成立**。
-// 用户实测撞到的那一例：国後（mstId 518）
+// 维护者实测撞到的那一例：国後（mstId 518）
 //   游戏真实音轨 subtitle-ja[518]：2 号槽 =「ええ？あたしはそういうのはいいかな？…」（长句）
 //   kcwiki 档名 318-Sec1              =「なに？呼んだ？ふ～」
 // 表推给了 2 号槽，点下去播的却是那段长台词——**一个音节都对不上**。
@@ -499,11 +499,19 @@ export const buildShipFormCodeMap = (ships: unknown): Map<string, number> => {
  *   · 中文：「本字幕暂时没有翻译 请到舰娘百科(https://zh.kcwiki.moe/)协助我们翻译」——259 格。
  * 真包实测两边各只有这一种写法。中文那句从前一个字都没拦过，于是实时字幕会把
  * 「请到舰娘百科协助我们翻译」**连网址一起**打在玩家屏幕上。
+ *
+ * wikiwiki 另有一种「有该场合、但没有实际转写」的短占位：整句只有一对全角或
+ * 半角括号（如「（大破結婚後）」）。同样按文本形状认，不维护形态/句子名单。
  */
-export const isSubtitlePlaceholder = (value: unknown): boolean =>
-  /対応するサブタイトルがありません|艦これ中国語ウィキ|本字幕暂时没有翻译|协助我们翻译/.test(
-    `${value ?? ''}`,
+export const isSubtitlePlaceholder = (value: unknown): boolean => {
+  const text = `${value ?? ''}`.trim()
+  return (
+    /対応するサブタイトルがありません|艦これ中国語ウィキ|本字幕暂时没有翻译|协助我们翻译/.test(
+      text,
+    ) ||
+    /^(?:（[^（）\r\n]+）|\([^()\r\n]+\))$/.test(text)
   )
+}
 
 /**
  * 季节台词的**文本指纹**按形态分组：形态 mstId → 折叠后的中日两列文本。
@@ -534,7 +542,7 @@ export const seasonalTextIndex = (
  * 剔掉季节占用、季节污染、占位句之后，这张 subtitle 表还剩下的**常规**槽位（升序）。
  *
  * ---- 为什么「有没有表」不能只看表存不存在 ----
- * 2026-08-27 用户实测：杰维斯改（394）中破语音响了，字幕一个字都没有。
+ * 2026-08-27 维护者实测：杰维斯改（394）中破语音响了，字幕一个字都没有。
  * 根因是 subtitle-ja/zh 里 394 与 519 **各只有一个键「2」**，内容是同一句夏季限定台词
  *（「この国の夏は、暑いのね…」）——上游 poi-plugin-subtitle 对这一族的常规台词整体缺失，
  * 只剩这一条季节污染的孤条。全库 762 个有表的形态里只有这两个是这样，其余都是 27 格满配。
@@ -849,9 +857,8 @@ export interface KcwikiSlotLine {
  * NOTICE 在册）却没接进来。接上之后 subtitle 缺的格由它补。
  *
  * 两条取舍：
- *  · **跳过 `reattributed`**。那一档是「kcwiki 把行归错了形态，分拣把它挪到了
- *    真正的宿主」——能挪成功的前提就是宿主的音轨对得上，而对得上意味着宿主
- *    本来就有 subtitle 表，这一行填不进任何空格。保守起见不收。
+ *  · **收下 `reattributed`**。宿主由档名形态码经 codeMap 确认，可以没有 subtitle 表；
+ *    实时字幕链的 subtitle 整表仍在它前面，它只填本形态的空格。
  *  · **同槽先到先得**。`rowsByForm` 已按槽位排过序，同一槽位的重复行取第一条，
  *    不做二次挑选——挑选逻辑一旦长在这里，就成了第二份判据。
  *
@@ -865,7 +872,6 @@ export const kcwikiSlotIndex = (
   for (const [formId, rows] of rowsByForm) {
     const perSlot = new Map<number, KcwikiSlotLine>()
     for (const row of rows) {
-      if (row.fix === 'reattributed') continue
       const slot = row.slot ?? voiceSlotOfKey(row.key)
       if (slot == null || perSlot.has(slot)) continue
       perSlot.set(slot, { ja: `${row.ja ?? ''}`, zh: `${row.zh ?? ''}` })
@@ -889,7 +895,7 @@ export const kcwikiSlotIndex = (
 //    神鷹改二(536) 5 行、大和改二(911) 5 行、龍鳳改(318) 8 行……
 //  · **一源缺一段就整段没有**：wikiwiki 有的形态缺某几个场合，命中它之后
 //    subtitle 里那几格也跟着看不见。
-// 随包 lodes + 本机 start2 快照实测：862 个我方形态里 173 个受影响，合计 3735 行取不到。
+// 随包 lodes + 对照资料 start2 快照实测：862 个我方形态里 173 个受影响，合计 3735 行取不到。
 // 反方向也量了：只有 4 个形态的行数会**变少**（大和 −1、平安丸 −2、有明 −1、桃 −1），
 // 全是老口径把本形态①层那几条没有槽位的行又推了一遍、页面上本来就重着的。
 //
@@ -973,7 +979,7 @@ export interface VoiceFallbackPlan {
  *    别处一条都没有，所以这条改写不会碰到任何别的行。
  *  · kcwiki 的行自带「〇〇〇〇时报」这类中文场合名，照原样留着。
  *
- * 演进：08-23 第一版只补时报段（30–53），1–29 留空是当时的谨慎口径；同日用户
+ * 演进：08-23 第一版只补时报段（30–53），1–29 留空是当时的谨慎口径；同日维护者
  * 实机看到黎塞留整页「#1 #2」点名要触发条件——1–29 的槽位→场合同样出自
  * VOICE_SCENE_SLOTS 实证对照表（每格 112~220 例取值唯一，见文件头），补名与
  * 时报段同一置信度。对照表覆盖不到的槽位（54+ 或键不可解析）仍旧留空、如实计数。
@@ -1047,27 +1053,70 @@ export const planVoiceFallbackChain = (input: VoiceFallbackChainInput): VoiceFal
       if (!sources.includes(source)) sources.push(source)
     }
 
-    // 首选：kcwiki（带场合）。**只认留在自己桶里的行**——归属校正挪进来的那几行
-    // 是别的形态的，拿它当回退源等于把别人的话又搬回来（翔鶴改二甲 52→2 那一例）。
-    for (const row of input.correctedRowsOf(id) ?? []) {
-      if (row.fix === 'reattributed') continue
-      const slot = row.slot ?? voiceSlotOfKey(row.key)
-      if (!claim(slot, row.ja)) continue
-      picks.push({
-        id,
-        source: 'kcwiki',
-        slot,
-        key: row.key,
-        scene: voiceFallbackScene(slot, row.scene),
-        ja: row.ja,
-        zh: row.zh,
-        row,
-      })
-      note('kcwiki')
+    const kcwikiRows = (input.correctedRowsOf(id) ?? []).filter((row) => row.fix !== 'reattributed')
+    const cellOf = (row: CorrectedVoiceRow) =>
+      row.slot ?? voiceSlotOfKey(row.key) ?? foldVoiceLineForCompare(row.ja)
+    const translatedKcwikiCells = new Set(kcwikiRows.filter((row) => row.zh.trim()).map(cellOf))
+    const fillKcwiki = (translated: boolean) => {
+      // 同一级有中文的 kcwiki / subtitle 先占槽，再取只日文的源。
+      // **只认留在自己桶里的行**——归属校正挪进来的那几行
+      // 是别的形态的，拿它当回退源等于把别人的话又搬回来（翔鶴改二甲 52→2 那一例）。
+      for (const row of kcwikiRows) {
+        if (translatedKcwikiCells.has(cellOf(row)) !== translated) continue
+        const slot = row.slot ?? voiceSlotOfKey(row.key)
+        if (!claim(slot, row.ja)) continue
+        picks.push({
+          id,
+          source: 'kcwiki',
+          slot,
+          key: row.key,
+          scene: voiceFallbackScene(slot, row.scene),
+          ja: row.ja,
+          zh: row.zh,
+          row,
+        })
+        note('kcwiki')
+      }
+      closeGroup()
     }
-    closeGroup()
 
-    // 次选：wikiwiki 舰娘页（改装阶段列能精确区分形态，但只给日文原文）
+    const fillSubtitle = (translated: boolean) => {
+      // 兜底：poi-plugin-subtitle。它只有编号，没有场合列——1–53 全段按实证对照表补名
+      //（08-23 用户实机点名要触发条件，1–29 的谨慎留空同日撤销），表外槽位留空并如实计数。
+      const ja = input.subtitleJaOf(id)
+      const zh = input.subtitleZhOf(id)
+      if (ja || zh) {
+        const keys = [...new Set([...Object.keys(zh ?? {}), ...Object.keys(ja ?? {})])].sort(
+          (left, right) => parseInt(left, 10) - parseInt(right, 10),
+        )
+        for (const key of keys) {
+          if (Boolean(zh?.[key]?.trim()) !== translated) continue
+          const parsed = parseInt(key, 10)
+          const slot = Number.isInteger(parsed) ? parsed : null
+          const lineJa = `${ja?.[key] ?? ''}`
+          if (!claim(slot, lineJa)) continue
+          const scene = voiceFallbackScene(slot, '')
+          if (!scene) unnamedSubtitleRows += 1
+          picks.push({
+            id,
+            source: 'subtitle',
+            slot,
+            key,
+            scene,
+            ja: lineJa,
+            zh: `${zh?.[key] ?? ''}`,
+          })
+          note('subtitle')
+        }
+      }
+      closeGroup()
+    }
+
+    fillKcwiki(true)
+    fillSubtitle(true)
+    fillKcwiki(false)
+
+    // 中文源之后：wikiwiki 舰娘页（改装阶段列能精确区分形态，但只给日文原文）
     for (const line of input.wikiwikiRowsOf(id) ?? []) {
       const slot = line.voiceId ?? null
       if (!claim(slot, line.ja)) continue
@@ -1083,35 +1132,7 @@ export const planVoiceFallbackChain = (input: VoiceFallbackChainInput): VoiceFal
       note('wikiwiki')
     }
     closeGroup()
-
-    // 兜底：poi-plugin-subtitle。它只有编号，没有场合列——1–53 全段按实证对照表补名
-    //（08-23 用户实机点名要触发条件，1–29 的谨慎留空同日撤销），表外槽位留空并如实计数。
-    const ja = input.subtitleJaOf(id)
-    const zh = input.subtitleZhOf(id)
-    if (ja || zh) {
-      const keys = [...new Set([...Object.keys(zh ?? {}), ...Object.keys(ja ?? {})])].sort(
-        (left, right) => parseInt(left, 10) - parseInt(right, 10),
-      )
-      for (const key of keys) {
-        const parsed = parseInt(key, 10)
-        const slot = Number.isInteger(parsed) ? parsed : null
-        const lineJa = `${ja?.[key] ?? ''}`
-        if (!claim(slot, lineJa)) continue
-        const scene = voiceFallbackScene(slot, '')
-        if (!scene) unnamedSubtitleRows += 1
-        picks.push({
-          id,
-          source: 'subtitle',
-          slot,
-          key,
-          scene,
-          ja: lineJa,
-          zh: `${zh?.[key] ?? ''}`,
-        })
-        note('subtitle')
-      }
-    }
-    closeGroup()
+    fillSubtitle(false)
 
     if (picks.length === before) continue
     if (id === input.mstId) usedOwnForm = true

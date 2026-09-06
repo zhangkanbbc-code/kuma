@@ -8,9 +8,9 @@
 //     还是绿，只有喂一艘扩过的舰才看得出来。
 // 三者都只在产物 HTML 的 class 上看得出来，所以对着渲染结果下断言。
 //
-// 内核的 `hangarSlotCapacity` 与模块里的 `PLANE_ICONS`、`planeLoadBand` 都引真的那一份
+// 内核的 `hangarSlotCapacity`、装备类别判据与模块里的 `planeLoadBand` 都引真的那一份
 // （与 fixtures/render-hangar-hover 同一手法切片）：桩一写成常数，「分母取哪个」
-// 和「哪些图标算舰载机」这两半就在测试里被抹掉了。
+// 和「哪些类别算航空装备」这两半就在测试里被抹掉了。
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -40,12 +40,6 @@ const HANGAR = cut(
   '// 推断层的旧记忆',
   '内核的格納庫増設三件套',
 )
-const PLANE_ICONS = cut(
-  ru,
-  'const PLANE_ICONS = new Set(',
-  '\ninterface ShipIssues',
-  '锐的舰载机图标集 PLANE_ICONS',
-)
 const EQUIP_CHIPS = cut(
   ru,
   '// 舰载机搭载角标的余量三档',
@@ -54,6 +48,8 @@ const EQUIP_CHIPS = cut(
 )
 
 const HARNESS = `
+import { isAviationEquipType } from '${path.join(ROOT, 'src', 'renderer', 'equip-category.ts').replace(/\\/g, '/')}'
+
 type PlayerShip = any
 
 export const mg: any = { ships: {}, master: { ships: {}, slotitems: {} }, slotitems: {} }
@@ -62,8 +58,6 @@ const ENT: any = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '
 const esc = (v: unknown): string => String(v ?? '').replace(/[&<>"']/g, (c: string) => ENT[c])
 
 ${HANGAR}
-
-${PLANE_ICONS}
 
 // 这条护栏只看搭载角标那一截，芯片里其余的名字一律给最平淡的桩
 const entityNamePlain = (_kind: string, _id: number, name: string) => name
@@ -78,7 +72,7 @@ export { equipChips, planeLoadBand }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-plane-load-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-plane-load-'))
   const entry = path.join(dir, 'load.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'load.cjs')
@@ -107,20 +101,26 @@ const GUN_ICON_ID = 1 // 小口径主砲，不在集里
  * @param maxEq    这一形态各格的主数据标准搭载
  * @param onslot   各格当前搭载数
  * @param options  `onslotMax` = 实例一手上限（缺省 = 这艘舰没被格納庫増設扩过，
- *                 真报文里那个键根本不存在）；`iconIds` = 逐格装备的图标 id
- *                 （缺省全给舰载机）
+ *                 真报文里那个键根本不存在）；`iconIds` / `type2s` = 逐格装备的
+ *                 图标 id / 装备类别（缺省全给艦上攻撃機）
  */
-export const reset = (maxEq, onslot, { onslotMax, iconIds } = {}) => {
+export const reset = (maxEq, onslot, { onslotMax, iconIds, type2s } = {}) => {
   loaded.mg.ships = {}
   loaded.mg.master.ships = {}
   loaded.mg.master.slotitems = {}
   loaded.mg.slotitems = {}
 
   const icons = iconIds ?? maxEq.map(() => PLANE_ICON_ID)
-  // 装备实例 id 从 1 起，与格位一一对应；主数据 id 同号，图标按 icons 给
+  const types = type2s ?? maxEq.map(() => 8)
+  // 装备实例 id 从 1 起，与格位一一对应；主数据 id 同号，图标 / 类别逐格给
   maxEq.forEach((_cap, i) => {
     loaded.mg.slotitems[i + 1] = { id: i + 1, mstId: i + 1, level: 0, alv: 0 }
-    loaded.mg.master.slotitems[i + 1] = { id: i + 1, name: `装备#${i + 1}`, iconId: icons[i] }
+    loaded.mg.master.slotitems[i + 1] = {
+      id: i + 1,
+      name: `装备#${i + 1}`,
+      iconId: icons[i],
+      type2: types[i],
+    }
   })
   loaded.mg.ships[939] = {
     id: 939,

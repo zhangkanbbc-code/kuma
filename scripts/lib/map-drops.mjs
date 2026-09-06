@@ -1,4 +1,4 @@
-// 常规海域**掉落**的第一方汇编（用户 2026-08-22 拍板的多源汇编口径，批次 2）。
+// 常规海域**掉落**的第一方汇编（维护者 2026-08-22 拍板的多源汇编口径，批次 2）。
 //
 // ---- 与 map-enemy-comps 同族，但票的独立性判据**不一样** ----
 //
@@ -69,7 +69,7 @@ const require = createRequire(import.meta.url)
  * 判据分两种，写在 `KCWIKI_DROP_ALIAS_EVIDENCE` 里：
  *   · `legacy-anchor` —— 现包在**同一个 (图, 点)** 上也有这个 mstId。两张互相独立整理的表
  *     在同一格指着同一条船，才敢把这个写法钉到这个号上；
- *   · `user-verdict`  —— 现包那一票**本身就是错的**，由用户裁定改钉，并附一条机器可复核的判据。
+ *   · `user-verdict`  —— 现包那一票**本身就是错的**，由维护者裁定改钉，并附一条机器可复核的判据。
  *     这一类不要求现包锚得上（要求它锚得上正好会把错值锁死）。
  * 逐条锚定核对由 test/map-drops.test.mjs 钉着，锚不上就是护栏红。
  */
@@ -84,7 +84,7 @@ export const KCWIKI_DROP_NAME_ALIASES = Object.freeze({
   宗谷: 699,
 })
 
-/** 每条别名凭什么钉到这个号上。`legacy-anchor` 靠现包同点，`user-verdict` 靠用户裁定 + 判据。 */
+/** 每条别名凭什么钉到这个号上。`legacy-anchor` 靠现包同点，`user-verdict` 靠维护者裁定 + 判据。 */
 export const KCWIKI_DROP_ALIAS_EVIDENCE = Object.freeze({
   丸输: { kind: 'legacy-anchor', why: '现包 3-5/H、4-5/T、6-1/I、6-1/K、6-2/K 五个点逐点对上，5/5 全中' },
   木曽: { kind: 'legacy-anchor', why: '现包 7-4/P 同点锚定' },
@@ -97,7 +97,7 @@ export const KCWIKI_DROP_ALIAS_EVIDENCE = Object.freeze({
       '**改造后的形态不掉落**——这是本项目一贯的口径（鉴的掉点卷也按它把改造形态回退到未改造形态）。' +
       'kcwiki 舰娘页的 `获得.改造` 逐条可查：699 是 0（链首，不由改造得来），645 与 650 都是 1（改造而来）。' +
       '所以掉落表写「宗谷」只可能指 699。现包在 1-4/L 等点写的 645 是上游错值，' +
-      '旧别名照着它锚，等于把错值锁死了。用户 2026-08-22 依 kcwiki 舰娘页裁定改钉 699。',
+      '旧别名照着它锚，等于把错值锁死了。维护者 2026-08-22 依 kcwiki 舰娘页裁定改钉 699。',
   },
 })
 
@@ -180,7 +180,7 @@ const limitedVsPlain = (fingerprint, kanlog) => ({
   fingerprint,
   verdict: 'limited',
   decidedAt: '2026-08-23',
-  why: `${LIMITED_VS_PLAIN_WHY}${kanlog}。用户 2026-08-23 据此裁「限定」收案。`,
+  why: `${LIMITED_VS_PLAIN_WHY}${kanlog}。维护者 2026-08-23 据此裁「限定」收案。`,
 })
 
 /** @type {readonly {fingerprint: string, verdict: string, decidedAt: string, why: string}[]} */
@@ -455,7 +455,7 @@ export const buildMapDrops = ({
           mstId: null,
           detail: {
             ledger: `S 胜 ${seen.sWins} 次、其中 ${seen.sWinsWithoutDrop} 次没掉`,
-            note: '本机账本见过空掉落，现包这张图一个点都没标——待核（账本只能钉到图，钉不到点）',
+            note: '游戏掉落报文核对（维护者核 2026-09-06）：存在图级空掉落信号，现表无节点标记；节点归属待核',
           },
         })
       }
@@ -479,7 +479,7 @@ export const buildMapDrops = ({
       continue
     }
     maps[code] = {
-      source: 'kuma 汇编（舰娘百科掉落表 × 艦これ攻略 Wiki 既有条目 × 本机遭遇志）',
+      source: 'kuma 汇编（舰娘百科掉落表 × 艦これ攻略 Wiki 既有条目 × 游戏报文核对（维护者核 2026-09-06））',
       sourceUrl: `https://zh.kcwiki.cn/wiki/${encodeURI(page.title ?? code)}`,
       checkedAt,
       revision: checkedAt.replaceAll('-', '.'),
@@ -496,7 +496,7 @@ export const buildMapDrops = ({
       voters: {
         kcwiki: '舰娘百科各海域页的「舰娘掉落表」（中文舰名，经舰娘表解成 mstId）',
         wikiwiki: '艦これ攻略 Wiki 各海域聚合页的确认掉落，现行 map-intel 里的既有条目',
-        ledger: '本机遭遇志 encounters.drop_mst——第一方一手实测，按图归不按点',
+        ledger: '游戏报文核对（维护者核 2026-09-06） encounters.drop_mst——第一方一手实测，按图归不按点',
       },
       // 上游自己写的来源自述，原文照录。掉落域算票的独立性判据全靠它，
       // 别只留我们自己的结论（37/37 图都挂着这一行，2026-08-22 实测）。

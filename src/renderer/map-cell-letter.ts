@@ -23,7 +23,7 @@ export const ensureMapCellLetters = (onReady?: () => void) => {
       onReady?.()
     })
     .catch((error) => {
-      console.warn('[kanso] 海图点位字母表读取失败', error)
+      console.warn('[kuma] 海图点位字母表读取失败', error)
     })
 }
 

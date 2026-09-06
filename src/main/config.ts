@@ -6,6 +6,7 @@ import path from 'path'
 
 import { atomicWriteJsonSync } from './atomic-json'
 import { APPDATA_PATH, DEFAULT_CACHE_PATH } from './env'
+import { CONFIG_ROOT, LEGACY_CONFIG_ROOT, planConfigMigration } from '../shared/config-namespace'
 import { DEFAULT_GAME_URL } from '../shared/game-url'
 import { HOTKEY_DEFAULTS } from '../shared/hotkeys'
 import { LAUNCH_GLOW_DEFAULT } from '../shared/launch-glow'
@@ -19,7 +20,7 @@ const DEFAULTS: Record<string, unknown> = {
     http: { host: '127.0.0.1', port: 8118, requirePassword: false, username: '', password: '' },
     pacAddr: '',
   },
-  kanso: {
+  [CONFIG_ROOT]: {
     // 游戏页面网址（玩家可在钥里改）。默认值与「认不出就回落到哪」是同一份，
     // 别在这里写字面量——判据在 shared/game-url。
     homepage: DEFAULT_GAME_URL,
@@ -62,7 +63,7 @@ const setByPath = (obj: Record<string, unknown>, keys: string[], value: unknown)
   cur[keys.at(-1) as string] = value
 }
 
-class KansoConfig extends EventEmitter {
+class KumaConfig extends EventEmitter {
   private data: Record<string, unknown> = {}
 
   constructor() {
@@ -72,12 +73,28 @@ class KansoConfig extends EventEmitter {
     } catch (_e) {
       this.data = {}
     }
+    // 整对象迁移永久保留；旧对象原样留下，不合并、不清理孤儿键。
+    const plan = planConfigMigration({
+      hasLegacy: Object.hasOwn(this.data, LEGACY_CONFIG_ROOT),
+      hasCurrent: Object.hasOwn(this.data, CONFIG_ROOT),
+    })
+    if (plan.migrate) {
+      this.data[CONFIG_ROOT] = structuredClone(this.data[LEGACY_CONFIG_ROOT])
+      // 直接 save：经 set 会被 === 判重吞掉这次落盘。
+      this.save()
+    }
   }
 
   get = (configPath: string, fallback?: unknown): any => {
     const keys = configPath.split('.')
     const value = getByPath(this.data, keys)
     if (value !== undefined) return value
+    // 读时兜底在正式版（版本号去掉 `-beta` 预发布后缀那一版）随使用说明那句一起撤除；整对象搬迁逻辑永久留。
+    // release-cleanup: config-read-fallback
+    if (keys[0] === CONFIG_ROOT) {
+      const legacyValue = getByPath(this.data, [LEGACY_CONFIG_ROOT, ...keys.slice(1)])
+      if (legacyValue !== undefined) return legacyValue
+    }
     return this.getDefault(configPath, fallback)
   }
 
@@ -107,7 +124,7 @@ class KansoConfig extends EventEmitter {
       // 配置是人会打开看的，保留缩进
       atomicWriteJsonSync(CONFIG_PATH, this.data, { pretty: true })
     } catch (e) {
-      console.warn('[kanso] config save failed', e)
+      console.warn('[kuma] config save failed', e)
     }
   }
 
@@ -129,6 +146,6 @@ class KansoConfig extends EventEmitter {
 }
 
 // export = ：让 webview preload 里的 remote.require('./config') 直接拿到实例
-const config = new KansoConfig()
+const config = new KumaConfig()
 
 export = config

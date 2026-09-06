@@ -1,4 +1,4 @@
-// 「显示/播放即入档」：艦素**自己**摆出来的那张图、自己播出去的那一句，
+// 「显示/播放即入档」：kuma**自己**摆出来的那张图、自己播出去的那一句，
 // 也要进档案。
 //
 // ---- 为什么补这一条（2026-08-23 用户实机报的那一处脱节）----
@@ -6,19 +6,19 @@
 // 「0/6 图种」。两本账各说各的：**显示**走的是缓存命中 + 游戏资源服务器回退，
 // **点亮**认的是档案层——而档案层此前只有一条进货渠道：游戏页面自己请求资源时，
 // 锚在 onBeforeRequest 里挂钩、再让游戏页用 only-if-cached 把字节交回来。
-// 艦素自己发起的显示与播放**根本不经过那条钩子**，于是「图在眼前却说没见到」。
+// kuma自己发起的显示与播放**根本不经过那条钩子**，于是「图在眼前却说没见到」。
 //
 // 补法不是把点亮判据放宽去认缓存（缓存会被整盘丢弃，那等于让收集进度随时蒸发），
 // 而是把**显示这件事本身**变成一次入档：既然这一帧已经拿到字节了，就顺手留一份。
 // 从此「看见了」与「点亮了」是同一件事的两面，不会再对不上。
 //
 // ---- 三类网络边界，写在这里给后来者当坐标 ----
-//  ① **kcsapi 红线**：`/kcsapi/*` 是会改账号状态的游戏 API，艦素**永不主动请求**，
+//  ① **kcsapi 红线**：`/kcsapi/*` 是会改账号状态的游戏 API，kuma**永不主动请求**，
 //     一次都不行。这条与开关无关，没有例外。
 //  ② **kcs2/kcs 静态资源白区，受钥里的开关管**：立绘、语音这类静态文件，
 //     取它跟游戏自己加载一张图是同一件事（不改状态、不消耗、不留玩家行为记录），
 //     所以允许——但**只指向游戏自己的服务器**，且玩家可以在钥里
-//     「不联网补取美术资源」一关了之（`kanso.remoteArt`，立绘与语音**同一个开关**）。
+//     「不联网补取美术资源」一关了之（`kuma.remoteArt`，立绘与语音**同一个开关**）。
 //  ③ **档案零网络**：档案里的实物一律只从「本机已经有的字节」来——
 //     Chromium 缓存文件，或页面 only-if-cached 读出来的那一份。
 //     本文件这条新路同样守住它：**先读本机缓存文件**，读到就用；读不到时才走
@@ -59,7 +59,7 @@ const inFlight = new Set<string>()
 const MAX_IN_FLIGHT = 6
 
 /** 缓存目录跟着钥里的设置走（键与 kcs-resource 的 getCacheDir 同一个，别各写各的）。 */
-const cacheDir = (): string => `${config.get('kanso.cache.path', DEFAULT_CACHE_PATH)}`
+const cacheDir = (): string => `${config.get('kuma.cache.path', DEFAULT_CACHE_PATH)}`
 
 /** 这条 pathname 在本机缓存里的文件；没有就 null。**读它不产生任何网络行为**。 */
 const cachedBytes = (pathname: string): Uint8Array | null => {
@@ -87,7 +87,7 @@ const cachedBytes = (pathname: string): Uint8Array | null => {
  * 走 `net.fetch` 而不是自造请求，是为了吃到那份缓存（同 main/map-art-json 的理由）。
  */
 const remoteBytes = async (rawUrl: string, maxBytes: number): Promise<Uint8Array | null> => {
-  if (!config.get('kanso.remoteArt', true)) return null
+  if (!config.get('kuma.remoteArt', true)) return null
   let url: URL
   try {
     url = new URL(rawUrl)
@@ -141,7 +141,7 @@ const capture = async <T>(
     if (!bytes?.byteLength) return null
     return keep(bytes)
   } catch (error) {
-    safeConsole('warn', '[kanso] 显示即入档失败', pathname, error)
+    safeConsole('warn', '[kuma] 显示即入档失败', pathname, error)
     return null
   } finally {
     inFlight.delete(pathname)
@@ -149,7 +149,7 @@ const capture = async <T>(
 }
 
 /**
- * 艦素刚显示成功一张舰船美术。**不在热路径上**：调用方在 `<img>` 的 load 事件里
+ * kuma刚显示成功一张舰船美术。**不在热路径上**：调用方在 `<img>` 的 load 事件里
  * 发一条 IPC 就完事，显示不等转存；这里再异步去拿字节。
  *
  * 去重靠 `keepArtBlob` 自己那一道（路径 + 内容指纹 + 版本参数）——
@@ -187,7 +187,7 @@ export const captureDisplayedArt = async (
 }
 
 /**
- * 艦素刚播放成功一句语音（图鉴台词卷的播放钮）。
+ * kuma刚播放成功一句语音（图鉴台词卷的播放钮）。
  *
  * 此前语音档案只有一条进货渠道：**游戏页面**播放时锚挂钩。
  * 玩家在图鉴里点播放同样是「这一句在这台机器上响过」，一样该入档——

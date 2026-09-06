@@ -41,7 +41,7 @@ export { dropShipGetMessage, exmapSenkaOf, nextMapIdsOf, escapeOfferOf }
 `
 
 const bundle = (() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanso-store-result-readers-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-store-result-readers-'))
   const entry = path.join(dir, 'readers.ts')
   fs.writeFileSync(entry, HARNESS)
   const outfile = path.join(dir, 'readers.cjs')

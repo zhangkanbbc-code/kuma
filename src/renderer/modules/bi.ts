@@ -1,10 +1,10 @@
 // 镖 (Bi) · 远征规划——12 稿。左=远征总表（搜索/海域筛选/时薪排序/三队甘特），
 // 右=推挤详情（条件检查[对所选舰队实时判定]/收益/大成功/原文备注）。
 // 数据分层：官方骨架/奖励物品/示例编成/难度 = api_mst_mission；
-// 条件+基础报酬+大成功 = wikiwiki-expedition；中文名称 = kcwiki-expedition。
+// 条件+基础报酬+大成功 = kcwiki-expedition 底层 + expedition-facts；中文名称固定取 kcwiki。
 // 只读纪律：编成/装备请在游戏内操作，这里只做判定与提示。
 // 判定诚实度：舰种解析不出的条件显示 ◌「无法自动判定」绝不假装 ✓/✗；
-// 属性合计含舰载机数值（与 wiki 判定口径略有出入），页脚有注。
+// 属性合计按远征判定口径给保守下限；舰载机与改修★的折算说明见条件行及页脚。
 import {
   combinedEscortState,
   deckOnSortie,
@@ -42,6 +42,7 @@ import {
 import { simplifyKcwikiExpeditionData } from '../kcwiki-zh'
 import { materialIconHtml, shipThumbHtml, useItemIconHtml } from '../entity-art'
 import { activateModule, isCompactMode, registerCompactMode, registerModule } from '../mu'
+import { airborneEquipTypesOf, isAirborneEquip } from '../equip-category'
 import { matchSlots } from '../../shared/slot-matching'
 import {
   compReqStatus,
@@ -53,6 +54,13 @@ import {
   expeditionResetLabel,
   expeditionRowState,
 } from '../../shared/expedition-state'
+import { evaluateExpeditionStats } from '../../shared/expedition-stats'
+import { mergeExpeditionFacts } from '../../shared/expedition-facts'
+import type {
+  ExpeditionStatKey,
+  ExpeditionStatRequirements,
+  ExpeditionStatShip,
+} from '../../shared/expedition-stats'
 import { questName } from './qn'
 
 import type { LodeMeta } from '../kernel'
@@ -61,7 +69,7 @@ import { qpTaskSlot } from '../../shared/qp-types'
 import type { QpState } from '../../shared/qp-types'
 
 let pane: HTMLElement
-let expedLode: { meta: LodeMeta; data: any } | null = null // wikiwiki 事实层（缺失时 kcwiki 降级）
+let expedLode: { meta: LodeMeta; data: any } | null = null // 第一方事实层（与 kcwiki 一同随包）
 let expedLocalizationLode: { meta: LodeMeta; data: any } | null = null
 let areaNames: Map<number, string> = new Map()
 let useitemNames: Map<number, string> = new Map()
@@ -187,7 +195,7 @@ interface Exped {
   winItem2: [number, number]
   sampleFleet: number[]
   details: string // api_details 官方说明原文(一手;支援远征的唯一条件文本)
-  wiki: any | null // wikiwiki 事实 + kcwiki 中文名/复杂条件降级
+  wiki: any | null // kcwiki 底层 + 第一方判定事实
 }
 
 const normalizedDispNo = (value: string) => value.replace(/^0+(?=\d)/, '')
@@ -199,15 +207,7 @@ const allExpeds = (): Exped[] => {
     const dispNo = normalizedDispNo(m.dispNo)
     const facts = expedLode?.data?.[dispNo] ?? null
     const localized = expedLocalizationLode?.data?.[dispNo] ?? null
-    const wiki = facts
-      ? {
-          ...localized,
-          ...facts,
-          nameZh: localized?.nameZh ?? '',
-          composition: facts.composition ?? localized?.composition ?? null,
-          escortText: facts.rawComposition ?? localized?.escortText ?? null,
-        }
-      : localized
+    const wiki = mergeExpeditionFacts(localized, facts)
     out.push({
       apiId,
       dispNo,
@@ -299,9 +299,24 @@ interface CheckRow {
   mark: 'ok' | 'no' | 'wait'
   text: string
   cur: string
+  title?: string
 }
 
 const DRUM_MST = 75 // ドラム缶(輸送用)
+const EXPEDITION_STAT_BASIS: Record<ExpeditionStatKey, string> = {
+  firepower: '按游戏远征判定口径：舰载机火力按面值计 · 改修★计入（小口径炮 0.5√★、中/大口径炮 √★、副炮 0.5√★、电探 0.5√★）；折算后达到要求值才算稳',
+  antiAir: '按游戏远征判定口径：不计舰载机对空 · 改修★计入（高角炮 √★、机枪 √★）；折算后达到要求值才算稳',
+  antiSubmarine: '按游戏远征判定口径：舰载机对潜按 ⌊素值×0.65⌋ 计 · 改修★计入（声纳、爆雷投射机、爆雷 √★）；折算后达到要求值才算稳',
+  lineOfSight: '按游戏远征判定口径：不计舰载机索敌 · 改修★不计；折算后达到要求值才算稳',
+}
+const EXPEDITION_STAT_FOOTER_BASIS =
+  '按游戏远征判定口径：舰载机对潜按 ⌊素值×0.65⌋ 计、对空/索敌不计舰载机、改修★按 wiki 公式计入；折算后达到要求值才算稳'
+const EXPEDITION_STAT_KEYS: Record<string, ExpeditionStatKey> = {
+  火力: 'firepower',
+  对空: 'antiAir',
+  对潜: 'antiSubmarine',
+  索敌: 'lineOfSight',
+}
 
 const fleetShipsOf = (deck: Deck): PlayerShip[] =>
   deck.ships.filter((id) => id > 0).map((id) => mg.ships[id]).filter(Boolean)
@@ -318,6 +333,44 @@ const compViewOf = (ships: PlayerShip[]): CompShipView[] =>
 
 const drumCount = (ship: PlayerShip) =>
   [...ship.slot, ship.slotEx].filter((inst) => inst > 0 && mg.slotitems[inst]?.mstId === DRUM_MST).length
+
+let airborneTypeCache: { source: unknown; types: Set<number> } | null = null
+const expeditionAirborneTypes = (): Set<number> => {
+  if (airborneTypeCache?.source === mg.master.slotitems) return airborneTypeCache.types
+  const types = airborneEquipTypesOf(mg.master.slotitems)
+  airborneTypeCache = { source: mg.master.slotitems, types }
+  return types
+}
+
+const expeditionStatShipsOf = (ships: PlayerShip[]): ExpeditionStatShip[] => {
+  const airborneTypes = expeditionAirborneTypes()
+  return ships.map((ship) => ({
+    stats: {
+      firepower: ship.karyoku,
+      antiAir: ship.taiku,
+      antiSubmarine: ship.taisen,
+      lineOfSight: ship.sakuteki,
+    },
+    equipment: [...ship.slot, ship.slotEx].flatMap((instanceId) => {
+      if (!(instanceId > 0)) return []
+      const instance = mg.slotitems[instanceId]
+      const master = instance ? mg.master.slotitems[instance.mstId] : null
+      if (!instance || !master) return []
+      return [{
+        type2: master.type2,
+        iconId: master.iconId,
+        airborne: isAirborneEquip(master.type2, airborneTypes),
+        stats: {
+          firepower: master.houg,
+          antiAir: master.tyku,
+          antiSubmarine: master.tais,
+          lineOfSight: master.saku,
+        },
+        star: instance.level,
+      }]
+    }),
+  }))
+}
 
 // 鼓桶库存是**全表扫描**，而 checkShips 会被 liftToPass 的内层循环喊上千次
 // （每格 × 每候选 × 每轮）——按装备表本体缓存，一次报文只扫一遍。
@@ -337,6 +390,7 @@ const drumStock = (): number => {
 // 按原文 memo，条目数量级只有几十条，不设上限也不会涨。
 const compositionBranchCache = new Map<string, ReturnType<typeof parseCompositionBranches>>()
 const compositionBranches = (w: any) => {
+  if (w.compositionBranches) return w.compositionBranches as ReturnType<typeof parseCompositionBranches>
   const key = `${w.composition}\u0000${w.escortText ?? ''}`
   const cached = compositionBranchCache.get(key)
   if (cached) return cached
@@ -434,23 +488,30 @@ const checkShips = (e: Exped, ships: PlayerShip[]): { rows: CheckRow[]; fails: n
     }
     rows.push(...best.rows)
   }
-  // 属性合计（含舰载机数值，口径注在页脚）
+  // 属性合计（远征判定下限；舰载机与改修★口径注在条件行及页脚）
   if (w?.stats) {
-    const SUM: Record<string, (s: PlayerShip) => number> = {
-      火力: (s) => s.karyoku,
-      对空: (s) => s.taiku,
-      对潜: (s) => s.taisen,
-      索敌: (s) => s.sakuteki,
+    const requirements: ExpeditionStatRequirements = {}
+    for (const [key, requirement] of Object.entries(w.stats as Record<string, number>)) {
+      const stat = EXPEDITION_STAT_KEYS[key]
+      if (stat) requirements[stat] = requirement
     }
+    const evaluatedStats = evaluateExpeditionStats(expeditionStatShipsOf(ships), requirements)
     for (const [key, req2] of Object.entries(w.stats as Record<string, number>)) {
-      const total = SUM[key] ? ships.reduce((acc, s) => acc + SUM[key](s), 0) : null
-      if (total == null) {
+      const stat = EXPEDITION_STAT_KEYS[key]
+      const result = stat ? evaluatedStats[stat] : null
+      if (!result) {
         rows.push({ mark: 'wait', text: `${esc(key)} ≥ <em>${req2}</em>（未知属性）`, cur: '' })
       } else {
         rows.push({
-          mark: total >= req2 ? 'ok' : 'no',
+          mark: result.verdict,
           text: `舰队${esc(key)} ≥ <em>${req2}</em>`,
-          cur: `当前 <b>${total}</b>`,
+          cur:
+            result.verdict === 'ok'
+              ? `折算后 <b>${result.sure}</b>${result.face !== result.sure ? ` · 面值 ${result.face}` : ''}`
+              : result.verdict === 'wait'
+                ? `折算后 <b>${result.sure}</b> · 面值 ${result.face} · <em>推荐高于下限 ${req2}</em>`
+                : `当前 <b>${result.face}</b>`,
+          title: result.basis ? EXPEDITION_STAT_BASIS[stat] : undefined,
         })
       }
     }
@@ -644,8 +705,8 @@ const liftFleetLevel = (
  *
  * 匹配只保证「舰种 + 旗舰 Lv」，但远征还有合计 Lv、火力/对空/对潜/索敌合计
  * 这类**总量**门槛——按最省原则挑出来的低练舰凑不够，方案就会自带一个 ✗。
- * 各项分开修没用：换一艘会同时动好几项，所以直接拿 checkShips 的失败项数
- * 当目标函数，换完变少就留下。
+ * 各项分开修没用：换一艘会同时动好几项，所以直接拿 checkShips 的失败+待核项数
+ * 当目标函数，换完变少就留下；舰载机面值刚够但下限不足不算满足。
  *
  * 仍然「够用就行」：同样能减少失败项时，选练度最低的那艘，主力留给出击。
  *
@@ -676,11 +737,12 @@ const liftToPass = (
   }
   let rounds = 0
   while (rounds++ < LIFT_ROUNDS) {
-    const before = checkShips(e, segment()).fails
+    const beforeVerdict = checkShips(e, segment())
+    const before = beforeVerdict.fails + beforeVerdict.unknowns
     if (before === 0) break
     // 整张 holder 的占用情况，含别的队——联立时不能把已派出的人再抓一次
     const busy = new Set(holder.filter(Boolean).map((s) => s!.id))
-    let best: { index: number; ship: PlayerShip; fails: number } | null = null
+    let best: { index: number; ship: PlayerShip; unmet: number } | null = null
     for (let i = from; i < to; i++) {
       const occupant = holder[i]
       if (!occupant) continue
@@ -690,12 +752,13 @@ const liftToPass = (
         .slice(0, CANDIDATE_SCAN)
       for (const candidate of candidates) {
         holder[i] = candidate
-        const fails = checkShips(e, segment()).fails
+        const verdict = checkShips(e, segment())
+        const unmet = verdict.fails + verdict.unknowns
         holder[i] = occupant
-        if (fails >= before) continue
+        if (unmet >= before) continue
         // 同样能减少失败项时挑练度低的：够用就行
-        if (!best || fails < best.fails || (fails === best.fails && candidate.lv < best.ship.lv)) {
-          best = { index: i, ship: candidate, fails }
+        if (!best || unmet < best.unmet || (unmet === best.unmet && candidate.lv < best.ship.lv)) {
+          best = { index: i, ship: candidate, unmet }
         }
       }
     }
@@ -736,8 +799,10 @@ const planPoolSignature = (): string => {
         ship.taisen,
         ship.sakuteki,
         deckOf.get(ship.id) ?? 0, // 闲置优先级与「所在」文案
-        ...ship.slot, // 鼓桶与装备加成会改变条件判定
-        ship.slotEx,
+        ...ship.slot.map(
+          (instanceId) => `${instanceId}:${instanceId > 0 ? (mg.slotitems[instanceId]?.level ?? 0) : 0}`,
+        ), // 鼓桶、装备面值与改修★会改变条件判定
+        `${ship.slotEx}:${ship.slotEx > 0 ? (mg.slotitems[ship.slotEx]?.level ?? 0) : 0}`,
       ].join(':'),
     )
     .join(',')
@@ -892,9 +957,11 @@ const jointPlanHtml = (current: Exped): string => {
         const verdict =
           plan.picks.length < need
             ? `<span class="pl-no">✗ 仅匹配 ${plan.picks.length}/${need}</span>`
-            : plan.verdict.fails === 0
+            : plan.verdict.fails === 0 && plan.verdict.unknowns === 0
               ? '<span class="pl-ok">✓ 全条件满足</span>'
-              : `<span class="pl-no">✗ 仍差 ${plan.verdict.fails} 项</span>`
+              : plan.verdict.fails > 0
+                ? `<span class="pl-no">✗ 仍差 ${plan.verdict.fails} 项</span>`
+                : `<span style="color:var(--warn)">◌ ${plan.verdict.unknowns} 项低于推荐值</span>`
         return `<div class="jt-plan">
           <div class="jt-plan-h"><b>第${plan.deck.id}舰队</b>
             <span>${esc(`${plan.exped.dispNo} ${expedName(plan.exped)}`)}</span>${verdict}</div>
@@ -910,6 +977,7 @@ const jointPlanHtml = (current: Exped): string => {
     // 「人凑得出」和「条件过得了」是两回事。只查前者就会出现
     //「这 3 支可以同时派出」和它上面三行「✗ 仍差 5 项」同框。
     const failing = plans.filter((p) => p.verdict.fails > 0)
+    const pending = plans.filter((p) => p.verdict.fails === 0 && p.verdict.unknowns > 0)
     result += clash
       ? '<div class="jt-note bad">方案不可用 · 存在舰娘冲突</div>'
       : shortfall.length
@@ -918,7 +986,11 @@ const jointPlanHtml = (current: Exped): string => {
           ? `<div class="jt-note bad">可用舰足够但条件不足 · ${failing
               .map((p) => `第${p.deck.id}舰队缺 ${p.verdict.fails} 项`)
               .join('、')} · 选择低门槛远征或减少并行舰队</div>`
-          : `<div class="jt-note ok">${plans.length} 支可同时派出 · 条件满足 · 无舰娘冲突</div>`
+          : pending.length
+            ? `<div class="jt-note">方案低于推荐值 · ${pending
+                .map((p) => `第${p.deck.id}舰队 ${p.verdict.unknowns} 项`)
+                .join('、')}</div>`
+            : `<div class="jt-note ok">${plans.length} 支可同时派出 · 条件满足 · 无舰娘冲突</div>`
   }
   return `<div class="sec"><div class="sec-h">多队联立<span class="aux">${free.length} 支舰队空闲</span></div>
     <div class="jt-slots">${slotRows}</div>
@@ -980,12 +1052,13 @@ const planCardHtml = (e: Exped): string => {
     })
     .join('')
   const fails = verdict.fails
+  const satisfied = verdict.fails === 0 && verdict.unknowns === 0
   const verdictLine =
-    fails === 0
-      ? `<span class="pl-ok">✓ 全条件满足</span>${
-          verdict.unknowns ? ` · <span class="sub9">另有 ${verdict.unknowns} 项判定资料缺失 · 见条件原文</span>` : ''
-        }`
-      : `<span class="pl-no">✗ 缺 ${fails} 项</span> <span class="sub9">可用舰不足</span>`
+    satisfied
+      ? '<span class="pl-ok">✓ 全条件满足</span>'
+      : fails > 0
+        ? `<span class="pl-no">✗ 缺 ${fails} 项</span> <span class="sub9">可用舰不足</span>`
+        : `<span style="color:var(--warn)">◌ ${verdict.unknowns} 项低于推荐值</span>`
   const drumLine = drumNeed
     ? `<div class="pl-note">运输桶需合计 ${drumNeed} · 库存 <b>${drums}</b>${
         drums >= drumNeed ? ' 够用 ✓' : ' <span class="pl-no">不足</span>'
@@ -1242,6 +1315,7 @@ const nativeRewardItems = (e: Exped) =>
 // wiki 事实包的奖励项只有名字没有 id，而两份包一中一日：kcwiki 的 rewards 是中文、
 // wikiwiki 的是日文，`{...localized, ...facts}` 里 facts 在后，把中文整段盖掉了。
 // 与其去动合并顺序（会连带丢掉 wikiwiki 才有的 min），不如在渲染这一层按名字回查
+// 2026-09-06：wikiwiki 已退为维护者对照，min 不参与消费；名字回查仍服务 kcwiki 奖励名。
 // 道具域——实测 7 个奖励道具名全部命中。查不到的照旧保原文，不硬翻。
 const rewardItemName = (name: unknown): string => {
   const raw = `${name ?? ''}`
@@ -1530,7 +1604,7 @@ const ensureExpeditionHistory = (missionId: number) => {
       expeditionHistoryLoaded.set(missionId, generation)
     })
     .catch((error) => {
-      console.warn('[kanso] 远征履历加载失败', missionId, error)
+      console.warn('[kuma] 远征履历加载失败', missionId, error)
       if ((expeditionHistoryGeneration.get(missionId) ?? 0) !== generation) return
       expeditionHistoryFailed.add(missionId)
       // 失败也要落地成「这一代已经处理过」：不落地的话下面 finally 的 render
@@ -1591,7 +1665,9 @@ const detailHtml = (e: Exped, now: number): string => {
       .join('')
     const ck = rows
       .map(
-        (r) => `<div class="ck-row${r.mark === 'no' ? ' no2' : ''}"><span class="mk ${r.mark}">${
+        (r) => `<div class="ck-row${r.mark === 'no' ? ' no2' : ''}"${
+          r.title ? ` title="${esc(r.title)}"` : ''
+        }><span class="mk ${r.mark}">${
           r.mark === 'ok' ? '✓' : r.mark === 'no' ? '✗' : '◌'
         }</span><span class="w">${r.text}</span><span class="r">${r.cur}</span></div>`,
       )
@@ -1600,7 +1676,7 @@ const detailHtml = (e: Exped, now: number): string => {
       fails > 0
         ? `<b class="bad2">✗ 不可出发 — 差 ${fails} 项</b>`
         : unknowns > 0
-          ? `<b style="color:var(--warn)">✓ 可判定项均满足 · ${unknowns} 项见原文</b>`
+          ? `<b style="color:var(--warn)">◌ ${unknowns} 项低于推荐值 · 其余条件满足</b>`
           : `<b style="color:var(--ok)">✓ 全条件满足</b>`
     checkSec = `<div class="sec">
       <div class="sec-h">条件检查<span class="sp"></span></div>
@@ -1718,7 +1794,7 @@ const detailHtml = (e: Exped, now: number): string => {
         ].join(' ｜ '),
       )}">源</span>
       <span class="credit-mark" style="margin-left:auto"
-        title="属性合计包含舰载机数值 · 与判定值口径不同">口径</span>
+        title="${esc(EXPEDITION_STAT_FOOTER_BASIS)}">口径</span>
     </div>
     </div>`
 }
@@ -2162,19 +2238,19 @@ registerModule({
       }
     })
     void (async () => {
-      const [wikiwikiPack, localizationPack, raw, qpState] = await Promise.all([
-        queryLode('wikiwiki-expedition'),
+      const [factsPack, localizationPack, raw, qpState] = await Promise.all([
+        queryLode('expedition-facts'),
         queryLode('kcwiki-expedition'),
         queryMasterRaw(),
         queryQp().catch((error) => {
-          console.warn('[kanso] 远征任务反查加载失败', error)
+          console.warn('[kuma] 远征任务反查加载失败', error)
           return null
         }),
       ])
       expedLocalizationLode = localizationPack?.data
         ? { ...localizationPack, data: simplifyKcwikiExpeditionData(localizationPack.data) }
         : localizationPack
-      expedLode = wikiwikiPack ?? expedLocalizationLode
+      expedLode = factsPack
       qp = qpState
       areaNames = new Map((raw?.data?.api_mst_maparea ?? []).map((a: any) => [a.api_id, a.api_name]))
       useitemNames = new Map(

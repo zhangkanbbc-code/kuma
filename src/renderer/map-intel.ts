@@ -1,4 +1,5 @@
 import {
+  applyEventMapIntel,
   applyMapDropWindows,
   applyMapDrops,
   applyMapEnemyComps,
@@ -29,7 +30,7 @@ export const initMapIntel = (): Promise<boolean> => {
     pending
       .then((pack) => (pack?.data ? apply(pack.data) : false))
       .catch((error) => {
-        console.warn(`[kanso] 海域情报目录加载失败（${id}），继续使用已有目录`, error)
+        console.warn(`[kuma] 海域情报目录加载失败（${id}），继续使用已有目录`, error)
         return false
       })
   initPromise = Promise.all([
@@ -37,6 +38,8 @@ export const initMapIntel = (): Promise<boolean> => {
     settle('map-enemy-comps', applyMapEnemyComps, queryLode('map-enemy-comps')),
     settle('map-drops', applyMapDrops, queryLode('map-drops')),
     settle('map-drop-windows', applyMapDropWindows, queryLode('map-drop-windows')),
-  ]).then(([base, comps, drops, windows]) => base || comps || drops || windows)
+    // shared 重装时活动包最后覆盖；缺项继续由 map-intel 活动层提供。
+    settle('event-map-intel', applyEventMapIntel, queryLode('event-map-intel')),
+  ]).then((results) => results.some(Boolean))
   return initPromise
 }

@@ -1,4 +1,5 @@
 // 铭 (Mg) · 状态查看器。M1 验收工具页：资源/舰队/入渠/建造的原始视图。
+import { readEnv } from '../../shared/env-names'
 import {
   applyPaneHtml,
   combinedEscortState,
@@ -195,7 +196,7 @@ const renderGrowthGate = () => {
   )
 }
 
-// ---- 按号试听：战斗曲 / 母港曲（KANSO_DEBUG_UI=1 才存在）----
+// ---- 按号试听：战斗曲 / 母港曲（KUMA_DEBUG_UI=1 才存在）----
 //
 // 这把钥匙最初为 109 / 122 / 123 / 152 / 153 那五桩悬案而造：拆包层与 EN Fandom
 // 各说各话（122↔123、152↔153 还是两对整齐对调），可那五个号**不在任何一张现役图上**——
@@ -269,7 +270,7 @@ const renderAll = () => {
   renderBgmProbe()
 }
 
-// ---- 沉浸特效模拟台（KANSO_DEBUG_UI=1 才存在）----
+// ---- 沉浸特效模拟台（KUMA_DEBUG_UI=1 才存在）----
 //
 // 应急修理发动、我方被击沉、ケッコンカッコカリ 这几件事，真机上没法按需复现：
 // 分别要故意浪费一枚稀有道具、真沉一艘舰、烧掉一枚不可再生的戒指。
@@ -278,9 +279,9 @@ const renderAll = () => {
 // kernel 的 applyMgPatch / dispatchMarriage → 铃的 detectDamecon/detectSunk/detectTaiha/
 // detectMarriage → 横幅、失色推导与花瓣。所以在这里看到的效果，就是真发生时的效果。
 //
-// 发布形态零痕迹：诊断模块本身就只在 KANSO_DEBUG_UI=1 时装配（mu.ts），
+// 发布形态零痕迹：诊断模块本身就只在 KUMA_DEBUG_UI=1 时装配（mu.ts），
 // 这里再门控一次——万一将来诊断面板被放进正式界面，这张卡也不该跟着出来。
-const DEBUG_UI = process.env.KANSO_DEBUG_UI === '1'
+const DEBUG_UI = readEnv('KUMA_DEBUG_UI') === '1'
 
 type SimShip = {
   index: number
@@ -481,7 +482,7 @@ const SIM_ACTIONS: [string, string, () => void][] = [
 
 const simCardHtml = (): string =>
   DEBUG_UI
-    ? `<div><div class="mg-section-title">沉浸特效模拟（KANSO_DEBUG_UI）</div>
+    ? `<div><div class="mg-section-title">沉浸特效模拟（KUMA_DEBUG_UI）</div>
         <div class="mg-sim">${SIM_ACTIONS.map(
           ([id, label]) => `<button type="button" data-sim="${id}">${esc(label)}</button>`,
         ).join('')}</div>
@@ -493,7 +494,7 @@ const simCardHtml = (): string =>
 // 母港侧是主数据永远不给名的画面主题曲），走的是和海域卷同一条播放链。
 const bgmProbeCardHtml = (): string =>
   DEBUG_UI
-    ? `<div><div class="mg-section-title">按号试听（KANSO_DEBUG_UI）</div>
+    ? `<div><div class="mg-section-title">按号试听（KUMA_DEBUG_UI）</div>
         <div class="mg-bgm-probe">
           <select class="mg-bgm-tree">${BGM_PROBE_TREES.map(
             ([value, label], index) =>
