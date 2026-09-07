@@ -63,6 +63,8 @@ import {
 import { cleanUserAgent } from '../shared/user-agent'
 import { initHeaderStatus } from './header-status'
 import { initVoiceSubtitles } from './voice-subtitle'
+import { prepareLevelExp } from './level-exp'
+import { prepareFirstOwned } from './ship-first-owned'
 // 模块导入即注册（Tab 顺序由各自 order 决定）
 import './modules/ru'
 import './modules/zi'
@@ -85,6 +87,18 @@ const { pathToFileURL } = require('url')
 const broadcaster = remote.require('./game-api-broadcaster')
 const config = remote.require('./config')
 const { ipcRenderer } = require('electron')
+// 这两份资料原本在首次模块渲染时同步读取，届时主进程已排满矿脉查询。
+// 提前装入既有本地基线，避免渲染等它们排队；观察与记账仍由原入口触发。
+for (const [scope, prepare] of [
+  ['startup:level-exp', prepareLevelExp],
+  ['startup:first-owned', prepareFirstOwned],
+] as const) {
+  try {
+    prepare()
+  } catch (error) {
+    recordCrash(scope, error)
+  }
+}
 initVoiceSubtitles(broadcaster)
 
 const APP_ROOT: string = remote.getGlobal('ROOT')

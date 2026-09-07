@@ -98,9 +98,8 @@ export const buildShipRemodelChains = (
     const memberSet = new Set(members)
     const preferred = members.filter((id) => preferredRoots.has(id))
     const incoming = new Set<number>()
-    for (const [from, targets] of outgoing) {
-      if (!memberSet.has(from)) continue
-      for (const target of targets) if (memberSet.has(target)) incoming.add(target)
+    for (const from of members) {
+      for (const target of outgoing.get(from) ?? []) if (memberSet.has(target)) incoming.add(target)
     }
     const roots = preferred.length ? preferred : members.filter((id) => !incoming.has(id))
     // 可逆改造可能没有入度为 0 的节点；此时以最早图鉴号稳定选根，仍保留整组。

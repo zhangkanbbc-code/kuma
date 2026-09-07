@@ -132,6 +132,7 @@ const HEADER_BUILD = cutFrom(
 )
 
 const HARNESS = `
+import { fmtReturnClock } from ${JSON.stringify(path.join(ROOT, 'src/shared/return-clock.ts'))}
 type Section = string
 type Deck = any
 type Ndock = any

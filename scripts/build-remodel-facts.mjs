@@ -16,7 +16,7 @@ const read = p => JSON.parse(fs.readFileSync(p, 'utf8'))
 const hash = p => createHash('sha256').update(fs.readFileSync(p)).digest('hex')
 const dataDir = arg('data-dir', path.join(process.env.APPDATA, 'kuma'))
 const cacheDir = arg('source-cache', path.join(process.env.TEMP, 'kuma-medium-20260906'))
-const files = { kcwiki: path.join(ROOT, 'assets/lodes/kcwiki-ships.json'), wikiwiki: path.join(dataDir, 'lodes/wikiwiki-remodel.json'), master: path.join(dataDir, 'snapshots/kcsapi_api_start2_getData.json') }
+const files = { kcwiki: path.join(ROOT, 'assets/lodes/kcwiki-ships.json'), wikiwiki: path.join(ROOT, 'assets/lodes/wikiwiki-remodel.json'), master: path.join(dataDir, 'snapshots/kcsapi_api_start2_getData.json') }
 const snapshot = read(files.master), raw = snapshot.body?.api_data ?? snapshot.data ?? snapshot.api_data
 const kc = read(files.kcwiki).data, wiki = read(files.wikiwiki).data
 const sourceHashes = Object.fromEntries(Object.entries(files).map(([key, file]) => [key, hash(file)]))
@@ -57,10 +57,11 @@ const pageReview = Object.entries(pages).filter(([title]) => !['改造', '模块
   title, revision: page.revision, extractedEdges: pageRows.filter(r => r.title === title).map(r => r.edge),
   text: page.text.split('\n').filter(line => /(?:开发资材|高速建造材|改修资材)[x×]/.test(line)).join('\n'),
 }))
-const pack = { meta: { id: 'remodel-facts', name: '改造素材', version: '2026.09.06.4', source: 'kuma 第一方登记表', license: '第一方产物', fetchedAt: '2026-09-06T00:00:00.000Z', note: '改造的特殊素材与回程成本', maintainerNote: [
+const pack = { meta: { id: 'remodel-facts', name: '改造素材', version: '2026.09.07.2', source: 'kuma 第一方登记表', license: '第一方产物', fetchedAt: '2026-09-07T00:00:00.000Z', note: '改造的特殊素材与回程成本', maintainerNote: [
   'wikiwiki主条目为first，footnote附加边为convert；百科按列/段落及同边同档整列对齐。API显式值（含零）优先。',
   '三隈502→507初次按公开游戏改装画面（2026-09 核）裁定高建40／开发35；wikiwiki开发45、舰页高建60／开发45为来源错误。往复仍为40/35；507→502往复仍为40/15。',
   '本次全部来源仅作只读核对；来源结构、API核对、分档冲突、缺项及旧解析修正见docs/remodel-facts-report.md。',
+  '2026-09-07：first空对象由wikiwiki目标主条目同来路needs=[]、同边API全部*_count显式零、百科出发形态指向目标的改造行无图纸共同确认；直接互逆回程允许主条目来自常规前置形态，但须needs=[]且同向无脚注、转换段无带成本行。convert空对象须直接互逆两向first确认无、两向无脚注且转换段无该对，或转换段同向显式空成本、同向无脚注、API同边全部*_count显式零；缺边或缺档仍未知；无特殊素材标签仅可逆改造显示；命中：' + result.confirmedNone.map(r => r.edge + '/' + r.stage).join('、') + '。',
 ], corrections: MAINTAINER_REMODEL_CORRECTIONS, evidence: result.evidence }, data: result.data }
 const fixturePath = path.join(ROOT, 'test/fixtures/remodel-facts.json')
 const oldFixture = read(fixturePath)
@@ -79,17 +80,59 @@ const differences = ['first', 'convert'].flatMap(stage => remodelDifferences(bas
 ).filter(row => stagedOutput[row.edge]?.[stage]).map(row => ({ ...row, stage })))
 const fixture = { sourceHashes, raw: oldFixture.raw, baselineHead: baseline.head, stageBaseline: baseline.output,
   output: stagedOutput, differences, conflicts: result.conflicts, missing: result.missing, corrections: result.corrections,
-  unknown: result.unknown, unresolved: result.unresolved, observations: result.observations, sourceErrors: result.sourceErrors, pageReview, groups: result.groups, direct: result.direct }
+  unknown: result.unknown, unresolved: result.unresolved, observations: result.observations, sourceErrors: result.sourceErrors, confirmedNone: result.confirmedNone, pageReview, groups: result.groups, direct: result.direct }
 const table = (columns, rows) => [`| ${columns.join(' | ')} |`, `| ${columns.map(() => '---').join(' | ')} |`, ...rows.map(r => `| ${r.map(v => String(v).replaceAll('|', '／').replaceAll('\n', ' ')).join(' | ')} |`)].join('\n')
 const name = id => raw.api_mst_ship.find(s => s.api_id === id)?.api_name ?? id
 const status = edge => ['first', 'convert'].map(stage => `${stage === 'first' ? '初次' : '往复'}：${pack.data[edge]?.stages?.[stage] ? JSON.stringify(pack.data[edge].stages[stage]) : '缺'}`).join('；')
 const cyclic = edge => { const ids = edge.split('→').map(Number); return result.groups.some(g => ids.every(id => g.includes(id))) }
 const firstCycles = Object.entries(pack.data).filter(([edge, row]) => cyclic(edge) && row.stages.first).length
-const report = `# 改造素材结构分档核对（2026-09-06）
+const reviewEdges = ['506→501', '629→628', '911→916']
+const report = `# 改造素材结构分档核对（2026-09-07）
 
 本单起点 f6a39b7，工作树干净；测试基线3877、skipped 0。跨版本旧消费仍冻结在 ${baseline.head} 的555条边，未覆盖旧基线。当前事实 ${Object.keys(pack.data).length} 条边，初次 ${Object.values(pack.data).filter(r => r.stages.first).length} 条（此前101），往复 ${Object.values(pack.data).filter(r => r.stages.convert).length} 条。循环内初次从0填到 **${firstCycles}** 条。这里只计API表外素材；“缺”不是零，有值也不表示所有素材齐全。
 
 2026-09-06 画面裁定补单起点 b70d12b，工作树干净；测试基线3911、skipped 0。仅补502→507初次高建40／开发35，往复不变；原始来源冲突保留并标为已裁。
+
+## 确认无特殊素材
+
+2026-09-07，首单起点ca53fbe、测试基线3967；续单起点2b216f9、工作树干净、测试基线3998，skipped均为0。某档{}表示确认无特殊素材；缺边或缺档仍未知，stages本身不允许为空。正向first规则保持：wikiwiki目标主条目fromShipId同出发且needs=[]，同边api_mst_shipupgrade全部*_count显式零，以及百科出发形态的改造行“改造后”对齐目标且无图纸或图纸为空。回程first与convert按下面两条补充判据。以下共${result.confirmedNone.length}边/档，first ${result.confirmedNone.filter(r => r.stage === 'first').length}、convert ${result.confirmedNone.filter(r => r.stage === 'convert').length}；数据不限定循环边，显示层仅convertible为真时显示“无特殊素材”，普通单向空档不显示文字。
+
+### 回程与转换段空成本行
+
+主数据api_mst_shipupgrade直接互逆A⇄B的B→A回程first：API同边全部*_count显式零；百科ID=B的改造行指向A且图纸栏缺失或为空；wikiwiki无B→A脚注附加边；百科转换段无B→A带成本行（显式空成本行不算带成本）；目标A主条目needs=[]。该主条目可来自常规前置形态，来路不同仅作目标形态无需特殊道具的佐证，写入basis，不再否决。
+
+convert确认无有两条独立规则：①主数据直接互逆、两向first均确认无、两向无wikiwiki脚注、百科转换段无该对；②百科转换段该方向有显式空成本格（空白或“-”，缺成本格不算）、wikiwiki同向无脚注、API同边全部*_count显式零。两规则均逐条保留三源evidence；无行／无脚注的核对结果记[]，空成本保留原格文字与边方向。
+
+本地实测新增8边/档：468→463、470→464的first；463→468、468→463、464→470、470→464、911→916及646→698的convert。朝潮／霞转换段四方向实际均有“-”成本格，命中规则②，不能报告成“转换段无该对”。额外646→698（加贺改二护→加贺改二）属于既有三形态循环，转换段该方向空成本、wikiwiki同向无脚注、API同边全零，同样按规则②收录；该规则未限定直接互逆对，循环口径不变。
+
+公开来源原文（核对日期2026-09-07；wikiwiki注明页面日期，百科随包模块来源日期${read(files.kcwiki).meta.upstreamUpdatedAt}；API为游戏api_mst_shipupgrade对应行）：
+
+${table(['边', '档', 'wikiwiki原文／结构', 'API原文', '百科原文／结构', '结论'], result.confirmedNone.map(r => [r.edge, r.stage,
+  r.sources.filter(s => s.site === 'wikiwiki').map(s => s.evidence + '（' + s.date + '）' + (typeof s.raw === 'string' ? s.raw : JSON.stringify(s.raw)) + '；' + s.basis).join('；'),
+  r.sources.filter(s => s.site === 'api').map(s => JSON.stringify(s.raw)).join('；'),
+  r.sources.filter(s => s.site.startsWith('kcwiki')).map(s => s.evidence + ' ' + JSON.stringify(s.raw) + '；' + s.basis).join('；'), '无特殊素材' + (r.basis ? '；' + r.basis : '')]))}
+
+朝潮与霞逐边核对（2026-09-07）：
+
+${table(['边', 'wikiwiki目标主条目来路／原文', '结果'], ['463→468', '468→463', '464→470', '470→464'].map(edge => {
+  const [from, to] = edge.split('→').map(Number), entry = wiki[to]
+  return [edge, entry.fromShipId + '→' + to + '／' + entry.raw,
+    status(edge) + (entry.fromShipId !== from ? '；按直接互逆回程判据确认first，常规路径主条目仅作目标佐证' : '；同来路三源确认first') + '；同向转换段成本“-”、无脚注、API全零，convert确认无']
+}))}
+
+## 三条数字边重对与Glorious
+
+2026-09-07保持既有判档与冲突规则。最上506→501：脚注40/15与百科模块“高速建造材x40 开发资材x15”整列同值，可归convert；百科转换段按←归此边却为30/45，两素材均冲突，仍不收。Fletcher 629→628：脚注20/20与模块“高速建造材x20 开发资材x20”同值归convert；百科转换段按←为65/45，两素材均冲突，仍不收。两条的first均缺同来路wikiwiki主条目，不能借convert补first。
+
+大和911→916：wikiwiki目标916主条目来自911，原文“Lv93”、needs=[]；API同边计数全零；百科ID=911的改造行无图纸，故first按三源规则确认无。百科“高速建造材x50 开发资材x50”实际在ID=916的改造行，改造后=511对应911，即916→911；不能挪到911→916。百科转换段911→916存在显式空成本行、wikiwiki同向无脚注、API同边全零，convert确认无；反向916→911的convert仍为50/50。
+
+重对原文与分档依据（均为既有公开来源，核对日期2026-09-07）：
+
+${table(['边', '档', '来源', '原文', '判据'], [...result.observations, ...result.unknown].filter(r => [...reviewEdges, '916→911'].includes(r.edge)).map(r => [r.edge, r.stage, r.evidence, r.raw ?? '', r.basis ?? '']))}
+
+${table(['边', '当前事实', '未收数值及冲突来源'], reviewEdges.map(edge => [edge, status(edge), result.conflicts.filter(r => r.edge === edge).map(r => r.stage + '/' + r.identity + ' ' + JSON.stringify(r.values)).join('；') || '无数值冲突；缺档按上文结构判据保留未知']))}
+
+Glorious：解析器现在只按页面明确的Glorious改(正規空母)／Glorious改(巡洋戦艦)注记分别解为741／740，无注记不猜。随包wikiwiki的740与741主记录只保留目标编号、等级65／50、空needs及总表日期2026-08-18，未保留sourceName或fromShipId，不能由这些记录恢复原页面注记；本单不取原页面、不改上游包。当前API升级表也没有740→741或741→740行，百科随包数据没有两形态改造行；因此两向不生成确认无事实。api_mst_ship虽有同名互指，但不等于api_mst_shipupgrade直接互逆对，现行运行时也不会为它们生成可逆“素材待补”档。本单只报告证据缺口，不更改循环识别口径。
 
 ## 判档规则前后
 
@@ -107,7 +150,7 @@ ${table(['单向进入边', '初次素材'], Object.entries(stagedOutput).filter
 
 ## 往复对与当前收录
 
-主数据直接互逆21对，另有3组三形态循环。表中useitem:2为高速建造材，useitem:3为开发资材；原生道具不重复入事实表。
+主数据直接互逆${result.direct.length}对，另有${result.groups.filter(g => g.length > 2).length}组三形态循环。表中useitem:2为高速建造材，useitem:3为开发资材；原生道具不重复入事实表。
 
 ${table(['往复对（mstId/日文主数据名）', '左→右', '右→左'], result.direct.map(([a,b]) => [`${a} ${name(a)} ⇄ ${b} ${name(b)}`, status(`${a}→${b}`), status(`${b}→${a}`)]))}
 
@@ -175,6 +218,11 @@ ${table(['边', '档', '素材', 'HEAD旧值', '本次'], differences.map(r => [
 2. 对照资料附加边还有index与chart，除footnote外不应一律猜成初次或往复；本次按明确同边往复列核对，剩余列unknown。
 3. 三隈总表40/15在正向、30/45在回程是缓存原文如此，并非本地箭头提取颠倒；属于来源行错误，按本单指定回程40/15执行。
 4. 新型兵装资材等不都是初次专属：三隈舰页明确每次转为改二特均耗1个，API也为1；本次核对但不改运行时原生素材逻辑。
+5. 首单严格要求主条目同来路，朝潮和霞只命中正向first，回程主条目各来自248与253。续单已修正为直接互逆回程判据，四边两档均确认无，不把常规路径主条目写成回程原文。
+6. 22对包含了api_mst_ship中Glorious的同名互指；对照api_mst_shipupgrade实为21直接对，不含Glorious。原始wikiwiki页面并未包含在允许的随包JSON中，不能声称已验证原页面有或无注记。
+7. 百科改造行挂在出发形态；911→916没有50/50，50/50属于916→911。最上与Fletcher并非分档失败，而是已定convert后的数值冲突。
+8. 数据规则未限制普通单向边，首单实际77条first均保留；续单按裁定把“无特殊素材”的显示限定在可逆改造，单向空档继续不显示文字。
+9. 续单实测朝潮／霞转换段并非无该对，而是四方向均有“-”空成本；convert由新增规则②确认。规则②还命中三形态循环的646→698，故新增convert为6档而非预期5档。
 `
 
 for (const [file, value] of [[path.join(ROOT, 'assets/lodes/remodel-facts.json'), pack], [fixturePath, fixture]]) {

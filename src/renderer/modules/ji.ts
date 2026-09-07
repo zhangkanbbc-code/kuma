@@ -1,4 +1,5 @@
 import { akashiImproveItem } from '../../shared/akashi-improve'
+import { canDeferCatalogRow, canDeferCatalogRows } from '../../shared/catalog-row-layout'
 import { remodelCycles, remodelStagesFor, REMODEL_STAGE_COPY, type RemodelHistory, type RemodelStage } from '../../shared/remodel-stage'
 import { queryShipLife } from '../kernel'
 // 鉴 (Ji) · 图鉴与在籍列表：舰娘 / 列表 / 装备 / 深海 / 海域 / 道具。
@@ -524,6 +525,7 @@ import {
 import { KCWIKI_ITEM_ALIAS, kcwikiUpgradeNeedAlias } from '../../shared/kcwiki-upgrade'
 
 let pane: HTMLElement
+let catalogPaneWidth = 0
 
 // 后台数据回来时的重渲染统一走这里合并到同一帧。
 // 一次「进到下一个点」会同时惊动整图遭遇志和整图预测两条 IPC，各自回调都直接
@@ -1926,7 +1928,7 @@ const shipCatalogRowHtml = (root: any): string => {
     yomi ? esc(yomi) : '',
     has ? '' : '未持有',
   ].filter(Boolean).join(' · ')
-  return `<div class="row${has ? '' : ' ghost'}${on ? ' on' : ''}" data-root="${root.api_id}" style="--rc:${color}">
+  return `<div class="row${has ? '' : ' ghost'}${on ? ' on' : ''}" data-root="${root.api_id}"${canDeferCatalogRow(subline, favorite) ? ' data-catalog-lazy' : ''} style="--rc:${color}">
     <div class="face shipface">${shipThumbHtml(root.api_id, entityNamePlain('ship', root.api_id, root.api_name), { className: 'catalog', placeholder: has ? entityNamePlain('ship', root.api_id, root.api_name).charAt(0) : '?' })}</div>
     <div class="nm"><b>${entityNameHtml('ship', root.api_id, root.api_name, { compact: true })}</b>${favorite ? '<i class="fav-mini" title="已收藏">★</i>' : ''}<span>${subline}</span></div>
   </div>`
@@ -2634,9 +2636,9 @@ const shipDrawerHtml = () => {
         )}" data-tip="${esc(tip)}">${label} ${list.length} 项${shortage ? ` · 缺 ${shortage}` : ' ✓'}</span>`
       }
       const stagePills = (result: ReturnType<typeof needChipsHtml>, title: string): string => result.stages.map(group => {
-        if (!group.needs.length && !group.missing) return ''
+        if (!group.needs.length && !group.missing && !(result.convertible && group.confirmedNone)) return ''
         const label = remodelStageLabelHtml(group.stage)
-        return `${label} ${needPillOf(group.needs, `${title} · ${REMODEL_STAGE_COPY[group.stage].label}`, '素材')}${group.missing ? ' 素材待补' : ''}`
+        return `${label} ${needPillOf(group.needs, `${title} · ${REMODEL_STAGE_COPY[group.stage].label}`, '素材')}${group.missing ? ' 素材待补' : result.convertible && group.confirmedNone ? '<span class="nd">无特殊素材</span>' : ''}`
       }).join('<br>')
       // kcsapi 字段名陷阱：api_afterbull=弹药、api_afterfuel=钢材（两张改装画面
       // 实拍交叉核定，见 MasterShip 注释）。此前写反，kcwiki 缺值时弹钢会互换。
@@ -10485,6 +10487,7 @@ interface RemodelStageNeeds {
   stage: RemodelStage
   needs: UpgradeNeedChip[]
   missing: boolean
+  confirmedNone: boolean
 }
 
 // 游戏原生字段优先；wikiwiki 补 API 表外素材；kcwiki 字符串只给旧包/缺页作最终兜底。
@@ -10498,7 +10501,7 @@ const needChipsHtml = (
   targetShipId: number,
   currentShipId?: number,
   rosterId?: number,
-): { html: string; needs: UpgradeNeedChip[]; stages: RemodelStageNeeds[] } => {
+): { html: string; needs: UpgradeNeedChip[]; stages: RemodelStageNeeds[]; convertible: boolean } => {
   const upgradeRows = mg.master.upgrades[targetShipId] ?? []
   // 指明了来路却没有对应行 → 原生层对这条路径没有话语权，交给 wiki/kcwiki 兜底，
   // 绝不错拿别的来路（回转行全零，会把真需求吞掉；前进行有料，会凭空造需求）
@@ -10579,9 +10582,12 @@ const needChipsHtml = (
       if (!previous || count > previous.count) needs.set(key, need)
     }
     const list = [...needs.values()]
-    return { stage, needs: list.map(need => ({ ...need, stage })), missing: convertible && facts == null }
+    // 只有显式空档且原生层也无素材时显示确认无；API 有值仍按原生素材显示。
+    return { stage, needs: list.map(need => ({ ...need, stage })), missing: convertible && facts == null,
+      confirmedNone: facts != null && Object.keys(facts).length === 0 && list.length === 0 }
   })
-  return { html: stages.map(group => `${convertible ? remodelStageLabelHtml(group.stage) : ''}${group.needs.map(upgradeNeedChipHtml).join('')}${group.missing ? '<span class="nd">素材待补</span>' : ''}`).join(''), needs: stages.flatMap(group => group.needs), stages }
+  // 单向空档保留confirmedNone供审计，只有可逆改造渲染确认无标签。
+  return { html: stages.map(group => `${convertible ? remodelStageLabelHtml(group.stage) : ''}${group.needs.map(upgradeNeedChipHtml).join('')}${group.missing ? '<span class="nd">素材待补</span>' : convertible && group.confirmedNone ? '<span class="nd">无特殊素材</span>' : ''}`).join(''), needs: stages.flatMap(group => group.needs), stages, convertible }
 }
 
 /** 一条素材需求「够不够」。拿不到库存口径时按不够处理，不假装满足。 */
@@ -11419,6 +11425,11 @@ const render = () => {
     pane.innerHTML = `<div class="pane-waiting">
       尚未同步基础数据<br />登录游戏后自动获取</div>`
     return
+  }
+  // mount 时面板还没有宽度；首次异步目录装入前测一次，此后由 ResizeObserver 接手。
+  if (catalogPaneWidth <= 0) {
+    catalogPaneWidth = pane.clientWidth
+    pane.classList.toggle('ji-lazy-rows', canDeferCatalogRows(catalogPaneWidth))
   }
   // 历史对账要在拼 HTML 之前：本次 render 若产生新层，按钮的可用态得马上跟上；
   // 也必须赶在 innerHTML 重建之前——入栈时抓的滚动剖面读的还是旧页的 DOM。
@@ -13340,6 +13351,17 @@ registerModule({
   order: 4,
   mount(el) {
     pane = el
+    // 在目录内容装入之前确定模式，避免容器查询为决定是否跳过行又先布局整张表。
+    const updateRowLayout = (width: number) => {
+      catalogPaneWidth = width
+      el.classList.toggle('ji-lazy-rows', canDeferCatalogRows(width))
+    }
+    updateRowLayout(el.clientWidth)
+    const rowLayoutObserver = new ResizeObserver(([entry]) => {
+      if (entry) updateRowLayout(entry.contentRect.width)
+    })
+    rowLayoutObserver.observe(el)
+    trackMountCleanup(() => rowLayoutObserver.disconnect())
     wireSectionFolding(el)
     // 鼠标侧键 = 返回/前进（跟浏览器同一副手感）；只在图鉴面板内生效。
     // 挂在 pane 上一次即可——pane 常驻，render 只重建它的子树。
@@ -13721,5 +13743,12 @@ registerModule({
       }
     })
   },
-  onShow: () => render(),
+  onShow: () => {
+    // 首次 mount 时面板尚未接入坞位，宽度为 0；显示后、异步目录返回前补一次。
+    if (pane) {
+      catalogPaneWidth = pane.clientWidth
+      pane.classList.toggle('ji-lazy-rows', canDeferCatalogRows(catalogPaneWidth))
+    }
+    render()
+  },
 })

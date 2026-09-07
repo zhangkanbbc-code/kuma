@@ -1401,7 +1401,7 @@ const sectionTabsHtml = (): string =>
   ).join('')}</div>`
 
 const render = () => {
-  if (!pane) return
+  if (!pane || !pane.classList.contains('active')) return
   withViewStateKept(pane, () => {
     pane.innerHTML = `<div class="yu-app">${sectionTabsHtml()}${settingsCardsOf(
       activeSection,
@@ -2064,13 +2064,8 @@ registerModule({
       }
     })
     onUiZoom(() => render())
-    setAllowRemoteArt(config.get('kuma.remoteArt', true))
-    setAllowRemoteVoice(config.get('kuma.remoteArt', true))
-    setVoiceCaptionsEnabled(config.get('kuma.voiceCaptions', true))
-    setEventBannerEffectsEnabled(config.get('kuma.eventBannerEffects', true))
-    setSunkEffectsEnabled(config.get('kuma.sunkEffects', true))
-    setBuildSpoilerEnabled(config.get('kuma.buildSpoiler', false))
-    setOverlayEntranceEnabled(config.get(LAUNCH_GLOW_CONFIG_KEY, LAUNCH_GLOW_DEFAULT))
+    // 各子系统已在自身初始化时读取开关，入场开关也已由主壳设置。
+    // 装配设置面板不再重复同步读取、清空美术缓存；用户改值仍走上面的 setter。
     // 进程级监听不随面板 innerHTML 生灭，重试装配会再挂一份：
     // 同一条推送重绘两遍（且旧那份还攥着上一张面板）。在 mount 同步段挂退订。
     const onProxyStatus = (_event: unknown, status: typeof proxyStatus) => {

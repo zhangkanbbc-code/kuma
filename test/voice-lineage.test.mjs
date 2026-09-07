@@ -102,6 +102,14 @@ test('voice translations reuse only an unambiguous exact Japanese line', () => {
   assert.equal(index.has(normalizeVoiceLine('曖昧')), false)
 })
 
+test('重复原文仍保留译文歧义，每次调用都重新读取修改后的输入', () => {
+  const ja = { 1: { 1: '同じ原文' }, 2: { 1: '同じ原文' } }
+  const zh = { 1: { 1: '译文甲' }, 2: { 1: '译文乙' } }
+  assert.equal(buildVoiceTranslationIndex(ja, zh).has('同じ原文'), false)
+  zh[2][1] = '译文甲'
+  assert.equal(buildVoiceTranslationIndex(ja, zh).get('同じ原文'), '译文甲')
+})
+
 test('voice line normalization treats encoded and decoded HTML entities as the same line', () => {
   assert.equal(
     normalizeVoiceLine('Enchant&eacute;e / &Ccedil;a / arr&egrave;s-midi / &#233; / &#xEA;'),

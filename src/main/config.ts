@@ -98,6 +98,15 @@ class KumaConfig extends EventEmitter {
     return this.getDefault(configPath, fallback)
   }
 
+  // UI 偏好先在主进程序列化，再通过 remote 返回一个字符串。
+  // 对象代理在渲染层 JSON.stringify 会逐属性同步 IPC；在籍/收藏等大表
+  // 会让一次 uiGet 变成数百次往返。仍然每次读取当前值，不引入过期缓存。
+  getUiJson = (key: string): string | undefined => JSON.stringify(this.get(`ui.${key}`))
+
+  // 写入也只接收字符串，在主进程内构造对象；否则后续读取时仍会
+  // 序列化一个指回渲染进程的 remote 代理，形成同步往返。
+  setUiJson = (key: string, serialized: string): void => this.set(`ui.${key}`, JSON.parse(serialized))
+
   getDefault = (configPath: string, fallback?: unknown): any => {
     const value = getByPath(DEFAULTS, configPath.split('.'))
     // 对象要发深拷贝：把 DEFAULTS 子对象的引用交出去，调用方就地改字段

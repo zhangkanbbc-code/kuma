@@ -4,10 +4,12 @@
 
 - [wikiwiki 霧島改二丙](https://wikiwiki.jp/kancolle/霧島改二丙)：小破按形态列的 ○ 行各自计数；「セリフ」占位不计数。85/212 的首句不推进 152/694 的计数，694 的「はぁぁっ！」为 19，「痛った…そんな馬鹿な！」为 20。
 - [舰娘百科雾岛](https://zh.kcwiki.cn/wiki/雾岛)、[飞龙](https://zh.kcwiki.cn/wiki/飞龙)：`024-FleetOrg` 对应「出撃よ！さて、どう出てくるかしら？」；`024-Sortie` 对应「霧島艦隊、出撃します。」；`196-FleetOrg` 对应改二编成，`196-Sortie` 对应「艦隊出撃！徹底的に叩きましょう！索敵も怠りなく！」；`621-FleetOrg` 对应改三编成，台词表未列 `621-Sortie`。wikiwiki 出撃行若与同形态編成同句，归 13，保留編成行；另一句归 14。
-- [wikiwiki 霧島改二丙](https://wikiwiki.jp/kancolle/霧島改二丙)、[飛龍改三](https://wikiwiki.jp/kancolle/飛龍改三)、[玉波改二](https://wikiwiki.jp/kancolle/玉波改二)：旗艦大破可重复小破②，也可重复中破；与同形态其他行同句时不另占 20。未找到同句的旗艦大破仍归 20，单列核对。
+- [wikiwiki 霧島改二丙](https://wikiwiki.jp/kancolle/霧島改二丙)、[飛龍改三](https://wikiwiki.jp/kancolle/飛龍改三)、[玉波改二](https://wikiwiki.jp/kancolle/玉波改二)、[春雨改二](https://wikiwiki.jp/kancolle/春雨改二)（2026-09-07）：旗艦大破可重复小破①、小破②或中破；春雨／春雨改列的「きゃぁっ！」重复小破①，春雨改二列的「や、やめて～！」重复小破②。与同形态其他行同句时不另占 20。未找到同句的旗艦大破仍归 20，单列核对。
 - [wikiwiki 花月](https://wikiwiki.jp/kancolle/花月)（2026-09-07）：显式小破1／小破2直接归 19／20，兼容全角数字与①②，不推进无序号小破的按列计数。1041 的「きゃぁーっ！」为 19；1041／1046 的「いやっ…！お、おやめ、くださいっ！」为 20。
 
-同句比较沿用 `normalizeVoiceLine` 与 `foldVoiceLineForCompare`。
+- 规律⑤：[wikiwiki 春雨改二](https://wikiwiki.jp/kancolle/春雨改二)、随包 `subtitle-ja` 405／323、[舰娘百科春雨](https://zh.kcwiki.cn/wiki/春雨) `205-LightDmg1/2`（2026-09-07）：形态列内无序号小破恰有两行时，先按规律①的页序归 19／20，再用同句槽位证据对齐。两句命中不同槽时按证据；只命中一句时按该槽、另一句取剩余槽并报告部分匹配；都未命中时保留页序。两句命中同一槽，或证据与规律④显式小破1／2矛盾时，保留原判定并报告冲突。证据仅取本形态及沿主数据 `api_aftershipid` 反向回溯的前置形态：`subtitle-ja[id][19|20]`、`kcwiki-voice[id]` 档名以 `-LightDmg1/2` 结尾的日文行；同句同时指向 19 和 20 时丢弃，不跨谱系。春雨页两行页序与字幕及档名证据相反，405／323／975 均判为 19「きゃぁっ！」、20「や、やめて～！」；975 两句与前置形态相同，槽位随前置形态。
+
+同句比较沿用 `foldVoiceLineForCompare(normalizeVoiceLine(ja))`。
 
 2026-09-07 公开页面底本归一化结果：早霜改二页 324/409、Richelieu Deux 页 392/492、杉页 997、Independence 页 1023 的旗艦大破未找到同表同形态其他同句行，均保留 20。
 

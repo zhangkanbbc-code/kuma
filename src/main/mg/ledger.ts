@@ -202,6 +202,10 @@ class Ledger {
   private closed = false
   private lastRecordedEventId: number | null = null
   private pruneTimer: ReturnType<typeof setInterval>
+  // 短出击可能真的零消耗，仍会反复命中被覆盖消耗的候选判据。
+  // 后续出击已开始的窗口不会再收到新报文：本轮未恢复就不再试；最新窗口仍继续尝试。
+  // 只在本实例内记忆，不落盘，重启后重新核查一次历史证据，避免永久固化恢复结论。
+  private unrecoverableSortieCosts = new Set<number>()
 
   constructor() {
     fs.mkdirSync(APPDATA_PATH, { recursive: true })
@@ -222,6 +226,9 @@ class Ledger {
       );
       CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts);
       CREATE INDEX IF NOT EXISTS idx_events_path ON events(path);
+      -- 2026-09-07 归因：firstPort / charge / shipDeck 原计划只走 idx_events_path，
+      -- 每个候选分别扫描 4298 / 1884 / 1201 行再滤 ts；复合索引同时收窄路径与时间窗口。
+      CREATE INDEX IF NOT EXISTS idx_events_path_ts ON events(path, ts);
       CREATE TABLE IF NOT EXISTS material_log (
         ts INTEGER NOT NULL,
         fuel INTEGER, ammo INTEGER, steel INTEGER, bauxite INTEGER,
@@ -4050,83 +4057,92 @@ class Ledger {
       )
 
       for (const row of rows) {
-        let baseline: SortieSupplyBaseline[]
-        try {
-          baseline = JSON.parse(row.baseline)
-        } catch (error) {
-          console.warn(
-            `[kuma] mg: 无法解析活动出击 ${row.sortieId} 的旧补给基线，已跳过恢复`,
-            error,
-          )
-          continue
-        }
-        if (!Array.isArray(baseline) || !baseline.length) continue
+        if (this.unrecoverableSortieCosts.has(row.sortieId)) continue
         const nextTs = Number(
           (nextStartStmt.get(row.startTs) as { nextTs?: number } | undefined)?.nextTs ??
             Number.MAX_SAFE_INTEGER,
         )
-        const portTs = Number(
-          (firstPortStmt.get(row.startTs, nextTs) as { portTs?: number } | undefined)?.portTs ?? 0,
-        )
-        if (!(portTs > row.startTs)) continue
-
-        let snapshotCost: SortieSupplyCost | null = null
-        const shipDeck = shipDeckStmt.get(row.startTs, portTs) as { body?: string } | undefined
-        if (shipDeck?.body) {
+        let changes = 0
+        try {
+          let baseline: SortieSupplyBaseline[]
           try {
-            const parsed = JSON.parse(shipDeck.body)
-            const data = parsed?.api_data ?? parsed
-            const rawShips = data?.api_ship_data ?? data?.api_ship
-            if (Array.isArray(rawShips)) {
-              snapshotCost = calculateSortieSupplyCost(
-                baseline,
-                rawShips.map((ship: any) => ({
-                  rosterId: Number(ship?.api_id),
-                  fuel: Number(ship?.api_fuel),
-                  ammo: Number(ship?.api_bull),
-                })),
-              )
-            }
+            baseline = JSON.parse(row.baseline)
           } catch (error) {
             console.warn(
-              `[kuma] mg: 无法解析活动出击 ${row.sortieId} 的返港前舰队快照，改用补给差额`,
-              error,
-            )
-          }
-        }
-
-        const rosterIds = new Set(baseline.map((ship) => Number(ship.rosterId)))
-        let resupplyFuel = 0
-        let resupplyAmmo = 0
-        let resupplyMatched = false
-        for (const charge of chargeStmt.all(portTs, nextTs) as any[]) {
-          let post: Record<string, string>
-          try {
-            post = JSON.parse(charge.postBody || '{}')
-          } catch (error) {
-            console.warn(
-              `[kuma] mg: 无法解析活动出击 ${row.sortieId} 的补给请求，已跳过该条`,
+              `[kuma] mg: 无法解析活动出击 ${row.sortieId} 的旧补给基线，已跳过恢复`,
               error,
             )
             continue
           }
-          const ids = `${post.api_id_items ?? ''}`
-            .split(',')
-            .map(Number)
-            .filter((id) => id > 0)
-          // 只接纳完全属于本次出击舰队的补给批次，避免把其他舰队消费混入。
-          if (!ids.length || ids.some((id) => !rosterIds.has(id))) continue
-          resupplyMatched = true
-          resupplyFuel += Math.max(0, -Number(charge.fuel || 0))
-          resupplyAmmo += Math.max(0, -Number(charge.ammo || 0))
+          if (!Array.isArray(baseline) || !baseline.length) continue
+          const portTs = Number(
+            (firstPortStmt.get(row.startTs, nextTs) as { portTs?: number } | undefined)?.portTs ?? 0,
+          )
+          if (!(portTs > row.startTs)) continue
+
+          let snapshotCost: SortieSupplyCost | null = null
+          const shipDeck = shipDeckStmt.get(row.startTs, portTs) as { body?: string } | undefined
+          if (shipDeck?.body) {
+            try {
+              const parsed = JSON.parse(shipDeck.body)
+              const data = parsed?.api_data ?? parsed
+              const rawShips = data?.api_ship_data ?? data?.api_ship
+              if (Array.isArray(rawShips)) {
+                snapshotCost = calculateSortieSupplyCost(
+                  baseline,
+                  rawShips.map((ship: any) => ({
+                    rosterId: Number(ship?.api_id),
+                    fuel: Number(ship?.api_fuel),
+                    ammo: Number(ship?.api_bull),
+                  })),
+                )
+              }
+            } catch (error) {
+              console.warn(
+                `[kuma] mg: 无法解析活动出击 ${row.sortieId} 的返港前舰队快照，改用补给差额`,
+                error,
+              )
+            }
+          }
+
+          const rosterIds = new Set(baseline.map((ship) => Number(ship.rosterId)))
+          let resupplyFuel = 0
+          let resupplyAmmo = 0
+          let resupplyMatched = false
+          for (const charge of chargeStmt.all(portTs, nextTs) as any[]) {
+            let post: Record<string, string>
+            try {
+              post = JSON.parse(charge.postBody || '{}')
+            } catch (error) {
+              console.warn(
+                `[kuma] mg: 无法解析活动出击 ${row.sortieId} 的补给请求，已跳过该条`,
+                error,
+              )
+              continue
+            }
+            const ids = `${post.api_id_items ?? ''}`
+              .split(',')
+              .map(Number)
+              .filter((id) => id > 0)
+            // 只接纳完全属于本次出击舰队的补给批次，避免把其他舰队消费混入。
+            if (!ids.length || ids.some((id) => !rosterIds.has(id))) continue
+            resupplyMatched = true
+            resupplyFuel += Math.max(0, -Number(charge.fuel || 0))
+            resupplyAmmo += Math.max(0, -Number(charge.ammo || 0))
+          }
+          const cost = mergeSortieSupplyCosts(
+            snapshotCost,
+            resupplyMatched ? { fuel: resupplyFuel, ammo: resupplyAmmo } : null,
+          )
+          if (!cost || (cost.fuel === 0 && cost.ammo === 0)) continue
+          const result = updateStmt.run(portTs, cost.fuel, cost.ammo, row.sortieId)
+          changes = Number(result?.changes ?? 0)
+          if (changes > 0) repaired++
+        } finally {
+          if (changes === 0 && nextTs !== Number.MAX_SAFE_INTEGER) {
+            this.unrecoverableSortieCosts.add(row.sortieId)
+          }
         }
-        const cost = mergeSortieSupplyCosts(
-          snapshotCost,
-          resupplyMatched ? { fuel: resupplyFuel, ammo: resupplyAmmo } : null,
-        )
-        if (!cost || (cost.fuel === 0 && cost.ammo === 0)) continue
-        const result = updateStmt.run(portTs, cost.fuel, cost.ammo, row.sortieId)
-        if (Number(result?.changes ?? 0) > 0) repaired++
       }
       if (repaired) {
         console.log(`[kuma] mg: 已从返港前快照/补给差额恢复 ${repaired} 次活动出击燃弹消耗`)

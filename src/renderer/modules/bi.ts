@@ -11,6 +11,7 @@ import {
   esc,
   exitWithMotion,
   fmtCountdownShort,
+  fmtReturnClock,
   fmtTime,
   lodeCredit,
   masterShipName,
@@ -1174,8 +1175,9 @@ const deckStatusHtml = (deck: Deck): string => {
     status = '<span class="g-idle">出击中</span>'
   } else if (busy) {
     const returnTs = deck.mission[2]
+    const now = Date.now()
     const dispNo = mg.master.missions[deck.mission[1]]?.dispNo ?? deck.mission[1]
-    status = `<b class="g-exp-no">${esc(`${dispNo}`)}</b><span class="g-countdown" data-cds="${returnTs}" data-cds-done="返港">${fmtCountdownShort(returnTs, '返港')}</span>`
+    status = `<b class="g-exp-no">${esc(`${dispNo}`)}</b><span class="g-countdown" data-cds="${returnTs}" data-cds-done="返港" title="${esc(`${now >= returnTs ? '已返港' : '预计返港'} ${fmtReturnClock(returnTs, now)}`)}">${fmtCountdownShort(returnTs, '返港')}</span>`
   } else {
     status = '<span class="g-idle">待命</span>'
   }

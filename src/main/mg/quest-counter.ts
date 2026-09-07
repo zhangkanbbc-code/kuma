@@ -23,6 +23,7 @@
 import {
   augmentShipGroupsFromQuestText,
   buildKcwikiRuleContext,
+  buildQuestShipNameIndex,
   decodeKcwikiRequirement,
   evaluateFleetGoal,
 } from './kcwiki-quest-rules'
@@ -263,13 +264,14 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
         ? `${quest.desc ?? ''}｜${quest.memo2 ?? ''}｜${QUEST_TEXT_NOTES[questId] ?? ''}`
         : ''
     }
+    const shipNameIndex = buildQuestShipNameIndex(kcwikiContext, zhShipNames)
     if (kcwikiPack?.data && typeof kcwikiPack.data === 'object' && !Array.isArray(kcwikiPack.data)) {
       for (const [idText, requirement] of Object.entries(kcwikiPack.data as Record<string, unknown>)) {
         const questId = parseInt(idText, 10)
         if (!questId || trackers.has(questId)) continue
         const decoded = decodeKcwikiRequirement(requirement, kcwikiContext)
         if (decoded) {
-          augmentShipGroupsFromQuestText(decoded, kcwikiContext, questTextOf(questId), zhShipNames)
+          augmentShipGroupsFromQuestText(decoded, kcwikiContext, questTextOf(questId), zhShipNames, shipNameIndex)
         }
         if (
           !decoded ||

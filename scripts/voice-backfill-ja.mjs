@@ -2,7 +2,8 @@
 //
 //   node scripts/voice-backfill-ja.mjs          # 改写
 //   node scripts/voice-backfill-ja.mjs --check  # 只检查，缺列/错配就非零退出
-//   node scripts/voice-backfill-ja.mjs --renormalize-wikiwiki --check  # 先就地归一化本机 wikiwiki 底本
+//   node scripts/voice-backfill-ja.mjs --renormalize-wikiwiki  # 只就地归一化本机 wikiwiki 底本，不补日文列
+//   node scripts/voice-backfill-ja.mjs --renormalize-wikiwiki --check  # 先就地归一化本机 wikiwiki 底本，再检查日文列
 //
 // ---- 为什么现在有这一列了 ----
 // 2026-08-22 之前这两个包**只收中文**，那是把任务域的「日文原文不进分发物」口径
@@ -28,7 +29,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { normalizeVoiceLine } from '../src/shared/voice-lineage.ts'
-import { normalizeWikiwikiVoiceRows } from './lib/wikiwiki-voice.mjs'
+import { buildSmallDamageEvidence, normalizeWikiwikiVoiceRows } from './lib/wikiwiki-voice.mjs'
+import { loadStart2MasterArray } from './lib/start2.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const lodeDir = path.join(root, 'assets', 'lodes')
@@ -42,14 +44,42 @@ if (process.argv.includes('--renormalize-wikiwiki')) {
   const file = path.join(lodeDir, 'wikiwiki-voice.json')
   const pack = readJson(file)
   if (!pack) throw new Error(`缺少本机底本：${file}`)
-  pack.data = Object.fromEntries(Object.entries(pack.data).map(([id, rows]) =>
-    [id, normalizeWikiwikiVoiceRows(rows)]))
+  const ships = loadStart2MasterArray('api_mst_ship', root)
+  if (!ships.length) throw new Error('缺少 api_mst_ship 主数据，不能构建小破槽位证据')
+  const subtitleJa = readJson(path.join(lodeDir, 'subtitle-ja.json')).data
+  const kcwikiVoice = readJson(path.join(lodeDir, 'kcwiki-voice.json')).data
+  const names = new Map(ships.map(ship => [String(ship.api_id), ship.api_name]))
+  const diagnostics = []
+  const swaps = []
+  pack.data = Object.fromEntries(Object.entries(pack.data).map(([id, rows]) => {
+    const evidence = buildSmallDamageEvidence({ mstId: id, ships, subtitleJa, kcwikiVoice })
+    const notes = []
+    const normalized = normalizeWikiwikiVoiceRows(rows, evidence, notes)
+    diagnostics.push(...notes.filter(note => note.type !== 'swap').map(note => ({ id, ...note })))
+    const changed = normalized.filter(line => line.voiceId !== rows.find(row => row.key === line.key)?.voiceId)
+    if (changed.length && notes.some(note => note.type === 'swap')) {
+      const slots = lines => [19, 20].map(slot =>
+        `${slot}=${lines.filter(line => line.voiceId === slot).map(line => line.ja).join(' / ')}`).join('；')
+      swaps.push(`${id} ${names.get(id)}：${slots(rows)} → ${slots(normalized)}`)
+    }
+    return [id, normalized]
+  }))
   writeFileSync(file, `${JSON.stringify(pack)}\n`)
   console.log('[槽位] 已归一化 assets/lodes/wikiwiki-voice.json；未重取页面')
+  console.log(`[槽位] 按证据调换 ${swaps.length} 个形态`)
+  for (const row of swaps) console.log(`         ${row}`)
+  for (const type of ['conflict', 'partial']) {
+    const notes = diagnostics.filter(note => note.type === type)
+    console.log(`[槽位] ${type === 'conflict' ? '冲突' : '部分匹配'} ${notes.length} 项`)
+    for (const note of notes) console.log(`         ${note.id} ${names.get(note.id)} ${note.reason ?? ''}：` +
+      note.rows.map((row, index) => `${row.key} ${row.ja} → ${note.slots[index] ?? '未命中'}`).join('；'))
+  }
   const uniqueFlagship = Object.entries(pack.data).flatMap(([id, rows]) =>
     rows.filter(row => /旗艦大破/.test(row.scene)).map(row => `${id} ${row.key} ${row.ja}`))
   console.log(`[槽位] 独有旗艦大破 ${uniqueFlagship.length} 行`)
   for (const row of uniqueFlagship) console.log(`         ${row}`)
+  // 单独归一化只改 wikiwiki 底本；附带 --check 时继续只读检查随包日文列。
+  if (!check) process.exit(0)
 }
 
 /** 底本里这个形态的行：与编包时同一套去重（同槽同文只留一条），按槽位归拢。 */

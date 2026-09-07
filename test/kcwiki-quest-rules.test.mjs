@@ -33,6 +33,31 @@ buildSync({
 })
 const { QUEST_TEXT_NOTES } = require(notesOutput)
 const requirementsUrl = new URL('../assets/lodes/kcwiki-quest-req.json', import.meta.url)
+
+test('共用舰名树：最长独立匹配、重名形态、相邻任务隔离及换译名重建', () => {
+  const ships = [
+    [1, '朝潮改', 2], [2, '朝潮改二', 3], [3, '朝潮改二丁', 0],
+    [4, '潮改', 5], [5, '潮改二', 0], [6, '黒潮改二', 0],
+    [7, '別艦改', 8], [8, '朝潮改二丁', 0],
+  ].map(([api_id, api_name, next]) => ({ api_id, api_name, api_sortno: 1, api_aftershipid: String(next) }))
+  const context = rules.buildKcwikiRuleContext({ api_mst_ship: ships })
+  const zh = new Map([[6, '黑潮改二'], [3, '朝潮终型']])
+  const index = rules.buildQuestShipNameIndex(context, zh)
+  const apply = (text, nameIndex = index) => {
+    const draft = { fleetGoal: { groups: [1, 4, 7].map(id => ({ ships: [id], stypes: [], amount: 1, label: String(id) })) } }
+    rules.augmentShipGroupsFromQuestText(draft, context, text, zh, nameIndex)
+    return draft.fleetGoal.groups.map(group => group.ships)
+  }
+  assert.deepEqual(apply('朝潮改二丁、黑潮改二'), [[1, 3], [4], [7, 8]])
+  assert.deepEqual(apply('朝潮改二'), [[1, 2], [4], [7]])
+  assert.deepEqual(apply('不存在的舰名'), [[1], [4], [7]])
+  assert.deepEqual(apply('朝潮终型'), [[1, 3], [4], [7]])
+  // 新一轮初始化显式重建，不从旧上下文的缓存借用名字。
+  zh.set(3, '新译名')
+  const updated = rules.buildQuestShipNameIndex(context, zh)
+  assert.deepEqual(apply('朝潮终型', updated), [[1], [4], [7]])
+  assert.deepEqual(apply('新译名', updated), [[1, 3], [4], [7]])
+})
 const requirements = process.env.KUMA_TEST_FORCE_SYNTHETIC !== '1' && fs.existsSync(requirementsUrl)
   ? JSON.parse(fs.readFileSync(requirementsUrl, 'utf8')).data
   : syntheticKcwikiRequirements

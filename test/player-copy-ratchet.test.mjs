@@ -392,6 +392,8 @@ const pronounSubjectOrPossessive = /(?:^|[>，。；：！？·\s])(?:你的|你
 const asciiParenAfterCjk = /[\u4e00-\u9fff]\s*\([A-Za-z0-9][^()\r\n]{0,12}\)/
 const numericApprox = /(?<![誓条归违契公盟制签预])约\s*(?:[-+]?\d|〔插值〕)|(?:\d|〔插值〕)\s*约(?!翰)/
 const futureExpected = (text) =>
+  // 用户 2026-09-07 返港时刻施工单：这句明确修饰未来时刻；也接受提取器切出的词段。
+  /^预计返港(?: (?:\d{2}-\d{2} )?\d{2}:\d{2}| 〔插值〕)?$/.test(text) ||
   /预计修理/.test(text) ||
   /预计回满/.test(text) ||
   /预计(?:时刻|时间)/.test(text) ||
@@ -637,6 +639,16 @@ test('结构棘轮反向判例：每条红线放回旧句都会命中', () => {
   }
   const oldCorrection = '火力按日文原表补 1'
   assert.match(oldCorrection, /按[^，。；\n]{0,24}(?:补|退回|归位|改回)/)
+})
+
+test('预计返港只放行已裁定的未来时刻文案，概率限定词仍拦截', () => {
+  const rule = STRUCTURAL_RULES.find((entry) => entry.id.startsWith('④'))
+  const row = (text) => ({ text, properties: [], calls: [], functions: [] })
+  for (const text of ['预计返港', '预计返港 14:20', '预计返港 09-08 02:10', '预计返港 〔插值〕']) {
+    assert.equal(rule.check(row(text)), false, text)
+  }
+  assert.equal(rule.check(row('预计返港概率 50%')), true)
+  assert.equal(rule.check(row('预计返港 14:20 · 当前概率大概 50%')), true)
 })
 
 test('玩家文案观察名单：只列 file:line，不阻断提交', () => {

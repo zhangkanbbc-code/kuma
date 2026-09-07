@@ -92,11 +92,12 @@ const require_ = createRequire(import.meta.url)
 /** 一副够钥用的假面板：innerHTML 是产物，滚动容器只认 .yu-app */
 const fakePane = () => {
   const app = { scrollTop: 0 }
+  const classes = new Set()
   return {
     innerHTML: '',
     handlers: new Map(),
     app,
-    classList: { contains: () => false, add: () => {}, remove: () => {} },
+    classList: { contains: key => classes.has(key), add: key => classes.add(key), remove: key => classes.delete(key) },
     addEventListener(type, handler) {
       this.handlers.set(type, [...(this.handlers.get(type) ?? []), handler])
     },
@@ -199,6 +200,9 @@ export const mountYu = ({
   assert.ok(def && typeof def.mount === 'function', '钥没注册上来')
   const pane = fakePane()
   def.mount(pane)
+  assert.equal(pane.innerHTML, '', '关闭的设置面板不应在装配时绘制')
+  pane.classList.add('active')
+  def.onShow()
   return {
     pane,
     def,
@@ -215,7 +219,7 @@ export const mountYu = ({
     /** 此刻主进程 config 里存着什么（桩里那份） */
     configOf: (key) => configStore[key],
     writes: () => globalThis.__uiWrites,
-    /** 钥调 setOverlayEntranceEnabled 的流水账（装配时一次，之后每翻一次开关一次） */
+    /** 钥调 setOverlayEntranceEnabled 的流水账（初值由主壳负责，这里只记用户修改） */
     overlayEntrance: () => globalThis.__overlayEntrance,
     /** 钥调 setVoiceCaptionSize 的流水账（每改一档字幕字号一次） */
     captionSizes: () => globalThis.__captionSizes,

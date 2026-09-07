@@ -348,14 +348,14 @@ test('页签：换一类就回到顶部，上一类翻到哪儿不跟过来', ()
 test('启动点亮那个开关：翻一下浮层入场当场跟着切，不用等重启', () => {
   const key = 'kuma.launchGlow'
   const yu = mountYu({ config: { [key]: false } })
-  // 装配时先按配置对一次表（重试装配＝重读一次，与旁边那几个热切开关同一条）
-  assert.deepEqual(yu.overlayEntrance(), [false], '装配时没按配置把浮层入场对上')
+  // 初值已由主壳读取；打开设置不再重复初始化。
+  assert.deepEqual(yu.overlayEntrance(), [], '设置重复初始化了主壳已经读取的开关')
   yu.click({ toggle: key })
-  assert.deepEqual(yu.overlayEntrance(), [false, true], '开了却要等下次重启才有浮层入场')
+  assert.deepEqual(yu.overlayEntrance(), [true], '开了却要等下次重启才有浮层入场')
   yu.click({ toggle: key })
   assert.deepEqual(
     yu.overlayEntrance(),
-    [false, true, false],
+    [true, false],
     '关了却没把浮层入场收掉——正在演的那一次也该当场收',
   )
 })

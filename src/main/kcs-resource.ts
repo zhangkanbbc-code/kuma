@@ -10,6 +10,7 @@ import path from 'path'
 import { pathToFileURL } from 'url'
 
 import config from './config'
+import { reportMainTiming } from './perf-time'
 import { DEFAULT_CACHE_PATH, ROOT } from './env'
 import broadcaster = require('./game-api-broadcaster')
 import { parseKcsBgmPath } from '../shared/kcs-bgm'
@@ -253,9 +254,22 @@ export const registerKcsResourceProtocol = () => {
   ses.webRequest.onBeforeRequest(
     { urls: ['*://*/kcs/*', '*://*/kcs2/*', '*://*/gadget_html5/*'] },
     async (details, callback) => {
+      const started = performance.now()
+      let requestPathname = ''
+      const originalCallback = callback
+      callback = (response) => {
+        const ms = performance.now() - started
+        try {
+          return originalCallback(response)
+        } finally {
+          // 截止调用 callback 的时刻；先放行请求，再写日志，且绝不记录完整 URL。
+          reportMainTiming('webrequest', ms, () => `${details.resourceType} ${requestPathname}`)
+        }
+      }
       try {
         const parsed = new URL(details.url)
         const { pathname } = parsed
+        requestPathname = pathname
         // 语音与立绘两段闸门共用同一个时刻：同一次请求里取两遍 Date.now()
         // 会让「认领窗口」的两侧算在不同基准上
         const now = Date.now()

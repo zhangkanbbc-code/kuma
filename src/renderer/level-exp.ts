@@ -32,7 +32,6 @@ const conflicts = new Map<number, [number, number]>()
 
 const ensure = () => {
   if (loaded) return
-  loaded = true
   const saved = uiGet<Record<string, number>>(KEY, {})
   const next = new Map<number, number>()
   for (const [level, total] of Object.entries(saved ?? {})) {
@@ -41,7 +40,11 @@ const ensure = () => {
   }
   // 换引用而不是原地灌：下面的合成表按两份输入的**身份**判失效
   observed = next
+  loaded = true
 }
+
+/** 启动请求排队前读入本地实测表；不观察舰队、不写入新点。失败后仍可重试。 */
+export const prepareLevelExp = (): void => ensure()
 
 /**
  * 矿脉表 + 实测点的合成查询表（实测覆盖矿脉）。
@@ -151,4 +154,3 @@ export const cumulativeExpAt = (level: number): number | null => {
   if (fromObserved != null) return fromObserved
   return lodeTable.get(level) ?? null
 }
-

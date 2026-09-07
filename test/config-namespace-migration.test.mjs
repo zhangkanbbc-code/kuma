@@ -57,6 +57,27 @@ const fixture = (t, initial) => {
   return { file, start, read: () => JSON.parse(fs.readFileSync(file, 'utf8')) }
 }
 
+test('UI JSON 读取在主进程序列化，只读 ui 命名空间且不缓存旧值', (t) => {
+  const f = fixture(t, { ui: { nested: { value: [1, { label: '舰娘' }] }, nil: null, zero: 0 }, kuma: { secret: 'not-ui' } })
+  const config = f.start()
+  assert.equal(typeof config.getUiJson('nested'), 'string')
+  const copy = JSON.parse(config.getUiJson('nested'))
+  copy.value[1].label = 'changed'
+  assert.equal(config.get('ui.nested').value[1].label, '舰娘')
+  assert.equal(config.getUiJson('missing'), undefined)
+  assert.equal(config.getUiJson('nil'), 'null')
+  assert.equal(config.getUiJson('zero'), '0')
+  assert.equal(config.getUiJson('kuma.secret'), undefined)
+  const events = []
+  config.on('config.set', (...args) => events.push(args))
+  config.setUiJson('nested', '{"value":[2]}')
+  assert.deepEqual(JSON.parse(config.getUiJson('nested')), { value: [2] })
+  assert.deepEqual(f.read().ui.nested, { value: [2] })
+  assert.deepEqual(events, [['ui.nested', { value: [2] }]])
+  assert.throws(() => config.setUiJson('nested', '{invalid'))
+  assert.deepEqual(config.get('ui.nested'), { value: [2] })
+})
+
 // 合成数据，按施工单的 46 叶子形状造；不从玩家 config.json 取任何值。
 const legacyFixture = () => ({
   proxy: { use: 'http', http: { host: '127.0.0.1', port: 8118, requirePassword: false } },

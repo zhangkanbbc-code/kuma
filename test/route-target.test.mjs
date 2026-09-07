@@ -117,8 +117,8 @@ Object.defineProperty(remoteObject, '2-1', {
   set: (value: string) => { remoteValue = value },
 })
 const kernelConfig = {
-  get: (_key: string) => remoteObject,
-  set: (key: string, value: unknown) => { saved = { key: key.slice(3), value } },
+  getUiJson: (_key: string) => JSON.stringify(remoteObject),
+  setUiJson: (key: string, serialized: string) => { saved = { key, value: JSON.parse(serialized) } },
 }
 ${UI_STORE_BLOCK}
 ${SET_BLOCK}

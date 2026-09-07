@@ -1,6 +1,7 @@
 // 渲染层内核：铭状态的本地缓存与订阅、秒级 ticker、公共工具。
 // 各模块（铆装配的面板）只依赖这里，不直接碰 ipc。
 import { readEnv } from '../shared/env-names'
+export { fmtReturnClock } from '../shared/return-clock'
 import type {
   BattleSnapshot,
   BattleSnapshotSummary,
@@ -52,16 +53,16 @@ const kernelConfig = require('@electron/remote').require('./config')
 // 走主进程 config.json（%APPDATA%/kuma/），不用 localStorage：
 // 渲染层是 file:// 源，Chromium 对它的本地存储不保证跨重启留存——布局记不住就是栽在这。
 export const uiGet = <T>(key: string, fallback: T): T => {
-  const value = kernelConfig.get(`ui.${key}`)
+  const serialized: string | undefined = kernelConfig.getUiJson(key)
+  if (serialized === undefined) return fallback
+  const value = JSON.parse(serialized)
   if (value === undefined || value === null) return fallback
-  // @electron/remote 返回的对象是代理：值成员不可 configurable，玩家在图鉴切换目标点时
-  // `delete routeTargets[code]` 会抛 TypeError；对已有键赋值又会经 setter 直写主进程对象，
-  // 绕过 config.set 的落盘与变更通知。ui.* 都是 JSON 值，取出时也复制成本地对象。
-  return typeof value === 'object' ? (JSON.parse(JSON.stringify(value)) as T) : (value as T)
+  // 解析后都是本地 JSON 值：可删除/修改，不会透过 remote 代理直写主进程。
+  return value as T
 }
 export const uiSet = (key: string, value: unknown) => {
-  // 深拷贝：config.set 用引用比较判断「值没变」，直接塞同一个对象会被判为无变化而不落盘
-  kernelConfig.set(`ui.${key}`, JSON.parse(JSON.stringify(value)))
+  // 对象不跨 remote 边界；主进程解析成自己持有的副本，照旧保存并发送变更通知。
+  kernelConfig.setUiJson(key, JSON.stringify(value))
 }
 
 // 内部详情栏多由模块 render() 整块重建。关闭时若立刻 render，CSS 来不及播放退出过渡；
@@ -894,11 +895,21 @@ export interface LodeMeta {
   note?: string
 }
 const lodeCache = new Map<string, { meta: LodeMeta; data: any } | null>()
+const lodeRequests = new Map<string, Promise<{ meta: LodeMeta; data: any } | null>>()
 export const queryLode = async (id: string): Promise<{ meta: LodeMeta; data: any } | null> => {
-  if (!lodeCache.has(id)) {
-    lodeCache.set(id, await ipcRenderer.invoke('lode:get', id))
-  }
-  return lodeCache.get(id) ?? null
+  if (lodeCache.has(id)) return lodeCache.get(id) ?? null
+  const pending = lodeRequests.get(id)
+  if (pending) return pending
+  // 模块在同一拍启动时也共用请求，避免尚未填入结果缓存的资料被反复复制。
+  const request: Promise<{ meta: LodeMeta; data: any } | null> = ipcRenderer.invoke('lode:get', id)
+    .then((value: { meta: LodeMeta; data: any } | null | undefined) => {
+      const result = value ?? null
+      lodeCache.set(id, result)
+      return result
+    })
+    .finally(() => lodeRequests.delete(id))
+  lodeRequests.set(id, request)
+  return request
 }
 // 「谁说的、多新」页脚文本：优先展示上游更新时间（而非我们的抓取时间）
 export const lodeCredit = (meta: LodeMeta) => {
@@ -983,6 +994,10 @@ export const captureScrollProfile = (root: HTMLElement): ScrollProfile => {
   const scrollSeen = new Map<string, number>()
   root.querySelectorAll<HTMLElement>('*').forEach((el) => {
     const key = scrollKeyOf(el, scrollSeen)
+    // 保留全部元素的编号，但不读取浏览器尚未布局的离屏内容。
+    // 对 content-visibility:auto 子树读 scrollTop 会强制唤醒它，
+    // 把省掉的布局逐行补回来；可见滚动容器仍照常保存。
+    if (el.checkVisibility && !el.checkVisibility({ contentVisibilityAuto: true })) return
     if (el.scrollTop > 0 || el.scrollLeft > 0) {
       saved.set(key, { top: el.scrollTop, left: el.scrollLeft })
     }
@@ -1015,6 +1030,9 @@ export const applyScrollProfile = (root: HTMLElement, profile: ScrollProfile) =>
         el.scrollTop = hit.top
         el.scrollLeft = hit.left
         markProgrammaticScroll(el)
+      } else if (el.checkVisibility && !el.checkVisibility({ contentVisibilityAuto: true })) {
+        // 没有待恢复记录的离屏内容不必为一次归零检查重新布局。
+        return
       } else if (el.scrollTop > 0 || el.scrollLeft > 0) {
         el.scrollTop = 0
         el.scrollLeft = 0

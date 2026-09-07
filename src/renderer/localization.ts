@@ -127,6 +127,7 @@ const emptyTables = (): LocalizedTables => ({
 })
 
 let tables = emptyTables()
+const entityNameIndexes = new Map<LocalizedDomain, Map<string, string>>()
 let installed = false
 // 译名表是启动后异步落地的。索引类消费者（活动奖励连链）拿它当缓存键的一部分，
 // 否则在译名落地前建好的索引会把「没有译名」缓存住，之后一直连不上译名词条。
@@ -158,6 +159,7 @@ export const registerLocalizedName = (
   const current = tables[domain][`${id}`]
   if (current && current.ja === jaText && current.zh === zhText && current.source === source) return
   tables[domain][`${id}`] = { ja: jaText, zh: zhText, source }
+  entityNameIndexes.delete(domain)
   version += 1
 }
 
@@ -178,10 +180,18 @@ export const localizedEntityId = (
 ): string | null => {
   const target = comparable(label)
   if (!target) return null
-  for (const [id, entry] of Object.entries(tables[domain] ?? {})) {
-    if (comparable(entry.ja) === target || comparable(entry.zh) === target) return id
+  let index = entityNameIndexes.get(domain)
+  if (!index) {
+    index = new Map()
+    // 与原来的顺序扫描一致：重名时保留 Object.entries 中最先匹配的 ID。
+    for (const [id, entry] of Object.entries(tables[domain] ?? {})) {
+      for (const name of [comparable(entry.ja), comparable(entry.zh)]) {
+        if (name && !index.has(name)) index.set(name, id)
+      }
+    }
+    entityNameIndexes.set(domain, index)
   }
-  return null
+  return index.get(target) ?? null
 }
 
 export const bilingualNameHtml = (
@@ -383,6 +393,7 @@ export const initLocalization = async () => {
   // qn 首次 buildEntityIndexes 及以后 master 触发的重建都会与正文共用同一折叠。
   // initLocalization 失败则模块不装配；字表缺席时两侧的 OpenCC 层都为恒等。
   installTaskEntityFold(opencc?.data?.chars ?? null)
+  entityNameIndexes.clear()
   const raw = simplifyLocalizationEntities(pack?.data?.entities)
   if (raw && typeof raw === 'object') {
     tables = { ...emptyTables(), ...raw }

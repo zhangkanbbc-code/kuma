@@ -34,9 +34,12 @@ const assemble = (userVersion, builtinVersion) => {
   const warnings = []
   const root = path.resolve('fixture-builtin')
   const userDir = path.resolve('fixture-user')
+  let now = 0
+  let userMtime = 1
+  let builtinMtime = 1
   const fakeFs = {
     readdirSync: () => ['event-bonus.json'],
-    statSync: () => ({ mtimeMs: 1, size: 100 }),
+    statSync: (file) => ({ mtimeMs: file.startsWith(root) ? builtinMtime : userMtime, size: 100 }),
     readFileSync: (file) => JSON.stringify(file.startsWith(root)
       ? pack(builtinVersion, '随包资料') : pack(userVersion, '导入资料')),
     mkdirSync: () => {}, // 禁止测试加载器碰真实用户目录
@@ -44,6 +47,7 @@ const assemble = (userVersion, builtinVersion) => {
   const module = { exports: {} }
   vm.runInNewContext(compiled, {
     module, exports: module.exports, console: { warn: (line) => warnings.push(line) },
+    Date: class extends Date { static now() { return now } },
     require: (id) => {
       if (id === 'electron') return { ipcMain: { handle: (id, fn) => handlers.set(id, fn) } }
       if (id === 'fs') return fakeFs
@@ -55,7 +59,17 @@ const assemble = (userVersion, builtinVersion) => {
       throw new Error(`unexpected import ${id}`)
     },
   })
-  return { selected: module.exports.getLode('event-bonus'), metas: handlers.get('lode:list')(), warnings }
+  const get = () => module.exports.getLode('event-bonus')
+  return {
+    selected: get(), metas: handlers.get('lode:list')(), warnings, get,
+    advanceMinute: () => { now += 60_000 },
+    setUserVersion: (version) => { userVersion = version; userMtime++ },
+    setBuiltinVersion: (version) => { builtinVersion = version; builtinMtime++ },
+    loadSources: () => module.exports.loadAll({
+      builtinDir: path.join(root, 'assets', 'lodes'), builtinIds: ['event-bonus'],
+      userDir: path.join(userDir, 'lodes'),
+    }).get('event-bonus'),
+  }
 }
 
 for (const [label, user, builtin, selected, warning] of [
@@ -76,6 +90,92 @@ for (const [label, user, builtin, selected, warning] of [
     assert.ok(result.warnings[0].includes(`用户版本 ${user ?? '缺失'}`))
     assert.ok(result.warnings[0].includes(`内置版本 ${builtin ?? '缺失'}`))
   }
+})
+
+test('资料包告警去重：旧于内置在目录缓存两次过期后只报一次', () => {
+  const result = assemble('2026.08.27', '2026.09.06')
+  for (let i = 0; i < 2; i++) {
+    result.advanceMinute()
+    assert.equal(result.get().meta.name, '随包资料')
+    assert.equal(result.warnings.length, 1)
+  }
+})
+
+test('资料包告警去重：用户版本变化后重新报告旧于内置', () => {
+  const result = assemble('2026.08.27', '2026.09.06')
+  result.setUserVersion('2026.08.28')
+  result.advanceMinute()
+  assert.equal(result.get().meta.ignoredUserVersion, '2026.08.28')
+  assert.equal(result.warnings.length, 2)
+  assert.ok(result.warnings[1].includes('用户版本 2026.08.28'))
+  result.advanceMinute()
+  result.get()
+  assert.equal(result.warnings.length, 2)
+})
+
+for (const userVersion of [undefined, '2026..09']) {
+  test(`资料包告警去重：${userVersion ?? '缺失版本'}在目录缓存过期后不重复`, () => {
+    const result = assemble(userVersion, '2026.09.06')
+    for (let i = 0; i < 2; i++) {
+      result.advanceMinute()
+      assert.equal(result.get().meta.name, '导入资料')
+      assert.equal(result.warnings.length, 1)
+    }
+    assert.ok(result.warnings[0].includes('版本缺失或解析失败'))
+  })
+}
+
+test('资料包告警去重：用户包恢复正常后退回同一旧版本会再报', () => {
+  const result = assemble('2026.08.27', '2026.09.06')
+  result.setUserVersion('2026.09.07')
+  result.advanceMinute()
+  assert.equal(result.get().meta.name, '导入资料')
+  assert.equal(result.warnings.length, 1)
+  result.setUserVersion('2026.08.27')
+  result.advanceMinute()
+  assert.equal(result.get().meta.name, '随包资料')
+  assert.equal(result.warnings.length, 2)
+  assert.equal(result.warnings[1], result.warnings[0])
+})
+
+test('资料包告警去重：告警类别切换后重新报告并记住新结论', () => {
+  const result = assemble('2026.08.27', '2026.09.06')
+  result.setUserVersion(undefined)
+  result.advanceMinute()
+  assert.equal(result.get().meta.name, '导入资料')
+  assert.equal(result.warnings.length, 2)
+  assert.ok(result.warnings[1].includes('版本缺失或解析失败'))
+  assert.ok(result.warnings[1].includes('用户版本 缺失'))
+  result.advanceMinute()
+  result.get()
+  assert.equal(result.warnings.length, 2)
+  result.setUserVersion('2026.08.27')
+  result.advanceMinute()
+  assert.equal(result.get().meta.name, '随包资料')
+  assert.equal(result.warnings.length, 3)
+  assert.equal(result.warnings[2], result.warnings[0])
+})
+
+test('资料包告警去重：内置版本变化后重新报告', () => {
+  const result = assemble('2026.08.27', '2026.09.06')
+  result.setBuiltinVersion('2026.09.07')
+  result.advanceMinute()
+  assert.equal(result.get().meta.version, '2026.09.07')
+  assert.equal(result.warnings.length, 2)
+  assert.ok(result.warnings[1].includes('内置版本 2026.09.07'))
+})
+
+test('资料包告警去重：显式来源装配同样只报告一次', () => {
+  const result = assemble('2026.08.27', '2026.09.06')
+  assert.equal(result.loadSources().meta.name, '随包资料')
+  assert.equal(result.loadSources().meta.name, '随包资料')
+  assert.equal(result.warnings.length, 1)
+  result.setUserVersion('2026.08.28')
+  assert.equal(result.loadSources().meta.ignoredUserVersion, '2026.08.28')
+  assert.equal(result.warnings.length, 2)
+  assert.ok(result.warnings[1].includes('用户版本 2026.08.28'))
+  result.loadSources()
+  assert.equal(result.warnings.length, 2)
 })
 
 test('资料页仅显示被弃用的导入版本并转义名称', () => {

@@ -261,8 +261,9 @@ test('钥里的远端回退开关同样管语音：关掉就只走档案/缓存'
   assert.match(voice, /return allowRemote && gameHost \? `https:\/\/\$\{gameHost\}\$\{pathname\}` : null/)
   // 立绘与语音**同一个开关**，两处都得接上——只接一处就是承诺不一致
   assert.match(yu, /setAllowRemoteArt\(next\)\s*\n\s*setAllowRemoteVoice\(next\)/)
-  assert.match(yu, /setAllowRemoteArt\(config\.get\('kuma\.remoteArt', true\)\)/)
-  assert.match(yu, /setAllowRemoteVoice\(config\.get\('kuma\.remoteArt', true\)\)/)
+  assert.match(voice, /let allowRemote = configuredAllowRemoteVoice\(\)/)
+  const art = fs.readFileSync(new URL('../src/renderer/kcs-image.ts', import.meta.url), 'utf8')
+  assert.match(art, /let allowRemoteArt = configuredAllowRemoteArt\(\)/)
   // 入档那条新路同样受它管（关掉就不走游戏服务器那一步）
   assert.match(capture, /if \(!config\.get\('kuma\.remoteArt', true\)\) return null/)
   // 三类网络边界要写明白，给下一个会话当坐标

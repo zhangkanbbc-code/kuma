@@ -11084,7 +11084,6 @@ test('慢操作哨兵:分发计时归因 + 主进程网络事件计时 + 渲染�
   // ping 必须由主进程发起:页面隐藏时渲染层定时器被节流,自报心跳会误报挂死
   assert.match(guard, /ipcRenderer\.on\('kuma:perf-ping'/)
   assert.match(perfLog, /win\.webContents\.send\('kuma:perf-ping'\)/)
-  assert.match(perfLog, /最后开跑未完成的监听器/)
   // 滚动限流与 crash.log 共用一份纪律(体积截半 + 同类限流)
   assert.match(crashLog, /export const createRollingLog = /)
   assert.match(perfLog, /createRollingLog\(path\.join\(APPDATA_PATH, 'perf\.log'\)/)
@@ -12491,8 +12490,11 @@ test('ケッコンカッコカリ：一手信号是 path 到达，认不出也�
   assert.match(store, /'\/kcsapi\/api_req_kaisou\/marriage':/, '归约里的婚礼分支没了')
   assert.doesNotMatch(lg, /lv\s*===?\s*99|>= 100/, '铃里长出了「lv 99→100」这类推断式判据')
   // 「当时等级」的快照必须早于归约：归约跑完那艘舰已经是 Lv100
+  const marriageCapture = mgIndex.indexOf('const marriageTarget')
+  const eventHandler = mgIndex.indexOf('const handleEvent =')
+  const stateReduction = mgIndex.indexOf('store.handle(apiPath, body, postBody, ts)', eventHandler)
   assert.ok(
-    mgIndex.indexOf('const marriageTarget') < mgIndex.indexOf('const sections = store.handle'),
+    eventHandler >= 0 && marriageCapture > eventHandler && stateReduction > marriageCapture,
     '婚前快照取晚了：归约之后再取，「当时等级」就永远是 100',
   )
   // cue 必须晚于状态广播：抢在前面发，横幅点进去看到的还是婚前那份

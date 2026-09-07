@@ -8,6 +8,7 @@ import {
   fleetLabel,
   fmtCountdown,
   fmtCountdownShort,
+  fmtReturnClock,
   fmtTime,
   masterShipName,
   mg,
@@ -211,6 +212,9 @@ const EXP_CHIP_CLASS: Record<ExpeditionChipState, string> = {
   idle: '',
 }
 
+const expeditionReturnTitle = (returnTs: number, now: number): string =>
+  `${now >= returnTs ? '已返港' : '预计返港'} ${fmtReturnClock(returnTs, now)}${now >= returnTs ? ' · 前往港口领取' : ''}`
+
 const expeditionsHtml = () => {
   if (!mg.decks.length) return '<span class="hs-muted">尚未同步</span>'
   const now = Date.now()
@@ -250,7 +254,7 @@ const expeditionsHtml = () => {
           : `远征 ${deck.mission[1]}`
         const state = expeditionChipState(deck.mission[2], false, now)
         return `<span class="hs-chip exp${EXP_CHIP_CLASS[state]}" data-fleet="${id}" data-timer="mission:${id}"
-          title="${esc(`${canonical} · ${missionName}${state === 'back' ? ' · 已返港 · 前往港口领取' : ''} · 点击查看舰队`)}">
+          title="${esc(`${canonical} · ${missionName} · ${expeditionReturnTitle(deck.mission[2], now)} · 点击查看舰队`)}">
           <i>${id}</i><b data-cds="${deck.mission[2]}" data-cds-done="返港">${fmtCountdownShort(deck.mission[2], '返港')}</b>
         </span>`
       }
@@ -267,6 +271,7 @@ const expeditionsHtml = () => {
 // 「在外 → 归来」发生在倒计时归零那一刻，不是下一次 mg 变更——所以边框色跟着 tick 翻，
 // 与 updateCountdowns 把文字改成「返港」同一拍、同一个判据。
 // 轻量路径：只 toggle 一个 class，不重生成 HTML、不碰输出闸门的记忆
+// 返港时刻 title 也在此原地同步，仍不重生成 HTML。
 // （闸门记的是「上次生成的字符串」，这里根本没生成新字符串；而一旦真到点，
 // 下一次全量渲染产出的串必然不同——文字已经是「返港」——不会被误判成没变）。
 const syncExpeditionChipStates = (root: HTMLElement) => {
@@ -274,8 +279,14 @@ const syncExpeditionChipStates = (root: HTMLElement) => {
   // 只有带倒计时的芯片才有「在外 / 归来」可翻。
   root.querySelectorAll<HTMLElement>('.hs-chip.exp.on:has([data-cds])').forEach((chip) => {
     const raw = chip.querySelector<HTMLElement>('[data-cds]')?.dataset.cds
-    const state = expeditionChipState(raw ? parseInt(raw, 10) : 0, false, now)
+    const returnTs = raw ? parseInt(raw, 10) : 0
+    const state = expeditionChipState(returnTs, false, now)
     chip.classList.toggle('back', state === 'back')
+    // 同拍更新原生 title；只替换末尾返港段，保留名称。DOM 属性赋值无需再次 HTML 转义。
+    chip.title = chip.title.replace(
+      / · (?:预计返港|已返港) (?:\d{2}-\d{2} )?\d{2}:\d{2}(?: · 前往港口领取)? · 点击查看舰队$/,
+      () => ` · ${expeditionReturnTitle(returnTs, now)} · 点击查看舰队`,
+    )
   })
 }
 

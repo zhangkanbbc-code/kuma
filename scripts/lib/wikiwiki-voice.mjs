@@ -9,8 +9,43 @@ const explicitSmallDamageSlot = (scene) => {
   return number ? 18 + Number(number) : null
 }
 
-/** 单一形态的已解析行；key 保留公开表格的页、表与行序，输入不改写。 */
-export const normalizeWikiwikiVoiceRows = (rows) => {
+/** 本形态及 api_aftershipid 反向可达的前置形态；同句跨槽的证据丢弃，不跨谱系。 */
+export const buildSmallDamageEvidence = ({ mstId, ships, subtitleJa, kcwikiVoice }) => {
+  const predecessors = new Map()
+  for (const ship of ships) {
+    const after = Number(ship.api_aftershipid)
+    if (after > 0) predecessors.set(after, [...(predecessors.get(after) ?? []), Number(ship.api_id)])
+  }
+  const evidence = new Map()
+  const ambiguous = new Set()
+  const add = (ja, slot) => {
+    const folded = foldVoiceLineForCompare(normalizeVoiceLine(ja))
+    if (!folded || ambiguous.has(folded)) return
+    if (evidence.has(folded) && evidence.get(folded) !== slot) {
+      evidence.delete(folded)
+      ambiguous.add(folded)
+    } else evidence.set(folded, slot)
+  }
+  const visited = new Set()
+  const pending = [Number(mstId)]
+  while (pending.length) {
+    const id = pending.pop()
+    if (visited.has(id)) continue
+    visited.add(id)
+    for (const slot of [19, 20]) add(subtitleJa[id]?.[slot], slot)
+    for (const row of kcwikiVoice[id] ?? []) {
+      const number = /-LightDmg([12])$/.exec(row.key)?.[1]
+      if (number) add(row.ja, 18 + Number(number))
+    }
+    pending.push(...(predecessors.get(id) ?? []))
+  }
+  return evidence
+}
+
+/** 单一形态的已解析行；key 保留公开表格的页、表与行序，输入不改写。
+ * evidence 可选：Map<折叠句, 19|20>；diagnostics 可选收集 swap / partial / conflict 及相关行。
+ */
+export const normalizeWikiwikiVoiceRows = (rows, evidence, diagnostics) => {
   const groups = new Map()
   for (const line of rows) {
     const match = /^(.*)#(\d+)-(\d+)$/.exec(line.key)
@@ -28,16 +63,24 @@ export const normalizeWikiwikiVoiceRows = (rows) => {
       foldVoiceLineForCompare(normalizeVoiceLine(left.ja)) ===
       foldVoiceLineForCompare(normalizeVoiceLine(right.ja))
     let smallDamageIndex = 0
+    const smallDamage = []
+    let explicitConflict = false
     for (const line of lines) {
       // wikiwiki 花月表（2026-09-07）：显式小破1/2（含全角与①②）直接归 19/20，不推进按列计数。
       const explicitSlot = explicitSmallDamageSlot(line.scene)
       if (explicitSlot != null) {
         replacements.set(line, { ...line, voiceId: explicitSlot })
+        const evidenceSlot = evidence?.get(foldVoiceLineForCompare(normalizeVoiceLine(line.ja)))
+        if (evidenceSlot != null && evidenceSlot !== explicitSlot) {
+          explicitConflict = true
+          diagnostics?.push({ type: 'conflict', reason: 'explicit-slot', rows: [line], slots: [evidenceSlot] })
+        }
         continue
       }
       // wikiwiki 霧島改二丙表（2026-09-07）：小破按各形态的 ○ 行计数，占位词不占槽。
       if (/(^|\/)小破($|\/)/.test(line.scene)) {
         replacements.set(line, { ...line, voiceId: Math.min(20, 19 + smallDamageIndex++) })
+        smallDamage.push(line)
         continue
       }
       // 舰娘百科 024/196-FleetOrg、024/196-Sortie、621-FleetOrg（2026-09-07）：
@@ -46,9 +89,27 @@ export const normalizeWikiwikiVoiceRows = (rows) => {
           lines.some(other => /(^|\/)編成($|\/)/.test(other.scene) && sameLine(line, other))) continue
       // wikiwiki 霧島改二丙／飛龍改三／玉波改二表（2026-09-07）：
       // 旗艦大破重复同形态小破②或中破，不另占 20；独有句仍保留 20。
+      // wikiwiki 春雨改二表（2026-09-07）：也可重复小破①；仍以同形态任一其他行同句为准。
       if (/旗艦大破/.test(line.scene) &&
           lines.some(other => !/旗艦大破/.test(other.scene) && sameLine(line, other))) continue
       replacements.set(line, /旗艦大破/.test(line.scene) ? { ...line, voiceId: 20 } : { ...line })
+    }
+    // 规律⑤：wikiwiki 春雨改二、随包 subtitle-ja 405/323、舰娘百科 205-LightDmg1/2（2026-09-07）。
+    // 无序号小破恰有两行时，先按规律①计数，再按自身／前置形态的同句证据对齐。
+    // 双命中异槽按证据；单命中补另一槽并报告；无命中保留页序；同槽或显式序号矛盾不猜。
+    if (evidence && smallDamage.length === 2) {
+      const slots = smallDamage.map(line => evidence.get(foldVoiceLineForCompare(normalizeVoiceLine(line.ja))))
+      const matched = slots.filter(slot => slot != null).length
+      if (matched === 1) diagnostics?.push({ type: 'partial', rows: smallDamage, slots })
+      if (matched === 2 && slots[0] === slots[1]) {
+        diagnostics?.push({ type: 'conflict', reason: 'same-slot', rows: smallDamage, slots })
+      } else if (matched && !explicitConflict) {
+        const resolved = [slots[0] ?? 39 - slots[1], slots[1] ?? 39 - slots[0]]
+        if (resolved[0] !== 19) diagnostics?.push({ type: 'swap', rows: smallDamage, slots: resolved })
+        smallDamage.forEach((line, index) => {
+          replacements.set(line, { ...line, voiceId: resolved[index] })
+        })
+      }
     }
   }
   return rows.flatMap(line => replacements.has(line) ? [replacements.get(line)] : [])

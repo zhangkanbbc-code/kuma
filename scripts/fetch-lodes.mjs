@@ -59,12 +59,15 @@ import {
   parseWikiwikiRemodelIndex,
   parseWikiwikiRemodelPage,
   parseWikiwikiReturnEdges,
+  resolveWikiwikiRemodelSourceId,
 } from './lib/wikiwiki-remodel.mjs'
 import { parseWikiwikiShipMaxTable, parseWikiwikiShipPageStats } from './lib/wikiwiki-ship-max.mjs'
 import { parseKaishuHtml } from './lib/wikiwiki-kaishu.mjs'
 import { buildItemNameIndex, parseShipProfilePage } from './lib/wikiwiki-ship-profile.mjs'
 import {
+  buildSmallDamageEvidence,
   normalizeWikiwikiShipName,
+  normalizeWikiwikiVoiceRows,
   parseWikiwikiAbyssVoicePage,
   parseWikiwikiVoicePage,
 } from './lib/wikiwiki-voice.mjs'
@@ -806,13 +809,21 @@ const parseWikiwikiVoice = async () => {
     }
   }
 
-  for (const lines of Object.values(out)) {
+  const damageDiagnostics = []
+  for (const [id, rows] of Object.entries(out)) {
+    const evidence = buildSmallDamageEvidence({ mstId: id, ships, subtitleJa: subtitleJaData, kcwikiVoice: kcwiki })
+    const notes = []
+    const lines = normalizeWikiwikiVoiceRows(rows, evidence, notes)
+    out[id] = lines
+    damageDiagnostics.push(...notes.map(note => ({ id, ...note })))
     lines.sort(
       (left, right) =>
         (left.voiceId ?? 9_999) - (right.voiceId ?? 9_999) ||
         left.scene.localeCompare(right.scene, 'ja'),
     )
   }
+  console.log(`[lodes]   小破证据：调换 ${new Set(damageDiagnostics.filter(note => note.type === 'swap').map(note => note.id)).size} 个形态；` +
+    `冲突 ${damageDiagnostics.filter(note => note.type === 'conflict').length} 项；部分匹配 ${damageDiagnostics.filter(note => note.type === 'partial').length} 项`)
   const lineCount = Object.values(out).reduce((sum, lines) => sum + lines.length, 0)
   if (titles.length && !Object.keys(out).length) {
     throw new Error(`wikiwiki 台词抓取 ${titles.length} 个待补形态却无一命中——页面结构可能变了`)
@@ -869,8 +880,7 @@ const parseWikiwikiRemodel = async (raw) => {
   // 对不齐就诚实地不声明 fromShipId——消费端会退回「前进路径」启发。
   const resolveSourceId = (sourceName) => {
     if (!sourceName) return 0
-    const ids = idsByName.get(normalizeWikiwikiShipName(sourceName)) ?? []
-    return ids.length === 1 ? ids[0] : 0
+    return resolveWikiwikiRemodelSourceId(sourceName, ships)
   }
   // 同一目标的其他来路进 edges[]：主条目之外的每条边各带自己的 fromShipId 与素材。
   const attachEdge = (entry, detail) => {

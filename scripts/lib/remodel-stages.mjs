@@ -66,6 +66,7 @@ export function parseCcConversionTable(text, kc, raw) {
       materials[`${material.kind}:${material.id}`] = Number(match[2] ?? 1)
     }
     out.push({ edge: `${from}→${to}`, stage: 'convert', site: 'kcwikiTable', materials, raw: cost,
+      explicitEmptyCost: row[10] != null && ['', '-'].includes(cost.trim()),
       evidence: 'https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船' })
   }
   return out
@@ -105,6 +106,70 @@ export function wikiwikiStageObservations(wiki, raw) {
   return { observations, corrections, unresolved }
 }
 
+// 空对象是同边三源共同证明的事实，不能由素材循环没有产出项目来推定。
+// 百科的改造行挂在出发形态，改造后指向目标；目标形态自身的行属于下一条边。
+export function confirmedNoRemodelMaterials(kc, wiki, raw, conversionRows) {
+  const confirmed = []
+  const hasFootnote = (from, to) => (wiki[to]?.edges ?? []).some(e => e.source === 'footnote' && e.fromShipId === from)
+  const directReverse = (from, to) => raw.api_mst_shipupgrade.some(r => r.api_current_ship_id === to && r.api_id === from)
+  const directionSources = (from, to) => [
+    { site: 'wikiwiki', evidence: 'https://wikiwiki.jp/kancolle/' + encodeURIComponent(wiki[to]?.page ?? '改造'),
+      date: wiki[to]?.pageUpdatedAt?.slice(0, 10),
+      raw: (wiki[to]?.edges ?? []).filter(e => e.source === 'footnote' && e.fromShipId === from),
+      basis: `${from}→${to}方向脚注附加边核对` },
+    { site: 'kcwikiTable', evidence: 'https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船',
+      raw: conversionRows.filter(r => r.edge === `${from}→${to}`).map(r => ({ edge: r.edge, raw: r.raw, materials: r.materials })),
+      basis: `${from}→${to}方向转换段行核对；[]表示无该方向行` },
+  ]
+  for (const upgrade of raw.api_mst_shipupgrade) {
+    const from = upgrade.api_current_ship_id, to = upgrade.api_id
+    if (!(from > 0)) continue
+    const entry = wiki[to]
+    if (!entry || !Array.isArray(entry.needs) || entry.needs.length) continue
+    const sameSource = entry.fromShipId === from
+    // 直接互逆回程的目标主条目可来自常规前置形态，仅以其空needs佐证目标无需特殊道具。
+    if (!sameSource && (!directReverse(from, to) || hasFootnote(from, to) ||
+      conversionRows.some(r => r.edge === `${from}→${to}` && Object.keys(r.materials).length))) continue
+    const counts = Object.fromEntries(Object.entries(upgrade).filter(([key]) => key.endsWith('_count')))
+    if (!Object.keys(counts).length || Object.values(counts).some(count => count !== 0)) continue
+    const ship = Object.values(kc).find(s => Number(s.ID) === from)
+    const remodel = ship?.改造
+    if (!remodel || Number(kc[remodel.改造后]?.ID) !== to ||
+      (remodel.图纸 != null && (typeof remodel.图纸 !== 'string' || remodel.图纸.trim() !== ''))) continue
+    confirmed.push({ edge: `${from}→${to}`, stage: 'first', sources: [
+      { site: 'wikiwiki', evidence: 'https://wikiwiki.jp/kancolle/' + encodeURIComponent(entry.page ?? '改造'),
+        date: entry.pageUpdatedAt?.slice(0, 10), raw: entry.raw, basis: sameSource
+          ? `目标${to}主条目fromShipId=${from}，needs=[]`
+          : `直接互逆回程；目标${to}主条目fromShipId=${entry.fromShipId}与出发${from}不同，描述常规路径；needs=[]仅佐证目标形态无需特殊道具` },
+      { site: 'api', raw: { api_current_ship_id: from, api_id: to, ...counts }, basis: '同边升级行全部*_count显式为零' },
+      { site: 'kcwiki', evidence: 'https://zh.kcwiki.cn/wiki/模块:舰娘数据', raw: remodel,
+        basis: `ID=${from}的改造后=${remodel.改造后}对应目标${to}，图纸栏缺失或为空` },
+      ...(!sameSource ? directionSources(from, to) : []),
+    ], ...(!sameSource ? { basis: '直接互逆回程：同边API计数全零、百科出发改造行无图纸、无同向脚注或转换段带成本行，目标常规路径主条目needs=[]' } : {}) })
+  }
+  for (const row of [...confirmed]) {
+    const [from, to] = row.edge.split('→').map(Number)
+    const reverse = confirmed.find(r => r.edge === `${to}→${from}` && r.stage === 'first')
+    if (!reverse || !directReverse(from, to)) continue
+    if (hasFootnote(from, to) || hasFootnote(to, from) ||
+      conversionRows.some(r => r.edge === row.edge || r.edge === reverse.edge)) continue
+    confirmed.push({ ...row, stage: 'convert', sources: [...row.sources, ...reverse.sources, ...directionSources(from, to), ...directionSources(to, from)],
+      basis: '主数据直接互逆且两向first均确认无；wikiwiki两向均无脚注附加边；百科转换段无该对' })
+  }
+  // 转换段显式空成本是该方向convert的独立证据，不要求反向first确认无。
+  for (const row of conversionRows.filter(r => r.explicitEmptyCost && !Object.keys(r.materials).length)) {
+    const [from, to] = row.edge.split('→').map(Number)
+    const upgrade = raw.api_mst_shipupgrade.find(r => r.api_current_ship_id === from && r.api_id === to)
+    const counts = Object.fromEntries(Object.entries(upgrade ?? {}).filter(([key]) => key.endsWith('_count')))
+    if (!Object.keys(counts).length || Object.values(counts).some(count => count !== 0) || hasFootnote(from, to)) continue
+    confirmed.push({ edge: row.edge, stage: 'convert', sources: [
+      ...directionSources(from, to),
+      { site: 'api', raw: { api_current_ship_id: from, api_id: to, ...counts }, basis: '同边升级行全部*_count显式为零' },
+    ], basis: '百科转换段同方向显式空成本行、wikiwiki同方向无脚注、API同边全部*_count显式零' })
+  }
+  return confirmed
+}
+
 export function reconcileStagedRemodel(kc, wiki, raw, tableText, supplements = [], stageTables = [], pageRows = []) {
   const legacy = reconcileRemodel(kc, {}, raw, supplements)
   const parsedWiki = wikiwikiStageObservations(wiki, raw)
@@ -113,7 +178,8 @@ export function reconcileStagedRemodel(kc, wiki, raw, tableText, supplements = [
   const cyclicEdge = edge => { const [from, to] = edge.split('→').map(Number); return groups.some(g => g.includes(from) && g.includes(to)) }
   const pending = []
   for (const row of parsedWiki.observations) (row.stage === 'unknown' ? pending : observations).push(row)
-  for (const row of parseCcConversionTable(tableText, kc, raw)) {
+  const conversionRows = parseCcConversionTable(tableText, kc, raw)
+  for (const row of conversionRows) {
     // 施工单明确裁定三隈回程40/15；缓存自身正向40/15、回程30/45，保留原始行而不伪称解析器倒箭头。
     if ((row.edge === '502→507' && row.materials['useitem:2'] === 40 && row.materials['useitem:3'] === 15) ||
       (row.edge === '507→502' && row.materials['useitem:2'] === 30 && row.materials['useitem:3'] === 45)) {
@@ -200,5 +266,10 @@ export function reconcileStagedRemodel(kc, wiki, raw, tableText, supplements = [
   }
   const corrections = [...legacy.corrections.map(r => ({ ...r, stage: [...observations, ...unknown].find(o => o.edge === r.edge && o.site === r.site && o.materials[r.newIdentity] !== undefined)?.stage ?? 'unknown' })), ...parsedWiki.corrections]
   const direct = edges.filter(([a, b]) => a < b && edges.some(([c, d]) => c === b && d === a))
-  return { data, conflicts, missing, corrections, unknown, observations, evidence, groups, direct, sourceErrors, unresolved: [...legacy.unresolved, ...parsedWiki.unresolved] }
+  const confirmedNone = confirmedNoRemodelMaterials(kc, wiki, raw, conversionRows)
+  for (const row of confirmedNone) {
+    ;((data[row.edge] ??= { stages: {} }).stages)[row.stage] = {}
+    evidence.push(row)
+  }
+  return { data, conflicts, missing, corrections, unknown, observations, evidence, groups, direct, sourceErrors, confirmedNone, unresolved: [...legacy.unresolved, ...parsedWiki.unresolved] }
 }

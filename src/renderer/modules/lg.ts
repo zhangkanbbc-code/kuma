@@ -1863,7 +1863,7 @@ export const openNotifyRule = (eventId: string) => {
 }
 
 const render = () => {
-  if (!pane) return
+  if (!pane || !pane.classList.contains('active')) return
   const root = pane
   const unread = unreadCount()
   const groups: { label: string; items: Notice[] }[] = []

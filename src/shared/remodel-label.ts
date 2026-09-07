@@ -36,16 +36,21 @@ export const remodelStageLabel = (
  * 剩下的环（多形态可逆）由 visited 兜底；一条链上有多个入口时取先到的那个，
  * 档位标签只关心名字前缀，不必纠结分支。
  */
-export const remodelRootOf = (
-  afterOf: Map<number, number>,
-  mstId: number,
-): number => {
+const buildBeforeIndex = (afterOf: Map<number, number>): Map<number, number> => {
   const beforeOf = new Map<number, number>()
   for (const [id, after] of afterOf) {
     if (after <= 0) continue
     if (afterOf.get(after) === id) continue // 互指 = 可逆转换
     if (!beforeOf.has(after)) beforeOf.set(after, id)
   }
+  return beforeOf
+}
+
+const findRemodelRoot = (
+  afterOf: Map<number, number>,
+  beforeOf: Map<number, number>,
+  mstId: number,
+): number => {
   const seen = new Set<number>()
   let current = mstId
   while (current > 0 && !seen.has(current)) {
@@ -66,4 +71,16 @@ export const remodelRootOf = (
     current = before
   }
   return current
+}
+
+export const remodelRootOf = (afterOf: Map<number, number>, mstId: number): number =>
+  findRemodelRoot(afterOf, buildBeforeIndex(afterOf), mstId)
+
+/** 同一份主数据批量查原型时，前驱表只构建一次；每条链仍按原规则独立回溯。 */
+export const buildRemodelRootIndex = (
+  afterOf: Map<number, number>,
+  ids: Iterable<number>,
+): Map<number, number> => {
+  const beforeOf = buildBeforeIndex(afterOf)
+  return new Map([...ids].map(id => [id, findRemodelRoot(afterOf, beforeOf, id)]))
 }

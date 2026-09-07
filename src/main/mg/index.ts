@@ -10,6 +10,7 @@ import {
 import { isAbyssMstId } from '../../shared/kcs-domain'
 import { onChronicleApi } from './chronicle'
 import { appendPerf } from '../perf-log'
+import { mainLongTaskMs, timeMain } from '../perf-time'
 import ledger from './ledger'
 import { getLode } from '../lode'
 import { devSecretaryTypeOf } from '../../shared/factory-lookup'
@@ -172,11 +173,13 @@ const pickSections = (sections: Section[]) => {
 const broadcast = (sections: Section[]) => {
   if (!sections.length) return
   const patch = pickSections(sections)
-  for (const win of BrowserWindow.getAllWindows()) {
-    if (!win.isDestroyed()) {
-      win.webContents.send('mg:patch', patch)
+  timeMain('patch', () => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        win.webContents.send('mg:patch', patch)
+      }
     }
-  }
+  }, () => sections.join(','))
 }
 
 const broadcastSortieScreen = (ts: number) => {
@@ -339,7 +342,7 @@ const handleEvent = (
       .filter(([, gauge]) => gauge?.cleared)
       .map(([id]) => Number(id)),
   )
-  const sections = store.handle(apiPath, body, postBody, ts)
+  const sections = timeMain('api:state', () => store.handle(apiPath, body, postBody, ts), () => apiPath)
   const powerupResult =
     apiPath === '/kcsapi/api_req_kaisou/powerup'
       ? buildPowerupResultCue(
@@ -365,9 +368,17 @@ const handleEvent = (
     if (snapshotId && sortie?.battle?.result) sortie.battle.result.snapshotId = snapshotId
   }
   // 任务精确计数 + 遭遇志：都在状态归约之后（依赖已更新的 sortie/decks）
-  onQuestApi(apiPath, body, postBody, { destroyedSlotitems, expeditionMissionId, powerupShipIds })
-  onChronicleApi(apiPath, body, postBody, ts)
-  onShipLifeApi(apiPath, body, postBody, ts, sections, { hangarCapsBefore })
+  timeMain(
+    'api:quests',
+    () => onQuestApi(apiPath, body, postBody, { destroyedSlotitems, expeditionMissionId, powerupShipIds }),
+    () => apiPath,
+  )
+  timeMain('api:chronicle', () => onChronicleApi(apiPath, body, postBody, ts), () => apiPath)
+  timeMain(
+    'api:ship-life',
+    () => onShipLifeApi(apiPath, body, postBody, ts, sections, { hangarCapsBefore }),
+    () => apiPath,
+  )
   // 任务领取 → 特别战果。**这一条报文就是任务战果唯一的合法入账证据**
   //（口径与二次翻车的现场见 shared/senka-quest-book）。
   //
@@ -665,7 +676,7 @@ broadcaster.addListener(
     }
     handleEvent(apiPath, apiData, post, ts)
     const total = performance.now() - startedAt
-    if (total >= 100) {
+    if (total >= mainLongTaskMs()) {
       appendPerf(
         'main',
         'network-event',

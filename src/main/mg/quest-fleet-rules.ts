@@ -57,7 +57,7 @@ import { foldCjkVariants } from '../../shared/cjk-fold'
 import { HIST_FLEETS, memberFormIds } from '../../shared/hist-fleets'
 import { shipNationalityIdFromSortId } from '../../shared/ship-nationality'
 import { buildShipRemodelChains } from '../../shared/ship-remodel-chain'
-import { augmentShipGroupsFromQuestText, buildKcwikiRuleContext } from './kcwiki-quest-rules'
+import { augmentShipGroupsFromQuestText, buildKcwikiRuleContext, buildQuestShipNameIndex } from './kcwiki-quest-rules'
 import { QUEST_TEXT_NOTES } from './quest-text-notes'
 
 import type { HistFleetEntry } from '../../shared/hist-fleets'
@@ -222,6 +222,7 @@ export const buildFleetRuleContext = (
       zhNames.set(mstId, entry.zh)
     }
   }
+  const shipNameIndex = buildQuestShipNameIndex(kcwiki, zhNames)
   for (const [name, ids] of kcwiki.shipIdsByName) {
     addShip(name, ids.flatMap((mstId) => kcwiki.expandShipForms(mstId)))
     for (const mstId of ids) {
@@ -311,16 +312,27 @@ export const buildFleetRuleContext = (
   for (const key of ships.keys()) maxTokenLength = Math.max(maxTokenLength, key.length)
   for (const key of ctypes.keys()) maxTokenLength = Math.max(maxTokenLength, key.length)
   for (const key of histByName.keys()) maxTokenLength = Math.max(maxTokenLength, key.length)
+  // 同一候选词会依次查队名、舰名、舰种；折叠一次即可。只留最近一词，
+  // 不把整份任务正文的所有子串常驻缓存，也不跨本次规则上下文共享状态。
+  let lastToken: string | undefined
+  let lastFolded = ''
+  const lookupKey = (token: string): string => {
+    if (token !== lastToken) {
+      lastToken = token
+      lastFolded = foldToken(token)
+    }
+    return lastFolded
+  }
   return {
     stypeIdsOf: (token) => {
-      const ids = index.get(foldToken(token))
+      const ids = index.get(lookupKey(token))
       return ids?.length ? [...ids] : null
     },
     shipIdsOf: (name) => {
-      const ids = ships.get(foldToken(name))
+      const ids = ships.get(lookupKey(name))
       return ids?.length ? [...ids] : null
     },
-    ctypeOf: (name) => ctypes.get(foldToken(name)) ?? null,
+    ctypeOf: (name) => ctypes.get(lookupKey(name)) ?? null,
     nationalityShips: (natIds) => {
       const out: number[] = []
       for (const id of natIds) for (const mstId of shipsByNationality.get(id) ?? []) out.push(mstId)
@@ -328,8 +340,8 @@ export const buildFleetRuleContext = (
     },
     laterForms: (mstId) => kcwiki.reachableForms(mstId),
     augmentFromText: (draft, questText) =>
-      augmentShipGroupsFromQuestText(draft, kcwiki, questText, zhNames),
-    histFleetsOf: (token) => histByName.get(foldToken(token)) ?? null,
+      augmentShipGroupsFromQuestText(draft, kcwiki, questText, zhNames, shipNameIndex),
+    histFleetsOf: (token) => histByName.get(lookupKey(token)) ?? null,
     histFleetShips: (entries) => {
       const out: number[] = []
       for (const entry of entries) {

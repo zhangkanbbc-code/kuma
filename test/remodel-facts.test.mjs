@@ -79,7 +79,8 @@ test('循环内所有方向无账本仍为两档，覆盖502⇄507及三形态�
 test('555边逐档消费对拍；HEAD旧输出冻结，白名单不扩张', () => {
   assert.equal(fixture.baselineHead, '176de57822f51c6376fc76b08868acc18a76b306')
   assert.equal(Object.keys(fixture.stageBaseline).length, 555)
-  assert.equal(Object.keys(pack.data).length, 142)
+  // 旧142条有素材边保持；新增确认无空档另有逐边三源护栏。
+  assert.equal(Object.values(pack.data).filter(row => Object.values(row.stages).some(materials => Object.keys(materials).length)).length, 142)
   assert.equal(createHash('sha256').update(fs.readFileSync(new URL('../assets/lodes/kcwiki-ships.json', import.meta.url))).digest('hex'), fixture.sourceHashes.kcwiki)
   for (const [edge, expected] of Object.entries(fixture.output)) {
     const [from, to] = edge.split('→').map(Number)
@@ -105,7 +106,7 @@ test('事实形状只认已分档素材；身份、整数、未知档及空档�
     { '215/652': { stages: { first: { 'useitem:2': 5 } } } },
     { '215→652': { stages: { unknown: { 'useitem:2': 5 } } } },
     { '215→652': { stages: { first: { prose: '需求说明' } } } },
-    { '215→652': { stages: { first: {} } } }, { '215→652': { stages: {} } },
+    { '215→652': { stages: {} } },
   ]) assert.equal(validation.validateLodePack({ ...pack, data }).ok, false, JSON.stringify(data))
   for (const [edge, row] of Object.entries(pack.data)) {
     const [from, to] = edge.split('→').map(Number)
@@ -403,8 +404,9 @@ test('初次专属七种原生字段逐边核对；API显式零差异必须记�
 
 test('循环内初次补至20，普通初次101条保留；三组循环逐方向列出', () => {
   const cyclic = edge => fixture.groups.some(g => edge.split('→').map(Number).every(id => g.includes(id)))
-  assert.equal(Object.entries(pack.data).filter(([edge, row]) => cyclic(edge) && row.stages.first).length, 20)
-  assert.equal(Object.entries(pack.data).filter(([edge, row]) => !cyclic(edge) && row.stages.first).length, 101)
+  // 仍钉旧有素材档数；确认无不算作新增素材。
+  assert.equal(Object.entries(pack.data).filter(([edge, row]) => cyclic(edge) && Object.keys(row.stages.first ?? {}).length).length, 20)
+  assert.equal(Object.entries(pack.data).filter(([edge, row]) => !cyclic(edge) && Object.keys(row.stages.first ?? {}).length).length, 101)
   assert.equal(fixture.direct.length, 21)
   assert.equal(fixture.groups.filter(g => g.length > 2).length, 3)
 })

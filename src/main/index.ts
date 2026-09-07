@@ -1,6 +1,7 @@
 // 镇：主进程入口。启动顺序与命令行开关移植自 poi app.ts
 // (https://github.com/poooi/poi, MIT License, Copyright (c) poi contributors)。
 import './env' // 必须最先执行：设置 global 环境常量
+import { installPerfLogging } from './perf-log' // 先包好 IPC 注册口，再加载业务模块
 import { readEnv } from '../shared/env-names'
 import { APPDATA_PATH } from './env'
 import * as electronRemote from '@electron/remote/main'
@@ -13,7 +14,7 @@ import { fileURLToPath } from 'url'
 import { closeAllBrowseWindows, openBrowseWindow } from './browse-window'
 import config from './config'
 import { installCrashLogging, reportFatal } from './crash-log'
-import { installPerfLogging } from './perf-log'
+import { installGameAudioPush } from './game-audio-push'
 import { attachApplicationHotkeys, installHotkeys } from './hotkeys'
 import { ROOT } from './env'
 import { installQuitGuard, reapOrphanKumaProcesses } from './quit-guard'
@@ -612,6 +613,11 @@ app.on('ready', () => {
   const trustedWebviewPreload = path.join(ROOT, 'assets', 'preload', 'webview-preload.js')
   let gameWebContentsId: number | null = null
 
+  installGameAudioPush({
+    config,
+    gameWebContents: () => gameWebContentsId == null ? null : webContents.fromId(gameWebContentsId),
+  })
+
   // ---- 试听时压住游戏声音 ----
   // 渲染层任一试听真的在响就报一声（两个播放器的状态在 renderer/preview-audio 合并过，
   // 变了才发），这里转给游戏页的 preload——那边把游戏总音量乘 0，试听一停再乘回 1。
@@ -668,6 +674,13 @@ app.on('ready', () => {
     webPreferences.webviewTag = false
   })
   win.webContents.addListener('did-attach-webview', (_event, webContent) => {
+    // @electron/remote 的 objectsRegistry.registerDeleteListener 为每个使用 remote
+    // 的上下文挂一个 render-view-deleted 监听，在匹配的该事件中摘除；
+    // 上下文释放只清理对象引用，不摘除监听。
+    // 2026-09-07 实测 11 帧各由 preload 调一次 remote.require('./config')：
+    // DMM、osapi、kcs2、srcdoc、三个推特 widget、/api/cv、/api/ev/boot、
+    // /kcscontents/news/、service worker iframe；超过默认 10 并非泄漏。
+    webContent.setMaxListeners(32)
     gameWebContentsId = webContent.id
     setKcsResourceGameWebContentsId(webContent.id)
     attachApplicationHotkeys(webContent)

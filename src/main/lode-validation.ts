@@ -1146,7 +1146,8 @@ const validateRemodelFacts = (data: unknown): string | null => {
       !isRecord(row) || Object.keys(row).some(key => key !== 'stages') || !isRecord(row.stages) ||
       !Object.keys(row.stages).length || Object.keys(row.stages).some(key => !['first', 'convert'].includes(key))) return error
     for (const materials of Object.values(row.stages)) {
-      if (!isRecord(materials) || !Object.keys(materials).length || Object.keys(materials).length > 50) return error
+      // 空档表示已确认无特殊素材；缺档仍表示未知，stages 本身必须非空。
+      if (!isRecord(materials) || Object.keys(materials).length > 50) return error
       for (const [identity, count] of Object.entries(materials)) {
         if (!/^(?:(?:useitem|slotitem):[1-9]\d{0,3}|unknown:[^<>\r\n]{1,100})$/.test(identity) || !isInteger(count, 0, 100_000)) return error
       }

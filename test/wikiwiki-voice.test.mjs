@@ -3,11 +3,14 @@ import test from 'node:test'
 import { readFileSync } from 'node:fs'
 
 import {
+  buildSmallDamageEvidence,
   normalizeWikiwikiShipName,
   normalizeWikiwikiVoiceRows,
   parseWikiwikiAbyssVoicePage,
   parseWikiwikiVoicePage,
 } from '../scripts/lib/wikiwiki-voice.mjs'
+import { normalizeVoiceLine } from '../src/shared/voice-lineage.ts'
+import { foldVoiceLineForCompare } from '../src/shared/voice-scene-slots.ts'
 
 const page = `
 <table>
@@ -116,6 +119,123 @@ test('同句匹配只看本形态；占位行插在小破首行前也不推进�
   const lines = parseWikiwikiVoicePage(html, '霧島改二丙').find(form => form.name === '霧島改二丙').lines
   assert.equal(lines.filter(line => line.voiceId === 14).length, 2)
   assert.equal(lines.find(line => line.voiceId === 19).ja, 'はぁぁっ！')
+})
+
+const damageFold = ja => foldVoiceLineForCompare(normalizeVoiceLine(ja))
+const damageEvidence = entries => new Map(entries.map(([ja, slot]) => [damageFold(ja), slot]))
+const haruShips = [
+  { api_id: 405, api_aftershipid: '323' },
+  { api_id: 323, api_aftershipid: '975' },
+  { api_id: 975, api_aftershipid: '0' },
+  { api_id: 999, api_aftershipid: '0' },
+]
+const haruSubtitle = { 405: { 19: 'きゃぁっ！ ', 20: 'や、やめて～！ ' } }
+const haruKcwiki = { 405: [
+  { key: '205-LightDmg1', ja: 'きゃぁっ！' },
+  { key: '205-LightDmg2', ja: 'や、やめて～！' },
+] }
+const haruRows = [
+  { key: '春雨改二#0-26', scene: '小破', ja: 'や、やめて～！', voiceId: 19 },
+  { key: '春雨改二#0-27', scene: '小破', ja: 'きゃぁっ！', voiceId: 20 },
+]
+
+test('春雨三列无证据按页序，有前置形态证据对齐 19/20，旗艦大破仍不产出', () => {
+  const html = `<table>
+    <tr><th>イベント</th><th>セリフ</th><th><a href="/kancolle/春雨">春雨</a></th><th><a href="/kancolle/春雨改">春雨改</a></th><th><a href="/kancolle/春雨改二">春雨改二</a></th></tr>
+    <tr><td rowspan="2">小破</td><td>や、やめて～！</td><td>○</td><td>○</td><td>○</td></tr>
+    <tr><td>きゃぁっ！</td><td>○</td><td>○</td><td>○</td></tr>
+    <tr><td rowspan="2">旗艦大破</td><td>きゃぁっ！</td><td>○</td><td>○</td><td>×</td></tr>
+    <tr><td>や、やめて～！</td><td>×</td><td>×</td><td>○</td></tr>
+    <tr><td>中破/大破</td><td>や、やられました…</td><td>○</td><td>○</td><td>○</td></tr>
+  </table>`
+  const forms = parseWikiwikiVoicePage(html, '春雨改二')
+  assert.deepEqual(forms.map(form => form.name), ['春雨', '春雨改', '春雨改二'])
+  for (const [index, form] of forms.entries()) {
+    assert.deepEqual(form.lines.map(row => [row.voiceId, row.ja]), [
+      [19, 'や、やめて～！'], [20, 'きゃぁっ！'], [21, 'や、やられました…'],
+    ])
+    const evidence = buildSmallDamageEvidence({
+      mstId: [405, 323, 975][index], ships: haruShips, subtitleJa: haruSubtitle, kcwikiVoice: haruKcwiki,
+    })
+    const original = structuredClone(form.lines)
+    const diagnostics = []
+    const actual = normalizeWikiwikiVoiceRows(form.lines, evidence, diagnostics)
+    assert.deepEqual(actual, form.lines.map((row, i) => ({ ...row, voiceId: [20, 19, 21][i] })))
+    assert.deepEqual(form.lines, original)
+    assert.ok(actual.every(row => row.scene !== '旗艦大破'))
+    assert.deepEqual(diagnostics.map(note => note.type), ['swap'])
+    assert.deepEqual(normalizeWikiwikiVoiceRows(actual, evidence), actual)
+  }
+})
+
+test('小破证据分别支持字幕与档名，沿反向链继承且不跨谱系或读取后继形态', () => {
+  const expected = damageEvidence([['きゃぁっ！', 19], ['や、やめて～！', 20]])
+  for (const [subtitleJa, kcwikiVoice] of [[haruSubtitle, {}], [{}, haruKcwiki], [haruSubtitle, haruKcwiki]]) {
+    assert.deepEqual(buildSmallDamageEvidence({ mstId: 975, ships: haruShips, subtitleJa, kcwikiVoice }), expected)
+    assert.equal(buildSmallDamageEvidence({ mstId: 999, ships: haruShips, subtitleJa, kcwikiVoice }).size, 0)
+  }
+  assert.equal(buildSmallDamageEvidence({
+    mstId: 405, ships: haruShips, subtitleJa: { 975: haruSubtitle[405] }, kcwikiVoice: {},
+  }).size, 0)
+  assert.equal(buildSmallDamageEvidence({
+    mstId: 975, ships: haruShips, subtitleJa: {},
+    kcwikiVoice: { 405: [{ key: '205-DockLightDmg', ja: '入渠' }, { key: '205-LightDmg1Extra', ja: '別句' }] },
+  }).size, 0)
+})
+
+test('同一句证据既为 19 又为 20 时丢弃，后续同槽证据不能恢复它', () => {
+  const evidence = buildSmallDamageEvidence({
+    mstId: 975, ships: haruShips,
+    subtitleJa: { 975: { 19: 'きゃぁっ！' }, 323: { 20: 'きゃぁっ!' }, ...haruSubtitle },
+    kcwikiVoice: haruKcwiki,
+  })
+  assert.deepEqual(evidence, damageEvidence([['や、やめて～！', 20]]))
+})
+
+test('小破证据只命中任一句时另一句取剩余槽，并报告部分匹配', () => {
+  for (const [ja, slot] of [['や、やめて～！', 20], ['きゃぁっ！', 19], ['や、やめて～！', 19], ['きゃぁっ！', 20]]) {
+    const evidence = damageEvidence([[ja, slot]])
+    const diagnostics = []
+    const actual = normalizeWikiwikiVoiceRows(haruRows, evidence, diagnostics)
+    assert.equal(actual.find(row => row.ja === ja).voiceId, slot)
+    assert.equal(actual.find(row => row.ja !== ja).voiceId, 39 - slot)
+    assert.deepEqual(diagnostics.filter(note => note.type === 'partial').map(note => note.rows), [haruRows])
+    assert.deepEqual(normalizeWikiwikiVoiceRows(actual, evidence), actual)
+  }
+})
+
+test('小破证据两句命中同槽时保持页序并报告冲突，无命中也保持页序', () => {
+  for (const slot of [19, 20]) {
+    const diagnostics = []
+    const evidence = damageEvidence(haruRows.map(row => [row.ja, slot]))
+    const actual = normalizeWikiwikiVoiceRows(haruRows, evidence, diagnostics)
+    assert.deepEqual(actual, haruRows)
+    assert.deepEqual(diagnostics, [{ type: 'conflict', reason: 'same-slot', rows: haruRows, slots: [slot, slot] }])
+    assert.deepEqual(normalizeWikiwikiVoiceRows(actual, evidence), actual)
+  }
+  const diagnostics = []
+  assert.deepEqual(normalizeWikiwikiVoiceRows(haruRows, new Map(), diagnostics), haruRows)
+  assert.deepEqual(diagnostics, [])
+})
+
+test('证据与显式小破1/2矛盾时显式优先并报告，同表无序号行保持原判定', () => {
+  for (const [scene, slot] of [['小破1', 19], ['小破２', 20], ['小破①', 19]]) {
+    const explicit = { key: '春雨改二#0-25', scene, ja: '明示された台詞', voiceId: slot }
+    const rows = [explicit, ...haruRows]
+    const evidence = damageEvidence([['明示された台詞', 39 - slot], ['や、やめて～！', 20], ['きゃぁっ！', 19]])
+    const diagnostics = []
+    const actual = normalizeWikiwikiVoiceRows(rows, evidence, diagnostics)
+    assert.deepEqual(actual, rows)
+    assert.deepEqual(diagnostics, [{ type: 'conflict', reason: 'explicit-slot', rows: [explicit], slots: [39 - slot] }])
+    assert.deepEqual(normalizeWikiwikiVoiceRows(actual, evidence), actual)
+  }
+})
+
+test('规律⑤只处理无序号小破两行，不移动单行或三行的槽位', () => {
+  const evidence = damageEvidence([['や、やめて～！', 20], ['きゃぁっ！', 19]])
+  for (const rows of [haruRows.slice(0, 1), [...haruRows, { key: '春雨改二#0-28', scene: '小破', ja: '第三句' }]]) {
+    assert.deepEqual(normalizeWikiwikiVoiceRows(rows, evidence), normalizeWikiwikiVoiceRows(rows))
+  }
 })
 
 test('wikiwiki voice tables keep remodel forms isolated and map stable voice ids', () => {

@@ -11,6 +11,7 @@ import {
   esc,
   exitWithMotion,
   fmtCountdownShort,
+  fmtReturnClock,
   fmtDurationLong,
   fmtTime,
   commitPaneHtml,
@@ -1712,7 +1713,8 @@ const qpDetailHtml = (row: QRow): string => {
       running.length
         ? (() => {
             const returnTs = Math.min(...running.map((deck) => deck.returnTs))
-            return `返港 <span data-cds="${returnTs}" data-cds-done="已返港">${fmtCountdownShort(returnTs, '已返港')}</span>`
+            const now = Date.now()
+            return `返港 <span data-cds="${returnTs}" data-cds-done="已返港" title="${esc(`${now >= returnTs ? '已返港' : '预计返港'} ${fmtReturnClock(returnTs, now)}`)}">${fmtCountdownShort(returnTs, '已返港')}</span>`
           })()
         : '',
     ].filter(Boolean)

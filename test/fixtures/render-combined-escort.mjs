@@ -93,6 +93,7 @@ const MG_WATCHED_KEYS = cutFrom(
 )
 
 const HARNESS = `
+import { fmtReturnClock } from ${JSON.stringify(path.join(ROOT, 'src/shared/return-clock.ts'))}
 type Deck = any
 type PlayerShip = any
 

@@ -106,6 +106,7 @@ import { parseCompactModes, serializeCompactModes, toggledCompactModes } from '.
 import type { LaunchGlowLayout } from '../shared/launch-glow'
 
 const LAYOUT_KEY = 'layout.v3'
+let restoredLayoutJson: string | null = null
 
 const layout: Layout = {
   docks: { left: [], right: [], bottom: [] },
@@ -116,6 +117,7 @@ const layout: Layout = {
 }
 try {
   const saved = uiGet<any>(LAYOUT_KEY, {})
+  restoredLayoutJson = JSON.stringify(saved)
   for (const dock of DOCKS) {
     if (Array.isArray(saved?.docks?.[dock])) layout.docks[dock] = saved.docks[dock]
   }
@@ -132,6 +134,12 @@ try {
 //（2026-08-22 用户实机：钦/镖那格每次启动都停在镖，理由见 shared/dock-layout）。
 // missionTabRestore 在下面几十行处声明，这里靠函数体延迟求值拿到它。
 const saveLayout = () => uiSet(LAYOUT_KEY, layoutForPersist(layout, missionTabRestore))
+
+// 启动只在默认补齐、迁移或模块对账改变布局时保存；相同布局不再排一次同步写入。
+// 只过滤这一处初始化写入，用户操作仍沿用 saveLayout 的即时保存。
+const saveInitialLayout = () => {
+  if (JSON.stringify(layoutForPersist(layout, missionTabRestore)) !== restoredLayoutJson) saveLayout()
+}
 
 const modules: KumaModule[] = []
 const paneOf = new Map<string, HTMLElement>()
@@ -977,7 +985,7 @@ export const initModules = () => {
 
   if (layout.focus) document.querySelector('#app')!.classList.add('focus')
   refreshRail()
-  saveLayout()
+  saveInitialLayout()
   onGameScene((scene) => {
     if (scene === 'mission') followGameMissionScene()
     else restoreGameMissionScene()

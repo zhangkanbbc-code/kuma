@@ -204,40 +204,62 @@ export const buildKcwikiRuleContext = (raw: any): KcwikiRuleContext => {
  * 背书「潮改二」）。不在候选池里的文本舰名一概不采，负面提及的早期形态
  * （B54「千岁改造成轻母之前不能达成」）天然不在前向候选里。
  */
+interface QuestShipNameNode {
+  next: Map<string, QuestShipNameNode>
+  ids: number[]
+}
+
+// 一次规则重建共用一份舰名树；由调用方持有，不跨主数据/译名包更新缓存。
+export const buildQuestShipNameIndex = (
+  context: KcwikiRuleContext,
+  zhNameOf: Map<number, string> = new Map(),
+): QuestShipNameNode => {
+  const root: QuestShipNameNode = { next: new Map(), ids: [] }
+  const addName = (name: string | undefined, id: number) => {
+    if (!name || name.length < 2) return
+    let node = root
+    // 按 UTF-16 位置走，与下方文本扫描和原有 slice 的索引口径一致。
+    for (let i = 0; i < name.length; i++) {
+      let next = node.next.get(name[i])
+      if (!next) {
+        next = { next: new Map(), ids: [] }
+        node.next.set(name[i], next)
+      }
+      node = next
+    }
+    if (!node.ids.includes(id)) node.ids.push(id)
+  }
+  for (const [name, ids] of context.shipIdsByName) for (const id of ids) addName(name, id)
+  for (const [id, zh] of zhNameOf) addName(zh, id)
+  return root
+}
+
 export const augmentShipGroupsFromQuestText = (
   draft: { fleetGoal?: QpFleetGoal; stateGoal?: QpStateGoal },
   context: KcwikiRuleContext,
   questText: string,
   zhNameOf: Map<number, string> = new Map(),
+  nameIndex?: QuestShipNameNode,
 ): void => {
   if (!questText) return
   if (!draft.fleetGoal && !draft.stateGoal?.secretary) return
-  // 名字→ids 索引（日文名 + 中文译名，长度 ≥2——候选全是「X改…」类形态名）
-  const namesToIds = new Map<string, number[]>()
-  const addName = (name: string | undefined, id: number) => {
-    if (!name || name.length < 2) return
-    const ids = namesToIds.get(name) ?? []
-    if (!ids.includes(id)) {
-      ids.push(id)
-      namesToIds.set(name, ids)
-    }
-  }
-  for (const [name, ids] of context.shipIdsByName) for (const id of ids) addName(name, id)
-  for (const [id, zh] of zhNameOf) addName(zh, id)
-  let maxLen = 0
-  for (const name of namesToIds.keys()) maxLen = Math.max(maxLen, name.length)
+  const root = nameIndex ?? buildQuestShipNameIndex(context, zhNameOf)
   // 最长匹配扫描：每个位置贪心取最长舰名并整体跳过，短名不借长名的尸体还魂
   const namedIds = new Set<number>()
   for (let i = 0; i < questText.length; ) {
     let consumed = 0
-    for (let len = Math.min(maxLen, questText.length - i); len >= 2; len--) {
-      const ids = namesToIds.get(questText.slice(i, i + len))
-      if (ids) {
-        for (const id of ids) namedIds.add(id)
-        consumed = len
-        break
+    let matched: number[] = []
+    let node = root
+    for (let j = i; j < questText.length; j++) {
+      const next = node.next.get(questText[j])
+      if (!next) break
+      node = next
+      if (node.ids.length) {
+        matched = node.ids
+        consumed = j - i + 1
       }
     }
+    for (const id of matched) namedIds.add(id)
     i += consumed || 1
   }
   if (!namedIds.size) return

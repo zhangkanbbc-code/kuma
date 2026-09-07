@@ -3208,6 +3208,10 @@
     .mod-ji .sister-head.collapsed .sister-arrow { transform: rotate(-90deg); }
     .mod-ji .linked-filter { border-color: var(--accent); }
     .mod-ji .row { display: flex; align-items: center; gap: 9px; padding: 6px 12px; cursor: pointer; border-left: 2px solid transparent; }
+    /* 单列短副标题的内容高为 12.5×1.5 + 13×1.5 = 38.25px。
+       只跳过视口外行的布局，DOM、查找与点击仍保留；窄栏、多列、长副标题
+       与收藏行继续完整布局，避免估算行高改变滚动条长度。 */
+    .mod-ji.ji-lazy-rows #ji-ship-list .row[data-catalog-lazy] { content-visibility: auto; contain-intrinsic-size: auto 38.25px; }
     .mod-ji .row:hover { background: var(--bg2); }
     .mod-ji .row.on { background: var(--bg3); border-left-color: var(--accent); }
     .mod-ji .face {

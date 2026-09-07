@@ -96,6 +96,9 @@ const load = (): Record<number, number> => {
 
 const save = () => uiSet(STORE_KEY, load())
 
+/** 只装入既有基线；首次持有判断仍等真实在籍状态到齐后执行。 */
+export const prepareFirstOwned = (): void => { load() }
+
 /**
  * 拿当前在籍情况对一次基线。返回本次**新进来的谱系形态 id**（铃据此发通知）。
  *

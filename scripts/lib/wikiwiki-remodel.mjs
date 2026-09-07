@@ -1,4 +1,16 @@
 import { htmlText, tableGrid } from '../map-intel.mjs'
+import { normalizeWikiwikiShipName } from './wikiwiki-voice.mjs'
+
+// 同名形态只按页面明确的舰种注记消歧；无注记时不得按目标或回程方向猜来路。
+export const resolveWikiwikiRemodelSourceId = (sourceName, ships) => {
+  const normalized = normalizeWikiwikiShipName(sourceName ?? '')
+  const annotated = normalized.match(/^(glorious(?:改)?)\((正規空母|巡洋戦艦)\)$/)
+  const name = annotated?.[1] ?? normalized
+  const stype = annotated ? annotated[2] === '正規空母' ? 11 : 8 : null
+  const candidates = ships.filter(ship => normalizeWikiwikiShipName(ship.api_name) === name &&
+    (stype == null || Number(ship.api_stype) === stype))
+  return candidates.length === 1 ? Number(candidates[0].api_id) : 0
+}
 
 const NEED_BY_JP_NAME = new Map([
   ['改装設計図', { kind: 'useitem', id: 58 }],

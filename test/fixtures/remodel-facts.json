@@ -2,7 +2,7 @@
   "sourceHashes": {
     "kcwiki": "dceb8d4808c001d79bfc5aeb7e672a97cccd88a5305ab3aab747b03f44ce9f59",
     "wikiwiki": "0e1932e970dc634f02f95d0879af9f7c101a6e1e3ab8cf26f5b8341539757d2a",
-    "master": "e8521b44695e0a837b305170886edd0d4cab4f379359f16070d4e67e4224424a",
+    "master": "ad14c50d16de5d90c103d4973e7ba7486e67cc68cce414e956a8e2abd15a91bf",
     "改造": "2cac5f96f9ab263cc0347d0e594cb9b309372b06253c87921b26b651d54e8039",
     "模块:舰娘数据": "3a6b925e17bf65faa7bb008facde9cabea285b09ca9484c7e8de5fbb2e285820",
     "球磨": "a2f433fc3b534d7f0b066df04b03b06f269d10f65ce3ede81d9395861c75b3e8",
@@ -20371,21 +20371,21 @@
     },
     "463→468": {
       "first": {
-        "missing": true,
+        "missing": false,
         "needs": {}
       },
       "convert": {
-        "missing": true,
+        "missing": false,
         "needs": {}
       }
     },
     "464→470": {
       "first": {
-        "missing": true,
+        "missing": false,
         "needs": {}
       },
       "convert": {
-        "missing": true,
+        "missing": false,
         "needs": {}
       }
     },
@@ -20421,11 +20421,11 @@
     },
     "468→463": {
       "first": {
-        "missing": true,
+        "missing": false,
         "needs": {}
       },
       "convert": {
-        "missing": true,
+        "missing": false,
         "needs": {}
       }
     },
@@ -20437,11 +20437,11 @@
     },
     "470→464": {
       "first": {
-        "missing": true,
+        "missing": false,
         "needs": {}
       },
       "convert": {
-        "missing": true,
+        "missing": false,
         "needs": {}
       }
     },
@@ -21465,7 +21465,7 @@
         "needs": {}
       },
       "convert": {
-        "missing": true,
+        "missing": false,
         "needs": {}
       }
     },
@@ -22123,11 +22123,11 @@
     },
     "911→916": {
       "first": {
-        "missing": true,
+        "missing": false,
         "needs": {}
       },
       "convert": {
-        "missing": true,
+        "missing": false,
         "needs": {}
       }
     },
@@ -25950,6 +25950,7 @@
         "useitem:3": 15
       },
       "raw": "开发资材15",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -25961,6 +25962,7 @@
         "useitem:3": 10
       },
       "raw": "开发资材10",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -25972,6 +25974,7 @@
         "useitem:3": 15
       },
       "raw": "开发资材15",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -25983,6 +25986,7 @@
         "useitem:3": 10
       },
       "raw": "开发资材10",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -25992,6 +25996,7 @@
       "site": "kcwikiTable",
       "materials": {},
       "raw": "-",
+      "explicitEmptyCost": true,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26001,6 +26006,7 @@
       "site": "kcwikiTable",
       "materials": {},
       "raw": "-",
+      "explicitEmptyCost": true,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26010,6 +26016,7 @@
       "site": "kcwikiTable",
       "materials": {},
       "raw": "-",
+      "explicitEmptyCost": true,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26019,6 +26026,7 @@
       "site": "kcwikiTable",
       "materials": {},
       "raw": "-",
+      "explicitEmptyCost": true,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26031,6 +26039,7 @@
         "useitem:3": 15
       },
       "raw": "高速建造材40・开发资材15",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26043,6 +26052,7 @@
         "useitem:3": 45
       },
       "raw": "高速建造材30・开发资材45",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26056,6 +26066,7 @@
         "useitem:3": 10
       },
       "raw": "改装设计图・高速建造材20・开发资材10",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26068,6 +26079,7 @@
         "useitem:3": 10
       },
       "raw": "高速建造材20・开发资材10",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26081,6 +26093,7 @@
         "useitem:3": 10
       },
       "raw": "改装设计图・高速建造材20・开发资材10",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26093,6 +26106,7 @@
         "useitem:3": 10
       },
       "raw": "高速建造材20・开发资材10",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26105,6 +26119,7 @@
         "useitem:3": 20
       },
       "raw": "高速建造材30・开发资材20",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26117,6 +26132,7 @@
         "useitem:3": 20
       },
       "raw": "高速建造材30・开发资材20",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26129,6 +26145,7 @@
         "useitem:3": 5
       },
       "raw": "高速建造材20・开发资材5",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26141,6 +26158,7 @@
         "useitem:3": 5
       },
       "raw": "高速建造材20・开发资材5",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26153,6 +26171,7 @@
         "useitem:3": 10
       },
       "raw": "高速建造材10・开发资材10",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26165,6 +26184,7 @@
         "useitem:3": 10
       },
       "raw": "高速建造材10・开发资材10",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26177,6 +26197,7 @@
         "useitem:3": 55
       },
       "raw": "高速建造材35・开发资材55",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26189,6 +26210,7 @@
         "useitem:3": 15
       },
       "raw": "高速建造材35・开发资材15",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26201,6 +26223,7 @@
         "useitem:3": 80
       },
       "raw": "高速建造材30・开发资材80",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26213,6 +26236,7 @@
         "useitem:3": 80
       },
       "raw": "高速建造材30・开发资材80",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26225,6 +26249,7 @@
         "useitem:3": 88
       },
       "raw": "高速建造材30・开发资材88",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26237,6 +26262,7 @@
         "useitem:3": 84
       },
       "raw": "高速建造材84・开发资材84",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26246,6 +26272,7 @@
       "site": "kcwikiTable",
       "materials": {},
       "raw": "",
+      "explicitEmptyCost": true,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26258,6 +26285,7 @@
         "useitem:3": 30
       },
       "raw": "高速建造材30・开发资材30",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26270,6 +26298,7 @@
         "useitem:3": 30
       },
       "raw": "高速建造材30・开发资材30",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26282,6 +26311,7 @@
         "useitem:3": 30
       },
       "raw": "高速建造材30・开发资材30",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26294,6 +26324,7 @@
         "useitem:3": 180
       },
       "raw": "高速建造材30・开发资材180",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26306,6 +26337,7 @@
         "useitem:3": 45
       },
       "raw": "高速建造材65・开发资材45",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26318,6 +26350,7 @@
         "useitem:3": 30
       },
       "raw": "高速建造材15・开发资材30",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26330,6 +26363,7 @@
         "useitem:3": 30
       },
       "raw": "高速建造材15・开发资材30",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26342,6 +26376,7 @@
         "useitem:3": 15
       },
       "raw": "高速建造材20・开发资材15",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26354,6 +26389,7 @@
         "useitem:3": 15
       },
       "raw": "高速建造材20・开发资材15",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26366,6 +26402,7 @@
         "useitem:3": 20
       },
       "raw": "高速建造材20・开发资材20",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26377,6 +26414,7 @@
         "useitem:2": 20
       },
       "raw": "高速建造材20",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26389,6 +26427,7 @@
         "useitem:3": 20
       },
       "raw": "高速建造材10・开发资材20",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26401,6 +26440,7 @@
         "useitem:3": 5
       },
       "raw": "高速建造材10・开发资材5",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26410,6 +26450,7 @@
       "site": "kcwikiTable",
       "materials": {},
       "raw": "",
+      "explicitEmptyCost": true,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26422,6 +26463,7 @@
         "useitem:3": 50
       },
       "raw": "高速建造材50・开发资材50",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26434,6 +26476,7 @@
         "useitem:3": 10
       },
       "raw": "高速建造材10・开发资材10",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -26446,6 +26489,7 @@
         "useitem:3": 10
       },
       "raw": "高速建造材10・开发资材10",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
@@ -28877,6 +28921,7 @@
         "useitem:3": 15
       },
       "raw": "高速建造材40・开发资材15",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "reason": "总表来源行错误：正向格放入脚注回程40/15，回程格30/45不符合本单回程裁定；不参加数值合并"
     },
@@ -28889,6 +28934,7 @@
         "useitem:3": 45
       },
       "raw": "高速建造材30・开发资材45",
+      "explicitEmptyCost": false,
       "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
       "reason": "总表来源行错误：正向格放入脚注回程40/15，回程格30/45不符合本单回程裁定；不参加数值合并"
     },
@@ -28929,6 +28975,3448 @@
         "evidence": "公开游戏改装画面（2026-09 核）显示 新型兵装資材1／高速建造材40／開発資材35，与舰娘百科模块、zekamashi 同值",
         "date": "2026-09-06"
       }
+    }
+  ],
+  "confirmedNone": [
+    {
+      "edge": "77→82",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "10",
+          "basis": "目标82主条目fromShipId=77，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 77,
+            "api_id": 82,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 10,
+            "弹药": 150,
+            "钢材": 500,
+            "改造前": -1,
+            "改造后": "102",
+            "系列": "003"
+          },
+          "basis": "ID=77的改造后=102对应目标82，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "87→88",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "10",
+          "basis": "目标88主条目fromShipId=87，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 87,
+            "api_id": 88,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 10,
+            "弹药": 150,
+            "钢材": 500,
+            "改造前": -1,
+            "改造后": "103",
+            "系列": "004"
+          },
+          "basis": "ID=87的改造后=103对应目标88，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "243→145",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "60",
+          "basis": "目标145主条目fromShipId=243，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 243,
+            "api_id": 145,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 60,
+            "弹药": 200,
+            "钢材": 180,
+            "改造前": "080",
+            "改造后": "145",
+            "系列": "080"
+          },
+          "basis": "ID=243的改造后=145对应目标145，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "143→148",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "40",
+          "basis": "目标148主条目fromShipId=143，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 143,
+            "api_id": 148,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 40,
+            "弹药": 2500,
+            "钢材": 3000,
+            "改造前": -1,
+            "改造后": "148",
+            "系列": "143"
+          },
+          "basis": "ID=143的改造后=148对应目标148，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "209→149",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "75",
+          "basis": "目标149主条目fromShipId=209，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 209,
+            "api_id": 149,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 75,
+            "弹药": 2400,
+            "钢材": 2400,
+            "改造前": "021",
+            "改造后": "149",
+            "系列": "021"
+          },
+          "basis": "ID=209的改造后=149对应目标149，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "210→150",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "75",
+          "basis": "目标150主条目fromShipId=210，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 210,
+            "api_id": 150,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 75,
+            "弹药": 2400,
+            "钢材": 2400,
+            "改造前": "022",
+            "改造后": "150",
+            "系列": "022"
+          },
+          "basis": "ID=210的改造后=150对应目标150，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "211→151",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%A6%9B%E5%90%8D",
+          "date": "2026-06-02",
+          "raw": "Lv80",
+          "basis": "目标151主条目fromShipId=211，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 211,
+            "api_id": 151,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 80,
+            "弹药": 2400,
+            "钢材": 2400,
+            "改造前": "023",
+            "改造后": "151",
+            "系列": "023"
+          },
+          "basis": "ID=211的改造后=151对应目标151，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "212→152",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "75",
+          "basis": "目标152主条目fromShipId=212，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 212,
+            "api_id": 152,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 75,
+            "弹药": 2400,
+            "钢材": 2400,
+            "改造前": "024",
+            "改造后": "152",
+            "系列": "024"
+          },
+          "basis": "ID=212的改造后=152对应目标152，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "171→172",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "30",
+          "basis": "目标172主条目fromShipId=171，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 171,
+            "api_id": 172,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 30,
+            "弹药": 800,
+            "钢材": 600,
+            "改造前": -1,
+            "改造后": "172",
+            "系列": "171"
+          },
+          "basis": "ID=171的改造后=172对应目标172，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "280→196",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "77",
+          "basis": "目标196主条目fromShipId=280，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 280,
+            "api_id": 196,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 77,
+            "弹药": 1700,
+            "钢材": 1200,
+            "改造前": "009",
+            "改造后": "196",
+            "系列": "009"
+          },
+          "basis": "ID=280的改造后=196对应目标196，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "9→201",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标201主条目fromShipId=9，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 9,
+            "api_id": 201,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 100,
+            "钢材": 100,
+            "改造前": -1,
+            "改造后": "011a",
+            "系列": "011"
+          },
+          "basis": "ID=9的改造后=011a对应目标201，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "10→202",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标202主条目fromShipId=10，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 10,
+            "api_id": 202,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 100,
+            "钢材": 100,
+            "改造前": -1,
+            "改造后": "012a",
+            "系列": "012"
+          },
+          "basis": "ID=10的改造后=012a对应目标202，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "32→203",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标203主条目fromShipId=32，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 32,
+            "api_id": 203,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 100,
+            "钢材": 100,
+            "改造前": -1,
+            "改造后": "013a",
+            "系列": "013"
+          },
+          "basis": "ID=32的改造后=013a对应目标203，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "11→204",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标204主条目fromShipId=11，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 11,
+            "api_id": 204,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 100,
+            "钢材": 100,
+            "改造前": -1,
+            "改造后": "014a",
+            "系列": "014"
+          },
+          "basis": "ID=11的改造后=014a对应目标204，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "12→206",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标206主条目fromShipId=12，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 12,
+            "api_id": 206,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 100,
+            "钢材": 100,
+            "改造前": -1,
+            "改造后": "016a",
+            "系列": "016"
+          },
+          "basis": "ID=12的改造后=016a对应目标206，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "78→209",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "25",
+          "basis": "目标209主条目fromShipId=78，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 78,
+            "api_id": 209,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 25,
+            "弹药": 600,
+            "钢材": 400,
+            "改造前": -1,
+            "改造后": "021a",
+            "系列": "021"
+          },
+          "basis": "ID=78的改造后=021a对应目标209，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "86→210",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "25",
+          "basis": "目标210主条目fromShipId=86，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 86,
+            "api_id": 210,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 25,
+            "弹药": 600,
+            "钢材": 400,
+            "改造前": -1,
+            "改造后": "022a",
+            "系列": "022"
+          },
+          "basis": "ID=86的改造后=022a对应目标210，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "85→212",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "25",
+          "basis": "目标212主条目fromShipId=85，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 85,
+            "api_id": 212,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 25,
+            "弹药": 600,
+            "钢材": 400,
+            "改造前": -1,
+            "改造后": "024a",
+            "系列": "024"
+          },
+          "basis": "ID=85的改造后=024a对应目标212，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "100→216",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标216主条目fromShipId=100，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 100,
+            "api_id": 216,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 200,
+            "钢材": 200,
+            "改造前": -1,
+            "改造后": "040a",
+            "系列": "040"
+          },
+          "basis": "ID=100的改造后=040a对应目标216，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "23→220",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标220主条目fromShipId=23，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 23,
+            "api_id": 220,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 200,
+            "钢材": 200,
+            "改造前": -1,
+            "改造后": "045a",
+            "系列": "045"
+          },
+          "basis": "ID=23的改造后=045a对应目标220，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "17→225",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标225主条目fromShipId=17，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 17,
+            "api_id": 225,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 100,
+            "钢材": 100,
+            "改造前": -1,
+            "改造后": "091a",
+            "系列": "091"
+          },
+          "basis": "ID=17的改造后=091a对应目标225，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "18→226",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标226主条目fromShipId=18，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 18,
+            "api_id": 226,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 100,
+            "钢材": 100,
+            "改造前": -1,
+            "改造后": "092a",
+            "系列": "092"
+          },
+          "basis": "ID=18的改造后=092a对应目标226，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "19→227",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标227主条目fromShipId=19，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 19,
+            "api_id": 227,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 100,
+            "钢材": 100,
+            "改造前": -1,
+            "改造后": "093a",
+            "系列": "093"
+          },
+          "basis": "ID=19的改造后=093a对应目标227，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "20→228",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标228主条目fromShipId=20，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 20,
+            "api_id": 228,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 100,
+            "钢材": 100,
+            "改造前": -1,
+            "改造后": "005a",
+            "系列": "005"
+          },
+          "basis": "ID=20的改造后=005a对应目标228，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "15→231",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标231主条目fromShipId=15，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 15,
+            "api_id": 231,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 100,
+            "钢材": 100,
+            "改造前": -1,
+            "改造后": "068a",
+            "系列": "068"
+          },
+          "basis": "ID=15的改造后=068a对应目标231，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "42→242",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标242主条目fromShipId=42，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 42,
+            "api_id": 242,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 100,
+            "钢材": 100,
+            "改造前": -1,
+            "改造后": "079a",
+            "系列": "079"
+          },
+          "basis": "ID=42的改造后=079a对应目标242，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "43→243",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标243主条目fromShipId=43，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 43,
+            "api_id": 243,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 100,
+            "钢材": 100,
+            "改造前": -1,
+            "改造后": "080a",
+            "系列": "080"
+          },
+          "basis": "ID=43的改造后=080a对应目标243，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "44→244",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标244主条目fromShipId=44，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 44,
+            "api_id": 244,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 100,
+            "钢材": 100,
+            "改造前": -1,
+            "改造后": "081a",
+            "系列": "081"
+          },
+          "basis": "ID=44的改造后=081a对应目标244，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "96→249",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标249主条目fromShipId=96，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 96,
+            "api_id": 249,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 100,
+            "钢材": 100,
+            "改造前": -1,
+            "改造后": "086a",
+            "系列": "086"
+          },
+          "basis": "ID=96的改造后=086a对应目标249，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "98→251",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标251主条目fromShipId=98，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 98,
+            "api_id": 251,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 100,
+            "钢材": 100,
+            "改造前": -1,
+            "改造后": "088a",
+            "系列": "088"
+          },
+          "basis": "ID=98的改造后=088a对应目标251，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "48→252",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标252主条目fromShipId=48，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 48,
+            "api_id": 252,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 100,
+            "钢材": 100,
+            "改造前": -1,
+            "改造后": "089a",
+            "系列": "089"
+          },
+          "basis": "ID=48的改造后=089a对应目标252，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "69→272",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "25",
+          "basis": "目标272主条目fromShipId=69，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 69,
+            "api_id": 272,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 25,
+            "弹药": 450,
+            "钢材": 300,
+            "改造前": -1,
+            "改造后": "062a",
+            "系列": "062"
+          },
+          "basis": "ID=69的改造后=062a对应目标272，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "71→273",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "25",
+          "basis": "目标273主条目fromShipId=71，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 71,
+            "api_id": 273,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 25,
+            "弹药": 450,
+            "钢材": 300,
+            "改造前": -1,
+            "改造后": "063a",
+            "系列": "063"
+          },
+          "basis": "ID=71的改造后=063a对应目标273，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "72→274",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "25",
+          "basis": "目标274主条目fromShipId=72，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 72,
+            "api_id": 274,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 25,
+            "弹药": 450,
+            "钢材": 300,
+            "改造前": -1,
+            "改造后": "064a",
+            "系列": "064"
+          },
+          "basis": "ID=72的改造后=064a对应目标274，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "80→275",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "30",
+          "basis": "目标275主条目fromShipId=80，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 80,
+            "api_id": 275,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 30,
+            "弹药": 900,
+            "钢材": 800,
+            "改造前": -1,
+            "改造后": "001a",
+            "系列": "001"
+          },
+          "basis": "ID=80的改造后=001a对应目标275，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "81→276",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "30",
+          "basis": "目标276主条目fromShipId=81，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 81,
+            "api_id": 276,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 30,
+            "弹药": 900,
+            "钢材": 800,
+            "改造前": -1,
+            "改造后": "002a",
+            "系列": "002"
+          },
+          "basis": "ID=81的改造后=002a对应目标276，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "91→280",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "30",
+          "basis": "目标280主条目fromShipId=91，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 91,
+            "api_id": 280,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 30,
+            "弹药": 300,
+            "钢材": 650,
+            "改造前": -1,
+            "改造后": "009a",
+            "系列": "009"
+          },
+          "basis": "ID=91的改造后=009a对应目标280，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "26→286",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标286主条目fromShipId=26，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 26,
+            "api_id": 286,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 150,
+            "钢材": 500,
+            "改造前": -1,
+            "改造后": "026a",
+            "系列": "026"
+          },
+          "basis": "ID=26的改造后=026a对应目标286，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "27→287",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标287主条目fromShipId=27，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 27,
+            "api_id": 287,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 150,
+            "钢材": 500,
+            "改造前": -1,
+            "改造后": "027a",
+            "系列": "027"
+          },
+          "basis": "ID=27的改造后=027a对应目标287，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "113→289",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "17",
+          "basis": "目标289主条目fromShipId=113，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 113,
+            "api_id": 289,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 17,
+            "弹药": 200,
+            "钢材": 200,
+            "改造前": -1,
+            "改造后": "109a",
+            "系列": "109"
+          },
+          "basis": "ID=113的改造后=109a对应目标289，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "114→290",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "17",
+          "basis": "目标290主条目fromShipId=114，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 114,
+            "api_id": 290,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 17,
+            "弹药": 200,
+            "钢材": 200,
+            "改造前": -1,
+            "改造后": "110a",
+            "系列": "110"
+          },
+          "basis": "ID=114的改造后=110a对应目标290，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "132→301",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "30",
+          "basis": "目标301主条目fromShipId=132，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 132,
+            "api_id": 301,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 30,
+            "弹药": 120,
+            "钢材": 110,
+            "改造前": -1,
+            "改造后": "132a",
+            "系列": "132"
+          },
+          "basis": "ID=132的改造后=132a对应目标301，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "133→302",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "30",
+          "basis": "目标302主条目fromShipId=133，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 133,
+            "api_id": 302,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 30,
+            "弹药": 130,
+            "钢材": 110,
+            "改造前": -1,
+            "改造后": "133a",
+            "系列": "133"
+          },
+          "basis": "ID=133的改造后=133a对应目标302，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "134→303",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "30",
+          "basis": "目标303主条目fromShipId=134，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 134,
+            "api_id": 303,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 30,
+            "弹药": 120,
+            "钢材": 110,
+            "改造前": -1,
+            "改造后": "134a",
+            "系列": "134"
+          },
+          "basis": "ID=134的改造后=134a对应目标303，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "138→306",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "35",
+          "basis": "目标306主条目fromShipId=138，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 138,
+            "api_id": 306,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 35,
+            "弹药": 220,
+            "钢材": 300,
+            "改造前": -1,
+            "改造后": "138a",
+            "系列": "138"
+          },
+          "basis": "ID=138的改造后=138a对应目标306，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "181→316",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标316主条目fromShipId=181，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 181,
+            "api_id": 316,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 100,
+            "钢材": 120,
+            "改造前": -1,
+            "改造后": "181a",
+            "系列": "181"
+          },
+          "basis": "ID=181的改造后=181a对应目标316，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "185→318",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E5%A4%A7%E9%AF%A8",
+          "date": "2026-08-06",
+          "raw": "Lv50",
+          "basis": "目标318主条目fromShipId=185，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 185,
+            "api_id": 318,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 50,
+            "弹药": 550,
+            "钢材": 450,
+            "改造前": "184",
+            "改造后": "190",
+            "系列": "184"
+          },
+          "basis": "ID=185的改造后=190对应目标318，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "405→323",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "30",
+          "basis": "目标323主条目fromShipId=405，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 405,
+            "api_id": 323,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 30,
+            "弹药": 120,
+            "钢材": 110,
+            "改造前": -1,
+            "改造后": "205a",
+            "系列": "205"
+          },
+          "basis": "ID=405的改造后=205a对应目标323，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "409→324",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "30",
+          "basis": "目标324主条目fromShipId=409，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 409,
+            "api_id": 324,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 30,
+            "弹药": 140,
+            "钢材": 110,
+            "改造前": -1,
+            "改造后": "209a",
+            "系列": "209"
+          },
+          "basis": "ID=409的改造后=209a对应目标324，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "421→330",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "40",
+          "basis": "目标330主条目fromShipId=421，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 421,
+            "api_id": 330,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 40,
+            "弹药": 270,
+            "钢材": 170,
+            "改造前": -1,
+            "改造后": "221a",
+            "系列": "221"
+          },
+          "basis": "ID=421的改造后=221a对应目标330，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "424→345",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "30",
+          "basis": "目标345主条目fromShipId=424，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 424,
+            "api_id": 345,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 30,
+            "弹药": 130,
+            "钢材": 110,
+            "改造前": -1,
+            "改造后": "224a",
+            "系列": "224"
+          },
+          "basis": "ID=424的改造后=224a对应目标345，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "453→349",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "30",
+          "basis": "目标349主条目fromShipId=453，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 453,
+            "api_id": 349,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 30,
+            "弹药": 140,
+            "钢材": 120,
+            "改造前": -1,
+            "改造后": "253a",
+            "系列": "253"
+          },
+          "basis": "ID=453的改造后=253a对应目标349，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "458→350",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "30",
+          "basis": "目标350主条目fromShipId=458，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 458,
+            "api_id": 350,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 30,
+            "弹药": 150,
+            "钢材": 100,
+            "改造前": -1,
+            "改造后": "258a",
+            "系列": "258"
+          },
+          "basis": "ID=458的改造后=258a对应目标350，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "423→357",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "40",
+          "basis": "目标357主条目fromShipId=423，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 423,
+            "api_id": 357,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 40,
+            "弹药": 270,
+            "钢材": 170,
+            "改造前": -1,
+            "改造后": "223a",
+            "系列": "223"
+          },
+          "basis": "ID=423的改造后=223a对应目标357，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "448→358",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "40",
+          "basis": "目标358主条目fromShipId=448，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 448,
+            "api_id": 358,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 40,
+            "弹药": 420,
+            "钢材": 280,
+            "改造前": -1,
+            "改造后": "248a",
+            "系列": "248"
+          },
+          "basis": "ID=448的改造后=248a对应目标358，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "452→359",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "30",
+          "basis": "目标359主条目fromShipId=452，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 452,
+            "api_id": 359,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 30,
+            "弹药": 130,
+            "钢材": 110,
+            "改造前": -1,
+            "改造后": "252a",
+            "系列": "252"
+          },
+          "basis": "ID=452的改造后=252a对应目标359，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "456→362",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "35",
+          "basis": "目标362主条目fromShipId=456，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 456,
+            "api_id": 362,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 35,
+            "弹药": 140,
+            "钢材": 110,
+            "改造前": -1,
+            "改造后": "256a",
+            "系列": "256"
+          },
+          "basis": "ID=456的改造后=256a对应目标362，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "486→368",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "30",
+          "basis": "目标368主条目fromShipId=486，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 486,
+            "api_id": 368,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 30,
+            "弹药": 100,
+            "钢材": 100,
+            "改造前": -1,
+            "改造后": "286a",
+            "系列": "286"
+          },
+          "basis": "ID=486的改造后=286a对应目标368，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "526→380",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "60",
+          "basis": "目标380主条目fromShipId=526，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 526,
+            "api_id": 380,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 60,
+            "弹药": 230,
+            "钢材": 390,
+            "改造前": "321",
+            "改造后": "326a",
+            "系列": "321"
+          },
+          "basis": "ID=526的改造后=326a对应目标380，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "534→381",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "60",
+          "basis": "目标381主条目fromShipId=534，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 534,
+            "api_id": 381,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 60,
+            "弹药": 280,
+            "钢材": 420,
+            "改造前": -1,
+            "改造后": "324a",
+            "系列": "324"
+          },
+          "basis": "ID=534的改造后=324a对应目标381，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "492→392",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "45",
+          "basis": "目标392主条目fromShipId=492，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 492,
+            "api_id": 392,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 45,
+            "弹药": 1600,
+            "钢材": 2000,
+            "改造前": -1,
+            "改造后": "292a",
+            "系列": "292"
+          },
+          "basis": "ID=492的改造后=292a对应目标392，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "544→396",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "45",
+          "basis": "目标396主条目fromShipId=544，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 544,
+            "api_id": 396,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 45,
+            "弹药": 900,
+            "钢材": 300,
+            "改造前": -1,
+            "改造后": "344a",
+            "系列": "344"
+          },
+          "basis": "ID=544的改造后=344a对应目标396，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "201→426",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "70",
+          "basis": "目标426主条目fromShipId=201，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 201,
+            "api_id": 426,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 70,
+            "弹药": 270,
+            "钢材": 230,
+            "改造前": "011",
+            "改造后": "226",
+            "系列": "011"
+          },
+          "basis": "ID=201的改造后=226对应目标426，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "248→463",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%9C%9D%E6%BD%AE",
+          "date": "2026-06-19",
+          "raw": "Lv70",
+          "basis": "目标463主条目fromShipId=248，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 248,
+            "api_id": 463,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 70,
+            "弹药": 360,
+            "钢材": 390,
+            "改造前": "085",
+            "改造后": "263",
+            "系列": "085"
+          },
+          "basis": "ID=248的改造后=263对应目标463，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "468→463",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%9C%9D%E6%BD%AE",
+          "date": "2026-06-19",
+          "raw": "Lv70",
+          "basis": "直接互逆回程；目标463主条目fromShipId=248与出发468不同，描述常规路径；needs=[]仅佐证目标形态无需特殊道具"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 468,
+            "api_id": 463,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 85,
+            "弹药": 360,
+            "钢材": 390,
+            "改造前": "263",
+            "改造后": "263",
+            "系列": "085"
+          },
+          "basis": "ID=468的改造后=263对应目标463，图纸栏缺失或为空"
+        },
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%9C%9D%E6%BD%AE",
+          "date": "2026-06-19",
+          "raw": [],
+          "basis": "468→463方向脚注附加边核对"
+        },
+        {
+          "site": "kcwikiTable",
+          "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
+          "raw": [
+            {
+              "edge": "468→463",
+              "raw": "-",
+              "materials": {}
+            }
+          ],
+          "basis": "468→463方向转换段行核对；[]表示无该方向行"
+        }
+      ],
+      "basis": "直接互逆回程：同边API计数全零、百科出发改造行无图纸、无同向脚注或转换段带成本行，目标常规路径主条目needs=[]"
+    },
+    {
+      "edge": "253→464",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E9%9C%9E",
+          "date": "2026-08-10",
+          "raw": "Lv75",
+          "basis": "目标464主条目fromShipId=253，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 253,
+            "api_id": 464,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 75,
+            "弹药": 300,
+            "钢材": 390,
+            "改造前": "090",
+            "改造后": "264",
+            "系列": "090"
+          },
+          "basis": "ID=253的改造后=264对应目标464，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "470→464",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E9%9C%9E",
+          "date": "2026-08-10",
+          "raw": "Lv75",
+          "basis": "直接互逆回程；目标464主条目fromShipId=253与出发470不同，描述常规路径；needs=[]仅佐证目标形态无需特殊道具"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 470,
+            "api_id": 464,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 88,
+            "弹药": 300,
+            "钢材": 390,
+            "改造前": "264",
+            "改造后": "264",
+            "系列": "090"
+          },
+          "basis": "ID=470的改造后=264对应目标464，图纸栏缺失或为空"
+        },
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E9%9C%9E",
+          "date": "2026-08-10",
+          "raw": [],
+          "basis": "470→464方向脚注附加边核对"
+        },
+        {
+          "site": "kcwikiTable",
+          "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
+          "raw": [
+            {
+              "edge": "470→464",
+              "raw": "-",
+              "materials": {}
+            }
+          ],
+          "basis": "470→464方向转换段行核对；[]表示无该方向行"
+        }
+      ],
+      "basis": "直接互逆回程：同边API计数全零、百科出发改造行无图纸、无同向脚注或转换段带成本行，目标常规路径主条目needs=[]"
+    },
+    {
+      "edge": "463→468",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%9C%9D%E6%BD%AE",
+          "date": "2026-06-19",
+          "raw": "Lv85",
+          "basis": "目标468主条目fromShipId=463，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 463,
+            "api_id": 468,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 85,
+            "弹药": 390,
+            "钢材": 360,
+            "改造前": "085a",
+            "改造后": "268",
+            "系列": "085"
+          },
+          "basis": "ID=463的改造后=268对应目标468，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "464→470",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E9%9C%9E",
+          "date": "2026-08-10",
+          "raw": "Lv88",
+          "basis": "目标470主条目fromShipId=464，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 464,
+            "api_id": 470,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 88,
+            "弹药": 390,
+            "钢材": 300,
+            "改造前": "090a",
+            "改造后": "270",
+            "系列": "090"
+          },
+          "basis": "ID=464的改造后=270对应目标470，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "521→526",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "30",
+          "basis": "目标526主条目fromShipId=521，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 521,
+            "api_id": 526,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 30,
+            "弹药": 190,
+            "钢材": 350,
+            "改造前": -1,
+            "改造后": "326",
+            "系列": "321"
+          },
+          "basis": "ID=521的改造后=326对应目标526，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "117→555",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E7%91%9E%E9%B3%B3",
+          "date": "2026-06-20",
+          "raw": "Lv80",
+          "basis": "目标555主条目fromShipId=117，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 117,
+            "api_id": 555,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 80,
+            "弹药": 700,
+            "钢材": 1700,
+            "改造前": "112",
+            "改造后": "355",
+            "系列": "112"
+          },
+          "basis": "ID=117的改造后=355对应目标555，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "574→579",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "55",
+          "basis": "目标579主条目fromShipId=574，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 574,
+            "api_id": 579,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 55,
+            "弹药": 450,
+            "钢材": 550,
+            "改造前": -1,
+            "改造后": "379",
+            "系列": "374"
+          },
+          "basis": "ID=574的改造后=379对应目标579，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "561→681",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "50",
+          "basis": "目标681主条目fromShipId=561，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 561,
+            "api_id": 681,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 50,
+            "弹药": 160,
+            "钢材": 130,
+            "改造前": -1,
+            "改造后": "361a",
+            "系列": "361"
+          },
+          "basis": "ID=561的改造后=361a对应目标681，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "528→688",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "35",
+          "basis": "目标688主条目fromShipId=528，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 528,
+            "api_id": 688,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 35,
+            "弹药": 240,
+            "钢材": 110,
+            "改造前": -1,
+            "改造后": "328a",
+            "系列": "328"
+          },
+          "basis": "ID=528的改造后=328a对应目标688，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "674→718",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "30",
+          "basis": "目标718主条目fromShipId=674，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 674,
+            "api_id": 718,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 30,
+            "弹药": 150,
+            "钢材": 110,
+            "改造前": -1,
+            "改造后": "474a",
+            "系列": "474"
+          },
+          "basis": "ID=674的改造后=474a对应目标718，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "886→720",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "37",
+          "basis": "目标720主条目fromShipId=886，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 886,
+            "api_id": 720,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 37,
+            "弹药": 190,
+            "钢材": 110,
+            "改造前": -1,
+            "改造后": "486a",
+            "系列": "486"
+          },
+          "basis": "ID=886的改造后=486a对应目标720，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "922→730",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "45",
+          "basis": "目标730主条目fromShipId=922，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 922,
+            "api_id": 730,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 45,
+            "弹药": 130,
+            "钢材": 50,
+            "改造前": -1,
+            "改造后": "522a",
+            "系列": "522"
+          },
+          "basis": "ID=922的改造后=522a对应目标730，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "522→884",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "33",
+          "basis": "目标884主条目fromShipId=522，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 522,
+            "api_id": 884,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 33,
+            "弹药": 200,
+            "钢材": 350,
+            "改造前": -1,
+            "改造后": "484",
+            "系列": "322"
+          },
+          "basis": "ID=522的改造后=484对应目标884，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "911→916",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E5%A4%A7%E5%92%8C",
+          "date": "2026-08-16",
+          "raw": "Lv93",
+          "basis": "目标916主条目fromShipId=911，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 911,
+            "api_id": 916,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 93,
+            "弹药": 3600,
+            "钢材": 3300,
+            "改造前": "136",
+            "改造后": "516",
+            "系列": "131"
+          },
+          "basis": "ID=911的改造后=516对应目标916，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "464→470",
+      "stage": "convert",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E9%9C%9E",
+          "date": "2026-08-10",
+          "raw": [],
+          "basis": "464→470方向脚注附加边核对"
+        },
+        {
+          "site": "kcwikiTable",
+          "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
+          "raw": [
+            {
+              "edge": "464→470",
+              "raw": "-",
+              "materials": {}
+            }
+          ],
+          "basis": "464→470方向转换段行核对；[]表示无该方向行"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 464,
+            "api_id": 470,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        }
+      ],
+      "basis": "百科转换段同方向显式空成本行、wikiwiki同方向无脚注、API同边全部*_count显式零"
+    },
+    {
+      "edge": "470→464",
+      "stage": "convert",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E9%9C%9E",
+          "date": "2026-08-10",
+          "raw": [],
+          "basis": "470→464方向脚注附加边核对"
+        },
+        {
+          "site": "kcwikiTable",
+          "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
+          "raw": [
+            {
+              "edge": "470→464",
+              "raw": "-",
+              "materials": {}
+            }
+          ],
+          "basis": "470→464方向转换段行核对；[]表示无该方向行"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 470,
+            "api_id": 464,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        }
+      ],
+      "basis": "百科转换段同方向显式空成本行、wikiwiki同方向无脚注、API同边全部*_count显式零"
+    },
+    {
+      "edge": "463→468",
+      "stage": "convert",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%9C%9D%E6%BD%AE",
+          "date": "2026-06-19",
+          "raw": [],
+          "basis": "463→468方向脚注附加边核对"
+        },
+        {
+          "site": "kcwikiTable",
+          "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
+          "raw": [
+            {
+              "edge": "463→468",
+              "raw": "-",
+              "materials": {}
+            }
+          ],
+          "basis": "463→468方向转换段行核对；[]表示无该方向行"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 463,
+            "api_id": 468,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        }
+      ],
+      "basis": "百科转换段同方向显式空成本行、wikiwiki同方向无脚注、API同边全部*_count显式零"
+    },
+    {
+      "edge": "468→463",
+      "stage": "convert",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%9C%9D%E6%BD%AE",
+          "date": "2026-06-19",
+          "raw": [],
+          "basis": "468→463方向脚注附加边核对"
+        },
+        {
+          "site": "kcwikiTable",
+          "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
+          "raw": [
+            {
+              "edge": "468→463",
+              "raw": "-",
+              "materials": {}
+            }
+          ],
+          "basis": "468→463方向转换段行核对；[]表示无该方向行"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 468,
+            "api_id": 463,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        }
+      ],
+      "basis": "百科转换段同方向显式空成本行、wikiwiki同方向无脚注、API同边全部*_count显式零"
+    },
+    {
+      "edge": "646→698",
+      "stage": "convert",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E5%8A%A0%E8%B3%80",
+          "date": "2026-08-11",
+          "raw": [],
+          "basis": "646→698方向脚注附加边核对"
+        },
+        {
+          "site": "kcwikiTable",
+          "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
+          "raw": [
+            {
+              "edge": "646→698",
+              "raw": "",
+              "materials": {}
+            }
+          ],
+          "basis": "646→698方向转换段行核对；[]表示无该方向行"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 646,
+            "api_id": 698,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        }
+      ],
+      "basis": "百科转换段同方向显式空成本行、wikiwiki同方向无脚注、API同边全部*_count显式零"
+    },
+    {
+      "edge": "911→916",
+      "stage": "convert",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E5%A4%A7%E5%92%8C",
+          "date": "2026-08-16",
+          "raw": [],
+          "basis": "911→916方向脚注附加边核对"
+        },
+        {
+          "site": "kcwikiTable",
+          "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
+          "raw": [
+            {
+              "edge": "911→916",
+              "raw": "",
+              "materials": {}
+            }
+          ],
+          "basis": "911→916方向转换段行核对；[]表示无该方向行"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 911,
+            "api_id": 916,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        }
+      ],
+      "basis": "百科转换段同方向显式空成本行、wikiwiki同方向无脚注、API同边全部*_count显式零"
     }
   ],
   "pageReview": [

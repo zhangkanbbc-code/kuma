@@ -68,13 +68,19 @@ export const buildVoiceTranslationIndex = (
   zhTables: SubtitleTables | null | undefined,
 ): Map<string, string> => {
   const candidates = new Map<string, Set<string>>()
+  // 各改造形态经常共用原文；只在本次建表内复用归一化结果。
+  const normalized = new Map<string, string>()
   for (const [shipId, jaTable] of Object.entries(jaTables ?? {})) {
     if (shipId === 'version' || !jaTable || typeof jaTable !== 'object') continue
     const zhTable = zhTables?.[shipId]
     if (!zhTable || typeof zhTable !== 'object') continue
     for (const [voiceId, ja] of Object.entries(jaTable)) {
       const zh = `${zhTable[voiceId] ?? ''}`.trim()
-      const key = normalizeVoiceLine(ja)
+      let key = normalized.get(ja)
+      if (key === undefined) {
+        key = normalizeVoiceLine(ja)
+        normalized.set(ja, key)
+      }
       if (!key || !zh) continue
       const values = candidates.get(key) ?? new Set<string>()
       values.add(zh)

@@ -142,6 +142,48 @@ test('译名接线:深海装备的链接类型认得出域——同一格的悬�
 
 // ---------------------------------------------------------------- ② 窄格单语红线
 
+test('译名反查保留重名次序与规范化，运行期改名和新增会更新索引', async () => {
+  const previous = globalThis.__lode
+  try {
+    globalThis.__lode = id => id === 'kcwiki-localization' ? { data: { entities: {
+      ship: { 20: { ja: 'ＡＢ（甲）', zh: '共名' }, 3: { ja: '別名', zh: '共名' } },
+    } } } : null
+    await localization.initLocalization()
+    assert.equal(localization.localizedEntityId('ship', ' ab(甲) '), '20')
+    assert.equal(localization.localizedEntityId('ship', '共名'), '3')
+    assert.equal(localization.localizedEntityId('ship', '新名'), null)
+    localization.registerLocalizedName('ship', 3, '別名', '更名')
+    assert.equal(localization.localizedEntityId('ship', '共名'), '20')
+    assert.equal(localization.localizedEntityId('ship', '更名'), '3')
+    localization.registerLocalizedName('ship', 4, '追加', '新名')
+    assert.equal(localization.localizedEntityId('ship', '新名'), '4')
+    const version = localization.localizationVersion()
+    localization.registerLocalizedName('ship', 4, '追加', '新名')
+    assert.equal(localization.localizationVersion(), version)
+    assert.equal(localization.localizedEntityId('ship', ''), null)
+  } finally { globalThis.__lode = previous; await localization.initLocalization() }
+})
+
+test('重新装配译名包会清除旧反查结果，任务包覆盖的名称也参与反查', async () => {
+  const previous = globalThis.__lode
+  try {
+    const load = async name => {
+      globalThis.__lode = id => ({
+        'kcwiki-localization': { data: { entities: { ship: { 1: { ja: name, zh: name } }, quest: { 2: { ja: '原任务', zh: '旧任务' } } } } },
+        'quests-scn': { data: { 2: { name: '新任务' } } },
+      })[id] ?? null
+      await localization.initLocalization()
+    }
+    await load('旧舰名')
+    assert.equal(localization.localizedEntityId('ship', '旧舰名'), '1')
+    assert.equal(localization.localizedEntityId('quest', '新任务'), '2')
+    assert.equal(localization.localizedEntityId('quest', '旧任务'), null)
+    await load('新舰名')
+    assert.equal(localization.localizedEntityId('ship', '旧舰名'), null)
+    assert.equal(localization.localizedEntityId('ship', '新舰名'), '1')
+  } finally { globalThis.__lode = previous; await localization.initLocalization() }
+})
+
 test('窄格红线:不显式开 showOriginal 就只出中文,一个日文字都不带', () => {
   const out = localization.bilingualNameHtml('长门', '長門')
   assert.equal(out, '长门')

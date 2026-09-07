@@ -1,21 +1,22 @@
 import type { PlayerShip } from '../shared/mg-types'
 
 import { masterShipName, mg } from './kernel'
-import { remodelRootOf } from '../shared/remodel-label'
+import { buildRemodelRootIndex } from '../shared/remodel-label'
 
 let remodelOrder: Map<number, number> | null = null
-let remodelMasterCount = -1
+let remodelMasterSource: typeof mg.master.ships | null = null
+let remodelUpgradeSource: typeof mg.master.upgrades | null = null
 
 export const invalidateRemodelOrder = () => {
   remodelOrder = null
-  remodelMasterCount = -1
+  remodelMasterSource = null
+  remodelUpgradeSource = null
   rootCache = null
-  rootMasterCount = -1
+  rootMasterSource = null
 }
 
 const ensureRemodelOrder = () => {
-  const masterCount = Object.keys(mg.master.ships).length
-  if (remodelOrder && remodelMasterCount === masterCount) return remodelOrder
+  if (remodelOrder && remodelMasterSource === mg.master.ships && remodelUpgradeSource === mg.master.upgrades) return remodelOrder
 
   const order = new Map<number, number>()
   for (const [targetText, rows] of Object.entries(mg.master.upgrades ?? {})) {
@@ -48,7 +49,8 @@ const ensureRemodelOrder = () => {
     }
   }
   remodelOrder = order
-  remodelMasterCount = masterCount
+  remodelMasterSource = mg.master.ships
+  remodelUpgradeSource = mg.master.upgrades
   return order
 }
 
@@ -84,20 +86,15 @@ export const progressiveRemodelOf = (
  * 前驱方向回溯就够；判定「有没有这艘舰」另有一套（ship-ownership）。
  */
 let rootCache: Map<number, number> | null = null
-let rootMasterCount = -1
+let rootMasterSource: typeof mg.master.ships | null = null
 export const remodelChainRoot = (mstId: number): number => {
-  const masterCount = Object.keys(mg.master.ships).length
-  if (!rootCache || rootMasterCount !== masterCount) {
-    rootMasterCount = masterCount
+  if (!rootCache || rootMasterSource !== mg.master.ships) {
     const afterOf = new Map<number, number>()
     for (const [idText, ship] of Object.entries(mg.master.ships)) {
       if (ship.afterShipId > 0) afterOf.set(Number(idText), ship.afterShipId)
     }
-    rootCache = new Map()
-    for (const idText of Object.keys(mg.master.ships)) {
-      const id = Number(idText)
-      rootCache.set(id, remodelRootOf(afterOf, id))
-    }
+    rootCache = buildRemodelRootIndex(afterOf, Object.keys(mg.master.ships).map(Number))
+    rootMasterSource = mg.master.ships
   }
   return rootCache.get(mstId) ?? mstId
 }

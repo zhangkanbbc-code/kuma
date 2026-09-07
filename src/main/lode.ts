@@ -90,6 +90,9 @@ const scanDir = (dir: string, ids?: readonly string[]): Map<string, LodePack> =>
 // 给目录清单加几秒 TTL；手动导入新包最多晚这几秒被看到。
 const DIR_TTL_MS = 5000
 let dirCache: { at: number; packs: Map<string, LodePack> } | null = null
+// 目录 TTL 过期后热路径会重扫，2026-09-07 开发态曾每几秒重复一条版本告警。
+// 按包 id 记录告警类别与用户/内置版本对；结论变化时再报，用户包正常生效时清除记录。
+const versionWarnings = new Map<string, string>()
 // 审计显式给来源时只读装配，不借用/污染默认运行时目录缓存。
 export const loadAll = (sources?: {
   builtinDir: string
@@ -103,13 +106,27 @@ export const loadAll = (sources?: {
     const builtin = packs.get(id)
     if (builtin) {
       const compared = compareLodeVersions(pack.meta.version, builtin.meta.version)
+      const signature = JSON.stringify([
+        compared === null ? 'uncomparable' : 'older',
+        pack.meta.version ?? '缺失', builtin.meta.version ?? '缺失',
+      ])
       if (compared === null) {
-        console.warn(`[kuma] lode: ${id} 版本缺失或解析失败，保留用户包（用户版本 ${pack.meta.version ?? '缺失'}，内置版本 ${builtin.meta.version ?? '缺失'}）`)
+        if (versionWarnings.get(id) !== signature) {
+          console.warn(`[kuma] lode: ${id} 版本缺失或解析失败，保留用户包（用户版本 ${pack.meta.version ?? '缺失'}，内置版本 ${builtin.meta.version ?? '缺失'}）`)
+          versionWarnings.set(id, signature)
+        }
       } else if (compared < 0) {
-        console.warn(`[kuma] lode: ${id} 用户包旧于内置，改用内置包（用户版本 ${pack.meta.version}，内置版本 ${builtin.meta.version}）`)
+        if (versionWarnings.get(id) !== signature) {
+          console.warn(`[kuma] lode: ${id} 用户包旧于内置，改用内置包（用户版本 ${pack.meta.version}，内置版本 ${builtin.meta.version}）`)
+          versionWarnings.set(id, signature)
+        }
         packs.set(id, { ...builtin, meta: { ...builtin.meta, ignoredUserVersion: pack.meta.version } })
         continue
+      } else {
+        versionWarnings.delete(id)
       }
+    } else {
+      versionWarnings.delete(id)
     }
     packs.set(id, pack) // 用户包覆盖内置：版本较新、相等或无法比较时
   }

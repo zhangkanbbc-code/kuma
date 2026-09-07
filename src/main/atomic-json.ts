@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { timeMain } from './perf-time'
 
 // JSON 配置/快照必须以“整份旧文件或整份新文件”的形态出现。
 // 直接覆盖目标文件时，进程崩溃或断电会留下半截 JSON；先写同目录临时文件，
@@ -30,34 +31,37 @@ export const atomicWriteJsonSync = (
   value: unknown,
   options: AtomicWriteOptions = {},
 ) => {
-  const dir = path.dirname(file)
-  const temp = path.join(dir, `.${path.basename(file)}.${process.pid}.tmp`)
-  fs.mkdirSync(dir, { recursive: true })
-  try {
-    const json = options.pretty ? JSON.stringify(value, null, 2) : JSON.stringify(value)
-    const fd = fs.openSync(temp, 'w')
+  let bytes = 0
+  return timeMain('fs-write', () => {
+    const dir = path.dirname(file)
+    const temp = path.join(dir, `.${path.basename(file)}.${process.pid}.tmp`)
+    fs.mkdirSync(dir, { recursive: true })
     try {
-      fs.writeSync(fd, json, null, 'utf8')
-      fs.fsyncSync(fd)
-    } finally {
-      fs.closeSync(fd)
-    }
-    for (let attempt = 1; ; attempt += 1) {
+      const json = options.pretty ? JSON.stringify(value, null, 2) : JSON.stringify(value)
+      const fd = fs.openSync(temp, 'w')
       try {
-        fs.renameSync(temp, file)
-        break
-      } catch (error: any) {
-        const busy = error?.code === 'EPERM' || error?.code === 'EBUSY' || error?.code === 'EACCES'
-        if (!busy || attempt >= RENAME_RETRIES) throw error
-        sleepSync(RENAME_RETRY_WAIT_MS)
+        bytes = fs.writeSync(fd, json, null, 'utf8')
+        fs.fsyncSync(fd)
+      } finally {
+        fs.closeSync(fd)
       }
+      for (let attempt = 1; ; attempt += 1) {
+        try {
+          fs.renameSync(temp, file)
+          break
+        } catch (error: any) {
+          const busy = error?.code === 'EPERM' || error?.code === 'EBUSY' || error?.code === 'EACCES'
+          if (!busy || attempt >= RENAME_RETRIES) throw error
+          sleepSync(RENAME_RETRY_WAIT_MS)
+        }
+      }
+    } catch (e) {
+      try {
+        fs.rmSync(temp, { force: true })
+      } catch (_cleanupError) {
+        // 原始写入异常更重要；临时文件下次写入会被同名覆盖。
+      }
+      throw e
     }
-  } catch (e) {
-    try {
-      fs.rmSync(temp, { force: true })
-    } catch (_cleanupError) {
-      // 原始写入异常更重要；临时文件下次写入会被同名覆盖。
-    }
-    throw e
-  }
+  }, () => `${path.basename(file)} ${bytes} 字节`)
 }
