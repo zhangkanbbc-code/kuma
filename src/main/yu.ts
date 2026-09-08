@@ -8,11 +8,13 @@ import path from 'path'
 import { createHash } from 'crypto'
 import { pipeline } from 'stream/promises'
 
-import { app, dialog, ipcMain, shell, webContents } from 'electron'
+import { app, dialog, ipcMain, session, shell, webContents } from 'electron'
 
 import config = require('./config')
 import { APPDATA_PATH } from './env'
 import { GAME_URL_CONFIG_KEY, normalizeGameUrl } from '../shared/game-url'
+import { dmmLogoutTargets } from '../shared/dmm-logout'
+import { isNavigationAborted } from '../shared/navigation-error'
 import { ensureModDir } from './kcs-resource'
 import ledger from './mg/ledger'
 import { registerCriticalQuitWork } from './quit-guard'
@@ -188,7 +190,7 @@ ipcMain.handle('yu:open-mod-dir', async () => {
  * 游戏页在主窗口的 webview 里，而全应用只有那一个（多余的 webview 在
  * will-attach-webview 那道门就被挡掉了），按类型找即可，不必再传一个 id 进来。
  */
-ipcMain.handle('yu:reload-game-url', async () => {
+const reloadGameUrl = async (throwOnError = false) => {
   const url = normalizeGameUrl(config.get(GAME_URL_CONFIG_KEY))
   const game = webContents
     .getAllWebContents()
@@ -197,11 +199,42 @@ ipcMain.handle('yu:reload-game-url', async () => {
   try {
     await game.loadURL(url)
   } catch (error) {
+    // 登录页重定向后再次导航会拒绝前一次 loadURL；页面已往别处走，退出仍算成功。
+    if (isNavigationAborted(error)) return { ok: true, url, aborted: true }
+    if (throwOnError) throw error
     // 导航被打断（ERR_ABORTED）也走这里，不是每一次都算失败；真加载不上时
     // 游戏页那层 did-fail-load 会把错误码原样铺在浮层上，这里只留一行给 crash.log
     console.warn('[kuma] yu: 游戏页重新载入未完成', url, error)
   }
   return { ok: true, url }
+}
+
+ipcMain.handle('yu:reload-game-url', () => reloadGameUrl())
+
+ipcMain.handle('yu:logout-dmm', async () => {
+  const ses = session.defaultSession
+  const targets = dmmLogoutTargets(await ses.cookies.get({}))
+  // 登录保鲜只复写新增会话 cookie；删除事件会直接返回，不会把退出时删掉的再写回来。
+  for (const cookie of targets.cookies) await ses.cookies.remove(cookie.url, cookie.name)
+  for (const origin of targets.origins) {
+    await ses.clearStorageData({ origin, storages: ['localstorage', 'indexdb', 'cachestorage'] })
+  }
+  // Electron 的 clearStorageData 不提供 sessionstorage 选项；只在游戏页的 DMM
+  // frame 内清 DOM 会话存储，并在执行时再核对源，避免导航途中清到游戏服务器。
+  for (const game of webContents.getAllWebContents()) {
+    if (game.isDestroyed() || game.getType() !== 'webview' || game.session !== ses) continue
+    for (const frame of game.mainFrame.framesInSubtree) {
+      if (!targets.origins.some((origin) => frame.url.startsWith(`${origin}/`))) continue
+      await frame.executeJavaScript(
+        `if (${JSON.stringify(targets.origins)}.includes(location.origin)) sessionStorage.clear()`,
+      )
+    }
+  }
+  await ses.cookies.flushStore()
+  // 地区兼容 cookie 在 cookie-hack 的 DOMContentLoaded 中设置；回首页后沿用该机制补回。
+  const result = await reloadGameUrl(true)
+  if (!result.ok) throw new Error('游戏页面尚未就绪 · 加载后重试')
+  return { removed: targets.cookies.length, origins: targets.origins.length, aborted: result.aborted ?? false }
 })
 
 /**

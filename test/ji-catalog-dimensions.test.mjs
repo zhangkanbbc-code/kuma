@@ -6,21 +6,22 @@ import test from 'node:test'
 
 const jiSource = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
 
-test('舰娘卷的四个分类维度各自成段、各自一色', () => {
-  // 四段都在同一个「更多分类」面板里（用户拍板：不开新卷、不动顶栏）
+test('舰娘卷的五个分类维度各自成段、各自一色', () => {
+  // 五段都在同一个「更多分类」面板里（用户拍板：不开新卷、不动顶栏）
   assert.match(jiSource, /const shipCategoryPanelHtml = \(\): string =>/)
   for (const fn of [
     'shipMoreCategoriesHtml',
+    'shipQuestTypeCategoriesHtml',
     'shipNationCategoriesHtml',
     'shipClassCategoriesHtml',
     'shipFleetCategoriesHtml',
   ]) {
     assert.ok(jiSource.includes(`${fn}()`), `分类面板缺 ${fn}`)
   }
-  // 每段一枚 --dim-c（现在由 catSectionHtml 统一套壳），且四枚各不相同
+  // 每段一枚 --dim-c（现在由 catSectionHtml 统一套壳），且五枚各不相同
   const dims = [...jiSource.matchAll(/color: '(--entity-[a-z]+)',/g)].map((m) => m[1])
-  assert.deepEqual(dims, ['--entity-ship', '--entity-nationality', '--entity-shipclass', '--entity-histfleet'])
-  assert.equal(new Set(dims).size, 4)
+  assert.deepEqual(dims, ['--entity-ship', '--entity-quest', '--entity-nationality', '--entity-shipclass', '--entity-histfleet'])
+  assert.equal(new Set(dims).size, 5)
   assert.match(jiSource, /style="--dim-c:var\(\$\{opts\.color\}\)"/)
 })
 
@@ -41,7 +42,7 @@ test('分类面板长在滚动容器里面——否则列表被压成 0 高、�
   assert.ok(!/overflow/.test(panelCss[0]), '分类面板自己开了滚动条')
 })
 
-test('四段是手风琴：同时只开一段，默认全收起，选中项常驻在抬头上', () => {
+test('五段是手风琴：同时只开一段，默认全收起，选中项常驻在抬头上', () => {
   // 默认全收起
   assert.match(jiSource, /let moreCategorySection: ShipCatSection = ''/)
   // 同时只开一段：开哪一段由单一变量说了算，点同一段再收起
@@ -53,7 +54,7 @@ test('四段是手风琴：同时只开一段，默认全收起，选中项常�
   )
   // 抬头行常驻显示选中项，且点它能取消（状态不许跟着内容一起藏）
   assert.match(jiSource, /const catPickedHtml = /)
-  for (const key of ['stype', 'nation', 'class', 'fleet']) {
+  for (const key of ['stype', 'questType', 'nation', 'class', 'fleet']) {
     assert.ok(jiSource.includes(`catPickedHtml('${key}'`), `${key} 段的抬头没挂选中 chip`)
   }
   assert.match(jiSource, /\[data-clear-dim\][\s\S]{0,200}clearShipDimensions\(\)/)
@@ -75,6 +76,9 @@ test('型与编队两段带就地过滤，且过滤只缩小格子不改分组',
 
 test('维度互斥只有一个收口，加维度不必满文件找赋值点', () => {
   assert.match(jiSource, /const clearShipDimensions = \(\) => \{[\s\S]*?shipState\.fleetFilter = ''/)
+  const clear = jiSource.slice(jiSource.indexOf('const clearShipDimensions ='), jiSource.indexOf('const collapsedShipClasses ='))
+  assert.match(clear, /shipState\.questGroupFilter = ''/)
+  assert.match(clear, /shipState\.typeSetFilter = \[\]/)
   // 旧的「三行连着清」不许回潮：漏一行就是「换维度时上一个还留着」。
   // 唯一允许的一处就是收口函数自己（它第四行清 fleetFilter）。
   const triples = [
@@ -84,6 +88,14 @@ test('维度互斥只有一个收口，加维度不必满文件找赋值点', ()
   ]
   assert.equal(triples.length, 1, '「三行连着清」在收口函数之外又出现了')
   assert.ok(triples[0][1], '收口函数漏了 fleetFilter')
+})
+
+test('任务舰种接在舰种段之后，集合路由按任务组、顶栏组、任意集合三级解析', () => {
+  assert.match(jiSource, /shipMoreCategoriesHtml\(\)\}[\s\S]{0,20}shipQuestTypeCategoriesHtml\(\)/)
+  assert.match(jiSource, /\[data-ship-quest-group\]/)
+  const route = jiSource.slice(jiSource.indexOf("registerEntityRoute('shipTypeGroup'"), jiSource.indexOf("registerEntityRoute('shipNationality'"))
+  assert.match(route, /if \(questGroup\) shipState\.questGroupFilter = questGroup\.key\s+else if \(chip\) shipState\.chip = chip\s+else shipState\.typeSetFilter = types/)
+  assert.match(route, /typeLabel: questGroup \? '任务舰种' : '舰种组'/)
 })
 
 test('排序两档：分组是默认，编号平铺存本机', () => {

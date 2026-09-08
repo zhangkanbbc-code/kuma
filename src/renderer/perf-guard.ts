@@ -26,6 +26,26 @@ ipcRenderer.on('kuma:perf-ping', () => {
   } catch {
     /* 窗口正在关闭时放弃应答 */
   }
+  // alive 必须先同步直发；异步内存查询再慢，也不能让看门狗误判无应答。
+  const sampleTs = Date.now()
+  try {
+    const memory = (performance as Performance & {
+      memory?: { usedJSHeapSize: number; totalJSHeapSize: number }
+    }).memory
+    ipcRenderer.send('kuma:perf-memory', memory ? {
+      jsHeapUsed: memory.usedJSHeapSize,
+      jsHeapTotal: memory.totalJSHeapSize,
+    } : {}, sampleTs)
+    if (typeof process.getProcessMemoryInfo === 'function') {
+      void process.getProcessMemoryInfo().then(({ residentSet, private: privateMemory }) => {
+        ipcRenderer.send('kuma:perf-memory', { residentSet, private: privateMemory }, sampleTs)
+      }).catch(() => {
+        /* 窗口关闭或查询失败时保留同步堆样本，不补报进程指标。 */
+      })
+    }
+  } catch {
+    /* 内存探针不可用或窗口关闭不影响已经发出的心跳。 */
+  }
 })
 
 const configuredSlowDispatchMs = Number(readEnv('KUMA_PERF_SLOW_MS'))

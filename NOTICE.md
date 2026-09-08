@@ -54,6 +54,14 @@ Copyright (c) 2015-2021 poi contributors）的下列文件。移植文件均在�
 
 ---
 
+## 随发行版分发的字体
+
+### 思源黑体（Noto Sans CJK SC Black）— SIL Open Font License 1.1
+
+| kuma 文件 | 来源 | 用途与许可 |
+|---|---|---|
+| `assets/branding/fonts/NotoSansCJKsc-Black.subset.woff2` | [The Noto Project Authors — Noto Sans CJK SC Black](https://github.com/notofonts/noto-cjk) | 特殊攻击字幕字体；SIL Open Font License 1.1，许可原文随包附于 `assets/branding/fonts/LICENSE-NotoSansCJK.txt`；随包为子集版，只保留汉字、假名、拉丁与标点区 |
+
 ## 随发行版分发的资料包
 
 发行版里 `assets/lodes/` 只放**数据本身所在的源有明确、允许再分发的许可**的那些包。

@@ -20,6 +20,7 @@ export const HOTKEY_DEFAULTS = {
   boss: 'Ctrl+Alt+H',
   reload: 'F5',
   focus: 'F9',
+  distract: 'F10',
   capture: 'Ctrl+Alt+S',
   mute: 'Ctrl+M',
 } as const
@@ -31,6 +32,7 @@ export const HOTKEY_CONFIG_KEYS: Record<HotkeyId, string> = {
   boss: 'kuma.hotkeys.boss',
   reload: 'kuma.hotkeys.reload',
   focus: 'kuma.hotkeys.focus',
+  distract: 'kuma.hotkeys.distract',
   capture: 'kuma.hotkeys.capture',
   mute: 'kuma.hotkeys.mute',
 }

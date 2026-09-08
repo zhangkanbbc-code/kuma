@@ -10,6 +10,8 @@ import { CONFIG_ROOT, LEGACY_CONFIG_ROOT, planConfigMigration } from '../shared/
 import { DEFAULT_GAME_URL } from '../shared/game-url'
 import { HOTKEY_DEFAULTS } from '../shared/hotkeys'
 import { LAUNCH_GLOW_DEFAULT } from '../shared/launch-glow'
+import { FAIRY_SALVO_DEFAULT } from '../shared/fairy-salvo'
+import { VOICE_CAPTION_SPECIAL_DEFAULT } from '../shared/voice-caption-special'
 
 const CONFIG_PATH = path.join(APPDATA_PATH, 'config.json')
 
@@ -34,6 +36,7 @@ const DEFAULTS: Record<string, unknown> = {
     lastGameHost: '',
     // 游戏画面上的语音字幕/战斗弹幕；关闭只影响文字，不影响游戏原声。
     voiceCaptions: true,
+    voiceCaptionsSpecial: VOICE_CAPTION_SPECIAL_DEFAULT,
     // 游戏实际播放的总音量、语音/BGM 分项增益与内容过滤；不改游戏自身设置。
     gameAudio: { volume: 1, voiceVolume: 1, bgmVolume: 1, mode: 'all' },
     // 新舰 / 大破 / 应急修理的置顶横幅及应用外框光效；铃中的事件记录不受影响。
@@ -45,6 +48,7 @@ const DEFAULTS: Record<string, unknown> = {
     //（默认关）。
     // 默认值取自 shared/launch-glow：钥的开关与镇壳的读取都引同一份，别在这里写字面量。
     launchGlow: LAUNCH_GLOW_DEFAULT,
+    fx: { fairySalvo: FAIRY_SALVO_DEFAULT }, // 实验性彩蛋，默认不叠加游戏浮层
     hotkeys: { ...HOTKEY_DEFAULTS, bossEnabled: true },
     network: { customCertificateAuthority: '' },
     trustedCerts: [] as string[],

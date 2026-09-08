@@ -9,22 +9,26 @@
 //    渲染层只消费；护栏从渲染产物逐张数，漏一张、重一张都当场红。
 //  · **维护者工具不进发行版**。这张表列全部的卡，`settingsCardsOf` 按 `debugUi`
 //    过滤——所以完备性护栏要按**两种形态**各数一遍（发行版 23 张 / 调试 25 张）。
+//    2026-09-07 新增分心模式玩家卡后，现为发行版 24 张 / 调试 26 张。
 //
+// 2026-09-08：实验性彩蛋新增一张玩家卡，发行版 25 张 / 调试 27 张。
 // 类名用玩家词汇、两三个字：页签是给人扫一眼定位的，不是分类学。
 
-export type SettingsSectionId = 'ui' | 'archive' | 'network' | 'lode' | 'health'
+export type SettingsSectionId = 'ui' | 'archive' | 'network' | 'lode' | 'health' | 'experimental'
 
 /**
  * 卡的身份。渲染时落成 `data-ycard="<id>"`，是这张卡在产物里唯一的可认标记——
  * 卡的标题是玩家可见文案，会改；id 不改，护栏与将来的定位跳转都认它。
  */
 export type SettingsCardId =
+  | 'fairy-salvo'
   | 'zoom'
   | 'game-scale'
   | 'caption-size'
   | 'ui-hints'
   | 'tray'
   | 'hotkeys'
+  | 'distract'
   | 'game-audio'
   | 'game-audio-selftest'
   | 'voice-archive'
@@ -73,6 +77,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
       'ui-hints',
       'tray',
       'hotkeys',
+      'distract',
       'game-audio',
       'game-audio-selftest',
     ],
@@ -107,6 +112,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     // 「缓存与魔改」同一套摆法），两张卡说的是同一个目录的两件事
     cards: ['cache-repair', 'mod-dir', 'diagnostics', 'about'],
   },
+  { id: 'experimental', label: '实验性', cards: ['fairy-salvo'] },
 ]
 
 /** 默认落点：开设置最常是来调界面的 */

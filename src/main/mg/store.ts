@@ -346,6 +346,15 @@ const addMaterials4 = (gain: any): boolean => {
   return true
 }
 
+// 在现有资源上按下标做增量；与 addMaterials4 一样，没基线时不推算余额。
+const addMaterialAt = (index: number, gain: number): boolean => {
+  if (!state.player.materials || gain === 0) return false
+  const m = [...state.player.materials]
+  m[index] += gain
+  state.player.materials = m
+  return true
+}
+
 // 在现有资源上做扣减（下标 → 数量）
 const subtractMaterials = (costs: [number, number][]): boolean => {
   if (!state.player.materials) return false
@@ -1519,6 +1528,7 @@ const reducers: Record<string, Reducer> = {
     const p = state.player
     if (body.api_basic) {
       p.basic = {
+        memberId: body.api_basic.api_member_id == null ? p.basic?.memberId : String(body.api_basic.api_member_id),
         nickname: body.api_basic.api_nickname,
         level: body.api_basic.api_level,
         rank: body.api_basic.api_rank,
@@ -1634,6 +1644,7 @@ const reducers: Record<string, Reducer> = {
     if (!body || typeof body.api_nickname !== 'string') return []
     const prev = state.player.basic
     state.player.basic = {
+      memberId: body.api_member_id == null ? prev?.memberId : String(body.api_member_id),
       nickname: body.api_nickname,
       level: body.api_level,
       rank: body.api_rank,
@@ -2207,15 +2218,25 @@ const reducers: Record<string, Reducer> = {
       ship.lv += Math.max(0, row.length - 2)
       sections.add('ships')
     }
-    for (const reward of [body.api_get_item1, body.api_get_item2]) {
-      if (
-        incrementUseitem(
-          Number(reward?.api_useitem_id),
-          Number(reward?.api_useitem_count) || 0,
-          ts,
-        )
-      ) {
-        sections.add('useitems')
+    // 四样资材（useitem id 1–4）实际在 api_material，不在道具全量表。
+    // 2026-09-07 查账：09-04 18:32:59、09-05 22:22:38、09-06 07:40:49
+    // 改修资材曾被记成幽灵 +1，随后道具全量表把它差回 −1「未识别对应操作」。
+    // 归来后的 port 校准差实证：flag 1/2/3 → 桶/高速建造材/开发资材 → 下标 5/4/6；
+    // flag 4（或缺 flag）看 item id：1/2/3/4 → 下标 5/4/6/7，>4 才是真道具。
+    // 标 materials 后 index.ts 已按此端点归为「远征」，无需修改落账类别映射。
+    const materialIndexByItemId = [5, 4, 6, 7]
+    for (const [slot, reward] of [body.api_get_item1, body.api_get_item2].entries()) {
+      const flag = body.api_useitem_flag?.[slot]
+      const itemId = Number(reward?.api_useitem_id)
+      const count = Number(reward?.api_useitem_count) || 0
+      if (flag === 1 || flag === 2 || flag === 3) {
+        if (addMaterialAt(materialIndexByItemId[flag - 1], count)) sections.add('materials')
+      } else if (flag === 4 || flag == null) {
+        if (itemId >= 1 && itemId <= 4) {
+          if (addMaterialAt(materialIndexByItemId[itemId - 1], count)) sections.add('materials')
+        } else if (itemId > 4 && incrementUseitem(itemId, count, ts)) {
+          sections.add('useitems')
+        }
       }
     }
     if (patchBasicLevel(body)) sections.add('basic')

@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>kuma · 浏览窗</title>
   <style>
+    /* 与主窗清空钮同档 9001：主窗命令面板 9000、设置浮层 900。 */
+    #input-clear {
+      position: fixed; z-index: 9001; width: 16px; height: 16px;
+      padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+      font: 14px/16px sans-serif; text-align: center;
+      color: var(--dim); background: var(--bg1);
+    }
+    #input-clear:hover { color: var(--text); }
+    input.has-clear { padding-right: 22px !important; }
+    input.has-clear::-webkit-search-cancel-button { display: none; }
+
     :root {
       color-scheme: dark;
       --bg0: #0d1318;

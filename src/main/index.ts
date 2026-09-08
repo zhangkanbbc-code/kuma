@@ -13,7 +13,9 @@ import { fileURLToPath } from 'url'
 
 import { closeAllBrowseWindows, openBrowseWindow } from './browse-window'
 import config from './config'
+import { exitDistractWindow, installDistractWindow } from './distract-window'
 import { installCrashLogging, reportFatal } from './crash-log'
+import { installCrashDumps } from './crash-dumps'
 import { installGameAudioPush } from './game-audio-push'
 import { attachApplicationHotkeys, installHotkeys } from './hotkeys'
 import { ROOT } from './env'
@@ -48,6 +50,7 @@ import { DEFAULT_DISK_CACHE_MB, resolveDiskCacheMB } from '../shared/disk-cache'
 // 不能依赖 productName 推导默认 userData，否则开发版改名或打包为「kuma」后会像首次登录。
 // 冒烟模式下 APPDATA_PATH 本身已经指向独立临时目录，仍保持零共享。
 app.setPath('userData', APPDATA_PATH)
+installCrashDumps()
 
 // before-quit 共 11 个登记方：ship-art-store、ship-costume-store、voice-archive、
 // abyss-voice-sightings、art-archive、bgm-archive、voice-probe、login-keeper、铭、
@@ -548,6 +551,7 @@ ipcMain.handle('tray:unread', (_event, count: unknown) =>
 ipcMain.handle('tray:dnd', (_event, active: unknown) => setTrayDnd(active === true))
 // 系统通知点开时用：窗口若已收进托盘，renderer 的 window.focus() 是无效的
 ipcMain.handle('window:show', () => showMainWindow())
+installDistractWindow(() => mainWindow)
 
 app.on('ready', () => {
   registerKcsResourceProtocol()
@@ -721,6 +725,7 @@ app.on('ready', () => {
   // 关闭/最小化到托盘：位置照存（隐藏后窗口还在，下次 show 要回到原处），
   // 但事件本身交给托盘接管。默认不开，X 键仍然是退出。
   win.on('close', (e) => {
+    if (exitDistractWindow(win)) win.webContents.send('window:distract-exited')
     saveBounds()
     if (interceptWindowClose(win)) e.preventDefault()
   })

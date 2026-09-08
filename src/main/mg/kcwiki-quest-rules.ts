@@ -1137,6 +1137,7 @@ export const evaluateFleetGoal = (
   const lines: QpFleetDeckDiff['lines'] = []
   if (goal.fleetId !== undefined && deckId !== goal.fleetId) {
     lines.push({
+      kind: 'fleet',
       label: `第${goal.fleetId}舰队`,
       current: deckId,
       required: goal.fleetId,
@@ -1171,7 +1172,30 @@ export const evaluateFleetGoal = (
     const misplacedHint = matchingShip
       ? ` · ${matchingShip.name ? `「${matchingShip.name}」` : '符合条件的舰'}在第${matchingIndex + 1}位`
       : ''
+    // 只给差异归类，不改原有 ok/issue。旗舰/位置失败可能同时缺舰，不能仅凭
+    // 提示的首个原因就说调位置即可；等级、速力和去重名额仍按原选择器核对。
+    const fleetCount = fleet.filter((ship) => selectorMatches(group, ship, concrete)).length
+    let kind: QpFleetDeckDiff['lines'][number]['kind'] = 'count'
+    if (!ok) {
+      if (!maximumOk) kind = 'max'
+      else if (fleetCount < group.amount) {
+        const withoutLv = { ...group, lv: undefined }
+        const withoutSpeed = { ...group, speedMin: undefined, speedMax: undefined }
+        if (group.lv !== undefined && fleet.some((ship) =>
+          selectorMatches(withoutLv, ship, concrete) && !selectorMatches(group, ship, concrete),
+        )) kind = 'lv'
+        else if ((group.speedMin !== undefined || group.speedMax !== undefined) && fleet.some((ship) =>
+          selectorMatches(withoutSpeed, ship, concrete) && !selectorMatches(group, ship, concrete),
+        )) kind = 'speed'
+      } else if (!flagshipOk || positionShortfall) {
+        const movable = goal.groups.map((entry) => ({ ...entry, flagship: false, position: undefined }))
+        kind = !groupsCanUseDistinctShips(movable, fleet)
+          ? 'total'
+          : !flagshipOk ? 'flagship' : 'position'
+      }
+    }
     lines.push({
+      kind,
       label: group.label,
       current,
       required: group.amount,
@@ -1190,6 +1214,7 @@ export const evaluateFleetGoal = (
   if (goal.maxShips !== undefined) {
     // 「合計N隻以下」：超编不通过；没编满不扣分（以下=至多，不是恰好）
     lines.push({
+      kind: 'max',
       label: '总数上限',
       current: fleet.length,
       required: goal.maxShips,
@@ -1200,6 +1225,7 @@ export const evaluateFleetGoal = (
   if (goal.disallowedStypes?.length) {
     const disallowed = fleet.filter((ship) => goal.disallowedStypes!.includes(ship.stype)).length
     lines.push({
+      kind: 'disallowed',
       label: '禁止舰种',
       current: disallowed,
       required: 0,
@@ -1212,6 +1238,7 @@ export const evaluateFleetGoal = (
       !concrete.some((group) => selectorMatches(group, ship, concrete)),
     ).length
     lines.push({
+      kind: 'disallowed',
       label: '其它舰',
       current: extras,
       required: 0,
@@ -1224,6 +1251,7 @@ export const evaluateFleetGoal = (
     !groupsCanUseDistinctShips(goal.groups, fleet)
   ) {
     lines.push({
+      kind: 'total',
       label: '编成成员',
       current: fleet.length,
       required: goal.groups.reduce((sum, group) => sum + group.amount, 0),

@@ -437,11 +437,12 @@ test('自补层的包：ja 列必须在且逐行非空（对照功能，缺了�
   }
 })
 
-test('随包自译台词不含未判定的同槽候选', () => {
+test('随包自译台词不含未判定的同槽候选；特殊攻击行序推槽允许标待耳测', () => {
   const pack = readLode('kuma-voice')
   assert.ok(pack, '缺少随包 kuma-voice')
   const keys = Object.values(pack.data.ships).flat()
-    .filter(row => row.basis === 'ambiguous').map(row => row.key)
+    .filter(row => row.basis === 'ambiguous' &&
+      !((row.slot >= 900 && row.slot <= 903) || (row.slot >= 990 && row.slot <= 993))).map(row => row.key)
   assert.deepEqual(keys, [], `未判定行键：${keys.join(', ')}`)
 })
 
@@ -468,7 +469,12 @@ test('自补层的 ja 与 zh 逐行配得上——错一行比缺一行糟', (t)
     }
     const used = new Map()
     for (const row of rows) {
-      const candidates = bySlot.get(row.slot) ?? []
+      // 英文 wiki 转写独立对账，不拿 wikiwiki 的缺行覆盖它。
+      if (row.basis === 'enwiki-mapped') continue
+      // 金剛／比叡四个文件号共用底本唯一夜战号令；其他形态必须同槽命中。
+      const evidenceSlot = [591, 592].includes(Number(mstId)) && row.slot >= 990 && row.slot <= 993
+        ? 990 : row.slot
+      const candidates = bySlot.get(evidenceSlot) ?? []
       const usedHere = used.get(row.slot) ?? new Set()
       const actual = normalizeVoiceLine(row.ja)
       const index = candidates.findIndex(
@@ -485,6 +491,23 @@ test('自补层的 ja 与 zh 逐行配得上——错一行比缺一行糟', (t)
     }
   }
   assert.deepEqual(bad.slice(0, 5), [], `${bad.length} 行的 ja 与底本对不上`)
+})
+
+test('英文 wiki 自补行独立对账：同形态同槽逐字吻合截图转写底本', (t) => {
+  const file = new URL('../assets/review/enwiki-special-voice.json', import.meta.url)
+  if (!fs.existsSync(file)) {
+    t.skip('缺英文 wiki 截图转写底本，跳过')
+    return
+  }
+  const base = JSON.parse(fs.readFileSync(file, 'utf8'))
+  const pack = readLode('kuma-voice')
+  const rows = Object.entries(pack.data.ships).flatMap(([mstId, lines]) => lines
+    .filter(row => row.basis === 'enwiki-mapped')
+    .map(row => ({ mstId: Number(mstId), slot: row.slot, ja: row.ja })))
+  const order = (a, b) => a.mstId - b.mstId || a.slot - b.slot
+  // Gloire 两形态新增七槽各一行，独立底本 32→46 行。
+  assert.equal(rows.length, 46)
+  assert.deepEqual(rows.sort(order), base.rows.map(({ mstId, slot, ja }) => ({ mstId, slot, ja })).sort(order))
 })
 
 test('自补层只补空：上游已覆盖的槽位一格不收', (t) => {
@@ -528,7 +551,7 @@ test('自补层只补空：上游已覆盖的槽位一格不收', (t) => {
   }
 })
 
-test('自补层的播放键判据：basis 逐行可重算，ambiguous 一律不给键', (t) => {
+test('自补层的播放键判据：普通槽按候选数，特殊攻击按已裁定的证据档', (t) => {
   const pack = readLode('kuma-voice')
   const subtitleJa = readLode('subtitle-ja')
   if (!pack || !subtitleJa) {
@@ -546,7 +569,16 @@ test('自补层的播放键判据：basis 逐行可重算，ambiguous 一律不�
   for (const [formId, rows] of Object.entries(pack.data.ships)) {
     for (const row of rows) {
       const many = (bySlot.get(`${formId} ${row.slot}`) ?? 0) > 1
-      assert.equal(row.basis === 'ambiguous', many, `${row.key} 的 basis 与同槽候选数对不上`)
+      const special = (row.slot >= 900 && row.slot <= 903) || (row.slot >= 990 && row.slot <= 993)
+      if (special) {
+        assert.equal(many, false, `${row.key} 特殊攻击每槽只保留一句`)
+        const inferred = [541, 573].includes(Number(formId)) ||
+          ([593, 954].includes(Number(formId)) && row.slot >= 990) ||
+          ([634, 639].includes(Number(formId)) && row.slot === 901)
+        const enwiki = [364, 392, 694, 724, 733, 969].includes(Number(formId)) ||
+          ([591, 592].includes(Number(formId)) && row.slot >= 990)
+        assert.equal(row.basis, enwiki ? 'enwiki-mapped' : inferred ? 'ambiguous' : 'wikiwiki-mapped', row.key)
+      } else assert.equal(row.basis === 'ambiguous', many, `${row.key} 的 basis 与同槽候选数对不上`)
       // ⚠️ 2026-08-23 改名：`key-only` → `wikiwiki-mapped`。
       // 判据从「有没有第二份东西可以对」改成「槽位是**谁**给的」——
       // 这一层的槽位只有一个来源（wikiwiki 舰娘页的场合列），标出处比标「没校验」更有用：
@@ -564,8 +596,8 @@ test('自补层的播放键判据：basis 逐行可重算，ambiguous 一律不�
       }
     }
   }
-  // 编译期判过的四档只能是这四个值
-  const allowed = new Set(['key-confirmed', 'wikiwiki-mapped', 'divergent', 'ambiguous'])
+  // 编译期判据扩成五档，英文 wiki 来源独立于 wikiwiki。
+  const allowed = new Set(['key-confirmed', 'wikiwiki-mapped', 'enwiki-mapped', 'divergent', 'ambiguous'])
   for (const rows of Object.values(pack.data.ships)) {
     for (const row of rows) assert.ok(allowed.has(row.basis), `未知的 basis：${row.basis}`)
   }

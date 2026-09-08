@@ -25,6 +25,7 @@ import {
   kcwikiSlotIndex,
   planVoiceCorrections,
   regularSubtitleSlots,
+  isSpecialAttackVoiceSlot,
   seasonOccupiedFrom,
   seasonalTextIndex,
   type KcwikiSlotLine,
@@ -32,9 +33,15 @@ import {
 import {
   captionHideAtMs,
   captionMinHoldMs,
+  cutinHoldMs,
   danmakuDurationSeconds,
 } from '../shared/voice-caption-hold'
 import { shouldRenderCaption } from '../shared/voice-request-gate'
+import {
+  normalizeSpecialCaptionStyle,
+  VOICE_CAPTION_SPECIAL_DEFAULT,
+  VOICE_CAPTION_SPECIAL_PATH,
+} from '../shared/voice-caption-special'
 import {
   normalizeVoiceCaptionSize,
   VOICE_CAPTION_SIZE_DEFAULT,
@@ -116,7 +123,7 @@ interface KumaVoiceLine {
   slot: number
   ja: string
   zh: string
-  basis?: 'key-confirmed' | 'wikiwiki-mapped' | 'divergent' | 'ambiguous'
+  basis?: 'key-confirmed' | 'wikiwiki-mapped' | 'enwiki-mapped' | 'divergent' | 'ambiguous'
 }
 
 interface CaptionLine {
@@ -195,7 +202,17 @@ let hourlyTimer: ReturnType<typeof setTimeout> | null = null
 const lineTimers = new Set<ReturnType<typeof setTimeout>>()
 let friendlyLane = 0
 let enemyLane = 0
+type CutinCaption = { mstId: number; item: HTMLElement; remove: () => void }
+let cutinLead: CutinCaption | null = null
+let cutinWing: CutinCaption | null = null
 let captionsEnabled = Boolean(config.get('kuma.voiceCaptions', true))
+let specialCaptionStyle = normalizeSpecialCaptionStyle(
+  config.get(VOICE_CAPTION_SPECIAL_PATH, VOICE_CAPTION_SPECIAL_DEFAULT),
+)
+
+export const setSpecialCaptionStyle = (style: unknown) => {
+  specialCaptionStyle = normalizeSpecialCaptionStyle(style)
+}
 
 /**
  * 底部字幕的世代号。**每出一句就自增，清场也自增。**
@@ -220,6 +237,9 @@ const clearCaptionVisuals = () => {
   subtitle?.querySelector<HTMLElement>('.voice-subtitle-speaker')?.replaceChildren()
   subtitle?.querySelector<HTMLElement>('.voice-subtitle-line')?.replaceChildren()
   document.querySelector<HTMLElement>('#voice-danmaku')?.replaceChildren()
+  cutinLead?.remove()
+  cutinWing?.remove()
+  document.querySelector<HTMLElement>('#voice-cutin')?.replaceChildren()
 }
 
 export const setVoiceCaptionsEnabled = (enabled: boolean) => {
@@ -496,6 +516,20 @@ const shipCaption = (cue: Extract<VoiceRequestCue, { kind: 'ship' }>): CaptionLi
   // 当季播的是季节版，也就是用户 2026-08-23 亲测报的那种）在包里一点痕迹都没有，
   // 只有人耳听得出来，所以台账是这一族唯一的出路。实测两条渠道零重叠。
   if (voicePlaybackObservationAt(cue.mstId, cue.voiceId)?.verdict === 'season-slot') return []
+  // 特殊攻击只取说话形态自己的槽：不能沿改装链借另一形态的号令。
+  // 行序外推的单句可显示并在图鉴耳测；同槽多候选仍不选择。
+  if (isSpecialAttackVoiceSlot(cue.voiceId)) {
+    const ownKuma = kumaVoiceBySlot.get(cue.mstId)?.get(cue.voiceId)
+    const row = kcwikiBySlot.get(cue.mstId)?.get(cue.voiceId) ??
+      (ownKuma?.length === 1 ? ownKuma[0] : null)
+    if (!row) return []
+    const zh = captionText(row.zh)
+    const ja = captionText(row.ja)
+    const text = zh ? simplifyZh(normalizeVoiceText(zh)) : ja
+    return text ? [{
+      speaker: entityNamePlain('ship', cue.mstId, masterShipName(cue.mstId)), text, delay: 0,
+    }] : []
+  }
   const key = `${cue.voiceId}`
   /** 这一形态的 kcwiki 台词：中文优先、过标点体例归一，都空就是空。 */
   const kcwikiAt = (id: number): string => {
@@ -885,7 +919,7 @@ const showSubtitle = ({ speaker: speakerText, text, tone, pathname }: CaptionLin
   }, captionMinHoldMs(textLength))
 }
 
-const showDanmaku = (
+export const showDanmaku = (
   { speaker, text, tone }: CaptionLine,
   direction: Exclude<CaptionMode, 'bottom'>,
 ) => {
@@ -901,10 +935,73 @@ const showDanmaku = (
   item.style.setProperty('--voice-lane', `${lane}`)
   item.style.setProperty('--voice-duration', `${duration}s`)
   item.textContent = speaker ? `${speaker}：${text}` : text
-  const remove = () => item.remove()
+  const remove = () => { clearTimeout(timer); item.remove() }
   item.addEventListener('animationend', remove, { once: true })
   host.appendChild(item)
-  setTimeout(remove, Math.ceil(duration * 1000) + 500)
+  const timer = setTimeout(remove, Math.ceil(duration * 1000) + 500)
+  return remove
+}
+
+/**
+ * 新宿主同样盖在游戏画面上，属于 2026-09-08 合成器崩溃嫌疑的同类。
+ * 特殊攻击字幕与普通语音同口径单行，只动 transform / opacity，播完移除；
+ * 现改为突入式：单元素（最多两枚），取词仍同口径，过宽可折两行；上述动画与移除约束保留。
+ * 用户实机后微调：盒宽恒限画面 84%，自然换行居中，不再截成最多两行。
+ * 若崩溃变多，它与主炮妖精彩蛋一起是首查对象。
+ */
+export const showCutin = (mstId: number, line: CaptionLine | undefined) => {
+  const host = document.querySelector<HTMLElement>('#voice-cutin')
+  if (!captionsEnabled || !host || !line?.text) return
+  document.querySelector<HTMLElement>('#voice-danmaku')?.replaceChildren()
+  const item = document.createElement('div')
+  // 空场从正中起；同场下一枚走下面一道，不把普通弹幕的四道计数混进来。
+  // 上述旧双道现改成角色喊话锚点：旗舰在场时，另一艘才接左斜下方；同舰重启旗舰句。
+  const wing = cutinLead != null && cutinLead.mstId !== mstId
+  if (wing) cutinWing?.remove()
+  else { cutinLead?.remove(); cutinWing?.remove() }
+  item.className = `voice-cutin-line ${wing ? 'wing' : 'lead'}`
+  item.textContent = line.text
+  const textLength = [...line.text].length
+  const heldAt = Date.now() + 220
+  let removed = false
+  let phaseTimer: ReturnType<typeof setTimeout>
+  let watchdog: ReturnType<typeof setTimeout>
+  const remove = () => {
+    removed = true
+    clearTimeout(phaseTimer)
+    clearTimeout(watchdog)
+    item.remove()
+    if (cutinLead?.item === item) cutinLead = null
+    if (cutinWing?.item === item) cutinWing = null
+  }
+  const armWatchdog = (hold: number) => {
+    clearTimeout(watchdog)
+    watchdog = setTimeout(remove, Math.max(0, heldAt + hold + 260 + 500 - Date.now()))
+  }
+  item.addEventListener('animationend', (event) => {
+    if (event.animationName === 'voice-cutin-out') remove()
+  })
+  host.appendChild(item)
+  // 用户实机后微调：量布局宽度，不把入场 transform 的缩放算进盒宽；左右各留 3%。
+  const w = item.offsetWidth / host.clientWidth * 100
+  const anchor = parseFloat(getComputedStyle(host).getPropertyValue('--cutin-x')) - (wing ? 9 : 0)
+  item.style.left = `${Math.max(w / 2 + 3, Math.min(anchor, 97 - w / 2))}%`
+  const caption = { mstId, item, remove }
+  if (wing) cutinWing = caption
+  else cutinLead = caption
+  armWatchdog(cutinHoldMs(textLength, null))
+  // 沿用底部字幕的延后查 voiceDurations 路径，等解码完成再问；突入下限是 2.8 秒，
+  // 不直接照搬 captionMinHoldMs 的 4.2 秒下限，以免短音轨的突入停留被额外拉长。
+  phaseTimer = setTimeout(() => {
+    void voiceAudioMs(line.pathname).then((audioMs) => {
+      // 两枚各有自己的生命期；查询回来时若已被替换或关掉，不能重新挂计时器。
+      if (removed) return
+      const hold = cutinHoldMs(textLength, audioMs)
+      armWatchdog(hold)
+      phaseTimer = setTimeout(() => item.classList.add('leaving'), Math.max(0, heldAt + hold - Date.now()))
+    })
+  }, 220 + Math.min(2_800, captionMinHoldMs(textLength)))
+  return remove
 }
 
 const modeFor = (cue: VoiceRequestCue): CaptionMode => {
@@ -936,6 +1033,10 @@ const scheduleLines = (lines: CaptionLine[], mode: CaptionMode) => {
 
 const displayAtPlaybackTime = (cue: VoiceRequestCue, lines = captionsFor(cue)) => {
   const mode = modeFor(cue)
+  if (mode === 'friendly' && cue.kind === 'ship' && isSpecialAttackVoiceSlot(cue.voiceId) && specialCaptionStyle) {
+    showCutin(cue.mstId, lines[0])
+    return
+  }
   // 30..53 是整点报时资源：游戏会提前请求，实际播放发生在下一个整点。
   // 与 poi-plugin-subtitle 的处理一致，避免登录时把尚未播放的时报提前刷出来。
   if (cue.kind === 'ship' && cue.voiceId >= 30 && cue.voiceId <= 53) {
@@ -970,15 +1071,42 @@ const displayAtPlaybackTime = (cue: VoiceRequestCue, lines = captionsFor(cue)) =
  */
 const captionShownAt = new Map<string, number>()
 
+// 特殊攻击信号独立于字幕开关、取词与节流；无文本的形态也要开火。
+// 同地址三秒只发一次，演习双方的同形态音轨无法辨认归属，整场不发。
+const specialAttackShownAt = new Map<string, number>()
+// 字幕独立去重，不能借用彩蛋出口的状态；特殊族豁免普通字幕闸门，同路径仍守三秒。
+const specialCaptionShownAt = new Map<string, number>()
+const emitSpecialAttack = (cue: VoiceRequestCue | null, pathname: string, ts: number) => {
+  if (mg.sortie?.practice || cue?.kind !== 'ship') return
+  if (!((cue.voiceId >= 900 && cue.voiceId <= 903) || (cue.voiceId >= 990 && cue.voiceId <= 993))) return
+  const now = Date.now()
+  for (const [path, time] of specialAttackShownAt) {
+    if (now - time >= 3000) specialAttackShownAt.delete(path)
+  }
+  if (specialAttackShownAt.has(pathname)) return
+  specialAttackShownAt.set(pathname, now)
+  window.dispatchEvent(new CustomEvent('special-attack-fired', {
+    detail: { mstId: cue.mstId, voiceId: cue.voiceId, pathname, ts },
+  }))
+}
+
 const consume = (event: VoiceEvent) => {
-  if (!captionsEnabled) return
   const pathname = typeof event.pathname === 'string' ? event.pathname : ''
   const ts = typeof event.ts === 'number' ? event.ts : Date.now()
   if (!pathname || Date.now() - ts > 15000) return
-  if (!shouldRenderCaption(captionShownAt, pathname, Date.now())) return
+  const cue = resolveVoiceRequest(pathname)
+  emitSpecialAttack(cue, pathname, ts)
+  if (!captionsEnabled) return
+  if (cue?.kind === 'ship' && isSpecialAttackVoiceSlot(cue.voiceId)) {
+    const now = Date.now()
+    for (const [path, time] of specialCaptionShownAt) {
+      if (now - time >= 3000) specialCaptionShownAt.delete(path)
+    }
+    if (specialCaptionShownAt.has(pathname)) return
+    specialCaptionShownAt.set(pathname, now)
+  } else if (!shouldRenderCaption(captionShownAt, pathname, Date.now())) return
   // 演习双方都是真实舰娘，同一音轨无法可靠区分我方/对手；按产品约定整场不显示语音文字。
   if (mg.sortie?.active && mg.sortie.practice) return
-  const cue = resolveVoiceRequest(pathname)
   if (!cue) {
     // 路径就认不出：目录名不在 shipgraph 里，或编号既非混淆值也非裸编号。
     // **这一档才是解析器的活**。
@@ -1032,8 +1160,11 @@ const flushPending = () => {
 }
 
 export const initVoiceSubtitles = (broadcaster: VoiceBroadcaster) => {
+  if (captionsEnabled && !document.querySelector('#app')?.classList.contains('distract')) {
+    // 首发特殊攻击前预热；字体失败仍由雅黑回落，不干扰字幕初始化。
+    void document.fonts.load("900 32px 'Noto Sans CJK SC Black'").catch(() => {})
+  }
   broadcaster.addListener('kancolle.voice', (event) => {
-    if (!captionsEnabled) return
     if (!ready) {
       pending = [...pending.slice(-127), event]
       void ensureData().then(flushPending)

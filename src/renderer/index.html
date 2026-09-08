@@ -8,6 +8,18 @@
   />
   <title>kuma</title>
   <style>
+    /* 清空钮在命令面板 9000、设置浮层 900 之上，仍低于欢迎屏 9500。 */
+    #input-clear {
+      position: fixed; z-index: 9001; width: 16px; height: 16px;
+      padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+      font: 14px/16px sans-serif; text-align: center;
+      color: var(--dim); background: var(--bg1);
+    }
+    #input-clear:hover { color: var(--text); }
+    /* 模块的 id 选择器与行内 padding 仍在，留白须统一盖过它们。 */
+    input.has-clear { padding-right: 22px !important; }
+    input.has-clear::-webkit-search-cancel-button { display: none; }
+
     /* ══ 设计 token（对齐图鉴设计稿口径）══ */
     :root {
       color-scheme: dark;
@@ -86,6 +98,7 @@
       --voice-dmg-mid: #ffc46b;
       --voice-dmg-heavy: #ff8585;
       --voice-dmg-sunk: #c5a3f0;
+      --voice-special: light-dark(#c58b12, #ffdb70);
       /* 应急修理发动横幅的两档绿（要員 42 / 女神 43，id 已对 api_start2 主数据核实）。
          两档必须在同屏（同一战两艘各发动一种）也一眼分得开，所以**色相与明度一起拉开**：
          要員＝沉的叶绿（L* 58），女神＝近白的水绿（L* 91）。
@@ -557,6 +570,53 @@
       from { right: 0; transform: translateX(50%); }
       to { right: 100%; transform: translateX(0); }
     }
+    #voice-cutin {
+      /* 用户实机后微调：第一版角色喊话位置。 */
+      --cutin-x: 58%; --cutin-y: 36%;
+      position: absolute; z-index: 8; inset: 0;
+      pointer-events: none; overflow: hidden; container-type: size;
+      /* 首道中心对齐画面正中，下一道相距 1.3em；上下留出同样的裁切余量。 */
+      /* 旧中贯穿双道已退役；现宿主盖满游戏画面，供两句按百分比锚定。 */
+    }
+    /* 源码页与构建页同为两层目录；发行版中从 app.asar 内的 assets 取字体。 */
+    @font-face {
+      font-family: 'Noto Sans CJK SC Black';
+      src: url('../../assets/branding/fonts/NotoSansCJKsc-Black.subset.woff2') format('woff2');
+      font-display: swap;
+      font-style: normal;
+      font-weight: 900;
+    }
+    .voice-cutin-line {
+      position: absolute; left: var(--cutin-x); top: var(--cutin-y);
+      transform: translate(-50%, -50%);
+      width: max-content; max-width: 84%; white-space: normal; overflow-wrap: anywhere; text-align: center;
+      font-family: 'Noto Sans CJK SC Black', 'Microsoft YaHei', sans-serif;
+      font-synthesis: none;
+      font-size: min(calc(var(--voice-caption-px) * 1.35), 6.5cqh); font-weight: 900; line-height: 1.2; letter-spacing: 0;
+      color: var(--voice-special);
+      text-shadow:
+        -1px -1px 1px rgba(0, 0, 0, .96),
+        1px -1px 1px rgba(0, 0, 0, .96),
+        -1px 1px 1px rgba(0, 0, 0, .96),
+        1px 1px 1px rgba(0, 0, 0, .96),
+        0 2px 5px rgba(0, 0, 0, .92),
+        0 0 12px var(--voice-special);
+      animation: voice-cutin-in 220ms ease-out forwards;
+    }
+    .voice-cutin-line.wing {
+      left: calc(var(--cutin-x) - 9%); top: calc(var(--cutin-y) + 15%);
+      font-size: min(calc(var(--voice-caption-px) * 1.1), 6.5cqh);
+    }
+    .voice-cutin-line.leaving { animation: voice-cutin-out 260ms ease-out forwards; }
+    @keyframes voice-cutin-in {
+      0% { transform: translate(-50%,-50%) scale(2.4); opacity: 0; }
+      60% { transform: translate(-50%,-50%) scale(.94); opacity: 1; }
+      100% { transform: translate(-50%,-50%) scale(1); opacity: 1; }
+    }
+    @keyframes voice-cutin-out {
+      from { transform: translate(-50%,-50%) scale(1); opacity: 1; }
+      to { transform: translate(-50%,-50%) scale(1.06); opacity: 0; }
+    }
     /* 底边留白用百分比，跟着游戏画面的高一起缩：写死像素的话，固定倍率 75% 与 200%
        两档留白差着三倍。
        留白值 2026-08-31 从 3.5% 抬到过 12%（那次一并改了字号），玩家 2026-09-01 当面
@@ -777,6 +837,80 @@
     /* 专注模式：三坞全收，只留游戏 */
     #app.focus .dock { flex-basis: 0 !important; border: none; }
     #app.focus .splitter { display: none; }
+
+    /* 分心模式：同一张游戏画面与战斗卡共享网格，优先于专注和坞折叠。 */
+    #app.distract #element-rail,
+    #app.distract #header-status,
+    #app.distract #overlay-bar,
+    #app.distract #btn-more,
+    #app.distract .dock:not([data-distract-card]),
+    #app.distract .splitter,
+    #app.distract #header-actions > :not(#btn-distract):not(#btn-distract-top):not(#btn-distract-side):not(#btn-mute) { display: none; }
+    #app.distract > header { flex-basis: 28px; height: 28px; min-height: 28px; padding: 2px 6px; gap: 4px; }
+    #app.distract > main { padding-left: 0; }
+    #app.distract #server-badge { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    #app.distract #header-actions {
+      display: flex; position: static; flex-direction: row; gap: 4px; margin-left: auto;
+      padding: 0; min-width: 0; background: none; border: 0; box-shadow: none;
+    }
+    #app.distract #header-actions button { width: auto; white-space: nowrap; padding: 2px 5px; }
+    #header-actions button[hidden] { display: none; }
+    #app.distract #workbench { display: grid; min-height: 0; }
+    #app.distract #wb-mid { display: contents; }
+    #app.distract[data-distract-side='top'] #workbench {
+      grid-template-areas: 'card' 'game';
+      grid-template-rows: auto minmax(var(--distract-game-min), 1fr);
+      grid-template-columns: minmax(0, 1fr);
+    }
+    #app.distract[data-distract-side='bottom'] #workbench {
+      grid-template-areas: 'game' 'card';
+      grid-template-rows: minmax(var(--distract-game-min), 1fr) auto;
+      grid-template-columns: minmax(0, 1fr);
+    }
+    #app.distract[data-distract-side='left'] #workbench {
+      grid-template-areas: 'card game';
+      grid-template-columns: 380px minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+    }
+    #app.distract[data-distract-side='right'] #workbench {
+      grid-template-areas: 'game card';
+      grid-template-columns: minmax(0, 1fr) 380px;
+      grid-template-rows: minmax(0, 1fr);
+    }
+    #app.distract #game-area { grid-area: game; min-width: 240px; min-height: 0; }
+    #app.distract .dock[data-distract-card] {
+      grid-area: card; flex-basis: auto !important; width: auto; height: auto;
+      flex-direction: column; border: 1px solid var(--line);
+      overflow: hidden; max-height: var(--distract-card-space);
+    }
+    #app.distract [data-distract-card] .dock-tabs,
+    #app.distract [data-distract-card] .dock-stub,
+    #app.distract [data-distract-card] .dock-group:not(:has(.mod-di)),
+    #app.distract [data-distract-card] .ws-pane:not(.mod-di) { display: none; }
+    #app.distract [data-distract-card] .dock-group:has(.mod-di) { display: flex; flex: 1 1 auto !important; }
+    #app.distract [data-distract-card] .mod-di { display: flex; flex: 1 1 auto; }
+    body.kuma-distract #overlay-host,
+    body.kuma-distract .sea-pop,
+    body.kuma-distract .mod-di .di-app > :not(.battle-col),
+    body.kuma-distract .mod-di .battle-col > .log,
+    body.kuma-distract .mod-di .map-peek { display: none; }
+    body.kuma-distract .mod-di .di-app {
+      flex: none; width: 100%; min-height: 0; flex-direction: column;
+      zoom: var(--distract-card-zoom, 1); max-height: var(--distract-card-height, none);
+      overflow-x: hidden; overflow-y: var(--distract-card-overflow, hidden);
+    }
+    body.kuma-distract .mod-di .di-app .battle-col { flex: none; overflow: visible; border: 0; }
+    /* 只收分心卡的留白，舰名、血条、徽记与判定内容仍完整保留。 */
+    body.kuma-distract .mod-di .di-app .brow { min-height: 26px; padding-block: 1px; }
+    body.kuma-distract .mod-di .brow .nm > .ship-thumb { width: 26px; height: 18px; }
+    body.kuma-distract .mod-di .di-app .trail { padding-block: 4px; }
+    body.kuma-distract .mod-di .verdict { padding-block: 4.5px; gap: 5px; }
+    body.kuma-distract .mod-di .airline { padding-block: 3px; row-gap: 4px; }
+    body.kuma-distract .mod-di .forecast-metric { padding-block: 3px; }
+    body.kuma-distract .mod-di .fside { padding-block: 3px 4px; }
+    body.kuma-distract .mod-di .fs-h { margin-bottom: 2px; }
+    body.kuma-distract .mod-di .result { flex-wrap: nowrap; padding: 3.5px 7px; gap: 3px; }
+    body.kuma-distract .mod-di .rchip { padding: 1px 4px; gap: 3px; }
 
     /* ══ 启动点亮（测试性功能，钥里默认关）══
        开着时启动瞬间整屏罩暗，随后一格一格「点火」亮起（导航条与各格一起洗牌，
@@ -1427,6 +1561,7 @@
     .fleet-skin .fleet-quests .k { flex: none; color: var(--dim); font-size: 9.5px; }
     .fleet-skin .fleet-quests .el { flex: none; max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg0); font-size: 9.5px; }
     .fleet-skin .fleet-quests .more { flex: none; color: var(--dim); font-size: 9.5px; }
+    .fleet-skin .fleet-quests .approx { flex: none; color: var(--dim); font-family: var(--mono); font-size: 9.5px; }
     /* 展开区：度量行 + 下一改装（06 稿），窄了换行不裁字段 */
     .fleet-skin .sd-stats {
       display: flex; flex-wrap: wrap; gap: 5px; padding: 5px 0 2px;
@@ -1598,6 +1733,9 @@
       color: var(--dim); font-size: 10px;
     }
     .fleet-skin .ab-area-head > b { color: #a9d7ef; font-size: 11.5px; font-weight: 600; }
+    .fleet-skin .ab-mute { padding: 1px 5px; font: inherit; color: var(--sub); background: transparent; border: 1px solid var(--line); border-radius: 3px; cursor: pointer; }
+    .fleet-skin .ab-mute:hover { color: var(--text); }
+    .fleet-skin .ab-muted-note { color: var(--sub); }
     .fleet-skin .ab-area-ap { margin-left: auto; font-family: var(--mono); color: var(--sub); }
     .fleet-skin .ab-area-ap b { color: var(--text); font-weight: 600; }
     .fleet-skin .ab-area-warn {
@@ -2812,6 +2950,60 @@
     .mod-zi .senka-cal-tag { font-size: 9.5px; color: var(--gold); margin: -2px 0 4px; cursor: help; }
     .mod-zi .senka-detail-link { margin-left: auto; font-size: 10px; color: var(--accent); cursor: pointer; }
     .mod-zi .senka-detail-link:hover { text-decoration: underline; }
+    /* 收支明细：浮层挂 body，避开模块的裁剪与 transform 包含块。 */
+    .mod-zi .zi-detail-btn, .zi-detail-host .zi-detail-btn {
+      border: 1px solid var(--line); border-radius: 6px; background: none;
+      color: var(--dim); padding: 4px 12px; font-size: 11px; cursor: pointer;
+    }
+    .mod-zi .h > .zi-detail-btn { margin-left: 8px; }
+    .mod-zi .zi-detail-btn:hover, .zi-detail-host .zi-detail-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .zi-detail-host { position: fixed; inset: 0; z-index: 1000; }
+    .zi-detail-host .zd-back { position: absolute; inset: 0; background: rgba(6, 10, 14, .58); }
+    .zi-detail-host .zd-panel {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: min(780px, 94vw); max-height: 86vh; display: flex; flex-direction: column;
+      background: var(--bg1); border: 1px solid var(--line); border-radius: 10px;
+      box-shadow: 0 14px 44px rgba(0, 0, 0, .55);
+    }
+    .zi-detail-host .zd-head {
+      flex: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px;
+      padding: 10px 14px; border-bottom: 1px solid var(--line);
+    }
+    .zi-detail-host .zd-head b { color: var(--text); font-size: 13px; }
+    .zi-detail-host .zd-status { color: var(--dim); font-size: 10.5px; }
+    .zi-detail-host .zd-x {
+      margin-left: auto; width: 24px; height: 24px; display: grid; place-items: center;
+      border: 1px solid var(--line); border-radius: 6px; background: var(--bg0);
+      color: var(--sub); cursor: pointer; font-size: 12px;
+    }
+    .zi-detail-host .zd-x:hover { color: var(--text); }
+    .zi-detail-host .zd-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; width: 100%; }
+    .zi-detail-host .zd-ranges, .zi-detail-host .zd-resources { display: flex; flex-wrap: wrap; gap: 4px; }
+    .zi-detail-host .zd-chip {
+      border: 1px solid var(--line); border-radius: 12px; background: none;
+      color: var(--sub); padding: 3px 9px; font-size: 11px; cursor: pointer;
+    }
+    .zi-detail-host .zd-chip.active { color: var(--accent); border-color: var(--accent-dim); background: var(--bg2); }
+    .zi-detail-host .zd-body { overflow-y: auto; padding: 10px 14px 14px; }
+    .zi-detail-host .zd-group { border-bottom: 1px solid var(--line); }
+    .zi-detail-host .zd-group-head {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; padding: 10px 0;
+      border: 0; background: none; color: var(--text); font-size: 11.5px; text-align: left; cursor: pointer;
+    }
+    .zi-detail-host .zd-net { display: inline-flex; flex-wrap: wrap; gap: 5px; }
+    .zi-detail-host .zd-net > span { display: inline-flex; align-items: center; gap: 3px; }
+    .zi-detail-host .zd-net .material-icon { width: 13px; height: 13px; }
+    .zi-detail-host .zd-net i { font: 10px var(--mono); font-style: normal; }
+    .zi-detail-host .up i { color: var(--ok); }
+    .zi-detail-host .dn i { color: var(--bad); }
+    .zi-detail-host .zd-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; padding: 7px 0; font-size: 11px; color: var(--sub); }
+    .zi-detail-host .zd-row time { font: 10px var(--mono); color: var(--dim); white-space: nowrap; }
+    .zi-detail-host .zd-description { overflow-wrap: anywhere; }
+    .zi-detail-host .zd-more { margin: 4px 0 10px; padding: 0; border: 0; background: none; font-size: 10.5px; color: var(--dim); cursor: pointer; }
+    .zi-detail-host .zd-more:hover { color: var(--text); }
+    .zi-detail-host .zd-note { color: var(--warn); font-size: 10.5px; margin-bottom: 8px; }
+    .zi-detail-host .zd-empty { padding: 18px; color: var(--dim); text-align: center; }
+
     /* 战果详情弹窗（挂 body 的浮层） */
     .senka-detail-host { position: fixed; inset: 0; z-index: 1000; }
     .senka-detail-host .sd-back { position: absolute; inset: 0; background: rgba(6, 10, 14, .58); }
@@ -5290,6 +5482,7 @@
     .mod-qn .annual-reset { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; padding: 5px 7px; border: 1px solid #4a3f22; border-radius: 5px; background: #2a2417; color: var(--sub); font-size: 10px; }
     .mod-qn .annual-reset b { color: var(--gold); font-family: var(--mono); }
     .mod-qn .annual-reset.unknown { border-color: var(--line-soft); background: var(--bg0); color: var(--dim); }
+    .mod-qn .q > .annual-reset { width: fit-content; margin: 0 14px 8px 12px; }
     .mod-qn .reward-advice { margin-top: 8px; padding: 7px 8px; border: 1px solid #2a4a5e; border-radius: 6px; background: #111e27; }
     .mod-qn .reward-advice .d-note { margin: 0 0 6px; }
     .mod-qn .reward-advice .d-note b { color: var(--accent-ink); }
@@ -5521,8 +5714,8 @@
     }
     .mod-qn .q-zh .dim { color: var(--dim); }
     /* 文中提醒：句子里点一下「几艘、几次、什么判定、哪张图、不许带什么」。
-       这是马克笔不是链接——没有指针、没有 hover 反馈、不跳转，
-       跟下面「相关内容」那份可点的实体清单是两回事，别越界长成一样。 */
+       09-08 用户要求实体记号可点，链接沿用既有指针和 hover 反馈；
+       涂色仍保留以示与下面「相关内容」芯片不同层。 */
     .mod-qn .qh {
       border-radius: 2px; padding: 0 2px;
       /* 中文哪里都能断行，记号被撕成两半就不像一个整体了；
@@ -5540,9 +5733,16 @@
     .mod-qn .qh-nationality { --qh-color: var(--entity-nationality); }
     /* 舰种、舰级说的是「哪一类船」，比专名弱一档：只描个底线，
        否则「以驱逐舰四艘编成驱逐队」整句都在发光，等于没有重点。 */
-    .mod-qn .qh-type {
+    .mod-qn .qh-item { --qh-color: var(--entity-item); }
+    .mod-qn .qh-shipClass { --qh-color: var(--entity-ship); }
+    .mod-qn .qh-shipType { --qh-color: var(--entity-ship); }
+    .mod-qn .qh-shipTypeGroup { --qh-color: var(--entity-ship); }
+    .mod-qn .qh-equipType { --qh-color: var(--entity-equip); }
+    .mod-qn .qh-expedition { --qh-color: var(--entity-expedition); }
+    .mod-qn .qh-shipClass, .mod-qn .qh-shipType, .mod-qn .qh-shipTypeGroup,
+    .mod-qn .qh-equipType, .mod-qn .qh-expedition {
       padding: 0; background: none; color: var(--sub);
-      border-bottom: 1px dotted color-mix(in srgb, var(--entity-ship) 50%, transparent);
+      border-bottom: 1px dotted color-mix(in srgb, var(--qh-color) 50%, transparent);
     }
     /* 列表行是 10.5px 的单行摘要，底纹在那个密度下会糊成一条彩带，只留字色 */
     .mod-qn .q-nm .plain .qh { padding: 0; background: none; }
@@ -6836,6 +7036,7 @@
     .mod-yu .ybtn { display: inline-block; font-size: 11.5px; padding: 4px 14px; border-radius: 6px; cursor: pointer; background: var(--bg2); color: var(--sub); border: 1px solid var(--line); }
     .mod-yu .ybtn.warn { color: #ffb3bd; border-color: #5c2c38; }
     .mod-yu .ybtn.warn:hover { background: #33121b; }
+    .mod-yu .ybtn:disabled { opacity: .55; cursor: wait; }
     .mod-yu .ytable { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 11px; }
     .mod-yu .ytable td { padding: 3.5px 8px 3.5px 0; border-bottom: 1px solid var(--line-soft); vertical-align: top; overflow-wrap: anywhere; }
     .mod-yu .ytable td:nth-child(1), .mod-yu .ytable td:nth-child(2) { width: 24%; }
@@ -7624,6 +7825,9 @@
       <span id="overlay-bar"></span>
       <button id="btn-more" class="hdr-menu" title="更多操作">≡</button>
       <span id="header-actions" class="hdr-actions">
+        <button id="btn-distract" title="分心模式：游戏缩成小窗，战斗卡贴在一侧（F10）">分心</button>
+        <button id="btn-distract-top" hidden>置顶</button>
+        <button id="btn-distract-side" hidden>侧：下</button>
         <button id="btn-focus" title="专注模式：收起三坞只留游戏（F9）">专注</button>
         <button id="btn-capture" title="保存游戏画面截图（Ctrl + Alt + S）">截图</button>
         <button id="btn-reload" title="刷新游戏页面（F5）">刷新</button>
@@ -7643,6 +7847,7 @@
           <div id="game-area">
             <div id="game-wrapper">
               <div id="voice-danmaku" aria-live="polite" aria-atomic="false"></div>
+              <div id="voice-cutin" aria-live="polite" aria-atomic="false"></div>
               <div id="voice-subtitle" aria-live="polite" aria-atomic="true">
                 <span class="voice-subtitle-speaker"></span><span aria-hidden="true">：</span><span class="voice-subtitle-line"></span>
               </div>

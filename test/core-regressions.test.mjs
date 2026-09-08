@@ -2528,8 +2528,8 @@ test('基地航空队状态改亮页签，编队横幅只留札，开图铃仍�
   // 09-05 取代 08-11 的横幅挂牌：编队横幅只剩札，陆航问题改亮自己的页签。
   assert.match(fleet, /const flags = sally \? `<span class="vflags">\$\{sally\}<\/span>` : ''/)
   assert.doesNotMatch(fleet, /airBaseFlagHtml|data-air-base-jump/, '横幅里的陆航挂牌与点击处理都应删除')
-  assert.match(fleet, /const glow = airBaseTabGlow\(bases\)/)
-  assert.match(fleet, /const readiness = airBaseReadiness\(\)/)
+  assert.match(fleet, /const glow = airBaseTabGlow\(bases, \{ mutedAreas \}\)/)
+  assert.match(fleet, /const readiness = airBaseReadiness\(undefined, unmutedAirBaseSquads\(bases, mutedAreas\)\)/)
   assert.match(fleet, /glow \? ` glow-\$\{glow\}` : ''/)
   assert.match(fleet, /<span class="d air"><\/span>/, '陆航页签的小圆点应固定使用 air 色')
   assert.match(fleet, /基地航空队未就绪：\$\{issues\.join\(' · '\)\}/)
@@ -2542,7 +2542,7 @@ test('基地航空队状态改亮页签，编队横幅只留札，开图铃仍�
   assert.match(glowRule, /普通未就绪只影响真会投入战斗的出击\/防空中队/)
 
   // readiness 按区取数，供开图铃只报玩家刚摊开的那个海区。
-  assert.match(fleet, /const airBaseReadiness = \(areaId\?: number\)/)
+  assert.match(fleet, /const airBaseReadiness = \(areaId\?: number, squads = trackedAirBases\(\)\)/)
   assert.match(fleet, /areaId == null \|\| squad\.areaId === areaId/)
   assert.match(fleet, /airBaseReadiness\(areaId\)/)
   // 开图警告同样拆开:札看活动区、陆航看该区驻队,都不成立才闭嘴
@@ -3488,7 +3488,8 @@ test('nationality is one shared exact dimension across quests and catalog', () =
   assert.match(fleetRules, /nationalityShips: \(natIds: number\[\]\) => number\[\]/)
   assert.doesNotMatch(fleetRules, /国籍：未实现/)
   // 正文里的国籍仍然是可点链接，只是外面多套了一层文中提醒的记号
-  assert.match(quests, /elinkHtml\('shipNationality', mark\.ref/)
+  // 链接包裹已抽成纯函数，国籍域的实际输出另由 quest-entity-audit 行为用例覆盖。
+  assert.match(quests, /renderQuestMarkHtml\(mark, inner, elinkHtml\)/)
   assert.match(catalog, /registerEntityRoute\('shipNationality'/)
   assert.match(catalog, /shipState\.nationalityFilter/)
   assert.doesNotMatch(catalog, /暂未加入国籍条件/)
@@ -3576,10 +3577,13 @@ test('ship catalog groups sister ships and task links expose complete owned-awar
   assert.match(catalog, /registerEntityRoute\('equipTypeCatalog'/)
   assert.match(catalog, /registerEntityRoute\('equipTypeGroup'/)
   assert.match(catalog, /const unlocked = !unlockStateKnown \|\| info\.api_id in mg\.mapGauges \|\| !!period\?\.ended/)
-  assert.match(quest, /aliases: string\[\]/)
+  // 数据 → 索引已与离线审计共用；守卫跟随共享实现，保留原来的别名覆盖意图。
+  const questIndex = fs.readFileSync(new URL('../src/renderer/task-entity-index.ts', import.meta.url), 'utf8')
+  assert.match(quest, /buildTaskEntityIndexes\(/)
+  assert.match(questIndex, /aliases: string\[\]/)
   assert.match(quest, /allowQuotedSingle/)
-  assert.match(quest, /SHIP_TYPE_ALIASES/)
-  assert.match(quest, /EQUIP_TYPE_ALIASES/)
+  assert.match(questIndex, /SHIP_TYPE_ALIASES/)
+  assert.match(questIndex, /EQUIP_TYPE_ALIASES/)
   assert.match(quest, /allowTaskShipAlias/)
   assert.match(quest, /allowTaskShipTypeAlias/)
   assert.match(quest, /allowTaskEquipTypeAlias/)
@@ -7133,7 +7137,13 @@ test('任务与远征：再次点击同一行回到列表', () => {
 // 直接调函数验行为。
 test('「其他」这个 chip 真的在筛，而不是形同虚设', async () => {
   const { shipChipMatches, SHIP_CHIPS, isOtherShipType } = await import('../src/renderer/ship-category.ts')
-  const { equipChipMatches, EQUIP_CHIPS } = await import('../src/renderer/equip-category.ts')
+  // 主炮常量已提到共享层；打包真实模块，避开 Node 类型剥离的扩展名限制。
+  const { buildSync } = await import('esbuild')
+  const { fileURLToPath } = await import('node:url')
+  const compiled = buildSync({ entryPoints: [fileURLToPath(new URL('../src/renderer/equip-category.ts', import.meta.url))], bundle: true, platform: 'node', format: 'cjs', write: false })
+  const categoryModule = { exports: {} }
+  new Function('module', 'exports', compiled.outputFiles[0].text)(categoryModule, categoryModule.exports)
+  const { equipChipMatches, EQUIP_CHIPS } = categoryModule.exports
 
   // 曾经的写法拿 `名单.length` 当前置条件，而「其他」的名单**必然是空的**
   // （它的定义就是「不属于任何具名分组」），整条分支被跳过 →
@@ -7490,7 +7500,7 @@ test('矿脉目录走白名单：许可箱之外的包一个都不许进产物',
   }
 })
 
-test('随包的每个矿脉包都得在 NOTICE.md 里署上名', async () => {
+test('随包的每个矿脉包与特殊攻击字体都得在 NOTICE.md 里署上名', async () => {
   // MIT 要求「包含在所有副本中」，CC BY-NC-SA 的 4(a) 要求署名——两条都靠 NOTICE 这一份分发物履行。
   // 加了包忘了署名是最容易发生的一种失误，而它不会以任何方式报错，只会在发布之后才被人发现。
   // 署名集中在 NOTICE + 钥里那一页，不散布到每条信息下面（2026-08-21 用户拍板的 CC 执行铁律之一）。
@@ -7502,6 +7512,17 @@ test('随包的每个矿脉包都得在 NOTICE.md 里署上名', async () => {
       `${id} 随发行版分发却没在 NOTICE.md 里署名`,
     )
   }
+  for (const name of ['NotoSansCJKsc-Black.subset.woff2', 'LICENSE-NotoSansCJK.txt']) {
+    const relative = `assets/branding/fonts/${name}`
+    assert.ok(fs.existsSync(new URL(`../${relative}`, import.meta.url)), `${name} 必须随包`)
+    assert.ok(notice.includes(relative), `${name} 缺少 NOTICE 署名`)
+  }
+  assert.match(notice, /思源黑体（Noto Sans CJK SC Black）/)
+  assert.match(notice, /The Noto Project Authors/)
+  assert.match(notice, /SIL Open Font License 1\.1/)
+  assert.match(notice, /https:\/\/github\.com\/notofonts\/noto-cjk/)
+  assert.match(notice, /特殊攻击字幕字体/)
+  assert.match(notice, /随包为子集版，只保留汉字、假名、拉丁与标点区/)
   // CC 那一节的三项条件必须写全（只写「来自 kcwiki」不够）
   assert.match(notice, /creativecommons\.org\/licenses\/by-nc-sa\/3\.0/)
   assert.match(notice, /非商业性使用/)
@@ -9102,8 +9123,11 @@ test('「有没有这艘舰」全域一个口径：改造表盖不全，改造�
   // 切成两个分组，于是「持有改造后形态」被判成没有本体——
   // 任务的涉及舰娘灰着，而图鉴同时显示持有 ×1。
   // 用真实主数据核过：627 个分组里有 211 个会这样误判（睦月/大井/北上都在内）。
-  assert.match(quests, /for \(const ship of friendly\) \{\s*\n\s*const after = Number\(ship\.api_aftershipid\)/)
-  assert.match(quests, /改造表\*\*盖不全\*\*/)
+  // 索引抽取后追随共享构建器；aftershipid 兜底的行为判据仍保留。
+  const index = fs.readFileSync(new URL('../src/renderer/task-entity-index.ts', import.meta.url), 'utf8')
+  assert.match(quests, /buildTaskEntityIndexes\(/)
+  assert.match(index, /for \(const ship of friendly\) \{\s*\n\s*const after = Number\(ship\.api_aftershipid\)/)
+  assert.match(index, /改造表\*\*盖不全\*\*/)
 
   // 判定本身与图鉴共用一份：自己比 members 就是第二套口径，迟早再分叉
   assert.match(quests, /entry\.members\.some\(\(id\) => isShipFamilyOwned\(id\)\)/)
@@ -11046,7 +11070,7 @@ test('任务奖励关联不兴字节命中:更长实体名自动挖掉再判(秋
   // 「相关内容」的涉及舰娘是另一条路径,同病灶第二回(2026-08-13 用户实锤:
   // F46 正文「紫电改二」让涉及舰娘冒出「电」)——装备命中先算,舰娘不得进其地盘
   assert.match(quests, /!equipHits\.some\(\(equipHit\) => rangesOverlap\(candidate, equipHit\)\)/)
-  const equipHitsAt = quests.indexOf('const equipHits = matchTaskEntityHits(equipNameIndex, text, 3)')
+  const equipHitsAt = quests.indexOf('const equipHits = matchTaskEntityHits(equipNameIndex, text, 3, { allowQuotedSingle: true })')
   const shipsAt = quests.indexOf('const ships = matchTaskEntityHits(shipNameIndex, text, 2,')
   assert.ok(equipHitsAt >= 0 && shipsAt >= 0 && equipHitsAt < shipsAt, '装备命中必须先于舰娘匹配算出')
 })
@@ -11233,8 +11257,13 @@ test('编成门标签语:词取 group.label,形态只补旗舰/位次/等级/数
   }).outputFiles[0].text
   const fleetItems = new Function(
     'esc',
+    'elinkHtml',
     `${js.replace(/^"use strict";?/, '')}\nreturn qpFleetNeedItems`,
-  )((s) => `${s ?? ''}`.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`))
+  )(
+    (s) => `${s ?? ''}`.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`),
+    // 此用例仍核对标签文字与修饰；链接目标另由任务舰种渲染用例检查。
+    (_type, _id, html) => html,
+  )
 
   // 数量 1 不标 ×1;>1 才标。旗舰是前缀,不是另起一项
   assert.deepEqual(
@@ -12173,7 +12202,8 @@ test('手机推送：默认全关、目标可选（ntfy 默认 / Bark 次选）�
   const pushColumn = [...rulesBlock.matchAll(/^\s*(\w+): \{[^}]*push: (true|false)/gm)].map(
     ([, id, value]) => [id, value === 'true'],
   )
-  assert.equal(pushColumn.length, 13, '有事件没写 push 这一列')
+  // 换号提醒也登记独立路由，默认不推手机。
+  assert.equal(pushColumn.length, 14, '有事件没写 push 这一列')
   assert.deepEqual(
     pushColumn.filter(([, on]) => on).map(([id]) => id).sort(),
     ['build', 'dock', 'expedition', 'pracRefresh'],

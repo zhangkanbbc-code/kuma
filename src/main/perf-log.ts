@@ -20,6 +20,8 @@ import type { BrowserWindow } from 'electron'
 import { createRollingLog } from './crash-log'
 import { APPDATA_PATH } from './env'
 import { readEnv } from '../shared/env-names'
+import { createMemoryTrail } from '../shared/crash-context'
+import type { MemorySample } from '../shared/crash-context'
 import { reportMainTiming, setMainTimingSink } from './perf-time'
 
 const log = createRollingLog(path.join(APPDATA_PATH, 'perf.log'), {
@@ -36,6 +38,12 @@ export const redactPerfDetail = (detail: string): string =>
 
 const PING_EVERY_MS = 10_000
 const HANG_AFTER_MS = 25_000
+// 每轮 ping 的两次报数按采样时间合并，12 格覆盖约两分钟。
+const memoryTrail = createMemoryTrail(12)
+export const recentMemoryTrail = () => memoryTrail.list()
+let lastBreadcrumb = '(尚无分发记录)'
+let breadcrumbTs = 0
+export const lastBreadcrumbInfo = () => ({ lastBreadcrumb, breadcrumbTs })
 
 export const installPerfLogging = (windowOf: () => BrowserWindow | null) => {
   setMainTimingSink(({ scope, ms, detail }) => {
@@ -68,13 +76,22 @@ export const installPerfLogging = (windowOf: () => BrowserWindow | null) => {
   })
 
   // 面包屑：每个监听器开跑前报到。只留在内存里，挂死时才落盘。
-  let lastBreadcrumb = '(尚无分发记录)'
-  let breadcrumbTs = 0
   ipcMain.on('kuma:perf-breadcrumb', (_event, site: unknown) => {
     if (typeof site === 'string' && site) {
       lastBreadcrumb = site
       breadcrumbTs = Date.now()
     }
+  })
+
+  ipcMain.on('kuma:perf-memory', (_event, raw: unknown, sampleTs: unknown) => {
+    if (!raw || typeof raw !== 'object' || typeof sampleTs !== 'number' || !Number.isFinite(sampleTs)) return
+    const fields = raw as Partial<MemorySample>
+    const sample: MemorySample = { ts: sampleTs }
+    for (const key of ['jsHeapUsed', 'jsHeapTotal', 'residentSet', 'private'] as const) {
+      const value = fields[key]
+      if (typeof value === 'number' && Number.isFinite(value) && value >= 0) sample[key] = value
+    }
+    if (Object.keys(sample).length > 1) memoryTrail.push(sample)
   })
 
   // 看门狗：ping 由主进程发起，渲染层收到即回。不用渲染层自开定时器——

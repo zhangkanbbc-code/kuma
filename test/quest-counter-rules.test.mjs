@@ -208,6 +208,68 @@ globalThis.__qpStore = {
 }
 const engine = require(engineOutput)
 
+test('当日演习跨 05:00 清计数和旧粗档，受领刷新后从一重计；任务周期不变', () => {
+  const oldLodes = globalThis.__qpLodes
+  const oldStore = globalThis.__qpStore
+  const oldNow = Date.now
+  let now = Date.parse('2026-09-07T19:59:59.999Z')
+  const samples = [
+    { id: 9901, code: 'C9901', daily: true, desc: '演习胜利六次', type: 0, sameDay: true },
+    { id: 9902, code: 'Cq1', daily: true, desc: '演习胜利六次', type: 5, sameDay: true },
+    { id: 9903, code: 'C9903', desc: '演习胜利六次', type: 0, sameDay: false },
+    { id: 9904, code: 'C9904', desc: '当日演习胜利六次', type: 0, sameDay: true },
+    { id: 9905, code: 'B9905', memo2: '奖励说明：本日奖励', desc: '演习胜利六次', type: 0, sameDay: false },
+    { id: 9906, code: 'Cm1', desc: '同一天演习胜利六次', type: 3, sameDay: true },
+    { id: 9907, code: 'Cw1', desc: '本日演习胜利六次', type: 2, sameDay: true },
+    { id: 9908, code: 'WC01', daily: true, desc: '演习胜利六次', type: 0, sameDay: true },
+  ]
+  const player = {
+    ...oldStore.player,
+    questActiveTs: now, questsTs: now,
+    questActiveIds: samples.map(({ id }) => id),
+    quests: Object.fromEntries(samples.map(({ id, type }) => [id, { no: id, state: 2, type, progressFlag: 1 }])),
+  }
+  globalThis.__qpStore = { ...oldStore, player }
+  globalThis.__qpLodes = {
+    ...oldLodes,
+    'quests-scn': { data: Object.fromEntries(samples.map(({ id, code, desc, memo2 }) => [id, { code, desc, memo2 }])) },
+    'kcwiki-quest-req': { data: Object.fromEntries(samples.map(({ id, daily }) => [id, { category: 'excercise', times: 6, daily }])) },
+    'poi-quest-goal': { data: {} },
+  }
+  const state = () => globalThis.__qpHandlers['qp:get']()
+  const advance = () => engine.onQuestApi('/kcsapi/api_req_practice/battle_result', { api_win_rank: 'S' }, {})
+  try {
+    Date.now = () => now
+    engine.initQuestCounter()
+    for (const { id, sameDay } of samples) assert.equal(state().trackers[id].sameDay, sameDay, String(id))
+    for (let i = 0; i < 3; i++) advance()
+    for (const { id } of samples) assert.deepEqual(state().progress[id], [3], String(id))
+    now++ // 05:00:00 JST，旧受领与旧服务器粗档仍停在前一天。
+    const crossed = state()
+    for (const { id, sameDay } of samples) {
+      assert.deepEqual(crossed.progress[id], sameDay ? undefined : [3], String(id))
+      assert.equal(Boolean(crossed.serverFloors[id]), !sameDay, String(id))
+      assert.equal(crossed.trackers[id].blocked, sameDay ? 'periodStale' : null, String(id))
+    }
+    advance()
+    assert.equal(state().progress[9901], undefined, '旧受领不能把清零计数重新加起来')
+    player.questActiveTs = now
+    player.questsTs = now
+    for (const quest of Object.values(player.quests)) quest.progressFlag = 0
+    advance()
+    for (const { id, sameDay, type } of samples) {
+      assert.deepEqual(state().progress[id], [sameDay ? 1 : 5], String(id))
+      assert.equal(player.quests[id].type, type, '任务自身的游戏周期不得被改写')
+    }
+  } finally {
+    for (const { id } of samples) delete state().progress[id]
+    Date.now = oldNow
+    globalThis.__qpLodes = oldLodes
+    globalThis.__qpStore = oldStore
+    engine.initQuestCounter()
+  }
+})
+
 test.after(() => {
   delete globalThis.__qpHandlers
   delete globalThis.__qpLodes
@@ -407,6 +469,260 @@ test('expedition counting must not read deck.mission after reduction zeroed it',
     { api_deck_id: '2' },
   )
   assert.equal(globalThis.__qpHandlers['qp:get']().progress[410]?.[0] ?? 0, before)
+})
+
+test('2606Cm1 人工规则接住更新后八艘改造链，凑五艘且本日 A 胜三次', () => {
+  const oldStore = globalThis.__qpStore
+  const oldLodes = globalThis.__qpLodes
+  const chains = [
+    ['花月', '花月改'], ['桐', '桐改'], ['竹', '竹改'], ['樫', '樫改'],
+    ['榧', '榧改'], ['杉', '杉改'], ['潮', '潮改', '潮改二'], ['響', '響改', 'Верный'],
+  ]
+  const outsiders = ['涼月改', 'Johnston改', 'Samuel B.Roberts Mk.II', '霞改二', '時雨改三', '雪風改二']
+  const names = [...chains.flat(), ...outsiders]
+  const idOf = (name) => names.indexOf(name) + 1
+  const ships = names.map((api_name, index) => {
+    const chain = chains.find((entry) => entry.includes(api_name)) ?? [api_name]
+    const next = chain[chain.indexOf(api_name) + 1]
+    return {
+      api_id: index + 1, api_name, api_sortno: index + 1, api_sort_id: index + 1,
+      api_stype: 2, api_soku: 10, api_aftershipid: String(next ? idOf(next) : 0),
+    }
+  })
+  const screenshotFleet = ['涼月改', 'Johnston改', 'Samuel B.Roberts Mk.II', 'Верный', '霞改二', '時雨改三', '雪風改二']
+  const eligibleFleet = ['花月改', '桐改', '竹改', '樫改', '榧改', '杉改']
+  const player = {
+    ...oldStore.player,
+    quests: { 382: { no: 382, state: 2, type: 3, category: 3, progressFlag: 0 } },
+    ships: Object.fromEntries(ships.map((ship) => [ship.api_id, { shipId: ship.api_id, lv: 99 }])),
+    decks: [
+      { id: 3, ships: screenshotFleet.map(idOf) },
+      { id: 2, ships: eligibleFleet.map(idOf) },
+    ],
+  }
+  globalThis.__qpStore = { ...oldStore, player }
+  globalThis.__qpLodes = {
+    ...oldLodes,
+    'quests-scn': { data: {
+      ...oldLodes['quests-scn'].data,
+      382: questLode[382] ?? { code: '2606Cm1', desc: '于本日内在演习中达成【A判定】胜利3次以上！' },
+    } },
+  }
+  try {
+    engine.initQuestCounter({ api_mst_ship: ships, api_mst_shipupgrade: [] })
+    const tracker = globalThis.__qpHandlers['qp:get']().trackers[382]
+    assert.equal(tracker.source, 'kuma')
+    assert.equal(tracker.approx, false)
+    assert.equal(tracker.sameDay, true)
+    assert.deepEqual(tracker.tasks, [{ kind: 'exercise', rank: 5, count: 3 }])
+    assert.equal(tracker.fleetGoal.fleetId, undefined)
+    assert.equal(tracker.fleetGoal.groups.length, 1)
+    assert.equal(tracker.fleetGoal.groups[0].amount, 5)
+    assert.deepEqual(new Set(tracker.fleetGoal.groups[0].ships), new Set(chains.flat().map(idOf)))
+    const check = globalThis.__qpHandlers['qp:check-fleet']()[382]
+    assert.equal(check.approx, false)
+    assert.deepEqual(check.decks, [2], '演习不限制舰队号')
+    assert.equal(check.diffs[0].ok, false)
+    assert.equal(check.diffs[0].lines[0].current, 1)
+    assert.equal(check.diffs[0].lines[0].required, 5)
+    assert.match(check.diffs[0].lines[0].issue, /还差 4 艘/)
+    assert.equal(check.diffs[1].ok, true)
+  } finally {
+    globalThis.__qpStore = oldStore
+    globalThis.__qpLodes = oldLodes
+    engine.initQuestCounter()
+  }
+})
+
+// 2026-09-08 真实 api_start2 裁剪夹具，计数轴来自修前离线引擎输出。
+const gateFixture = JSON.parse(fs.readFileSync(new URL('./fixtures/quest-fleet-gate-master.json', import.meta.url), 'utf8'))
+const gateCases = [
+  {
+    id: 352, code: 'C57', amounts: [1, 4],
+    fleets: [
+      [false, ['矢矧改二', '早霜', '秋霜', '朝霜']],
+      [true, ['矢矧改二', '早霜', '秋霜', '朝霜', '清霜']],
+      [true, ['矢矧改二乙', '早霜', '秋霜', '朝霜', '清霜']],
+      [false, ['矢矧改', '早霜', '秋霜', '朝霜', '清霜']],
+      [false, ['早霜', '矢矧改二', '秋霜', '朝霜', '清霜']],
+    ],
+  },
+  {
+    id: 1001, code: 'B194', amounts: [1, 2],
+    fleets: [
+      [false, ['清霜改二', '霞']],
+      [true, ['霞', '清霜改二', '朝霜']], // 清霜不限旗舰；未注明形态者接受素名。
+      [true, ['大淀改', '足柄改二', '清霜改二丁']],
+      [false, ['清霜改', '霞', '朝霜']],
+      [false, ['霞', '朝霜', '大淀']],
+    ],
+  },
+  {
+    id: 1017, code: 'B204', amounts: [3],
+    fleets: [
+      [false, ['早霜', '秋霜']],
+      [true, ['早霜', '秋霜', '朝霜']],
+      [true, ['清霜改二丁', '早霜改二', '朝霜改二']],
+      [false, ['夕雲', '早霜', '秋霜', '朝霜']], // 同夕云型也不能替代四舰之一作旗舰。
+      [false, ['早霜', '秋霜', '夕雲']],
+    ],
+  },
+  {
+    id: 1160, code: 'F138', amounts: [1, 3],
+    fleets: [
+      [false, ['飛龍改二', '玉波改二', '涼波改二']],
+      [true, ['飛龍改二', '玉波改二', '涼波改二', '風雲改二']],
+      [true, ['飛龍改三', '藤波改二', '早波改二', '浜波改二']],
+      [false, ['飛龍改二', '玉波改', '涼波改二', '風雲改二']],
+      [false, ['飛龍改', '玉波改二', '涼波改二', '風雲改二']],
+      [false, ['玉波改二', '飛龍改二', '涼波改二', '風雲改二']],
+      [false, ['飛龍改二', '玉波改二', '涼波改二', '風雲改二'], 2],
+    ],
+  },
+  {
+    id: 1012, code: 'By14', amounts: [1, 1],
+    fleets: [
+      [false, ['鵜来']], // 旗舰不能兼占僚舰名额。
+      [true, ['鵜来', '占守']],
+      [true, ['稲木改', '鵜来改', '占守', '占守改']],
+      [false, ['鵜来', '鵜来改', '稲木', '稲木改', '占守']],
+      [false, ['鵜来', '占守', '霞']],
+      [false, ['占守', '鵜来']],
+    ],
+  },
+]
+for (const sample of gateCases) {
+  test(`${sample.code} 真实主数据：不合规编成拒绝、合规编成通过，tasks 与修前逐项一致`, () => {
+    const oldStore = globalThis.__qpStore
+    const oldLodes = globalThis.__qpLodes
+    const idOf = (name) => {
+      const ship = gateFixture.master.api_mst_ship.find((entry) => entry.api_name === name)
+      assert.ok(ship, `真实主数据夹具缺少 ${name}`)
+      return ship.api_id
+    }
+    const player = {
+      ...oldStore.player,
+      quests: { [sample.id]: { no: sample.id, state: 2, type: 1, progressFlag: 0 } },
+      questActiveIds: [sample.id], questActiveTs: Date.now(), questsTs: Date.now(),
+      ships: Object.fromEntries(gateFixture.master.api_mst_ship.map((ship) => [ship.api_id, { shipId: ship.api_id, lv: 99 }])),
+      decks: [],
+    }
+    globalThis.__qpStore = { ...oldStore, player }
+    globalThis.__qpLodes = {
+      ...oldLodes,
+      'quests-scn': { data: { ...oldLodes['quests-scn'].data, [sample.id]: gateFixture.quests[sample.id] } },
+    }
+    try {
+      engine.initQuestCounter(gateFixture.master)
+      const tracker = globalThis.__qpHandlers['qp:get']().trackers[sample.id]
+      assert.equal(tracker.source, 'kuma')
+      assert.equal(tracker.approx, false)
+      assert.deepEqual(tracker.tasks, gateFixture.before[sample.id].tasks)
+      assert.deepEqual(tracker.stateGoal, gateFixture.before[sample.id].stateGoal)
+      assert.deepEqual(tracker.stockGoals, gateFixture.before[sample.id].stockGoals)
+      assert.deepEqual(tracker.fleetGoal.groups.map((group) => group.amount), sample.amounts)
+      for (const [ok, names, deckId = 1] of sample.fleets) {
+        player.decks = [{ id: deckId, ships: names.map(idOf) }]
+        const check = globalThis.__qpHandlers['qp:check-fleet']()[sample.id]
+        assert.ok(check, sample.code)
+        assert.deepEqual(check.decks, ok ? [deckId] : [], `${sample.code}: ${names.join('/')}，第${deckId}舰队`)
+        assert.equal(check.diffs[0].ok, ok)
+      }
+    } finally {
+      globalThis.__qpStore = oldStore
+      globalThis.__qpLodes = oldLodes
+      engine.initQuestCounter()
+    }
+  })
+}
+
+test('fleet checks carry each tracker approximation flag', () => {
+  const { trackers } = globalThis.__qpHandlers['qp:get']()
+  const player = globalThis.__qpStore.player
+  const oldQuests = player.quests
+  // 默认遂行中的任务全是精确判定；把夹具里的全部追踪器临时设为遂行中，覆盖真假两支。
+  player.quests = Object.fromEntries(Object.keys(trackers).map((id) => [id, { ...oldQuests[id], state: 2 }]))
+  try {
+    const check = globalThis.__qpHandlers['qp:check-fleet']()
+    assert.ok(Object.values(check).some((entry) => entry.approx === true))
+    assert.ok(Object.values(check).some((entry) => entry.approx === false))
+    for (const [id, entry] of Object.entries(check)) {
+      assert.equal(entry.approx, trackers[id].approx, id)
+    }
+  } finally {
+    player.quests = oldQuests
+  }
+})
+
+test('出击编成检查跳过联合与七舰队，编成及演习任务仍检查四队', () => {
+  const oldStore = globalThis.__qpStore
+  const oldLodes = globalThis.__qpLodes
+  const groups = [{ ship: '鳳翔', flagship: true }]
+  const sortie = { category: 'sortie', times: 1, groups }
+  const requirements = {
+    9950: sortie,
+    9951: { category: 'fleet', groups },
+    9952: { category: 'or', list: [sortie] }, // task.fleetGoal 分支
+    9953: { category: 'excercise', times: 1, groups },
+    9954: { category: 'sortie', times: 1 }, // 无编成门分支
+    9955: { ...sortie, map: '1-6', result: 'クリア' },
+    9956: { ...sortie, map: '1-1', result: 'クリア' },
+    9957: { category: 'fleet', groups, fleetid: 3 }, // A82 的第三舰队限定反例
+  }
+  const player = {
+    ...oldStore.player,
+    combinedFlag: 0,
+    quests: Object.fromEntries(Object.keys(requirements).map((id) => [id, { no: Number(id), state: 2, type: 1, progressFlag: 0 }])),
+    decks: [1, 2, 3, 4].map((id) => ({ id, ships: id === 1 ? [1000, 1001, 1002] : [1001] })),
+  }
+  globalThis.__qpStore = { ...oldStore, player }
+  globalThis.__qpLodes = {
+    ...oldLodes,
+    'kcwiki-quest-req': { data: requirements },
+    'poi-quest-goal': { data: {} },
+    'quests-scn': { data: Object.fromEntries(Object.keys(requirements).map((id) => [id, {
+      code: `${[9951, 9957].includes(Number(id)) ? 'A' : 'B'}${id}`, name: '编成检查夹具', desc: '', memo: '', memo2: '', pre: [],
+    }])) },
+  }
+  const checks = () => globalThis.__qpHandlers['qp:check-fleet']()
+  try {
+    engine.initQuestCounter()
+    const trackers = globalThis.__qpHandlers['qp:get']().trackers
+    assert.equal(trackers[9950].tasks[0].kind, 'battleWin')
+    assert.ok(trackers[9952].tasks[0].fleetGoal)
+    assert.equal(trackers[9955].tasks[0].kind, 'mapGoal')
+    assert.equal(trackers[9956].tasks[0].kind, 'mapFirstClear')
+    assert.deepEqual(checks()[9950].decks, [1])
+    player.combinedFlag = 1
+    for (const id of [9950, 9952, 9955, 9956]) {
+      assert.deepEqual(checks()[id].decks, [], String(id))
+      assert.ok(!(checks()[id].diffs ?? []).some((diff) => [1, 2].includes(diff.deckId)))
+      assert.deepEqual(checks()[id].excludedDecks, [
+        { deckId: 1, reason: 'combined' }, { deckId: 2, reason: 'combined' },
+      ])
+    }
+    assert.deepEqual(checks()[9954].decks, [3, 4])
+    for (const id of [9951, 9953]) {
+      assert.deepEqual(checks()[id].decks, [1])
+      assert.deepEqual(checks()[id].diffs.map((diff) => diff.deckId), [1, 2, 3, 4])
+      assert.equal(checks()[id].excludedDecks, undefined)
+    }
+    player.decks[2].ships = [1000, 1001, 1002, 1003, 1004, 2000, 2001, -1, 0]
+    for (const flag of [0, 1]) {
+      player.combinedFlag = flag
+      for (const id of [9950, 9952, 9954, 9955, 9956]) {
+        assert.ok(!checks()[id].decks.includes(3))
+        assert.ok(!(checks()[id].diffs ?? []).some((diff) => diff.deckId === 3))
+        assert.ok(checks()[id].excludedDecks.some((deck) => deck.deckId === 3 && deck.reason === 'guerrilla'))
+      }
+      assert.deepEqual(checks()[9957].decks, [3])
+      assert.equal(checks()[9957].excludedDecks, undefined)
+    }
+  } finally {
+    globalThis.__qpStore = oldStore
+    globalThis.__qpLodes = oldLodes
+    engine.initQuestCounter()
+  }
 })
 
 test('fleet checks expose a readable difference for every deck', () => {

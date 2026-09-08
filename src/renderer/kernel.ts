@@ -14,6 +14,7 @@ import type {
   MapGauge,
   MarriageCue,
   MaterialRow,
+  MaterialDeltaRowsResult,
   MgMaster,
   MgPatch,
   MgPlayer,
@@ -266,6 +267,8 @@ export const onMgChange = (cb: PatchListener) => {
   listenerSites.set(cb, captureListenerSite())
   patchListeners.push(cb)
   trackForMountScope(() => removeFrom(patchListeners, cb))
+  // 可选效果关掉时立即退订；既有模块仍由装配作用域统一收场。
+  return () => removeFrom(patchListeners, cb)
 }
 
 export const onTick = (cb: TickListener) => {
@@ -673,6 +676,9 @@ export const queryUseitemSummary = (
 
 export const queryDeltaSummary = (sinceTs: number): Promise<CategorySummary[]> =>
   ipcRenderer.invoke('mg:material-deltas', sinceTs)
+
+export const queryDeltaRows = (sinceTs: number, untilTs?: number): Promise<MaterialDeltaRowsResult> =>
+  ipcRenderer.invoke('mg:material-delta-rows', sinceTs, untilTs)
 
 // 本机氪金记录（史模块）：查询永久表 / 手动补记 / 删除补记行（自动行不可删）
 export const queryPayLog = (): Promise<import('../shared/pay-log').PayLogRow[]> =>

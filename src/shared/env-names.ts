@@ -10,6 +10,8 @@ export const ENV_ALIASES = {
   KUMA_PERF_SLOW_MS: 'KANSO_PERF_SLOW_MS',
   KUMA_PERF_PART_MS: 'KANSO_PERF_PART_MS',
   KUMA_PERF_LONGTASK_MS: 'KANSO_PERF_LONGTASK_MS',
+  // 新增的本地诊断开关，没有旧产品名别名。
+  KUMA_CRASH_DUMPS: undefined,
 } as const
 
 export type RuntimeEnvName = keyof typeof ENV_ALIASES
@@ -18,4 +20,7 @@ export type RuntimeEnvName = keyof typeof ENV_ALIASES
 export const readEnv = (
   name: RuntimeEnvName,
   env: Readonly<Record<string, string | undefined>> = process.env,
-): string | undefined => env[name] ?? env[ENV_ALIASES[name]]
+): string | undefined => {
+  const legacy = ENV_ALIASES[name]
+  return env[name] ?? (legacy ? env[legacy] : undefined)
+}

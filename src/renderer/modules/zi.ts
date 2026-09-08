@@ -41,6 +41,7 @@ import { focusExpeditionsForResource } from './bi'
 import { demandedUseitemIds, onUseitemDemandReady, useitemDemand } from './ji'
 import { searchInManager } from './qn'
 import { materialCues, onMaterialCueChange, type MaterialCue } from '../material-deltas'
+import { openDeltaDetail } from './zi-delta-detail'
 
 const TILE_ORDER = [0, 1, 2, 3, 5, 4, 6, 7]
 const TILE_META: Record<number, { label: string; ch: string; color: string }> = {
@@ -1087,7 +1088,7 @@ const render = (force = false) => {
         <div class="tiles">${TILE_ORDER.map((idx) => tileHtml(idx, cues)).join('')}</div>
       </div>
       <aside class="side">
-        <div class="scard"><div class="h">收支分解<span class="aux">近 7 日 · 单项按来源</span></div>
+        <div class="scard"><div class="h">收支分解<span class="aux">近 7 日 · 单项按来源</span><button class="zi-detail-btn" data-act="zi-delta-detail" title="按笔查看收支">明细</button></div>
           <div class="res-sel">${BREAKDOWN_RES.map(
             ([idx, label, color]) =>
               `<span class="rs${idx === breakdownRes ? ' on' : ''}" data-res="${idx}"><s style="background:${color}"></s>${entityTermHtml('material', idx, label)}</span>`,
@@ -1114,6 +1115,9 @@ const render = (force = false) => {
   })
   pane.querySelector<HTMLElement>('[data-act="senka-detail"]')?.addEventListener('click', () => {
     openSenkaDetail()
+  })
+  pane.querySelector<HTMLElement>('[data-act="zi-delta-detail"]')?.addEventListener('click', () => {
+    openDeltaDetail(id => senkaQuestNames?.get(id) ?? null)
   })
   pane.querySelector<HTMLElement>('[data-act="zi-retry"]')?.addEventListener('click', () => {
     loadError = null

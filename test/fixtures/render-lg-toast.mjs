@@ -108,7 +108,7 @@ ${ESCORT_STATE}
     export const observedCond = (_a: unknown) => null
   `,
   'renderer/lg-test-entry.ts': `
-    export { runNotificationDemo, showPowerupResultToast, showSortieReadinessToast } from './modules/lg'
+    export { notifyAccountChanged, runNotificationDemo, showPowerupResultToast, showSortieReadinessToast } from './modules/lg'
     // 出击态归内核那份 mg 管，勿扰要靠它才摆得出来（桩与铃看的是同一个对象）
     export { mg } from './kernel'
   `,
@@ -468,6 +468,7 @@ export const mountLgToast = (options = {}) => {
     showPowerup: (result) => mod.exports.showPowerupResultToast(result),
     /** 点一下 ▶ 测试通知（三条里的后两条挂在计时器上，要 fireTimers 才到） */
     demo: () => mod.exports.runNotificationDemo(),
+    accountChanged: () => mod.exports.notifyAccountChanged(),
     /** 眼下挂着的置顶横幅 */
     banners: () => findById(doc.body, 'lg-banners')?.children ?? [],
     /** 外框光效那圈类名 */

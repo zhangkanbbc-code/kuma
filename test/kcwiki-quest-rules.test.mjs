@@ -9,6 +9,44 @@ import { fileURLToPath } from 'node:url'
 import { buildSync } from 'esbuild'
 
 import { syntheticKcwikiRequirements } from './fixtures/quest-lodes.mjs'
+import qpTypes from '../dist/shared/qp-types.js'
+const { classifyFleetDiff } = qpTypes
+
+test('编成差异 kind 穷举原有失败分支，位置提示不能掩盖数量或能力不足', () => {
+  const ship = (stype = 2, extra = {}) => ({ mstId: 1, stype, ctype: 0, lv: 50, soku: 10, ...extra })
+  const group = (extra = {}) => ({ label: '驱逐', ships: [], stypes: [2], amount: 1, ...extra })
+  const cases = [
+    ['数量不足', { groups: [group({ amount: 2 })] }, [ship()], 'count', 'no'],
+    ['数量上限', { groups: [group({ maxAmount: 1 })] }, [ship(), ship()], 'max', 'no'],
+    ['旗舰', { groups: [group({ flagship: true })] }, [ship(3), ship()], 'flagship', 'nearMiss'],
+    ['旗舰同时缺数量', { groups: [group({ flagship: true, amount: 2 })] }, [ship(3), ship()], 'count', 'no'],
+    ['旗舰同时超上限', { groups: [group({ flagship: true, maxAmount: 1 })] }, [ship(3), ship(), ship()], 'max', 'no'],
+    ['位置', { groups: [group({ position: 2 })] }, [ship(), ship(3)], 'position', 'nearMiss'],
+    ['位置但全队没有目标', { groups: [group({ position: 2 })] }, [ship(3), ship(3)], 'count', 'no'],
+    ['舰队号', { fleetId: 2, groups: [group()] }, [ship()], 'fleet', 'nearMiss'],
+    ['等级', { groups: [group({ lv: 60 })] }, [ship()], 'lv', 'no'],
+    ['旗舰等级', { groups: [group({ flagship: true, lv: 60 })] }, [ship(3), ship()], 'lv', 'no'],
+    ['最低速力', { groups: [group({ speedMin: 15 })] }, [ship()], 'speed', 'no'],
+    ['最高速力', { groups: [group({ speedMax: 5 })] }, [ship()], 'speed', 'no'],
+    ['总数上限', { maxShips: 1, groups: [] }, [ship(), ship()], 'max', 'no'],
+    ['禁止舰种', { disallowedStypes: [2], groups: [] }, [ship()], 'disallowed', 'no'],
+    ['要求之外的舰', { allowOnlyGoalShips: true, groups: [group()] }, [ship(), ship(3)], 'disallowed', 'no'],
+    ['重复占名额', { groups: [group(), group()] }, [ship()], 'total', 'no'],
+    ['错位同时重复占名额', { groups: [group({ flagship: true }), group()] }, [ship(3), ship()], 'total', 'no'],
+  ]
+  for (const [label, goal, fleet, kind, status] of cases) {
+    const diff = rules.evaluateFleetGoal(goal, fleet, 1)
+    assert.equal(diff.ok, false, label)
+    assert.equal(diff.lines.find((line) => !line.ok).kind, kind, label)
+    assert.equal(classifyFleetDiff(diff), status, label)
+    assert.ok(diff.lines.every((line) => line.kind), label)
+  }
+  const ok = rules.evaluateFleetGoal({ groups: [group()] }, [ship()], 1)
+  assert.equal(classifyFleetDiff(ok), 'ok')
+  assert.equal(classifyFleetDiff({ ...ok, ok: false, lines: [] }), 'no')
+  const mixed = rules.evaluateFleetGoal({ fleetId: 2, groups: [group({ amount: 2 })] }, [ship()], 1)
+  assert.equal(classifyFleetDiff(mixed), 'no')
+})
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-kcwiki-quest-rules-'))
 const output = path.join(tempDir, 'kcwiki-quest-rules.cjs')
@@ -319,6 +357,7 @@ test('fleet goal evaluation returns per-group differences instead of a bare bool
     ok: false,
     lines: [
       {
+        kind: 'count',
         label: '軽巡',
         current: 0,
         required: 1,
@@ -326,6 +365,7 @@ test('fleet goal evaluation returns per-group differences instead of a bare bool
         issue: '旗舰不符合「軽巡」',
       },
       {
+        kind: 'count',
         label: '駆逐',
         current: 3,
         required: 3,
@@ -408,6 +448,7 @@ test('a flagship group still counts every matching ship toward its amount', () =
   const result = rules.evaluateFleetGoal(goal, fleet, 1)
   assert.equal(result.ok, true)
   assert.deepEqual(result.lines[0], {
+    kind: 'count',
     label: '駆逐',
     current: 4,
     required: 4,

@@ -78,6 +78,16 @@ export const VOICE_SCENE_SLOTS: Record<string, VoiceSceneSlot> = {
   Idle: { slot: 29, scene: '放置' },
 }
 
+// 特殊攻击档名另表：常规表的消费者假定槽位 ≤53，不能把裸编号混进去。
+export const SPECIAL_VOICE_SCENE_TOKENS: Record<string, VoiceSceneSlot> = {
+  SpecialAtk1: { slot: 900, scene: '特殊攻击' },
+  SpecialAtk2: { slot: 901, scene: '特殊攻击 · 二' },
+}
+
+/** 本轮有文本的特殊攻击两族；其他裸编号仍沿用各自的文本与播放判据。 */
+export const isSpecialAttackVoiceSlot = (slot: number | null | undefined): boolean =>
+  slot != null && ((slot >= 900 && slot <= 903) || (slot >= 990 && slot <= 993))
+
 // 长的先试：Sec1 是 Sec13 的前缀，先匹配 Sec1 会把 Sec13 切错。
 const SCENE_TOKENS = Object.keys(VOICE_SCENE_SLOTS).sort((a, b) => b.length - a.length)
 
@@ -161,10 +171,12 @@ export const SPECIAL_VOICE_SLOTS: readonly VoiceSceneSlot[] = [
   { slot: 917, scene: '夜战特殊（Graf）一', onlyMst: GRAF_ZEPPELIN_FORMS },
   { slot: 918, scene: '夜战特殊（Graf）二', onlyMst: GRAF_ZEPPELIN_FORMS },
   // 金刚型夜战特殊攻击的僚舰分支
-  { slot: 990, scene: '夜战特殊（僚舰分支1）' },
-  { slot: 991, scene: '夜战特殊（僚舰分支2）' },
-  { slot: 992, scene: '夜战特殊（僚舰分支3）' },
-  { slot: 993, scene: '夜战特殊（僚舰分支4）' },
+  // 990 起＝搭档在金刚型舰级顺序中的次序（去掉自己），霧島的 South Dakota 排 993；
+  // 证据：对照资料台账两例 + en.kancollewiki 表序，2026-09-08。
+  { slot: 990, scene: '僚舰夜战突击（搭档分支 1）' },
+  { slot: 991, scene: '僚舰夜战突击（搭档分支 2）' },
+  { slot: 992, scene: '僚舰夜战突击（搭档分支 3）' },
+  { slot: 993, scene: '僚舰夜战突击（搭档分支 4）' },
 ]
 
 const SPECIAL_BY_SLOT = new Map(SPECIAL_VOICE_SLOTS.map((entry) => [entry.slot, entry]))
@@ -271,6 +283,8 @@ export const parseVoiceKey = (rawKey: string): ParsedVoiceKey => {
   const code = key.slice(0, dash)
   if (!/^\d{1,4}[a-z]?$/.test(code)) return { code: '', slot: null, scene: '', tail: key }
   const tail = key.slice(dash + 1)
+  const special = Object.keys(SPECIAL_VOICE_SCENE_TOKENS).find((candidate) => tail.startsWith(candidate))
+  if (special) return { code, ...SPECIAL_VOICE_SCENE_TOKENS[special], tail }
   const token = SCENE_TOKENS.find((candidate) => tail.startsWith(candidate))
   if (token) {
     const { slot, scene } = VOICE_SCENE_SLOTS[token]

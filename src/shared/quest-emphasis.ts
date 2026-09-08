@@ -2,7 +2,7 @@
 // ——几艘、几次、什么判定、哪张图、不许带什么。
 //
 // 与详情下方的「相关内容」是两件事，别混：那里是实体清单（可点、带缩略图、
-// 未持有会灰掉），这里只在句子里做记号，不改阅读顺序，也不承担跳转。
+// 未持有会灰掉），这里在句子里做记号，不改阅读顺序；09-08 用户要求实体记号也可点，涂色仍保留以示与芯片不同层。
 //
 // 另一半职责是清洗 wiki 残留。简中任务库抓自 kcwiki，正文里留着 [[目标|显示]]
 // 的竖线（644 条 desc 里 125 条带竖线，「1-1|镇守府正面海域(1-1)」这样直接显示
@@ -15,7 +15,12 @@ export type QuestMarkKind =
   | 'limit'
   | 'map'
   | 'ship'
-  | 'type'
+  | 'shipClass'
+  | 'shipType'
+  | 'shipTypeGroup'
+  | 'equipType'
+  | 'expedition'
+  | 'item'
   | 'equip'
   | 'nationality'
 
@@ -24,7 +29,7 @@ export interface QuestMark {
   length: number
   kind: QuestMarkKind
   /** 实体标记的目标 id（海域/舰娘/国籍…），纯文本标记没有 */
-  ref?: number
+  ref?: number | string
 }
 
 /** 清洗后仍然知道来历的一段：wiki 竖线左边的目标名 */

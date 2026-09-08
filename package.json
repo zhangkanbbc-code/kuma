@@ -1,7 +1,7 @@
 {
   "name": "kuma",
   "productName": "kuma",
-  "version": "1.0.0-beta.11",
+  "version": "1.0.0-beta.12",
   "description": "《舰队 Collection》的信息工作台",
   "main": "dist/main/index.js",
   "private": true,
@@ -32,6 +32,8 @@
     "lodes:sync-ignore": "node scripts/sync-bundled-lodes.mjs",
     "bgm:align": "node scripts/bgm-duration-align.mjs",
     "bgm:ost": "node scripts/fetch-ost-tracklists.mjs",
+    "quest:audit": "node scripts/quest-entity-audit.mjs",
+    "quest:gate-audit": "node scripts/quest-fleet-gate-audit.mjs",
     "bgm:audit": "node scripts/bgm-name-audit.mjs",
     "voice:punct": "node scripts/voice-normalize-packs.mjs",
     "voice:review": "node scripts/voice-translate-review.mjs"
@@ -42,7 +44,7 @@
   "devDependencies": {
     "@electron/packager": "^20.1.1",
     "@types/node": "^22.10.0",
-    "electron": "^43.2.0",
+    "electron": "^43.6.0",
     "esbuild": "^0.25.0",
     "typescript": "^5.9.0"
   }

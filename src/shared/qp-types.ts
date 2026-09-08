@@ -144,6 +144,7 @@ export interface QpStateGoalDiff {
 }
 
 export interface QpFleetGoalLine {
+  kind: 'count' | 'max' | 'flagship' | 'position' | 'fleet' | 'lv' | 'speed' | 'disallowed' | 'total'
   label: string
   current: number
   required: number
@@ -155,6 +156,14 @@ export interface QpFleetDeckDiff {
   deckId: number
   ok: boolean
   lines: QpFleetGoalLine[]
+}
+
+export const classifyFleetDiff = (diff: QpFleetDeckDiff): 'ok' | 'nearMiss' | 'no' => {
+  if (diff.ok) return 'ok'
+  const failed = diff.lines.filter((line) => !line.ok)
+  return failed.length && failed.every((line) =>
+    line.kind === 'flagship' || line.kind === 'position' || line.kind === 'fleet',
+  ) ? 'nearMiss' : 'no'
 }
 
 export const qpTaskSlot = (task: QpTask, index: number): number =>
@@ -177,6 +186,7 @@ export const qpTaskGroups = (tasks: QpTask[]) => {
 // 「编成检查」逐条对照），不再另发一份纯文本摘要——两份表达迟早会说不到一块去。
 export interface QpTrackerInfo {
   questId: number
+  sameDay: boolean
   tasks: QpTask[]
   source: QpTrackerSource
   fleetGoal?: QpFleetGoal
@@ -218,8 +228,10 @@ export type QpFleetCheck = Record<
   number,
   {
     hasCond: boolean
+    approx?: boolean // 编成判定含拿不准的项，UI 标 ≈
     decks: number[]
     diffs?: QpFleetDeckDiff[]
+    excludedDecks?: { deckId: number; reason: 'combined' | 'guerrilla' }[] // 常规出击编成检查跳过的舰队
     stateGoal?: QpStateGoalDiff
   }
 >

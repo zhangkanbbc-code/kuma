@@ -66,7 +66,7 @@ import {
 import { elink, elinkHtml, registerEntityRoute } from '../link'
 import { entityNameHtml, entityNamePlain, entityTermHtml } from '../localization'
 import { initMapIntel } from '../map-intel'
-import { activateModule, registerModule } from '../mu'
+import { activateModule, fitDistractCard, getDistractState, registerModule } from '../mu'
 import {
   buildRemodelStageMap,
   isAdvancedRemodelTarget,
@@ -4553,6 +4553,7 @@ const render = (pane: HTMLElement, force = false) => {
   const sortie = replay?.sortie ?? mg.sortie
   if (paneVisible && sortieMapOpen && sortie && !sortie.practice) placeSeaPop(pane, sortie)
   else closeSeaPop()
+  if (getDistractState().on) fitDistractCard()
 }
 
 // 回顾窗口复用镝的唯一一套战斗详情渲染，不切换坞位，也不把详情画到遮罩下。

@@ -35,6 +35,7 @@ const BODY = sliceBetween(
 )
 
 const HARNESS = `
+import { isSpecialAttackVoiceSlot } from '${path.join(ROOT, 'src', 'shared', 'voice-scene-slots.ts').replace(/\\/g, '/')}'
 type VoiceRequestCue = any
 type CaptionMode = any
 type CaptionLine = any

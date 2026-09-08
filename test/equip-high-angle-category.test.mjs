@@ -26,6 +26,7 @@ import fs from 'node:fs'
 import test from 'node:test'
 
 import highAngle from '../dist/shared/equip-high-angle.js'
+import { runtimeHost } from '../scripts/lib/player-view-runtime.mjs'
 
 const {
   HIGH_ANGLE_CATEGORY,
@@ -137,7 +138,10 @@ test('chip 那一层不动：高角炮在分组意义上照旧算主炮', () => 
   // 高角炮本来就是主炮，chip 跟着改会把一堆东西改坏。
   // equipChipMatches 住在渲染层（打包产物里没有单独模块），这里钉它的口径没被改动。
   const src = fs.readFileSync(new URL('../src/renderer/equip-category.ts', import.meta.url), 'utf8')
-  assert.ok(src.includes('主炮: [1, 2, 3, 38, 95]'), 'chip 的主炮名单被动过了——高角炮会掉出主炮组')
+  // 主炮常量现与彩蛋共享，改验真实分类行为，不能要求数字必须写在渲染层。
+  const category = runtimeHost().load('src/renderer/equip-category.ts')
+  assert.deepEqual(category.EQUIP_CHIP_TYPES.主炮, [1, 2, 3, 38, 95])
+  assert.equal(category.equipChipMatches('主炮', 1), true)
   assert.ok(
     src.includes('export const equipChipMatches = (chip: string, type2: number, type0 = -1): boolean =>'),
     'equipChipMatches 的签名变了，chip 层可能已经被卷进这次拆分',

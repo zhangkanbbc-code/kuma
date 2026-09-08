@@ -5,6 +5,7 @@ import vm from 'node:vm'
 import path from 'node:path'
 import { mountTiming } from './helpers/main-perf.mjs'
 import { transformSync } from 'esbuild'
+import crashContext from '../dist/shared/crash-context.js'
 
 const compiled = readFileSync(new URL('../dist/main/perf-log.js', import.meta.url), 'utf8')
 const mountPerf = (threshold, gcUnsupported = false, windowOf = () => null) => {
@@ -29,6 +30,7 @@ const mountPerf = (threshold, gcUnsupported = false, windowOf = () => null) => {
       if (id === './env') return { APPDATA_PATH: 'unused' }
       if (id === './crash-log') return { createRollingLog: () => ({ append: (...args) => entries.push(args) }) }
       if (id === './perf-time') return timing.api
+      if (id === '../shared/crash-context') return crashContext
       if (id === '../shared/env-names') return { readEnv: (key) => { assert.equal(key, 'KUMA_PERF_LONGTASK_MS'); return threshold } }
       if (id === 'perf_hooks') return { monitorEventLoopDelay: (options) => {
         assert.equal(options.resolution, 10)
@@ -45,8 +47,34 @@ const mountPerf = (threshold, gcUnsupported = false, windowOf = () => null) => {
     setInterval: (callback, ms) => { tick = callback; period = ms; return { unref: () => { unrefs++ } } },
   })
   module.exports.installPerfLogging(windowOf)
-  return { ipc, entries, histogram, tick, gcObserver, gcOptions, timing, advance: ms => { now += ms }, redactPerfDetail: module.exports.redactPerfDetail, stats: () => ({ period, enabled, resets, unrefs }) }
+  return { ipc, entries, histogram, tick, gcObserver, gcOptions, timing, advance: ms => { now += ms }, recentMemoryTrail: module.exports.recentMemoryTrail, lastBreadcrumbInfo: module.exports.lastBreadcrumbInfo, redactPerfDetail: module.exports.redactPerfDetail, stats: () => ({ period, enabled, resets, unrefs }) }
 }
+
+test('内存 IPC：两次报数合占一格，十二轮保留顺序，空值与无效指标不污染轨迹', () => {
+  const h = mountPerf()
+  for (let ts = 0; ts < 130_000; ts += 10_000) {
+    h.ipc.emit('kuma:perf-memory', {}, { jsHeapUsed: ts, jsHeapTotal: ts + 1 }, ts)
+    h.ipc.emit('kuma:perf-memory', {}, { private: ts + 2, residentSet: ts + 3 }, ts)
+  }
+  const samples = h.recentMemoryTrail()
+  assert.equal(samples.length, 12)
+  assert.deepEqual(samples[0], { ts: 10_000, jsHeapUsed: 10_000, jsHeapTotal: 10_001, private: 10_002, residentSet: 10_003 })
+  for (const raw of [undefined, {}, { private: -1, residentSet: NaN, jsHeapUsed: 'invalid', jsHeapTotal: Infinity }]) {
+    h.ipc.emit('kuma:perf-memory', {}, raw, 130_000)
+  }
+  h.ipc.emit('kuma:perf-memory', {}, { private: 1 }, undefined)
+  assert.deepEqual(h.recentMemoryTrail(), samples)
+  assert.equal(h.entries.length, 0)
+})
+
+test('最近执行位置导出保留记录时间，供崩溃现场读取', () => {
+  const h = mountPerf()
+  h.advance(21_000)
+  h.ipc.emit('kuma:perf-breadcrumb', {}, 'patch → panel.ts:42')
+  assert.deepEqual(JSON.parse(JSON.stringify(h.lastBreadcrumbInfo())), {
+    lastBreadcrumb: 'patch → panel.ts:42', breadcrumbTs: 21_000,
+  })
+})
 
 const rendererPerf = transformSync(readFileSync(new URL('../src/renderer/perf-guard.ts', import.meta.url), 'utf8'), { loader: 'ts', format: 'cjs' }).code
 const mountRendererPerf = (ipc) => {

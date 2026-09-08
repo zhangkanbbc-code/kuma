@@ -535,7 +535,7 @@ test('ledger 构造器在临时 SQLite 真跑 v13，升版、覆盖与重跑幂�
   const firstLedger = loadLedger()
   firstLedger.closeDatabase()
   const afterFirstDb = new DatabaseSync(file)
-  assert.equal(afterFirstDb.prepare('PRAGMA user_version').get().user_version, 13)
+  assert.equal(afterFirstDb.prepare('PRAGMA user_version').get().user_version, 15)
   const afterFirst = progressRows(afterFirstDb)
   assert.deepEqual(
     afterFirst.map((row) => [row.questId, row.counts]),
@@ -548,7 +548,7 @@ test('ledger 构造器在临时 SQLite 真跑 v13，升版、覆盖与重跑幂�
   const secondLedger = loadLedger()
   secondLedger.closeDatabase()
   const afterSecondDb = new DatabaseSync(file, { readOnly: true })
-  assert.equal(afterSecondDb.prepare('PRAGMA user_version').get().user_version, 13)
+  assert.equal(afterSecondDb.prepare('PRAGMA user_version').get().user_version, 15)
   assert.deepEqual(progressRows(afterSecondDb), afterFirst)
   afterSecondDb.close()
 

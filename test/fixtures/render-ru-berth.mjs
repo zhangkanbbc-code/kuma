@@ -95,6 +95,8 @@ const shipIssues = (_s: any) => ({ taiha: false, chuuha: false, unsupplied: fals
 const trackedAirBases = () => []
 const airBaseTabGlow = (_squads: any[]) => null
 const airBaseReadiness = () => null
+const mutedAreas: number[] = []
+const unmutedAirBaseSquads = (squads: any[]) => squads
 const sandboxDeck = () => ({ id: -1, ships: [] })
 const fleetLabel = (deck: any) => ({ canonical: \`第\${deck.id}舰队\`, custom: '' })
 const masterShipName = (mstId: number) => mg.master.ships[mstId]?.name ?? \`#\${mstId}\`

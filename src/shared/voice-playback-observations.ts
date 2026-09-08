@@ -227,8 +227,9 @@ export const VOICE_TEXT_GAPS: readonly VoiceTextGap[] = [
   },
   {
     mstId: 970,
-    slots: [11, 12, 19, 20],
-    note: 'Gloire改：自译层已收这个形态，但底本的改装阶段列没给这几格打勾，所以没译到',
+    // 2026-09-08 英文 wiki 自译已补 12／19／20，队列总格数 28→25。
+    slots: [11],
+    note: 'Gloire改：自译层已补 12／19／20；底本的改装阶段列仍未给小破入渠打勾，待补这一格',
   },
   { mstId: 967, slots: [11], note: 'Mogador改：自译层已收这个形态，底本这一格没打勾' },
   { mstId: 968, slots: [11], note: '初月改二：自译层已收这个形态，底本这一格没打勾' },

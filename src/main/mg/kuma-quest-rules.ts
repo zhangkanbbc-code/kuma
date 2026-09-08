@@ -140,6 +140,112 @@ interface RuleDraft {
 
 // 依据均为该任务在任务库里的补充说明；「memo」指其中的中文攻略口径。
 const DRAFTS: RuleDraft[] = [
+  // ---- 2026-09-08 全库编成门体检（日文原文复核） ----
+  {
+    // 09-08 体检出处：全库「门要求舰数合计 < 正文最大舰数」筛查，C57 日文原文：
+    // 「矢矧改二」または「矢矧改二乙」を旗艦として、同指揮下に精鋭駆逐艦4隻以上を含む水雷戦隊
+    questId: 352,
+    code: 'C57',
+    build: (h) => ({
+      // 计数轴照 09-08 正文推导原样。
+      tasks: [{ kind: 'exercise', rank: 6, count: 4, slot: 0 }],
+      fleetGoal: {
+        groups: [
+          group('矢矧改二/改二乙', 1, { ships: h.ships('矢矧改二', '矢矧改二乙'), flagship: true }),
+          group('驱逐舰', 4, { stypes: [2] }),
+        ],
+      },
+    }),
+  },
+  {
+    // 09-08 体检出处：全库「门要求舰数合计 < 正文最大舰数」筛查，B194 日文原文：
+    // 「清霜改二/丁」、さらに随伴艦に「霞」「朝霜」「大淀」「足柄」から2隻
+    questId: 1001,
+    code: 'B194',
+    build: (h) => ({
+      // 计数轴照 09-08 正文推导原样。
+      tasks: [
+        { kind: 'bossKill', map: [2, 2], rank: 6, count: 1, slot: 0 },
+        { kind: 'bossKill', map: [2, 3], rank: 6, count: 1, slot: 1 },
+        { kind: 'bossKill', map: [2, 4], rank: 6, count: 1, slot: 2 },
+        { kind: 'bossKill', map: [7, 4], rank: 6, count: 1, slot: 3 },
+      ],
+      fleetGoal: {
+        groups: [
+          group('清霜改二/改二丁', 1, { ships: h.ships('清霜改二', '清霜改二丁') }),
+          group('霞/朝霜/大淀/足柄', 2, { ships: h.chain('霞', '朝霜', '大淀', '足柄') }),
+        ],
+      },
+    }),
+  },
+  {
+    // 09-08 体检出处：全库「门要求舰数合计 < 正文最大舰数」筛查，B204 日文原文：
+    // 「早霜」「秋霜」「朝霜」「清霜」のうち1隻が旗艦、他2隻以上を含む
+    questId: 1017,
+    code: 'B204',
+    build: (h) => ({
+      // 计数轴照 09-08 正文推导原样。
+      tasks: [
+        { kind: 'bossKill', map: [1, 2], rank: 6, count: 2, slot: 0 },
+        { kind: 'bossKill', map: [1, 5], rank: 6, count: 2, slot: 1 },
+        { kind: 'bossKill', map: [2, 3], rank: 6, count: 2, slot: 2 },
+      ],
+      fleetGoal: {
+        groups: [
+          // 3 艘含旗舰；同仓内「含旗舰」口径，旗舰不另占一个名额。
+          group('早霜/秋霜/朝霜/清霜', 3, {
+            ships: h.chain('早霜', '秋霜', '朝霜', '清霜'), flagship: true, overlapOk: true,
+          }),
+        ],
+      },
+    }),
+  },
+  {
+    // 09-08 体检出处：全库「门要求舰数合计 < 正文最大舰数」筛查，F138 日文原文：
+    // 第一旗艦に「飛龍」改二以降、32駆改二及び「風雲改二」から計3隻以上を随伴配備
+    questId: 1160,
+    code: 'F138',
+    build: (h) => ({
+      // 计数轴照 09-08 正文推导原样；装备 id 仍由精确日文名解析。
+      tasks: [
+        { kind: 'scrapEquip', equipId: h.equip('零式艦戦52型'), count: 5, slot: 0 },
+        { kind: 'scrapEquip', equipId: h.equip('紫電改二'), count: 5, slot: 1 },
+      ],
+      // 09-08 修前 tracker 没有 stateGoal / stockGoals，保持原有计数与准备条件覆盖范围。
+      fleetGoal: {
+        fleetId: 1,
+        groups: [
+          group('飞龙改二/改三', 1, { ships: h.ships('飛龍改二', '飛龍改三'), flagship: true }),
+          group('三十二驱改二/风云改二', 3, {
+            ships: h.ships('玉波改二', '涼波改二', '藤波改二', '早波改二', '浜波改二', '風雲改二'),
+          }),
+        ],
+      },
+    }),
+  },
+  {
+    // 09-08 体检出处：全库「门要求舰数合计 < 正文最大舰数」筛查，By14 日文原文：
+    // 鵜来型海防艦を旗艦、随伴に海防艦1～3隻のみの海防艦戦隊
+    questId: 1012,
+    code: 'By14',
+    build: (h) => ({
+      // 计数轴照 09-08 正文推导原样。
+      tasks: [
+        { kind: 'bossKill', map: [1, 1], rank: 6, count: 3, slot: 0 },
+        { kind: 'bossKill', map: [1, 2], rank: 5, count: 2, slot: 1 },
+        { kind: 'bossKill', map: [1, 5], rank: 5, count: 2, slot: 2 },
+      ],
+      fleetGoal: {
+        maxShips: 4,
+        allowOnlyGoalShips: true,
+        groups: [
+          group('鹈来型', 1, { ctypes: [h.ctype('鵜来')], flagship: true }),
+          // 不共用旗舰名额：至少还要 1 艘僚舰，且只许海防舰。
+          group('海防舰', 1, { stypes: [1] }),
+        ],
+      },
+    }),
+  },
   // ---- 编成 ----
   {
     // memo：第一舰队编成，夕云改二旗舰+卷云+风云+秋云（全改二）
@@ -851,6 +957,21 @@ const DRAFTS: RuleDraft[] = [
           }),
           group('早霜/秋霜/清霜/朝霜', 3, {
             ships: h.chain('早霜', '秋霜', '清霜', '朝霜'),
+          }),
+        ],
+      },
+    }),
+  },
+  {
+    // 与 2606Am1 同门（更新后名单）；正文推导会把队名组落成 ≥1 艘，见 09-08 实机误判。
+    questId: 382,
+    code: '2606Cm1',
+    build: (h) => ({
+      tasks: [{ kind: 'exercise', rank: A, count: 3 }],
+      fleetGoal: {
+        groups: [
+          group('花月/桐/竹/樫/榧/杉/潮/响', 5, {
+            ships: h.chain('花月', '桐', '竹', '樫', '榧', '杉', '潮', '響'),
           }),
         ],
       },

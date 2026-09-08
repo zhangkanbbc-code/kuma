@@ -13,10 +13,19 @@ const names = [
   'KUMA_QUIT_TRACE', 'KUMA_PERF_SLOW_MS', 'KUMA_PERF_PART_MS', 'KUMA_PERF_LONGTASK_MS',
 ]
 
-test('运行时别名表只包含八个产品开关，源码与构建产物一致', () => {
-  assert.deepEqual(Object.keys(ENV_ALIASES), names)
+test('运行时清单包含八个迁移开关与一个无旧名的本地转储开关，源码与构建产物一致', () => {
+  assert.deepEqual(Object.keys(ENV_ALIASES), [...names, 'KUMA_CRASH_DUMPS'])
   assert.deepEqual(compiled.ENV_ALIASES, ENV_ALIASES)
-  assert.equal(new Set(Object.values(ENV_ALIASES)).size, names.length)
+  assert.equal(new Set(Object.values(ENV_ALIASES)).size, names.length + 1)
+})
+
+test('本地转储开关只读新名，未设置、空串与显式关闭保持原值', () => {
+  assert.equal(ENV_ALIASES.KUMA_CRASH_DUMPS, undefined)
+  for (const read of [readEnv, compiled.readEnv]) {
+    assert.equal(read('KUMA_CRASH_DUMPS', {}), undefined)
+    assert.equal(read('KUMA_CRASH_DUMPS', { KUMA_CRASH_DUMPS: '' }), '')
+    assert.equal(read('KUMA_CRASH_DUMPS', { KUMA_CRASH_DUMPS: '0' }), '0')
+  }
 })
 
 for (const name of names) {

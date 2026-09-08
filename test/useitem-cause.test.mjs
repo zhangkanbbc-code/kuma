@@ -155,7 +155,7 @@ test('v12 schema 接线与未解释负差值都如实留空', (t) => {
   )
   assert.match(ledgerSource, /\['useitem_log', 'cause', 'TEXT'\]/)
   assert.match(ledgerSource, /if \(previousVersion < 12\) this\.backfillUseitemCausesV12\(\)/)
-  assert.match(ledgerSource, /PRAGMA user_version = \$\{questProgressV13 \? 13 : 12\}/)
+  assert.match(ledgerSource, /PRAGMA user_version = \$\{questProgressV13 \? 15 : 12\}/)
 
   const db = openDb(t)
   insertEvent(db, 100, SYNC)

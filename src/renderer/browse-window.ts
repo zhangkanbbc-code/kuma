@@ -5,6 +5,9 @@
 // 初始要打开哪一条也是主进程经 loadFile 的 query 递进来的。
 import { BROWSE_HOME_URL, normalizeBrowseInput } from '../shared/browse-url'
 import { cleanUserAgent } from '../shared/user-agent'
+import { initInputClear } from './input-clear'
+
+initInputClear()
 
 type WebviewTag = Electron.WebviewTag
 

@@ -34,6 +34,7 @@ export const layout: any = {
 }
 
 const removedClasses: string[] = []
+const distract = { on: false }
 const document: any = {
   querySelector: (_selector: string) => ({
     classList: { remove: (name: string) => removedClasses.push(name) },

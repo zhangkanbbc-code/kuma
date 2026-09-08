@@ -10,6 +10,11 @@
 
 import { readEnv } from '../shared/env-names'
 import { recordCrash } from './crash-guard'
+import { ipcRenderer } from 'electron'
+import * as remote from '@electron/remote'
+import { DISTRACT_DEFAULTS, DISTRACT_PATHS, normalizeDistractSide } from '../shared/distract-mode'
+import type { DistractSide } from '../shared/distract-mode'
+import { scheduleDistractCardFit, stopDistractCardFit } from './distract-card-fit'
 
 export type DockId = 'left' | 'right' | 'bottom'
 
@@ -106,6 +111,13 @@ import { parseCompactModes, serializeCompactModes, toggledCompactModes } from '.
 import type { LaunchGlowLayout } from '../shared/launch-glow'
 
 const LAYOUT_KEY = 'layout.v3'
+// 侧位用 config 叶子：钥与顶栏共读同一份，避免 ui 前缀另存出第二份设置。
+const distractConfig = remote.require('./config')
+const distract: { on: boolean; side: DistractSide } = {
+  on: false,
+  side: normalizeDistractSide(distractConfig.get(DISTRACT_PATHS.side, DISTRACT_DEFAULTS.side)),
+}
+let distractRestore: { dock: DockId; gi: number; active?: string; shelved: boolean; hidden: boolean } | null = null
 let restoredLayoutJson: string | null = null
 
 const layout: Layout = {
@@ -133,7 +145,19 @@ try {
 // 落盘前过一道 layoutForPersist：**跟着游戏临时切过去的那一页不许被固化成默认页**
 //（2026-08-22 用户实机：钦/镖那格每次启动都停在镖，理由见 shared/dock-layout）。
 // missionTabRestore 在下面几十行处声明，这里靠函数体延迟求值拿到它。
-const saveLayout = () => uiSet(LAYOUT_KEY, layoutForPersist(layout, missionTabRestore))
+const saveLayout = () => {
+  // 分心借用的页签与搁置状态不能写进常规布局，启动永远回到进入前。
+  const saved = distractRestore
+  const normal = saved ? {
+    ...layout,
+    shelved: saved.shelved ? [...layout.shelved.filter((id) => id !== 'di'), 'di'] : layout.shelved,
+    docks: {
+      ...layout.docks,
+      [saved.dock]: layout.docks[saved.dock].map((g, gi) => gi === saved.gi ? { ...g, active: saved.active } : g),
+    },
+  } : layout
+  uiSet(LAYOUT_KEY, layoutForPersist(normal, missionTabRestore))
+}
 
 // 启动只在默认补齐、迁移或模块对账改变布局时保存；相同布局不再排一次同步写入。
 // 只过滤这一处初始化写入，用户操作仍沿用 saveLayout 的即时保存。
@@ -398,6 +422,69 @@ export const toggleFocus = (): boolean => {
   return layout.focus
 }
 
+// ---- 分心模式：仅切同窗布局，不搬动游戏 webview ----
+export const getDistractState = () => ({ ...distract })
+
+export const fitDistractCard = () => {
+  if (distract.on) scheduleDistractCardFit(distract.side)
+}
+
+const syncDistractChrome = () => {
+  const app = document.querySelector<HTMLElement>('#app')!
+  app.classList.toggle('distract', distract.on)
+  app.dataset.distractSide = distract.side
+  document.body.classList.toggle('kuma-distract', distract.on)
+  window.dispatchEvent(new Event('kuma-distract-changed'))
+  if (distract.on) fitDistractCard()
+  else stopDistractCardFit()
+}
+
+export const setDistractSide = (side: DistractSide) => {
+  distract.side = normalizeDistractSide(side)
+  distractConfig.set(DISTRACT_PATHS.side, distract.side)
+  syncDistractChrome()
+}
+
+export const enterDistract = () => {
+  if (distract.on) return
+  const at = locate('di')!
+  const group = layout.docks[at.dock][at.gi]
+  distractRestore = { ...at, active: group.active, shelved: isShelved('di'), hidden: hiddenModules.has('di') }
+  layout.shelved = layout.shelved.filter((id) => id !== 'di')
+  hiddenModules.delete('di')
+  distract.on = true
+  group.active = 'di'
+  layoutDock(at.dock)
+  dockEl(at.dock).dataset.distractCard = ''
+  syncDistractChrome()
+  refreshRail()
+  showModule('di')
+  const alwaysOnTop = distractConfig.get(DISTRACT_PATHS.alwaysOnTop, DISTRACT_DEFAULTS.alwaysOnTop)
+  void ipcRenderer.invoke('window:distract-enter', { alwaysOnTop })
+}
+
+export const exitDistract = (restoreWindow = true) => {
+  if (!distract.on) return
+  distract.on = false
+  const saved = distractRestore!
+  distractRestore = null
+  layout.docks[saved.dock][saved.gi].active = saved.active
+  if (saved.shelved) layout.shelved.push('di')
+  if (saved.hidden) hiddenModules.add('di')
+  delete dockEl(saved.dock).dataset.distractCard
+  syncDistractChrome()
+  layoutAll()
+  refreshRail()
+  for (const mod of modules) if (isShowing(mod.id)) showModule(mod.id)
+  if (restoreWindow) void ipcRenderer.invoke('window:distract-exit')
+}
+
+export const toggleDistract = (): boolean => {
+  if (distract.on) exitDistract()
+  else enterDistract()
+  return distract.on
+}
+
 // ---- 激活 ----
 
 const activateIn = (dock: DockId, gi: number, id: string) => {
@@ -504,6 +591,8 @@ const buildOverlay = () => {
 
 // 切到指定模块（链的跳转路由用）：展开所在坞 / 弹出浮层，退出专注模式
 export const activateModule = (id: string, opts?: { auto?: boolean }) => {
+  // 分心期间固定战斗卡；自动切页和链接不改进入前的常规布局。
+  if (distract.on) return
   if (isOverlay(id)) {
     if (overlayOpen !== id) openOverlay(id)
     return
@@ -562,6 +651,7 @@ const restoreGameMissionScene = () => {
 
 // 该模块此刻是否真的看得见
 const isShowing = (id: string): boolean => {
+  if (distract.on) return id === 'di' && displayed('di')
   if (!displayed(id)) return false
   if (isOverlay(id)) return overlayOpen === id
   const at = locate(id)

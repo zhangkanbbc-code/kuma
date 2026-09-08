@@ -69,6 +69,10 @@ import {
   type UseitemCauseAction,
 } from '../../shared/useitem-cause'
 import { mapIdOf } from '../../shared/map-id'
+import {
+  buildDeltaDetail, replayDeltaCategoryFixes,
+  type DeltaDetail, type DeltaReplayEvent, type DeltaReplayRow,
+} from '../../shared/material-delta-detail'
 import type { PayLogRow } from '../../shared/pay-log'
 import { bossKillAnomalyText, resolveBossKill } from '../../shared/boss-kill'
 import { trainingCruiserSetup } from '../../shared/practice-exp'
@@ -106,6 +110,7 @@ import type {
   SortieForecastReport,
   ExpSampleReport,
   LocalDropScope,
+  MaterialDeltaRowsResult,
 } from '../../shared/mg-types'
 import {
   EMPTY_LOCAL_DROPS,
@@ -505,6 +510,8 @@ class Ledger {
       ['senka_log', 'manual', 'INTEGER'],
       // 道具变化的归因端点。NULL = 按符号与可消耗性仍解释不了，不拿最近操作硬填。
       ['useitem_log', 'cause', 'TEXT'],
+      // 逐笔对象详情：NULL = 无可解释对象，或尚未回填的旧流水。
+      ['material_delta', 'detail', 'TEXT'],
     ]) {
       try {
         this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`)
@@ -523,10 +530,107 @@ class Ledger {
     if (previousVersion < 12) this.backfillUseitemCausesV12()
     const questProgressV13 =
       previousVersion >= 13 ? true : this.recomputeCarrierSinkProgressV13() != null
-    this.db.exec(`PRAGMA user_version = ${questProgressV13 ? 13 : 12}`)
+    if (previousVersion < 14) this.dropPhantomConsumableUseitemRowsV14()
+    // V13 失败仍留在 12；V14 删除幂等，允许随 V13 重跑。
+    if (previousVersion < 15) {
+      this.reclassifyDeltaCategoriesV15()
+      this.backfillDeltaDetailsV15()
+    }
+    // V15 两步同样幂等；V13 未完成时仍留 12，允许下次一起重跑。
+    this.db.exec(`PRAGMA user_version = ${questProgressV13 ? 15 : 12}`)
     this.prune()
     // 每天顺手清一次陈账
     this.pruneTimer = setInterval(() => this.prune(), 24 * 3600 * 1000)
+  }
+
+  private dropPhantomConsumableUseitemRowsV14 = () => {
+    const { changes } = this.db.prepare('DELETE FROM useitem_log WHERE item_id BETWEEN 1 AND 4').run()
+    console.log(`[kuma] mg: ledger 迁移 — V14 删除资材道具幽灵流水 ${changes} 行`)
+  }
+
+  // 回放覆盖全时间轴，只取状态机会使用的 path；零差分 material / port 不能漏。
+  // 不加载战斗等无关大响应。events 表保持原样，取时间顺序与实时共用纯函数。
+  private deltaReplayEventsV15 = (): DeltaReplayEvent[] => this.db.prepare(`
+    SELECT ts, path, post_body, body FROM events WHERE path IN (
+      '/kcsapi/api_req_member/payitemuse', '/kcsapi/api_req_member/itemuse',
+      '/kcsapi/api_get_member/material', '/kcsapi/api_req_kaisou/remodeling',
+      '/kcsapi/api_get_member/ship3', '/kcsapi/api_req_quest/clearitemget',
+      '/kcsapi/api_req_map/start', '/kcsapi/api_req_map/start_air_base', '/kcsapi/api_port/port'
+    ) ORDER BY ts ASC, id ASC
+  `).all().map((row: any) => ({ ts: row.ts, path: row.path, postBody: JSON.parse(row.post_body || '{}'), body: JSON.parse(row.body || 'null') }))
+
+  // 舰历在 ship3 确认改造时写入，略早于 material；必须同时约束在籍 id 与刷新窗口。
+  private remodelDeltaDetailV15 = (ts: number, detail: DeltaDetail | null): DeltaDetail | null => {
+    if (detail?.kind !== 'shipRemodel' || !detail.ship) return detail
+    const row = this.db.prepare(`SELECT detail FROM ship_life_events
+      WHERE kind = 'remodel' AND roster_id = ? AND ts BETWEEN ? AND ? ORDER BY ts DESC LIMIT 1
+    `).get(detail.ship, ts - 3000, ts) as any
+    if (!row) return detail
+    const life = JSON.parse(row.detail)
+    return { kind: 'shipRemodel', ship: detail.ship, from: Number(life.beforeMstId) || detail.from, to: Number(life.afterMstId) || detail.to }
+  }
+
+  private reclassifyDeltaCategoriesV15 = () => {
+    const rows = this.db.prepare(`SELECT * FROM material_delta WHERE category IN ('其他', '母港校准')`).all()
+    const deltas: DeltaReplayRow[] = rows.map((r: any) => ({ ts: r.ts, category: r.category, values: [r.fuel, r.ammo, r.steel, r.bauxite, r.fastbuild, r.bucket, r.devmat, r.screw] }))
+    const found = rows.length ? replayDeltaCategoryFixes(this.deltaReplayEventsV15(), deltas) : new Map()
+    const update = this.db.prepare(`UPDATE material_delta SET category = ?, detail = ? WHERE ts = ? AND category IN ('其他', '母港校准')`)
+    let changed = 0
+    this.runBatch(found.size, () => {
+      for (const [ts, result] of found) {
+        const detail = this.remodelDeltaDetailV15(ts, result.detail)
+        changed += Number(update.run(result.category, detail ? JSON.stringify(detail) : null, ts).changes)
+      }
+    })
+    console.log(`[kuma] mg: ledger 迁移 — V15 资源归类补正 ${changed} 行`)
+  }
+
+  private backfillDeltaDetailsV15 = () => {
+    const rows = this.db.prepare('SELECT * FROM material_delta WHERE detail IS NULL ORDER BY ts ASC').all() as any[]
+    if (!rows.length) return
+    // 用道具、旧改造与任务刷新只有前驱请求带对象，复用同一回放取出武装细节。
+    const refreshDetails = replayDeltaCategoryFixes(this.deltaReplayEventsV15(), rows.map(r => ({
+      ts: r.ts, category: '其他', values: [r.fuel, r.ammo, r.steel, r.bauxite, r.fastbuild, r.bucket, r.devmat, r.screw],
+    })))
+    const eventAt = this.db.prepare('SELECT path, post_body, body FROM events WHERE ts = ? ORDER BY id ASC')
+    // 两张小履历各读一次，避免对每条流水全表扫描；报文仍用 idx_events_ts 点查。
+    const expeditions = new Map<number, any>(this.db.prepare('SELECT ts, mission_id, deck_id, result FROM expedition_history').all().map((r: any) => [r.ts, r]))
+    const scraps = new Map<number, Record<number, number>>()
+    for (const row of this.db.prepare("SELECT ts, roster_id, mst_id FROM ship_life_events WHERE kind = 'scrap'").all() as any[]) {
+      const ships = scraps.get(row.ts) ?? {}
+      ships[row.roster_id] = row.mst_id
+      scraps.set(row.ts, ships)
+    }
+    const categories: Record<string, string> = {
+      '补给': 'supply', '入渠': 'dock', '建造': 'build', '开发': 'craft', '解体': 'scrap',
+      '废弃返还': 'discard', '改修': 'improve', '远征': 'expedition', '任务': 'quest',
+      '任务消耗': 'questCost', '基地航空队': 'airBase', '基地航空队出击': 'airBaseSortie',
+      '海域资源点': 'mapItem', '舰娘改造': 'shipRemodel', '使用道具': 'itemUse', '氪金道具': 'itemUse',
+    }
+    const update = this.db.prepare('UPDATE material_delta SET detail = ? WHERE ts = ? AND detail IS NULL')
+    this.runBatch(rows.length, () => {
+      for (const row of rows) {
+        const kind = categories[row.category]
+        if (!kind) continue
+        let detail: DeltaDetail | null = refreshDetails.get(row.ts)?.detail ?? null
+        if (detail?.kind !== kind) detail = null
+        const expedition = expeditions.get(row.ts)
+        if (!detail) {
+          for (const event of eventAt.all(row.ts) as any[]) {
+            const built = buildDeltaDetail({
+              apiPath: event.path, postBody: JSON.parse(event.post_body || '{}'), body: JSON.parse(event.body || 'null'),
+              before: { ships: scraps.get(row.ts) },
+              expedition: expedition ? { mission: expedition.mission_id, deck: expedition.deck_id, result: expedition.result } : undefined,
+            })
+            if (built?.kind === kind) { detail = built; break }
+          }
+        }
+        if (!detail && kind === 'expedition' && expedition) detail = { kind, mission: expedition.mission_id, deck: expedition.deck_id, result: expedition.result }
+        if (!detail && kind === 'scrap' && scraps.has(row.ts)) detail = { kind, ships: Object.entries(scraps.get(row.ts)!).map(([id, mst]) => ({ id: Number(id), mst })), withSlots: false }
+        detail = this.remodelDeltaDetailV15(row.ts, detail)
+        if (detail) update.run(JSON.stringify(detail), row.ts)
+      }
+    })
   }
 
   // 批量写包进一个事务：WAL 下每条自动提交各付一次同步开销，
@@ -2174,16 +2278,30 @@ class Ledger {
   }
 
   // 分类记账：一次资源变动的净增减（8 项），按来源归类
-  logDelta = (ts: number, category: string, delta: number[]) => {
+  logDelta = (ts: number, category: string, delta: number[], detail: DeltaDetail | null = null) => {
     try {
       this.db
         .prepare(
-          `INSERT INTO material_delta (ts, category, fuel, ammo, steel, bauxite, fastbuild, bucket, devmat, screw)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO material_delta (ts, category, fuel, ammo, steel, bauxite, fastbuild, bucket, devmat, screw, detail)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .run(ts, category, delta[0] ?? 0, delta[1] ?? 0, delta[2] ?? 0, delta[3] ?? 0, delta[4] ?? 0, delta[5] ?? 0, delta[6] ?? 0, delta[7] ?? 0)
+        .run(ts, category, delta[0] ?? 0, delta[1] ?? 0, delta[2] ?? 0, delta[3] ?? 0, delta[4] ?? 0, delta[5] ?? 0, delta[6] ?? 0, delta[7] ?? 0, detail ? JSON.stringify(detail) : null)
     } catch (e) {
       console.warn('[kuma] mg: delta log failed', e)
+    }
+  }
+
+  // 多取一行仅用于判断截断，IPC 最多返回 6000 笔；窗口两端均包含。
+  queryDeltaRows = (sinceTs: number, untilTs?: number): MaterialDeltaRowsResult => {
+    const rows = this.db.prepare(`SELECT * FROM material_delta
+      WHERE ts >= ? ${untilTs === undefined ? '' : 'AND ts <= ?'} ORDER BY ts DESC, rowid DESC LIMIT 6001
+    `).all(...(untilTs === undefined ? [sinceTs] : [sinceTs, untilTs])) as any[]
+    return {
+      rows: rows.slice(0, 6000).map(r => ({ ts: r.ts, category: r.category,
+        values: [r.fuel, r.ammo, r.steel, r.bauxite, r.fastbuild, r.bucket, r.devmat, r.screw],
+        detail: r.detail === null ? null : JSON.parse(r.detail),
+      })),
+      truncated: rows.length > 6000,
     }
   }
 

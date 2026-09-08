@@ -75,3 +75,9 @@ export const captionHideAtMs = (input: {
  */
 export const danmakuDurationSeconds = (textLength: number): number =>
   Math.min(1_000, 600 + Math.max(0, textLength - 14) * 12) / 100
+
+/** 突入大字的停住时间；入场 220ms、退场 260ms 另计，真实音轨没有硬上限。 */
+export const cutinHoldMs = (textLength: number, audioMs: number | null): number =>
+  Math.max(2_800, audioMs != null && audioMs > 0
+    ? audioMs + 600
+    : captionHideAtMs({ shownAtMs: 0, textLength, audioMs: null }))

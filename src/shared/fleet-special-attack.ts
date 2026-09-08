@@ -236,6 +236,8 @@ const KONGO_PARTNERS: Readonly<Record<string, ReadonlySet<string>>> = {
     'South Dakota改',
   ]),
 }
+// 2026-09-08：日枝丸 1065/1070 与平安丸同为 stype 20、ctype 126；kcwiki-voice
+// 有 SpecialAtk1/2，wikiwiki 日枝丸台词表列「特殊攻撃【潜水艦隊攻撃】」。未实机验、按舰种同类推。
 const SUBMARINE_TENDER_FLAGS = new Set([
   '大鯨',
   '迅鯨',
@@ -244,6 +246,8 @@ const SUBMARINE_TENDER_FLAGS = new Set([
   '長鯨改',
   '平安丸',
   '平安丸改',
+  '日枝丸',
+  '日枝丸改',
 ])
 
 const mainSpecialAttack = (input: FleetSpecialAttackInput): FleetSpecialAttack[] => {

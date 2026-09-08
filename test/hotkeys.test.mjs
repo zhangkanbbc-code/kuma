@@ -14,11 +14,12 @@ const {
   planBossToggle,
 } = hotkeys
 
-test('默认键与六个配置路径固定', () => {
+test('默认六键与七个配置路径固定', () => {
   assert.deepEqual(HOTKEY_DEFAULTS, {
     boss: 'Ctrl+Alt+H',
     reload: 'F5',
     focus: 'F9',
+    distract: 'F10',
     capture: 'Ctrl+Alt+S',
     mute: 'Ctrl+M',
   })
@@ -26,6 +27,7 @@ test('默认键与六个配置路径固定', () => {
     boss: 'kuma.hotkeys.boss',
     reload: 'kuma.hotkeys.reload',
     focus: 'kuma.hotkeys.focus',
+    distract: 'kuma.hotkeys.distract',
     capture: 'kuma.hotkeys.capture',
     mute: 'kuma.hotkeys.mute',
   })

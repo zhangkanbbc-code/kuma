@@ -1,3 +1,8 @@
+import { renderQuestMarkHtml } from '../quest-mark-html'
+import { QUEST_SHIP_TYPE_GROUPS } from '../../shared/quest-ship-type-groups'
+import { taskEntityRawMarks } from '../task-entity-marks'
+import { buildTaskEntityIndexes, taskEntityAliases } from '../task-entity-index'
+import type { EntityNameIndex, ShipNameEntry, ShipClassEntry } from '../task-entity-index'
 // 钦 (Qn) · 任务：顶部分类与周期筛选 + 全宽任务列表 + 侧滑详情。
 // 数据单基准：任务文本/前置链/报酬 = 简中任务库 quests-scn（zh.kcwiki 任务页直取）；
 // 进行状态/粗档进度 = 游戏 questlist 被动观测；
@@ -36,10 +41,8 @@ import type { FilterMenuSpec } from '../filter-menu'
 import { elink, elinkHtml, navigate, registerEntityRoute } from '../link'
 import { entityNameHtml, entityNamePlain, entityTermHtml, registerLocalizedName } from '../localization'
 import {
-  buildTaskExpeditionNameIndex,
   normalizeExpeditionDispNo,
 } from '../expedition-name-index'
-import { buildTaskMapNameIndex } from '../map-name-index'
 import { furnitureIconHtml, materialIconHtml, shipThumbHtml, useItemIconHtml } from '../entity-art'
 import { equipTypeIconHtml } from '../equip-icon'
 import { activateModule, isCompactMode, registerCompactMode, registerModule } from '../mu'
@@ -61,8 +64,6 @@ import {
 } from '../kcwiki-zh'
 import { questPreSourceNoteHtml } from '../quest-pre-note'
 import { KCWIKI_EQUIP_ALIAS, KCWIKI_ITEM_ALIAS } from '../../shared/kcwiki-upgrade'
-import { buildShipClassNameIndex } from '../../shared/ship-class-name'
-import type { ShipClassNameRow } from '../../shared/ship-class-name'
 import {
   isResourceMirrorUseitem,
   resolveUseitemStock,
@@ -75,8 +76,6 @@ import {
   type RewardParseContext,
   type RewardStockCandidate,
 } from '../../shared/quest-reward'
-import { buildShipRemodelChains } from '../../shared/ship-remodel-chain'
-import type { RemodelChainShip } from '../../shared/ship-remodel-chain'
 import {
   cleanQuestText,
   emphasisMarks,
@@ -91,14 +90,12 @@ import {
   allowTaskShipTypeAlias,
   excludeTaskHitsCoveredByAliases,
   hasUncoveredTaskPhrase,
-  markTaskEntityHits,
   matchTaskEntityHits,
   matchTaskNationalityHits,
   matchedTaskEntities as matchedEntities,
   normalizeTaskEntityText as normalizeEntityText,
   rangesOverlap,
   simplifyTaskEntityText as simplifyJp,
-  TASK_SHIP_TEXT_ALIASES,
   taskEntityAliasRanges,
   taskEntityMemoText,
   taskEntityTextDomainAllowed,
@@ -134,21 +131,6 @@ let scnLode: { meta: LodeMeta; data: any } | null = null
 let lib: Map<number, LibQuest> = new Map()
 let libByCode: Map<string, LibQuest> = new Map()
 let useitemNames: Map<number, string> = new Map() // 奖励道具关联用
-interface EntityNameIndex {
-  id: number
-  name: string
-  simple: string
-  aliases: string[]
-}
-interface ShipNameEntry extends EntityNameIndex {
-  ctype: number
-  stype: number
-  sortNo: number
-  members: number[]
-}
-interface ShipClassEntry extends EntityNameIndex {
-  members: ShipNameEntry[]
-}
 let shipNameIndex: ShipNameEntry[] = [] // 关联舰娘反查（根形态聚合全部改造名）
 let shipClassIndex: ShipClassEntry[] = [] // 舰级 → 姊妹舰
 let shipTypeIndex: EntityNameIndex[] = []
@@ -174,43 +156,6 @@ let fleetCheckFailed = false
 // 「更多筛选」8 个计数与 qp / 编成判定同步失效（它们不进 rowsCacheKey）
 let quickCountEpoch = 0
 
-const SHIP_TYPE_ALIASES: Record<number, string[]> = {
-  1: ['海防'], 2: ['驱逐'], 3: ['轻巡'], 4: ['雷巡'], 5: ['重巡'], 6: ['航巡'],
-  7: ['轻母', '轻型航母'], 8: ['高速战舰'], 9: ['低速战舰'], 10: ['航战', '航空战舰'],
-  11: ['空母', '正航', '正规空母'], 12: ['超弩级战舰'], 13: ['潜艇', '潜水舰'], 14: ['潜母'],
-  16: ['水母'], 17: ['扬陆舰'], 18: ['装母', '装甲空母'], 19: ['工作舰'],
-  20: ['潜水母舰'], 21: ['练巡'], 22: ['补给舰'],
-}
-
-const SHIP_TYPE_LABELS: Record<number, string> = {
-  8: '高速战舰',
-  9: '低速战舰',
-}
-
-const SHIP_TYPE_GROUPS = {
-  battleship: { label: '战舰', ids: [8, 9, 10, 12] },
-  carrier: { label: '空母系', ids: [7, 11, 18] },
-} as const
-
-const SHIP_TYPE_GENERIC_ALIASES: Record<number, Set<string>> = {
-  8: new Set(['战舰']),
-  9: new Set(['战舰']),
-  11: new Set(['空母']),
-}
-
-const EQUIP_TYPE_ALIASES: Record<number, string[]> = {
-  1: ['小口径炮'], 2: ['中口径炮'], 3: ['大口径炮'], 4: ['副炮'], 5: ['鱼雷'],
-  6: ['舰战'], 7: ['舰爆'], 8: ['舰攻'], 9: ['舰侦'], 10: ['水侦'], 11: ['水爆'],
-  12: ['小型电探', '电探'], 13: ['大型电探', '电探'], 14: ['声呐', '水听'], 15: ['爆雷'],
-  21: ['机枪', '对空机枪'], 24: ['大发', '登陆艇'], 25: ['旋翼机'], 26: ['反潜机'],
-  41: ['大艇', '大型飞行艇'], 45: ['水战'], 47: ['陆攻'], 48: ['陆战'], 49: ['陆侦'],
-}
-
-const EQUIP_TYPE_GENERIC_ALIASES: Record<number, Set<string>> = {
-  12: new Set(['电探']),
-  13: new Set(['电探']),
-}
-
 const refreshFleetCheck = async () => {
   try {
     fleetCheck = await queryFleetCheck()
@@ -235,14 +180,8 @@ const scheduleFleetCheck = () => {
   }, 350)
 }
 
-const entityAliases = (
-  domain: 'ship' | 'equip' | 'map' | 'item' | 'shipType' | 'equipType' | 'expedition',
-  id: number,
-  original: string,
-  extra: string[] = [],
-) =>
-  [...new Set([original, entityNamePlain(domain, id, original), ...extra].map(normalizeEntityText).filter(Boolean))]
-    .sort((a, b) => b.length - a.length)
+const entityAliases = (domain: Parameters<typeof taskEntityAliases>[0], id: number, original: string, extra: string[] = []) =>
+  taskEntityAliases(domain, id, original, extra, entityNamePlain)
 
 // ---- 任务可用性：做完了 / 接得了 / 还差什么 ----
 //
@@ -288,7 +227,7 @@ export const questsMentioning = (
   return [...lib.values()].filter((quest) => {
     const text = `${quest.name} ${quest.desc} ${taskEntityMemoText(quest.memo2)}`
     return matchTaskEntityHits([entry], text, minLength, {
-      allowQuotedSingle: domain === 'ship',
+      allowQuotedSingle: true,
       acceptAlias: domain === 'ship' ? allowTaskShipAlias : undefined,
     }).length > 0
   })
@@ -832,6 +771,8 @@ const QUICK_FILTERS: Record<string, { label: string; test: (r: QRow) => boolean 
     label: '即将重置且未完成',
     test: (r) => {
       if (!isObservedActive(r)) return false // 只看进行中（完成待领取的不算「未完成」）
+      if (qp?.trackers[r.id]?.sameDay && qp.progress[r.id]?.some((count) => count > 0) &&
+        nextReset('daily') - Date.now() <= RESET_SOON.日[1]) return true
       const entry = RESET_SOON[periodOfRow(r)[0]]
       if (!entry) return false
       return nextReset(entry[0], annualMonthOf(r.memo2)) - Date.now() <= entry[1]
@@ -1057,6 +998,7 @@ const rowHtml = (row: QRow) => {
       <span class="q-rew">${rewardIcons(row.memo)}</span>
       ${tag}
     </div>
+    ${sameDayResetHtml(row)}
   </div>`
 }
 
@@ -1078,67 +1020,17 @@ const SYSTEM_BY_CATEGORY: Record<string, [string, string]> = {
 const availabilityWrap = (available: boolean, unavailableLabel: string, content: string) =>
   `<span class="q-entity-state${available ? '' : ' unavailable'}"${available ? '' : ` title="${esc(unavailableLabel)}"`}>${content}</span>`
 
-// 正文里点出来的东西，视觉上刻意跟下面「相关内容」两样：那边是可点的实体清单，
-// 带缩略图、未持有会灰掉；这里只是马克笔，不跳转也不表态，读到哪算哪。
-// 唯一的例外是国籍——它本来就是链接，改掉反而是功能退化，于是链接外面再套记号。
+// 正文里点出来的东西，视觉上仍跟下面「相关内容」两样：那边是实体清单，
+// 带缩略图、未持有会灰掉；09-08 用户要求正文也可点，涂色仍保留以示与芯片不同层。
+// 包裹函数复用 elinkHtml，单击开卡和右键菜单沿用既有链接语义。
 const questMarkHtml = (mark: QuestMark, inner: string): string =>
-  mark.kind === 'nationality' && mark.ref != null
-    ? `<span class="qh qh-nationality">${elinkHtml('shipNationality', mark.ref, inner)}</span>`
-    : `<span class="qh qh-${mark.kind}">${inner}</span>`
+  renderQuestMarkHtml(mark, inner, elinkHtml)
 
 // 词典层：舰娘、舰级、舰种、装备、道具、远征。索引都在渲染层，所以这一段留在这里。
 // 只有详情抽屉会走——列表几百行每行跑一遍全量索引不划算，那边只要数量和海域。
-const questEntityMarks = (
-  text: string,
-  code: string,
-  // 紧凑串坐标下的国籍段（markTaskEntityHits 的 acceptAlias 就是在紧凑串上跑的）；
-  // 传原文坐标的那份进来会整体错位，见 nationalityRangesInPackedText
-  nationalityRanges: { start: number; length: number }[],
-): QuestMark[] => {
-  const marks: QuestMark[] = []
-  const push = (
-    hits: { start: number; length: number; entry: { id: number } }[],
-    kind: QuestMark['kind'],
-  ) => {
-    for (const hit of hits) {
-      marks.push({ start: hit.start, length: hit.length, kind, ref: hit.entry.id })
-    }
-  }
-  // 「驱逐队」「航空队」是部队编制名，不是舰种。chips 那边只列一次无所谓，
-  // 正文里却会把编制名的头两个字涂成舰种色——一句话里点三下「驱逐」，像标错了。
-  const notUnitName = (candidate: { text: string; start: number; alias: string }) =>
-    !/^[队隊]/.test(candidate.text.slice(candidate.start + candidate.alias.length))
-  // 海域名走词典时沿用 chips 的领域限制：远征说明、前置备注里的同名作战不该被
-  // 当成本任务的目标海域。海域码和 wiki 链接是形态铁证，不受这条限制（见 emphasisMarks）。
-  if (taskEntityTextDomainAllowed('map', code)) push(markTaskEntityHits(mapNameIndex, text, 3), 'map')
-  push(markTaskEntityHits(shipClassIndex, text, 3), 'type')
-  push(
-    markTaskEntityHits(shipTypeIndex, text, 2, {
-      acceptAlias: (candidate) => allowTaskShipTypeAlias(candidate) && notUnitName(candidate),
-    }),
-    'type',
-  )
-  push(
-    markTaskEntityHits(equipTypeIndex, text, 2, {
-      acceptAlias: (candidate) => allowTaskEquipTypeAlias(candidate) && notUnitName(candidate),
-    }),
-    'type',
-  )
-  push(markTaskEntityHits(missionNameIndex, text, 4), 'type')
-  push(markTaskEntityHits(equipNameIndex, text, 3), 'equip')
-  push(markTaskEntityHits(itemNameIndex, text, 3), 'equip')
-  push(
-    markTaskEntityHits(shipNameIndex, text, 2, {
-      skipClassSuffix: true,
-      allowQuotedSingle: true,
-      acceptAlias: (candidate) =>
-        allowTaskShipAlias(candidate) &&
-        !nationalityRanges.some((hit) => rangesOverlap(candidate, hit)),
-    }),
-    'ship',
-  )
-  return spreadMarksToQuotes(text, marks)
-}
+// 先按真实命中长度决出归属，再铺满引号；否则短名也被铺成整词，会抢走长名的链接。
+const questEntityMarks = (text: string, code: string, nationalityRanges: { start: number; length: number }[]): QuestMark[] =>
+  spreadMarksToQuotes(text, mergeQuestMarks(taskEntityRawMarks({ shipNameIndex, shipClassIndex, shipTypeIndex, equipNameIndex, itemNameIndex, mapNameIndex, equipTypeIndex, missionNameIndex, furnitureNameIndex }, text, code, nationalityRanges)))
 
 /**
  * 任务正文 → HTML：先把 wiki 竖线折干净，再把该提醒的地方点出来。
@@ -1270,7 +1162,7 @@ const entityChipsHtml = (row: QRow) => {
   // 装备名先占坑，舰娘匹配不得再进装备名的地盘——舰娘名（含改造链别名）
   // 常是装备名的子串：「紫电改二」含「电改」，F46 的涉及舰娘就这么冒出过
   // 「电」（2026-08-13 用户抓的实锤；奖励解析侧同病灶已在前一日修过）。
-  const equipHits = matchTaskEntityHits(equipNameIndex, text, 3)
+  const equipHits = matchTaskEntityHits(equipNameIndex, text, 3, { allowQuotedSingle: true })
 
   // 具体舰娘：索引聚合整条改造链的日中名称；已展示舰级的成员不在这里重复列出。
   const displayedClassIds = new Set(classes.map((entry) => entry.id))
@@ -1294,20 +1186,16 @@ const entityChipsHtml = (row: QRow) => {
   const shipTypeHits = matchTaskEntityHits(shipTypeIndex, text, 2, {
     acceptAlias: allowTaskShipTypeAlias,
   })
-  const shipTypeLinks = shipTypeHits.map((hit) =>
-    elink('shipTypeCatalog', hit.entry.id, hit.entry.name),
-  )
-  if (hasUncoveredTaskPhrase(text, '战舰', shipTypeHits, ['航空', '高速', '超弩级', '低速'])) {
-    const group = SHIP_TYPE_GROUPS.battleship
-    shipTypeLinks.push(elink('shipTypeGroup', group.ids.join(','), group.label))
-  }
-  const genericCarrier =
-    hasUncoveredTaskPhrase(text, '航空母舰', shipTypeHits, ['轻型', '装甲']) ||
-    hasUncoveredTaskPhrase(text, '航母', shipTypeHits, ['轻型', '轻', '装甲', '正规']) ||
-    hasUncoveredTaskPhrase(text, '空母', shipTypeHits, ['轻', '正规', '装甲', '潜水'])
-  if (genericCarrier) {
-    const group = SHIP_TYPE_GROUPS.carrier
-    shipTypeLinks.push(elink('shipTypeGroup', group.ids.join(','), group.label))
+  const shipTypeLinks = shipTypeHits.map((hit) => {
+    const group = QUEST_SHIP_TYPE_GROUPS.find((entry) => entry.aliases.includes(hit.alias))
+    return group ? elink('shipTypeGroup', group.stypes.join(','), group.label)
+      : elink('shipTypeCatalog', hit.entry.id, hit.entry.name)
+  })
+  // 每个索引项只取一次命中；同文另有泛称时仍补上对应组，精确舰种的前缀不拆开。
+  for (const group of QUEST_SHIP_TYPE_GROUPS) {
+    if (group.aliases.some((alias) => hasUncoveredTaskPhrase(
+      text, alias, shipTypeHits, ['航空', '高速', '超弩级', '低速', '轻型', '轻', '装甲', '正规', '潜水'],
+    ))) shipTypeLinks.push(elink('shipTypeGroup', group.stypes.join(','), group.label))
   }
   if (shipTypeLinks.length) {
     lines.push(
@@ -1376,7 +1264,7 @@ const entityChipsHtml = (row: QRow) => {
   // 同名实体在 api_mst_slotitem 与 api_mst_useitem 中各占一条（战斗粮食、洋上补给等）；
   // 文本落在同一位置时以可装备实体为准，不重复显示成“装备 + 道具”。
   const items = excludeTaskHitsCoveredByAliases(
-    matchTaskEntityHits(itemNameIndex, text, 2),
+    matchTaskEntityHits(itemNameIndex, text, 2, { allowQuotedSingle: true }),
     equipHits,
   )
     .map((hit) => hit.entry)
@@ -1510,7 +1398,7 @@ const qpTaskLabelText = (task: QpTask, options: { bare?: boolean } = {}): string
   qpTaskLabel(task, options).replace(/<[^>]*>/g, '')
 
 // 数字实体（&#39; 这类）按一个字算，否则截断长度会被实体的字符数带偏
-const needVisualLen = (text: string) => text.replace(/&#\d+;/g, '·').length
+const needVisualLen = (text: string) => text.replace(/<[^>]*>/g, '').replace(/&#\d+;/g, '·').length
 
 // 截断额度按最窄的那一档定：留得下的宁可少列一项摆「等 N 项」，
 // 也别让行末被省略号切在半句上
@@ -1537,7 +1425,10 @@ const qpFleetNeedItems = (goal: QpFleetGoal): string[] => {
           ? `${group.position}号位 `
           : ''
       // label 有一部分是规则包原文（未过 esc），既进 HTML 又进 title 属性，这里统一转义
-      return `${head}${esc(group.label)}${group.lv ? ` Lv${group.lv}↑` : ''}${
+      const label = group.stypes.length > 0 && !(Array.isArray(group.ships) && group.ships.length)
+        ? elinkHtml('shipTypeGroup', group.stypes.join(','), esc(group.label))
+        : esc(group.label)
+      return `${head}${label}${group.lv ? ` Lv${group.lv}↑` : ''}${
         group.amount > 1 ? ` ×${group.amount}` : ''
       }`
     })
@@ -1548,6 +1439,7 @@ const qpFleetNeedItems = (goal: QpFleetGoal): string[] => {
 // 两半都与详情抽屉同源（qpFleetNeedItems 走 group.label、行动需求走 qpTaskLabel），
 // 只是剥掉链接芯片与计数机制注解，进度数字留给进度条。两半都没有的任务返回空串，
 // 那一行照旧显示官方介绍。
+// 任务舰种接入后，编成标签保留可点链接；长度与悬停文案只取链接里的文字。
 //
 // **能不能顶掉正文由调用处的类别闸决定**（PROSE_REPLACING_CATEGORIES），不在这里判：
 // 这个函数只负责「解得出什么」，工厂族解得出的那点零头照旧供进度条与详情抽屉用。
@@ -1591,7 +1483,7 @@ const qpNeedHtml = (row: QRow): string => {
   const text = shown.join(' · ') + (shown.length < items.length ? ` 等 ${items.length} 项` : '')
   // 标签里的名字有一部分是主数据原文（未过 esc），进属性前只补一道引号转义；
   // 已有的数字实体不能再转一遍，否则屏幕上会读到 &#34; 本身
-  const full = items.join(' · ').replace(/"/g, '&#34;')
+  const full = items.join(' · ').replace(/<[^>]*>/g, '').replace(/"/g, '&#34;')
   // class 上留着 plain：这一行占的就是正文的位置，窄态显示与否跟着正文的规则走
   const html = `<span class="plain q-need" title="${full}">${text}</span>`
   needCache.set(row.id, { tracker, version: entityIndexVersion, html })
@@ -1747,22 +1639,40 @@ const qpDetailHtml = (row: QRow): string => {
         ${blockedHtml(tracker)}${syncNote}${paused}${partial}${lines.join('')}
       </section>`
     : ''
-  const goal = tracker.fleetGoal
+  const excludedDecks = fleetCheck[row.id]?.excludedDecks ?? []
+  const combinedDecks = excludedDecks.filter((deck) => deck.reason === 'combined')
+  const exclusionNotes = [
+    combinedDecks.length
+      ? `<div class="d-note">第 ${combinedDecks.map((deck) => deck.deckId).join('／')} 舰队为联合舰队，不参与常规出击判定</div>`
+      : '',
+    ...excludedDecks.filter((deck) => deck.reason === 'guerrilla').map((deck) =>
+      `<div class="d-note">第 ${deck.deckId} 舰队为游击部队（7 舰），不参与常规出击判定</div>`,
+    ),
+  ].join('')
+  const goal = tracker.fleetGoal || excludedDecks.length
     ? `<section class="q-section q-fleet-goal"><h4>编成检查</h4>
         <div class="d-note"><span class="credit-mark" title="${esc(
           '同一舰娘不重复计入多个条目；「含旗舰」条目中旗舰同时计入所属类别；\n' +
             '具名舰未注明形态时，各形态均计入；注明形态时仅计资料列举形态',
         )}">口径</span></div>
         ${
-          fleetCheck[row.id]?.diffs?.length
+          fleetCheck[row.id]?.diffs
             ? fleetCheckStaleHtml() + fleetCheck[row.id].diffs!.map((diff) => {
-                const details = diff.lines.map((line) =>
-                  `${esc(line.label)} ${line.current}/${line.required}${line.ok ? ' ✓' : ` · ${esc(line.issue ?? '未满足')}`}`,
-                ).join('；')
+                // evaluateFleetGoal 先放可选的舰队限制行，再按 groups 原序放各组，末尾才是总量限制。
+                // 按位置关联可区分同名但要求不同的组；不从标签反解舰种。
+                const groupOffset = diff.lines[0]?.kind === 'fleet' ? 1 : 0
+                const details = diff.lines.map((line, index) => {
+                  const group = tracker.fleetGoal!.groups[index - groupOffset]
+                  const label = group?.stypes.length > 0 && !(Array.isArray(group.ships) && group.ships.length)
+                    ? elinkHtml('shipTypeGroup', group.stypes.join(','), esc(line.label))
+                    : esc(line.label)
+                  return `${label} ${line.current}/${line.required}${line.ok ? ' ✓' : ` · ${esc(line.issue ?? '未满足')}`}`
+                }).join('；')
                 return `<div class="fleet-goal-row ${diff.ok ? 'ok' : 'no'}"><b>第${diff.deckId}舰队</b><span>${details}</span></div>`
               }).join('')
-            : fleetCheckPendingHtml(row, '当前编成')
+            : tracker.fleetGoal ? fleetCheckPendingHtml(row, '当前编成') : fleetCheckStaleHtml()
         }
+        ${exclusionNotes}
       </section>`
     : ''
   const stock = tracker.stockGoals?.length
@@ -2006,6 +1916,13 @@ const rewardSectionsHtml = (row: QRow): string => {
     ${fixedHtml}${shipHtml}${rewardAdviceHtml(row, parseCtx)}`
 }
 
+const sameDayResetHtml = (row: QRow): string => {
+  if (!qp?.trackers[row.id]?.sameDay) return ''
+  const reset = nextReset('daily')
+  return `<div class="annual-reset" title="须在同一天内完成；每日 05:00 JST 清零本地计数，任务本身的更新周期不变">当日内完成 · 05:00 重置 ·
+    距下次重置 <b data-same-day-reset data-cdl="${reset}">${fmtDurationLong(reset)}</b></div>`
+}
+
 const annualResetHtml = (row: QRow): string => {
   if (periodOfRow(row)[0] !== '年') return ''
   const month = annualMonthOf(row.memo2)
@@ -2204,7 +2121,7 @@ const detailHtml = (row: QRow) => {
     : ''
   const counter = qpDetailHtml(row) || noCounterHtml(row)
   const chain = questChainHtml(row)
-  const resetInfo = annualResetHtml(row)
+  const resetInfo = annualResetHtml(row) + sameDayResetHtml(row)
   // 抬头条**一行摆完**（2026-08-31 用户拍板）：编号/周期/类别与状态从前上下叠着，
   // 右边那半条一直空着，抽屉本身还得为两行留高。破折号前那半仍是暗色小字、
   // 状态仍是亮色——分开的是样式，不再靠换行。
@@ -2683,191 +2600,18 @@ const buildEntityIndexes = (
   expeditionLode: { data?: any } | null,
   kcwikiShipLode: { data?: any } | null = null,
 ) => {
-  const friendly: any[] = []
-  const shipById = new Map<number, any>()
-  for (const s of data.api_mst_ship ?? []) {
-    if (s.api_sortno) {
-      friendly.push(s)
-      shipById.set(s.api_id, s)
-    }
+  // 远征显示译名仍先登记，纯索引和 chips 读取同一份名称。
+  for (const mission of data.api_mst_mission ?? []) {
+    const nameZh = expeditionLode?.data?.[normalizeExpeditionDispNo(mission.api_disp_no)]?.nameZh
+    if (nameZh) registerLocalizedName('expedition', mission.api_id, mission.api_name, nameZh, 'kcwiki-expedition')
   }
-  // 改造链归属只认 shared/ship-remodel-chain：自己搭并查集就是第二套口径，
-  // 可逆改装（改二⇄乙/丙）的回环边会让手搓的链根断在半路，与图鉴说法分叉。
-  // 改造表**盖不全**：不需要设计图/图纸的那些改造根本不在 api_mst_shipupgrade 里
-  //（实测 Tuscaloosa 923→928 就没有条目），所以每艘舰自己的 aftershipid 必须
-  // 一并喂进去，由那边逐目标回退——不能因为升级表非空就整体弃用 aftershipid。
-  const remodelShips: RemodelChainShip[] = []
-  for (const ship of friendly) {
-    const after = Number(ship.api_aftershipid)
-    remodelShips.push({
-      id: Number(ship.api_id),
-      sortNo: Number(ship.api_sortno) || Number(ship.api_id),
-      afterId: after > 0 ? after : 0,
-    })
-  }
-  const chains = buildShipRemodelChains(
-    remodelShips,
-    (data.api_mst_shipupgrade ?? []).map((upgrade: any) => ({
-      targetId: Number(upgrade?.api_id) || 0,
-      currentShipId: Number(upgrade?.api_current_ship_id) || 0,
-      originalShipId: Number(upgrade?.api_original_ship_id) || 0,
-      stage: Number(upgrade?.api_upgrade_level) || 0,
-    })),
-  )
-  // chainOf 的键就是根形态，值已经按「离根多远」排好——与图鉴同一份归属
-  shipNameIndex = [...chains.chainOf.entries()].flatMap(([rootId, memberIds]) => {
-    const root = shipById.get(rootId)
-    if (!root) return []
-    const aliases = memberIds.flatMap((id) => {
-      const form = shipById.get(id)
-      return form
-        ? entityAliases('ship', id, `${form.api_name ?? ''}`, TASK_SHIP_TEXT_ALIASES[id] ?? [])
-        : []
-    })
-    const uniqueAliases = [...new Set(aliases)].sort((a, b) => b.length - a.length)
-    return [
-      {
-        id: Number(root.api_id),
-        name: `${root.api_name ?? ''}`,
-        simple: uniqueAliases[0] ?? normalizeEntityText(`${root.api_name ?? ''}`),
-        aliases: uniqueAliases,
-        ctype: Number(root.api_ctype) || 0,
-        stype: Number(root.api_stype) || 0,
-        sortNo: Number(root.api_sortno) || Number(root.api_id),
-        members: [...memberIds],
-      },
-    ]
-  })
-  const rootsByClass = new Map<number, ShipNameEntry[]>()
-  for (const ship of shipNameIndex) {
-    if (!ship.ctype) continue
-    const members = rootsByClass.get(ship.ctype) ?? []
-    members.push(ship)
-    rootsByClass.set(ship.ctype, members)
-  }
-  // 舰级名走与图鉴同一份真名索引（shared/ship-class-name）——「该级图鉴编号最小的那艘 + 级」
-  // 那个启发式被 api_sortno 的历史怪癖坑了（雪風 sortno=5 而 陽炎=91，阳炎型显示成雪风级），
-  // 140 个舰级里 53 个是错的。分类是基础设施，两个模块必须同一个出口，不许各参照各的。
-  const trueClassName = buildShipClassNameIndex(
-    Object.values(simplifyKcwikiShipsData(kcwikiShipLode?.data)) as ShipClassNameRow[],
-    (mstId) => Number(shipById.get(mstId)?.api_ctype) || 0,
-  )
-  shipClassIndex = [...rootsByClass.entries()].map(([ctype, members]) => {
-    members.sort((a, b) => a.sortNo - b.sortNo)
-    const lead = members[0]
-    const leadAliases = entityAliases('ship', lead.id, lead.name)
-    const heuristic = `${entityNamePlain('ship', lead.id, lead.name)}级`
-    const label = trueClassName.get(ctype) || heuristic
-    // 旧写法（首舰名 + 型/级）**留在别名里**：任务文本与用户输入里两种叫法都有，
-    // 正名是把显示名改对，不是把「雪风级」这个说法从反查里删掉。
-    const aliases = [
-      ...leadAliases.flatMap((name) => [`${name}型`, `${name}级`]),
-      normalizeEntityText(heuristic),
-      normalizeEntityText(label),
-      ...(label.endsWith('级') ? [normalizeEntityText(`${label.slice(0, -1)}型`)] : []),
-      `舰级${ctype}`,
-    ]
-    return {
-      id: ctype,
-      name: label,
-      simple: normalizeEntityText(label),
-      aliases: [...new Set(aliases.filter(Boolean))].sort((a, b) => b.length - a.length),
-      members,
-    }
-  })
-  const friendlyShipTypeIds = new Set(friendly.map((ship) => Number(ship.api_stype)))
-  shipTypeIndex = (data.api_mst_stype ?? [])
-    .filter((type: any) => friendlyShipTypeIds.has(Number(type.api_id)))
-    .map((type: any) => {
-      const blocked = SHIP_TYPE_GENERIC_ALIASES[type.api_id] ?? new Set<string>()
-      const aliases = entityAliases(
-        'shipType',
-        type.api_id,
-        type.api_name,
-        SHIP_TYPE_ALIASES[type.api_id] ?? [],
-      ).filter((alias) => !blocked.has(alias))
-      return {
-        id: type.api_id,
-        name: SHIP_TYPE_LABELS[type.api_id] ?? entityNamePlain('shipType', type.api_id, type.api_name),
-        simple: aliases[0] ?? normalizeEntityText(type.api_name),
-        aliases,
-      }
-    })
-  equipNameIndex = (data.api_mst_slotitem ?? [])
-    .filter((e: any) => e.api_id < 1500)
-    .map((equip: any) => {
-      const aliases = entityAliases('equip', equip.api_id, equip.api_name)
-      return {
-        id: equip.api_id,
-        name: equip.api_name,
-        simple: aliases[0] ?? normalizeEntityText(equip.api_name),
-        aliases,
-      }
-    })
-  useitemNames = new Map(
-    (data.api_mst_useitem ?? []).map((u: any) => [u.api_id, u.api_name]),
-  )
+  const indexes = buildTaskEntityIndexes(data, entityNamePlain, expeditionLode?.data, simplifyKcwikiShipsData(kcwikiShipLode?.data))
+  ;({ shipNameIndex, shipClassIndex, shipTypeIndex, equipNameIndex, itemNameIndex, mapNameIndex, equipTypeIndex, missionNameIndex, furnitureNameIndex } = indexes)
+  useitemNames = new Map((data.api_mst_useitem ?? []).map((u: any) => [u.api_id, u.api_name]))
   invalidateAwardMask() // 名册来源变了,字节命中防线的缓存跟着重建
   rewardEquipCache.clear() // 装备索引重建：奖励图标里的装备兜底跟着重算
-  itemNameIndex = (data.api_mst_useitem ?? []).map((item: any) => {
-    const aliases = entityAliases('item', item.api_id, item.api_name)
-    return {
-      id: item.api_id,
-      name: entityNamePlain('item', item.api_id, item.api_name),
-      simple: aliases[0] ?? normalizeEntityText(item.api_name),
-      aliases,
-    }
-  })
-  mapNameIndex = buildTaskMapNameIndex(
-    data.api_mst_mapinfo,
-    data.api_mst_maparea,
-    (map) => entityNamePlain('map', map.api_id, map.api_name),
-    normalizeEntityText,
-  )
   mapIds = new Set(mapNameIndex.map((map) => map.id))
-  equiptypeNames = new Map(
-    (data.api_mst_slotitem_equiptype ?? []).map((t: any) => [t.api_id, t.api_name]),
-  )
-  equipTypeIndex = (data.api_mst_slotitem_equiptype ?? []).map((type: any) => {
-    const blocked = EQUIP_TYPE_GENERIC_ALIASES[type.api_id] ?? new Set<string>()
-    const aliases = entityAliases(
-      'equipType',
-      type.api_id,
-      type.api_name,
-      EQUIP_TYPE_ALIASES[type.api_id] ?? [],
-    ).filter((alias) => !blocked.has(alias))
-    return {
-      id: type.api_id,
-      name: entityNamePlain('equipType', type.api_id, type.api_name),
-      simple: aliases[0] ?? normalizeEntityText(type.api_name),
-      aliases,
-    }
-  })
-  missionNameIndex = buildTaskExpeditionNameIndex(
-    data.api_mst_mission,
-    expeditionLode?.data,
-    (mission) => entityNamePlain('expedition', mission.api_id, mission.api_name),
-    (mission, nameZh) => {
-      registerLocalizedName(
-        'expedition',
-        mission.api_id,
-        mission.api_name,
-        nameZh,
-        'kcwiki-expedition',
-      )
-    },
-    normalizeEntityText,
-  )
-  // 家具名：无中文矿脉，原名照排。任务库写法是简化转写（「掛け軸」→「挂け轴」），
-  // 靠 JP2CN 两侧归并对齐；≥4 字才收——「椅子」这种短名在奖励文本里会乱撞。
-  furnitureNameIndex = (data.api_mst_furniture ?? [])
-    .filter((f: any) => `${f.api_title ?? ''}`.length >= 4)
-    .map((f: any) => ({
-      id: f.api_id,
-      name: `${f.api_title}`,
-      simple: normalizeEntityText(f.api_title),
-      aliases: [normalizeEntityText(f.api_title)].filter(Boolean),
-    }))
+  equiptypeNames = new Map((data.api_mst_slotitem_equiptype ?? []).map((t: any) => [t.api_id, t.api_name]))
   entityIndexVersion += 1
   quickCountCache = null // 「有舰娘奖励」那一项是拿索引数出来的
 }
@@ -3020,6 +2764,9 @@ registerModule({
     let lastQuickFilterMinute = -1
     onTick(() => {
       if (!pane.classList.contains('active')) return
+      pane.querySelectorAll<HTMLElement>('[data-same-day-reset]').forEach((el) => {
+        if (Number(el.dataset.cdl) <= Date.now()) el.dataset.cdl = `${nextReset('daily')}`
+      })
       updateCountdowns(pane)
       // “即将重置”是随时间跨阈值的派生筛选；只改倒计时文字会让结果集停在旧状态。
       const minute = Math.floor(Date.now() / 60000)

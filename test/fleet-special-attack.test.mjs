@@ -24,6 +24,16 @@ const fillers = (count) => Array.from({ length: count }, (_, index) => ship(`水
 const labels = (role, ships) =>
   detectFleetSpecialAttacks({ role, ships }).map((attack) => attack.label)
 
+test('日枝丸与日枝丸改旗舰 Lv30 配两艘潜艇可判出潜水舰队攻击 ci 300', () => {
+  for (const flagship of ['日枝丸', '日枝丸改']) {
+    const attacks = detectFleetSpecialAttacks({
+      role: 'normal',
+      ships: [ship(flagship, 20, { lv: 30 }), ship('伊13', 14), ship('伊14', 14)],
+    })
+    assert.deepEqual(attacks.map((attack) => attack.ci), [300])
+  }
+})
+
 test('Nelson Touch requires the flagship, six surface ships and valid third/fifth slots', () => {
   assert.deepEqual(
     labels('normal', [ship('Nelson改'), ...fillers(5)]),

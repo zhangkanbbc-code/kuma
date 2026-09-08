@@ -37,12 +37,13 @@ import { buildSortieRuleContext, deriveSortieRule } from './quest-sortie-rules'
 import { applyQuestSourceConflicts } from './quest-source-conflicts'
 import { QUEST_TEXT_NOTES } from './quest-text-notes'
 import { actionIncrement, buildEquipTypeNameIndex, deriveFallbackTracker } from './quest-counter-rules'
-import { questAnnualMonth, questPeriodFromCode, questPeriodKey } from '../../shared/quest-period'
+import { questAnnualMonth, questCodeFamily, questPeriodFromCode, questPeriodKey, questSameDayClause } from '../../shared/quest-period'
 import {
   buildQuestGoalNameIndex,
   localizeQuestGoalLabels,
 } from '../../shared/quest-goal-name'
 import { USEITEM_MATERIAL_INDEX } from '../../shared/useitem-stock'
+import { sortieEligibleDecks } from '../../shared/quest-fleet-eligibility'
 import { isEnemyReallySunk } from '../../shared/enemy-sunk'
 
 import type { QuestPeriodKind } from '../../shared/quest-period'
@@ -122,6 +123,7 @@ interface Tracker {
   approx: boolean
   partial: boolean
   period: QuestPeriodKind | null
+  sameDay: boolean
   annualMonth: number | null
 }
 
@@ -241,6 +243,13 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
       ? Object.keys(scn.data).length
       : 0
     const periodByQuest = new Map<number, { period: QuestPeriodKind | null; annualMonth: number | null }>()
+    // daily 标记独立于规则解码结果：即使计数器降级到后续规则源，也保留当日要求。
+    const sameDayOf = (questId: number): boolean => {
+      const raw = (scn?.data as any)?.[questId]
+      return (kcwikiPack?.data as any)?.[questId]?.daily === true ||
+        (questCodeFamily(`${raw?.code ?? ''}`) === 'C' &&
+          questSameDayClause(`${raw?.desc ?? ''}｜${raw?.memo2 ?? ''}`))
+    }
     if (scn?.data && typeof scn.data === 'object') {
       for (const [idStr, raw] of Object.entries<any>(scn.data)) {
         const resetNote = `${raw?.memo2 ?? ''}`
@@ -292,6 +301,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
           approx: decoded.approx === true,
           partial: decoded.partial,
           period: periodByQuest.get(questId)?.period ?? null,
+          sameDay: sameDayOf(questId),
           annualMonth: periodByQuest.get(questId)?.annualMonth ?? null,
         })
       }
@@ -311,6 +321,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
           approx: false,
           partial: decoded.partial,
           period: periodByQuest.get(questId)?.period ?? null,
+          sameDay: sameDayOf(questId),
           annualMonth: periodByQuest.get(questId)?.annualMonth ?? null,
         })
       }
@@ -337,6 +348,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
           approx: rule.approx,
           partial: rule.partial,
           period: periodByQuest.get(rule.questId)?.period ?? null,
+          sameDay: sameDayOf(rule.questId),
           annualMonth: periodByQuest.get(rule.questId)?.annualMonth ?? null,
         })
       }
@@ -371,6 +383,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
             approx: derived.approx,
             partial: false,
             period: periodByQuest.get(questId)?.period ?? null,
+            sameDay: sameDayOf(questId),
             annualMonth: periodByQuest.get(questId)?.annualMonth ?? null,
           })
         }
@@ -409,6 +422,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
             approx: derived.approx || Boolean(fleet?.approx),
             partial: derived.partial,
             period: periodByQuest.get(questId)?.period ?? null,
+            sameDay: sameDayOf(questId),
             annualMonth: periodByQuest.get(questId)?.annualMonth ?? null,
           })
         }
@@ -434,6 +448,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
           approx: true,
           partial: derived.partial,
           period: periodByQuest.get(questId)?.period ?? null,
+          sameDay: sameDayOf(questId),
           annualMonth: periodByQuest.get(questId)?.annualMonth ?? null,
         })
       }
@@ -528,6 +543,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
         stockGoals: t.stockGoals,
         approx: t.approx,
         partial: t.partial,
+        sameDay: t.sameDay,
         blocked: blockReasonOf(t, now),
       }
       const flag = quests[qid]?.progressFlag
@@ -564,6 +580,8 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
   }
 
   const periodOf = (tracker: Tracker): QuestPeriodKind | null => {
+    // 任务本身的周期不变，只是进度按日清零；粗档与受领确认也须属于今天。
+    if (tracker.sameDay) return 'daily'
     const type = store.getState().player.quests[tracker.questId]?.type
     if (type === 1) return 'daily'
     if (type === 2) return 'weekly'
@@ -1228,17 +1246,40 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
   // 判定逻辑只此一份，钦的「当前编成可直接做」不会和实际计数口径打架。
   // 返回 questId → { hasCond, decks }：
   //   hasCond=false 无编成限制（任何编成都算）；decks = 满足条件的舰队 id
+  // 只筛出击类：A82 是第三舰队编成任务，编成／工厂／远征／演习仍检查所有舰队。
+  // 联合 = 1+2（store 的 combinedFlag，chronicle / ship-life 同口径）；
+  // 游击 = 单队 7 个有效舰位（shared/sortie-escape）。计数门 condOk 保持原判据。
   const checkFleet = (): QpFleetCheck => {
     const player = store.getState().player
     const out: QpFleetCheck = {}
     // 每队的 FleetShip 只算一次，别在任务循环里反复重建
     const fleets = player.decks.map((d) => ({ id: d.id, ships: sortieFleet(d.id) }))
+    const eligibleIds = sortieEligibleDecks(player.decks, player.combinedFlag)
     for (const [qid, tracker] of trackers) {
       if (player.quests[qid]?.state !== 2) continue // 只看遂行中
+      // 与出击计数事件的 kind 一致：战斗结算，以及进图／进击的到达与护航终点。
+      const isSortie = tracker.tasks.some((task) => [
+        'bossKill', 'battleNode', 'battleWin', 'bossReach', 'bossWin', 'sinkEnemy',
+        'nodeReach', 'mapGoal', 'mapFirstClear',
+      ].includes(task.kind))
+      const candidateDecks = isSortie
+        ? player.decks.filter((deck) => eligibleIds.includes(deck.id))
+        : player.decks
+      const candidateFleets = isSortie
+        ? fleets.filter((fleet) => eligibleIds.includes(fleet.id))
+        : fleets
+      const excludedDecks: NonNullable<QpFleetCheck[number]['excludedDecks']> = isSortie
+        ? player.decks.filter((deck) => !eligibleIds.includes(deck.id)).map((deck) => ({
+            deckId: deck.id,
+            reason: player.combinedFlag > 0 && (deck.id === 1 || deck.id === 2)
+              ? 'combined' : 'guerrilla',
+          }))
+        : []
+      const exclusions = excludedDecks.length ? { excludedDecks } : {}
       const stateGoal = tracker.stateGoal ? evaluateStateGoal(tracker.stateGoal) : undefined
       const stateAllows = stateGoal?.ok !== false
       if (tracker.fleetGoal) {
-        const diffs = player.decks.map((deck) =>
+        const diffs = candidateDecks.map((deck) =>
           evaluateFleetGoal(
             tracker.fleetGoal!,
             deck.ships
@@ -1260,8 +1301,10 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
         )
         out[qid] = {
           hasCond: true,
+          approx: tracker.approx,
           decks: stateAllows ? diffs.filter((diff) => diff.ok).map((diff) => diff.deckId) : [],
           diffs,
+          ...exclusions,
           ...(stateGoal ? { stateGoal } : {}),
         }
         continue
@@ -1269,12 +1312,14 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
       if (tracker.tasks.some((task) => task.fleetGoal)) {
         out[qid] = {
           hasCond: true,
-          decks: stateAllows ? fleets
+          approx: tracker.approx,
+          decks: stateAllows ? candidateFleets
             .filter((fleet) =>
               fleet.ships.length > 0 &&
               tracker.tasks.some((task) => condOk(tracker, fleet.ships, fleet.id, task)),
             )
             .map((fleet) => fleet.id) : [],
+          ...exclusions,
           ...(stateGoal ? { stateGoal } : {}),
         }
         continue
@@ -1282,7 +1327,9 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
       // 没有编成门：任何编成都算。hasCond 只在还有秘书舰/装备那道门时为真。
       out[qid] = {
         hasCond: Boolean(stateGoal),
-        decks: stateAllows ? fleets.map((f) => f.id) : [],
+        approx: tracker.approx,
+        decks: stateAllows ? candidateFleets.map((f) => f.id) : [],
+        ...exclusions,
         ...(stateGoal ? { stateGoal } : {}),
       }
     }

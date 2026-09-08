@@ -101,3 +101,9 @@ node scripts/asr-audit.mjs --model=fun-asr-flash-2026-06-15
 `test/asr-normalize.test.mjs` 钉住归一/相似度/纠偏三组纯函数。
 这一层的错**不报错**：判断写反了只会让相似度整体偏移，于是可疑条目排不到前面，
 人去耳测时先听到的全是好条目——症状不像 bug，所以用例大半拿实测的真实字串钉。
+
+## 特殊攻击台词离线补录
+
+`node scripts/voice-special-attack-ingest.mjs <行表.json>` 将浏览器摘录的 `page / rows[].forms / grp / cells` 表并入 wikiwiki 底本。输入路径必填；主数据沿用 `KUMA_START2_SNAPSHOT` 或已有快照读取口，全程不联网。相同 page、scene、ja 重跑不重复写入。
+
+特殊攻击按有效行序分到 900–903，僚舰夜战分到 990–993；長門旧句只保留在现行句备注，榛名汎用句不分槽。金剛／比叡的唯一号令底本在自译层复用四个文件号，底本仍只存一行。行序推槽的自译行标 ambiguous，图鉴可试听并标“槽位待耳测”。

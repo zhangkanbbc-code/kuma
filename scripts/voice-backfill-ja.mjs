@@ -15,6 +15,8 @@
 //  · 自译包 `kuma-voice`：本机的 `wikiwiki-voice.json`（不随包，但一直在本机）。
 //    配对判据与审稿单完全同一套——已有日文只须命中 **同形态同槽任一候选**，
 //    同槽多行不得复用候选；对不上且有多候选时不按序号猜，列出来交人判定。
+//  · enwiki-mapped 的日文独立来自英文 wiki Quotes 表，不参与 wikiwiki 回填；
+//    assets/review/enwiki-special-voice.json 的逐行对账由 voice-attribution 用例负责。
 //  · 季节包 `kcwiki-seasonal-voice`：`assets/review/kcwiki-seasonal-voice.audit.json`
 //    （`lodes:fetch --seasonal-voice-audit` 留下的维护者侧材料）。按 **(档名, 季节)** 配；
 //    本家那一季没有日文时，退到别的季列过的同一档名——同一个档名指的是同一句台词。
@@ -119,6 +121,9 @@ const backfillKuma = () => {
     const bySlot = wikiwikiLinesOf(wikiwiki, Number(mstId))
     const used = new Map()
     for (const row of rows) {
+      if (row.basis === 'enwiki-mapped') continue
+      // 金剛／比叡只有一条夜战号令底本，按已裁定的四个僚舰文件号复用；不伪造底本行。
+      // 2026-09-08 用户耳测撤销上述复用裁定：两句均归 900，恢复同形态同槽配对。
       const candidates = bySlot.get(row.slot) ?? []
       const usedHere = used.get(row.slot) ?? new Set()
       const actual = normalizeVoiceLine(row.ja)

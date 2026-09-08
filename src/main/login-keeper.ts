@@ -62,6 +62,7 @@ app.on('ready', () => {
   ses.cookies.on('changed', async (_event, cookie, _cause, removed) => {
     // 只处理新增/更新的会话 cookie；复写后的 cookie 带过期时间，
     // 再次触发本监听时 cookie.session 为 false，不会死循环
+    // 主动退出登录产生的 removed 事件也在此返回，不会复写刚删除的 cookie。
     if (removed || !cookie.session) return
     if (!config.get('kuma.persistLogin', true)) return
     if (!shouldPersist(cookie.domain)) return

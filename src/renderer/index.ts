@@ -26,8 +26,10 @@ import { initBgmPreview } from './bgm-preview'
 import { initPreviewBar } from './preview-bar'
 import { initLink } from './link'
 import { initCommandPalette } from './command-palette'
+import { initInputClear } from './input-clear'
 import { initLocalization } from './localization'
-import { initModules, isModuleShowing, launchGlowLayout, setLayoutDragHooks, toggleFocus } from './mu'
+import { exitDistract, getDistractState, initModules, isModuleShowing, launchGlowLayout, setDistractSide, setLayoutDragHooks, toggleDistract, toggleFocus } from './mu'
+import { cycleDistractSide, DISTRACT_DEFAULTS, DISTRACT_PATHS, DISTRACT_SIDE_LABEL } from '../shared/distract-mode'
 import {
   armLaunchGlow,
   armLaunchWelcome,
@@ -63,6 +65,10 @@ import {
 import { cleanUserAgent } from '../shared/user-agent'
 import { initHeaderStatus } from './header-status'
 import { initVoiceSubtitles } from './voice-subtitle'
+import { initFairySalvo, refreshFairySalvo } from './fairy-salvo'
+import { FAIRY_SALVO_CONFIG_KEY, FAIRY_SALVO_DEFAULT, FAIRY_MIRROR_UI_KEY, salvoGunsOf } from '../shared/fairy-salvo'
+import { slotItemImageUrl } from './kcs-image'
+import { onMgChange, uiGet, uiSet } from './kernel'
 import { prepareLevelExp } from './level-exp'
 import { prepareFirstOwned } from './ship-first-owned'
 // 模块导入即注册（Tab 顺序由各自 order 决定）
@@ -99,6 +105,24 @@ for (const [scope, prepare] of [
     recordCrash(scope, error)
   }
 }
+// 联合出击由第一队具名；单独出击的其他队仍按 sortie.deckId 找旗舰。
+const salvoFlagship = () => {
+  const deckId = mg.combinedFlag > 0 && mg.sortie?.deckId === 1 ? 1 : mg.sortie?.deckId
+  const ship = mg.decks.find((deck) => deck.id === deckId)?.ships[0]
+  return ship === undefined ? undefined : mg.ships[ship]
+}
+initFairySalvo({
+  active: () => !!mg.sortie?.active,
+  practice: () => !!mg.sortie?.practice,
+  flagshipId: () => salvoFlagship()?.shipId,
+  guns: () => salvoGunsOf({ slot: (salvoFlagship()?.slot ?? []).map((id) => mg.slotitems[id]?.mstId ?? -1) }, mg.master),
+  imageUrl: (id) => slotItemImageUrl(id, 'item_character'),
+  mirrors: () => uiGet<number[]>(FAIRY_MIRROR_UI_KEY, []),
+  writeMirrors: (ids) => uiSet(FAIRY_MIRROR_UI_KEY, ids),
+  // 老板键隐藏全部窗口；额外读窗口可见性，覆盖文档可见性尚未更新的那一瞬。
+  windowVisible: () => remote.getCurrentWindow().isVisible(),
+  onSortieChange: (cb) => onMgChange((keys) => { if (keys.includes('sortie')) cb() }),
+}, config.get(FAIRY_SALVO_CONFIG_KEY, FAIRY_SALVO_DEFAULT))
 initVoiceSubtitles(broadcaster)
 
 const APP_ROOT: string = remote.getGlobal('ROOT')
@@ -422,7 +446,28 @@ const syncFocusBtn = (on: boolean) => {
 }
 focusBtn.addEventListener('click', () => syncFocusBtn(toggleFocus()))
 
-const hotkeyTitle = (id: 'reload' | 'focus' | 'capture' | 'mute'): string => {
+const syncDistractButtons = () => {
+  refreshFairySalvo()
+  const { on, side } = getDistractState()
+  $('#btn-distract').textContent = on ? '退出分心' : '分心'
+  $('#btn-distract-top').hidden = !on
+  $('#btn-distract-side').hidden = !on
+  $('#btn-distract-top').textContent = config.get(DISTRACT_PATHS.alwaysOnTop, DISTRACT_DEFAULTS.alwaysOnTop) ? '已置顶' : '置顶'
+  $('#btn-distract-side').textContent = `侧：${DISTRACT_SIDE_LABEL[side]}`
+}
+$('#btn-distract').addEventListener('click', () => toggleDistract())
+$('#btn-distract-side').addEventListener('click', () => setDistractSide(cycleDistractSide(getDistractState().side)))
+$('#btn-distract-top').addEventListener('click', () => {
+  const on = !config.get(DISTRACT_PATHS.alwaysOnTop, DISTRACT_DEFAULTS.alwaysOnTop)
+  void ipcRenderer.invoke('window:distract-always-on-top', on).then(() => {
+    window.dispatchEvent(new Event('kuma-distract-changed'))
+  })
+})
+window.addEventListener('kuma-distract-changed', syncDistractButtons)
+ipcRenderer.on('window:distract-exited', () => exitDistract(false))
+syncDistractButtons()
+
+const hotkeyTitle = (id: 'reload' | 'focus' | 'distract' | 'capture' | 'mute'): string => {
   const configured = parseAccelerator(config.get(HOTKEY_CONFIG_KEYS[id], HOTKEY_DEFAULTS[id]))
   return formatAccelerator(
     configured && isAcceptableAccelerator(configured)
@@ -444,6 +489,7 @@ const toggleMute = () => {
 }
 muteBtn.addEventListener('click', toggleMute)
 const syncHotkeyTitles = () => {
+  $('#btn-distract').title = `分心模式：游戏缩成小窗，战斗卡贴在一侧（${hotkeyTitle('distract')}）`
   $('#btn-focus').title = `专注模式：收起三坞只留游戏（${hotkeyTitle('focus')}）`
   $('#btn-capture').title = `保存游戏画面截图（${hotkeyTitle('capture')}）`
   $('#btn-reload').title = `刷新游戏页面（${hotkeyTitle('reload')}）`
@@ -462,6 +508,7 @@ void ipcRenderer.invoke('audio:get-mute').then((muted: unknown) => {
 ipcRenderer.on('kuma:hotkey', (_event: unknown, id: unknown) => {
   if (id === 'reload') webview?.reload()
   else if (id === 'focus') syncFocusBtn(toggleFocus())
+  else if (id === 'distract') toggleDistract()
   else if (id === 'capture') void captureGame()
   else if (id === 'mute') toggleMute()
 })
@@ -772,6 +819,7 @@ const startupFailed = (stage: string, error: unknown) => {
 void (async () => {
   installCrashNet() // 先张网，后面每一步出的事才有地方落
   initUiZoom() // 先恢复界面缩放，避免装配后再抖一次
+  initInputClear()
   const snapshotReady = initKernel()
   const lodeReady = initLocalization()
   // 欢迎屏那三件「真就绪」里的头两件。**失败也当到齐**：那一屏是缓冲不是守卫，

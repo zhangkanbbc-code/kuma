@@ -1,3 +1,5 @@
+import { SPECIAL_VOICE_SLOT_IDS } from '../shared/voice-scene-slots'
+
 type JsonRecord = Record<string, unknown>
 
 const validateItemFacts = (data: unknown): string | null => {
@@ -1771,7 +1773,7 @@ const validateSeasonalVoice = (data: unknown): string | null => {
  *    每行都得有这个键。**值允许是空串**——上游确实没转日文的行照实空着，不许编。
  *  ② `slot` 必须落在官方语音编号空间 1..53。这个数会被拿去算音轨文件名，
  *    放行等于让包里的脏数据决定去请求什么。
- *  ③ `basis` 必须是四档之一（见下面那个集合旁的注释）。播放键给不给全看它——
+ *  ③ `basis` 必须是五档之一（见下面那个集合旁的注释）。播放键给不给全看它——
  *    写个别的值等于把判据绕过去。
  *
  * 键仍旧钉在白名单上：多一个没人认识的字段就该当成包被人动过。
@@ -1784,6 +1786,8 @@ const KUMA_VOICE_ROW_KEYS = new Set(['key', 'scene', 'slot', 'basis', 'ja', 'zh'
 const KUMA_VOICE_BASIS = new Set([
   'key-confirmed',
   'wikiwiki-mapped',
+  // 英文 wiki Quotes 表的日文转写，槽位由搭档顺序与台账映射。
+  'enwiki-mapped',
   'divergent',
   'ambiguous',
 ])
@@ -1811,7 +1815,7 @@ const validateKumaVoice = (data: unknown): string | null => {
         !isText(raw.zh, 10_000) ||
         // 日文原文这一列**必须在场**，值可以是空串（上游没转的行照实空着）
         !isString(raw.ja, 10_000) ||
-        !isInteger(raw.slot, 1, 53) ||
+        !(isInteger(raw.slot, 1, 53) || SPECIAL_VOICE_SLOT_IDS.includes(raw.slot as number)) ||
         typeof raw.basis !== 'string' ||
         !KUMA_VOICE_BASIS.has(raw.basis) ||
         (raw.draft !== undefined && raw.draft !== true)
@@ -1931,7 +1935,9 @@ const validateWikiwikiVoice = (data: unknown): string | null => {
         !isText(raw.scene, 1_000) ||
         !isText(raw.ja, 10_000) ||
         !isText(raw.page, 1_000) ||
-        (raw.voiceId !== undefined && !isInteger(raw.voiceId, 1, 53))
+        (raw.note !== undefined && !isString(raw.note, 10_000)) ||
+        (raw.voiceId !== undefined &&
+          !(isInteger(raw.voiceId, 1, 53) || SPECIAL_VOICE_SLOT_IDS.includes(raw.voiceId as number)))
       ) {
         return `wikiwiki-voice.${shipId}[${index}] 非法`
       }

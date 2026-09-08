@@ -10,17 +10,20 @@ import {
 import { isAbyssMstId } from '../../shared/kcs-domain'
 import { onChronicleApi } from './chronicle'
 import { appendPerf } from '../perf-log'
+import { createLastApiMemo } from '../../shared/crash-context'
 import { mainLongTaskMs, timeMain } from '../perf-time'
 import ledger from './ledger'
 import { getLode } from '../lode'
 import { devSecretaryTypeOf } from '../../shared/factory-lookup'
 import config from '../config'
+import { detectAccountChange } from '../../shared/account-change'
 import { mapIdOf } from '../../shared/map-id'
+import { ITEM_USE_CATEGORY } from '../../shared/item-use-materials'
 import {
-  ITEM_USE_CATEGORY,
-  createItemUseRefreshTracker,
-  itemUseMaterialCategory,
-} from '../../shared/item-use-materials'
+  createDeltaCategoryTrackers,
+  resolveDeltaCategory,
+  type DeltaDetailContext,
+} from '../../shared/material-delta-detail'
 import { questFixedSenka, senkaMonthEnd, senkaMonthStart } from '../../shared/senka'
 import type { SenkaQuestOption } from '../../shared/senka'
 import { questAnnualMonth, questPeriodFromCode } from '../../shared/quest-period'
@@ -78,6 +81,8 @@ import type {
 
 const MARRIAGE_PATH = '/kcsapi/api_req_kaisou/marriage'
 const HANGAR_EXPAND_PATH = '/kcsapi/api_req_kaisou/hangar_expand'
+const lastApis = createLastApiMemo()
+export const lastApiPaths = () => lastApis.list()
 
 const pickSections = (sections: Section[]) => {
   const state = store.getState()
@@ -182,6 +187,21 @@ const broadcast = (sections: Section[]) => {
   }, () => sections.join(','))
 }
 
+const observeAccountChange = (incoming: string | number) => {
+  const previous = config.get('kuma.lastMemberId')
+  const current = String(incoming)
+  const change = detectAccountChange(previous, current)
+  if (change === 'same') return
+  config.set('kuma.lastMemberId', current)
+  if (change === 'changed') {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+        win.webContents.send('yu:account-changed', { previous: String(previous), current })
+      }
+    }
+  }
+}
+
 const broadcastSortieScreen = (ts: number) => {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send('mg:sortie-screen', ts)
@@ -235,7 +255,7 @@ const DELTA_CATEGORY: Record<string, string> = {
 }
 
 // 用道具 → 下一包才到账，所以状态机跨包活着（见 shared/item-use-materials 的实测头注）。
-const itemUseRefresh = createItemUseRefreshTracker()
+const deltaCategoryTrackers = createDeltaCategoryTrackers()
 
 /**
  * 任务资料库里这个任务的战果分值与周期口径。解不出固定战果就返回 null
@@ -269,7 +289,7 @@ const handleEvent = (
 ) => {
   // 每一包都推进一次：用道具那一包只负责武装，钱要到下一包才落地。
   // 放在最前面是因为它必须看见**所有**报文，而下面的分支随时会提前返回。
-  const itemUseCategory = itemUseMaterialCategory(itemUseRefresh, apiPath, ts)
+  // 现在统一在归约后、所有业务分支之前推进，任务结算要读取本包余额差。
   // 废弃归约会立刻从库存删除实例；任务引擎仍要知道“删掉的是哪种装备”。
   // 只保留本次请求涉及的实例，不复制整份装备库。
   const destroyedSlotitems =
@@ -334,6 +354,22 @@ const handleEvent = (
       ? store.getState().player.decks.find((deck) => deck.id === expeditionDeckId)?.mission?.[1] ?? 0
       : 0
   const prevMaterials = store.getState().player.materials
+  // 解体、改造、改修、入渠加速都可能抹掉所需对象，只截取本次涉及的 id。
+  const detailBefore: NonNullable<DeltaDetailContext['before']> = { ships: {} }
+  const detailShipIds = apiPath === '/kcsapi/api_req_kousyou/destroyship'
+    ? `${postBody.api_ship_id ?? ''}`.split(',').map(Number)
+    : apiPath === '/kcsapi/api_req_kaisou/remodeling' ? [Number(postBody.api_id)]
+    : apiPath === '/kcsapi/api_req_nyukyo/start' ? [Number(postBody.api_ship_id)] : []
+  if (apiPath === '/kcsapi/api_req_nyukyo/speedchange') {
+    detailBefore.dockShip = store.getState().player.ndocks.find(dock => dock.id === Number(postBody.api_ndock_id))?.shipId ?? 0
+    detailShipIds.push(detailBefore.dockShip)
+  }
+  for (const id of detailShipIds) detailBefore.ships![id] = store.getState().player.ships[id]?.shipId ?? 0
+  detailBefore.slotitems = destroyedSlotitems
+  if (apiPath === '/kcsapi/api_req_kousyou/remodel_slot') {
+    const id = Number(postBody.api_slot_id)
+    detailBefore.slotitems = { [id]: { mstId: store.getState().player.slotitems[id]?.mstId ?? 0 } }
+  }
   // EO 特别战果只认「击破那一刻」（cleared 由 false 变 true）。cleared 是常驻状态，
   // 若按「观测到 cleared 就记」，跨战果月后去重窗口清空，月初第一个包会给每张
   // 仍缓存为已破的 EO 图凭空补一笔从未发生的战果。
@@ -343,6 +379,14 @@ const handleEvent = (
       .map(([id]) => Number(id)),
   )
   const sections = timeMain('api:state', () => store.handle(apiPath, body, postBody, ts), () => apiPath)
+  const deltaMaterials = store.getState().player.materials
+  const deltaResolution = resolveDeltaCategory(deltaCategoryTrackers, {
+    apiPath, ts, postBody, body, before: detailBefore,
+    sortie: store.getState().sortie,
+    expedition: { mission: expeditionMissionId, deck: expeditionDeckId },
+    delta: prevMaterials && deltaMaterials ? deltaMaterials.map((value, i) => value - prevMaterials[i]) : [],
+    categories: DELTA_CATEGORY,
+  })
   const powerupResult =
     apiPath === '/kcsapi/api_req_kaisou/powerup'
       ? buildPowerupResultCue(
@@ -398,6 +442,12 @@ const handleEvent = (
   if (sections.includes('basic')) {
     const basic = store.getState().player.basic
     if (typeof basic?.experience === 'number') ledger.logHqExp(ts, basic.experience)
+    // 只比较本次实时报文给出的身份，旧快照回放与等级刷新不参与换号判断。
+    const accountBody = body as { api_member_id?: string | number; api_basic?: { api_member_id?: string | number } }
+    const incoming = apiPath === '/kcsapi/api_get_member/basic'
+      ? accountBody.api_member_id
+      : apiPath === '/kcsapi/api_port/port' ? accountBody.api_basic?.api_member_id : undefined
+    if (incoming != null && incoming !== '') observeAccountChange(incoming)
   }
   // EO 海域攻略 → 一笔特别战果（只记本包造成的 false→true 跃迁；
   // 同一战果月同一海域只算一次的去重仍在 ledger 侧兜底）。
@@ -431,7 +481,7 @@ const handleEvent = (
     if (prevMaterials) {
       const delta = materials.map((v, i) => v - prevMaterials[i])
       if (delta.some((v) => v !== 0)) {
-        ledger.logDelta(ts, itemUseCategory ?? DELTA_CATEGORY[apiPath] ?? '其他', delta)
+        ledger.logDelta(ts, deltaResolution.category, delta, deltaResolution.detail)
       }
     }
   }
@@ -646,6 +696,7 @@ broadcaster.addListener(
   'network.on.response',
   (method: string, [, apiPath]: ApiRequestInfo, body: string, postBody: string, ts: number) => {
     if (!apiPath?.startsWith('/kcsapi')) return
+    lastApis.push({ path: apiPath, ts })
     // 主进程既跑记账归约也代理游戏流量：这里慢一拍，游戏加载就顿一拍。
     // 超阈值按 API 路径记 perf.log（解析/记账/归约分段计时）。
     const startedAt = performance.now()
@@ -1007,6 +1058,13 @@ ipcMain.handle('mg:useitem-summary', (_event, sinceTs: number) =>
 ipcMain.handle('mg:material-deltas', (_event, sinceTs: number) =>
   ledger.queryDeltaSummary(
     typeof sinceTs === 'number' ? sinceTs : Date.now() - 7 * 24 * 3600 * 1000,
+  ),
+)
+
+ipcMain.handle('mg:material-delta-rows', (_event, sinceTs: number, untilTs?: number) =>
+  ledger.queryDeltaRows(
+    typeof sinceTs === 'number' ? sinceTs : Date.now() - 7 * 24 * 3600 * 1000,
+    typeof untilTs === 'number' ? untilTs : undefined,
   ),
 )
 

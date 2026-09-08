@@ -12,6 +12,8 @@ import fs from 'fs'
 import path from 'path'
 
 import { APPDATA_PATH, DATA_DIR_MIGRATION_ERROR, KUMA_VERSION } from './env'
+import { summarizeCrashDumps } from './crash-dumps'
+import { formatCrashDumps, formatLastApis, formatLastBreadcrumb, formatMemoryTrail } from '../shared/crash-context'
 
 const LOG_PATH = path.join(APPDATA_PATH, 'crash.log')
 /** 超过这个大小就只保留后半段：日志是给人翻的，涨到几十兆就没人翻了。 */
@@ -138,6 +140,14 @@ export const reportFatal = (scope: string, reason: unknown) => {
   safeConsole('error', `[kuma] ${scope}`, error.stack)
 }
 
+const appendDelayedCrashDumps = (scope: string, crashTs: number) => {
+  // Crashpad 异步落盘：只等一次 3 秒，不轮询，也不为了这份清单拖住退出。
+  const timer = setTimeout(() => {
+    appendCrash({ source: 'crash-dumps', scope, message: formatCrashDumps(summarizeCrashDumps(crashTs)) })
+  }, 3000)
+  timer.unref()
+}
+
 export const installCrashLogging = () => {
   // 改名首启的数据目录搬迁没搬动。数据一个字节都没丢（这一次仍旧读写旧目录），
   // 但目录名与产品名对不上，下次启动还会再试一次——原因留在这里可查。
@@ -168,6 +178,7 @@ export const installCrashLogging = () => {
   // 承载整个工作台的那个渲染进程真的没了。以前主进程完全不知道这件事：
   // 界面一片空白，日志里一个字都没有。
   app.on('render-process-gone', (_event, contents, details) => {
+    const crashTs = Date.now()
     const url = (() => {
       try {
         return contents.getURL()
@@ -181,17 +192,30 @@ export const installCrashLogging = () => {
       message: url,
       stack: null,
     })
+    // 只在事件发生时取备忘，避免顶层 import 铭提前回放账本；perf-log 也依赖
+    // 本文件的滚动日志，延后取导出可保持原有初始化顺序。
+    const { lastApiPaths } = require('./mg') as typeof import('./mg')
+    const { lastBreadcrumbInfo, recentMemoryTrail } = require('./perf-log') as typeof import('./perf-log')
+    appendCrash({
+      source: 'crash-context',
+      scope: details.reason,
+      ts: crashTs,
+      message: `最后报文：\n${formatLastApis(lastApiPaths(), crashTs)}\n最近执行位置：${formatLastBreadcrumb(lastBreadcrumbInfo(), crashTs)}\n内存轨迹：\n${formatMemoryTrail(recentMemoryTrail(), crashTs)}`,
+    })
+    appendDelayedCrashDumps(`renderer/${details.reason}`, crashTs)
     safeConsole('error', `[kuma] 渲染进程结束：${details.reason} ${url}`)
   })
 
   // GPU / 工具进程。这类多半能自愈，但它是花屏、音频失灵一类怪象的根，值得留痕。
   app.on('child-process-gone', (_event, details) => {
     if (details.reason === 'clean-exit') return
+    const crashTs = Date.now()
     appendCrash({
       source: 'child-process-gone',
       scope: `${details.type}/${details.reason}`,
       message: details.name ?? details.type,
       stack: null,
     })
+    appendDelayedCrashDumps(`${details.type}/${details.reason}`, crashTs)
   })
 }

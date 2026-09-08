@@ -6,6 +6,7 @@ import { transformSync } from 'esbuild'
 import dockLayout from '../dist/shared/dock-layout.js'
 import labels from '../dist/shared/remodel-label.js'
 import chains from '../dist/shared/ship-remodel-chain.js'
+import distractMode from '../dist/shared/distract-mode.js'
 
 const read = name => fs.readFileSync(new URL(`../src/renderer/${name}.ts`, import.meta.url), 'utf8')
 const run = (source, context) => vm.runInNewContext(transformSync(source, { loader: 'ts', format: 'cjs' }).code, context)
@@ -64,6 +65,9 @@ const layoutFixture = (saved, failWrite = false) => {
   assert.ok(start >= 0 && end > start)
   const writes = []
   const context = {
+    // 分心侧位读同一 config 叶子；这里只桩外壳，常规布局存档判据仍跑原函数。
+    ...distractMode,
+    remote: { require: () => ({ get: (_key, fallback) => fallback }) },
     DOCKS: ['left', 'right', 'bottom'],
     DEFAULT_SIZE: { left: 330, right: 420, bottom: 280 },
     DEFAULT_COLLAPSED: { left: false, right: false, bottom: false },

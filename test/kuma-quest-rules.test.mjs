@@ -43,7 +43,9 @@ test('kuma补充规则全部解析成功——名字解析失败会整条丢弃�
   // （构建时会打 warn），那是数据错误不是可接受的降级。
   // 2026-08-30 近代化改修族 714-717 补进草稿表（+4），718/719 早已在表内；
   // 同日演习族十条（Cm2/Cq4/Cy1/Cy3/Cy6/Cy7/Cy12/Cy13/Cy14/Cy16）补进（+10）。
-  assert.equal(rules.length, 63, `解析出 ${rules.length} 条`)
+  // 2026-09-08 补 382/2606Cm1 的更新后编成门（+1），现共 64 条。
+  // 同日全库编成门体检补 C57/B194/B204/F138/By14（+5），现共 69 条。
+  assert.equal(rules.length, 69, `解析出 ${rules.length} 条`)
   for (const rule of rules) {
     assert.ok(
       rule.tasks.length || rule.fleetGoal || rule.stateGoal || rule.stockGoals?.length,
@@ -146,6 +148,21 @@ test('编成任务只有编成门：A93 全员改二 + 旗舰 + 只许这四艘'
   assert.equal(rule.fleetGoal.allowOnlyGoalShips, true)
   assert.equal(rule.fleetGoal.groups.length, 4)
   assert.equal(rule.fleetGoal.groups[0].flagship, true)
+})
+
+test('2606Cm1 与 2606Am1 同门，真实主数据下截图编队差四艘、更新后六艘通过', () => {
+  const rule = byId.get(382)
+  assert.deepEqual(rule.fleetGoal, byId.get(199).fleetGoal)
+  assert.deepEqual(rule.tasks, [{ kind: 'exercise', rank: 5, count: 3 }])
+  assert.equal(rule.approx, false)
+  const diff = evaluateFleetGoal(rule.fleetGoal, [
+    '涼月改', 'Johnston改', 'Samuel B.Roberts Mk.II', 'Верный', '霞改二', '時雨改三', '雪風改二',
+  ].map(shipView), 3)
+  assert.equal(diff.ok, false)
+  assert.equal(diff.lines[0].current, 1)
+  assert.equal(diff.lines[0].required, 5)
+  assert.match(diff.lines[0].issue, /还差 4 艘/)
+  assert.equal(gatePasses(382, ['花月改', '桐改', '竹改', '樫改', '榧改', '杉改'], 2), true)
 })
 
 test('工厂任务：F128 的 ★+8 门槛、废弃计数与备料', () => {

@@ -5,6 +5,7 @@ import vm from 'node:vm'
 import path from 'node:path'
 import { transformSync } from 'esbuild'
 import { compiledMain, mountTiming } from './helpers/main-perf.mjs'
+import crashContext from '../dist/shared/crash-context.js'
 
 test('timeMain：sink 安装前静默丢弃，低于阈值不求 detail', () => {
   const h = mountTiming()
@@ -175,13 +176,17 @@ test('API 分段计时：状态→任务→遭遇志→舰历的参数、顺序�
   const start = mgSource.indexOf("  const sections = timeMain('api:state'")
   const end = mgSource.indexOf('  // 任务领取 →', start)
   assert.ok(start >= 0 && end > start)
+  // 资源归因位于计时段之间，其完整行为由 material-delta-detail 的 handleEvent 用例执行。
+  const deltaStart = mgSource.indexOf('  const deltaMaterials =', start)
+  const deltaEnd = mgSource.indexOf('  const powerupResult =', deltaStart)
+  assert.ok(deltaStart > start && deltaEnd > deltaStart && deltaEnd < end)
   const h = mountTiming()
   h.installSink()
   const calls = []
   const body = { private: 'must not appear in timing detail' }
   const postBody = { api_token: 'must not appear in timing detail' }
   const sections = ['master']
-  const result = runTs(`${mgSource.slice(start, end)}\nsections`, {
+  const result = runTs(`${mgSource.slice(start, deltaStart)}${mgSource.slice(deltaEnd, end)}\nsections`, {
     apiPath: '/kcsapi/api_start2/getData', body, postBody, ts: 123,
     destroyedSlotitems: undefined, expeditionMissionId: 0, powerupShipIds: undefined, hangarCapsBefore: null,
     timeMain: h.api.timeMain,
@@ -240,7 +245,9 @@ test('network.on.response：采用同一阈值，原有分段日志格式保持'
     const h = mountTiming(threshold)
     let listener
     const entries = [], calls = []
+    const lastApis = crashContext.createLastApiMemo()
     runTs(mgSource.slice(start, end), {
+      lastApis,
       broadcaster: { addListener: (channel, fn) => { assert.equal(channel, 'network.on.response'); listener = fn } },
       performance: h.performance, mainLongTaskMs: h.api.mainLongTaskMs,
       ledger: { record: (...args) => { calls.push(args); h.advance(duration) } },
@@ -248,12 +255,30 @@ test('network.on.response：采用同一阈值，原有分段日志格式保持'
       appendPerf: (...args) => entries.push(args),
     })
     listener('POST', ['', '/kcsapi/api_port/port'], '{"api_result":1,"api_data":{}}', '{}', 123)
+    assert.deepEqual(lastApis.list(), [{ path: '/kcsapi/api_port/port', ts: 123 }])
     assert.equal(calls.length, 2)
     assert.equal(entries.length, count)
     if (count) assert.deepEqual(entries[0], [
       'main', 'network-event', `/kcsapi/api_port/port 处理 ${duration}ms（解析 0 · 记账 ${duration} · 归约 0，报文 0KB）`,
     ])
   }
+})
+
+test('network.on.response：非 API 不记，解析失败也保留最近路径且不保留查询串', () => {
+  const start = mgSource.indexOf("broadcaster.addListener(\n  'network.on.response'")
+  const end = mgSource.indexOf('// (曾在这里跟踪', start)
+  let listener
+  const lastApis = crashContext.createLastApiMemo()
+  runTs(mgSource.slice(start, end), {
+    broadcaster: { addListener: (_channel, fn) => { listener = fn } },
+    lastApis, performance: { now: () => 0 },
+  })
+  listener('GET', ['', '/kcs2/fixture'], 'invalid', '', 1)
+  assert.deepEqual(lastApis.list(), [])
+  for (let ts = 2; ts <= 5; ts++) {
+    listener('POST', ['', `/kcsapi/api_${ts}?fixture=discard`], 'invalid', '', ts)
+  }
+  assert.deepEqual(lastApis.list(), [3, 4, 5].map(ts => ({ path: `/kcsapi/api_${ts}`, ts })))
 })
 
 const mountWebRequest = (threshold, { accessMs = 60, missing = false, staticResource = true } = {}) => {

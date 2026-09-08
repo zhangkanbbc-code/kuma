@@ -4,6 +4,38 @@ import { foldVoiceLineForCompare } from '../../src/shared/voice-scene-slots.ts'
 
 const CIRCLE = /^[○◯〇⭕]+$/
 
+/** 去脚注及紧随英文的读音括号；括号后的孤立句号不属于台词。 */
+export const cleanWikiwikiVoiceText = (value) => decodeVoiceHtmlEntities(value)
+  .replace(/\*\d+/g, '')
+  .replace(/([A-Za-z][A-Za-z\s]*[！!？?]?)\s*[（(][ァ-ヺー\s]+[）)]。?/g, '$1')
+  .trim()
+
+const specialAttackRows = (rows) => {
+  const out = []
+  let main = 900
+  let night = 990
+  for (const row of rows) {
+    if (!/(^|\/)\s*特殊攻撃/.test(row.scene)) { out.push(row); continue }
+    // 長門の旧句と現行句は同じ分岐。旧句は備考に残し、槽を一つ進めない。
+    if (row.ja === '行くぞ、一斉射！て――ッ！！' && rows.some(line =>
+      line.ja === '行くぞ、主砲一斉射！て――ッ！！')) continue
+    const line = { ...row }
+    if (line.ja === '行くぞ、主砲一斉射！て――ッ！！' && !line.note?.includes('旧句：')) {
+      line.note = `${line.note ?? ''} / 旧句：行くぞ、一斉射！て――ッ！！`
+    }
+    // 2026-09-08 用户耳测：金剛／比叡的「特殊攻撃」行虽备注夜战号令，仍归 900 主线。
+    // 各僚艦ボイス或备注点名僚舰的榛名式分支才从 990 起排。
+    const nightAttack = /(?:金剛|比叡|榛名|霧島)僚艦/.test(line.note ?? '') || /各僚艦ボイス/.test(line.scene)
+    delete line.voiceId
+    if (!/汎用/.test(line.note ?? '')) {
+      const slot = nightAttack ? night++ : main++
+      if (slot <= (nightAttack ? 993 : 903)) line.voiceId = slot
+    }
+    out.push(line)
+  }
+  return out
+}
+
 const explicitSmallDamageSlot = (scene) => {
   const number = /(^|\/)\s*小破([12])\s*($|\/)/.exec(scene.normalize('NFKC'))?.[2]
   return number ? 18 + Number(number) : null
@@ -57,8 +89,8 @@ export const normalizeWikiwikiVoiceRows = (rows, evidence, diagnostics) => {
   }
   const replacements = new Map()
   for (const entries of groups.values()) {
-    const lines = entries.sort((a, b) => a.row - b.row).map(entry => entry.line)
-      .filter(line => line.ja?.trim() && line.ja.trim() !== 'セリフ')
+    const lines = specialAttackRows(entries.sort((a, b) => a.row - b.row).map(entry => entry.line)
+      .filter(line => line.ja?.trim() && line.ja.trim() !== 'セリフ'))
     const sameLine = (left, right) =>
       foldVoiceLineForCompare(normalizeVoiceLine(left.ja)) ===
       foldVoiceLineForCompare(normalizeVoiceLine(right.ja))
@@ -78,21 +110,22 @@ export const normalizeWikiwikiVoiceRows = (rows, evidence, diagnostics) => {
         continue
       }
       // wikiwiki 霧島改二丙表（2026-09-07）：小破按各形态的 ○ 行计数，占位词不占槽。
-      if (/(^|\/)小破($|\/)/.test(line.scene)) {
+      if (/(^|\/)\s*小破\s*($|\/)/.test(line.scene)) {
         replacements.set(line, { ...line, voiceId: Math.min(20, 19 + smallDamageIndex++) })
         smallDamage.push(line)
         continue
       }
       // 舰娘百科 024/196-FleetOrg、024/196-Sortie、621-FleetOrg（2026-09-07）：
       // 出撃中与同形态編成同句的行属于 13，保留編成行即可。
-      if (/(^|\/)出撃($|\/)/.test(line.scene) &&
-          lines.some(other => /(^|\/)編成($|\/)/.test(other.scene) && sameLine(line, other))) continue
+      if (/(^|\/)\s*出撃\s*($|\/)/.test(line.scene) &&
+          lines.some(other => /(^|\/)\s*編成\s*($|\/)/.test(other.scene) && sameLine(line, other))) continue
       // wikiwiki 霧島改二丙／飛龍改三／玉波改二表（2026-09-07）：
       // 旗艦大破重复同形态小破②或中破，不另占 20；独有句仍保留 20。
       // wikiwiki 春雨改二表（2026-09-07）：也可重复小破①；仍以同形态任一其他行同句为准。
       if (/旗艦大破/.test(line.scene) &&
           lines.some(other => !/旗艦大破/.test(other.scene) && sameLine(line, other))) continue
-      replacements.set(line, /旗艦大破/.test(line.scene) ? { ...line, voiceId: 20 } : { ...line })
+      const original = entries.find(entry => entry.line.key === line.key).line
+      replacements.set(original, /旗艦大破/.test(line.scene) ? { ...line, voiceId: 20 } : { ...line })
     }
     // 规律⑤：wikiwiki 春雨改二、随包 subtitle-ja 405/323、舰娘百科 205-LightDmg1/2（2026-09-07）。
     // 无序号小破恰有两行时，先按规律①计数，再按自身／前置形态的同句证据对齐。
@@ -190,6 +223,7 @@ const coreVoiceId = (scene, smallDamageIndex) => {
 
 const voiceTable = (tableHtml, pageName, tableIndex) => {
   const grid = tableGrid(tableHtml)
+  const rawRows = [...tableHtml.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr\s*>/gi)]
   const headerIndex = grid.findIndex((row) => row.some((cell) => cell?.text === 'セリフ'))
   if (headerIndex < 0) return []
   const sentenceCol = grid[headerIndex].findIndex((cell) => cell?.text === 'セリフ')
@@ -219,16 +253,25 @@ const voiceTable = (tableHtml, pageName, tableIndex) => {
   if (!formColumns.length) return []
 
   const hourly = grid[headerIndex].some((cell) => cell?.text === '時刻')
+  const noteCol = formHeader.findIndex(cell => cell?.text === '備考')
+  let group = ''
   const out = new Map()
   for (let rowIndex = formHeaderIndex + 1; rowIndex < grid.length; rowIndex++) {
     const row = grid[rowIndex]
-    const ja = decodeVoiceHtmlEntities(row[sentenceCol]?.text).trim()
-    if (!ja || ja === 'セリフ') continue
+    const cells = [...new Set(row.filter(Boolean))]
+    if (cells[0]?.colspan >= 5 && cells.slice(1).every(cell => cell.text === '編集') &&
+        /^\s*<th\b/i.test(rawRows[rowIndex][1])) {
+      group = cells[0].text.replace(/\*\d+/g, '').trim()
+      continue
+    }
+    const ja = cleanWikiwikiVoiceText(row[sentenceCol]?.text)
+    if (!ja || ja === 'セリフ' || /項目毎削除してください|特殊攻撃専用ボイスです/.test(ja)) continue
     const applicable = formColumns.filter(({ col }) => CIRCLE.test(`${row[col]?.text ?? ''}`.trim()))
     if (!applicable.length) continue
 
     const sceneParts = uniqueParts(row.slice(0, sentenceCol))
-    const scene = sceneParts.join(' / ')
+    const scene = [group, ...sceneParts].filter(Boolean).join(' / ')
+    const note = noteCol >= 0 ? `${row[noteCol]?.text ?? ''}`.replace(/\*\d+/g, '').trim() : ''
     let hourlyVoiceId = null
     if (hourly) {
       const hour = Number.parseInt(sceneParts.at(-1) ?? '', 10)
@@ -236,7 +279,7 @@ const voiceTable = (tableHtml, pageName, tableIndex) => {
     }
 
     for (const { name } of applicable) {
-      const voiceId = hourly ? hourlyVoiceId : coreVoiceId(scene, 0)
+      const voiceId = hourly ? hourlyVoiceId : coreVoiceId(sceneParts.join('/'), 0)
       const lines = out.get(name) ?? []
       const key = `${pageName}#${tableIndex}-${rowIndex}`
       const line = {
@@ -244,6 +287,7 @@ const voiceTable = (tableHtml, pageName, tableIndex) => {
         scene,
         ja,
         page: pageName,
+        ...(note ? { note } : {}),
         ...(voiceId == null ? {} : { voiceId }),
       }
       if (!lines.some((known) => known.scene === scene && known.ja === ja)) lines.push(line)

@@ -41,6 +41,7 @@ function readApplicationAccelerators(): Record<ApplicationHotkeyId, Accelerator>
   return {
     reload: readAccelerator('reload'),
     focus: readAccelerator('focus'),
+    distract: readAccelerator('distract'),
     capture: readAccelerator('capture'),
     mute: readAccelerator('mute'),
   }

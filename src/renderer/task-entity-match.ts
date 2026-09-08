@@ -21,6 +21,8 @@ export interface TaskEntityAliasCandidate<T extends TaskEntityIndex = TaskEntity
 
 export interface TaskEntityMatchOptions<T extends TaskEntityIndex = TaskEntityIndex> {
   skipClassSuffix?: boolean
+  // 保留旧选项名：低于 minLength 的别名仅在被「」、『』、""、“” 整个包住时算，
+  // 包括一字舰名与两字装备／道具名；引号判据与 isQuotedTaskAlias 一致。
   allowQuotedSingle?: boolean
   limit?: number
   acceptAlias?: (candidate: TaskEntityAliasCandidate<T>) => boolean
@@ -96,6 +98,32 @@ export const TASK_SHIP_TEXT_ALIASES: Record<number, string[]> = {
   978: ['吞武里改'],
 }
 
+// 2026-09-08 全任务库真实匹配审计确认的异译／漏字；只供文本索引，不改资料显示名。
+// 泛称不收；短名在别的完整装备名内出现时，仍由完整长名优先占位。
+export const TASK_EQUIP_TEXT_ALIASES: Record<number, string[]> = {
+  7: ['35.6连装炮'], // F108：原文漏 cm，准备对象明确为普通 35.6cm 连装炮。
+  // F15、F47 原文写「烈风」，随包结构化条件（kcwiki-quest-req）两处都是「試製烈風 後期型」。
+  // 53「烈風 一一型」在任务库里一律写全名（F80 memo），完整长名优先不受影响。
+  22: ['烈风'],
+  23: ['九九舰爆'], // F75（另见 F86 memo2）：原文省略「式」，废弃对象为九九式舰爆。
+  33: ['改良型舰本式叶轮机'], // B89：奖励整词，タービン的异译。
+  36: ['九一式彻甲弹'], // Fm3：准备对象；汉化包写「穿甲弹」。
+  75: ['桶(运输用)'], // F11、Fw1、F37、Fm3、F43、F58、Fw3、B112：带运输用途的整词，非泛称「桶」。
+  116: ['一式彻甲弹'], // B31、B32：奖励整词；九一式的长名由 36 优先占位。
+  121: ['94式高高射装置'], // F78：原文重复「高」，废弃对象无歧义。
+  203: ['舰本新设计 增设装甲板(中型舰)'], // B92、B95：奖励整词，增设防雷鼓包的异译。
+  204: ['舰本新设计 增设装甲板(大型舰)'], // B99：奖励整词，与中型舰版明确区分。
+  210: ['潜水艇搭载电探&防水式望远镜'], // F129：奖励整词，「水防式」写成「防水式」。
+  453: ['ki102乙'], // F107：准备的キ102乙；汉化包型号带连字符。
+  486: ['零式舰战64型(制空战斗机机型)'], // C70、B188：奖励整词，汉化包写「制式」。
+  502: ['35.6cm连装炮改三(炫光迷彩规格)'], // C73、B190、F116（desc / memo2）：汉化包写「制式」。
+}
+
+export const TASK_ITEM_TEXT_ALIASES: Record<number, string[]> = {
+  74: ['新型航空器设计图'], // F46：引号内准备道具（另见 D20、G5、B214），汉化包写「航空机」。
+  75: ['新型炮兵装资材'], // F76、F116（desc / memo2）：无引号上下文补核，任务库漏「熕」，汉化包写「新型火炮兵装资材」。
+}
+
 export const simplifyTaskEntityText = (text: string) => {
   const folded = text.replace(/./g, (character) => JP2CN[character] ?? character)
   const chars = taskEntityFoldChars
@@ -107,12 +135,15 @@ export const simplifyTaskEntityText = (text: string) => {
 export const normalizeTaskEntityText = (text: string) =>
   simplifyTaskEntityText(`${text ?? ''}`.normalize('NFKC')).toLowerCase().replace(/\s+/g, '')
 
-const aliasLocation = (text: string, alias: string, skipClassSuffix = false): number => {
+const aliasLocation = (text: string, alias: string, skipClassSuffix = false, quotedOnly = false): number => {
   let from = 0
   while (from <= text.length - alias.length) {
     const at = text.indexOf(alias, from)
     if (at < 0) return -1
-    if (!skipClassSuffix || !/[型级]/.test(text[at + alias.length] ?? '')) return at
+    if (
+      (!skipClassSuffix || !/[型级]/.test(text[at + alias.length] ?? '')) &&
+      (!quotedOnly || isQuotedTaskAlias(text, alias, at))
+    ) return at
     from = at + alias.length
   }
   return -1
@@ -150,10 +181,11 @@ export const matchTaskEntityHits = <T extends TaskEntityIndex>(
           alias.length >= minLength ||
           (
             options.allowQuotedSingle &&
-            alias.length === 1 &&
+            alias.length < minLength &&
             [`「${alias}」`, `『${alias}』`, `"${alias}"`, `“${alias}”`].some((quoted) => text.includes(quoted))
           )
-        const start = allowed ? aliasLocation(text, alias, options.skipClassSuffix) : -1
+        // 短名必须定位到引号整词本身，不能借后面的引号放行前面长名里的同名片段。
+        const start = allowed ? aliasLocation(text, alias, options.skipClassSuffix, alias.length < minLength) : -1
         const candidate = { entry, alias, start, length: alias.length, text }
         return start >= 0 && (!options.acceptAlias || options.acceptAlias(candidate))
           ? candidate

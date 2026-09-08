@@ -15,7 +15,10 @@ import { buildSync } from 'esbuild'
 const ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
 const STUBS = {
+  'renderer/localization.ts': `export const entityNamePlain = (_domain, _id, fallback) => fallback`,
+  'renderer/fairy-salvo.ts': `export const setFairySalvoEnabled = (v) => { ((globalThis as any).__fairySalvo ??= []).push(v) }`,
   'renderer/kernel.ts': `
+    export const mg = { master: { slotitems: { 10: { name: '试用主炮' } } } }
     const ENT = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
     export const esc = (s: unknown): string =>
       String(s ?? '').replace(/[&<>"']/g, (c) => ENT[c as keyof typeof ENT])
@@ -39,6 +42,7 @@ const STUBS = {
   `,
   'renderer/mu.ts': `
     export const registerModule = (def: unknown) => { (globalThis as any).__yuModule = def }
+    export const setDistractSide = (side: string) => { (globalThis as any).__setDistractSide(side) }
   `,
   'renderer/crash-guard.ts': `
     export const crashLog = () => (globalThis as any).__crashes ?? []
@@ -49,6 +53,9 @@ const STUBS = {
   // 字幕字号的热切：改一档钥要当场推给字幕层，所以记账而不是空转
   'renderer/voice-subtitle.ts': `
     export const setVoiceCaptionsEnabled = (_v: boolean) => {}
+    export const setSpecialCaptionStyle = (style: unknown) => {
+      ;((globalThis as any).__specialCaptionStyles ??= []).push(style)
+    }
     export const setVoiceCaptionSize = (px: unknown) => {
       ;((globalThis as any).__captionSizes ??= []).push(px)
     }
@@ -61,6 +68,7 @@ const STUBS = {
   `,
   'renderer/voice-probe.ts': 'export const reloadVoiceAbsent = async () => {}\n',
   'renderer/modules/lg.ts': `
+    export const notifyAccountChanged = () => { ((globalThis as any).__accountNotices ??= []).push('accountChanged') }
     export const setBuildSpoilerEnabled = (_v: boolean) => {}
     export const setEventBannerEffectsEnabled = (_v: boolean) => {}
     export const setPushEnabled = (_v: boolean) => {}
@@ -138,8 +146,10 @@ export const mountYu = ({
   ui = {},
   config = {},
   lodes = null,
+  distract = false,
   appdataPath = 'C:\\kuma',
   debugUi = false,
+  invoke = () => undefined,
 } = {}) => {
   // 门与铭/锚同一道：`process.env.KUMA_DEBUG_UI === '1'`，在模块顶层求值。
   // 每次 mountYu 都重新跑一遍 bundle，所以这里改了环境变量当场生效。
@@ -149,30 +159,49 @@ export const mountYu = ({
   globalThis.__uiWrites = []
   globalThis.__overlayEntrance = []
   globalThis.__captionSizes = []
+  globalThis.__specialCaptionStyles = []
+  globalThis.__fairySalvo = []
   globalThis.__yuModule = null
+  globalThis.__accountNotices = []
+  const querySelector = globalThis.document?.querySelector?.bind(globalThis.document)
   globalThis.document = {
     ...(globalThis.document ?? {}),
+    querySelector: (selector) => selector === '#app' ? { classList: { contains: (name) => name === 'distract' && distract } } : querySelector?.(selector) ?? null,
     addEventListener: () => {},
     removeEventListener: () => {},
   }
-  globalThis.window = { dispatchEvent: () => true }
+  const events = new EventTarget()
+  globalThis.window = {
+    dispatchEvent: (event) => events.dispatchEvent(event),
+    addEventListener: (...args) => events.addEventListener(...args),
+    removeEventListener: (...args) => events.removeEventListener(...args),
+  }
   globalThis.requestAnimationFrame = (cb) => {
     cb()
     return 1
   }
   const configStore = { ...config }
+  globalThis.__setDistractSide = (side) => {
+    configStore['kuma.distract.side'] = side
+    window.dispatchEvent(new Event('kuma-distract-changed'))
+  }
   const invoked = []
+  const listeners = new Map()
   const stubs = {
     electron: {
       ipcRenderer: {
         invoke: (channel) => {
           invoked.push(channel)
+          const result = invoke(channel)
+          if (result !== undefined) return result
           if (channel === 'lode:list') return Promise.resolve(lodes)
           if (channel === 'yu:appdata-path') return Promise.resolve(appdataPath)
           if (channel === 'hotkeys:status') return Promise.resolve({ boss: 'registered' })
           return Promise.resolve(null)
         },
-        on: () => {},
+        on: (channel, listener) => {
+          listeners.set(channel, [...(listeners.get(channel) ?? []), listener])
+        },
         removeListener: () => {},
       },
     },
@@ -207,6 +236,10 @@ export const mountYu = ({
     pane,
     def,
     invoked,
+    emit: (channel, data) => {
+      for (const listener of listeners.get(channel) ?? []) listener({}, data)
+    },
+    accountNotices: () => [...globalThis.__accountNotices],
     click: (attrs) => {
       for (const handler of pane.handlers.get('click') ?? []) handler({ target: clickOn(attrs) })
     },
@@ -223,6 +256,8 @@ export const mountYu = ({
     overlayEntrance: () => globalThis.__overlayEntrance,
     /** 钥调 setVoiceCaptionSize 的流水账（每改一档字幕字号一次） */
     captionSizes: () => globalThis.__captionSizes,
+    specialCaptionStyles: () => globalThis.__specialCaptionStyles,
+    fairySalvo: () => globalThis.__fairySalvo,
     /** 等 mount 里那个异步 IIFE 把清单读完并重渲一次 */
     settled: async () => {
       await new Promise((resolve) => setImmediate(resolve))

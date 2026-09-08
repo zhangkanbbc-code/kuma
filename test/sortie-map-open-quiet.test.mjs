@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
+import mute from '../dist/shared/air-base-mute.js'
 
 const root = path.join(fileURLToPath(import.meta.url), '..', '..')
 const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8')
@@ -27,6 +28,8 @@ const DEPS = [
   'showSortieReadinessToast',
   'AIR_BASE_TAB_ID',
   'lastSallyCue',
+  'isAirBaseAreaMuted',
+  'mutedAreas',
 ]
 
 const cutWarnBody = () => {
@@ -91,6 +94,8 @@ const makeScene = ({ sortie = null, untagged = 2, short = 1, red = 0 } = {}) => 
     (title, detail, deckId, critical, ref) => toasts.push({ title, detail, deckId, critical, ref }),
     900,
     0,
+    mute.isAirBaseAreaMuted,
+    [],
   )
   return { mg, warn, toasts }
 }

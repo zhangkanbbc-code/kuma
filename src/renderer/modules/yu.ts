@@ -5,11 +5,23 @@
 // 卡片按**分类分页**摆（页签在面板顶部，一次只画一类）。归属表在
 // shared/settings-sections，这里只消费：卡的次序、页签的次序都从那份表来。
 import { readEnv } from '../../shared/env-names'
+import { ACCOUNT_CHANGED_MESSAGE } from '../../shared/account-change'
+import { setDistractSide } from '../mu'
+import { DISTRACT_DEFAULTS, DISTRACT_PATHS, DISTRACT_SIDES, DISTRACT_SIDE_LABEL, normalizeDistractSide } from '../../shared/distract-mode'
 import { crashLog, onCrash } from '../crash-guard'
 import { setAllowRemoteArt } from '../kcs-image'
 import { setAllowRemoteVoice } from '../kcs-voice'
-import { setVoiceCaptionSize, setVoiceCaptionsEnabled } from '../voice-subtitle'
+import { setSpecialCaptionStyle, setVoiceCaptionSize, setVoiceCaptionsEnabled } from '../voice-subtitle'
+import {
+  normalizeSpecialCaptionStyle,
+  VOICE_CAPTION_SPECIAL_DEFAULT,
+  VOICE_CAPTION_SPECIAL_PATH,
+} from '../../shared/voice-caption-special'
 import { setOverlayEntranceEnabled } from '../launch-glow'
+import { setFairySalvoEnabled } from '../fairy-salvo'
+import { FAIRY_SALVO_CONFIG_KEY, FAIRY_SALVO_DEFAULT, FAIRY_MIRROR_UI_KEY } from '../../shared/fairy-salvo'
+import { mg } from '../kernel'
+import { entityNamePlain } from '../localization'
 import { reloadVoiceAbsent } from '../voice-probe'
 import {
   getGameScaleLive,
@@ -116,6 +128,7 @@ import type { PushConfigField, PushProvider } from '../../shared/push-config'
 import { registerModule } from '../mu'
 import {
   setBuildSpoilerEnabled,
+  notifyAccountChanged,
   setEventBannerEffectsEnabled,
   setPushEnabled,
   setPushPresence,
@@ -191,6 +204,9 @@ let loginHealth: {
   lastError: string | null
 } | null = null
 let backupMessage = ''
+let logoutState: 'idle' | 'armed' | 'working' = 'idle'
+let logoutMessage: { tone: 'ok' | 'bad'; text: string } | null = null
+let accountChanged = false
 type BossHotkeyStatus = 'registered' | 'conflict' | 'disabled'
 let bossHotkeyStatus: BossHotkeyStatus | null = null
 let recordingHotkey: HotkeyId | null = null
@@ -1017,6 +1033,19 @@ const captionSizeCardHtml = (): string => {
       )}%">基准 ${base}px · 实际 ${effectiveVoiceCaptionPx(base, scale)}px</b></div>`
 }
 
+const fairySalvoCardHtml = (): string => `<div class="h"><b>实验性</b><span class="aux">默认关闭</span></div>
+  ${toggleHtml(FAIRY_SALVO_CONFIG_KEY, '特殊攻击时召唤主炮妖精开火（彩蛋）',
+    '发动特殊攻击时，旗舰主炮的妖精在游戏画面底部登场开火；分心模式下不显示',
+    config.get(FAIRY_SALVO_CONFIG_KEY, FAIRY_SALVO_DEFAULT))}
+  <div class="dim">已镜像的装备</div>
+  ${uiGet<number[]>(FAIRY_MIRROR_UI_KEY, []).map((id) => `<div class="yrow"><span>${esc(entityNamePlain('equip', id, mg.master.slotitems[id]?.name ?? `#${id}`))}</span><button data-fairy-unmirror="${id}">移除镜像</button></div>`).join('') || '<div class="dim">暂无</div>'}`
+
+const specialCaptionStyleHtml = (): string => {
+  const style = normalizeSpecialCaptionStyle(config.get(VOICE_CAPTION_SPECIAL_PATH, VOICE_CAPTION_SPECIAL_DEFAULT))
+  const disabled = !config.get('kuma.voiceCaptions', true)
+  return toggleHtml(VOICE_CAPTION_SPECIAL_PATH, '特殊攻击视觉加强', '开关炫酷特殊攻击字幕', style, disabled)
+}
+
 // 抬头那句不能写死「即时生效」：这一卡里最后那条（启动点亮动画）说的是「下次启动生效」,
 // 两句摆在同一张卡上就是自相矛盾。改成留个口子，例外由那一条自己说清楚。
 const uiHintsCardHtml = (): string => `<div class="h"><b>界面提示</b><span class="aux">即时生效 · 注明的除外</span></div>
@@ -1026,6 +1055,7 @@ const uiHintsCardHtml = (): string => `<div class="h"><b>界面提示</b><span c
     '母港：底部字幕 · 战斗：双向弹幕',
     config.get('kuma.voiceCaptions', true),
   )}
+  ${specialCaptionStyleHtml()}
   ${toggleHtml(
     'kuma.eventBannerEffects',
     '新舰 / 大破 / 应急修理 / 婚礼置顶横幅与外框光效',
@@ -1072,11 +1102,21 @@ const trayCardHtml = (): string => `<div class="h"><b>托盘与后台</b><span c
   )}
   <div class="ynote">托盘、通知或再次启动可唤回</div>`
 
-const HOTKEY_IDS: readonly HotkeyId[] = ['boss', 'reload', 'focus', 'capture', 'mute']
+const distractCardHtml = (): string => {
+  const side = normalizeDistractSide(config.get(DISTRACT_PATHS.side, DISTRACT_DEFAULTS.side))
+  return `<div class="h"><b>分心模式</b></div>
+  ${toggleHtml(DISTRACT_PATHS.alwaysOnTop, '进入时置顶', '下次进入分心模式时生效', config.get(DISTRACT_PATHS.alwaysOnTop, DISTRACT_DEFAULTS.alwaysOnTop))}
+  <div class="yline"><b>战斗卡位置</b>${DISTRACT_SIDES.map((id) =>
+    `<span class="ychip${side === id ? ' on' : ''}" data-distract-side="${id}">${DISTRACT_SIDE_LABEL[id]}</span>`,
+  ).join('')}</div>`
+}
+
+const HOTKEY_IDS: readonly HotkeyId[] = ['boss', 'reload', 'focus', 'distract', 'capture', 'mute']
 const HOTKEY_LABELS: Record<HotkeyId, string> = {
   boss: '老板键',
   reload: '刷新游戏',
   focus: '专注模式',
+  distract: '分心模式',
   capture: '截图',
   mute: '静音',
 }
@@ -1121,6 +1161,7 @@ const hotkeysCardHtml = (): string =>
   <div class="ynote">隐藏 kuma 全部窗口并静音，再按一次恢复</div>
   ${hotkeyRowHtml('reload')}
   ${hotkeyRowHtml('focus')}
+  ${hotkeyRowHtml('distract')}
   ${hotkeyRowHtml('capture')}
   ${hotkeyRowHtml('mute')}`
 
@@ -1213,7 +1254,9 @@ const loginCardHtml = (): string => {
       '关闭：仅使用本机已有资源',
       config.get('kuma.remoteArt', true),
     )}
-    <div class="ystatus ${loginHealth?.lastError ? 'bad' : 'ok'}">${esc(healthText)}</div>`
+    <div class="yline"><button class="ybtn warn" data-act="logout-dmm" title="清除 DMM 登录状态并回到登录页"${logoutState === 'working' ? ' disabled' : ''}>${logoutState === 'armed' ? '确认退出登录' : logoutState === 'working' ? '正在退出登录…' : '退出登录'}</button>${logoutState === 'armed' ? '<span class="aux">退出后游戏页面回到 DMM 登录页；kuma 的记录不分账号，换号后新旧记录会混在一起</span>' : ''}</div>
+    <div class="ystatus ${logoutMessage?.tone ?? (loginHealth?.lastError ? 'bad' : 'ok')}">${esc(logoutMessage?.text ?? healthText)}</div>
+    ${accountChanged ? `<div class="ystatus working">${esc(ACCOUNT_CHANGED_MESSAGE)}</div>` : ''}`
 }
 
 const reportCardHtml = (): string => `<div class="h"><b>社区上报</b><span class="aux">默认关</span></div>
@@ -1363,8 +1406,10 @@ const CARD_HTML: Record<SettingsCardId, () => string> = {
   'game-scale': gameScaleCardHtml,
   'caption-size': captionSizeCardHtml,
   'ui-hints': uiHintsCardHtml,
+  'fairy-salvo': fairySalvoCardHtml,
   tray: trayCardHtml,
   hotkeys: hotkeysCardHtml,
+  distract: distractCardHtml,
   'game-audio': gameAudioCardHtml,
   'game-audio-selftest': gameAudioSelfTestCardHtml,
   'voice-archive': voiceArchiveCardHtml,
@@ -1400,6 +1445,13 @@ const sectionTabsHtml = (): string =>
       `<span class="ytab${section.id === activeSection ? ' on' : ''}" data-ysection="${section.id}">${esc(section.label)}</span>`,
   ).join('')}</div>`
 
+// 监听随渲染进程存在，钥未打开时也记住；切换分类、保存状态或重新装配都不清除提醒。
+ipcRenderer.on('yu:account-changed', () => {
+  accountChanged = true
+  render()
+  notifyAccountChanged()
+})
+
 const render = () => {
   if (!pane || !pane.classList.contains('active')) return
   withViewStateKept(pane, () => {
@@ -1418,6 +1470,8 @@ registerModule({
   order: 8.8,
   mount(el) {
     pane = el
+    window.addEventListener('kuma-distract-changed', render)
+    trackMountCleanup(() => window.removeEventListener('kuma-distract-changed', render))
     // 面板开着时出了新错误就刷一下诊断卡片。这个回调抛异常会被记账层吞掉
     // （它自己就在 catch 里），不会反过来变成新的崩溃，也不会递归。
     // 只在可见时重绘：render 要把当前这一类的卡连同同步跨进程 config 读全做一遍，
@@ -1654,6 +1708,18 @@ registerModule({
       const t = e.target as HTMLElement
       if (t.closest('input')) return
       const sectionTab = t.closest<HTMLElement>('[data-ysection]')
+      const unmirror = t.closest<HTMLElement>('[data-fairy-unmirror]')
+      if (unmirror) {
+        const id = Number(unmirror.dataset.fairyUnmirror)
+        uiSet(FAIRY_MIRROR_UI_KEY, [...new Set(uiGet<number[]>(FAIRY_MIRROR_UI_KEY, []).filter((item) => item !== id))].sort((a, b) => a - b))
+        render()
+        return
+      }
+      const distractSideChip = t.closest<HTMLElement>('[data-distract-side]')
+      if (distractSideChip) {
+        setDistractSide(normalizeDistractSide(distractSideChip.dataset.distractSide))
+        return
+      }
       if (sectionTab) {
         const next = normalizeSettingsSection(sectionTab.dataset.ysection)
         if (next !== activeSection) {
@@ -1782,6 +1848,29 @@ registerModule({
         config.set(GAME_URL_CONFIG_KEY, '')
         gameUrlMessage = null
         render()
+        return
+      }
+      if (act === 'logout-dmm') {
+        if (logoutState === 'working') return
+        if (logoutState !== 'armed') {
+          logoutState = 'armed'
+          render()
+          return
+        }
+        logoutState = 'working'
+        logoutMessage = null
+        render()
+        void ipcRenderer.invoke('yu:logout-dmm')
+          .then(() => {
+            logoutMessage = { tone: 'ok', text: '已退出登录 · 游戏页面已回到 DMM 登录页' }
+          })
+          .catch((error: unknown) => {
+            logoutMessage = { tone: 'bad', text: error instanceof Error ? error.message : String(error) }
+          })
+          .finally(() => {
+            logoutState = 'idle'
+            render()
+          })
         return
       }
       if (act === 'game-url-reload') {
@@ -2011,6 +2100,14 @@ registerModule({
       const toggle = t.closest<HTMLElement>('[data-toggle]')
       if (toggle) {
         const key = toggle.dataset.toggle!
+        if (key === VOICE_CAPTION_SPECIAL_PATH) {
+          if (!config.get('kuma.voiceCaptions', true)) return
+          const next = !normalizeSpecialCaptionStyle(config.get(key, VOICE_CAPTION_SPECIAL_DEFAULT))
+          config.set(key, next)
+          setSpecialCaptionStyle(next)
+          render()
+          return
+        }
         // 这几个默认开，取反时要按各自默认值读，否则第一次点会「开→开」
         const dflt = [
           'kuma.persistLogin',
@@ -2020,6 +2117,7 @@ registerModule({
           'kuma.eventBannerEffects',
           'kuma.sunkEffects',
           'kuma.tray.enabled',
+          DISTRACT_PATHS.alwaysOnTop,
           // 推送的三项保护默认开：取反时按各自默认读，否则第一次点会「开→开」
           PUSH_CONFIG_PATHS.barkEncrypt,
           PUSH_CONFIG_PATHS.titleOnly,
@@ -2038,6 +2136,8 @@ registerModule({
           setSunkEffectsEnabled(next)
         } else if (key === 'kuma.buildSpoiler') {
           setBuildSpoilerEnabled(next)
+        } else if (key === FAIRY_SALVO_CONFIG_KEY) {
+          setFairySalvoEnabled(next)
         } else if (key === LAUNCH_GLOW_CONFIG_KEY) {
           // 顶栏浮层那半段归同一个开关，而它是**当场生效**的：关掉连正在演的那一次
           // 也一并收掉，开着的话下次点开浮层就有。开机那一场当然只能下次启动才见得到

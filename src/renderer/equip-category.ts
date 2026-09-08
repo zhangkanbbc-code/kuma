@@ -11,6 +11,8 @@
 // - `21 対空機銃` 原本在「舰载机」里——机枪不是舰载机；
 // - `33 照明弾` 原本也在「舰载机」里；
 // - `22 特殊潜航艇` 原本在「鱼雷」里——它是甲标的，不是鱼雷。
+import { MAIN_GUN_TYPES } from '../shared/equip-main-gun'
+
 export const EQUIP_CHIPS = [
   '全部',
   '主炮',
@@ -27,7 +29,7 @@ export const EQUIP_CHIPS = [
 ]
 
 export const EQUIP_CHIP_TYPES: Record<string, number[]> = {
-  主炮: [1, 2, 3, 38, 95], // 38/95 是主数据里预留的（II）类，目前 0 种
+  主炮: [...MAIN_GUN_TYPES], // 38/95 是主数据里预留的（II）类，目前 0 种
   副炮: [4],
   鱼雷: [5, 32], // 潜水舰鱼雷同属；特殊潜航艇(22) 不在此列
   // 舰载机 = 从航母/水母甲板起飞的那些，含喷式（56-59/91 整类对翔鹤改二甲等
@@ -47,6 +49,7 @@ export const EQUIP_CHIP_TYPES: Record<string, number[]> = {
 // **这里刻意不再导出一次**：本文件被 core-regressions 用 Node 的类型剥离直接 import，
 // 多一个无扩展名的相对**值**导入，那条测试就整份跑不动（同 fit-bonus-corrections 头注）。
 // 要用那几个判据的模块直接从 shared 引。
+// 2026-09-08：主炮常量与彩蛋共享后有了值导入，上述直载护栏已改为打包后调用。
 
 const NAMED_EQUIP_TYPES = new Set(Object.values(EQUIP_CHIP_TYPES).flat())
 

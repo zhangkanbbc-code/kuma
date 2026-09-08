@@ -40,6 +40,7 @@ import {
   foldVoiceLineForCompare,
   isSubtitlePlaceholder,
   regularSubtitleSlots,
+  isSpecialAttackVoiceSlot,
   seasonalTextIndex,
 } from '${abs('src', 'shared', 'voice-scene-slots.ts')}'
 import { installZhSimplifier, simplifyZh } from '${abs('src', 'renderer', 'zh-simplify.ts')}'
@@ -141,7 +142,7 @@ const runtimeSource = (() => {
     'setVoiceCaptionSize(config.get(VOICE_CAPTION_SIZE_PATH, VOICE_CAPTION_SIZE_DEFAULT))'
   assert.ok(source.includes(sizeInit), 'voice-subtitle.ts 的字号初始化锚点变了')
   return `${source.replace(sizeInit, '')}
-export { loadData as testLoadData, captionsFor as testCaptionsFor }
+export { loadData as testLoadData, captionsFor as testCaptionsFor, displayAtPlaybackTime as testDisplayAtPlaybackTime }
 `
 })()
 
@@ -228,6 +229,7 @@ const runtimeState = {
 }
 globalThis[RUNTIME_STATE_KEY] = runtimeState
 const runtimeLoaded = createRequire(import.meta.url)(runtimeBundle)
+export const captionRuntime = runtimeLoaded
 
 const emptyRuntimeLodes = () => ({
   'subtitle-zh': { data: {} },

@@ -36,6 +36,66 @@ test('运行诊断在版本读取失败时警告并显示失败标签', () => {
 })
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8')
 
+test('退出登录需两次点击，执行中禁用且不重复发送，完成后显示成功', async () => {
+  let finish
+  const yu = mountYu({
+    ui: { [SETTINGS_SECTION_UI_KEY]: 'network' },
+    invoke: (channel) => channel === 'yu:logout-dmm' ? new Promise((resolve) => { finish = resolve }) : undefined,
+  })
+  await yu.settled()
+  const card = () => cardHtml(yu.pane.innerHTML, 'login')
+  assert.match(card(), /title="清除 DMM 登录状态并回到登录页"[^>]*>退出登录<\/button>/)
+  yu.click({ act: 'logout-dmm' })
+  assert.equal(yu.invoked.filter((channel) => channel === 'yu:logout-dmm').length, 0)
+  assert.match(card(), />确认退出登录<\/button>/)
+  assert.match(card(), /退出后游戏页面回到 DMM 登录页；kuma 的记录不分账号，换号后新旧记录会混在一起/)
+  yu.click({ act: 'logout-dmm' })
+  assert.match(card(), /disabled>正在退出登录…<\/button>/)
+  yu.click({ act: 'logout-dmm' })
+  assert.equal(yu.invoked.filter((channel) => channel === 'yu:logout-dmm').length, 1)
+  finish({ removed: 2, origins: 1 })
+  await yu.settled()
+  assert.match(card(), /已退出登录 · 游戏页面已回到 DMM 登录页/)
+  assert.doesNotMatch(card(), /disabled/)
+})
+
+test('退出失败显示原错误并恢复按钮，换号提示在状态更新和分类切换后仍常驻', async () => {
+  const yu = mountYu({
+    ui: { [SETTINGS_SECTION_UI_KEY]: 'network' },
+    invoke: (channel) => channel === 'yu:logout-dmm' ? Promise.reject(new Error('cookie remove <failed>')) : undefined,
+  })
+  await yu.settled()
+  yu.emit('yu:account-changed', { previous: '101', current: '202' })
+  assert.deepEqual(yu.accountNotices(), ['accountChanged'])
+  yu.click({ act: 'logout-dmm' })
+  yu.click({ act: 'logout-dmm' })
+  await yu.settled()
+  yu.emit('yu:login-health', { lastFlushedAt: 1, lastError: null })
+  yu.click({ ysection: 'ui' })
+  yu.click({ ysection: 'network' })
+  const card = cardHtml(yu.pane.innerHTML, 'login')
+  assert.match(card, /cookie remove &lt;failed&gt;/)
+  assert.match(card, /检测到账号变化：kuma 的记录不分账号，之前的记录会和现在的混在一起/)
+  assert.doesNotMatch(card, /disabled/)
+  const restarted = mountYu({ ui: { [SETTINGS_SECTION_UI_KEY]: 'network' } })
+  assert.doesNotMatch(cardHtml(restarted.pane.innerHTML, 'login'), /检测到账号变化/)
+})
+
+test('退出导航被打断仍显示原成功文案并恢复按钮', async () => {
+  const yu = mountYu({
+    ui: { [SETTINGS_SECTION_UI_KEY]: 'network' },
+    invoke: (channel) => channel === 'yu:logout-dmm'
+      ? Promise.resolve({ removed: 1, origins: 1, aborted: true }) : undefined,
+  })
+  await yu.settled()
+  yu.click({ act: 'logout-dmm' })
+  yu.click({ act: 'logout-dmm' })
+  await yu.settled()
+  const card = cardHtml(yu.pane.innerHTML, 'login')
+  assert.match(card, /class="ystatus ok">已退出登录 · 游戏页面已回到 DMM 登录页<\/div>/)
+  assert.doesNotMatch(card, /disabled|ERR_ABORTED/)
+})
+
 /** 两种形态：发行版（默认）与调试态 */
 const SHAPES = [
   { name: '发行版', debugUi: false },
@@ -63,7 +123,8 @@ test('分类表：不设「全部」页签——十八张卡混在一起正是�
     assert.notEqual(section.id, 'all')
     assert.ok(!/全部|所有/.test(section.label), `${section.id} 的类名是「${section.label}」`)
     // 一类只装一张卡说明这一类不成立，装满一半说明分类没起作用
-    assert.ok(section.cards.length >= 2, `${section.id} 只有 ${section.cards.length} 张卡`)
+    // 2026-09-08：用户指定新开实验性分组，第一版只有妖精彩蛋这一项。
+    assert.ok(section.cards.length >= (section.id === 'experimental' ? 1 : 2), `${section.id} 只有 ${section.cards.length} 张卡`)
     assert.ok(
       section.cards.length <= SETTINGS_CARD_IDS.length / 2,
       `${section.id} 一类就占了一半以上的卡，等于没分`,
@@ -108,7 +169,7 @@ test('分类表：维护者工具卡默认不出——`debugUi` 不给就按发�
 test('分类表：抽掉维护者工具卡之后，没有一类被掏空或只剩一张', () => {
   for (const section of SETTINGS_SECTIONS) {
     const release = settingsCardsOf(section.id)
-    assert.ok(release.length >= 2, `发行版里「${section.label}」只剩 ${release.length} 张卡`)
+    assert.ok(release.length >= (section.id === 'experimental' ? 1 : 2), `发行版里「${section.label}」只剩 ${release.length} 张卡`)
   }
   const release = SETTINGS_SECTIONS.flatMap((section) => [...settingsCardsOf(section.id)])
   assert.equal(release.length, SETTINGS_CARD_IDS.length - DEBUG_ONLY_CARDS.length)
@@ -118,11 +179,12 @@ test('分类表：抽掉维护者工具卡之后，没有一类被掏空或只�
   //（界面类，紧跟界面缩放）到 21；2026-08-31 字幕跟着游戏倍率缩放时添了
   //「字幕字号」（界面类，紧跟游戏画面）到 22；2026-09-05 托盘旁新增「快捷键」到 23。
   // 五张都是**玩家卡**，不在调试门后。
-  assert.equal(release.length, 23, '发行版的卡数变了——两种形态的数字都要重新对一遍')
+  // 分心模式新增一张玩家卡，两种形态各加一。
+  assert.equal(release.length, 25, '发行版的卡数变了——两种形态的数字都要重新对一遍')
   // 25：2026-08-26 拔掉战斗演出族时撤走了「索敌飞机 · Δ 校准」那张维护者卡（19），
   // 同日修语音滑条时又添了「游戏音频链路自检」（20）。那两张都只在调试门后装配，
   // 所以发行版那一列在 2026-08-29 之前自始至终是 18；之后添的四张玩家卡两列同涨。
-  assert.equal(SETTINGS_CARD_IDS.length, 25, '调试态的卡数变了')
+  assert.equal(SETTINGS_CARD_IDS.length, 27, '调试态的卡数变了')
 })
 
 // ---- ② 把钥编出来真渲染一遍 ----
@@ -234,7 +296,7 @@ test('魔改文件夹：玩家卡，紧跟缓存修复，按钮走主进程开�
   assert.ok(yu.invoked.includes('yu:open-mod-dir'), '点了「打开文件夹」却没往主进程发')
 })
 
-test('快捷键：玩家卡紧跟托盘，五行与游戏画面内生效说明都真渲染', async () => {
+test('快捷键：玩家卡紧跟托盘，六行与游戏画面内生效说明都真渲染', async () => {
   const yu = mountYu({ ui: { [SETTINGS_SECTION_UI_KEY]: 'ui' } })
   await yu.settled()
   const cards = cardsIn(yu.pane.innerHTML)
@@ -244,10 +306,30 @@ test('快捷键：玩家卡紧跟托盘，五行与游戏画面内生效说明�
   assert.match(card, /data-hotkey-row="boss"[\s\S]*老板键[\s\S]*Ctrl \+ Alt \+ H/)
   assert.match(card, /data-hotkey-row="reload"[\s\S]*刷新游戏[\s\S]*F5/)
   assert.match(card, /data-hotkey-row="focus"[\s\S]*专注模式[\s\S]*F9/)
+  assert.match(card, /data-hotkey-row="distract"[\s\S]*分心模式[\s\S]*F10/)
   assert.match(card, /data-hotkey-row="capture"[\s\S]*截图[\s\S]*Ctrl \+ Alt \+ S/)
   assert.match(card, /data-hotkey-row="mute"[\s\S]*静音[\s\S]*Ctrl \+ M/)
   assert.match(card, /隐藏 kuma 全部窗口并静音，再按一次恢复/)
   assert.match(card, /可用/)
+})
+
+test('分心模式：默认置顶、四侧选择与顶栏配置事件同步', () => {
+  const yu = mountYu({ ui: { [SETTINGS_SECTION_UI_KEY]: 'ui' } })
+  const card = () => cardHtml(yu.pane.innerHTML, 'distract')
+  assert.equal(settingsSectionOf('distract'), 'ui')
+  assert.match(card(), /<b>分心模式<\/b>/)
+  assert.match(card(), /进入时置顶/)
+  assert.match(card(), /class="ysw on"[^>]*data-toggle="kuma\.distract\.alwaysOnTop"/)
+  assert.match(card(), /战斗卡位置/)
+  for (const [side, label] of [['top', '上'], ['bottom', '下'], ['left', '左'], ['right', '右']]) {
+    yu.click({ 'distract-side': side })
+    assert.match(card(), new RegExp(`class="ychip on" data-distract-side="${side}">${label}`))
+  }
+  yu.click({ toggle: 'kuma.distract.alwaysOnTop' })
+  assert.match(card(), /class="ysw"[^>]*data-toggle="kuma\.distract\.alwaysOnTop"/)
+  // 模拟顶栏对同一 config 叶子写入并广播，钥的已打开卡当场更新。
+  globalThis.__setDistractSide('bottom')
+  assert.match(card(), /class="ychip on" data-distract-side="bottom">下/)
 })
 
 test('发行版：连别的分类里也没有矿脉健康度漏出来', () => {

@@ -3,6 +3,7 @@
 import type { AirBaseSquad, BattleLevelUp, Deck, PlayerShip } from '../../shared/mg-types'
 import { airBaseCustomName } from '../../shared/air-base-name'
 import { airBaseTabGlow } from '../../shared/air-base-tab'
+import { AIR_BASE_MUTE_KEY, isAirBaseAreaMuted, toggleAirBaseAreaMute, unmutedAirBaseSquads } from '../../shared/air-base-mute'
 import {
   ESCORT_FLAGSHIP_INDEX,
   FLAGSHIP_INDEX,
@@ -137,6 +138,7 @@ import {
 } from '../../shared/special-proc-rate'
 
 import type { QpFleetCheck } from '../../shared/qp-types'
+import { classifyFleetDiff } from '../../shared/qp-types'
 
 // 舰种代号（二期口径；缺省回退 master 名）
 const STYPE_CODE: Record<number, string> = {
@@ -1146,8 +1148,8 @@ const shipRow = (deck: Deck, ship: PlayerShip, isFlag: boolean) => {
  * 所以它不该把「可以出击」染红，但也不该只躺在下面几百行处的陆航区里。
  * 没同步到陆航（旧存档、还没进过活动图）时返回 null：不知道就不说，不猜。
  */
-const airBaseReadiness = (areaId?: number): { short: number; red: number; orange: number; squads: number } | null => {
-  const active = trackedAirBases().filter(
+const airBaseReadiness = (areaId?: number, squads = trackedAirBases()): { short: number; red: number; orange: number; squads: number } | null => {
+  const active = squads.filter(
     (squad) => (squad.actionKind === 1 || squad.actionKind === 2)
       && (areaId == null || squad.areaId === areaId)
       && squad.planes.some((plane) => plane.slotId > 0),
@@ -1166,10 +1168,16 @@ const airBaseReadiness = (areaId?: number): { short: number; red: number; orange
 /**
  * 最近一次能确知「玩家摊开了哪个海区」的记录（区号）。null = 这个会话还没见过。
  *
+ * 原说明（2026-09-08 更正，保留原文）：
  * **它已经不是任何挂牌/判定的依据**——札看 onEventMapScreen（mapinfo/出击），
  * 陆航状态看基地航空队页签，两条都不读它。留着只有一个用处：开图信号到手时比一比区号变没变，
  * 变了才重画一次，让紧接着弹出的 toast 与界面前后一致（见 mount 里的监听）。
  * 之所以不能当判据：开图信号每个游戏会话每区只发得出一次（下面那段注释）。
+ *
+ * 2026-09-08 更正：用户裁定常规图不显示札状态。札的选图页判定从今天起读它，
+ * 最近摊开／出击的海区属于当前活动区才显示；null 时不知道就不说。陆航仍不读它。
+ * 已知缝隙：从活动区切回已缓存的常规区不会再发开图信号，札状态会留到下一次
+ * 常规图出击，由 noteSortieArea 校准后才撤。这是被动只读的代价，不加轮询。
  *
  * 两个来源都写它：
  *   · 海图美术的静态资源请求（见 kcs-resource，切到某个海区时取那几张缩略图）；
@@ -1181,6 +1189,8 @@ let lastOpenedMapArea: number | null = null
 // 甚至返港后再进选图,游戏都用自己的资源管理器缓存,连 HTTP 请求都不发
 // (2026-08-11 用户三轮复现逐步钉死)。所以它只配驱动一次性 toast，
 // 陆航页签则直接跟随账本里的 airBases 状态。
+// 2026-09-08 更正：上句「只配驱动一次性 toast」保留作历史说明；札选图页现读最近区号，
+// 缓存切区的已知缝隙与校准方式见头注，陆航页签的依据不变。
 
 /** 出击一次就确知打的是哪个区，拿它校准（游戏下次也会回到这个区）。 */
 const noteSortieArea = () => {
@@ -1224,12 +1234,14 @@ const noteScreenLeft = (keys: string[]) => {
  */
 // 札:出击途中看本趟是不是活动图;选图页上只要活动开着就说话——
 // 「要不要把这支队投进活动图」正是这一页要做的决定,判据不依赖开图探测
+// 2026-09-08 更正（上两行保留原文）：选图页还要确认最近摊开／出击的是当前活动区，
+// 未知区号不显示；出击途中仍只看本趟海区。
 const onEventMapScreen = (): boolean => {
   const areas = activeAreasNow()
   if (!areas.size) return false
   const sortie = mg.sortie
   if (sortie?.active && !sortie.practice) return areas.has(sortie.mapArea)
-  return atMapSelect
+  return atMapSelect && lastOpenedMapArea != null && areas.has(lastOpenedMapArea)
 }
 
 // 出击识别札。这是出击**前**唯一能确定的目标图侧条件——
@@ -1655,7 +1667,7 @@ const warnOnEventMapOpen = (areaId: number, ts: number): void => {
   }
   // 陆航：只数摊开这个区的中队——别的区缺补给与这一趟无关。
   // 未补给的格子出击时不产生输出，红疲劳大幅削命中。
-  const airBase = hasSquadsHere ? airBaseReadiness(areaId) : null
+  const airBase = hasSquadsHere && !isAirBaseAreaMuted(mutedAreas, areaId) ? airBaseReadiness(areaId) : null
   const airBaseParts = airBase
     ? [
         airBase.short ? `基地航空 ${airBase.short} 队未补给` : '',
@@ -1751,6 +1763,7 @@ const airBasePlaneHtml = (plane: AirBaseSquad['planes'][number]): string => {
 }
 
 const airBaseAreaHtml = (areaId: number, squads: AirBaseSquad[]): string => {
+  const muted = isAirBaseAreaMuted(mutedAreas, areaId)
   const ordered = [...squads].sort((a, b) => a.rid - b.rid)
   const sortiePowers = ordered.map((squad) => fleetAirPower(airBaseSlots(squad), 1))
   const defensePowers = ordered.map((squad) => fleetAirPower(airBaseSlots(squad), 2))
@@ -1777,7 +1790,7 @@ const airBaseAreaHtml = (areaId: number, squads: AirBaseSquad[]): string => {
       const squadTired = squad.planes.some((plane) => plane.slotId > 0 && plane.cond >= 2)
       const squadRed = squad.planes.some((plane) => plane.slotId > 0 && plane.cond >= 3)
       const customName = airBaseCustomName(squad)
-      return `<div class="ab-squad${squadShort || squadTired ? ' warn' : ''}">
+      return `<div class="ab-squad${!muted && (squadShort || squadTired) ? ' warn' : ''}">
         <div class="ab-squad-head">
           <b>第${squad.rid}航空队</b>${customName ? `<span class="ab-name">${entityTermHtml('fleet', `air:${squad.areaId}:${squad.rid}`, customName)}</span>` : ''}
           <span class="ab-action ${actionClass}">${esc(action)}</span>
@@ -1786,8 +1799,8 @@ const airBaseAreaHtml = (areaId: number, squads: AirBaseSquad[]): string => {
         <div class="ab-squad-metrics">
           <span>出击制空 <b>${airPowerText(sortie)}</b></span>
           <span>防空制空 <b>${airPowerText(defense)}</b></span>
-          ${squadShort ? '<span class="bad">需要补给</span>' : ''}
-          ${squadTired ? `<span class="${squadRed ? 'bad' : 'warn'}">存在${squadRed ? '红' : '橙'}疲劳</span>` : ''}
+          ${!muted && squadShort ? '<span class="bad">需要补给</span>' : ''}
+          ${!muted && squadTired ? `<span class="${squadRed ? 'bad' : 'warn'}">存在${squadRed ? '红' : '橙'}疲劳</span>` : ''}
         </div>
         <div class="ab-planes">${squad.planes.map(airBasePlaneHtml).join('')}</div>
       </div>`
@@ -1797,6 +1810,8 @@ const airBaseAreaHtml = (areaId: number, squads: AirBaseSquad[]): string => {
   return `<section class="ab-area">
     <div class="ab-area-head">
       <b>${esc(airBaseAreaLabel(areaId))}</b><span>${squads.length} 队 · 搭载 ${currentPlanes}/${maxPlanes}</span>
+      <button type="button" class="ab-mute" data-act="air-base-mute" data-area-id="${areaId}" aria-pressed="${muted}" title="${muted ? '恢复该海域陆航的未补给、疲劳与被打空提示' : '不再提示该海域陆航的未补给、疲劳与被打空'}">${muted ? '已静默 · 恢复提示' : '静默提示'}</button>
+      ${muted ? '<span class="ab-muted-note">提示已静默</span>' : ''}
       ${syncedTs ? `<span>同步于 ${fmtTime(syncedTs)}</span>` : '<span>旧记录 · 同步时间未知</span>'}
       <span class="ab-area-ap">出击Σ <b>${airPowerText(sum(sortiePowers))}</b> · 防空Σ <b>${airPowerText(sum(defensePowers))}</b></span>
     </div>
@@ -2246,14 +2261,23 @@ const initMetricsFoldCard = () => {
   document.addEventListener('scroll', hideMetricsFoldCard, true)
 }
 
+/**
+ * 2026-09-08：同一海域的未补给/疲劳同时出现在页签、抬头芯片、中队标签与临行
+ * 提醒四处，必须一起静默，漏一处就是「关了还在提」。只过滤提示，不改原始数值
+ * 和就绪判据；09-08 用户裁定被打空算严重缺少补给，未补给、疲劳、被打空三类一起静默。
+ */
+let mutedAreas = uiGet<number[]>(AIR_BASE_MUTE_KEY, [])
+
 const airBaseHeaderHtml = (): string => {
   const bases = trackedAirBases()
   const areas = new Set(bases.map((squad) => squad.areaId)).size
-  const short = bases.filter((squad) => squad.planes.some(
+  const unmuted = unmutedAirBaseSquads(bases, mutedAreas)
+  const mutedNote = mutedAreas.length ? `已静默 ${mutedAreas.length} 个海域` : ''
+  const short = unmuted.filter((squad) => squad.planes.some(
     (plane) => plane.slotId > 0 && plane.count < plane.maxCount,
   )).length
-  const tired = bases.filter((squad) => squad.planes.some((plane) => plane.slotId > 0 && plane.cond >= 2)).length
-  const red = bases.filter((squad) => squad.planes.some((plane) => plane.slotId > 0 && plane.cond >= 3)).length
+  const tired = unmuted.filter((squad) => squad.planes.some((plane) => plane.slotId > 0 && plane.cond >= 2)).length
+  const red = unmuted.filter((squad) => squad.planes.some((plane) => plane.slotId > 0 && plane.cond >= 3)).length
   return `<div class="fleet-head airbase-head">
     <div class="fleet-ident"><b>基地航空队</b><small>${
       mg.airBasesTs ? `同步于 ${fmtTime(mg.airBasesTs)}` : '基地航空队尚未同步'
@@ -2261,9 +2285,9 @@ const airBaseHeaderHtml = (): string => {
     ${metricsRowHtml('airbase', AIR_BASE_METRIC_FOLD_ORDER, [
       `<span class="mchip" data-mkey="areas">海域 <b>${areas}</b></span>`,
       `<span class="mchip" data-mkey="squads">航空队 <b>${bases.length}</b></span>`,
-      `<span class="mchip${short ? ' warn' : ''}" data-mkey="short">待补给 <b>${short}</b></span>`,
+      `<span class="mchip${short ? ' warn' : ''}" data-mkey="short"${mutedNote ? ` title="${esc(mutedNote)}"` : ''}>待补给 <b>${short}</b></span>`,
       `<span class="mchip${red ? ' bad' : tired ? ' warn' : ''}" data-mkey="tired" title="${esc(
-        tired ? `${tired} 队有疲劳机体${red ? `，其中 ${red} 队已到红疲劳` : '（均为橙疲劳）'}` : '各队均无疲劳机体',
+        [tired ? `${tired} 队有疲劳机体${red ? `，其中 ${red} 队已到红疲劳` : '（均为橙疲劳）'}` : '各队均无疲劳机体', mutedNote].filter(Boolean).join(' · '),
       )}">疲劳 <b>${tired}</b>${red ? `<em> 红${red}</em>` : ''}</span>`,
     ])}
   </div>`
@@ -2387,8 +2411,8 @@ const fleetTabsHtml = (activeId: number) =>
     })
     .join('')}${(() => {
       const bases = trackedAirBases()
-      const glow = airBaseTabGlow(bases)
-      const readiness = airBaseReadiness()
+      const glow = airBaseTabGlow(bases, { mutedAreas })
+      const readiness = airBaseReadiness(undefined, unmutedAirBaseSquads(bases, mutedAreas))
       const issues = readiness
         ? [
             readiness.short ? `未补给 ${readiness.short} 队` : '',
@@ -2396,12 +2420,13 @@ const fleetTabsHtml = (activeId: number) =>
             readiness.orange ? `橙疲劳 ${readiness.orange} 队` : '',
           ].filter(Boolean)
         : []
-      const title =
+      let title =
         glow === 'bad'
           ? ['有航空队被打空', ...issues].join(' · ')
           : glow === 'warn'
             ? `基地航空队未就绪：${issues.join(' · ')}`
             : ''
+      if (mutedAreas.length) title = `${title || '基地航空队'} · ${mutedAreas.length} 个海域已静默提示`
       return `<div class="ftab air${activeId === AIR_BASE_TAB_ID ? ' on' : ''}${glow ? ` glow-${glow}` : ''}" data-deck="${AIR_BASE_TAB_ID}"${
         title ? ` title="${esc(title)}"` : ''
       }>
@@ -2693,22 +2718,38 @@ const fleetQuestHtml = (deck: Deck): string => {
     .filter(([, check]) => check.hasCond && check.decks.some((id) => deckIds.includes(id)))
     .map(([id]) => Number(id))
     .filter((id) => mg.quests[id]?.state === 2)
+  const nearMisses = Object.entries(fleetQuestCheck)
+    .filter(([id, check]) => check.hasCond && mg.quests[Number(id)]?.state === 2)
+    .flatMap(([id, check]) => {
+      const diffs = (check.diffs ?? []).filter((diff) => deckIds.includes(diff.deckId) && classifyFleetDiff(diff) === 'nearMiss')
+      return diffs.length && !matches.includes(Number(id))
+        ? [{ id: Number(id), issues: diffs.flatMap((diff) => diff.lines.filter((line) => !line.ok).map((line) => line.issue)).join('\n') }]
+        : []
+    })
+  const hasResults = matches.length > 0 || nearMisses.length > 0
   // 读取失败不清旧数据（见 scheduleFleetQuestCheck），所以这里要说清
   // 「显示的是旧的」还是「本来就没读到过」——两种情况的可信度完全不同
   const failedMark = fleetQuestFailed
     ? `<span class="more" title="${esc(
-        matches.length
+        hasResults
           ? '编成任务读取失败 · 显示上次读取结果 · 返港后重试'
           : '编成任务读取失败 · 返港后重试',
-      )}">编成任务读取失败${matches.length ? ' · 上次读取结果' : ''} · 返港后重试</span>`
+      )}">编成任务读取失败${hasResults ? ' · 上次读取结果' : ''} · 返港后重试</span>`
     : ''
-  if (!matches.length) {
+  if (!hasResults) {
     return failedMark ? `<div class="fleet-quests">${failedMark}</div>` : ''
   }
   const shown = matches.slice(0, 4)
-  return `<div class="fleet-quests"><span class="k">满足编成条件</span>${shown
-    .map((id) => elink('quest', id, questName(id) ?? mg.quests[id]?.title ?? `任务 ${id}`))
-    .join('')}${matches.length > shown.length ? `<span class="more">另 ${matches.length - shown.length} 项</span>` : ''}${failedMark}</div>`
+  const matchedHtml = matches.length ? `<div class="fleet-quests"><span class="k">满足编成条件</span>${shown
+    .map((id) => elink('quest', id, questName(id) ?? mg.quests[id]?.title ?? `任务 ${id}`) +
+      (fleetQuestCheck[id].approx ? '<span class="approx" title="编成判定含拿不准的项，可能比游戏松">≈</span>' : ''))
+    .join('')}${matches.length > shown.length ? `<span class="more">另 ${matches.length - shown.length} 项</span>` : ''}</div>` : ''
+  const nearShown = nearMisses.slice(0, 4)
+  const nearHtml = nearMisses.length ? `<div class="fleet-quests"><span class="k">编成待调整</span>${nearShown
+    .map(({ id, issues }) => elink('quest', id, questName(id) ?? mg.quests[id]?.title ?? `任务 ${id}`, undefined, { title: issues }) +
+      (fleetQuestCheck[id].approx ? '<span class="approx" title="编成判定含拿不准的项，可能比游戏松">≈</span>' : ''))
+    .join('')}${nearMisses.length > nearShown.length ? `<span class="more">另 ${nearMisses.length - nearShown.length} 项</span>` : ''}</div>` : ''
+  return `${matchedHtml}${nearHtml}${failedMark ? `<div class="fleet-quests">${failedMark}</div>` : ''}`
 }
 
 /**
@@ -2958,6 +2999,13 @@ const bindFleetPanelDelegates = (
   setActive: (id: number) => void,
   rerender: () => void,
 ) => {
+  root.addEventListener('click', (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLElement>('[data-act="air-base-mute"]')
+    if (!button) return
+    mutedAreas = toggleAirBaseAreaMute(mutedAreas, Number(button.dataset.areaId))
+    uiSet(AIR_BASE_MUTE_KEY, mutedAreas)
+    rerender()
+  })
   root.addEventListener('contextmenu', (event) => {
     const row = (event.target as HTMLElement).closest<HTMLElement>('.metrics[data-mrow]')
     const rowId = metricRowIdOf(row?.dataset.mrow)
@@ -3342,6 +3390,7 @@ registerModule({
       lastOpenedMapArea = event.areaId
       // 陆航页签不吃这个信号（它直接跟随 airBases）；这里只驱动一次性 toast，
       // 换区时重画一次保 toast 前后界面一致
+      // 2026-09-08 更正：札的选图页判定也读更新后的区号，换区重画会同步札标签。
       warnOnEventMapOpen(event.areaId, event.ts)
       if (changed) deferPassive(pane, 'ru', render)
     }

@@ -28,6 +28,11 @@ export const questAnnualMonth = (text: string): number | null => {
 export const questCodeFamily = (code: string): string | null =>
   `${code ?? ''}`.match(/^(?:\d{4})?\s*([A-Za-z])/)?.[1].toUpperCase() ?? null
 
+// 正文补足 daily 标记未覆盖的 C46、C51、C68、C70、C73、C77、2606Cm1、2606Cw1，
+// 以及同样写明当日要求的月/季/年任；调用方只对 C 族启用正文判据。
+const SAME_DAY_CLAUSE = /一日内|当日|本日中?|同一天|一天内|今天内|今天的|一日演习/
+export const questSameDayClause = (text: string): boolean => SAME_DAY_CLAUSE.test(text)
+
 export const questPeriodFromCode = (code: string, resetNote = ''): QuestPeriodKind | null => {
   // 常设任务编码的第 1 位是分类（B/C/F…），第 2 位才是周期。
   // 不能在整串里搜索：例如期间限定编码 2606Bm1 含 m，但不是月常。

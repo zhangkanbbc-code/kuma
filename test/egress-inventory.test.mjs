@@ -258,17 +258,23 @@ test('档案取字节永远是 only-if-cached：页面侧那三条路不许退�
   }
 })
 
-test('没有遥测、没有崩溃上报、没有自动更新：这几类根本不该存在', () => {
-  // 玩家问「安全吗」时，「产物里连一行上报代码都没有」是能直接给出的答案。
+test('没有遥测、没有自动更新；崩溃转储只存本机、没有上报地址', () => {
+  // 2026-09-07：原生崩溃没有 dump 无法定位，放行唯一的本地转储安装点，仍禁止上传。
+  // 玩家问「安全吗」时，答案是「代码里没有任何上报地址，转储只在本机目录」。
   // 词边界不能省：`Sentry` 不带边界会命中 `EventBonusEntry` / `ShipClassEntry`
   // 这类完全无关的类型名（第一版就是这么误报的）。
   const banned =
-    /\b(?:crashReporter|setUploadToURL|autoUpdater|Sentry|analytics|telemetry|gtag|googletagmanager)\b/i
+    /\b(?:setUploadToURL|autoUpdater|Sentry|analytics|telemetry|gtag|googletagmanager)\b/i
   const offenders = []
+  const localDumps = 'src/main/crash-dumps.ts'
   for (const [rel, text] of runtimeFiles()) {
     if (banned.test(stripComments(text))) offenders.push(rel)
+    if (rel !== localDumps && /\bcrashReporter\b/i.test(stripComments(text))) offenders.push(rel)
   }
   assert.deepEqual(offenders, [], `出现了上报/自动更新类代码：\n${offenders.join('\n')}`)
+  const text = fs.readFileSync(new URL('main/crash-dumps.ts', SRC), 'utf8')
+  assert.match(stripComments(text), /uploadToServer:\s*false/)
+  assert.doesNotMatch(text, /submitURL|setUploadToServer|getUploadedReports|https?:\/\//i)
 })
 
 test('随包矿脉包不含维护者侧的抓取脚本产物入口：fetch 脚本只许待在 scripts/', () => {

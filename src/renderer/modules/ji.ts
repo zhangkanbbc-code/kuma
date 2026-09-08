@@ -90,6 +90,7 @@ import {
 import { equippedSlotIds } from '../../shared/equipped-slots'
 import { jiBookNeedsRender } from '../../shared/ji-book-deps'
 import { ALL_SHIP_TYPE_IDS, shipChipMatches, SHIP_CHIPS, STYPE_CN } from '../ship-category'
+import { QUEST_SHIP_TYPE_GROUPS } from '../../shared/quest-ship-type-groups'
 import { equipTypeIconHtml } from '../equip-icon'
 import { countCapacitySlotitems } from '../equip-capacity'
 import {
@@ -171,6 +172,7 @@ import {
   resolveVoiceSlot,
   voiceSceneOfSlot,
   voiceSlotOfKey,
+  isSpecialAttackVoiceSlot,
 } from '../../shared/voice-scene-slots'
 import type { CorrectedVoiceRow, VoiceFallbackSource } from '../../shared/voice-scene-slots'
 import { isUntranslatedVoiceText, normalizeVoiceText } from '../../shared/voice-text'
@@ -1061,7 +1063,8 @@ let moreCategoriesOpen = false
  * 列表被压成 0 高、进度条被推到可视区外 1900px 处，看着就是「滚不动、翻不了页」。
  * 渐进披露既是观感（用户原话「大量的内容全量铺开有点混乱」）也是这条布局的前提。
  */
-type ShipCatSection = '' | 'stype' | 'nation' | 'class' | 'fleet'
+// 任务舰种沿用同一手风琴，成为第五段。
+type ShipCatSection = '' | 'stype' | 'questType' | 'nation' | 'class' | 'fleet'
 let moreCategorySection: ShipCatSection = ''
 /** 段内就地过滤：型 137 级、编队 75 队，靠肉眼找太慢。空串 = 不过滤 */
 const catFind: Record<'class' | 'fleet', string> = { class: '', fleet: '' }
@@ -1071,6 +1074,8 @@ const shipState = {
   chip: '全部',
   classFilter: 0,
   typeFilter: 0,
+  questGroupFilter: '',
+  typeSetFilter: [] as number[],
   nationalityFilter: 0,
   // 史实编队筛选（shared/hist-fleets 的条目 id，'' = 不筛）
   fleetFilter: '',
@@ -1098,6 +1103,8 @@ const clearShipDimensions = () => {
   shipState.typeFilter = 0
   shipState.nationalityFilter = 0
   shipState.fleetFilter = ''
+  shipState.questGroupFilter = ''
+  shipState.typeSetFilter = []
 }
 const collapsedShipClasses = new Set<number>(
   uiGet<number[]>('ji.collapsedShipClasses', []).filter((id) => Number.isInteger(id) && id > 0),
@@ -1198,6 +1205,12 @@ const shipMatches = (root: any) => {
     const want = stypeSiblings(shipState.typeFilter)
     const have = chainStypeIndex().get(root.api_id)
     if (!have || !want.some((stype) => have.has(stype))) return false
+  }
+  const typeSet = QUEST_SHIP_TYPE_GROUPS.find((group) => group.key === shipState.questGroupFilter)?.stypes
+    ?? shipState.typeSetFilter
+  if (typeSet.length) {
+    const have = chainStypeIndex().get(root.api_id)
+    if (!have || !typeSet.some((stype) => have.has(stype))) return false
   }
   if (
     shipState.nationalityFilter &&
@@ -1539,6 +1552,24 @@ const shipMoreCategoriesHtml = (): string => {
   })
 }
 
+const shipQuestTypeCategoriesHtml = (): string => {
+  const index = chainStypeIndex()
+  const picked = QUEST_SHIP_TYPE_GROUPS.find((group) => group.key === shipState.questGroupFilter)
+  const cells = QUEST_SHIP_TYPE_GROUPS.map((group) => {
+    const count = [...index.values()].filter((set) => group.stypes.some((id) => set.has(id))).length
+    const title = group.stypes.map(stypeLabelOf).join(' · ')
+    return `<span class="cat-cell${picked === group ? ' on' : ''}" data-ship-quest-group="${group.key}" title="${esc(title)}">${esc(group.label)}<i>${count}</i></span>`
+  })
+  return catSectionHtml({
+    key: 'questType',
+    color: '--entity-quest',
+    label: '任务舰种',
+    meta: '任务判定用的舰种组 · 与任务条件同口径',
+    picked: picked ? catPickedHtml('questType', esc(picked.label)) : '',
+    body: `<div class="cat-grid">${cells.join('')}</div>`,
+  })
+}
+
 /**
  * 国籍 / 型（舰级）/ 编队 三段的计数一次扫完。
  *
@@ -1734,6 +1765,7 @@ const histFleetMemberName = (member: HistFleetMember): string => {
 const shipCategoryPanelHtml = (): string =>
   `<div class="cat-more">
     ${shipMoreCategoriesHtml()}
+    ${shipQuestTypeCategoriesHtml()}
     ${shipNationCategoriesHtml()}
     ${shipClassCategoriesHtml()}
     ${shipFleetCategoriesHtml()}
@@ -1952,6 +1984,8 @@ const shipChipsHtml = (): string => {
   const plain =
     !shipState.classFilter &&
     !shipState.typeFilter &&
+    !shipState.questGroupFilter &&
+    !shipState.typeSetFilter.length &&
     !shipState.nationalityFilter &&
     !shipState.fleetFilter
   return [...SHIP_CHIPS.map(([label]) => label), NPC_CHIP]
@@ -2116,7 +2150,9 @@ const shipCatalogHtml = () => {
         : ''
     }
     <div class="type-chips">${shipChipsHtml()}
-      <span class="chip more${moreCategoriesOpen ? ' on' : ''}" data-more-cat title="按舰种 / 国籍 / 型 / 编队逐个筛选">更多分类 ${moreCategoriesOpen ? '▴' : '▾'}</span>
+      <span class="chip more${moreCategoriesOpen ? ' on' : ''}" data-more-cat title="按舰种 / 任务舰种 / 国籍 / 型 / 编队逐个筛选">更多分类 ${moreCategoriesOpen ? '▴' : '▾'}</span>
+      ${shipState.questGroupFilter ? `<span class="chip dim-on linked-filter" style="--dim-c:var(--entity-quest)" data-clear-ship-scope>${esc(QUEST_SHIP_TYPE_GROUPS.find((group) => group.key === shipState.questGroupFilter)!.label)} ×</span>` : ''}
+      ${shipState.typeSetFilter.length ? `<span class="chip dim-on linked-filter" style="--dim-c:var(--entity-ship)" data-clear-ship-scope>${esc(shipState.typeSetFilter.map(stypeLabelOf).join('/'))} ×</span>` : ''}
       ${shipState.typeFilter ? `<span class="chip dim-on linked-filter" style="--dim-c:var(--entity-ship)" data-clear-ship-scope>${entityNameHtml('shipType', shipState.typeFilter, mg.master.stypes[shipState.typeFilter] ?? `舰种${shipState.typeFilter}`, { compact: true })} ×</span>` : ''}
       ${shipState.nationalityFilter ? `<span class="chip dim-on linked-filter" style="--dim-c:var(--entity-nationality)" data-clear-ship-scope>${shipState.nationalityFilter === NATION_UNCLASSIFIED ? esc(NATION_UNCLASSIFIED_LABEL) : entityTermHtml('shipNationality', shipState.nationalityFilter, shipNationalityById(shipState.nationalityFilter)?.label ?? `国籍${shipState.nationalityFilter}`)} ×</span>` : ''}
       ${shipState.classFilter ? `<span class="chip dim-on linked-filter" style="--dim-c:var(--entity-shipclass)" data-clear-ship-scope>${entityTermHtml('shipClass', shipState.classFilter, shipClassLabel(shipState.classFilter))} ×</span>` : ''}
@@ -3764,7 +3800,7 @@ interface KumaVoiceRow {
    * `key-confirmed` 在数据上分得开**：两者的实测错位率差一百倍，那张实测表在
    * `shared/voice-playback-observations` 文件头。
    */
-  basis?: 'key-confirmed' | 'wikiwiki-mapped' | 'divergent' | 'ambiguous'
+  basis?: 'key-confirmed' | 'wikiwiki-mapped' | 'enwiki-mapped' | 'divergent' | 'ambiguous'
   /** 日文原文。2026-08-22 补回来的那一列——台词卷是**对照**功能，只给中文是半张表 */
   ja: string
   zh: string
@@ -3809,17 +3845,23 @@ const kumaVoiceFillFor = (mstId: number, taken: CorrectedVoiceRow[]): KumaVoiceR
  * 见 `shared/voice-playback-observations` 文件头那张实测表。
  *
  * 具体给哪个地址（档案实物还是现取）由 `voicePlaybackFor` 统一裁，与其它层一条判据。
+ * 2026-09-08 特殊攻击例外：ambiguous 也可表示行序推槽，每槽仅一行，给键供耳测。
+ * 这些行同时标“槽位待耳测”；普通槽位的多候选禁播规则不变。
+ * enwiki-mapped 的日文来自英文 wiki Quotes 表，槽位有搭档顺序与台账印证，同样给键。
  */
 const kumaVoiceUrl = (
   playbackMstId: number,
   line: KumaVoiceRow,
 ): ReturnType<typeof voicePlaybackFor> => {
-  if (line.basis !== 'key-confirmed' && line.basis !== 'wikiwiki-mapped') return null
+  if (line.basis !== 'key-confirmed' && line.basis !== 'wikiwiki-mapped' &&
+      line.basis !== 'enwiki-mapped' &&
+      !(line.basis === 'ambiguous' && isSpecialAttackVoiceSlot(line.slot))) return null
   return voicePlaybackFor(playbackMstId, line.slot ?? null)
 }
 
 const kumaVoiceOffNote = (playbackMstId: number, line: KumaVoiceRow): string => {
   if (line.basis === 'ambiguous') {
+    if (isSpecialAttackVoiceSlot(line.slot)) return '槽位待耳测'
     return '当前场合有多个候选 · 对应台词未确定'
   }
   if (line.basis === 'divergent') {
@@ -4215,6 +4257,8 @@ const regularVoiceHtml = (mstId: number): string => {
         kumaVoiceOffNote(mstId, row),
         'kuma',
         play?.pathname,
+        row.basis === 'ambiguous' && isSpecialAttackVoiceSlot(row.slot)
+          ? '<span class="vo-src">槽位待耳测</span>' : '',
       ),
     )
   }
@@ -11779,6 +11823,8 @@ const catalogGroupsForcedOpen = (): boolean => {
       shipState.chip !== '全部' ||
       shipState.classFilter ||
       shipState.typeFilter ||
+      shipState.questGroupFilter ||
+      shipState.typeSetFilter.length ||
       shipState.nationalityFilter ||
       shipState.fleetFilter ||
       shipState.huntFilter
@@ -12094,24 +12140,27 @@ const wire = () => {
       return
     }
     const cell = target.closest<HTMLElement>(
-      '[data-ship-type],[data-ship-nation],[data-ship-class],[data-ship-fleet]',
+      '[data-ship-type],[data-ship-quest-group],[data-ship-nation],[data-ship-class],[data-ship-fleet]',
     )
     if (!cell) return
-    const { shipType, shipNation, shipClass, shipFleet } = cell.dataset
+    const { shipType, shipQuestGroup, shipNation, shipClass, shipFleet } = cell.dataset
     const want = {
       type: shipType != null ? Number(shipType) : 0,
+      questGroup: shipQuestGroup ?? '',
       nation: shipNation != null ? Number(shipNation) : 0,
       ctype: shipClass != null ? Number(shipClass) : 0,
       fleet: shipFleet ?? '',
     }
     const already =
       (want.type && shipState.typeFilter === want.type) ||
+      (want.questGroup && shipState.questGroupFilter === want.questGroup) ||
       (want.nation && shipState.nationalityFilter === want.nation) ||
       (want.ctype && shipState.classFilter === want.ctype) ||
       (want.fleet && shipState.fleetFilter === want.fleet)
     clearShipDimensions()
     if (!already) {
       if (want.type) shipState.typeFilter = want.type
+      else if (want.questGroup) shipState.questGroupFilter = want.questGroup
       else if (want.nation) shipState.nationalityFilter = want.nation
       else if (want.ctype) shipState.classFilter = want.ctype
       else if (want.fleet) shipState.fleetFilter = want.fleet
@@ -12720,31 +12769,40 @@ registerEntityRoute('shipTypeCatalog', {
 registerEntityRoute('shipTypeGroup', {
   colorClass: 'e-ship',
   open(ref) {
-    const types = `${ref.id}`.split(',').map(Number).filter(Number.isFinite)
+    const types = [...new Set(`${ref.id}`.split(',').map(Number).filter(Number.isFinite))]
+    const questGroup = QUEST_SHIP_TYPE_GROUPS.find(({ stypes }) =>
+      types.length === stypes.length && types.every((type) => stypes.includes(type)),
+    )
     const chip = SHIP_CHIPS.find(([, ids]) =>
       types.length === ids.length && types.every((type) => ids.includes(type)),
     )?.[0]
-    if (!chip) return
     activateModule('ji')
     activeBook = 'ship'
     shipState.search = ''
-    shipState.chip = chip
     clearShipDimensions()
+    shipState.chip = '全部'
+    if (questGroup) shipState.questGroupFilter = questGroup.key
+    else if (chip) shipState.chip = chip
+    else shipState.typeSetFilter = types
     shipState.open = false
     render()
   },
   peek(ref) {
-    const types = `${ref.id}`.split(',').map(Number).filter(Number.isFinite)
+    const types = [...new Set(`${ref.id}`.split(',').map(Number).filter(Number.isFinite))]
+    const questGroup = QUEST_SHIP_TYPE_GROUPS.find(({ stypes }) =>
+      types.length === stypes.length && types.every((type) => stypes.includes(type)),
+    )
     const chip = SHIP_CHIPS.find(([, ids]) =>
       types.length === ids.length && types.every((type) => ids.includes(type)),
     )?.[0]
-    if (!chip) return null
     const roots = [...chainOf.keys()]
       .map((id) => friendlyShips.get(id))
-      .filter((ship) => ship && types.includes(ship.api_stype))
+      .filter((ship) => ship && (questGroup || !chip
+        ? types.some((type) => chainStypeIndex().get(ship.api_id)?.has(type))
+        : shipChipMatches(chip, ship.api_stype)))
     return {
-      title: chip,
-      typeLabel: '舰种组',
+      title: questGroup?.label ?? chip ?? types.map(stypeLabelOf).join('/'),
+      typeLabel: questGroup ? '任务舰种' : '舰种组',
       lines: [`图鉴收录 ${roots.length} 艘 · 已持有 ${roots.filter((root) => chainInstances(root.api_id).length > 0).length}`],
       primary: '舰娘图鉴',
     }

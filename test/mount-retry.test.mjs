@@ -110,6 +110,20 @@ const tempDir = path.join(tempRoot, 'renderer')
 const sharedDir = path.join(tempRoot, 'shared')
 fs.mkdirSync(tempDir, { recursive: true })
 fs.mkdirSync(sharedDir, { recursive: true })
+// 分心模式新增 Electron 外壳依赖；装配用例不调用窗口，只补只读配置与 IPC 桩。
+fs.writeFileSync(path.join(tempDir, 'electron-stub.ts'), 'export const ipcRenderer = { invoke: async () => {} }')
+fs.writeFileSync(path.join(tempDir, 'remote-stub.ts'), 'export const require = () => ({ get: (_key, fallback) => fallback })')
+fs.copyFileSync(
+  fileURLToPath(new URL('../src/shared/distract-mode.ts', import.meta.url)),
+  path.join(sharedDir, 'distract-mode.ts'),
+)
+// 装配不触发分心拟合；仍带上真实依赖，让 mu 的导入图保持完整。
+for (const [source, target] of [['renderer', tempDir], ['shared', sharedDir]]) {
+  fs.copyFileSync(
+    fileURLToPath(new URL(`../src/${source}/distract-card-fit.ts`, import.meta.url)),
+    path.join(target, 'distract-card-fit.ts'),
+  )
+}
 fs.writeFileSync(path.join(tempDir, 'kernel.ts'), KERNEL_STUB)
 fs.writeFileSync(path.join(tempDir, 'crash-guard.ts'), CRASH_STUB)
 fs.copyFileSync(
@@ -149,6 +163,10 @@ buildSync({
   bundle: true,
   platform: 'node',
   format: 'cjs',
+  alias: {
+    electron: path.join(tempDir, 'electron-stub.ts'),
+    '@electron/remote': path.join(tempDir, 'remote-stub.ts'),
+  },
   logLevel: 'silent',
 })
 const { createPane, mountModule } = createRequire(import.meta.url)(output)

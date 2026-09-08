@@ -594,6 +594,9 @@ test('玩家文案语料提取器没有静默塌掉', () => {
     tierA.some((r) => r.file.endsWith('modules/di.ts') && r.text.includes('敌后方')),
     '渲染层 .ts 那一路断了',
   )
+  for (const text of ['特殊攻击视觉加强', '开关炫酷特殊攻击字幕']) {
+    assert.ok(tierA.some((r) => r.file.endsWith('modules/yu.ts') && r.text === text), `钥开关文案未纳入棘轮：${text}`)
+  }
   // 注释必须收不进来：这是整套提取器的地基（按行 grep 会把维护者注释当文案）。
   assert.ok(
     !tierB.some((r) => r.text.includes('那个读数就再也拿不回来了')),

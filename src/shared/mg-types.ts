@@ -820,6 +820,7 @@ export interface PlayerRecord {
 
 export interface MgPlayer {
   basic: {
+    memberId?: string // api_member_id；旧快照可能没有
     nickname: string
     level: number
     rank: number
@@ -1002,6 +1003,17 @@ export interface UseitemHistoryChange {
 }
 
 // 分类记账：某来源在时间段内的净收支（8 项，与 materials 同序）
+export interface MaterialDeltaRow {
+  ts: number
+  category: string
+  values: [number, number, number, number, number, number, number, number]
+  detail: import('./material-delta-detail').DeltaDetail | null
+}
+export interface MaterialDeltaRowsResult {
+  rows: MaterialDeltaRow[]
+  truncated: boolean
+}
+
 export interface CategorySummary {
   category: string
   values: number[]

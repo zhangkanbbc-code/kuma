@@ -36,6 +36,7 @@ import {
   uiSet,
 } from '../kernel'
 import { DAMAGE_TIER_WORDS, damageTierOf } from '../../shared/battle-damage'
+import { ACCOUNT_CHANGED_MESSAGE } from '../../shared/account-change'
 import {
   ESCORT_FLAGSHIP_INDEX,
   flagshipHasDameconIn,
@@ -101,6 +102,7 @@ interface EventDef {
 }
 
 const EVENTS: EventDef[] = [
+  { id: 'accountChanged', label: '账号已变化', note: '记录不分账号 · 每次换号提醒', sev: 'warn', icon: '⚠', jump: 'yu', jumpLabel: '设置' },
   { id: 'taiha', label: '大破警告', note: '无条件', sev: 'crit', icon: '!', jump: 'di', jumpLabel: '战斗详情', locked: true },
   { id: 'expedition', label: '远征返港', note: '', sev: 'blue', icon: '⚓', jump: 'ru', jumpLabel: '编队 · 远征' },
   { id: 'dock', label: '入渠完成', note: '—', sev: 'blue', icon: '🔧', jump: 'lg', jumpLabel: '通知记录', refLabel: '舰娘列表' },
@@ -135,6 +137,7 @@ interface Routes {
 // 另外：整列还压着一个总开关（钥 · 手机推送），它默认关且要用户亲手填地址，
 // 所以这里的「默认开」在没配置之前一次也发不出去。
 const DEFAULT_RULES: Record<string, Routes> = {
+  accountChanged: { badge: true, toast: true, system: false, sound: false, push: false },
   taiha: { badge: true, toast: true, system: true, sound: true, push: false },
   expedition: { badge: true, toast: true, system: true, sound: true, push: true },
   dock: { badge: true, toast: true, system: true, sound: false, push: true },
@@ -1157,6 +1160,10 @@ const notify = (
   }
   // 演示什么记录都没改，面板不必重画（这一路不活跃时还会顺手动徽标）
   if (!demo) renderIfActive()
+}
+
+export const notifyAccountChanged = () => {
+  notify('accountChanged', '账号已变化', ACCOUNT_CHANGED_MESSAGE)
 }
 
 /**
