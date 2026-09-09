@@ -207,13 +207,13 @@ const insuredFleet = (indexes = [2]) => {
 const detectFleet = (battleCount, fShips, patch = {}) =>
   runDetect(sortieOf({ battleCount, currentCell: battleCount, battle: { fShips }, ...patch }))
 
-test('insured 每舰整趟只发一次：normal 不锁，后续新增舰只点新人', () => {
+test('insured 每舰整趟只发一次：不上横幅、normal 不锁，后续新增舰只点新人', () => {
   returnToPort()
   const first = detectFleet(1, insuredFleet())
   assert.equal(first.length, 1)
   assert.equal(first[0].title, '我舰3大破 · 带损管')
   assert.match(first[0].detail, / · 进击会消耗，不会击沉$/)
-  assert.deepEqual(first[0].presentation, { priority: 'normal' })
+  assert.deepEqual(first[0].presentation, { banner: false, priority: 'normal' })
   assert.deepEqual(detectFleet(2, insuredFleet()), [])
   assert.deepEqual(detectFleet(3, insuredFleet(), { taihaCorrections: 1 }), [])
   const added = detectFleet(4, insuredFleet([2, 3]))

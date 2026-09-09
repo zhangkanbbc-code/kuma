@@ -4149,7 +4149,8 @@ test('boss taiha stays a normal notice and battle hint without a retreat banner'
   assert.match(taihaNotice, /const signature = `\$\{s\.startTs\}:\$\{s\.battleCount\}:\$\{verdict\.tier\}:\$\{taiha/, '大破提醒没有按出击+战次+档位+舰集合去重')
   assert.doesNotMatch(notices, /for \(const ship of s\.battle\.fShips\.filter\(isTaiha\)\)/, '大破又变回逐舰各发一条了')
   // Boss 的呈现原样；新增 insured 也降普通提醒，其余档仍走默认规则。
-  assert.match(taihaNotice, /atBoss \? \{ banner: false, priority: 'normal' \} : verdict\.tier === 'insured' \? \{ priority: 'normal' \} : undefined/)
+  // insured 说明档也不上横幅，与 Boss 档同为普通级呈现。
+  assert.match(taihaNotice, /atBoss \? \{ banner: false, priority: 'normal' \} : verdict\.tier === 'insured' \? \{ banner: false, priority: 'normal' \} : undefined/)
   assert.match(notices, /presentation\.priority === 'normal'[\s\S]*sev: 'warn'[\s\S]*locked: false/)
   assert.match(combat, /if \(atBoss\) \{[\s\S]*Boss 战结束：\$\{names\} 大破/)
   assert.match(combat, /本节点无进击选项/)

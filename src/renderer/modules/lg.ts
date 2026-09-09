@@ -1640,7 +1640,8 @@ const detectTaiha = () => {
     // 标题按四档；「修正：」只加在正文头上，让人知道这是对账后的改口。
     `${correcting ? '修正：' : ''}${s.mapArea}-${s.mapNo} ${atBoss ? 'Boss 战' : `第 ${s.battleCount} 战`}${tail}`,
     ref,
-    atBoss ? { banner: false, priority: 'normal' } : verdict.tier === 'insured' ? { priority: 'normal' } : undefined,
+    // 带损管的说明档不上横幅：红色横幅是劝退级提示。
+    atBoss ? { banner: false, priority: 'normal' } : verdict.tier === 'insured' ? { banner: false, priority: 'normal' } : undefined,
   )
 }
 
