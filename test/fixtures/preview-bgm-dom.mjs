@@ -28,9 +28,13 @@ const STUBS = {
       String(s ?? '').replace(/[&<>"']/g, (c) => ENT[c as keyof typeof ENT])
   `,
   'renderer/kcs-image.ts': `
+    export const bgmAudioPath = (id: number, kind: string) =>
+      '/kcs2/resources/bgm/' + kind + '/' + String(id).padStart(3, '0') + '_0000.mp3'
     export const bgmAudioUrl = (bgmId: number, kind: 'port' | 'battle'): string | null =>
-      'https://example.invalid/bgm/' + kind + '/' + bgmId + '.mp3'
-    export const remoteArtState = () => ({ enabled: true })
+      'https://example.invalid' + bgmAudioPath(bgmId, kind)
+    let enabled = true
+    export const setRemoteArt = (value: boolean) => { enabled = value }
+    export const remoteArtState = () => ({ enabled })
   `,
   'renderer/kcs-voice.ts': 'export const previewVoiceVolume = () => 0.5\n',
   'renderer/bgm-names.ts': `
@@ -38,11 +42,15 @@ const STUBS = {
     export const ensureBgmNames = () => {}
   `,
   'renderer/bgm-archive.ts': `
-    export const archivedBgmUrl = (_kind: string, _id: number): string | null => null
+    const entries = new Map<string, string>()
+    export const setArchived = (kind: string, id: number, url: string) => entries.set(kind + ':' + id, url)
+    export const archivedBgmUrl = (kind: string, id: number): string | null => entries.get(kind + ':' + id) ?? null
     export const ensureBgmArchive = async () => {}
   `,
   'renderer/preview-test-entry.ts': `
-    export { bgmPreviewHtml, initBgmPreview } from './bgm-preview'
+    export { bgmPreviewHtml, initBgmPreview, noteBgmPreviewArchived } from './bgm-preview'
+    export { setArchived } from './bgm-archive'
+    export { setRemoteArt } from './kcs-image'
     export { initPreviewBar } from './preview-bar'
     export {
       activePreview,
@@ -86,8 +94,20 @@ const makeEntry = (doc, url, label) => {
       contains: (name) => classes.has(name),
     },
     classes,
-    closest: (selector) => (selector === '[data-bgm-url]' ? el : null),
+    closest: (selector) => (selector === '[data-bgm-url]' && el.dataset.bgmUrl ? el : null),
   }
+  // 用渲染产物替换 DOM 属性，后续点击是否还能命中由真实 data 属性决定。
+  Object.defineProperty(el, 'outerHTML', {
+    set: (html) => {
+      el.html = html
+      el.dataset = {}
+      for (const [, key, value] of html.matchAll(/data-([\w-]+)="([^"]*)"/g)) {
+        el.dataset[key.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())] = value
+      }
+      classes.clear()
+      for (const name of /class="([^"]*)"/.exec(html)[1].split(' ')) classes.add(name)
+    },
+  })
   doc.entries.push(el)
   return el
 }
@@ -311,6 +331,7 @@ export const mountBgmPreview = () => {
   const doc = makeDocument()
   const audios = []
   const sends = []
+  const ipcHandlers = new Map()
   // 一副够用的假 window：挪窝那一段拿它夹视口、也靠它在窗口变大小时重夹一次
   const resizeHandlers = []
   const win = {
@@ -330,7 +351,10 @@ export const mountBgmPreview = () => {
   }
 
   const fakeElectron = {
-    ipcRenderer: { send: (channel, ...args) => sends.push([channel, ...args]) },
+    ipcRenderer: {
+      send: (channel, ...args) => sends.push([channel, ...args]),
+      on: (channel, handler) => ipcHandlers.set(channel, handler),
+    },
   }
   const requireWithElectron = (id) => (id === 'electron' ? fakeElectron : require_(id))
 
@@ -357,7 +381,29 @@ export const mountBgmPreview = () => {
 
   return {
     api: mod.exports,
-    entry: (url, label) => makeEntry(doc, url, label),
+    entry: (url, label) => {
+      const el = makeEntry(doc, url, label)
+      const id = Number(/(\d+)\.mp3$/.exec(url)?.[1])
+      el.dataset.bgmKind = 'port'
+      el.dataset.bgmId = String(id)
+      mod.exports.setArchived('port', id, url)
+      return el
+    },
+    remoteEntry: (id, kind = 'battle') => {
+      const el = makeEntry(doc, '', '')
+      el.outerHTML = mod.exports.bgmPreviewHtml(id, kind)
+      return el
+    },
+    archived: (id, kind = 'battle') => {
+      const url = 'file:///kuma/bgm/' + kind + '/' + id + '.mp3'
+      mod.exports.setArchived(kind, id, url)
+      mod.exports.noteBgmPreviewArchived({
+        pathname: '/kcs2/resources/bgm/' + kind + '/' + String(id).padStart(3, '0') + '_0000.mp3',
+        bytes: 100, sha1: '0123456789abcdef',
+      })
+      return url
+    },
+    captureFailed: (pathname) => ipcHandlers.get('kuma:archive-capture-bgm-failed')({}, pathname),
     click: (el) => doc.click(el),
     /** 当前那个 Audio 实例（这个模块只会有一个） */
     audio: () => audios[audios.length - 1] ?? null,

@@ -1,5 +1,6 @@
 // 语音字幕停留多久。**底部字幕以音轨真实时长为准**——这是 2026-08-26 用户实报的
 // 「长台词语音还在播、字幕先走了」的根因所在。
+// 突入字幕则固定跟演出走，按用户实测演出约 5.5 s 定：语音可能在突入结束后继续，不能让字幕挡住后续攻击效果。
 //
 // 旧口径是一条纯字数公式：`min(9000, max(4200, 2400 + 字数*95))`。两处都偏短：
 // 9 秒硬上限远短于真实的长音轨（整点报时、婚礼台词、长句十几到二十几秒的都有），
@@ -76,8 +77,7 @@ export const captionHideAtMs = (input: {
 export const danmakuDurationSeconds = (textLength: number): number =>
   Math.min(1_000, 600 + Math.max(0, textLength - 14) * 12) / 100
 
-/** 突入大字的停住时间；入场 220ms、退场 260ms 另计，真实音轨没有硬上限。 */
-export const cutinHoldMs = (textLength: number, audioMs: number | null): number =>
-  Math.max(2_800, audioMs != null && audioMs > 0
-    ? audioMs + 600
-    : captionHideAtMs({ shownAtMs: 0, textLength, audioMs: null }))
+/** 突入大字跟随演出的固定停留时间；入场 220ms、退场 260ms 另计。 */
+export const CUTIN_HOLD_MS = 5_000
+
+export const cutinHoldMs = (): number => CUTIN_HOLD_MS

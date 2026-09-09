@@ -10,10 +10,13 @@
 const path = require('path')
 const fs = require('fs')
 const { ipcRenderer } = require('electron')
-const { pathToFileURL } = require('url')
+const { pathToFileURL, fileURLToPath } = require('url')
 const remote = require('@electron/remote')
 
 import { setEquipIconSpriteProvider } from './equip-icon'
+import { assetFamilyOf } from '../shared/asset-archive-plan'
+import { resourceVersionOf } from '../shared/voice-request-gate'
+import { archivedAssetUrlForPath, assetArchiveReady, loadAssetArchive } from './asset-archive'
 import { archivedArtUrlForPath, archivedArtTypes } from './art-archive'
 import { sanitizeShipArtMap, shipArtKey, type ShipArtPathEntry } from '../shared/ship-art-path'
 import {
@@ -248,6 +251,10 @@ const remoteUrl = (pathname: string): string | null =>
   allowRemoteArt && gameHost ? `https://${gameHost}${pathname}` : null
 
 const staticResourceUrl = (pathname: string): string | null => {
+  const archived = archivedAssetUrlForPath(pathname)
+  if (archived) return archived
+  // 索引未到位不能断言档案没有；就绪后走既有补图广播，避免启动先出网。
+  if (assetFamilyOf(pathname) && !assetArchiveReady()) return null
   const file = cachedFile(pathname)
   return file ? pathToFileURL(file).href : remoteUrl(pathname)
 }
@@ -304,6 +311,7 @@ export const slotIconSpriteStyle = (iconId: number): string | null => {
   if (!frame || frame.w <= 0 || frame.h <= 0) return null
   const image = staticResourceUrl('/kcs2/img/common/common_icon_weapon.png')
   if (!image) return null
+  captureDisplayedAtlas(image)
   const posX = slotIconSheet.w > frame.w ? (frame.x / (slotIconSheet.w - frame.w)) * 100 : 0
   const posY = slotIconSheet.h > frame.h ? (frame.y / (slotIconSheet.h - frame.h)) * 100 : 0
   return (
@@ -327,6 +335,13 @@ const readRemoteJson = <T>(url: string): Promise<T | null> =>
   ipcRenderer.invoke('kuma:map-art-json', url) as Promise<T | null>
 
 const readStaticJson = async <T>(pathname: string): Promise<T | null> => {
+  await loadAssetArchive()
+  const archived = archivedAssetUrlForPath(pathname)
+  if (archived) {
+    try { return JSON.parse(fs.readFileSync(fileURLToPath(archived), 'utf8')) as T } catch (error) {
+      console.warn('[kuma] 资源档案元数据读取失败', error)
+    }
+  }
   const file = cachedFile(pathname)
   if (file) {
     try {
@@ -507,6 +522,11 @@ export const shipImagePath = (mstId: number, type: ShipImgType, damaged = false)
 export const shipImageUrl = (mstId: number, type: ShipImgType, damaged = false): string | null => {
   const pathname = shipImagePath(mstId, type, damaged)
   if (!pathname) return null
+  if (assetFamilyOf(pathname) === 'ship-misc') {
+    const asset = staticResourceUrl(pathname)
+    const version = shipImageVersion.get(mstId)
+    return asset?.startsWith('https:') && version ? `${asset}?version=${encodeURIComponent(version)}` : asset
+  }
   const file = cachedFile(pathname)
   if (file) return pathToFileURL(file).href
   const archived = archivedArtUrlForPath(pathname)
@@ -556,8 +576,7 @@ export const slotItemImageUrl = (mstId: number, type: SlotItemImgType = 'card'):
   const effective: SlotItemImgType = mstId >= 1500 && type === 'card' ? 'item_up' : type
   const pathname = slotItemPath(mstId, effective)
   if (!pathname) return null
-  const file = cachedFile(pathname)
-  return file ? pathToFileURL(file).href : remoteUrl(pathname)
+  return staticResourceUrl(pathname)
 }
 
 const slotItemPath = (mstId: number, type: SlotItemImgType): string | null => {
@@ -603,8 +622,7 @@ export const availableSlotItemImages = (
   for (const [type, label, big] of SLOT_IMG_WANTED) {
     const pathname = slotItemPath(mstId, type)
     if (!pathname) continue
-    const file = cachedFile(pathname)
-    const url = file ? pathToFileURL(file).href : remoteUrl(pathname)
+    const url = staticResourceUrl(pathname)
     if (url && !deadArtUrls.has(url)) out.push({ type, url, label, big })
   }
   return out
@@ -638,11 +656,16 @@ export const furnitureImageUrl = (
  * /kcs2/resources/bgm/{port|battle}/{id 三位补零}_{cipher(id,'bgm_{kind}')}.mp3
  * 家具附带曲/母港曲在 port 树；海域移动曲与昼夜/Boss 战斗曲在 battle 树。
  */
-export const bgmAudioUrl = (bgmId: number, kind: 'port' | 'battle'): string | null => {
+export const bgmAudioPath = (bgmId: number, kind: 'port' | 'battle'): string | null => {
   if (!Number.isInteger(bgmId) || bgmId <= 0) return null
   const cipher = createCipher(bgmId, `bgm_${kind}`)
   if (!cipher) return null
-  return staticResourceUrl(`/kcs2/resources/bgm/${kind}/${`${bgmId}`.padStart(3, '0')}_${cipher}.mp3`)
+  return `/kcs2/resources/bgm/${kind}/${`${bgmId}`.padStart(3, '0')}_${cipher}.mp3`
+}
+
+export const bgmAudioUrl = (bgmId: number, kind: 'port' | 'battle'): string | null => {
+  const pathname = bgmAudioPath(bgmId, kind)
+  return pathname ? staticResourceUrl(pathname) : null
 }
 
 /** 道具图鉴卡面。游戏资源以三位 useitem ID 直接命名，不使用舰船/装备的混淆串。 */
@@ -688,10 +711,52 @@ export const mapArtManifest = (areaId: number, mapNo: number): Promise<MapArtMan
       if (!Number.isFinite(x) || !Number.isFinite(y)) continue
       layers.push({ imageUrl: atlas, x: -(x as number), y: -(y as number) })
     }
+    if (layers.length) captureDisplayedAtlas(atlas)
     return layers.length ? { width: 1200, height: 720, layers } : null
   })()
   mapArtCache.set(key, pending)
   return pending
+}
+
+// 一个捕获阶段 load 钩子覆盖普通图片；同路径等主进程完成回执后才释放。
+const assetDisplayInFlight = new Set<string>()
+let assetDisplayInstalled = false
+export const installAssetDisplayCapture = (): void => {
+  if (assetDisplayInstalled) return
+  assetDisplayInstalled = true
+  ipcRenderer.on('kuma:archive-capture-asset-done', (_event: unknown, pathname: string) => {
+    assetDisplayInFlight.delete(pathname)
+  })
+  document.addEventListener('load', (event) => {
+    const img = event.target
+    if (!(img instanceof HTMLImageElement)) return
+    const url = img.currentSrc || img.src
+    if (!gameHost || !url.startsWith(`https://${gameHost}/`)) return
+    const pathname = new URL(url).pathname
+    if (!assetFamilyOf(pathname) || assetDisplayInFlight.has(pathname)) return
+    assetDisplayInFlight.add(pathname)
+    ipcRenderer.send('kuma:archive-capture-asset', { pathname, url, version: resourceVersionOf(url) })
+  }, true)
+  document.addEventListener('kuma:asset-archive-change', () => {
+    mapArtCache.clear()
+    notifyArtSourceChange()
+  })
+}
+
+// CSS 背景不产生 img load；仅在图集实际用于显示时放一个隐藏 img，仍由统一钩子收货。
+// 与可见背景共用同一 URL 的浏览器缓存，不扫描目录，也不预取未显示的资源。
+const displayedAtlases = new Set<string>()
+const captureDisplayedAtlas = (url: string): void => {
+  if (!url.startsWith('https:') || displayedAtlases.has(url)) return
+  displayedAtlases.add(url)
+  const img = document.createElement('img')
+  img.hidden = true
+  img.onload = img.onerror = () => {
+    img.remove()
+    displayedAtlases.delete(url)
+  }
+  document.body.appendChild(img)
+  img.src = url
 }
 
 // ---- 这里曾经有一个社区图标源（tsunkit）的降级补位，2026-08-22 整条退役 ----

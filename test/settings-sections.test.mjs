@@ -4,12 +4,17 @@
 //      `data-ycard`——漏一张、重一张、跑到别的类里去，这里当场红。
 //      只断言源码文本是不够的：注册表少接一张卡，源码看着照样齐整。
 //   ③ **两种形态各数一遍**：矿脉健康度、游戏音频链路自检都是维护者工具，
-//      只在 `KUMA_DEBUG_UI=1` 下装配（发行版 23 张 / 调试 25 张）。
+//      只在 `KUMA_DEBUG_UI=1` 下装配（发行版 26 张 / 调试 28 张）。
 //      玩家那份产物里连那两张卡的影子都不许有。
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
+
+test('档案区四张档案卡挨着', () => {
+  const section = SETTINGS_SECTIONS.find((section) => section.cards.includes('voice-archive'))
+  assert.deepEqual(section.cards.slice(0, 4), ['voice-archive', 'art-archive', 'bgm-archive', 'asset-archive'])
+})
 import { fileURLToPath } from 'node:url'
 
 import sections from '../dist/shared/settings-sections.js'
@@ -180,11 +185,12 @@ test('分类表：抽掉维护者工具卡之后，没有一类被掏空或只�
   //「字幕字号」（界面类，紧跟游戏画面）到 22；2026-09-05 托盘旁新增「快捷键」到 23。
   // 五张都是**玩家卡**，不在调试门后。
   // 分心模式新增一张玩家卡，两种形态各加一。
-  assert.equal(release.length, 25, '发行版的卡数变了——两种形态的数字都要重新对一遍')
+  // 2026-09-09 加入第四份「资源档案」。
+  assert.equal(release.length, 26, '发行版的卡数变了——两种形态的数字都要重新对一遍')
   // 25：2026-08-26 拔掉战斗演出族时撤走了「索敌飞机 · Δ 校准」那张维护者卡（19），
   // 同日修语音滑条时又添了「游戏音频链路自检」（20）。那两张都只在调试门后装配，
   // 所以发行版那一列在 2026-08-29 之前自始至终是 18；之后添的四张玩家卡两列同涨。
-  assert.equal(SETTINGS_CARD_IDS.length, 27, '调试态的卡数变了')
+  assert.equal(SETTINGS_CARD_IDS.length, 28, '调试态的卡数变了')
 })
 
 // ---- ② 把钥编出来真渲染一遍 ----
@@ -296,7 +302,7 @@ test('魔改文件夹：玩家卡，紧跟缓存修复，按钮走主进程开�
   assert.ok(yu.invoked.includes('yu:open-mod-dir'), '点了「打开文件夹」却没往主进程发')
 })
 
-test('快捷键：玩家卡紧跟托盘，六行与游戏画面内生效说明都真渲染', async () => {
+test('快捷键：玩家卡紧跟托盘，七行与游戏画面内生效说明都真渲染', async () => {
   const yu = mountYu({ ui: { [SETTINGS_SECTION_UI_KEY]: 'ui' } })
   await yu.settled()
   const cards = cardsIn(yu.pane.innerHTML)
@@ -309,6 +315,9 @@ test('快捷键：玩家卡紧跟托盘，六行与游戏画面内生效说明�
   assert.match(card, /data-hotkey-row="distract"[\s\S]*分心模式[\s\S]*F10/)
   assert.match(card, /data-hotkey-row="capture"[\s\S]*截图[\s\S]*Ctrl \+ Alt \+ S/)
   assert.match(card, /data-hotkey-row="mute"[\s\S]*静音[\s\S]*Ctrl \+ M/)
+  assert.match(card, /data-hotkey-row="layoutLock"[\s\S]*布局锁定[\s\S]*F8/)
+  assert.deepEqual([...card.matchAll(/data-hotkey-row="([^"]+)"/g)].map((hit) => hit[1]),
+    ['boss', 'reload', 'focus', 'distract', 'capture', 'mute', 'layoutLock'])
   assert.match(card, /隐藏 kuma 全部窗口并静音，再按一次恢复/)
   assert.match(card, /可用/)
 })

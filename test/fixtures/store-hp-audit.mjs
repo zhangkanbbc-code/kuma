@@ -43,6 +43,12 @@ const APPLY_SHIPS = sliceBetween(
   'applyShipUpdates',
 )
 
+const APPLY_SORTIE_SHIPS = sliceBetween(
+  'const removeSlotitems = (ids: number[]): boolean => {',
+  '\nconst applyDeckUpdates',
+  '消耗品实例删除与出击舰船更新',
+)
+
 const APPLY_DECKS = sliceBetween(
   'const applyDeckUpdates = (rawDecks: any, replaceAll: boolean) => {',
   '// ---- 出击/战斗 ----',
@@ -95,6 +101,8 @@ const abs = (...parts) => path.join(ROOT, ...parts).replace(/\\/g, '/')
 const HARNESS = `
 import { auditSortieHp } from '${abs('src', 'shared', 'sortie-hp-audit.ts')}'
 import { mapIdOf } from '${abs('src', 'shared', 'map-id.ts')}'
+import { diffConsumedInstances } from '${abs('src', 'shared', 'sortie-consumables.ts')}'
+import { rationNote } from '${abs('src', 'shared', 'offshore-supply.ts')}'
 
 type PlayerShip = any
 type Deck = any
@@ -102,7 +110,8 @@ type Section = string
 type SortieView = any
 
 export const state: any = {
-  player: { ships: {}, decks: [], materials: null },
+  player: { ships: {}, decks: [], materials: null, slotitems: {} },
+  master: { ships: {} },
   sortie: null,
   battleReconciliation: { checked: 0, mismatched: 0, records: [] },
 }
@@ -114,6 +123,8 @@ const console = { warn: (line: string) => { warned.push(line) } }
 ${CONVERTERS}
 
 ${APPLY_SHIPS}
+
+${APPLY_SORTIE_SHIPS}
 
 ${APPLY_DECKS}
 

@@ -8,8 +8,11 @@ import { loadVoiceArchive, noteVoiceArchived } from './voice-archive'
 import { loadVoiceAbsent } from './voice-probe'
 import type { VoiceArchiveEntry } from '../shared/voice-archive-plan'
 import { loadArtArchive, noteArtArchived } from './art-archive'
+import { loadAssetArchive } from './asset-archive'
+import { installAssetDisplayCapture } from './kcs-image'
 import type { ArtArchiveEntry } from '../shared/art-archive-plan'
 import { ensureBgmArchive, noteBgmArchived } from './bgm-archive'
+import { noteBgmPreviewArchived } from './bgm-preview'
 import type { BgmArchiveEntry } from '../shared/bgm-archive-plan'
 import { setVoiceHost } from './kcs-voice'
 import { installEquipIconFallback } from './equip-icon'
@@ -28,7 +31,7 @@ import { initLink } from './link'
 import { initCommandPalette } from './command-palette'
 import { initInputClear } from './input-clear'
 import { initLocalization } from './localization'
-import { exitDistract, getDistractState, initModules, isModuleShowing, launchGlowLayout, setDistractSide, setLayoutDragHooks, toggleDistract, toggleFocus } from './mu'
+import { exitDistract, getDistractState, initModules, isModuleShowing, launchGlowLayout, setDistractSide, setLayoutDragHooks, toggleDistract, toggleFocus, toggleLayoutLock } from './mu'
 import { cycleDistractSide, DISTRACT_DEFAULTS, DISTRACT_PATHS, DISTRACT_SIDE_LABEL } from '../shared/distract-mode'
 import {
   armLaunchGlow,
@@ -359,6 +362,8 @@ void loadVoiceAbsent()
 // 刚有一张立绘进了持久档案：图鉴立绘卷那一格该点亮了。同语音侧，
 // 索引在启动时拉一次（逐格判点亮不能临时去问主进程）。
 void loadArtArchive()
+installAssetDisplayCapture()
+void loadAssetArchive()
 broadcaster.addListener('kancolle.shipart.archived', (entry: ArtArchiveEntry) => {
   if (noteArtArchived(entry)) notifyArchiveLit('art', entry.mstId)
 })
@@ -370,6 +375,7 @@ broadcaster.addListener('kancolle.bgm.archived', (entry: BgmArchiveEntry) => {
   // BGM 档案的归属不是某一艘舰，mstId 一栏无意义——统一给 0，
   // 消费端本来就把 0 当「不知道是谁，保险起见重画一次」。
   if (noteBgmArchived(entry)) notifyArchiveLit('bgm', 0)
+  noteBgmPreviewArchived(entry)
 })
 
 /**
@@ -467,7 +473,7 @@ window.addEventListener('kuma-distract-changed', syncDistractButtons)
 ipcRenderer.on('window:distract-exited', () => exitDistract(false))
 syncDistractButtons()
 
-const hotkeyTitle = (id: 'reload' | 'focus' | 'distract' | 'capture' | 'mute'): string => {
+const hotkeyTitle = (id: 'reload' | 'focus' | 'distract' | 'capture' | 'mute' | 'layoutLock'): string => {
   const configured = parseAccelerator(config.get(HOTKEY_CONFIG_KEYS[id], HOTKEY_DEFAULTS[id]))
   return formatAccelerator(
     configured && isAcceptableAccelerator(configured)
@@ -488,7 +494,9 @@ const toggleMute = () => {
   })
 }
 muteBtn.addEventListener('click', toggleMute)
+$('#btn-layout-lock').addEventListener('click', toggleLayoutLock)
 const syncHotkeyTitles = () => {
+  $('#btn-layout-lock').title = `锁定布局：分隔条、折叠与展开都不再响应，再按恢复（${hotkeyTitle('layoutLock')}）`
   $('#btn-distract').title = `分心模式：游戏缩成小窗，战斗卡贴在一侧（${hotkeyTitle('distract')}）`
   $('#btn-focus').title = `专注模式：收起三坞只留游戏（${hotkeyTitle('focus')}）`
   $('#btn-capture').title = `保存游戏画面截图（${hotkeyTitle('capture')}）`
@@ -511,6 +519,7 @@ ipcRenderer.on('kuma:hotkey', (_event: unknown, id: unknown) => {
   else if (id === 'distract') toggleDistract()
   else if (id === 'capture') void captureGame()
   else if (id === 'mute') toggleMute()
+  else if (id === 'layoutLock') toggleLayoutLock()
 })
 
 document.addEventListener('keydown', (e) => {

@@ -597,6 +597,9 @@ test('玩家文案语料提取器没有静默塌掉', () => {
   for (const text of ['特殊攻击视觉加强', '开关炫酷特殊攻击字幕']) {
     assert.ok(tierA.some((r) => r.file.endsWith('modules/yu.ts') && r.text === text), `钥开关文案未纳入棘轮：${text}`)
   }
+  for (const text of ['资源档案', '游戏已读取的装备、道具、家具、海域图自动归档', '清空资源档案']) {
+    assert.ok(tierA.some((r) => r.file.endsWith('modules/yu.ts') && r.text.includes(text)), `资源档案文案未纳入棘轮：${text}`)
+  }
   // 注释必须收不进来：这是整套提取器的地基（按行 grep 会把维护者注释当文案）。
   assert.ok(
     !tierB.some((r) => r.text.includes('那个读数就再也拿不回来了')),
@@ -608,6 +611,15 @@ test('玩家可见文案的棘轮闸门：已定稿替换词不许回潮', () =>
   const { tierA, tierB } = collectPlayerCopy()
   const offenders = offendersIn([...tierA, ...tierB], RETIRED_WORDS)
   assert.deepEqual(offenders, [], `\n${offenders.join('\n')}\n`)
+})
+
+test('说明书资源档案问答经过同一份词形与句式棘轮', () => {
+  const manual = fs.readFileSync(new URL('../使用说明.md', import.meta.url), 'utf8')
+  const text = /- \*\*图鉴里的装备卡面、道具卡、家具图、海域图为什么只下载一次\*\* →\n[^\n]+/.exec(manual)?.[0]
+  assert.ok(text)
+  const rows = [{ file: '使用说明.md', line: manual.slice(0, manual.indexOf(text)).split('\n').length, text }]
+  assert.deepEqual(offendersIn(rows, RETIRED_WORDS), [])
+  assert.deepEqual(offendersIn(rows, SENTENCE_SHAPES), [])
 })
 
 test('玩家可见文案的棘轮闸门：已裁定的句式不许回潮', () => {
@@ -652,6 +664,99 @@ test('预计返港只放行已裁定的未来时刻文案，概率限定词仍�
   }
   assert.equal(rule.check(row('预计返港概率 50%')), true)
   assert.equal(rule.check(row('预计返港 14:20 · 当前概率大概 50%')), true)
+})
+
+// 用户 2026-09-09：带损管的大破舰不劝退、不红警，只说明消耗与不会击沉。
+// 正向登记逐条过原词表/句式，不向任何禁词或结构判据添加豁免。
+const DAMECON_COPY = [
+  ['带损管', '大破说明档标题'],
+  ['带要员', '混合危险名单的要员说明'],
+  ['带女神', '混合危险名单的女神说明'],
+  ['进击会消耗', '消耗说明'],
+  ['不会击沉', '带损管的进击结果说明'],
+  ['损管', '编队抬头芯片名'],
+  ['要员', '芯片分类与消耗种类'],
+  ['女神', '芯片分类与消耗种类'],
+  ['応急修理女神', '损管芯片悬停装备全名'],
+  ['进击可用', '说明条动作角标'],
+]
+
+test('09-09 损管玩家文案逐条登记并通过原棘轮，说明书新增句同查', () => {
+  const { tierA } = collectPlayerCopy()
+  for (const [phrase, scope] of DAMECON_COPY) {
+    assert.ok(tierA.some((row) => row.text.includes(phrase)), `${scope}未收录：${phrase}`)
+    const rows = [{ file: '损管文案登记', line: 1, text: phrase }]
+    assert.deepEqual(offendersIn(rows, RETIRED_WORDS), [])
+    assert.deepEqual(offendersIn(rows, SENTENCE_SHAPES), [])
+  }
+  const manual = fs.readFileSync(new URL('../使用说明.md', import.meta.url), 'utf8')
+  const text = /### 战斗警告与通知\n\n([^\n]+)\n([^\n]+)/.exec(manual)?.[0]
+  assert.ok(text)
+  const rows = [{ file: '使用说明.md', line: 1, text }]
+  assert.deepEqual(offendersIn(rows, RETIRED_WORDS), [])
+  assert.deepEqual(offendersIn(rows, SENTENCE_SHAPES), [])
+})
+
+// 用户 2026-09-09 洋上补给施工单：数值旁仅用「估算」，饭团只标已用。
+const OFFSHORE_COPY = [
+  ['洋上补给 ×1 · 全队油弹 +25%', '节点备注与战斗概览'],
+  ['洋上补给 ×2 · 全队油弹 +27.5%', '联合舰队第二档'],
+  ['已洋上补给 ×1（油弹估算）', '编队出击裁决行'],
+  ['已洋上补给 ×1', '舰船报文校正后的编队裁决行'],
+  ['洋上补给 ×1 · 全队油弹 +25%（估算，下一战校正）', '未校正的战斗概览'],
+  ['战斗粮食已用', '节点饭团标记'],
+  // 用户 2026-09-09 续单定稿：舰船报文确认消耗后列舰名，多舰以「、」相连。
+  ['战斗粮食已用 · 赤城、加賀', '节点饭团标记的舰名变体'],
+  ['洋上补给 ×1 · 5-5 A 点（油弹估算）', '资源账本补给明细'],
+  ['洋上补给发动后，编队与战斗页立即按比例显示补给后的油弹，标「估算」，下一战报文校正。', '说明书油弹校正'],
+  ['战斗粮食发动只标记「已用」。', '说明书饭团标记'],
+]
+
+test('09-09 洋上补给与饭团文案逐条登记，通过原棘轮且不增加豁免', () => {
+  const manual = fs.readFileSync(new URL('../使用说明.md', import.meta.url), 'utf8')
+  for (const [phrase, scope] of OFFSHORE_COPY) {
+    const rows = [{ file: scope, line: 1, text: phrase }]
+    assert.deepEqual(offendersIn(rows, RETIRED_WORDS), [])
+    assert.deepEqual(offendersIn(rows, SENTENCE_SHAPES), [])
+    if (scope.startsWith('说明书')) assert.ok(manual.includes(phrase))
+  }
+})
+
+const ANCHORAGE_COPY = [
+  ['紧急泊地修理', '账本类目与铃事件标签'],
+  ['已泊地修理 ×2', '编队出击裁决行'],
+  ['泊地修理 · 秋津洲改 · 2 艘 +14', '铃完整标题'],
+  ['泊地修理 · 秋津洲改', '铃回复量未知标题'],
+  ['3-5 7 点 · 朝潮改二丁 20→27、霞改二 50→57', '铃逐舰正文'],
+  ['3-5 7 点', '铃回复量未知正文'],
+  ['每次一条', '铃泊地修理频控说明'],
+  ['钢材估算', '账本数值估算标注'],
+  ['紧急泊地修理 · 3-5 G 点 · 秋津洲改 · 2 艘 +14（钢材估算）', '账本完整明细'],
+  ['紧急泊地修理发动时，编队与战斗页立即显示回复后的耐久与士气，铃报一条；钢材消耗按回复量估算，回港校正。', '说明书泊地修理'],
+]
+for (const [phrase, scope] of ANCHORAGE_COPY) test(`泊地修理玩家文案：${scope}`, () => {
+  const rows = [{ file: scope, line: 1, text: phrase }]
+  assert.deepEqual(offendersIn(rows, RETIRED_WORDS), [])
+  assert.deepEqual(offendersIn(rows, SENTENCE_SHAPES), [])
+  if (scope.startsWith('说明书')) {
+    const manual = fs.readFileSync(new URL('../使用说明.md', import.meta.url), 'utf8')
+    assert.ok(manual.includes(phrase))
+  }
+})
+
+test('09-09 布局锁定续单文案登记：分隔条、折叠与展开均不响应', () => {
+  const read = (rel) => fs.readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8')
+  const title = '锁定布局：分隔条、折叠与展开都不再响应，再按恢复'
+  const manual = '- 布局锁定 `F8`：分隔条、折叠与展开都不再响应，再按一次解锁；默认不锁'
+  for (const rel of ['src/renderer/index.ts', 'src/renderer/index.html']) {
+    assert.ok(read(rel).includes(title), `${rel} 顶栏标题与定稿一致`)
+  }
+  assert.ok(read('使用说明.md').includes(manual))
+  for (const phrase of [title, manual, '布局已锁定', '折叠此坞（导航条点元素可再展开）', '展开左坞·查阅', '展开右坞·临战', '展开底坞·常驻']) {
+    const rows = [{ file: '布局锁定文案登记', line: 1, text: phrase }]
+    assert.deepEqual(offendersIn(rows, RETIRED_WORDS), [])
+    assert.deepEqual(offendersIn(rows, SENTENCE_SHAPES), [])
+  }
 })
 
 test('玩家文案观察名单：只列 file:line，不阻断提交', () => {

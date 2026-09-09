@@ -61,7 +61,7 @@ const TAIHA_VERDICT = path.join(ROOT, 'src', 'shared', 'taiha-verdict.ts').repla
 
 const HARNESS = `
 import { escapedShipsOf } from '${SORTIE_ESCAPE}'
-import { ESCORT_FLAGSHIP_INDEX, flagshipHasDameconIn, isTaihaShip, taihaVerdictOf } from '${TAIHA_VERDICT}'
+import { ESCORT_FLAGSHIP_INDEX, dameconOfShip, isTaihaShip, taihaVerdictOf } from '${TAIHA_VERDICT}'
 
 type SortieEscapedShip = any
 type BattleShipView = any

@@ -221,8 +221,11 @@ const kcsImage = (() => {
       // 立绘档案是取图回退链的第二档（本地缓存 → 档案实物 → 远端）。用**真模块**：
       // 换成桩就测不出「档案里有的时候到底走没走档案」，而那正是 2026-08-31 补的东西。
       'shared/art-archive-plan.ts': read(srcFile('shared/art-archive-plan.ts')),
+      'shared/asset-archive-plan.ts': read(srcFile('shared/asset-archive-plan.ts')),
+      'shared/voice-request-gate.ts': read(srcFile('shared/voice-request-gate.ts')),
       'shared/voice-archive-plan.ts': read(srcFile('shared/voice-archive-plan.ts')),
       'renderer/art-archive.ts': read(srcFile('renderer/art-archive.ts')),
+      'renderer/asset-archive.ts': read(srcFile('renderer/asset-archive.ts')),
       'renderer/kcs-image.ts': read(srcFile('renderer/kcs-image.ts')),
       'renderer/equip-icon.ts': 'export const setEquipIconSpriteProvider = (_f: unknown) => {}\n',
       // 编译入口把档案那一半也导出来：回退链要断言「档案里有的时候走没走档案」，
@@ -230,6 +233,7 @@ const kcsImage = (() => {
       'renderer/test-entry.ts': [
         "export * from './kcs-image'",
         "export { loadArtArchive } from './art-archive'",
+        "export { loadAssetArchive } from './asset-archive'",
         '',
       ].join('\n'),
     },
@@ -250,7 +254,11 @@ const kcsImage = (() => {
         send: () => {},
       },
     },
-    '@electron/remote': { getGlobal: (key) => globals[key] },
+    '@electron/remote': { getGlobal: (key) => globals[key], require: (name) => {
+      if (name === './game-api-broadcaster') return { addListener: () => {} }
+      if (name === './config') return { get: (_key, fallback) => fallback }
+      assert.fail(`unexpected remote module: ${name}`)
+    } },
   })
   api.setGameHost('203.104.209.71')
   // api_filename 是全身立绘的文件名尾巴（真值，取自本机学到的 full 路径）
@@ -267,6 +275,7 @@ const kcsImage = (() => {
 
 // 索引到位之后再跑断言：没到位时档案那一档一律落空（那也是启动瞬间的真实行为）
 await kcsImage.loadArtArchive()
+await kcsImage.loadAssetArchive()
 
 const urlPath = (url) => (url == null ? null : new URL(url).pathname)
 

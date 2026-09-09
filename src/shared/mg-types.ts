@@ -621,6 +621,9 @@ export interface SortieNode {
   eventKind: number
   rank: string | null // 战斗节点：battleresult 实际评级
   note: string | null // 非战斗点实况：获得/涡潮损失（api_itemget / api_happening）
+  offshoreSupply?: { supplyShip: number; givenShips: number[]; useNum: number }
+  rationUsed?: boolean
+  rationShips?: number[] // 舰船报文确认用过战斗粮食的在籍 id
   enemyPreview?: { kind: number; shipIds: number[] }[] // 开战前游戏揭示的最多三艘敌舰
   flavor?: { type: number; message: string } // 进点台词；保留游戏原文
 }
@@ -679,7 +682,7 @@ export interface SortieAnchorageRepair {
   ts: number
   repairerMst: number // 修理舰的**主数据 id**（报文给的就是 mst id，不是在籍 id）
   ships: { rosterId: number; mstId: number; name: string; before: number; after: number }[]
-  steel: number // 这一次扣掉的钢材（= 回复耐久合计 ×3）；算不出回复量时为 0
+  steel: number // 这一次估算扣掉的钢材（= 回复耐久合计 ×3）；算不出回复量时为 0
 }
 
 /**
@@ -709,6 +712,7 @@ export interface SortieView {
   deckId: number
   bossCell: number
   nodes: SortieNode[]
+  supplyEstimated?: boolean // 洋上补给的油弹估算尚未被舰船报文校正
   currentCell: number
   cellData: SortieMapCell[] // 本次出击下发的整张图点位状态
   selectRoute: number[] // 当前可手动选择的下一点 api_no
@@ -724,6 +728,7 @@ export interface SortieView {
   anchorageRepairs: SortieAnchorageRepair[]
   // 本轮退避掉的舰（同上，出击级累积）。演习没有退避这回事。
   escaped: SortieEscapedShip[]
+  consumedItems: { rosterId: number; mstId: number; cell: number; battleCount: number; ts: number }[]
   // 本次出击给各基地航空队指定的攻击点位。出击时 start_air_base 会明确下发
   // 「第 N 队打哪个点」，每队两波（例：{2:[40,40], 3:[40,40]} = 第2、3队各两波打 40 点）。
   // 有了它，预测才知道该把陆航的输出算进哪一个点——否则要么全图不算（低估

@@ -44,6 +44,7 @@ const liveSortie = () => ({
   sunkShips: [{ mstId: 100 }],
   anchorageRepairs: [{ cell: 12, ships: [], steel: 0 }],
   escaped: [{ rosterId: 102, role: 'escaped' }],
+  consumedItems: [{ rosterId: 102, mstId: 145, cell: 12, battleCount: 3, ts: 1_700_000_123_456 }],
   airBaseStrikes: { 1: [] },
   bossCleared: null,
   startTs: 1_700_000_000_000,

@@ -831,6 +831,12 @@
     .splitter.v { width: 5px; cursor: col-resize; }
     .splitter.h { height: 5px; cursor: row-resize; }
     .splitter.off { display: none; }
+    #app.layout-locked .splitter, #app.layout-locked .splitter.g { cursor: default; }
+    #app.layout-locked .splitter:hover { background: var(--line-soft); }
+    #app.layout-locked .splitter.g:hover { background: var(--line); }
+    #app.layout-locked .dock-fold-btn, #app.layout-locked .dock-stub { cursor: default; }
+    #app.layout-locked .dock-fold-btn:hover { color: var(--dim); }
+    #app.layout-locked .dock-stub:hover { background: var(--bg1); color: var(--dim); }
     /* 拖动分隔条时的全屏透明遮罩：防 webview 吞鼠标事件 */
     #drag-overlay { position: fixed; inset: 0; z-index: 1000; }
 
@@ -1274,7 +1280,7 @@
     #overlay-bar { display: flex; gap: 3px; margin-left: auto; margin-right: 6px; }
     /* 常驻按钮形态全在 `header button` 那条（同族统一）；这里只留角标的定位锚与激活态 */
     .ov-btn { position: relative; }
-    .ov-btn.on { background: var(--accent-dim); border-color: var(--accent); color: #fff; }
+    #btn-layout-lock.on, .ov-btn.on { background: var(--accent-dim); border-color: var(--accent); color: #fff; }
     .ov-btn .ov-badge:not(:empty) {
       position: absolute; top: -5px; right: -5px; font-family: var(--mono); font-size: 8px; font-weight: 700;
       background: var(--bad); color: #fff; border-radius: 6px; padding: 0 3px; line-height: 1.5;
@@ -1558,6 +1564,9 @@
     }
     #ru-metrics-fold .mfc-chips { display: flex; flex-wrap: wrap; gap: 4px; }
     .fleet-skin .fleet-quests { flex: 1 1 100%; min-width: 0; display: flex; align-items: center; gap: 5px; overflow-x: auto; scrollbar-width: thin; padding-top: 1px; }
+    /* 三组同排、组间隔更宽，不换行；超宽时沿用容器横向滚动。 */
+    .fleet-skin .fleet-quests .fq-group { display: inline-flex; align-items: center; gap: 5px; flex: none; }
+    .fleet-skin .fleet-quests .fq-group + .fq-group { margin-left: 12px; }
     .fleet-skin .fleet-quests .k { flex: none; color: var(--dim); font-size: 9.5px; }
     .fleet-skin .fleet-quests .el { flex: none; max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg0); font-size: 9.5px; }
     .fleet-skin .fleet-quests .more { flex: none; color: var(--dim); font-size: 9.5px; }
@@ -2063,6 +2072,9 @@
        别把 1.5px「化简」成 1px：边宽会被吸到整数个设备像素，缩放 1/1.15/1.25
        下两者同像素（都是一根发丝），但缩放 ≥1.5 时 1px 会细一半，小图标上更难认。 */
     .equip-icon.exslot { border: 1.5px solid var(--gold); }
+    .equip-icon.damecon-crew { border: 1.5px solid var(--damecon-crew); }
+    .equip-icon.damecon-goddess { border: 1.5px solid var(--damecon-goddess); }
+    .equip-icon.exslot.damecon-crew, .equip-icon.exslot.damecon-goddess { box-shadow: 0 0 0 1px var(--gold); }
     .ship-thumb {
       position: relative; width: 44px; height: 20px; flex: none; overflow: hidden;
       display: inline-grid; place-items: center; vertical-align: middle;
@@ -7832,6 +7844,7 @@
         <button id="btn-capture" title="保存游戏画面截图（Ctrl + Alt + S）">截图</button>
         <button id="btn-reload" title="刷新游戏页面（F5）">刷新</button>
         <button id="btn-mute" title="静音 kuma 全部声音，再按恢复（Ctrl + M）">静音</button>
+        <button id="btn-layout-lock" title="锁定布局：分隔条、折叠与展开都不再响应，再按恢复（F8）">锁定</button>
         <button id="btn-browse" title="新开浏览窗 · 可多开 · 与游戏共用登录与代理">新窗</button>
       </span>
     </header>

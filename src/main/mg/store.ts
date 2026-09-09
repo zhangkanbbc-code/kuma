@@ -10,10 +10,12 @@ import {
 } from './battle'
 import { mergeAirBases, replaceAirBases } from './air-bases'
 import { newSunkEntries } from '../../shared/sortie-mourning'
+import { ANCHORAGE_REPAIR_STEEL_PER_HP } from '../../shared/anchorage-repair'
 import { newEscapeEntries } from '../../shared/sortie-escape'
 import { auditSortieHp } from '../../shared/sortie-hp-audit'
 import { recordAbyssVoiceSightings } from '../abyss-voice-sightings'
 import { restoreSortieAcrossRestart } from '../../shared/sortie-restore'
+import { diffConsumedInstances } from '../../shared/sortie-consumables'
 import { parseAirBaseStrikes } from '../../shared/air-base-strike'
 import { mapIdOf } from '../../shared/map-id'
 import { berthBankedDecks } from '../../shared/berth-repair'
@@ -24,6 +26,7 @@ import { diffPayitemStocks, parsePayitemList, payitemUseEffect } from '../../sha
 import { reduceQuestList } from './quest-state'
 import { applySlotitemInventoryMutation } from '../../shared/slotitem-mutation'
 import { combinedFleetTypeFromMutation } from '../../shared/combined-fleet'
+import { OFFSHORE_SUPPLY_RATES, planOffshoreSupply, planOffshoreSupplyConsumption, offshoreSupplyNote, rationNote } from '../../shared/offshore-supply'
 import {
   patchMapGaugeFromBattleResult,
   patchMapGaugeFromSortiePayload,
@@ -386,6 +389,9 @@ const applyShipUpdates = (rawShips: any) => {
   for (const raw of rawShips) {
     state.player.ships[raw.api_id] = toShip(raw)
   }
+  if (state.sortie && rawShips.some((raw) => typeof raw.api_fuel === 'number' && typeof raw.api_bull === 'number')) {
+    state.sortie.supplyEstimated = false
+  }
 }
 
 const removeRosterShips = (ids: number[]) => {
@@ -418,6 +424,47 @@ const removeSlotitems = (ids: number[]): boolean => {
     }
   }
   return changed
+}
+
+// 只在出击中认装备消失为消耗；母港卸装、演习均不动实例账。
+// 快照只取本包涉及舰，且包含增设位；整包更新完再比较，避免把同包移舰当消耗。
+const applySortieShipUpdates = (rawShips: any, ts: number): Section[] => {
+  const sortie = state.sortie
+  if (!sortie?.active || sortie.practice || !Array.isArray(rawShips)) {
+    applyShipUpdates(rawShips)
+    return []
+  }
+  const snapshot = () => rawShips.flatMap((raw) => {
+    const ship = state.player.ships[raw.api_id]
+    return ship ? [{ rosterId: ship.id, slots: [...ship.slot, ship.slotEx] }] : []
+  })
+  const before = snapshot()
+  applyShipUpdates(rawShips)
+  const consumed = diffConsumedInstances(before, snapshot(), (id) => state.player.slotitems[id]?.mstId)
+  if (!consumed.length) return []
+  removeSlotitems(consumed.map((item) => item.instId))
+  sortie.consumedItems.push(...consumed.map(({ rosterId, mstId }) => ({
+    rosterId, mstId, cell: sortie.currentCell, battleCount: sortie.battleCount, ts,
+  })))
+  const rationShips = consumed.filter(({ mstId }) => [145, 150, 241].includes(mstId)).map(({ rosterId }) => rosterId)
+  if (rationShips.length) {
+    const node = [...sortie.nodes].reverse().find((node) => node.rationUsed) ?? sortie.nodes[sortie.nodes.length - 1]
+    if (node) {
+      const noteFor = (ids: number[]) => {
+        const names = ids.map((id) => state.master.ships[state.player.ships[id]?.shipId]?.name).filter(Boolean)
+        return [rationNote(), names.join('、')].filter(Boolean).join(' · ')
+      }
+      const oldNote = noteFor(node.rationShips ?? [])
+      node.rationShips = [...new Set([...(node.rationShips ?? []), ...rationShips])]
+      node.rationUsed = true
+      const note = noteFor(node.rationShips)
+      node.note = node.note?.includes(oldNote)
+        ? node.note.replace(oldNote, note)
+        : [node.note, note].filter(Boolean).join(' · ')
+    }
+  }
+  sortie.updatedTs = ts
+  return ['slotitems', 'sortie']
 }
 
 const applyDeckUpdates = (rawDecks: any, replaceAll: boolean) => {
@@ -561,6 +608,7 @@ const nodeNote = (body: any): string | null => {
   return parts.length ? parts.join(' · ') : null
 }
 
+// 漩涡扣的是舰上燃料，母港库存不动；舰上数值等 ship_deck 校正。
 const applyMapMaterialDelta = (body: any): boolean => {
   if (!state.player.materials) return false
   const next = [...state.player.materials]
@@ -574,13 +622,6 @@ const applyMapMaterialDelta = (body: any): boolean => {
       next[gainIndex] += gainCount
       changed = true
     }
-  }
-  const loss = body?.api_happening
-  const lossIndex = Number(loss?.api_mst_id) - 1
-  const lossCount = Number(loss?.api_count)
-  if (lossIndex >= 0 && lossIndex < next.length && lossCount > 0) {
-    next[lossIndex] = Math.max(0, next[lossIndex] - lossCount)
-    changed = true
   }
   if (changed) state.player.materials = next
   return changed
@@ -750,6 +791,7 @@ const newSortie = (partial: Partial<SortieView>): SortieView => ({
   sunkShips: [],
   anchorageRepairs: [],
   escaped: [],
+  consumedItems: [],
   airBaseStrikes: {},
   bossCleared: null,
   taihaCorrections: 0,
@@ -1822,21 +1864,21 @@ const reducers: Record<string, Reducer> = {
   // 出击途中这一条是**进击动作自己带出来的**权威刷新（时序实测见 shared/sortie-hp-audit）。
   // 权威耐久盖上来的同时对一次账：解析漏报的大破就在这里被抓出来。
   '/kcsapi/api_get_member/ship_deck': (body, _post, ts) => {
-    applyShipUpdates(body.api_ship_data)
+    const sections = applySortieShipUpdates(body.api_ship_data, ts)
     applyDeckUpdates(body.api_deck_data, false)
-    return ['ships', 'decks', ...runSortieHpAudit(ts, true)]
+    return ['ships', 'decks', ...sections, ...runSortieHpAudit(ts, true)]
   },
 
-  '/kcsapi/api_get_member/ship2': (body) => {
+  '/kcsapi/api_get_member/ship2': (body, _post, ts) => {
     if (!Array.isArray(body)) return []
-    applyShipUpdates(body)
-    return ['ships']
+    const sections = applySortieShipUpdates(body, ts)
+    return ['ships', ...sections]
   },
 
-  '/kcsapi/api_get_member/ship3': (body) => {
-    applyShipUpdates(body.api_ship_data)
+  '/kcsapi/api_get_member/ship3': (body, _post, ts) => {
+    const sections = applySortieShipUpdates(body.api_ship_data, ts)
     applyDeckUpdates(body.api_deck_data, true)
-    return ['ships', 'decks']
+    return ['ships', 'decks', ...sections]
   },
 
   // 编成变更。语义对齐游戏行为：-1 撤下该位（后续补位），-2 旗舰以外全撤，
@@ -2088,6 +2130,10 @@ const reducers: Record<string, Reducer> = {
   // 两次回港之间会一路偏高。所以先把被修舰当前的耐久记下来，覆盖之后再作差：
   // 回复耐久合计 ×3 = 钢材，另加緊急修理資材（useitem 91）一个。
   //
+  // ×3 是 2026-08-26 自定的估算，无出处；舰娘百科只写「相应钢材」，KC3Kai 为 TODO。
+  // 首次真用后，用回港校准里的钢材差额 ÷ 回复量反推系数，再改共享常量。
+  // 校准差额 Δ 是估算后的净差：排除其他收支后，实际系数 = 3 − Δ / 回复量。
+  //
   // 差值算不出来（账上还没有那艘舰：中途启动kuma）就**只扣资材、不扣钢材**——
   // 资材是每次固定一个，那件事不需要知道回了多少；钢材需要，不知道就不猜。
   '/kcsapi/api_req_map/anchorage_repair': (body, _post, ts) => {
@@ -2123,7 +2169,7 @@ const reducers: Record<string, Reducer> = {
       })
     }
     // 消耗：资材恒扣一个；钢材只在**每一艘都算得出**回复量时才扣。
-    const steel = complete && healed > 0 ? healed * 3 : 0
+    const steel = complete && healed > 0 ? healed * ANCHORAGE_REPAIR_STEEL_PER_HP : 0
     if (steel > 0 && subtractMaterials([[2, steel]])) sections.push('materials')
     if (incrementUseitem(91, -1, ts)) sections.push('useitems')
     const sortie = state.sortie
@@ -2575,10 +2621,11 @@ const reducers: Record<string, Reducer> = {
   },
 
   // 进击到下一格
-  '/kcsapi/api_req_map/next': (body, _post, ts) => {
+  '/kcsapi/api_req_map/next': (body, post, ts) => {
     const sortie = state.sortie
     if (!sortie) return []
-    sortie.nodes.push(sortieNodeOf(body))
+    const node = sortieNodeOf(body)
+    sortie.nodes.push(node)
     sortie.currentCell = body.api_no ?? -1
     const nextCells = cellDataOf(body)
     if (nextCells.length) sortie.cellData = nextCells
@@ -2598,6 +2645,53 @@ const reducers: Record<string, Reducer> = {
     )
     const sections: Section[] = ['sortie']
     if (gaugeChanged) sections.push('mapGauges')
+    if (Number(post.api_supply_flag) === 1 || body.api_offshore_supply) {
+      const combined = state.player.combinedFlag > 0 && sortie.deckId === 1
+      const fleetIds = [sortie.deckId, ...(combined ? [2] : [])].flatMap((deckId) =>
+        state.player.decks.find((deck) => deck.id === deckId)?.ships.filter((id) => id > 0) ?? [],
+      )
+      const mstIdOf = (id: number) => state.player.slotitems[id]?.mstId
+      const raw = body.api_offshore_supply
+      // 只有请求标记时，用出击编成中补给舰的常规格估算；回包给出的舰与数量优先。
+      const supplyShip = Number(raw?.api_supply_ship) || fleetIds.find((id) =>
+        planOffshoreSupplyConsumption(state.player.ships[id]?.slot ?? [], mstIdOf, 3).length > 0,
+      ) || 0
+      const supplier = state.player.ships[supplyShip]
+      const useNum = Number(raw?.api_use_num) || planOffshoreSupplyConsumption(supplier?.slot ?? [], mstIdOf, 3).length
+      const given = raw?.api_given_ship
+      const givenIds = (Array.isArray(given) ? given : given == null ? [] : [given]).map(Number).filter((id: number) => id > 0)
+      const givenShips = [...new Set<number>(givenIds.length ? givenIds : fleetIds)]
+      node.offshoreSupply = { supplyShip, givenShips, useNum }
+      const rate = OFFSHORE_SUPPLY_RATES[combined ? 'combined' : 'normal'][Math.min(useNum, 3) - 1] ?? 0
+      node.note = [node.note, offshoreSupplyNote(useNum, rate)].filter(Boolean).join(' · ')
+      const plans = planOffshoreSupply(givenShips.flatMap((rosterId) => {
+        const ship = state.player.ships[rosterId]
+        const master = ship && state.master.ships[ship.shipId]
+        return ship && master ? [{ rosterId, fuel: ship.fuel, bull: ship.bull, fuelMax: master.fuelMax, bullMax: master.bullMax }] : []
+      }), useNum, combined)
+      const materials = state.player.materials ? [...state.player.materials] : null
+      // 母港资源不足时，从旗舰起按编成顺序分配；油、弹各自受库存约束。
+      plans.sort((a, b) => fleetIds.indexOf(a.rosterId) - fleetIds.indexOf(b.rosterId))
+      for (const plan of plans) {
+        const ship = state.player.ships[plan.rosterId]
+        const fuel = Math.min(plan.fuel - ship.fuel, materials?.[0] ?? Infinity)
+        const bull = Math.min(plan.bull - ship.bull, materials?.[1] ?? Infinity)
+        ship.fuel += fuel
+        ship.bull += bull
+        if (materials) { materials[0] -= fuel; materials[1] -= bull }
+      }
+      if (materials) state.player.materials = materials
+      sortie.supplyEstimated = true
+      const consumed = planOffshoreSupplyConsumption(supplier?.slot ?? [], mstIdOf, useNum)
+      if (supplier) supplier.slot = supplier.slot.map((id) => consumed.includes(id) ? -1 : id)
+      removeSlotitems(consumed)
+      sections.push('ships', 'slotitems', 'materials')
+    }
+    // 回包的 api_ration_flag 只是确认框开关；只有请求标记表示已经使用。
+    if (Number(post.api_ration_flag) === 1) {
+      node.rationUsed = true
+      node.note = [node.note, rationNote()].filter(Boolean).join(' · ')
+    }
     if (applyMapMaterialDelta(body)) sections.push('materials')
     if (applyMapUseitemGains(body, ts)) sections.push('useitems')
     return sections
@@ -2875,7 +2969,10 @@ export const handle = (
   const reducer = reducers[apiPath]
   if (!reducer) return []
   try {
-    return reducer(body, postBody, ts)
+    const supplyEstimated = state.sortie?.supplyEstimated
+    const sections = reducer(body, postBody, ts)
+    if (supplyEstimated && state.sortie?.supplyEstimated === false && !sections.includes('sortie')) sections.push('sortie')
+    return sections
   } catch (e) {
     console.warn('[kuma] mg: reducer failed for', apiPath, e)
     return []

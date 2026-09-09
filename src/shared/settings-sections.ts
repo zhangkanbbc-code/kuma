@@ -34,6 +34,7 @@ export type SettingsCardId =
   | 'voice-archive'
   | 'art-archive'
   | 'bgm-archive'
+  | 'asset-archive'
   | 'retention'
   | 'backup'
   | 'proxy'
@@ -85,9 +86,9 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   {
     id: 'archive',
     label: '档案',
-    // kuma替你记着的东西：三份档案、账本的保留期，以及把它们整包带走的备份。
-    // 三份档案挨着摆——它们能分别清空，数字也分开算，隔开看容易以为是一件事
-    cards: ['voice-archive', 'art-archive', 'bgm-archive', 'retention', 'backup'],
+    // kuma替你记着的东西：四份档案、账本的保留期，以及把它们整包带走的备份。
+    // 四份档案挨着摆——它们能分别清空，数字也分开算，隔开看容易以为是一件事
+    cards: ['voice-archive', 'art-archive', 'bgm-archive', 'asset-archive', 'retention', 'backup'],
   },
   {
     id: 'network',

@@ -31,6 +31,7 @@ export interface RestorableSortie {
   sunkShips?: unknown
   anchorageRepairs?: unknown
   escaped?: unknown
+  consumedItems?: unknown
   [key: string]: unknown
 }
 
@@ -44,10 +45,12 @@ export interface RestorableSortie {
  */
 export const restoreSortieAcrossRestart = <T extends RestorableSortie>(
   sortie: T,
-): T & { active: false; sunkShips: unknown[]; anchorageRepairs: unknown[]; escaped: unknown[] } => ({
+): T & { active: false; sunkShips: unknown[]; anchorageRepairs: unknown[]; escaped: unknown[]; consumedItems: unknown[] } => ({
   ...sortie,
   active: false,
   sunkShips: Array.isArray(sortie.sunkShips) ? sortie.sunkShips : [],
   anchorageRepairs: Array.isArray(sortie.anchorageRepairs) ? sortie.anchorageRepairs : [],
   escaped: Array.isArray(sortie.escaped) ? sortie.escaped : [],
+  // 消耗记录同属后加字段；旧快照缺席时按空数组回灌。
+  consumedItems: Array.isArray(sortie.consumedItems) ? sortie.consumedItems : [],
 })

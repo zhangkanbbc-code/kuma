@@ -10,7 +10,8 @@ import { installEquipIconFallback } from './equip-icon'
 import { installEntityArtFallback } from './entity-art'
 import { initLocalization } from './localization'
 import { installZhSimplifier } from './zh-simplify'
-import { setAllowRemoteArt, setGameHost, setShipImageGraph } from './kcs-image'
+import { installAssetDisplayCapture, setAllowRemoteArt, setGameHost, setShipImageGraph } from './kcs-image'
+import { loadAssetArchive } from './asset-archive'
 import {
   battleReplayPlaceText,
   bootstrapBattleReplay,
@@ -122,6 +123,8 @@ new ResizeObserver(() => {
 
 const start = async () => {
   initUiZoom()
+  installAssetDisplayCapture()
+  await loadAssetArchive()
   const remembered = windowConfig.get('kuma.lastGameHost', '')
   if (typeof remembered === 'string' && /^[\w.-]+$/.test(remembered)) setGameHost(remembered)
   setAllowRemoteArt(windowConfig.get('kuma.remoteArt', true) !== false)

@@ -254,6 +254,7 @@ let ledgerRetention: {
   months: LedgerMonthCount[]
 } | null = null
 /** 立绘档案的占用。与语音档案分开两份：两者能分别清空，数字也不该合并显示。 */
+let assetArchiveUsage: import('../../shared/asset-archive-plan').AssetArchiveUsage | null = null
 let artArchiveUsage: {
   bytes: number
   kept: number
@@ -657,7 +658,7 @@ const lodeCreditCardHtml = (): string => {
     <div class="ycredits">${rows}</div>
     <div class="ynote">${esc(LODE_CREDIT_SHARE_ALIKE)}</div>
     <details class="yfold"><summary>逐项对照</summary>${details}</details>
-    <div class="ynote">语音、立绘、BGM 档案与缓存里的游戏资产仅供本机自行使用。
+    <div class="ynote">语音、立绘、BGM、资源档案与缓存里的游戏资产仅供本机自行使用。
       传播、散布或用于未经许可的商业目的，法律责任自行承担。</div>
     <div class="ynote">完整的第三方声明与许可证全文见随附的
       <span class="mono">NOTICE.md</span>。</div>
@@ -814,7 +815,7 @@ const archiveLimitNote = (
 
 /** 上限输入框。留空或填 0 = 不限量（与主进程 archiveLimitBytes 同一条判据）。 */
 const archiveLimitLine = (
-  kind: 'voice' | 'art' | 'bgm',
+  kind: 'voice' | 'art' | 'bgm' | 'asset',
   usage: { maxBytes: number | null } | null,
 ): string => {
   const mb = usage?.maxBytes == null ? '' : `${Math.round(usage.maxBytes / (1024 * 1024))}`
@@ -833,6 +834,15 @@ const formatArchiveBytes = (bytes: number): string => {
 
 /** 拉一次档案占用；到货后只重画钥自己那一格。 */
 const refreshVoiceArchiveUsage = () => {
+  void ipcRenderer
+    .invoke('mg:asset-archive-stats')
+    .then((usage: typeof assetArchiveUsage) => {
+      assetArchiveUsage = usage ?? null
+      render()
+    })
+    .catch(() => {
+      // 拿不到就一直显示「统计中」，不编一个 0 出来。
+    })
   void ipcRenderer
     .invoke('mg:voice-archive-stats')
     .then((usage: typeof voiceArchiveUsage) => {
@@ -1111,7 +1121,7 @@ const distractCardHtml = (): string => {
   ).join('')}</div>`
 }
 
-const HOTKEY_IDS: readonly HotkeyId[] = ['boss', 'reload', 'focus', 'distract', 'capture', 'mute']
+const HOTKEY_IDS: readonly HotkeyId[] = ['boss', 'reload', 'focus', 'distract', 'capture', 'mute', 'layoutLock']
 const HOTKEY_LABELS: Record<HotkeyId, string> = {
   boss: '老板键',
   reload: '刷新游戏',
@@ -1119,6 +1129,7 @@ const HOTKEY_LABELS: Record<HotkeyId, string> = {
   distract: '分心模式',
   capture: '截图',
   mute: '静音',
+  layoutLock: '布局锁定',
 }
 
 const readHotkey = (id: HotkeyId): Accelerator => {
@@ -1163,7 +1174,8 @@ const hotkeysCardHtml = (): string =>
   ${hotkeyRowHtml('focus')}
   ${hotkeyRowHtml('distract')}
   ${hotkeyRowHtml('capture')}
-  ${hotkeyRowHtml('mute')}`
+  ${hotkeyRowHtml('mute')}
+  ${hotkeyRowHtml('layoutLock')}`
 
 const gameAudioCardHtml = (): string => {
   const rawMode = config.get('kuma.gameAudio.mode', 'all')
@@ -1271,7 +1283,7 @@ const backupCardHtml = (): string => `<div class="h"><b>完整备份与恢复</b
 
 const cacheRepairCardHtml = (): string => `<div class="h"><b>缓存修复</b><span class="aux">游戏白屏或贴图异常时使用</span></div>
   <div class="ynote">清理游戏缓存后自动重启。
-  保留登录 Cookie、配置、事件账本、同步记录、矿脉包、遭遇志与三份档案</div>
+  保留登录 Cookie、配置、事件账本、同步记录、矿脉包、遭遇志与四份档案</div>
   <div class="yline"><span class="ybtn warn" data-act="clear-cache">清理缓存并重启</span></div>`
 
 // 魔改目录由主进程启动时建出来（kcs-resource 的 ensureModDir），这张卡只是把它打开——
@@ -1335,6 +1347,15 @@ const bgmArchiveCardHtml = (): string => `<div class="h"><b>BGM 档案</b><span 
   }</div>
   ${archiveLimitLine('bgm', bgmArchiveUsage)}
   <div class="yline"><span class="ybtn warn" data-act="clear-bgm-archive">清空 BGM 档案</span></div>`
+
+const assetArchiveCardHtml = (): string => `<div class="h"><b>资源档案</b><span class="aux">游戏已读取的装备、道具、家具、海域图自动归档</span></div>
+  <div class="ynote">${assetArchiveUsage
+    ? `当前 ${formatArchiveBytes(assetArchiveUsage.bytes)} · 已归档 ${assetArchiveUsage.kept} 件
+       （装备 ${assetArchiveUsage.families.slot} · 道具 ${assetArchiveUsage.families.useitem} · 家具 ${assetArchiveUsage.families.furniture} · 海域 ${assetArchiveUsage.families.map} · 其他 ${assetArchiveUsage.families.common + assetArchiveUsage.families['ship-misc']}）·
+       另有 ${assetArchiveUsage.seen} 件仅有读取记录 · ${archiveLimitNote(assetArchiveUsage, '件')}`
+    : '占用统计中…'}</div>
+  ${archiveLimitLine('asset', assetArchiveUsage)}
+  <div class="yline"><span class="ybtn warn" data-act="clear-asset-archive">清空资源档案</span></div>`
 
 // 诊断页版本号取自 app.getVersion()。
 const kumaVersion = (() => {
@@ -1415,6 +1436,7 @@ const CARD_HTML: Record<SettingsCardId, () => string> = {
   'voice-archive': voiceArchiveCardHtml,
   'art-archive': artArchiveCardHtml,
   'bgm-archive': bgmArchiveCardHtml,
+  'asset-archive': assetArchiveCardHtml,
   retention: retentionCardHtml,
   backup: backupCardHtml,
   proxy: proxyCardHtml,
@@ -1636,10 +1658,12 @@ registerModule({
         // 这与推送那个门槛相反：那边 0 等于把门槛关掉所以要拒，这边 0 就是「不设上限」，
         // 而不设上限正是默认值，落到同一个行为上才不会因为写法差异变成会淘汰。
         const raw = limitInput.dataset.archiveLimit
-        const kind = raw === 'art' || raw === 'bgm' ? raw : 'voice'
+        const kind = raw === 'art' || raw === 'bgm' || raw === 'asset' ? raw : 'voice'
         const mb = Number.parseInt(limitInput.value, 10)
         const configKey =
-          kind === 'art'
+          kind === 'asset'
+            ? 'kuma.archive.assetMaxMB'
+            : kind === 'art'
             ? 'kuma.archive.artMaxMB'
             : kind === 'bgm'
               ? 'kuma.archive.bgmMaxMB'
@@ -1915,6 +1939,15 @@ registerModule({
         ) {
           void ipcRenderer.invoke('mg:voice-archive-clear').then(() => {
             voiceArchiveUsage = null
+            refreshVoiceArchiveUsage()
+          })
+        }
+        return
+      }
+      if (act === 'clear-asset-archive') {
+        if (confirm('清空资源档案？\n已留存的装备、道具、家具、海域图与其他图片将被删除，下次显示时可能需要重新下载。')) {
+          void ipcRenderer.invoke('mg:asset-archive-clear').then(() => {
+            assetArchiveUsage = null
             refreshVoiceArchiveUsage()
           })
         }

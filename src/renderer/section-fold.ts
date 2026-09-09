@@ -12,6 +12,10 @@
 //   还原滚动的后面，于是重渲染那一拍会先按「全展开」的虚高还原滚动、再被折回去夹掉
 //   （2026-08-23 实机报的「点一下播放被往上拉好几屏」）。所以另把 apply 登记进
 //   kernel 的 registerViewSettler，在还原之前同步跑一次；观察者保留当兜底。
+//
+// 作用域：段根或祖先的 data-fold-scope 有值时，按「作用域:标题」记开合。
+// 图鉴海域详情的同名段要按海域各记各的，免得在 3-5 展开后带到另一张图；
+// 不带作用域的段仍共享同名习惯。名单仍认裸标题，默认态在每个记忆名首次出现时落账。
 
 import { registerViewSettler } from './kernel'
 
@@ -108,21 +112,32 @@ interface FoldBooks {
 // （见 revealSection 的注释）。按根挂 WeakMap：根一走，账跟着走。
 const foldBooks = new WeakMap<HTMLElement, FoldBooks>()
 
+const foldNameOf = (section: HTMLElement, bareTitle: string): string => {
+  const scope = section.closest<HTMLElement>('[data-fold-scope]')?.dataset.foldScope
+  return scope ? `${scope}:${bareTitle}` : bareTitle
+}
+
 const applySpec = (
   root: ParentNode,
   spec: FoldSpec,
   opened: Set<string>,
   closed: Set<string>,
+  seen: Set<string>,
 ) => {
   root.querySelectorAll<HTMLElement>(spec.section).forEach((section) => {
     const head = section.querySelector<HTMLElement>(`:scope > ${spec.head}`)
-    const name = head ? spec.title(head) : ''
-    if (!head || !name || spec.only?.has(name) === false) return
-    if (spec.alwaysOpen?.has(name)) {
+    const bareTitle = head ? spec.title(head) : ''
+    if (!head || !bareTitle || spec.only?.has(bareTitle) === false) return
+    if (spec.alwaysOpen?.has(bareTitle)) {
       section.removeAttribute('data-foldable')
       section.removeAttribute('data-open')
       head.removeAttribute('data-fold-head')
       return
+    }
+    const name = foldNameOf(section, bareTitle)
+    if (!seen.has(name)) {
+      if (spec.openByDefault?.has(bareTitle)) opened.add(name)
+      seen.add(name)
     }
     head.setAttribute('data-fold-head', '')
     section.setAttribute('data-foldable', '')
@@ -141,11 +156,10 @@ export const installSectionFolding = (root: HTMLElement, specs: FoldSpec[]): Set
   // `openAllByDefault` 段记的是**折起来的那几个**（空集 = 全展开），与 opened 相反，
   // 所以两本账分开放，别指望一个 Set 兼表两种语义。
   const closed = new Set<string>()
-  for (const spec of specs) {
-    for (const name of spec.openByDefault ?? []) opened.add(name)
-  }
+  // 默认态只在记忆名首次出现时落账；重渲染不能把玩家折过的段重新展开。
+  const seen = new Set<string>()
   const apply = () => {
-    for (const spec of specs) applySpec(root, spec, opened, closed)
+    for (const spec of specs) applySpec(root, spec, opened, closed, seen)
   }
   foldBooks.set(root, { specs, opened, closed })
 
@@ -157,8 +171,9 @@ export const installSectionFolding = (root: HTMLElement, specs: FoldSpec[]): Set
     const section = head?.parentElement
     if (!head || !section?.hasAttribute('data-foldable')) return
     const spec = specs.find((s) => section.matches(s.section))
-    const name = spec ? spec.title(head) : ''
-    if (!spec || !name) return
+    const bareTitle = spec ? spec.title(head) : ''
+    if (!spec || !bareTitle) return
+    const name = foldNameOf(section, bareTitle)
     toggleSectionFold(spec, name, opened, closed)
     section.toggleAttribute('data-open', sectionIsOpen(spec, name, opened, closed))
   })
@@ -206,9 +221,10 @@ export const revealSection = (element: Element | null | undefined): boolean => {
     if (!section || !root.contains(section)) break
     const spec = books.specs.find((s) => section.matches(s.section))
     const head = spec ? section.querySelector<HTMLElement>(`:scope > ${spec.head}`) : null
-    const name = spec && head ? spec.title(head) : ''
+    const bareTitle = spec && head ? spec.title(head) : ''
     // 认不出名字就停手：这一段的开合本来就没人记，硬开一次下一拍也会被折回去
-    if (!spec || !name) break
+    if (!spec || !bareTitle) break
+    const name = foldNameOf(section, bareTitle)
     // 两支的记法是相反的（见 sectionIsOpen）
     if (spec.openAllByDefault) books.closed.delete(name)
     else books.opened.add(name)

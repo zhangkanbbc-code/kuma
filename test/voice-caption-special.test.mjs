@@ -182,9 +182,7 @@ test('特殊弹幕无中文回日文单行，顶部也只一枚，无文本不�
   assert.equal(view.top.children[0].className, 'voice-danmaku-item friendly')
   assert.equal(view.top.children[0].textContent, `舰1：${row.ja}`)
   captionRuntime.setSpecialCaptionStyle(true)
-  const holdMs = hold.cutinHoldMs([...row.ja].length, null)
-  await tick(t, 3020)
-  await tick(t, 220 + holdMs - 3020)
+  await tick(t, 220 + 5000)
   assert.match(item.className, /leaving/)
   await tick(t, 759)
   assert.equal(view.cutin.childElementCount, 1)
@@ -298,33 +296,34 @@ test('突入宿主盖满游戏区，字号收紧、84% 自然折行，动画只�
   assert.match(html, /--voice-special: light-dark\(#[\da-f]+, #[\da-f]+\)/)
 })
 
-test('真实时长与下限取大，未知音轨沿用字数估算', () => {
-  for (const ms of [1, 500, 2200]) assert.equal(hold.cutinHoldMs(50, ms), 2800)
-  for (const ms of [2201, 6000, 18400, 40000]) assert.equal(hold.cutinHoldMs(1, ms), ms + 600)
-  for (const length of [1, 30, 100, 200]) {
-    assert.equal(hold.cutinHoldMs(length, null), Math.max(2800, hold.captionHideAtMs({ shownAtMs: 0, textLength: length, audioMs: null })))
+test('突入停留固定 5000ms，任意字数与已知或未知音轨均不影响', () => {
+  assert.equal(hold.CUTIN_HOLD_MS, 5000)
+  assert.equal(hold.cutinHoldMs(), 5000)
+  // 旧调用即使仍传字数与音轨，也不能恢复随语音或字数延长的口径。
+  for (const length of [0, 1, 30, 100, 200, 10000]) {
+    for (const ms of [null, 1, 500, 2200, 2201, 6000, 18400, 40000]) {
+      assert.equal(hold.cutinHoldMs(length, ms), 5000)
+    }
   }
 })
 
-test('两句各查自己的音轨，短句停住 2.8 秒，长句持续到真实时长加 600ms', async t => {
+test('旗舰与僚舰各自入场后固定停住 5 秒，长短语音与字数不改变退场时刻', async t => {
   const view = await setup(t, { audio: () => [
     { voiceDurations: [{ path: '/lead.mp3', ms: 1000 }, { path: '/wing.mp3', ms: 2000 }] },
-    { voiceDurations: [{ path: '/wing.mp3', ms: 6000 }] },
+    { voiceDurations: [{ path: '/wing.mp3', ms: 40000 }] },
   ] })
   view.show(cue, [{ ...view.lines[0], pathname: '/lead.mp3' }])
   const lead = view.cutin.children[0]
   await tick(t, 300)
-  view.show({ ...cue, mstId: 2 }, [{ ...view.lines[0], pathname: '/wing.mp3' }])
+  view.show({ ...cue, mstId: 2 }, [{ ...view.lines[0], text: '长'.repeat(200), pathname: '/wing.mp3' }])
   const wing = view.cutin.children[1]
-  await tick(t, 2719)
+  await tick(t, 220 + 5000 - 300 - 1)
   assert.doesNotMatch(lead.className, /leaving/)
   await tick(t, 1)
   assert.match(lead.className, /leaving/)
   assert.doesNotMatch(wing.className, /leaving/)
   animationEnd(lead, 'voice-cutin-out')
-  await tick(t, 300)
-  assert.doesNotMatch(wing.className, /leaving/)
-  await tick(t, 3799)
+  await tick(t, 299)
   assert.doesNotMatch(wing.className, /leaving/)
   await tick(t, 1)
   assert.match(wing.className, /leaving/)
@@ -381,15 +380,18 @@ test('短句仍在用户微调锚点，僚舰横坐标减 9%，不把所有句�
   assert.deepEqual(view.cutin.children.map(item => item.widthReads), [1, 1])
 })
 
-test('音轨查询未完成也有看门狗，关闭后旧查询不能重挂计时器', async t => {
-  let resolveAudio
-  const view = await setup(t, { audio: () => new Promise(resolve => { resolveAudio = resolve }) })
+test('突入不查询音轨，看门狗兜底移除，关闭后不再触发退场计时器', async t => {
+  let audioQueries = 0
+  const view = await setup(t, { audio: () => { audioQueries++; return null } })
   view.show(cue, [{ ...view.lines[0], pathname: '/lead.mp3' }])
-  await tick(t, 3020)
-  await tick(t, 220 + hold.cutinHoldMs([...row.zh].length, null) + 760 - 3020)
+  await tick(t, 220 + 5000)
+  await tick(t, 760)
   assert.equal(view.cutin.childElementCount, 0)
+  view.show(cue, [{ ...view.lines[0], pathname: '/lead.mp3' }])
+  const item = view.cutin.children[0]
   captionRuntime.setVoiceCaptionsEnabled(false)
-  resolveAudio([{ voiceDurations: [{ path: '/lead.mp3', ms: 40000 }] }])
   await tick(t, 50000)
+  assert.doesNotMatch(item.className, /leaving/)
   assert.equal(view.cutin.childElementCount, 0)
+  assert.equal(audioQueries, 0, '突入字幕不应查询音轨')
 })

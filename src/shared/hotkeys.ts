@@ -23,6 +23,7 @@ export const HOTKEY_DEFAULTS = {
   distract: 'F10',
   capture: 'Ctrl+Alt+S',
   mute: 'Ctrl+M',
+  layoutLock: 'F8', // 2026-09-09 实机旧组合键被系统级快捷键先截，改用 F8。
 } as const
 
 export type HotkeyId = keyof typeof HOTKEY_DEFAULTS
@@ -35,6 +36,7 @@ export const HOTKEY_CONFIG_KEYS: Record<HotkeyId, string> = {
   distract: 'kuma.hotkeys.distract',
   capture: 'kuma.hotkeys.capture',
   mute: 'kuma.hotkeys.mute',
+  layoutLock: 'kuma.hotkeys.layoutLock',
 }
 export const BOSS_HOTKEY_ENABLED_CONFIG_KEY = 'kuma.hotkeys.bossEnabled'
 

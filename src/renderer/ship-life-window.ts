@@ -20,7 +20,8 @@ import {
 } from './kernel'
 import { ensureMapCellLetters, mapCellLetter } from './map-cell-letter'
 import { initLocalization, entityNamePlain } from './localization'
-import { setAllowRemoteArt, setGameHost, setShipImageGraph, shipImageUrl } from './kcs-image'
+import { installAssetDisplayCapture, setAllowRemoteArt, setGameHost, setShipImageGraph, shipImageUrl } from './kcs-image'
+import { loadAssetArchive } from './asset-archive'
 import { lifeEventHtml, lifeJoinOriginText } from './ship-life-events'
 import { shipLifeDamageText } from '../shared/ship-life-damage'
 import { mapCodeOf } from '../shared/map-id'
@@ -401,6 +402,8 @@ const refresh = async () => {
 
 const start = async () => {
   initUiZoom()
+  installAssetDisplayCapture()
+  await loadAssetArchive()
   if (!Number.isInteger(rosterId) || rosterId <= 0) {
     root.innerHTML = '<div class="fatal">尚未指定舰娘</div>'
     return

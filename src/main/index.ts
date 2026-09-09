@@ -25,6 +25,7 @@ import { flushShipCostumes } from './ship-costume-store'
 import { flushAbyssVoiceSightings } from './abyss-voice-sightings'
 import { flushVoiceArchive } from './voice-archive'
 import { flushArtArchive } from './art-archive'
+import { flushAssetArchive } from './asset-archive'
 import { flushBgmArchive } from './bgm-archive'
 import { flushVoiceProbe } from './voice-probe'
 import { registerMapArtJson } from './map-art-json'
@@ -97,6 +98,7 @@ app.on('before-quit', () => flushVoiceArchive())
 app.on('before-quit', () => flushAbyssVoiceSightings())
 // 立绘档案同理：实物已经落盘了，索引丢了会让刚点亮的格子又灭回去
 app.on('before-quit', () => flushArtArchive())
+app.on('before-quit', () => flushAssetArchive())
 // BGM 档案同理：活动曲撤场之后档案里那一份就是唯一来源，索引丢不得
 app.on('before-quit', () => flushBgmArchive())
 // 「官方没有这一格」的探测台账同理：丢了就得再去问服务器一遍，

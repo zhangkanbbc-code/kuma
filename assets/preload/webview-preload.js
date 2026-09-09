@@ -25,6 +25,7 @@ const { duckedVolume, installPreviewDuck } = require('./preview-duck')
 const { createResourceResolver, installResourceHack } = require('./resource-hack')
 const { installVoiceArchive } = require('./voice-archive')
 const { installArtArchive } = require('./art-archive')
+const { installAssetArchive } = require('./asset-archive')
 const { installBgmArchive } = require('./bgm-archive')
 const { installXhrHack } = require('./xhr-hack')
 
@@ -172,6 +173,7 @@ contextBridge.exposeInMainWorld('kumaPreloadBridge', {
 // 而 only-if-cached 要的 same-origin 两个世界共用同一个安全源，隔离世界够用。
 installVoiceArchive()
 installArtArchive()
+installAssetArchive()
 installBgmArchive()
 
 // 往页面主世界装 hack。executeInMainWorld 是实验特性，失败只记日志，

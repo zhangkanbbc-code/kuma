@@ -13,8 +13,8 @@ import { mountBgmPreview, tick } from './fixtures/preview-bgm-dom.mjs'
 const { previewClickAction } = previewAudioModule
 const { PREVIEW_DUCK_CHANNEL, duckedVolume, installPreviewDuck } = duckModule
 
-const SONG = 'https://example.invalid/bgm/port/101.mp3'
-const OTHER = 'https://example.invalid/bgm/port/102.mp3'
+const SONG = 'file:///kuma/bgm/port/101.mp3'
+const OTHER = 'file:///kuma/bgm/port/102.mp3'
 
 // ---------------------------------------------------------------- 判据（纯函数）
 

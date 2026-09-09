@@ -44,6 +44,7 @@ function readApplicationAccelerators(): Record<ApplicationHotkeyId, Accelerator>
     distract: readAccelerator('distract'),
     capture: readAccelerator('capture'),
     mute: readAccelerator('mute'),
+    layoutLock: readAccelerator('layoutLock'),
   }
 }
 

@@ -9,17 +9,23 @@
 //
 // 机制口径（wikiwiki「艦艇修理施設」，2019-08-31 实装）：消耗緊急修理資材（useitem 91）×1
 // 与钢材 = 本次回复耐久合计 ×3。回复量是**算出来的**：覆盖前的耐久 vs 报文里的新耐久。
+// 2026-09-09 核正：上面的 ×3 并非 wiki 公式，而是无出处的估算；共用待校准常量。
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import fs from 'node:fs'
+import { ANCHORAGE_REPAIR_STEEL_PER_HP } from '../dist/shared/anchorage-repair.js'
+import { describeDeltaDetail } from '../dist/shared/material-delta-text.js'
 
 import { renderNavCard, sortieOf } from './fixtures/render-di-battle.mjs'
 import {
   feedAnchorageRepair,
+  feedAnchorageDelta,
   materials,
   repairBody,
   reset,
   shipData,
   sortie,
+  state,
   useitemLog,
   useitems,
 } from './fixtures/store-anchorage-reducer.mjs'
@@ -42,7 +48,7 @@ test('回复量按覆盖前后作差算：钢材 = 合计 ×3，緊急修理資�
     repairBody({ usedShip: 450, repairShips: [611, 250], shipData: REPAIRED }),
   )
   // 20→27 与 50→57，合计回复 14 ⇒ 钢材 42
-  assert.equal(materials()[2], 1000 - 42)
+  assert.equal(materials()[2], 1000 - 14 * ANCHORAGE_REPAIR_STEEL_PER_HP)
   assert.equal(useitems()[91], 4)
   // 燃/弹/铝一分不动：这条报文只吃钢材
   assert.deepEqual(materials().slice(0, 2), [1000, 1000])
@@ -68,11 +74,38 @@ test('出击上留一条：修在哪一格、谁修的、各舰前后耐久、�
         { rosterId: 611, mstId: 623, name: '朝潮改二丁', before: 20, after: 27 },
         { rosterId: 250, mstId: 427, name: '霞改二', before: 50, after: 57 },
       ],
-      steel: 42,
+      steel: 14 * ANCHORAGE_REPAIR_STEEL_PER_HP,
     },
   ])
   // 在籍舰的耐久照样按报文覆盖（这条 reducer 原本就干这件事，别把它改丢了）
   assert.equal(sortie().updatedTs, 1_700_000_000_123)
+  assert.equal(state().player.ships[611].nowhp, 27)
+})
+
+test('钢材估算常量只有共享一处定义，store 与测试使用同一份', () => {
+  assert.equal(ANCHORAGE_REPAIR_STEEL_PER_HP, 3)
+  const store = fs.readFileSync(new URL('../src/main/mg/store.ts', import.meta.url), 'utf8')
+  assert.match(store, /import \{ ANCHORAGE_REPAIR_STEEL_PER_HP \} from '\.\.\/\.\.\/shared\/anchorage-repair'/)
+  assert.doesNotMatch(store, /const ANCHORAGE_REPAIR_STEEL_PER_HP|healed \* 3/)
+})
+
+test('归约后钢材流水落紧急泊地修理类目，detail 取本包末条并标估算', () => {
+  reset(ROSTER, { sortie: { mapArea: 3, mapNo: 5, currentCell: 7, anchorageRepairs: [{ cell: 2, steel: 999, ships: [] }] } })
+  const result = feedAnchorageDelta(repairBody({ usedShip: 450, repairShips: [611, 250], shipData: REPAIRED }))
+  assert.deepEqual(result, {
+    category: '紧急泊地修理',
+    detail: { kind: 'anchorageRepair', map: 35, cell: 7, repairer: 450, ships: 2, healed: 14, steel: 14 * ANCHORAGE_REPAIR_STEEL_PER_HP, estimated: true },
+  })
+  const resolvers = { mapName: () => '3-5', cellLetter: () => 'G', shipByMst: mst => mst === 450 ? '秋津洲改' : null }
+  assert.equal(describeDeltaDetail(result.detail, resolvers), '紧急泊地修理 · 3-5 G 点 · 秋津洲改 · 2 艘 +14（钢材估算）')
+  assert.equal(describeDeltaDetail(result.detail, { ...resolvers, cellLetter: () => null }), '紧急泊地修理 · 3-5 · 秋津洲改 · 2 艘 +14（钢材估算）')
+})
+
+test('泊地修理报文立即覆盖被修舰耐久与士气', () => {
+  reset(ROSTER)
+  feedAnchorageRepair(repairBody({ usedShip: 450, repairShips: [611], shipData: [{ ...shipData(611, 623, 27, 41), api_cond: 56 }] }))
+  assert.equal(state().player.ships[611].nowhp, 27)
+  assert.equal(state().player.ships[611].cond, 56)
 })
 
 test('回复量算不出（账上没有那艘舰）就不扣钢材，只扣资材', () => {
@@ -98,7 +131,7 @@ test('演习与非出击都不落到出击上，但消耗照扣', () => {
     repairBody({ usedShip: 450, repairShips: [611], shipData: REPAIRED }),
   )
   assert.ok(!noSortie.includes('sortie'))
-  assert.equal(materials()[2], 1000 - 21)
+  assert.equal(materials()[2], 1000 - 7 * ANCHORAGE_REPAIR_STEEL_PER_HP)
 
   reset(ROSTER, { sortie: { practice: true } })
   const practice = feedAnchorageRepair(
@@ -146,7 +179,7 @@ const repairAt = (cell, patch = {}) => ({
     { rosterId: 611, mstId: 623, name: '朝潮改二丁', before: 20, after: 27 },
     { rosterId: 250, mstId: 427, name: '霞改二', before: 50, after: 57 },
   ],
-  steel: 42,
+  steel: 14 * ANCHORAGE_REPAIR_STEEL_PER_HP,
   ...patch,
 })
 

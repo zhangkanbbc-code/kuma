@@ -33,7 +33,7 @@ import {
 import {
   captionHideAtMs,
   captionMinHoldMs,
-  cutinHoldMs,
+  CUTIN_HOLD_MS,
   danmakuDurationSeconds,
 } from '../shared/voice-caption-hold'
 import { shouldRenderCaption } from '../shared/voice-request-gate'
@@ -948,6 +948,8 @@ export const showDanmaku = (
  * 现改为突入式：单元素（最多两枚），取词仍同口径，过宽可折两行；上述动画与移除约束保留。
  * 用户实机后微调：盒宽恒限画面 84%，自然换行居中，不再截成最多两行。
  * 若崩溃变多，它与主炮妖精彩蛋一起是首查对象。
+ * 突入字幕跟演出固定停留，不按语音时长：突入结束后台词可能继续，字幕不能遮挡后续攻击。
+ * 旗舰与僚舰各从入场结束起计同一停留常量，淡出及看门狗余量另计。
  */
 export const showCutin = (mstId: number, line: CaptionLine | undefined) => {
   const host = document.querySelector<HTMLElement>('#voice-cutin')
@@ -961,22 +963,15 @@ export const showCutin = (mstId: number, line: CaptionLine | undefined) => {
   else { cutinLead?.remove(); cutinWing?.remove() }
   item.className = `voice-cutin-line ${wing ? 'wing' : 'lead'}`
   item.textContent = line.text
-  const textLength = [...line.text].length
   const heldAt = Date.now() + 220
-  let removed = false
   let phaseTimer: ReturnType<typeof setTimeout>
   let watchdog: ReturnType<typeof setTimeout>
   const remove = () => {
-    removed = true
     clearTimeout(phaseTimer)
     clearTimeout(watchdog)
     item.remove()
     if (cutinLead?.item === item) cutinLead = null
     if (cutinWing?.item === item) cutinWing = null
-  }
-  const armWatchdog = (hold: number) => {
-    clearTimeout(watchdog)
-    watchdog = setTimeout(remove, Math.max(0, heldAt + hold + 260 + 500 - Date.now()))
   }
   item.addEventListener('animationend', (event) => {
     if (event.animationName === 'voice-cutin-out') remove()
@@ -989,18 +984,8 @@ export const showCutin = (mstId: number, line: CaptionLine | undefined) => {
   const caption = { mstId, item, remove }
   if (wing) cutinWing = caption
   else cutinLead = caption
-  armWatchdog(cutinHoldMs(textLength, null))
-  // 沿用底部字幕的延后查 voiceDurations 路径，等解码完成再问；突入下限是 2.8 秒，
-  // 不直接照搬 captionMinHoldMs 的 4.2 秒下限，以免短音轨的突入停留被额外拉长。
-  phaseTimer = setTimeout(() => {
-    void voiceAudioMs(line.pathname).then((audioMs) => {
-      // 两枚各有自己的生命期；查询回来时若已被替换或关掉，不能重新挂计时器。
-      if (removed) return
-      const hold = cutinHoldMs(textLength, audioMs)
-      armWatchdog(hold)
-      phaseTimer = setTimeout(() => item.classList.add('leaving'), Math.max(0, heldAt + hold - Date.now()))
-    })
-  }, 220 + Math.min(2_800, captionMinHoldMs(textLength)))
+  watchdog = setTimeout(remove, Math.max(0, heldAt + CUTIN_HOLD_MS + 260 + 500 - Date.now()))
+  phaseTimer = setTimeout(() => item.classList.add('leaving'), Math.max(0, heldAt + CUTIN_HOLD_MS - Date.now()))
   return remove
 }
 

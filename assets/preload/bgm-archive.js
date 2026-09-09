@@ -6,12 +6,17 @@
 // `cache: 'only-if-cached'` 只能配 `mode: 'same-origin'`，
 // 而 same-origin 要求发起方与资源同源——主进程的 `net.fetch` 没有 origin，
 // 2026-08-22 本机实测（Electron 43）一律 `net::ERR_INVALID_ARGUMENT`。
-// 游戏页面自己发就名正言顺：`/kcs2/resources/bgm/*.mp3` 与它同源。
+// 游戏页面自己发就名正言顺：`/kcs2/resources/bgm/` 下的 mp3 与它同源。
 //
 // **这条路结构上发不出网络请求**：`only-if-cached` 在缓存没命中时是抛错，
 // 不会退化成一次真请求。所以最坏结果只是「这一首没存下」，永远不会变成对
 // 游戏 CDN 的主动拉取。**也绝不从任何 wiki 取音频**——档案里的每一首，
 // 只能是这台机器上的游戏客户端自己合法收到过的那一份。
+//
+// 2026-09-09 隔离实测（Electron 43.6.0）：媒体流式播放留下的稀疏条目，
+// 对整文件 only-if-cached 永远 miss；带 Range 的 only-if-cached 却会向网络
+// 请求缺失区间，随后 fetch 仍报失败。因此这里不做分段，只读整文件缓存。
+// 游戏流式播放的 BGM 靠试听入档或别的机制留存，不靠这条路。
 //
 // 收到的是**完整 URL**（含 `?version=`），不是 pathname：Chromium 的缓存键
 // 是完整 URL，丢了 query 就永远打不中（语音侧那次 0 条实物的根因）。
@@ -25,6 +30,19 @@ const BGM_PATH = /^\/kcs2\/resources\/bgm\/(?:port|battle)\/\d{3}_\d{4}\.mp3$/i
 // 单条上限，与 shared/bgm-archive-plan 的 BGM_ARCHIVE_MAX_ENTRY_BYTES 一致。
 // 这里也拦一道：超大响应先在页面这侧挡掉，别经 IPC 搬一趟再被主进程丢弃。
 const MAX_BYTES = 8 * 1024 * 1024
+
+const readCachedWhole = async (url) => {
+  try {
+    const response = await fetch(url, { cache: 'only-if-cached', mode: 'same-origin' })
+    if (!response.ok || response.status === 206) return null
+    const buffer = await response.arrayBuffer()
+    if (!buffer.byteLength || buffer.byteLength > MAX_BYTES) return null
+    return new Uint8Array(buffer)
+  } catch (_error) {
+    // 整文件 miss：不补取，整首放弃。
+    return null
+  }
+}
 
 // 同一首正在取的不重复取。切页/回母港会连着打同一首。
 const inFlight = new Set()
@@ -61,16 +79,14 @@ const readFromCache = async (rawUrl) => {
   if (inFlight.has(url)) return
   inFlight.add(url)
   try {
-    const response = await fetch(url, { cache: 'only-if-cached', mode: 'same-origin' })
-    if (!response.ok) return
-    const buffer = await response.arrayBuffer()
-    if (!buffer.byteLength || buffer.byteLength > MAX_BYTES) return
+    const bytes = await readCachedWhole(url)
+    if (!bytes) return
     ipcRenderer.send('kuma:bgm-archive-blob', {
       // 路径是档案里的身份（树 + 号由它唯一决定）；
       // 完整 URL 一并交回，主进程从里面取版本参数当「换过内容」的身份。
       pathname,
       url,
-      bytes: new Uint8Array(buffer),
+      bytes,
     })
   } catch (_error) {
     // 缓存里没有（已被驱逐、或这一首从来没经过 HTTP 缓存）——

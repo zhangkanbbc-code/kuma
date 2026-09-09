@@ -15,14 +15,85 @@ import {
   resetSent,
   returnToPort,
   runDetect,
+  runDetectAnchorage,
   sortieOf,
 } from './fixtures/detect-taiha-notice.mjs'
 import {
   renderVerdict,
   setLedger,
+  setSortie,
   shipOf,
   taihaTier,
 } from './fixtures/render-ru-verdict.mjs'
+
+const anchorageAt = (patch = {}) => ({
+  cell: 7, ts: 1100, repairerMst: 450, steel: 42,
+  ships: [
+    { rosterId: 611, mstId: 623, name: '朝潮改二丁', before: 20, after: 27 },
+    { rosterId: 250, mstId: 427, name: '霞改二', before: 50, after: 57 },
+  ],
+  ...patch,
+})
+const detectRepair = (repairs, patch = {}) => runDetectAnchorage(
+  sortieOf({ mapArea: 5, mapNo: 5, anchorageRepairs: repairs, ...patch }), { 450: { name: '秋津洲改' } },
+)
+
+test('泊地修理当包发一条：主数据修理舰名、合计与逐舰前后耐久', () => {
+  runDetectAnchorage({ active: false })
+  const notices = detectRepair([anchorageAt()])
+  assert.equal(notices.length, 1)
+  assert.equal(notices[0].event, 'anchorageRepair')
+  assert.equal(notices[0].title, '泊地修理 · 秋津洲改 · 2 艘 +14')
+  assert.equal(notices[0].detail, '5-5 O 点 · 朝潮改二丁 20→27、霞改二 50→57')
+})
+
+test('泊地修理点位表未覆盖时正文退回编号，不猜字母', () => {
+  runDetectAnchorage({ active: false })
+  const notices = detectRepair([anchorageAt({ cell: 15, ships: [] })])
+  assert.equal(notices.length, 1)
+  assert.equal(notices[0].detail, '5-5 #15 点')
+})
+
+test('泊地修理同格同次去重，时间、格号、出击标识分别参与键', () => {
+  runDetectAnchorage({ active: false })
+  assert.equal(detectRepair([anchorageAt()]).length, 1)
+  assert.deepEqual(detectRepair([anchorageAt()]), [])
+  assert.deepEqual(detectRepair([anchorageAt()], { battleCount: 2, currentCell: 8 }), [])
+  assert.equal(detectRepair([anchorageAt({ ts: 1200 })]).length, 1)
+  assert.equal(detectRepair([anchorageAt({ cell: 8 })]).length, 1)
+  assert.equal(detectRepair([anchorageAt()], { startTs: 2000 }).length, 1)
+})
+
+test('泊地修理回港清空去重，原样记录下一次仍能发', () => {
+  runDetectAnchorage({ active: false })
+  assert.equal(detectRepair([anchorageAt()]).length, 1)
+  assert.deepEqual(detectRepair([anchorageAt()]), [])
+  assert.deepEqual(runDetectAnchorage({ active: false }), [])
+  assert.equal(detectRepair([anchorageAt()]).length, 1)
+})
+
+test('泊地修理回复量未知只报修过；无记录与演习不发', () => {
+  runDetectAnchorage({ active: false })
+  assert.deepEqual(detectRepair([]), [])
+  assert.deepEqual(detectRepair([anchorageAt()], { practice: true }), [])
+  const notices = detectRepair([anchorageAt({ ships: [], steel: 0 })])
+  assert.equal(notices.length, 1)
+  assert.equal(notices[0].title, '泊地修理 · 秋津洲改')
+  assert.equal(notices[0].detail, '5-5 O 点')
+})
+
+test('编队出击行在洋上补给之后显示泊地修理次数，空表不显示', () => {
+  setLedger({ fleets: { 1: [shipOf(1)] } })
+  const s = sortieOf({ nodes: [{ offshoreSupply: { useNum: 1 } }], anchorageRepairs: [anchorageAt(), anchorageAt({ ts: 1200 })] })
+  setSortie(s)
+  assert.match(renderVerdict(), /已洋上补给 ×1 · 已泊地修理 ×2/)
+  setSortie({ ...s, nodes: [], anchorageRepairs: [anchorageAt()] })
+  assert.match(renderVerdict(), / · 已泊地修理 ×1/)
+  setSortie({ ...s, anchorageRepairs: [] })
+  assert.doesNotMatch(renderVerdict(), /已泊地修理/)
+  setSortie({ ...s, active: false })
+  assert.doesNotMatch(renderVerdict(), /已泊地修理/)
+})
 
 // ---- 铃：protected 档整趟出击只说一次 ----
 //
@@ -127,6 +198,77 @@ test('单舰队第七位大破不吃这道闸：非联合时她照常是 danger'
 })
 
 // ---- 锐：出击中横幅的风险句接分档 ----
+
+const insuredFleet = (indexes = [2]) => {
+  const ships = fShipsWithTaiha(indexes)
+  for (const index of indexes) ships[index].equipment = [{ mstId: index === 3 ? 42 : 43, slot: 'ex' }]
+  return ships
+}
+const detectFleet = (battleCount, fShips, patch = {}) =>
+  runDetect(sortieOf({ battleCount, currentCell: battleCount, battle: { fShips }, ...patch }))
+
+test('insured 每舰整趟只发一次：normal 不锁，后续新增舰只点新人', () => {
+  returnToPort()
+  const first = detectFleet(1, insuredFleet())
+  assert.equal(first.length, 1)
+  assert.equal(first[0].title, '我舰3大破 · 带损管')
+  assert.match(first[0].detail, / · 进击会消耗，不会击沉$/)
+  assert.deepEqual(first[0].presentation, { priority: 'normal' })
+  assert.deepEqual(detectFleet(2, insuredFleet()), [])
+  assert.deepEqual(detectFleet(3, insuredFleet(), { taihaCorrections: 1 }), [])
+  const added = detectFleet(4, insuredFleet([2, 3]))
+  assert.equal(added.length, 1)
+  assert.equal(added[0].title, '我舰4大破 · 带损管')
+  assert.deepEqual(detectFleet(5, insuredFleet([2, 3]), { bossCell: 5 }), [])
+})
+
+test('insured 新出击与归港后重新说明，startTs 变更不依赖战次错开', () => {
+  returnToPort()
+  assert.equal(detectFleet(1, insuredFleet()).length, 1)
+  assert.equal(detectFleet(1, insuredFleet(), { startTs: 2000 }).length, 1)
+  returnToPort()
+  assert.equal(detectFleet(1, insuredFleet(), { startTs: 2000 }).length, 1)
+})
+
+test('insured 消耗最后一枚后变 danger：同场与后续每场照常红发', () => {
+  returnToPort()
+  const ships = insuredFleet()
+  assert.equal(detectFleet(1, ships).length, 1)
+  ships[2].repairItemUsed = 43
+  for (const n of [1, 2, 3]) {
+    const out = detectFleet(n, ships)
+    assert.equal(out.length, 1)
+    assert.equal(out[0].title, '我舰3大破 · 撤退')
+    assert.equal(out[0].presentation, undefined)
+  }
+})
+
+test('danger detail 列全带损管的说明，标题只点没损管舰', () => {
+  returnToPort()
+  const ships = insuredFleet([2, 3])
+  ships[4].hpEnd = 5
+  const [out] = detectFleet(1, ships)
+  assert.equal(out.title, '我舰5大破 · 撤退')
+  assert.match(out.detail, / · 我舰3 带女神、我舰4 带要员$/)
+  assert.equal(out.presentation, undefined)
+})
+
+test('insured 与系统保护分别去重，二队旗舰不被说成消耗损管', () => {
+  returnToPort()
+  const ships = insuredFleet([2])
+  ships[6].hpEnd = 5
+  const [out] = detectFleet(1, ships)
+  assert.equal(out.title, '我舰3大破 · 带损管')
+  ships[2].hpEnd = 50
+  assert.equal(detectFleet(2, ships)[0].title, '二队旗舰我舰7大破')
+})
+
+test('insured 初到 Boss 的通知仍用原战损措辞与无横幅呈现', () => {
+  returnToPort()
+  const [out] = detectFleet(1, insuredFleet(), { bossCell: 1 })
+  assert.equal(out.title, '我舰3在 Boss 战中大破')
+  assert.deepEqual(out.presentation, { banner: false, priority: 'normal' })
+})
 //
 // `· 大破进击有被击沉风险` 原来只看「有没有大破」。联合二队旗舰大破时她受保护，
 // 这句在她身上是错的决策信息。大破**计数**照旧——她确实大破，维修视角的计数是对的。
@@ -176,25 +318,26 @@ test('非联合旗舰大破且没带 damecon：强制返航档，也没有风险
   assert.doesNotMatch(html, /大破进击有被击沉风险/)
 })
 
-test('旗舰带着女神：决定权回到玩家手里，风险句回来', () => {
+test('旗舰带着女神：没有风险句，出说明句', () => {
   const flagship = shipOf(1, { nowhp: 5, slot: [900, -1, -1, -1] })
   setLedger({
     fleets: { 1: [flagship, ...[2, 3, 4, 5, 6].map((id) => shipOf(id))] },
     combinedFlag: 0,
     slotitems: { 900: { mstId: 43 } },
   })
-  assert.equal(taihaTier(1), 'danger')
-  assert.match(renderVerdict(1), /大破进击有被击沉风险/)
+  assert.equal(taihaTier(1), 'insured')
+  assert.doesNotMatch(renderVerdict(1), /大破进击有被击沉风险/)
+  assert.match(renderVerdict(1), /大破舰带损管，进击会消耗/)
 })
 
-test('女神装在补强增设位上也算数', () => {
+test('要员装在补强增设位上也算数', () => {
   const flagship = shipOf(1, { nowhp: 5, slotEx: 901 })
   setLedger({
     fleets: { 1: [flagship, ...[2, 3, 4, 5, 6].map((id) => shipOf(id))] },
     combinedFlag: 0,
     slotitems: { 901: { mstId: 42 } },
   })
-  assert.equal(taihaTier(1), 'danger')
+  assert.equal(taihaTier(1), 'insured')
 })
 
 test('联合时看的是第 2 舰队的首位，不是按连号数出来的第 7 个人', () => {

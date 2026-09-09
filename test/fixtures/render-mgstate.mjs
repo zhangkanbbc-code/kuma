@@ -57,6 +57,8 @@ const STUBS = {
   `,
   // 播放源那两档的桩：试听地址与「联不联网」由测试逐例摆，好把三条分支都走一遍
   'renderer/kcs-image.ts': `
+    export const bgmAudioPath = (id: number, kind: string) =>
+      '/kcs2/resources/bgm/' + kind + '/' + String(id).padStart(3, '0') + '_0000.mp3'
     export const bgmAudioUrl = (bgmId: number, kind: 'port' | 'battle'): string | null => {
       ((globalThis as any).__bgmUrlCalls ??= []).push([bgmId, kind])
       if (!(globalThis as any).__remoteArt) return null

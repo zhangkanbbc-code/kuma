@@ -7,7 +7,6 @@ import { AIR_BASE_MUTE_KEY, isAirBaseAreaMuted, toggleAirBaseAreaMute, unmutedAi
 import {
   ESCORT_FLAGSHIP_INDEX,
   FLAGSHIP_INDEX,
-  hasDameconEquipped,
   taihaVerdictOf,
   type TaihaShipRef,
 } from '../../shared/taiha-verdict'
@@ -392,6 +391,7 @@ const equipChips = (ship: PlayerShip) => {
     if (mst && inst) {
       const name = entityNamePlain('equip', inst.mstId, mst.name)
       chips.push(equipPeekIconHtml(inst.mstId, mst.iconId, name, {
+        className: inst.mstId === 42 ? 'damecon-crew' : inst.mstId === 43 ? 'damecon-goddess' : '',
         overlay: `${star}${alv}${pc}`,
       }))
     } else {
@@ -412,7 +412,9 @@ const equipChips = (ship: PlayerShip) => {
     const mst = inst ? mg.master.slotitems[inst.mstId] : undefined
     if (mst) {
       const name = entityNamePlain('equip', inst!.mstId, mst.name)
-      chips.push(equipPeekIconHtml(inst!.mstId, mst.iconId, `补强增设：${name}`, { className: 'exslot' }))
+      chips.push(equipPeekIconHtml(inst!.mstId, mst.iconId, `补强增设：${name}`, {
+        className: `exslot${inst!.mstId === 42 ? ' damecon-crew' : inst!.mstId === 43 ? ' damecon-goddess' : ''}`,
+      }))
     }
   } else if (ship.slotEx === -1) {
     chips.push(`<span class="eq-ex-mark" title="补强增设已开 · 未装备">＋</span>`)
@@ -1398,11 +1400,12 @@ const sallyFlagHtml = (ships: PlayerShip[]): string => {
 }
 
 /**
- * 出击中的大破名单落在哪一档（shared/taiha-verdict 的三档，判据与出处见那份头注）。
+ * 出击中的大破名单落在哪一档（shared/taiha-verdict 的四档，判据与出处见那份头注）。
  *
  * 只给下面那句「大破进击有被击沉风险」把门：
  * - `protected`（只有联合二队旗舰大破）：她受系统保护不会轰沉，这句在她身上是错的决策信息；
  * - `forced`（旗舰大破且没带 damecon）：游戏根本不给进击选项，「进击有风险」无从谈起。
+ * - `insured`：大破舰带损管，只说明进击会消耗。
  * 大破**计数**不受这里影响——她确实大破，维修视角的计数是对的。
  *
  * 坐标适配：shared 那套 index 是跨两队连号的舰位，判定只认 0（旗舰）与
@@ -1410,7 +1413,7 @@ const sallyFlagHtml = (ships: PlayerShip[]): string => {
  * 那样会错位——而是按「哪一队的第几位」直接给：一队首位 0、联合时二队首位 6，
  * 其余一律落到相邻的无语义位（1 / 7）。
  */
-const sortieTaihaTier = (deck: Deck): 'forced' | 'danger' | 'protected' | null => {
+const sortieTaihaTier = (deck: Deck): 'forced' | 'danger' | 'insured' | 'protected' | null => {
   const combined = inCombined(deck)
   const fleetById = (id: number): PlayerShip[] => {
     const found = mg.decks.find((entry) => entry.id === id)
@@ -1420,23 +1423,20 @@ const sortieTaihaTier = (deck: Deck): 'forced' | 'danger' | 'protected' | null =
     ? [[fleetById(1), FLAGSHIP_INDEX], [fleetById(2), ESCORT_FLAGSHIP_INDEX]]
     : [[fleetShips(deck), FLAGSHIP_INDEX]]
   const taiha: TaihaShipRef[] = []
-  let flagship: PlayerShip | undefined
   for (const [ships, lead] of segments) {
-    if (lead === FLAGSHIP_INDEX) flagship = ships[0]
     // 已退避的舰不进名单：与上面几个计数同一条口径（她被送回港了，说的不是她）
     const engaged = new Set(engagedShips(ships).map((ship) => ship.id))
     ships.forEach((ship, at) => {
       if (!engaged.has(ship.id) || !shipIssues(ship).taiha) return
       // 名字只是判定函数的载荷，这里只读 tier，一个字都不进文案
-      taiha.push({ index: at === 0 ? lead : lead + 1, name: masterShipName(ship.shipId) })
+      const damecon = [...ship.slot, ship.slotEx].map((instId) => mg.slotitems[instId]?.mstId)
+        .find((id): id is 42 | 43 => id === 42 || id === 43) ?? null
+      taiha.push({ index: at === 0 ? lead : lead + 1, name: masterShipName(ship.shipId), damecon })
     })
   }
   // 「装着」而非已消费：规则 ② 给的是战后的选择权。查 slot + 补强增设位，
-  // 用的是 taiha-verdict 自己那只判定函数，别在这儿另认一遍 42/43。
-  const flagshipHasDamecon =
-    !!flagship &&
-    hasDameconEquipped([...flagship.slot, flagship.slotEx].map((instId) => mg.slotitems[instId]))
-  return taihaVerdictOf(taiha, combined, flagshipHasDamecon)?.tier ?? null
+  // 母港账本已经移除消耗的装备，没有战斗快照的「本场已消耗」需要再扣。
+  return taihaVerdictOf(taiha, combined)?.tier ?? null
 }
 
 const verdictHtml = (deck: Deck) => {
@@ -1480,13 +1480,16 @@ const verdictHtml = (deck: Deck) => {
     !sortie.practice &&
     (sortie.deckId === deck.id || (inCombined(deck) && sortie.deckId === 1))
   if (onSortie && sortie) {
+    const supply = [...(sortie.nodes ?? [])].reverse().find((node) => node.offshoreSupply)?.offshoreSupply
+    const supplyNote = supply ? ` · 已洋上补给 ×${supply.useNum}${sortie.supplyEstimated ? '（油弹估算）' : ''}` : ''
+    const repairNote = sortie.anchorageRepairs?.length ? ` · 已泊地修理 ×${sortie.anchorageRepairs.length}` : ''
     // 风险句只在真有「进击可能轰沉」这回事时出（见 sortieTaihaTier）：
     // 联合二队旗舰受保护、旗舰大破没有进击选项，这两档说这句都是错的决策信息。
-    const atRisk = sortieTaihaTier(deck) === 'danger'
+    const tier = sortieTaihaTier(deck)
     return `<div class="verdict sortie${taiha ? '' : ' ok'}"><span class="ic">⚓</span>
       <span class="tx"><b>出击中 · ${sortie.mapArea}-${sortie.mapNo}</b><span>${
         problems.length ? problems.join(' · ') : '全员状态良好'
-      }${atRisk ? ' · 大破进击有被击沉风险' : ''}</span></span>${flags}</div>`
+      }${supplyNote}${repairNote}${tier === 'danger' ? ' · 大破进击有被击沉风险' : tier === 'insured' ? ' · 大破舰带损管，进击会消耗' : ''}</span></span>${flags}</div>`
   }
   if (!problems.length) {
     // 全员 cond ≥ 49(闪闪):命中/回避的士气加成生效中,给一句金字
@@ -1858,7 +1861,8 @@ const airBaseViewHtml = (): string => {
  * 联合合并夹在中间：它只说这几个数覆盖了两支队，而页签与身份行本来就写着
  * 「XX联合舰队」，收进卡里也不会让人看错口径。
  */
-const FLEET_METRIC_FOLD_ORDER = ['tp', 'comp', 'lv', 'soku', 'cmb', 'los', 'air'] as const
+// 损管随度量行收纳，保留原有各项的相对优先级；不新增显示开关。
+const FLEET_METRIC_FOLD_ORDER = ['tp', 'comp', 'lv', 'soku', 'cmb', 'damecon', 'los', 'air'] as const
 /** 陆航抬头同构，一样封顶一行：先收静态计数，缺补给与疲劳这两条能动手的留到最后。 */
 const AIR_BASE_METRIC_FOLD_ORDER = ['areas', 'squads', 'short', 'tired'] as const
 
@@ -2299,7 +2303,18 @@ const metricsHtml = (deck: Deck) => {
   const counts: Record<string, number> = {}
   let sokuMin = Infinity
   let lvSum = 0
+  let dameconCrew = 0, dameconGoddess = 0
+  const dameconTitles: string[] = []
   for (const ship of ships) {
+    // 整支编成按舰计数；常规格优先、增设最后，一舰多枚只计下一枚。
+    const slots = [...ship.slot, ship.slotEx]
+    const at = slots.findIndex((id) => mg.slotitems[id]?.mstId === 42 || mg.slotitems[id]?.mstId === 43)
+    if (at >= 0) {
+      const crew = mg.slotitems[slots[at]]?.mstId === 42
+      if (crew) dameconCrew++
+      else dameconGoddess++
+      dameconTitles.push(`${masterShipName(ship.shipId)} · ${at === ship.slot.length ? '增设' : `第 ${at + 1} 格`} · ${crew ? '応急修理要員' : '応急修理女神'}`)
+    }
     const master = mg.master.ships[ship.shipId]
     const code = master
       ? (STYPE_CODE[master.stype] ??
@@ -2374,6 +2389,7 @@ const metricsHtml = (deck: Deck) => {
     `<span class="mchip" data-mkey="los" title="${esc(losTitle)}">索敌33 <b class="hi">${losByFactor[0].toFixed(1)}</b></span>`,
     `<span class="mchip" data-mkey="comp">构成 <b>${esc(comp)}</b></span>`,
     `<span class="mchip" data-mkey="soku" title="游戏实时航速（含装备提速）">航速 ${soku}</span>`,
+    dameconTitles.length ? `<span class="mchip metric damecon" data-mkey="damecon" title="${esc(dameconTitles.join('\n'))}">损管 <b>${dameconCrew + dameconGoddess}</b> · 要员 <b style="color:var(--damecon-crew)">${dameconCrew}</b> · 女神 <b style="color:var(--damecon-goddess)">${dameconGoddess}</b></span>` : '',
     `<span class="mchip" data-mkey="lv">平均 <b>Lv${Math.round(lvSum / ships.length)}</b></span>`,
     `<span class="mchip${tp.excludedShips ? ' warn' : ''}" data-mkey="tp" title="${esc(tpTitle)}">TP${
       tpRule ? `<i class="mtag">[${esc(tpRule.label)}]</i>` : ''
@@ -2740,16 +2756,17 @@ const fleetQuestHtml = (deck: Deck): string => {
     return failedMark ? `<div class="fleet-quests">${failedMark}</div>` : ''
   }
   const shown = matches.slice(0, 4)
-  const matchedHtml = matches.length ? `<div class="fleet-quests"><span class="k">满足编成条件</span>${shown
+  const matchedHtml = matches.length ? `<span class="fq-group"><span class="k">满足编成条件</span>${shown
     .map((id) => elink('quest', id, questName(id) ?? mg.quests[id]?.title ?? `任务 ${id}`) +
       (fleetQuestCheck[id].approx ? '<span class="approx" title="编成判定含拿不准的项，可能比游戏松">≈</span>' : ''))
-    .join('')}${matches.length > shown.length ? `<span class="more">另 ${matches.length - shown.length} 项</span>` : ''}</div>` : ''
+    .join('')}${matches.length > shown.length ? `<span class="more">另 ${matches.length - shown.length} 项</span>` : ''}</span>` : ''
   const nearShown = nearMisses.slice(0, 4)
-  const nearHtml = nearMisses.length ? `<div class="fleet-quests"><span class="k">编成待调整</span>${nearShown
+  const nearHtml = nearMisses.length ? `<span class="fq-group"><span class="k">编成待调整</span>${nearShown
     .map(({ id, issues }) => elink('quest', id, questName(id) ?? mg.quests[id]?.title ?? `任务 ${id}`, undefined, { title: issues }) +
       (fleetQuestCheck[id].approx ? '<span class="approx" title="编成判定含拿不准的项，可能比游戏松">≈</span>' : ''))
-    .join('')}${nearMisses.length > nearShown.length ? `<span class="more">另 ${nearMisses.length - nearShown.length} 项</span>` : ''}</div>` : ''
-  return `${matchedHtml}${nearHtml}${failedMark ? `<div class="fleet-quests">${failedMark}</div>` : ''}`
+    .join('')}${nearMisses.length > nearShown.length ? `<span class="more">另 ${nearMisses.length - nearShown.length} 项</span>` : ''}</span>` : ''
+  // 三组并排放进同一条横向滚动行，让待调整与读取失败标不再把抬头撑高。
+  return `<div class="fleet-quests">${matchedHtml}${nearHtml}${failedMark ? `<span class="fq-group">${failedMark}</span>` : ''}</div>`
 }
 
 /**

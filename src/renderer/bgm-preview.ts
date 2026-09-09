@@ -14,13 +14,21 @@
 //     这一档受钥里「不联网补取美术资源」（`kuma.remoteArt`，与立绘/语音同一个开关）管：
 //     关掉之后 `bgmAudioUrl` 直接给 null，此时若档案里也没有，就诚实说明为什么不能听，
 //     **不渲染点不响的死按钮**。
-import { bgmAudioUrl, remoteArtState } from './kcs-image'
+// 2026-09-09：②③现在先交主进程取字节并入档，再播①；媒体元素只接本地地址。
+import { bgmAudioPath, bgmAudioUrl, remoteArtState } from './kcs-image'
 import { esc } from './kernel'
 import { previewVoiceVolume } from './kcs-voice'
 import { bgmNameOf, ensureBgmNames } from './bgm-names'
 import { archivedBgmUrl, ensureBgmArchive } from './bgm-archive'
 import { claimPreviewPlayback, notePreviewStopped, registerPreviewPlayer } from './preview-audio'
 import { previewClickAction } from '../shared/preview-audio'
+import { bgmArchiveIdentity, type BgmArchiveEntry } from '../shared/bgm-archive-plan'
+
+const { ipcRenderer } = require('electron')
+const fetching = new Set<string>()
+const failed = new Set<string>()
+let waiting: { pathname: string; kind: 'port' | 'battle'; id: number; name: string } | null = null
+const FIRST_LISTEN = '首次试听会从游戏资源服务器取一次并留存，之后不再联网'
 
 // api_mst_bgm 是**母港曲**名字表（101 起的港/家具/季节曲）；battle 树的同号
 // 是另一首曲子——把港曲名安到战斗曲头上是张冠李戴（实测 1-1 昼战 118 撞名
@@ -37,21 +45,56 @@ export const bgmPreviewHtml = (bgmId: number, kind: 'port' | 'battle'): string =
   // 档案优先：留下来的那一份是玩家自己在游戏里听到过的字节，播它零网络、
   // 也不受官方哪天换掉/撤掉文件影响。
   const archived = archivedBgmUrl(kind, bgmId)
-  const url = archived ?? bgmAudioUrl(bgmId, kind)
+  const pathname = bgmAudioPath(bgmId, kind)
+  const url = archived ?? (remoteArtState().enabled ? bgmAudioUrl(bgmId, kind) : null)
+  const identity = `data-bgm-kind="${kind}" data-bgm-id="${bgmId}"`
+  if (!archived && pathname && fetching.has(pathname)) {
+    return `<span class="bgm-pv muted" ${identity} title="${FIRST_LISTEN}">${name} · 正在取…</span>`
+  }
+  if (!archived && pathname && failed.has(pathname) && remoteArtState().enabled) {
+    return `<span class="bgm-pv muted" ${identity} title="本次未能取得或留存该曲">${name} · 本次试听未能留存</span>`
+  }
   if (!url) {
     // 到这里说明：档案里没有、缓存里也没有，而现取又被钥里的开关关掉了。
     // 与语音格同一口径——如实说明原因，别让玩家对着一个点不响的按钮猜。
     const why = remoteArtState().enabled
       ? '本机暂无该曲 · 首次游戏播放后归档'
       : '本机暂无该曲 · 远程获取已关闭'
-    return `<span class="bgm-pv muted" title="${esc(why)}">${name}</span>`
+    return `<span class="bgm-pv muted" ${identity} title="${esc(why)}">${name}</span>`
   }
   const from = archived ? '档案实物 · 零联网 · ' : ''
   // 曲名提示只在**真没查到名字**时出——查到了还说「无官方曲名」就是自相矛盾
   const hint = song ? '' : '官方曲名尚未公布 · 仅显示编号 · '
   // data-bgm-label 是**给迷你播放条看的名字**。点下去那一刻曲名就在手上，
   // 不必让条子回头去认词条的文本（那份文本还带着 ♪ 与各种记号）。
-  return `<span class="bgm-pv${archived ? ' kept' : ''}" data-bgm-url="${esc(url)}" data-bgm-label="${name}" title="${from}${hint}试听 · 单击暂停 / 继续播放">♪ ${name}</span>`
+  return `<span class="bgm-pv${archived ? ' kept' : ''}" data-bgm-url="${esc(url)}" data-bgm-label="${name}" ${identity} title="${from}${hint}${FIRST_LISTEN} · 试听 · 单击暂停 / 继续播放">♪ ${name}</span>`
+}
+
+/** 重渲染后的同曲词条也要更新；按树与号找，不能攥着点击前的旧节点。 */
+const refreshEntries = (kind: 'port' | 'battle', id: number) => {
+  document.querySelectorAll<HTMLElement>('.bgm-pv').forEach((el) => {
+    if (el.dataset.bgmKind === kind && Number(el.dataset.bgmId) === id) {
+      el.outerHTML = bgmPreviewHtml(id, kind)
+    }
+  })
+}
+
+/** 与索引点亮共用那次广播。别的曲子入档只更新词条，不抢本次点击的播放。 */
+export const noteBgmPreviewArchived = (entry: BgmArchiveEntry) => {
+  const identity = bgmArchiveIdentity(entry.pathname)
+  if (!identity || !entry.bytes || !entry.sha1) return
+  fetching.delete(entry.pathname)
+  failed.delete(entry.pathname)
+  refreshEntries(identity.kind, identity.id)
+  if (waiting?.pathname !== entry.pathname) return
+  const url = archivedBgmUrl(waiting.kind, waiting.id)
+  if (!url) return
+  const requested = waiting
+  waiting = null
+  const el = [...document.querySelectorAll<HTMLElement>('.bgm-pv')].find(
+    (node) => node.dataset.bgmKind === requested.kind && Number(node.dataset.bgmId) === requested.id,
+  ) ?? null
+  start(el, url, true, requested.name)
 }
 
 let audio: HTMLAudioElement | null = null
@@ -69,6 +112,7 @@ const markEntry = (el: HTMLElement | null, state: 'playing' | 'paused' | null) =
 // 词条上的记号从「在响」换成「停在半路」，界面上看得出它还留着进度。
 // 迷你播放条上的暂停钮走的也是这一个（它只认总机，不认识这个模块）。
 const pause = () => {
+  waiting = null
   if (!audio || audio.paused) return
   audio.pause()
   const playingEl = document.querySelector<HTMLElement>('.bgm-pv.playing')
@@ -83,6 +127,7 @@ const pause = () => {
  * @param restart true 才重设 src。续播那一路**一个字节都不许碰 src**：重设即归零。
  */
 const start = (el: HTMLElement | null, url: string, restart: boolean, name: string) => {
+  waiting = null
   if (!audio) {
     audio = new Audio()
     audio.addEventListener('ended', () => {
@@ -125,10 +170,33 @@ registerPreviewPlayer('bgm', { pause, resume, audio: () => audio })
 
 export const initBgmPreview = () => {
   void ensureBgmArchive()
-  document.addEventListener('click', (event) => {
+  ipcRenderer.on('kuma:archive-capture-bgm-failed', (_event: unknown, pathname: string) => {
+    if (!fetching.delete(pathname)) return
+    failed.add(pathname)
+    if (waiting?.pathname === pathname) waiting = null
+    const identity = bgmArchiveIdentity(pathname)
+    if (identity) refreshEntries(identity.kind, identity.id)
+  })
+  document.addEventListener('click', async (event) => {
     const el = (event.target as HTMLElement).closest<HTMLElement>('[data-bgm-url]')
     if (!el) return
-    const url = el.dataset.bgmUrl!
+    await ensureBgmArchive()
+    const kind = el.dataset.bgmKind as 'port' | 'battle'
+    const id = Number(el.dataset.bgmId)
+    const archived = archivedBgmUrl(kind, id)
+    const url = archived ?? el.dataset.bgmUrl!
+    if (!archived) {
+      if (!remoteArtState().enabled) return
+      const pathname = bgmAudioPath(id, kind)
+      if (!pathname || fetching.has(pathname)) return
+      pause()
+      waiting = { pathname, kind, id, name: el.dataset.bgmLabel ?? '' }
+      fetching.add(pathname)
+      refreshEntries(kind, id)
+      ipcRenderer.send('kuma:archive-capture-bgm', { pathname, url })
+      return
+    }
+    waiting = null
     const action = previewClickAction(audio, url)
     if (action === 'pause') {
       pause()

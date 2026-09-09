@@ -85,6 +85,7 @@ import {
   catalogTallyText,
   compSignature,
   enemyCompIds,
+  enemyCompShipLabel,
   limitedWindowText,
   limitedWindowsOf,
   localDropEraOf,
@@ -126,7 +127,7 @@ import type {
 } from '../../shared/mg-types'
 import { SPECIAL_ATTACK_SEGMENT_ORDER, specialAttackLabel } from '../../shared/fleet-special-attack'
 import { fleetWipeStage } from '../../shared/fleet-wipe'
-import { flagshipHasDameconIn, isTaihaShip, taihaVerdictOf } from '../../shared/taiha-verdict'
+import { dameconOfShip, isTaihaShip, taihaVerdictOf } from '../../shared/taiha-verdict'
 import { enemyNightTargetOf, isPtShipName } from '../../shared/enemy-night-target'
 import { aaciEntryOf } from '../../shared/ship-special-attack'
 import type { CatalogEncounterTally, EventDifficulty } from '../../shared/map-intel'
@@ -1324,12 +1325,11 @@ const alertBannerHtml = (s: SortieView): string => {
           <span>本节点无进击选项</span>
         </span><span class="act">战损提示</span></div>`
       }
-      // 三档的判据与出处见 shared/taiha-verdict 头注：旗舰大破没有进击选项、
+      // 四档的判据与出处见 shared/taiha-verdict 头注：旗舰大破没有进击选项、
       // 联合二队旗舰不会轰沉，都不该沿用「请选择撤退 / 继续前进可能被击沉」。
       const verdict = taihaVerdictOf(
-        taiha.map((x) => ({ index: x.index, name: battleShipName(x) })),
+        taiha.map((x) => ({ index: x.index, name: battleShipName(x), damecon: dameconOfShip(x, mg) })),
         b.fShips.some((ship) => ship.fleet === 'escort'),
-        flagshipHasDameconIn(b.fShips, mg),
       )
       if (verdict?.tier === 'forced') {
         const who = verdict.others.length
@@ -1346,10 +1346,20 @@ const alertBannerHtml = (s: SortieView): string => {
           <span>无击沉风险</span>
         </span><span class="act">进击可用</span></div>`
       }
-      if (verdict) {
+      if (verdict?.tier === 'insured') {
+        const items = [...new Set(verdict.ships.map((ship) => ship.item === 42 ? '要员' : '女神'))].join('/')
+        return `<div class="verdict v-warn"><span class="ic">破</span><span class="tx">
+          <b>${verdict.ships.map((ship) => esc(ship.name)).join('、')} 大破 · 带损管</b>
+          <span>进击会消耗${items} · 不会击沉${verdict.escortFlagship ? ` · 二队旗舰${esc(verdict.escortFlagship)}无击沉风险` : ''}</span>
+        </span><span class="act">进击可用</span></div>`
+      }
+      if (verdict?.tier === 'danger') {
+        const insuredNote = verdict.insured.length
+          ? ` · ${verdict.insured.map((ship) => `${esc(ship.name)} ${ship.item === 42 ? '带要员' : '带女神'}`).join('、')}：进击会消耗，不会击沉`
+          : ''
         return `<div class="verdict v-red"><span class="ic">!</span><span class="tx">
           <b>${verdict.names.map(esc).join('、')} 大破 · 击沉风险</b>
-          <span>继续前进可能被击沉${escapeOfferNoteOf(b)}</span>
+          <span>继续前进可能被击沉${escapeOfferNoteOf(b)}${insuredNote}</span>
         </span><span class="act">撤退</span></div>`
       }
     }
@@ -1357,7 +1367,14 @@ const alertBannerHtml = (s: SortieView): string => {
   return blockedBossNightHtml(s, b) ?? ''
 }
 
-const verdictHtml = (s: SortieView): string => `${alertBannerHtml(s)}${outcomeBannerHtml(s)}`
+const offshoreSupplyBannerHtml = (s: SortieView): string => {
+  const node = [...(s.nodes ?? [])].reverse().find((node) => node.offshoreSupply)
+  // 复用进点时保存的比例，复盘时不受母港当前联合编成变化影响。
+  const note = node?.note?.match(/洋上补给 ×\d+ · 全队油弹 \+[\d.]+%/)?.[0]
+  return note ? `<div class="battle-replay-note">${esc(note)}${s.supplyEstimated ? '（估算，下一战校正）' : ''}</div>` : ''
+}
+
+const verdictHtml = (s: SortieView): string => `${alertBannerHtml(s)}${outcomeBannerHtml(s)}${offshoreSupplyBannerHtml(s)}`
 
 // 方位箭头的形状。**不能用三角形字符**（原来是 ▶）：等边三角形转到哪个角度看着都一样，
 // 玩家实机上根本读不出它指着哪边——这一枚存在的全部理由就是指方向。
@@ -3810,10 +3827,11 @@ const confirmedEnemyCompsHtml = (
       // 只是链接改用定好的号；没定下来的照实只给文字，不做运行时猜测。
       // 汇编包的 ships 全是数字，标注文本改长在 labels 上——不优先读它的话，
       // 「軽母ヌ級改 flagship 艦載機鳥赤」会被压成主数据里的「軽母ヌ級改」。
+      // 舰名必须是纯文本，再由外层翻译与套链接：2026-09-09 实机 3-5 H 的确认编成
+      // 5/9、6/9 无标注行退回了 HTML，被二次转义后把 span 标签原文显示出来。
       const names = comp.ships
         .map((ship, index) => {
-          const label =
-            comp.labels?.[index] ?? (typeof ship === 'number' ? enemyName(ship) : ship)
+          const label = enemyCompShipLabel(comp, index, (id) => mg.master.ships[id]?.name)
           const id = typeof ship === 'number' ? ship : (comp.shipIds?.[index] ?? 0)
           return id
             ? `<span class="enemy-token">${shipThumbHtml(id, label, { className: 'battle', abyss: true })}${elink('abyssShip', id, label)}</span>`

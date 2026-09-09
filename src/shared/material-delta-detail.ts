@@ -11,6 +11,8 @@ export const AIR_BASE_SORTIE_CATEGORY = '基地航空队出击'
 
 /** 只存业务 id 与数值；未知数字用 0，未知海域点位省略。不持久化名称或请求全文。 */
 export type DeltaDetail =
+  | { kind: 'anchorageRepair'; map: number; cell: number; repairer: number; ships: number; healed: number; steel: number; estimated: true }
+  | { kind: 'offshoreSupply'; map: number; cell: number; useNum: number; estimated: true }
   | { kind: 'supply'; ships: number[]; mode?: 1 | 2 | 3; onslot: boolean }
   | { kind: 'dock'; ship: number; mst: number; ndock: number; highspeed: boolean }
   | { kind: 'build'; recipe: [number, number, number, number, number]; highspeed: boolean; large: boolean; kdock: number }

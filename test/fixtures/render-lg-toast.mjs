@@ -63,6 +63,7 @@ ${ESCORT_STATE}
     }
     export const queryNotices = async () => []
     export const queryQp = async () => null
+    export const queryLode = async () => null
     export const nextJstTime = (_h: number, _m: number) => 0
     export const nextMonthlyReset = () => 0
     export const nextWeeklyReset = () => 0

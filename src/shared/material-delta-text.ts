@@ -20,6 +20,14 @@ export const describeDeltaDetail = (detail: DeltaDetail | null, r: DeltaDetailRe
   const equip = (mst: number) => r.slotitemByMst(mst) || `#${mst}`
   const map = (id: number) => r.mapName(id) || `#${id}`
   switch (detail.kind) {
+    case 'anchorageRepair': {
+      const letter = r.cellLetter(detail.map, detail.cell)
+      return `紧急泊地修理 · ${map(detail.map)}${letter ? ` ${letter} 点` : ''} · ${mstShip(detail.repairer)} · ${detail.ships} 艘 +${detail.healed}（钢材估算）`
+    }
+    case 'offshoreSupply': {
+      const letter = r.cellLetter(detail.map, detail.cell)
+      return `洋上补给 ×${detail.useNum} · ${map(detail.map)}${letter ? ` ${letter} 点` : ''}（油弹估算）`
+    }
     case 'supply': {
       const count = detail.ships.length
       const names = detail.ships.slice(0, 6).map(id => ship(id)).join('、')

@@ -81,7 +81,7 @@ test('编队两组任务名之后都接近似标记和编成专用说明', () =>
   const fleet = ru.slice(ru.indexOf('const fleetQuestHtml ='), ru.indexOf('const scheduleFleetQuestCheck ='))
   for (const body of [
     fleet.slice(fleet.indexOf('const matchedHtml ='), fleet.indexOf('const nearShown =')),
-    fleet.slice(fleet.indexOf('const nearHtml ='), fleet.indexOf('return `${matchedHtml}')),
+    fleet.slice(fleet.indexOf('const nearHtml ='), fleet.indexOf('return `<div class="fleet-quests">${matchedHtml}')),
   ]) {
     assert.match(body, /elink\('quest'/)
     assert.match(body, /fleetQuestCheck\[id\]\.approx \? '<span class="approx" title="编成判定含拿不准的项，可能比游戏松">≈<\/span>' : ''/)
@@ -137,7 +137,14 @@ test('编队分组只收本队遂行中 nearMiss，链接 title 列出全部失�
   }
   const render = (deck, failed = false) => compile(ru, 'const fleetQuestHtml =', 'const scheduleFleetQuestCheck =', 'fleetQuestHtml', { ...deps, fleetQuestFailed: failed })(deck)
   const html = render({ id: 1 })
+  assert.equal((html.match(/class="fleet-quests"/g) ?? []).length, 1)
+  assert.equal((html.match(/class="fq-group"/g) ?? []).length, 2)
   assert.ok(html.indexOf('满足编成条件') < html.indexOf('编成待调整'))
+  const failedHtml = render({ id: 1 }, true)
+  assert.equal((failedHtml.match(/class="fleet-quests"/g) ?? []).length, 1)
+  assert.equal((failedHtml.match(/class="fq-group"/g) ?? []).length, 3)
+  assert.ok(failedHtml.indexOf('满足编成条件') < failedHtml.indexOf('编成待调整'))
+  assert.match(failedHtml, /编成待调整[\s\S]*<span class="fq-group"><span class="more" title="[^"]*">编成任务读取失败 · 上次读取结果 · 返港后重试<\/span><\/span><\/div>$/)
   assert.match(html, /title="旗舰不符合「轻巡」\n仅限第2舰队"/)
   assert.doesNotMatch(html, /class="approx"/)
   fleetQuestCheck[1].approx = true
@@ -155,7 +162,10 @@ test('编队分组只收本队遂行中 nearMiss，链接 title 列出全部失�
   assert.match(render({ id: 1 }), /另 1 项/)
   assert.doesNotMatch(render({ id: 1 }), /data-id="10"/)
   assert.equal(render({ id: 4 }), '')
-  assert.match(render({ id: 4 }, true), /编成任务读取失败/)
+  const failedOnlyHtml = render({ id: 4 }, true)
+  assert.equal((failedOnlyHtml.match(/class="fleet-quests"/g) ?? []).length, 1)
+  assert.doesNotMatch(failedOnlyHtml, /class="fq-group"/)
+  assert.match(failedOnlyHtml, /^<div class="fleet-quests"><span class="more" title="[^"]*">编成任务读取失败 · 返港后重试<\/span><\/div>$/)
   delete fleetQuestCheck[1]
   assert.match(render({ id: 1 }, true), /编成待调整[\s\S]*上次读取结果/)
 })

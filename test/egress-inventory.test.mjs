@@ -60,6 +60,8 @@ const stripComments = (text) =>
  */
 const NETWORK_CALL_SITES = {
   // 主进程 · Chromium 网络栈（吃磁盘缓存、走代理、受 webRequest 观察）
+  // 立绘/语音显示播放后留存；BGM 仅用户点试听且 kuma.remoteArt 开着时现取，
+  // captureDisplayedBgm 共用缓存优先的 capture，成功入档后才播放本地文件。
   'src/main/archive-capture.ts': ['net.fetch'], // 显示/播放即入档的补字节，钥开关管
   'src/main/voice-probe.ts': ['net.fetch'], // 点一格探一条，钥开关管
   'src/main/map-art-json.ts': ['net.fetch'], // 海域美术元数据，钥开关管
@@ -72,6 +74,7 @@ const NETWORK_CALL_SITES = {
   'src/main/push.ts': ['net.fetch'],
   // 页面侧 · only-if-cached 读本机缓存，结构上发不出网络请求
   'assets/preload/art-archive.js': ['fetch'],
+  'assets/preload/asset-archive.js': ['fetch'],
   'assets/preload/voice-archive.js': ['fetch'],
   'assets/preload/bgm-archive.js': ['fetch'],
 }
@@ -237,11 +240,11 @@ test('语音探测没有批量入口：一次点击一格，源码里不许出�
   assert.deepEqual(offenders, [], `探测被批量调用了：\n${offenders.join('\n')}`)
 })
 
-test('档案取字节永远是 only-if-cached：页面侧那三条路不许退化成真请求', () => {
+test('档案取字节永远是 only-if-cached：页面侧那四条路不许退化成真请求', () => {
   // `only-if-cached` 在缓存没命中时是**抛错**，不会退化成一次网络请求。
-  // 所以这两个文件里的 fetch 必须带着它——少了就等于把「顺手留一份」
+  // 所以这四个文件里的 fetch 必须带着它——少了就等于把「顺手留一份」
   // 变成一场对游戏 CDN 的补拉。
-  for (const file of ['art-archive.js', 'voice-archive.js', 'bgm-archive.js']) {
+  for (const file of ['art-archive.js', 'voice-archive.js', 'bgm-archive.js', 'asset-archive.js']) {
     const code = stripComments(fs.readFileSync(new URL(file, PRELOAD), 'utf8'))
     const calls = [...code.matchAll(/fetch\([^)]*\)/g)].map((m) => m[0])
     assert.ok(calls.length > 0, `${file} 里没找到 fetch 调用，判据要跟着改`)

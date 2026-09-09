@@ -2067,7 +2067,7 @@ const npcDrawerHtml = (): string => {
     <span class="crumb">${NPC_CHIP} › <b>${esc(group.name)}</b></span>
     <span class="sp"></span>
   </div>
-  <div class="detail">
+  <div class="detail" data-fold-scope="npc:${esc(group.name)}">
     <div class="vo-list" id="ji-npc-voices">${blocks}</div>
   </div>`
 }
@@ -2766,7 +2766,7 @@ const shipDrawerHtml = () => {
     <span class="crumb">${entityNameHtml('shipType', form.api_stype, rawTypeName, { compact: true })} › <b>${root ? entityNameHtml('ship', root.api_id, root.api_name, { compact: true }) : ''}</b></span>
     <span class="sp"></span>
   </div>
-  <div class="detail">
+  <div class="detail" data-fold-scope="ship:${esc(form.api_id)}">
     <div class="hero">
       <div class="hero-l">
         <div class="meta-line">
@@ -6176,7 +6176,7 @@ const equipDrawerHtml = () => {
     <span class="crumb">${entityNameHtml('equipType', cat, equipTypes.get(cat) ?? `分类${cat}`, { compact: true })} › <b>${entityNameHtml('equip', e.api_id, e.api_name, { compact: true })}</b></span>
     <span class="sp"></span>
   </div>
-  <div class="detail">
+  <div class="detail" data-fold-scope="equip:${esc(e.api_id)}">
     <div class="hero">
       <div class="hero-l">
         <div class="meta-line">
@@ -6852,7 +6852,7 @@ const abyssEquipDrawerHtml = () => {
     <span class="x" id="ji-abyss-close" title="关闭（Esc）">✕</span>
     <span class="crumb">深海装备 › <b>${entityNameHtml('abyssEquip', e.api_id, e.api_name, { compact: true })}</b></span><span class="sp"></span>
   </div>
-  <div class="detail">
+  <div class="detail" data-fold-scope="abyss-equip:${esc(e.api_id)}">
     <div class="hero" style="background:radial-gradient(420px 200px at 85% 0%,rgba(255,107,129,.08),transparent 65%),var(--bg1)">
       <div class="hero-l">
         <div class="meta-line"><span class="badge" style="color:#e8b8c0;border-color:#5c2c38">${entityTermHtml('abyssEquip', e.api_id, typeName)}</span>
@@ -7973,7 +7973,7 @@ const abyssDrawerHtml = () => {
     <span class="x" id="ji-abyss-close" title="关闭（Esc）">✕</span>
     <span class="crumb">${entityTermHtml('abyssShip', s.api_id, typeName)} › <b>${entityNameHtml('abyssShip', s.api_id, s.api_name, { compact: true })}</b></span><span class="sp"></span>
   </div>
-  <div class="detail">
+  <div class="detail" data-fold-scope="abyss:${esc(s.api_id)}">
     <div class="hero" style="background:radial-gradient(420px 200px at 85% 0%,rgba(255,107,129,.08),transparent 65%),var(--bg1)">
       <div class="hero-l">
         <div class="meta-line">
@@ -10066,7 +10066,7 @@ const mapDrawerHtml = () => {
     <span class="x" id="ji-map-close" title="关闭（Esc）">✕</span>
     <span class="crumb">${entityNameHtml('mapArea', info.api_maparea_id, areaName, { compact: true })} › <b>${entityTermHtml('map', info.api_id, code)}</b></span><span class="sp"></span>
   </div>
-  <div class="detail">
+  <div class="detail" data-fold-scope="map:${code}">
     <div class="hero" style="background:radial-gradient(420px 200px at 85% 0%,rgba(63,208,176,.08),transparent 65%),var(--bg1)">
       <div class="hero-l">
         <div class="meta-line">
@@ -11175,7 +11175,7 @@ const itemDrawerHtml = () => {
     <span class="x" id="ji-item-close" title="关闭（Esc）">✕</span>
     <span class="crumb">道具 › <b>${entityNameHtml('item', u.api_id, u.api_name, { compact: true })}</b></span><span class="sp"></span>
   </div>
-  <div class="detail">
+  <div class="detail" data-fold-scope="item:${esc(u.api_id)}">
     <div class="hero" style="background:radial-gradient(420px 200px at 85% 0%,rgba(224,169,74,.08),transparent 65%),var(--bg1)">
       <div class="hero-l">
         <div class="meta-line"><span class="badge" style="color:#e8ce9a;border-color:#8a6d2f">道具</span><span class="no">ID ${u.api_id}</span></div>

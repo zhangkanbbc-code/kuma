@@ -137,7 +137,7 @@ const SHIP_ART_PATH = path.join(ROOT, 'src', 'shared', 'ship-art-path.ts').repla
 
 const HARNESS = `
 import { fcdTopologyUsable } from '${FCD_TOPOLOGY}'
-import { flagshipHasDameconIn, isTaihaShip, taihaVerdictOf } from '${TAIHA_VERDICT}'
+import { dameconOfShip, isTaihaShip, taihaVerdictOf } from '${TAIHA_VERDICT}'
 import { enemyNightTargetOf, isPtShipName } from '${ENEMY_NIGHT}'
 import { isEventMapArea } from '${MAP_ID}'
 import { SPECIAL_ATTACK_SEGMENT_ORDER, specialAttackLabel } from '${SPECIAL_ATTACK}'
@@ -292,6 +292,7 @@ export {
   navCardHtml,
   anchorageRepairLinesHtml,
   alertBannerHtml,
+  offshoreSupplyBannerHtml,
   blockedBossNightHtml,
   outcomeBannerHtml,
   headingBannerHtml,
@@ -338,6 +339,7 @@ export const renderDropChip = (sortie, battle) => loaded.battleDropChipHtml(sort
 export const renderSeaCard = (sortie) => loaded.seaCardHtml(sortie)
 export const renderNavCard = (sortie) => loaded.navCardHtml(sortie)
 export const renderAlertBanner = (sortie) => loaded.alertBannerHtml(sortie)
+export const renderOffshoreSupplyBanner = (sortie) => loaded.offshoreSupplyBannerHtml(sortie)
 export const renderBlockedBossNight = (sortie) => loaded.blockedBossNightHtml(sortie, sortie.battle)
 export const renderOutcomeBanner = (sortie) => loaded.outcomeBannerHtml(sortie)
 export const renderHeadingBanner = (sortie) => loaded.headingBannerHtml(sortie)

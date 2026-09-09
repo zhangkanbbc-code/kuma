@@ -17,6 +17,7 @@
 //    战斗结束后游戏给「消费道具进击 / 撤退」的选择（进击自动消费：要员回血到中破线、
 //    女神满血但不补油弹）。源：zekamashi.net 的 damecon 专文 + wiki 共识。
 //    ——此时决定权回到玩家手里，照常按危险档警告。
+//    2026-09-09 更新：选择权不变，提示改按下述 ④ 的说明档。
 //
 // ③ **联合舰队第二舰队（护卫队）旗舰**：大破可进击，且**不会轰沉**（系统保护；
 //    她也不能被护卫退避，damecon 在她身上不发动）。≥3 独立源：
@@ -25,8 +26,9 @@
 //    同行工具 logbook-kai issue #227（专为此加过警告豁免选项）；wikiwiki「連合艦隊」页。
 //    ——她不该进「可能被击沉」的名单。
 //
-// ④ **非旗舰**带 damecon 的大破舰不豁免、也不标注（维护者裁决口径）：
-//    消耗女神本身就是要避免的大损失，红色警告成立，不做过度细分。
+// ④ 2026-09-09 用户裁决：带 damecon 的大破舰不劝退、不红警，只说明
+//    「进击会消耗、不会击沉」；按下一枚仍可消耗的要员/女神分档。
+//    沿革：旧口径是非旗舰带 damecon 不豁免、也不标注，认为消耗女神是大损失而红警。
 //
 // ---- 舰位坐标 ----
 // index 是**跨两队连号**的 0 基舰位：0–5 主力、6–11 护卫队
@@ -61,17 +63,20 @@ export const FLAGSHIP_INDEX = 0
 /** 联合第二舰队旗舰的连号舰位；非联合时这一位不是二队旗舰。 */
 export const ESCORT_FLAGSHIP_INDEX = 6
 
-/** 一艘大破舰：只要舰位与已本地化的名字，判定不碰血量口径。 */
+/** 一艘大破舰：舰位、已本地化的名字与下一枚可消耗的损管，判定不碰血量口径。 */
 export interface TaihaShipRef {
   index: number
   name: string
+  damecon: 42 | 43 | null
 }
 
 export type TaihaVerdict =
   /** 旗舰大破且无 damecon：没有进击选项，整队本战结束后返航。 */
   | { tier: 'forced'; flagship: string; others: readonly string[] }
   /** 真有决定要做：名单里的每一艘继续前进都可能被击沉。 */
-  | { tier: 'danger'; names: readonly string[] }
+  | { tier: 'danger'; names: readonly string[]; insured: readonly { name: string; item: 42 | 43 }[] }
+  /** 大破舰都有剩余损管：说明消耗与不会击沉，不劝退、不红警。 */
+  | { tier: 'insured'; ships: readonly { name: string; item: 42 | 43 }[]; escortFlagship?: string }
   /** 只有二队旗舰大破：系统保护，说明而非警告。 */
   | { tier: 'protected'; escortFlagship: string }
 
@@ -92,7 +97,7 @@ export interface DameconLedger {
 }
 
 /**
- * 旗舰装着 damecon 没有（规则 ②）。
+ * 这一艘下一枚可消耗的 damecon（规则 ②、④）。
  *
  * 优先用战斗视图自带的装备快照——那是出击当时的编成，游戏报文侧已经把补强增设位
  * 并进同一份（store.ts 的 `equipments` 末尾 push slotEx）。
@@ -102,34 +107,46 @@ export interface DameconLedger {
  * 两个调用方都只在 `sortie.active` 时问，而出击途中游戏不允许改编成，
  * 此刻的母港编成就是这一趟的出击编成，不是拿新编成去解释一场旧战斗。
  */
+export const dameconOfShip = (
+  ship: BattleShipView,
+  ledger?: DameconLedger,
+): 42 | 43 | null => {
+  const roster = ledger && ship.rosterId != null ? ledger.ships[ship.rosterId] : undefined
+  // 与 battle.ts repairItemsFor 的装填顺序一致：store.ts 先常规格、再 push 增设位。
+  const equipment = ship.equipment
+    ? [...ship.equipment].sort((a, b) =>
+        (a.slot === 'ex' ? Infinity : a.slot) - (b.slot === 'ex' ? Infinity : b.slot))
+    : roster ? [...roster.slot, roster.slotEx].map((slotId) => ledger?.slotitems[slotId]) : []
+  const items = equipment.map((item) => item?.mstId)
+    .filter((id): id is 42 | 43 => id === 42 || id === 43)
+  if (ship.repairItemUsed != null) items.shift()
+  return items[0] ?? null
+}
+
+/** 旗舰装着仍可消耗的 damecon 没有（规则 ②）。 */
 export const flagshipHasDameconIn = (
   fShips: readonly BattleShipView[],
   ledger?: DameconLedger,
 ): boolean => {
   const flagship = fShips.find((ship) => ship.index === FLAGSHIP_INDEX)
-  if (!flagship) return false
-  if (flagship.equipment) return hasDameconEquipped(flagship.equipment)
-  const ship = ledger && flagship.rosterId != null ? ledger.ships[flagship.rosterId] : undefined
-  if (!ship) return false
-  return hasDameconEquipped([...ship.slot, ship.slotEx].map((slotId) => ledger?.slotitems[slotId]))
+  return flagship != null && dameconOfShip(flagship, ledger) != null
 }
 
 /**
- * 大破名单 → 该给玩家看哪一档。三档互斥，优先级 forced > danger > protected；
+ * 大破名单 → 该给玩家看哪一档。四档互斥，优先级 forced > danger > insured > protected；
  * 没有大破舰、或名单只剩被保护的那一位都算不上的情况返回 null。
  *
  * `combined` 只影响 index 6 的解读（见头注舰位坐标一节）。
- * `flagshipHasDamecon` 是**装着**而非已消费：规则 ② 给的是战后的选择权。
+ * `damecon` 是**仍可消耗**的下一枚：本场已消费的那枚不再给下一次进击兜底。
  */
 export const taihaVerdictOf = (
   taiha: readonly TaihaShipRef[],
   combined: boolean,
-  flagshipHasDamecon: boolean,
 ): TaihaVerdict | null => {
   if (!taiha.length) return null
 
   const flagship = taiha.find((ship) => ship.index === FLAGSHIP_INDEX)
-  if (flagship && !flagshipHasDamecon) {
+  if (flagship && flagship.damecon == null) {
     return {
       tier: 'forced',
       flagship: flagship.name,
@@ -142,8 +159,16 @@ export const taihaVerdictOf = (
     ? taiha.find((ship) => ship.index === ESCORT_FLAGSHIP_INDEX)
     : undefined
 
-  const danger = taiha.filter((ship) => ship !== escortFlagship)
-  if (danger.length) return { tier: 'danger', names: danger.map((ship) => ship.name) }
+  const others = taiha.filter((ship) => ship !== escortFlagship)
+  const danger = others.filter((ship) => ship.damecon == null)
+  const insured = others.flatMap((ship) =>
+    ship.damecon == null ? [] : [{ name: ship.name, item: ship.damecon }])
+  if (danger.length) return { tier: 'danger', names: danger.map((ship) => ship.name), insured }
+  if (insured.length) return {
+    tier: 'insured',
+    ships: insured,
+    ...(escortFlagship ? { escortFlagship: escortFlagship.name } : {}),
+  }
 
   return escortFlagship ? { tier: 'protected', escortFlagship: escortFlagship.name } : null
 }

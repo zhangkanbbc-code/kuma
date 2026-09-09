@@ -2157,7 +2157,7 @@ test('a taiha warning no longer swallows the battle result and its drop', () => 
   const html = rendererSource
 
   // 警告与战果各占一槽，verdictHtml 把两者拼起来而不是二选一
-  assert.match(combat, /const verdictHtml = \(s: SortieView\): string =>\s*`\$\{alertBannerHtml\(s\)\}\$\{outcomeBannerHtml\(s\)\}`/)
+  assert.match(combat, /const verdictHtml = \(s: SortieView\): string =>\s*`\$\{alertBannerHtml\(s\)\}\$\{outcomeBannerHtml\(s\)\}\$\{offshoreSupplyBannerHtml\(s\)\}`/)
   assert.match(combat, /const alertBannerHtml[\s\S]*?大破[\s\S]*?return blockedBossNightHtml\(s, b\) \?\? ''/)
   // 战果槽里不许再出现大破分支的提前返回
   const outcome = combat.slice(combat.indexOf('const outcomeBannerHtml'))
@@ -4036,7 +4036,7 @@ test('new ships and taiha use manually dismissed top banners with persistent fra
   )
   assert.deepEqual(
     [...toneTable.matchAll(/^\s*(\w+): '(\w+)',/gm)].map(([, id, tone]) => [id, tone]),
-    [['taiha', 'danger'], ['newShip', 'celebrate'], ['marriage', 'wedding']],
+    [['taiha', 'danger'], ['newShip', 'celebrate'], ['marriage', 'wedding'], ['anchorageRepair', 'repair']],
     '固定色调的横幅事件表变了',
   )
   assert.match(
@@ -4144,9 +4144,12 @@ test('boss taiha stays a normal notice and battle hint without a retreat banner'
   // 钉的是措辞与「主语是 who」这两件事，不钉它写成三元还是别的形状——
   // 大破分档（旗舰强制返航 / 二队旗舰受保护）把这里改成了按档取标题。
   assert.match(notices, /`\$\{who\}在 Boss 战中大破`/)
-  assert.match(notices, /const signature = `\$\{s\.battleCount\}:/, '大破提醒没有按战次+舰集合去重')
+  // 09-09：损管消耗会在同场切档，去重同时带出击和档位；限定 detectTaiha，避免误中应急修理的签名。
+  const taihaNotice = notices.slice(notices.indexOf('const detectTaiha ='), notices.indexOf('// 应急修理（要員 42 / 女神 43）'))
+  assert.match(taihaNotice, /const signature = `\$\{s\.startTs\}:\$\{s\.battleCount\}:\$\{verdict\.tier\}:\$\{taiha/, '大破提醒没有按出击+战次+档位+舰集合去重')
   assert.doesNotMatch(notices, /for \(const ship of s\.battle\.fShips\.filter\(isTaiha\)\)/, '大破又变回逐舰各发一条了')
-  assert.match(notices, /atBoss \? \{ banner: false, priority: 'normal' \} : undefined/)
+  // Boss 的呈现原样；新增 insured 也降普通提醒，其余档仍走默认规则。
+  assert.match(taihaNotice, /atBoss \? \{ banner: false, priority: 'normal' \} : verdict\.tier === 'insured' \? \{ priority: 'normal' \} : undefined/)
   assert.match(notices, /presentation\.priority === 'normal'[\s\S]*sev: 'warn'[\s\S]*locked: false/)
   assert.match(combat, /if \(atBoss\) \{[\s\S]*Boss 战结束：\$\{names\} 大破/)
   assert.match(combat, /本节点无进击选项/)
@@ -12203,7 +12206,8 @@ test('手机推送：默认全关、目标可选（ntfy 默认 / Bark 次选）�
     ([, id, value]) => [id, value === 'true'],
   )
   // 换号提醒也登记独立路由，默认不推手机。
-  assert.equal(pushColumn.length, 14, '有事件没写 push 这一列')
+  // 紧急泊地修理新增一行，默认仍不推手机；精确点齐全部 15 个事件。
+  assert.equal(pushColumn.length, 15, '有事件没写 push 这一列')
   assert.deepEqual(
     pushColumn.filter(([, on]) => on).map(([id]) => id).sort(),
     ['build', 'dock', 'expedition', 'pracRefresh'],
@@ -12462,7 +12466,7 @@ test('应急修理发动：绿色两档横幅，要員与女神分色分文案�
   assert.ok(ranks.danger < ranks.celebrate)
   assert.match(lg, /el\.style\.order = `\$\{BANNER_ORDER\[tone\]\}`/, '次序没真的写到 DOM 上')
   // 两者必须能共存：应急修理这条不许把大破那条抑制掉（要員发动后仍是大破）
-  assert.match(lg, /detectDamecon\(\)\s*\n\s*detectSunk\(\)\s*\n\s*detectTaiha\(\)/)
+  assert.match(lg, /detectDamecon\(\)\s*\n\s*detectAnchorageRepair\(\)\s*\n\s*detectSunk\(\)\s*\n\s*detectTaiha\(\)/)
   const taihaDetector = lg.slice(lg.indexOf('const detectTaiha'), lg.indexOf('// 应急修理（要員 42'))
   assert.doesNotMatch(
     taihaDetector,
@@ -12767,12 +12771,17 @@ test('新事件的默认路由保守：横幅与记录为主，声音与推送�
   assert.deepEqual(routeOf('damecon'), {
     badge: true, toast: true, system: false, sound: false, push: false,
   })
+  assert.deepEqual(routeOf('anchorageRepair'), {
+    badge: true, toast: true, system: false, sound: false, push: false,
+  })
   assert.deepEqual(routeOf('shipSunk'), {
     badge: true, toast: true, system: true, sound: false, push: false,
   })
   // 事件表里两条都在，且都能跳到战斗详情
   const events = lg.slice(lg.indexOf('const EVENTS: EventDef[]'), lg.indexOf('interface Routes'))
   assert.match(events, /id: 'damecon'[^\n]*jump: 'di'/)
+  assert.match(events, /id: 'anchorageRepair', label: '紧急泊地修理', note: '每次一条', sev: 'ok', icon: '修', jump: 'di', jumpLabel: '战斗详情', refLabel: '战斗详情'/)
+  assert.match(lg, /if \(keys.includes\('sortie'\)\) \{[^]*?detectAnchorageRepair\(\)/)
   assert.match(events, /id: 'shipSunk'[^\n]*jump: 'di'/)
 })
 

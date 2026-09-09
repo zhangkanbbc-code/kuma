@@ -32,7 +32,15 @@ import config from './config'
 import { ROOT, DEFAULT_CACHE_PATH } from './env'
 import { safeConsole } from './crash-log'
 import { keepArtBlob } from './art-archive'
+import { keepAssetBlob, assetArchiveEntries } from './asset-archive'
+import { assetFamilyOf, assetArchiveHasBlobFor, ASSET_ARCHIVE_MAX_ENTRY_BYTES, type AssetArchiveEntry } from '../shared/asset-archive-plan'
 import { keepVoiceBlob } from './voice-archive'
+import { keepBgmBlob } from './bgm-archive'
+import {
+  BGM_ARCHIVE_MAX_ENTRY_BYTES,
+  BGM_ARCHIVE_PATH,
+  type BgmArchiveEntry,
+} from '../shared/bgm-archive-plan'
 import {
   ART_ARCHIVE_MAX_ENTRY_BYTES,
   ART_ARCHIVE_PATH,
@@ -57,6 +65,8 @@ const { getCacheCandidatePaths } = require(
 const inFlight = new Set<string>()
 /** 同时在跑的上限。这不是热路径，但也不该在切页那一下并发几十个读盘。 */
 const MAX_IN_FLIGHT = 6
+// 资源目录一屏可能显示超过六张；保留原并发闸门，资源排队等空位，不能静默漏档。
+const assetCaptureQueue: Array<() => void> = []
 
 /** 缓存目录跟着钥里的设置走（键与 kcs-resource 的 getCacheDir 同一个，别各写各的）。 */
 const cacheDir = (): string => `${config.get('kuma.cache.path', DEFAULT_CACHE_PATH)}`
@@ -116,7 +126,7 @@ const remoteBytes = async (rawUrl: string, maxBytes: number): Promise<Uint8Array
 const accept = (
   rawPathname: unknown,
   rawUrl: unknown,
-  shape: RegExp,
+  shape: { test: (pathname: string) => boolean },
 ): { pathname: string; url: string } | null => {
   const pathname = `${rawPathname ?? ''}`
   const url = `${rawUrl ?? ''}`
@@ -129,8 +139,17 @@ const capture = async <T>(
   url: string,
   maxBytes: number,
   keep: (bytes: Uint8Array) => T | null,
+  queueWhenBusy = false,
 ): Promise<T | null> => {
-  if (inFlight.has(pathname) || inFlight.size >= MAX_IN_FLIGHT) return null
+  if (inFlight.has(pathname)) return null
+  if (inFlight.size >= MAX_IN_FLIGHT) {
+    if (!queueWhenBusy) return null
+    return new Promise((resolve) => {
+      assetCaptureQueue.push(() => {
+        void capture(pathname, url, maxBytes, keep, true).then(resolve)
+      })
+    })
+  }
   inFlight.add(pathname)
   try {
     // 本机缓存文件优先：那是**零网络**的一条路（边界③）
@@ -145,6 +164,7 @@ const capture = async <T>(
     return null
   } finally {
     inFlight.delete(pathname)
+    assetCaptureQueue.shift()?.()
   }
 }
 
@@ -202,5 +222,37 @@ export const captureDisplayedVoice = async (
   const version = resourceVersionOf(accepted.url)
   return capture(accepted.pathname, accepted.url, VOICE_ARCHIVE_MAX_ENTRY_BYTES, (bytes) =>
     keepVoiceBlob({ pathname: accepted.pathname, version, bytes }),
+  )
+}
+
+// BGM 首次试听在出声前取一次并入档；与已显示的立绘、已播放的语音共用缓存优先、
+// 钥开关、12 秒超时和并发上限。成功后只播放档案文件，不再让媒体元素自行取远端。
+export const captureDisplayedBgm = async (
+  rawPathname: unknown,
+  rawUrl: unknown,
+): Promise<BgmArchiveEntry | null> => {
+  const accepted = accept(rawPathname, rawUrl, BGM_ARCHIVE_PATH)
+  if (!accepted) return null
+  return capture(accepted.pathname, accepted.url, BGM_ARCHIVE_MAX_ENTRY_BYTES, (bytes) =>
+    keepBgmBlob({
+      pathname: accepted.pathname,
+      version: resourceVersionOf(accepted.url),
+      bytes,
+    }),
+  )
+}
+
+// 资源显示成功后沿同一条缓存优先路径留存；已留住这一版则不再取字节。
+export const captureDisplayedAsset = async (
+  rawPathname: unknown, rawUrl: unknown, rawVersion?: unknown,
+): Promise<AssetArchiveEntry | null> => {
+  const accepted = accept(rawPathname, rawUrl, { test: (pathname) => assetFamilyOf(pathname) !== null })
+  if (!accepted) return null
+  const given = `${rawVersion ?? ''}`
+  const version = /^[\w.-]{1,32}$/.test(given) ? given : resourceVersionOf(accepted.url)
+  if (assetArchiveHasBlobFor(assetArchiveEntries(), accepted.pathname, version)) return null
+  return capture(accepted.pathname, accepted.url, ASSET_ARCHIVE_MAX_ENTRY_BYTES, (bytes) =>
+    keepAssetBlob({ pathname: accepted.pathname, version, bytes }),
+    true,
   )
 }

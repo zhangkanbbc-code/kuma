@@ -201,8 +201,8 @@ test('收纳优先级写死在源码里，改动要连注释里的理由一起�
   const source = ru()
   assert.match(
     source,
-    /const FLEET_METRIC_FOLD_ORDER = \['tp', 'comp', 'lv', 'soku', 'cmb', 'los', 'air'\] as const/,
-    '收纳优先级是用户逐项定的：TP → 构成 → 平均Lv → 航速 → 联合合并 → 索敌33 → 制空',
+    /const FLEET_METRIC_FOLD_ORDER = \['tp', 'comp', 'lv', 'soku', 'cmb', 'damecon', 'los', 'air'\] as const/,
+    '09-09 新增损管参加收纳，原有各项相对优先级不变：TP → 构成 → 平均Lv → 航速 → 联合合并 → 损管 → 索敌33 → 制空',
   )
   // 理由留在注释里，别让下一个人以为这串顺序是随手排的
   assert.match(source, /运输量除活动和月一次的 5-6 之外基本用不到/)

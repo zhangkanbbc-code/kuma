@@ -20,6 +20,8 @@ import { rememberShipArtPath } from './ship-art-store'
 import { rememberVoiceHeard } from './voice-archive'
 import { artArchivePrimeTargets, rememberArtSeen } from './art-archive'
 import { shouldArchiveArtType } from '../shared/art-archive-plan'
+import { assetFamilyOf } from '../shared/asset-archive-plan'
+import { rememberAssetSeen } from './asset-archive'
 import { createVoiceRequestGate, resourceVersionOf } from '../shared/voice-request-gate'
 
 // 与 preload 隔离世界共享的纯 JS 路径逻辑（主进程按绝对路径 require）
@@ -154,6 +156,7 @@ const voiceGate = createVoiceRequestGate()
  * 没有它这条路同样会自激——理由与 voiceGate 完全相同，见 shared/voice-request-gate。
  */
 const artGate = createVoiceRequestGate()
+const assetGate = createVoiceRequestGate()
 
 /**
  * BGM 请求闸门。同样**各自一份**，理由与上面两道相同（自激循环）。
@@ -383,6 +386,17 @@ export const registerKcsResourceProtocol = () => {
                   frame.send('kuma:art-archive-ask', artKeyOf(details.url))
                 } catch (_e) {
                   // 帧刚导航走/已销毁——这一张不存，不是错误
+                }
+              }
+            }
+          }
+          // 资源与立绘互斥；自取缓存先认领，仍只向游戏请求的同源帧要整文件。
+          if (assetFamilyOf(artPath) && !assetGate.claimSelfFetch(details.url, now)) {
+            const wantAsset = rememberAssetSeen({ pathname: artPath, version: resourceVersionOf(details.url), ts: now })
+            if (wantAsset && assetGate.shouldAsk(details.url, now)) {
+              for (const frame of askableFrames(details)) {
+                try { frame.send('kuma:asset-archive-ask', details.url) } catch (_e) {
+                  // 帧已销毁或导航走，这一件不存。
                 }
               }
             }

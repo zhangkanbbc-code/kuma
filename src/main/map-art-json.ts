@@ -10,6 +10,8 @@
 import { ipcMain, net } from 'electron'
 
 import config from './config'
+import { keepAssetBlob } from './asset-archive'
+import broadcaster from './game-api-broadcaster'
 
 const CHANNEL = 'kuma:map-art-json'
 
@@ -69,7 +71,10 @@ export const registerMapArtJson = () => {
         console.warn('[kuma] 海域美术元数据过大，丢弃', url.pathname)
         return null
       }
-      return JSON.parse(text)
+      const json = JSON.parse(text)
+      const kept = keepAssetBlob({ pathname: url.pathname, bytes: Buffer.from(text, 'utf8') })
+      if (kept) broadcaster.emit('kancolle.asset.archived', kept)
+      return json
     } catch (error) {
       console.warn('[kuma] 海域美术元数据读取失败', url.pathname, error)
       return null

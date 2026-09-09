@@ -1,4 +1,4 @@
-// 大破了要不要撤：三档判定的行为。
+// 大破了要不要撤：四档判定的行为。
 //
 // 这一份**直接 import 真模块**（dist/shared/taiha-verdict.js），断言的是真代码的行为：
 // 旗舰位判反、联合二队旗舰的剔除忘了由联合标志把门、damecon 例外的方向写反，
@@ -12,15 +12,15 @@ import test from 'node:test'
 import verdict from '../dist/shared/taiha-verdict.js'
 import { battleOf, renderAlertBanner, shipOf, sortieOf } from './fixtures/render-di-battle.mjs'
 
-const { flagshipHasDameconIn, hasDameconEquipped, taihaVerdictOf } = verdict
+const { dameconOfShip, flagshipHasDameconIn, hasDameconEquipped, taihaVerdictOf } = verdict
 
-const at = (index, name) => ({ index, name })
+const at = (index, name, damecon = null) => ({ index, name, damecon })
 
 // 战斗视图里的一艘舰：判定只看 index / rosterId / equipment 三样。
 const battleShip = (index, equipment) => ({ index, rosterId: 100 + index, equipment })
 
 test('单舰队旗舰大破且没带 damecon：强制返航，同场其他大破舰照样列名', () => {
-  const out = taihaVerdictOf([at(0, '长门'), at(3, '陆奥')], false, false)
+  const out = taihaVerdictOf([at(0, '长门'), at(3, '陆奥')], false)
   assert.equal(out.tier, 'forced')
   assert.equal(out.flagship, '长门')
   // 整队都要回家，所以其余大破舰也列出来——但她们不再有轰沉风险可言。
@@ -28,63 +28,103 @@ test('单舰队旗舰大破且没带 damecon：强制返航，同场其他大破
 })
 
 test('旗舰一个人大破时 forced 的 others 是空的，不凑数', () => {
-  const out = taihaVerdictOf([at(0, '长门')], false, false)
+  const out = taihaVerdictOf([at(0, '长门')], false)
   assert.equal(out.tier, 'forced')
   assert.equal(out.flagship, '长门')
   assert.deepEqual([...out.others], [])
 })
 
-test('旗舰带 damecon：决定权回到玩家手里，照常红档且旗舰在名单里', () => {
-  const out = taihaVerdictOf([at(0, '长门'), at(3, '陆奥')], false, true)
-  assert.equal(out.tier, 'danger')
-  assert.deepEqual([...out.names], ['长门', '陆奥'])
+test('旗舰带女神：没有危险舰时是 insured 说明档', () => {
+  const out = taihaVerdictOf([at(0, '长门', 43)], false)
+  assert.deepEqual(out, { tier: 'insured', ships: [{ name: '长门', item: 43 }] })
 })
 
 test('联合二队旗舰大破 + 一队僚舰大破：危险名单只有僚舰', () => {
-  const out = taihaVerdictOf([at(2, '足柄'), at(6, '阿武隈')], true, false)
+  const out = taihaVerdictOf([at(2, '足柄'), at(6, '阿武隈')], true)
   assert.equal(out.tier, 'danger')
   // 二队旗舰受系统保护不会轰沉，把她写进「继续前进可能被击沉」就是错的决策信息。
   assert.deepEqual([...out.names], ['足柄'])
 })
 
 test('只有联合二队旗舰大破：保护说明档，不是红色警告', () => {
-  const out = taihaVerdictOf([at(6, '阿武隈')], true, false)
+  const out = taihaVerdictOf([at(6, '阿武隈')], true)
   assert.equal(out.tier, 'protected')
   assert.equal(out.escortFlagship, '阿武隈')
 })
 
 test('非联合时的位 6 是遊撃部隊的第七个人，照常算危险', () => {
   // 单队 7 舰没有第二队；剔除必须由联合标志把门，不能只看 index。
-  const out = taihaVerdictOf([at(6, '雪风')], false, false)
+  const out = taihaVerdictOf([at(6, '雪风')], false)
   assert.equal(out.tier, 'danger')
   assert.deepEqual([...out.names], ['雪风'])
 })
 
 test('联合一队旗舰大破仍是强制返航，不因为编成是联合就放行', () => {
-  const out = taihaVerdictOf([at(0, '大和'), at(6, '阿武隈')], true, false)
+  const out = taihaVerdictOf([at(0, '大和'), at(6, '阿武隈')], true)
   assert.equal(out.tier, 'forced')
   assert.equal(out.flagship, '大和')
   assert.deepEqual([...out.others], ['阿武隈'])
 })
 
-test('非旗舰带 damecon 不豁免：照常进红档名单', () => {
-  // 用户裁决口径：消耗女神本身就是要避免的大损失，红色警告成立。
-  // 判定函数只认旗舰那一位，第三参数说的就是旗舰。
-  const out = taihaVerdictOf([at(3, '陆奥')], false, false)
-  assert.equal(out.tier, 'danger')
-  assert.deepEqual([...out.names], ['陆奥'])
+test('非旗舰带女神：不进红档，进 insured 说明档', () => {
+  const out = taihaVerdictOf([at(3, '陆奥', 43)], false)
+  assert.deepEqual(out, { tier: 'insured', ships: [{ name: '陆奥', item: 43 }] })
 })
 
 test('没有大破舰就没有任何一档', () => {
-  assert.equal(taihaVerdictOf([], false, false), null)
-  assert.equal(taihaVerdictOf([], true, true), null)
+  assert.equal(taihaVerdictOf([], false), null)
+  assert.equal(taihaVerdictOf([], true), null)
 })
 
-test('优先级 forced > danger > protected，三档互斥', () => {
-  const all = [at(0, '大和'), at(2, '足柄'), at(6, '阿武隈')]
-  assert.equal(taihaVerdictOf(all, true, false).tier, 'forced')
-  assert.equal(taihaVerdictOf(all, true, true).tier, 'danger')
-  assert.equal(taihaVerdictOf([at(6, '阿武隈')], true, true).tier, 'protected')
+test('优先级 forced > danger > insured > protected，四档互斥且载荷各自完整', () => {
+  const all = [at(0, '大和'), at(2, '足柄'), at(3, '陆奥', 42), at(6, '阿武隈', 43)]
+  assert.deepEqual(taihaVerdictOf(all, true), {
+    tier: 'forced', flagship: '大和', others: ['足柄', '陆奥', '阿武隈'],
+  })
+  all[0].damecon = 43
+  assert.deepEqual(taihaVerdictOf(all, true), {
+    tier: 'danger', names: ['足柄'], insured: [{ name: '大和', item: 43 }, { name: '陆奥', item: 42 }],
+  })
+  assert.deepEqual(taihaVerdictOf(all.filter((ship) => ship.index !== 2), true), {
+    tier: 'insured', ships: [{ name: '大和', item: 43 }, { name: '陆奥', item: 42 }], escortFlagship: '阿武隈',
+  })
+  assert.deepEqual(taihaVerdictOf([all[3]], true), { tier: 'protected', escortFlagship: '阿武隈' })
+})
+
+test('只有多艘带损管的大破舰：insured 列全下一枚种类', () => {
+  assert.deepEqual(taihaVerdictOf([at(1, '长门', 42), at(3, '陆奥', 43)], false), {
+    tier: 'insured', ships: [{ name: '长门', item: 42 }, { name: '陆奥', item: 43 }],
+  })
+})
+
+test('下一枚先按常规格序、再增设，排序不修改快照', () => {
+  const equipment = [{ mstId: 43, slot: 'ex' }, { mstId: 43, slot: 3 }, { mstId: 42, slot: 1 }]
+  const before = structuredClone(equipment)
+  assert.equal(dameconOfShip(battleShip(2, equipment)), 42)
+  assert.deepEqual(equipment, before)
+  assert.equal(dameconOfShip(battleShip(2, [{ mstId: 5, slot: 0 }, { mstId: 43, slot: 'ex' }])), 43)
+})
+
+test('本场已发动移除第一枚：一枚归空、两枚取第二枚（不按发动 id 搜索）', () => {
+  const ship = battleShip(1, [{ mstId: 42, slot: 1 }])
+  assert.equal(dameconOfShip({ ...ship, repairItemUsed: 42 }), null)
+  ship.equipment.push({ mstId: 43, slot: 'ex' })
+  assert.equal(dameconOfShip({ ...ship, repairItemUsed: 42 }), 43)
+  assert.equal(dameconOfShip({ ...ship, repairItemUsed: 43 }), 43)
+  assert.equal(dameconOfShip({ ...ship, repairItemUsed: null }), 42)
+  assert.equal(flagshipHasDameconIn([{ ...ship, index: 0, equipment: [ship.equipment[0]], repairItemUsed: 42 }]), false)
+})
+
+test('旧快照退回账本按常规格加增设；显式空快照不回填', () => {
+  const ship = { index: 2, rosterId: 77 }
+  const ledger = {
+    ships: { 77: { slot: [11, 12], slotEx: 13 } },
+    slotitems: { 11: { mstId: 5 }, 12: { mstId: 43 }, 13: { mstId: 42 } },
+  }
+  assert.equal(dameconOfShip(ship, ledger), 43)
+  assert.equal(dameconOfShip({ ...ship, repairItemUsed: 43 }, ledger), 42)
+  assert.equal(dameconOfShip({ ...ship, equipment: [] }, ledger), null)
+  assert.equal(dameconOfShip(ship), null)
 })
 
 test('damecon 认 42 与 43，别的装备一律不算', () => {
@@ -201,13 +241,37 @@ test('单舰队第七位大破照旧是红条：遊撃部隊没有第二队', ()
   assert.match(html, /我舰7 大破 · 击沉风险/)
 })
 
-test('旗舰带女神时回到红条：这时真有得选', () => {
+test('旗舰带女神时不再出现红条：只说明消耗和不会击沉', () => {
   const fShips = Array.from({ length: 6 }, (_, i) => shipOf(i, `我舰${i + 1}`))
   fShips[0] = { ...fShips[0], hpEnd: 5, equipment: [{ mstId: 43, slot: 'ex' }] }
   const html = renderAlertBanner(sortieOf({ battle: battleOf({ fShips }) }))
-  assert.match(html, /verdict v-red/)
-  assert.match(html, /我舰1 大破 · 击沉风险/)
-  assert.doesNotMatch(html, /强制返航/)
+  assert.match(html, /verdict v-warn/)
+  assert.match(html, /我舰1 大破 · 带损管/)
+  assert.match(html, /进击会消耗女神 · 不会击沉/)
+  assert.match(html, /进击可用/)
+  assert.doesNotMatch(html, /强制返航|verdict v-red|撤退|击沉风险/)
+})
+
+test('镝 insured 多舰混装加二队旗舰：说明种类与系统保护，名字转义', () => {
+  const b = battleWithTaiha([2, 3, 6])
+  b.fShips[2].equipment = [{ mstId: 42, slot: 0 }]
+  b.fShips[3].equipment = [{ mstId: 43, slot: 'ex' }]
+  b.fShips[3].name = '<陆奥>'
+  const html = renderAlertBanner(sortieOf({ battle: b }))
+  assert.match(html, /我舰3、&lt;陆奥&gt; 大破 · 带损管/)
+  assert.match(html, /进击会消耗要员\/女神 · 不会击沉 · 二队旗舰我舰7无击沉风险/)
+  assert.doesNotMatch(html, /verdict v-red|撤退/)
+})
+
+test('镝 danger 红条只点无损管舰，副行在退避之后说明全部 insured', () => {
+  const b = battleWithTaiha([2, 3, 4, 6])
+  b.fShips[3].equipment = [{ mstId: 43, slot: 'ex' }]
+  b.fShips[4].equipment = [{ mstId: 42, slot: 0 }]
+  b.result = { rank: 'S', escapeOffer: { escape: [2], tow: [1], type: 1 } }
+  const html = renderAlertBanner(sortieOf({ battle: b }))
+  assert.match(html, /<b>我舰3 大破 · 击沉风险<\/b>/)
+  assert.match(html, /继续前进可能被击沉 · 可下达护卫退避 · 我舰4 带女神、我舰5 带要员：进击会消耗，不会击沉/)
+  assert.doesNotMatch(html, /我舰7/)
 })
 
 test('Boss 战后一切降为战损陈述，分档不抢它的优先级', () => {

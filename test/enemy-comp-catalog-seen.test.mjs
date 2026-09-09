@@ -6,7 +6,7 @@ import test from 'node:test'
 // 与 abyssal-id-pin / map-drop-windows 两处一样走构建产物（npm test 先 build）。
 import mapIntelModule from '../dist/shared/map-intel.js'
 
-const { catalogCompUnseen, catalogEncounterTally, catalogTallyText, compSignature } =
+const { catalogCompUnseen, catalogEncounterTally, catalogTallyText, compSignature, enemyCompShipLabel } =
   mapIntelModule
 
 // 镝「敌方编队」卡上，同一套编成过去会在「你的实测」与「确认目录」两段各显一遍。
@@ -19,6 +19,51 @@ const { catalogCompUnseen, catalogEncounterTally, catalogTallyText, compSignatur
 
 const comp = (ships, formation = '単縦', extra = {}) => ({ ships, formation, ...extra })
 const local = (...comps) => comps
+
+// ---------------------------------------------------------------- 确认编成的纯文本舰名
+
+test('舰名:优先保留 wiki 标注与形态注解', () => {
+  const labels = ['北方棲姫', '軽母ヌ級改flagship 艦載機鳥赤']
+  const one = comp([1588, '軽母ヌ級改'], '単縦', { labels })
+  const actual = one.ships.map((_, index) => enemyCompShipLabel(one, index, () => {
+    assert.fail('有标注时不该查询主数据名')
+  }))
+  assert.deepEqual(actual, labels)
+  for (const label of actual) assert.doesNotMatch(label, /</)
+})
+
+test('舰名:无 labels 的数字舰取主数据纯文本名', () => {
+  const label = enemyCompShipLabel(comp([1588]), 0, (id) => {
+    assert.equal(id, 1588)
+    return '北方棲姫'
+  })
+  assert.equal(label, '北方棲姫')
+  assert.doesNotMatch(label, /</)
+})
+
+test('舰名:主数据缺失时用编号兜底', () => {
+  const label = enemyCompShipLabel(comp([1588]), 0, () => undefined)
+  assert.equal(label, '#1588')
+  assert.doesNotMatch(label, /</)
+})
+
+test('舰名:labels 比 ships 短时越界位退回主数据名', () => {
+  const one = comp([1501, 1588], '単縦', { labels: ['駆逐イ級'] })
+  const label = enemyCompShipLabel(one, 1, (id) => {
+    assert.equal(id, 1588)
+    return '北方棲姫'
+  })
+  assert.equal(label, '北方棲姫')
+  assert.doesNotMatch(label, /</)
+})
+
+test('舰名:旧格式字符串舰原样保留', () => {
+  const label = enemyCompShipLabel(comp(['軽母ヌ級改flagship 艦載機鳥赤']), 0, () => {
+    assert.fail('字符串舰不该查询主数据名')
+  })
+  assert.equal(label, '軽母ヌ級改flagship 艦載機鳥赤')
+  assert.doesNotMatch(label, /</)
+})
 
 // ---------------------------------------------------------------- 判据本体
 
@@ -137,6 +182,16 @@ test('实测有、目录没有的编成:不受影响,也不会挂勾', () => {
 // ---------------------------------------------------------------- 接线与文案
 
 const di = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
+
+test('接线:confirmedEnemyCompsHtml 只把纯文本舰名交给外层链接', () => {
+  // 判据作用范围仅为 confirmedEnemyCompsHtml 函数体；
+  // myCompsHtml 的 .map(enemyName) 本来就需要 HTML，不在本条范围内。
+  const body = di.match(/const confirmedEnemyCompsHtml = \([\s\S]*?=> \{([\s\S]*?)\n\}/)?.[1]
+  assert.ok(body, 'confirmedEnemyCompsHtml 函数体锚点没对上')
+  assert.match(body, /const label = enemyCompShipLabel\(comp, index, \(id\) => mg\.master\.ships\[id\]\?\.name\)/)
+  assert.match(body, /elink\('abyssShip', id, label\)/)
+  assert.doesNotMatch(body, /enemyName\(ship\)/)
+})
 
 test('接线:两段共用同一份对照,不许各算一次', () => {
   // 各算一次早晚漂移成「实测挂了勾、目录里那套却还列着」

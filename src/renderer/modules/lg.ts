@@ -37,14 +37,16 @@ import {
 } from '../kernel'
 import { DAMAGE_TIER_WORDS, damageTierOf } from '../../shared/battle-damage'
 import { ACCOUNT_CHANGED_MESSAGE } from '../../shared/account-change'
+import { mapIdOf } from '../../shared/map-id'
 import {
   ESCORT_FLAGSHIP_INDEX,
-  flagshipHasDameconIn,
+  dameconOfShip,
   isTaihaShip,
   taihaVerdictOf,
 } from '../../shared/taiha-verdict'
 import { navigate } from '../link'
 import { entityNamePlain } from '../localization'
+import { ensureMapCellLetters, mapPlaceText } from '../map-cell-letter'
 import { activateModule, registerModule } from '../mu'
 import { observeOwnedShips } from '../ship-first-owned'
 
@@ -114,6 +116,7 @@ const EVENTS: EventDef[] = [
   { id: 'questReset', label: '重置前任务未清', note: '日/周/月同规则 · 重置前 2 小时', sev: 'warn', icon: '⏰', jump: 'qn', jumpLabel: '任务面板' },
   { id: 'newShip', label: '新舰入库', note: '首次入库 · 提醒上锁', sev: 'gold', icon: '★', jump: 'ji', jumpLabel: '舰娘图鉴', na: ['system', 'sound'] },
   { id: 'damecon', label: '应急修理发动', note: '同一舰同一战只报一次', sev: 'ok', icon: '修', jump: 'di', jumpLabel: '战斗详情', refLabel: '战斗详情' },
+  { id: 'anchorageRepair', label: '紧急泊地修理', note: '每次一条', sev: 'ok', icon: '修', jump: 'di', jumpLabel: '战斗详情', refLabel: '战斗详情' },
   { id: 'shipSunk', label: '舰娘被击沉', note: '无条件 · 每舰一次', sev: 'crit', icon: '沈', jump: 'di', jumpLabel: '战斗详情', refLabel: '战斗详情' },
   // 婚礼只可能是你亲手点的，人必在机前——系统通知与声音这两路没有意义（同新舰）。
   { id: 'marriage', label: '婚舰 · 结为誓约', note: 'ケッコンカッコカリ 结为誓约时即报 · 每次一条', sev: 'gold', icon: '誓', jump: 'ji', jumpLabel: '舰娘图鉴', refLabel: '舰娘列表', na: ['system', 'sound'] },
@@ -151,6 +154,7 @@ const DEFAULT_RULES: Record<string, Routes> = {
   // 这两件都发生在「你正盯着战斗」的时候，靠置顶横幅就够；升级路由留给用户自己开。
   // push 一律不进默认名单——默认开的只有那四类「几点该回来」的时刻事件。
   damecon: { badge: true, toast: true, system: false, sound: false, push: false },
+  anchorageRepair: { badge: true, toast: true, system: false, sound: false, push: false },
   shipSunk: { badge: true, toast: true, system: true, sound: false, push: false },
   // 婚礼：横幅接管前台，其余保守。push 一律不进默认名单（同上）。
   marriage: { badge: true, toast: true, system: false, sound: false, push: false },
@@ -233,6 +237,7 @@ const jumpLabelOf = (def: EventDef, ref?: EntityRef) =>
 // 横幅色调。绿色两档专属应急修理：要員(42)＝深玉绿，女神(43)＝亮玉绿，
 // 两档 ΔE 26.1（token 与实算见 index.html 的 --damecon-crew / --damecon-goddess）。
 // wedding＝ケッコンカッコカリ 的粉（--wedding），全屏唯一的粉色。
+// 紧急泊地修理复用 repair 的要員色，区别由标题说明。
 type BannerTone = 'celebrate' | 'danger' | 'repair' | 'goddess' | 'wedding'
 
 interface EventBanner {
@@ -247,6 +252,7 @@ const BANNER_TONE: Record<string, BannerTone> = {
   taiha: 'danger',
   newShip: 'celebrate',
   marriage: 'wedding',
+  anchorageRepair: 'repair',
 }
 
 // 堆叠次序（flex order，与到达顺序无关）。严重度：婚礼 > 应急修理 > 大破 > 新舰。
@@ -1516,6 +1522,8 @@ const detectNewShips = () => {
 let taihaSeen = new Set<string>()
 // protected 档（只有联合二队旗舰大破）另有一层**出击级**去重，见下面 detectTaiha 里的注释。
 let protectedTaihaSeen = new Set<string>()
+// insured 档也按出击、按舰去重；与二队旗舰的系统保护分别记账。
+let insuredTaihaSeen = new Set<string>()
 // 上一次已经喊过的对账更正。键含 startTs，所以「回港那一帧没走到」直接开下一趟
 // 也不会把新出击的第一次更正误当成旧的（那时 startTs 已经变了）。
 let taihaCorrectionSeen = ''
@@ -1525,6 +1533,7 @@ const detectTaiha = () => {
     if (!s?.active) {
       taihaSeen = new Set()
       protectedTaihaSeen = new Set()
+      insuredTaihaSeen = new Set()
       taihaCorrectionSeen = ''
       if (heldQueue.length && !dndActive()) flushHeld() // 归港：送达暂留
     }
@@ -1554,9 +1563,8 @@ const detectTaiha = () => {
   // 该喊撤退、还是该说「没有进击选项」/「她不会被击沉」——判据与出处见
   // shared/taiha-verdict，与镝的警告条同一份，别在这儿另算一遍。
   const verdict = taihaVerdictOf(
-    taiha.map((ship, at) => ({ index: ship.index, name: names[at] })),
+    taiha.map((ship, at) => ({ index: ship.index, name: names[at], damecon: dameconOfShip(ship, mg) })),
     s.battle.fShips.some((ship) => ship.fleet === 'escort'),
-    flagshipHasDameconIn(s.battle.fShips, mg),
   )
   if (!verdict) return
   // protected 档**整趟出击只说一次**：她受系统保护不会被击沉，这个事实不随战斗变化，
@@ -1580,12 +1588,22 @@ const detectTaiha = () => {
     if (protectedTaihaSeen.has(key) && !correcting) return
     protectedTaihaSeen.add(key)
   }
-  const signature = `${s.battleCount}:${taiha
+  // 带损管这个事实不随战斗变化，整趟每舰只说明一次（对账更正也不重复说明）。
+  // 消耗了会由「应急修理发动」那条报；之后变成 danger 照常红发，不走这道闸。
+  const freshInsured = verdict.tier === 'insured'
+    ? taiha.filter((ship) =>
+        !(s.battle!.fShips.some((entry) => entry.fleet === 'escort') && ship.index === ESCORT_FLAGSHIP_INDEX) &&
+        !insuredTaihaSeen.has(`${s.startTs}:${ship.rosterId ?? ship.index}`))
+    : []
+  if (verdict.tier === 'insured' && !freshInsured.length) return
+  // 档位也入键：同场消耗最后一枚后从 insured 变 danger，仍须红发。
+  const signature = `${s.startTs}:${s.battleCount}:${verdict.tier}:${taiha
     .map((ship) => ship.rosterId ?? ship.index)
     .sort((a, b) => a - b)
     .join(',')}`
   if (taihaSeen.has(signature) && !correcting) return
   taihaSeen.add(signature)
+  for (const ship of freshInsured) insuredTaihaSeen.add(`${s.startTs}:${ship.rosterId ?? ship.index}`)
 
   const lead = taiha[0]
   // 大破跳镝（战斗详情）而非舰娘图鉴——当下要看的是这一战的局面，不是这艘舰的资料
@@ -1606,17 +1624,23 @@ const detectTaiha = () => {
         ]
       : verdict.tier === 'protected'
         ? [`二队旗舰${verdict.escortFlagship}大破`, ' · 无击沉风险']
-        : [
+        : verdict.tier === 'insured'
+          ? [
+              `${nameList(freshInsured.map((ship) => entityNamePlain('ship', ship.mstId, ship.name)))}大破 · 带损管`,
+              ' · 进击会消耗，不会击沉',
+            ]
+          : [
             `${nameList(verdict.names)}大破 · 撤退`,
-            verdict.names.length > 1 ? ` · ${verdict.names.join('、')}` : '',
+            (verdict.names.length > 1 ? ` · ${verdict.names.join('、')}` : '') +
+              (verdict.insured.length ? ` · ${verdict.insured.map((ship) => `${ship.name} ${ship.item === 42 ? '带要员' : '带女神'}`).join('、')}` : ''),
           ]
   notify(
     'taiha',
     title,
-    // 标题按三档照旧；「修正：」只加在正文头上，让人知道这是对账后的改口。
+    // 标题按四档；「修正：」只加在正文头上，让人知道这是对账后的改口。
     `${correcting ? '修正：' : ''}${s.mapArea}-${s.mapNo} ${atBoss ? 'Boss 战' : `第 ${s.battleCount} 战`}${tail}`,
     ref,
-    atBoss ? { banner: false, priority: 'normal' } : undefined,
+    atBoss ? { banner: false, priority: 'normal' } : verdict.tier === 'insured' ? { priority: 'normal' } : undefined,
   )
 }
 
@@ -1688,6 +1712,30 @@ const dameconNotice = (
     ship.rosterId != null ? { type: 'battleCurrent', id: ship.rosterId } : undefined,
     { bannerTone: goddess ? 'goddess' : 'repair', icon: goddess ? '神' : '修' },
   ]
+}
+
+// 紧急泊地修理：直接读本包已更新的修理记录，不依赖下一战或 ship_deck。
+let anchorageRepairSeen = new Set<string>()
+const detectAnchorageRepair = () => {
+  const s = mg.sortie
+  if (!s || !s.active || s.practice) {
+    if (!s?.active) anchorageRepairSeen = new Set()
+    return
+  }
+  for (const repair of s.anchorageRepairs ?? []) {
+    const signature = `${s.startTs}:${repair.cell}:${repair.ts}`
+    if (anchorageRepairSeen.has(signature)) continue
+    anchorageRepairSeen.add(signature)
+    const repairer = entityNamePlain('ship', repair.repairerMst, mg.master.ships[repair.repairerMst]?.name ?? `#${repair.repairerMst}`)
+    const entries = repair.ships
+    const healed = entries.reduce((sum, ship) => sum + Math.max(0, ship.after - ship.before), 0)
+    const ships = entries.map((ship) => `${entityNamePlain('ship', ship.mstId, ship.name)} ${ship.before}→${ship.after}`).join('、')
+    notify(
+      'anchorageRepair',
+      `泊地修理 · ${repairer}${entries.length ? ` · ${entries.length} 艘 +${healed}` : ''}`,
+      `${mapPlaceText(mapIdOf(s.mapArea, s.mapNo), repair.cell)}${ships ? ` · ${ships}` : ''}`,
+    )
+  }
 }
 
 // 击沉。判据与失色/碎裂视觉同源——都读内核的 sortieSunkShips()，
@@ -2008,6 +2056,7 @@ registerModule({
   order: 8.5,
   mount(el) {
     pane = el
+    ensureMapCellLetters()
     new ResizeObserver(() => {
       const app = pane?.querySelector('.lg-app')
       if (app && pane) app.classList.toggle('narrow', pane.clientWidth < 700)
@@ -2111,6 +2160,7 @@ registerModule({
         // 次序即记录次序：应急修理在前（它是「刚才差点沉了」），大破在后。
         // 横幅的**堆叠**次序不靠这里，由 BANNER_ORDER 的 flex order 保证。
         detectDamecon()
+        detectAnchorageRepair()
         detectSunk()
         detectTaiha() // 归港时它顺带送达暂留队列
         // 出击自动勿扰随 sortie 起停：不同步的话托盘勾选停在「勿扰关」，

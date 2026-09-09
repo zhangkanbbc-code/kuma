@@ -155,7 +155,7 @@ test('Electron 只出现在装配层，引擎与装配的分工不许回潮', as
 
 // ---- 点位校准表 ----
 
-test('九行点位表每一行都能从 poi-fcd 算出入边，没有一行是孤证', {
+test('十行点位表每一行都能从 poi-fcd 算出入边，没有一行是孤证', {
   skip: !fcd && 'poi-fcd-map 包缺失',
 }, () => {
   const derived = {}
@@ -176,6 +176,7 @@ test('九行点位表每一行都能从 poi-fcd 算出入边，没有一行是�
     '7-3 P1': '5,8',
     '7-3 P2': '18,23,24,25',
     '7-4 O': '15',
+    '7-4 P': '16,21,22,23',
     '7-5 P2': '19',
     '7-5 P3': '24,25',
   })
@@ -218,7 +219,7 @@ test('点位表与账本观测到的 Boss 格不矛盾', {
     assert.deepEqual(
       unexplained,
       [],
-      '账本观测到表解释不了的 Boss 格：海图多了血条，9 行表该补行了',
+      '账本观测到表解释不了的 Boss 格：10 行表该核对并补行了',
     )
     // 7-2 是本机唯一两个血条都有实测的图：G/M 两格都必须在观测集合里
     const seen72 = observed.get(72)
@@ -244,6 +245,12 @@ test('表里没有的写法一律吐 null，绝不默认取末血条', () => {
   assert.equal(nodes.questMapNeedsGauge([7, 3]), true)
   assert.equal(nodes.questMapNeedsGauge([7, 5]), true)
   assert.equal(nodes.questMapNeedsGauge([1, 6]), false)
+  // 7-4 是单血条图，Boss 按字母 P 登记，不计入多血条的 P1/P2/P3 行。
+  assert.equal(nodes.questMapGaugeCount([7, 4]), 0)
+  assert.equal(nodes.questMapNeedsGauge([7, 4]), false)
+})
+
+test('7-4 裸引用不歧义', () => {
   assert.equal(nodes.questMapNeedsGauge([7, 4]), false)
 })
 

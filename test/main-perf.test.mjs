@@ -294,6 +294,7 @@ const mountWebRequest = (threshold, { accessMs = 60, missing = false, staticReso
   const unusedModules = new Set([
     './game-api-broadcaster', '../shared/kcs-bgm', './bgm-archive', '../shared/ship-art-path',
     './ship-art-store', './voice-archive', './art-archive', '../shared/art-archive-plan',
+    './asset-archive', '../shared/asset-archive-plan',
   ])
   vm.runInNewContext(compiledMain('kcs-resource'), {
     module, exports: module.exports, URL, performance: h.performance,

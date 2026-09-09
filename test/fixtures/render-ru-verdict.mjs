@@ -46,11 +46,15 @@ const VERDICT = cut(
 
 const TAIHA_VERDICT = path.join(ROOT, 'src', 'shared', 'taiha-verdict.ts').replace(/\\/g, '/')
 
+// 损管抬头/装备格护栏：编成范围、计数与 HTML 跑原码；其他度量及装备图标只补桩。
+const METRICS = cut('const metricsHtml = ', '// ---- 舰队面板构件 ----', '编队抬头度量')
+const EQUIP = cut('const equipChips = ', '// 展开区的度量行（06 稿）', '装备格')
+const FOLD_ORDER = source.match(/const FLEET_METRIC_FOLD_ORDER = [^\n]+/)[0]
+
 const HARNESS = `
 import {
   ESCORT_FLAGSHIP_INDEX,
   FLAGSHIP_INDEX,
-  hasDameconEquipped,
   taihaVerdictOf,
   type TaihaShipRef,
 } from '${TAIHA_VERDICT}'
@@ -62,7 +66,7 @@ export const mg: any = {
   decks: [],
   ships: {},
   slotitems: {},
-  master: { ships: {} },
+  master: { ships: {}, slotitems: {}, stypes: {} },
   combinedFlag: 0,
   sortie: null,
 }
@@ -96,7 +100,26 @@ const sallyFlagHtml = (_ships: any) => ''
 ${FLEET_SHIPS}
 ${VERDICT}
 
-export { verdictHtml, sortieTaihaTier, inCombined, scopeShips }
+const STYPE_CODE = {}
+const entityNamePlain = (_kind: string, _id: number, name: string) => name
+const fleetAirPower = () => ({ min: 0, max: 0, basic: 0 })
+const fleetLos33 = () => ({ total: 0 })
+const activeEventTpRuleOf = () => null
+const eventTpTableOf = () => undefined
+const fleetTp = () => ({ s: 0, a: 0, excludedShips: 0 })
+${FOLD_ORDER}
+const metricsRowHtml = (_row: string, _order: string[], chips: string[]) => chips.join('')
+${METRICS}
+const hangarExpansionOf = () => 0
+const isAviationEquipType = () => false
+const planeLoadBand = () => null
+const hangarSlotCapacity = () => 0
+const equipTypeIconHtml = (_id: number, options: any = {}) =>
+  '<span class="equip-icon ' + (options.className ?? '') + '">' + (options.overlay ?? '') + '</span>'
+const equipPeekIconHtml = (_id: number, icon: number, _name: string, options: any) => equipTypeIconHtml(icon, options)
+${EQUIP}
+
+export { verdictHtml, sortieTaihaTier, inCombined, scopeShips, metricsHtml, equipChips, FLEET_METRIC_FOLD_ORDER }
 `
 
 const bundle = (() => {
@@ -164,3 +187,8 @@ export const setLedger = ({
 export const deckById = (id) => loaded.mg.decks.find((deck) => deck.id === id)
 export const renderVerdict = (deckId = 1) => loaded.verdictHtml(deckById(deckId))
 export const taihaTier = (deckId = 1) => loaded.sortieTaihaTier(deckById(deckId))
+export const renderMetrics = (deckId = 1) => loaded.metricsHtml(deckById(deckId))
+export const renderEquip = (rosterId) => loaded.equipChips(loaded.mg.ships[rosterId])
+export const setMaster = (master) => { Object.assign(loaded.mg.master, master) }
+export const setSortie = (sortie) => { loaded.mg.sortie = sortie }
+export const metricFoldOrder = loaded.FLEET_METRIC_FOLD_ORDER

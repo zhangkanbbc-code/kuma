@@ -78,7 +78,19 @@ const ANCHORAGE = asReducer(
   '泊地修理 reducer',
 )
 
+// 连同 index 的归约→类目/detail 装配原样执行，验证读取的是本包刚写入的末条。
+const indexSource = fs.readFileSync(path.join(ROOT, 'src/main/mg/index.ts'), 'utf8').replace(/\r\n/g, '\n')
+const indexPart = (from, to) => {
+  const start = indexSource.indexOf(from)
+  const end = indexSource.indexOf(to, start)
+  assert.ok(start >= 0 && end > start, '账本类目与归约后 detail 装配锚点必须存在')
+  return indexSource.slice(start, end)
+}
+
 const HARNESS = `
+import { ANCHORAGE_REPAIR_STEEL_PER_HP } from '${path.join(ROOT, 'src/shared/anchorage-repair.ts').replace(/\\/g, '/')}'
+import { createDeltaCategoryTrackers, resolveDeltaCategory } from '${path.join(ROOT, 'src/shared/material-delta-detail.ts').replace(/\\/g, '/')}'
+import { mapIdOf } from '${path.join(ROOT, 'src/shared/map-id.ts').replace(/\\/g, '/')}'
 type PlayerShip = any
 type SortieView = any
 type SortieAnchorageRepair = any
@@ -105,6 +117,19 @@ ${INCREMENT_USEITEM}
 ${NEW_SORTIE}
 
 ${ANCHORAGE}
+
+const ITEM_USE_CATEGORY = '使用道具'
+${indexPart('const DELTA_CATEGORY:', '// 用道具 →')}
+export const anchorageDelta = (body: any, ts: number) => {
+  const apiPath = '/kcsapi/api_req_map/anchorage_repair'
+  const postBody = {}, detailBefore = {}, expeditionMissionId = 0, expeditionDeckId = 0
+  const prevMaterials = state.player.materials?.slice()
+  const deltaCategoryTrackers = createDeltaCategoryTrackers()
+  const store = { getState: () => state, handle: (_api: string, body: any, post: any, ts: number) => anchorageRepair(body, post, ts) }
+  const timeMain = (_label: string, fn: () => any) => fn()
+  ${indexPart("const sections = timeMain('api:state'", '  const powerupResult =')}
+  return deltaResolution
+}
 
 export { newSortie }
 `
@@ -158,6 +183,8 @@ export const reset = (ships = {}, options = {}) => {
 /** 喂一条泊地修理报文，返回 reducer 报出的 section 列表。 */
 export const feedAnchorageRepair = (body, ts = 1_700_000_000_000) =>
   loaded.anchorageRepair(body, {}, ts)
+
+export const feedAnchorageDelta = (body, ts = 1_700_000_000_000) => loaded.anchorageDelta(body, ts)
 
 export const state = () => loaded.state
 export const materials = () => loaded.state.player.materials

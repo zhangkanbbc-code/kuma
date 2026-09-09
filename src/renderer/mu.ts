@@ -209,6 +209,37 @@ const modById = (id: string) => modules.find((m) => m.id === id)
 const dockEl = (dock: DockId) => document.querySelector<HTMLElement>(`.dock[data-dock="${dock}"]`)!
 const splitEl = (dock: DockId) => document.querySelector<HTMLElement>(`.splitter[data-split="${dock}"]`)!
 
+// 只锁分隔条；布局重排与其他入口仍照常工作，偏好独立于 layout.v3 保存。
+// 续补鼠标折叠与把手展开的锁定；激活模块时自动展开仍属导航行为。
+let layoutLocked: boolean = uiGet('layout.locked', false)
+export const isLayoutLocked = (): boolean => layoutLocked
+const syncLayoutLock = () => {
+  document.querySelector('#app')!.classList.toggle('layout-locked', layoutLocked)
+  document.querySelector('#btn-layout-lock')!.classList.toggle('on', layoutLocked)
+  const labels = { left: '左坞', right: '右坞', bottom: '底坞' }
+  for (const dock of DOCKS) {
+    splitEl(dock).title = layoutLocked ? '布局已锁定' : `拖动调整${labels[dock]} · 双击折叠`
+    dockEl(dock).querySelectorAll<HTMLElement>('.dock-stub').forEach((stub) => {
+      stub.title = layoutLocked ? '布局已锁定' : `展开${DOCK_LABEL[dock]}`
+    })
+  }
+  document.querySelectorAll<HTMLElement>('.dock-fold-btn').forEach((fold) => {
+    fold.title = layoutLocked ? '布局已锁定' : '折叠此坞（导航条点元素可再展开）'
+  })
+  document.querySelectorAll<HTMLElement>('.splitter.g[data-gsplit]').forEach((sp) => {
+    sp.title = layoutLocked ? '布局已锁定' : '拖动调整两格比例'
+  })
+}
+export const setLayoutLocked = (on: boolean) => {
+  layoutLocked = on
+  uiSet('layout.locked', layoutLocked)
+  syncLayoutLock()
+}
+export const toggleLayoutLock = (): boolean => {
+  setLayoutLocked(!layoutLocked)
+  return layoutLocked
+}
+
 // 模块所在的 {坞, 格序号}
 const locate = (id: string): { dock: DockId; gi: number } | null => {
   for (const dock of DOCKS) {
@@ -267,7 +298,7 @@ const groupToolsHtml = (dock: DockId, gi: number, fold: boolean) => {
       : ''
   return (
     compact +
-    (fold ? `<span class="dock-fold-btn" data-fold="1" title="折叠此坞（导航条点元素可再展开）">×</span>` : '')
+    (fold ? `<span class="dock-fold-btn" data-fold="1" title="${layoutLocked ? '布局已锁定' : '折叠此坞（导航条点元素可再展开）'}">×</span>` : '')
   )
 }
 
@@ -349,14 +380,14 @@ const layoutDock = (dock: DockId) => {
       const sp = document.createElement('div')
       sp.className = `splitter g ${dock === 'bottom' ? 'v' : 'h'}`
       sp.dataset.gsplit = `${gi}`
-      sp.title = '拖动调整两格比例'
+      sp.title = layoutLocked ? '布局已锁定' : '拖动调整两格比例'
       el.appendChild(sp)
     }
   })
   // 收起时留一条带模块名的把手（否则用户找不到怎么再打开）
   const stub = document.createElement('div')
   stub.className = 'dock-stub'
-  stub.title = `展开${DOCK_LABEL[dock]}`
+  stub.title = layoutLocked ? '布局已锁定' : `展开${DOCK_LABEL[dock]}`
   stub.innerHTML =
     `<span class="st-h">${DOCK_LABEL[dock]}</span>` +
     groups
@@ -365,7 +396,10 @@ const layoutDock = (dock: DockId) => {
       .map((id) => `<span class="st-c">${modById(id)?.title ?? ''}</span>`)
       .join('') +
     `<span class="st-a">${dock === 'bottom' ? '▴' : dock === 'left' ? '▸' : '◂'}</span>`
-  stub.addEventListener('click', () => setCollapsed(dock, false))
+  stub.addEventListener('click', () => {
+    if (layoutLocked) return
+    setCollapsed(dock, false)
+  })
   el.appendChild(stub)
   applyDockChrome(dock)
   refreshRail()
@@ -878,8 +912,12 @@ const beginDrag = (cursor: string, apply: (x: number, y: number) => void, onDone
 // 坞尺寸分隔条
 const wireDockSplitter = (dock: DockId) => {
   const el = splitEl(dock)
-  el.addEventListener('dblclick', () => setCollapsed(dock, !layout.collapsed[dock]))
+  el.addEventListener('dblclick', () => {
+    if (layoutLocked) return
+    setCollapsed(dock, !layout.collapsed[dock])
+  })
   el.addEventListener('mousedown', (down) => {
+    if (layoutLocked) return
     down.preventDefault()
     if (layout.collapsed[dock]) setCollapsed(dock, false)
     beginDrag(
@@ -902,6 +940,7 @@ const wireDockSplitter = (dock: DockId) => {
 // 格间分隔条（底坞横向、左右坞纵向）
 const wireGroupSplitters = () => {
   document.addEventListener('mousedown', (e) => {
+    if (layoutLocked) return
     const sp = (e.target as HTMLElement).closest<HTMLElement>('.splitter.g[data-gsplit]')
     if (!sp) return
     e.preventDefault()
@@ -1059,6 +1098,7 @@ export const initModules = () => {
   layoutAll()
   for (const dock of DOCKS) wireDockSplitter(dock)
   wireGroupSplitters()
+  syncLayoutLock()
 
   // 格工具条：紧凑开关 + 折叠坞
   document.addEventListener('click', (e) => {
@@ -1069,6 +1109,7 @@ export const initModules = () => {
     }
     const fold = (e.target as HTMLElement).closest<HTMLElement>('.dock-fold [data-fold]')
     if (!fold) return
+    if (layoutLocked) return
     const dock = (fold.closest('.dock') as HTMLElement).dataset.dock as DockId
     setCollapsed(dock, true)
   })

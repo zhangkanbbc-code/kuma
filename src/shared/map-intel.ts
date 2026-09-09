@@ -88,6 +88,21 @@ export interface ConfirmedEnemyComp {
 }
 
 /**
+ * 确认编成的舰名一律纯文本，链接与翻译由调用方套；
+ * 此前无标注行退回 HTML，被外层二次转义后显示成标签原文。
+ */
+export const enemyCompShipLabel = (
+  comp: ConfirmedEnemyComp,
+  index: number,
+  masterName: (id: number) => string | undefined,
+): string => {
+  const label = comp.labels?.[index]
+  if (label != null) return label
+  const ship = comp.ships[index]
+  return typeof ship === 'number' ? (masterName(ship) ?? `#${ship}`) : ship
+}
+
+/**
  * 一套确认编成的 mstId 序列；拿不到就是 null，调用方据此整套跳过。
  *
  * 两种来源：维护期定号写下的 shipIds，或者资料本来就是数字（内置样例、

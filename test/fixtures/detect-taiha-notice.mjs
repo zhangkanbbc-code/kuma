@@ -44,14 +44,16 @@ const DETECT_TAIHA = cut(
 )
 
 const TAIHA_VERDICT = path.join(ROOT, 'src', 'shared', 'taiha-verdict.ts').replace(/\\/g, '/')
+const MAP_ID = path.join(ROOT, 'src', 'shared', 'map-id.ts').replace(/\\/g, '/')
 
 const HARNESS = `
 import {
   ESCORT_FLAGSHIP_INDEX,
-  flagshipHasDameconIn,
+  dameconOfShip,
   isTaihaShip,
   taihaVerdictOf,
 } from '${TAIHA_VERDICT}'
+import { mapCodeOf, mapIdOf } from '${MAP_ID}'
 
 type BattleShipView = any
 type EntityRef = any
@@ -72,6 +74,10 @@ const notify = (
 // 与去重无关，给最平淡的桩。
 const entityNamePlain = (_kind: string, _id: number, name: string) => name
 
+// 点位文案桩只覆盖一个测试点；其余点按未覆盖的编号形状返回，不猜字母。
+const mapPlaceText = (map: number, cell: number) =>
+  mapCodeOf(map) + ' ' + (map === 55 && cell === 7 ? 'O' : '#' + cell) + ' 点'
+
 // 勿扰暂留队列：detectTaiha 只在「归港」那一支碰它。空队列 = 没有待补发的，
 // 也就是这份护栏关心的默认局面。
 const heldQueue: any[] = []
@@ -80,7 +86,9 @@ const flushHeld = () => {}
 
 ${DETECT_TAIHA}
 
-export { detectTaiha }
+${cut('// 紧急泊地修理：', '// 击沉。判据', '泊地修理探测（含去重集合）')}
+
+export { detectTaiha, detectAnchorageRepair }
 `
 
 const bundle = (() => {
@@ -109,6 +117,14 @@ export const runDetect = (sortie) => {
   loaded.mg.sortie = sortie
   const before = loaded.sent.length
   loaded.detectTaiha()
+  return loaded.sent.slice(before)
+}
+
+export const runDetectAnchorage = (sortie, masterShips = {}) => {
+  loaded.mg.sortie = sortie
+  loaded.mg.master.ships = masterShips
+  const before = loaded.sent.length
+  loaded.detectAnchorageRepair()
   return loaded.sent.slice(before)
 }
 

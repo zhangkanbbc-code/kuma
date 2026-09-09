@@ -7,6 +7,7 @@
 //
 // 整个模块真编译，只把 kernel 换成桩：`registerViewSettler` 要到
 // `installSectionFolding` 里才会被调用，这份护栏不碰它。
+// 作用域护栏也复用整模块：安装时把同步施加回调留在假根上，供换页后重放。
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -21,7 +22,7 @@ const bundle = (() => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-section-fold-'))
   fs.writeFileSync(
     path.join(dir, 'kernel.ts'),
-    'export const registerViewSettler = (_root: unknown, _fn: () => void) => {}\n',
+    'export const registerViewSettler = (root: any, fn: () => void) => { root.settle = fn }\n',
   )
   fs.copyFileSync(
     path.join(ROOT, 'src', 'renderer', 'section-fold.ts'),
@@ -43,3 +44,5 @@ const loaded = createRequire(import.meta.url)(bundle)
 
 export const sectionIsOpen = loaded.sectionIsOpen
 export const toggleSectionFold = loaded.toggleSectionFold
+export const installSectionFolding = loaded.installSectionFolding
+export const revealSection = loaded.revealSection

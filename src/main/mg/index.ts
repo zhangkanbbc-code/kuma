@@ -64,7 +64,8 @@ import {
   clearBgmArchive,
   keepBgmBlob,
 } from '../bgm-archive'
-import { captureDisplayedArt, captureDisplayedVoice } from '../archive-capture'
+import { assetArchiveEntries, assetArchiveStats, clearAssetArchive, keepAssetBlob } from '../asset-archive'
+import { captureDisplayedAsset, captureDisplayedArt, captureDisplayedVoice, captureDisplayedBgm } from '../archive-capture'
 import { clearVoiceAbsent, probeVoiceSlot, voiceAbsentEntries } from '../voice-probe'
 import {
   applySlotitemInventoryMutation,
@@ -247,6 +248,7 @@ const DELTA_CATEGORY: Record<string, string> = {
   '/kcsapi/api_req_air_corps/supply': '基地航空队',
   '/kcsapi/api_req_map/start': '海域资源点',
   '/kcsapi/api_req_map/next': '海域资源点',
+  '/kcsapi/api_req_map/anchorage_repair': '紧急泊地修理',
   '/kcsapi/api_port/port': '母港校准',
   // 用道具的资源**不在这两条回包里**（payitemuse 只回一个标志位，itemuse 本机零资源样本），
   // 到账走的是紧随其后的 api_get_member/material——归属判据在 shared/item-use-materials。
@@ -354,6 +356,10 @@ const handleEvent = (
       ? store.getState().player.decks.find((deck) => deck.id === expeditionDeckId)?.mission?.[1] ?? 0
       : 0
   const prevMaterials = store.getState().player.materials
+  const offshoreBefore = apiPath === '/kcsapi/api_req_map/next' &&
+    (Number(postBody.api_supply_flag) === 1 || (body as any)?.api_offshore_supply)
+    ? Object.values(store.getState().player.ships).map(({ id, fuel, bull }) => ({ id, fuel, bull }))
+    : null
   // 解体、改造、改修、入渠加速都可能抹掉所需对象，只截取本次涉及的 id。
   const detailBefore: NonNullable<DeltaDetailContext['before']> = { ships: {} }
   const detailShipIds = apiPath === '/kcsapi/api_req_kousyou/destroyship'
@@ -387,6 +393,18 @@ const handleEvent = (
     delta: prevMaterials && deltaMaterials ? deltaMaterials.map((value, i) => value - prevMaterials[i]) : [],
     categories: DELTA_CATEGORY,
   })
+  if (apiPath === '/kcsapi/api_req_map/anchorage_repair') {
+    const sortie = store.getState().sortie
+    const repair = sortie?.anchorageRepairs.at(-1)
+    if (sortie && repair) {
+      deltaResolution.detail = {
+        kind: 'anchorageRepair', map: mapIdOf(sortie.mapArea, sortie.mapNo),
+        cell: repair.cell, repairer: repair.repairerMst, ships: repair.ships.length,
+        healed: repair.ships.reduce((sum, ship) => sum + Math.max(0, ship.after - ship.before), 0),
+        steel: repair.steel, estimated: true,
+      }
+    }
+  }
   const powerupResult =
     apiPath === '/kcsapi/api_req_kaisou/powerup'
       ? buildPowerupResultCue(
@@ -476,10 +494,27 @@ const handleEvent = (
 
   // 资源变动记入 material_log（锱的曲线数据源）+ material_delta（收支分解数据源）
   const materials = store.getState().player.materials
-  if (sections.includes('materials') && materials && `${materials}` !== `${prevMaterials}`) {
-    ledger.logMaterials(ts, materials)
+  if (sections.includes('materials') && materials && (`${materials}` !== `${prevMaterials}` || offshoreBefore)) {
+    if (`${materials}` !== `${prevMaterials}`) ledger.logMaterials(ts, materials)
     if (prevMaterials) {
       const delta = materials.map((v, i) => v - prevMaterials[i])
+      // 同包资源格收益与洋上补给支出分开落账，净额为零也保留两笔。
+      const sortie = store.getState().sortie
+      const supply = offshoreBefore && sortie?.nodes[sortie.nodes.length - 1]?.offshoreSupply
+      if (supply && sortie) {
+        const supplyDelta = materials.map(() => 0)
+        for (const before of offshoreBefore!) {
+          const ship = store.getState().player.ships[before.id]
+          if (ship) { supplyDelta[0] -= ship.fuel - before.fuel; supplyDelta[1] -= ship.bull - before.bull }
+        }
+        if (supplyDelta.some((v) => v !== 0)) {
+          ledger.logDelta(ts, '洋上补给', supplyDelta, {
+            kind: 'offshoreSupply', map: mapIdOf(sortie.mapArea, sortie.mapNo),
+            cell: sortie.currentCell, useNum: supply.useNum, estimated: true,
+          })
+        }
+        for (let i = 0; i < delta.length; i++) delta[i] -= supplyDelta[i]
+      }
       if (delta.some((v) => v !== 0)) {
         ledger.logDelta(ts, deltaResolution.category, delta, deltaResolution.detail)
       }
@@ -838,6 +873,20 @@ ipcMain.on('kuma:archive-capture-voice', (_event, input: unknown) => {
   const payload = input as { pathname?: unknown; url?: unknown }
   void captureDisplayedVoice(payload.pathname, payload.url).then((kept) => {
     if (kept) broadcaster.emit('kancolle.voice.archived', kept)
+  })
+})
+
+// BGM 试听也来自 UI 窗口，沿用上面的收货口，不套游戏 webContents 门。
+// 失败回给发起窗口，让「正在取」结束；成功仍走既有广播，在点亮那一拍开始播放。
+ipcMain.on('kuma:archive-capture-bgm', (event, input: unknown) => {
+  if (!input || typeof input !== 'object') return
+  const payload = input as { pathname?: unknown; url?: unknown }
+  if (typeof payload.pathname !== 'string' || typeof payload.url !== 'string') return
+  void captureDisplayedBgm(payload.pathname, payload.url).then((kept) => {
+    if (kept) broadcaster.emit('kancolle.bgm.archived', kept)
+    else if (!event.sender.isDestroyed()) {
+      event.reply('kuma:archive-capture-bgm-failed', payload.pathname)
+    }
   })
 })
 
@@ -1324,3 +1373,37 @@ export const rehydrate = () => {
 }
 
 rehydrate()
+
+ipcMain.on('kuma:asset-archive-blob', (event, input: unknown) => {
+  if (!isGameWebContents(event.sender.id)) return
+  if (!input || typeof input !== 'object') return
+  const payload = input as { pathname?: unknown; url?: unknown; bytes?: unknown }
+  const bytes = payload.bytes
+  if (!(bytes instanceof Uint8Array)) return
+  const kept = keepAssetBlob({
+    pathname: `${payload.pathname ?? ''}`,
+    version: resourceVersionOf(`${payload.url ?? ''}`),
+    bytes,
+  })
+  // 整条广播出去（含内容指纹）：界面据此当场点亮**并且**当场看得见，
+  // 不必等下次整表拉取才对得上实物文件名。
+  if (kept) broadcaster.emit('kancolle.asset.archived', kept)
+})
+
+// 显示侧来自 kuma 窗口，不套游戏 webContents 门；完成回执释放逐路径去重。
+ipcMain.on('kuma:archive-capture-asset', (event, input: unknown) => {
+  if (!input || typeof input !== 'object') return
+  const payload = input as { pathname?: unknown; url?: unknown; version?: unknown }
+  void captureDisplayedAsset(payload.pathname, payload.url, payload.version).then((kept) => {
+    if (kept) broadcaster.emit('kancolle.asset.archived', kept)
+  }).finally(() => {
+    if (!event.sender.isDestroyed()) event.reply('kuma:archive-capture-asset-done', payload.pathname)
+  })
+})
+ipcMain.handle('mg:asset-archive-stats', () => assetArchiveStats())
+ipcMain.handle('mg:asset-archive-clear', () => {
+  const cleared = clearAssetArchive()
+  if (cleared) broadcaster.emit('kancolle.asset.cleared')
+  return cleared
+})
+ipcMain.handle('mg:asset-archive-entries', () => assetArchiveEntries())
