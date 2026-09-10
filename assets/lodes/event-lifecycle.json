@@ -2,10 +2,10 @@
   "meta": {
     "id": "event-lifecycle",
     "name": "活动生命周期（第一方登记）",
-    "version": "2026.09.03",
+    "version": "2026.09.10",
     "source": "kuma 第一方登记表",
     "sourceUrl": "https://x.com/KanColle_STAFF/status/2095347759301964029",
-    "fetchedAt": "2026-09-03T10:48:41.898Z",
+    "fetchedAt": "2026-09-10T03:07:01.490Z",
     "license": "第一方产物",
     "note": "活动开始与结束日期，来自官方公告",
     "maintainerNote": [
@@ -21,7 +21,7 @@
         "nameZh": "反击！第三十一战队之战",
         "from": "2026-07-08",
         "until": "2026-09-10",
-        "status": "active",
+        "status": "ended",
         "phases": [
           {
             "openedAt": "2026-07-08T21:59:00+09:00",

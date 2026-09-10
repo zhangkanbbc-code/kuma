@@ -4,6 +4,14 @@
 
 2026-09-06 画面裁定补单起点 b70d12b，工作树干净；测试基线3911、skipped 0。仅补502→507初次高建40／开发35，往复不变；原始来源冲突保留并标为已裁。
 
+2026-09-10 维护新增边登记：起点a923ce11550f44fcdec0bb1a5dab571646be7c69，工作树干净；测试基线4614、skipped 0。按公开游戏改装画面登记以下三条first事实，仅收API没有字段的工廠資源、高速建造材、開発資材；API显式素材仍由主数据提供。三个目标均无回程，不登记convert或确认无空档。既有222条边的值保留；重生成时，新主数据另使25→58、58→119按既有三源规则确认first无特殊素材，证据逐边列于下表。当前事实227条，first 205条、convert 45条，循环内first 25条；确认无共87边/档，first 81、convert 6。旧555边消费基线与循环单向进入23边62格的范围不变，新增终点边单独复验，运行时扶桑／山城各4项、北上5项。
+
+| 边 | 档 | 来源依据 | 日期 | 登记素材 | 公开游戏改装画面原文 |
+| --- | --- | --- | --- | --- | --- |
+| 411→748 | first | maintainer | 2026-09-10 | {"useitem:104":3,"useitem:2":188,"useitem:3":48} | 公开游戏改装画面（2026-09-10 核）显示 扶桑改二→扶桑改二補：工廠資源3／新型航空兵装資材3／高速建造材188／開発資材48／弾薬3200／鋼材5400 |
+| 412→749 | first | maintainer | 2026-09-10 | {"useitem:104":3,"useitem:2":188,"useitem:3":48} | 公开游戏改装画面（2026-09-10 核）显示 山城改二→山城改二補：工廠資源3／新型航空兵装資材3／高速建造材188／開発資材48／弾薬3200／鋼材5400 |
+| 119→1071 | first | maintainer | 2026-09-10 | {"useitem:104":5,"useitem:2":550,"useitem:3":55} | 公开游戏改装画面（2026-09-10 核）显示 北上改二→北上改三：改装設計図2／新型兵装資材3／工廠資源5／高速建造材550／開発資材55／弾薬1500／鋼材2500 |
+
 ## 确认无特殊素材
 
 2026-09-07，首单起点ca53fbe、测试基线3967；续单起点2b216f9、工作树干净、测试基线3998，skipped均为0。某档{}表示确认无特殊素材；缺边或缺档仍未知，stages本身不允许为空。正向first规则保持：wikiwiki目标主条目fromShipId同出发且needs=[]，同边api_mst_shipupgrade全部*_count显式零，以及百科出发形态的改造行“改造后”对齐目标且无图纸或图纸为空。回程first与convert按下面两条补充判据。以下共85边/档，first 79、convert 6；数据不限定循环边，显示层仅convertible为真时显示“无特殊素材”，普通单向空档不显示文字。
@@ -20,8 +28,10 @@ convert确认无有两条独立规则：①主数据直接互逆、两向first�
 
 | 边 | 档 | wikiwiki原文／结构 | API原文 | 百科原文／结构 | 结论 |
 | --- | --- | --- | --- | --- | --- |
+| 25→58 | first | https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0（2026-08-18）10；目标58主条目fromShipId=25，needs=[] | {"api_current_ship_id":25,"api_id":58,"api_drawing_count":0,"api_catapult_count":0,"api_report_count":0,"api_aviation_mat_count":0,"api_arms_mat_count":0,"api_tech_count":0} | https://zh.kcwiki.cn/wiki/模块:舰娘数据 {"等级":10,"弹药":400,"钢材":100,"改造前":-1,"改造后":"098","系列":"020"}；ID=25的改造后=098对应目标58，图纸栏缺失或为空 | 无特殊素材 |
 | 77→82 | first | https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0（2026-08-18）10；目标82主条目fromShipId=77，needs=[] | {"api_current_ship_id":77,"api_id":82,"api_drawing_count":0,"api_catapult_count":0,"api_report_count":0,"api_aviation_mat_count":0,"api_arms_mat_count":0,"api_tech_count":0} | https://zh.kcwiki.cn/wiki/模块:舰娘数据 {"等级":10,"弹药":150,"钢材":500,"改造前":-1,"改造后":"102","系列":"003"}；ID=77的改造后=102对应目标82，图纸栏缺失或为空 | 无特殊素材 |
 | 87→88 | first | https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0（2026-08-18）10；目标88主条目fromShipId=87，needs=[] | {"api_current_ship_id":87,"api_id":88,"api_drawing_count":0,"api_catapult_count":0,"api_report_count":0,"api_aviation_mat_count":0,"api_arms_mat_count":0,"api_tech_count":0} | https://zh.kcwiki.cn/wiki/模块:舰娘数据 {"等级":10,"弹药":150,"钢材":500,"改造前":-1,"改造后":"103","系列":"004"}；ID=87的改造后=103对应目标88，图纸栏缺失或为空 | 无特殊素材 |
+| 58→119 | first | https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0（2026-08-18）50；目标119主条目fromShipId=58，needs=[] | {"api_current_ship_id":58,"api_id":119,"api_drawing_count":0,"api_catapult_count":0,"api_report_count":0,"api_aviation_mat_count":0,"api_arms_mat_count":0,"api_tech_count":0} | https://zh.kcwiki.cn/wiki/模块:舰娘数据 {"等级":50,"弹药":770,"钢材":400,"改造前":"020","改造后":"115","系列":"020"}；ID=58的改造后=115对应目标119，图纸栏缺失或为空 | 无特殊素材 |
 | 243→145 | first | https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0（2026-08-18）60；目标145主条目fromShipId=243，needs=[] | {"api_current_ship_id":243,"api_id":145,"api_drawing_count":0,"api_catapult_count":0,"api_report_count":0,"api_aviation_mat_count":0,"api_arms_mat_count":0,"api_tech_count":0} | https://zh.kcwiki.cn/wiki/模块:舰娘数据 {"等级":60,"弹药":200,"钢材":180,"改造前":"080","改造后":"145","系列":"080"}；ID=243的改造后=145对应目标145，图纸栏缺失或为空 | 无特殊素材 |
 | 143→148 | first | https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0（2026-08-18）40；目标148主条目fromShipId=143，needs=[] | {"api_current_ship_id":143,"api_id":148,"api_drawing_count":0,"api_catapult_count":0,"api_report_count":0,"api_aviation_mat_count":0,"api_arms_mat_count":0,"api_tech_count":0} | https://zh.kcwiki.cn/wiki/模块:舰娘数据 {"等级":40,"弹药":2500,"钢材":3000,"改造前":-1,"改造后":"148","系列":"143"}；ID=143的改造后=148对应目标148，图纸栏缺失或为空 | 无特殊素材 |
 | 209→149 | first | https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0（2026-08-18）75；目标149主条目fromShipId=209，needs=[] | {"api_current_ship_id":209,"api_id":149,"api_drawing_count":0,"api_catapult_count":0,"api_report_count":0,"api_aviation_mat_count":0,"api_arms_mat_count":0,"api_tech_count":0} | https://zh.kcwiki.cn/wiki/模块:舰娘数据 {"等级":75,"弹药":2400,"钢材":2400,"改造前":"021","改造后":"149","系列":"021"}；ID=209的改造后=149对应目标149，图纸栏缺失或为空 | 无特殊素材 |
@@ -239,8 +249,17 @@ Glorious：解析器现在只按页面明确的Glorious改(正規空母)／Glori
 
 | 边 | 素材 | 已提供该档数值的来源 | 收录 |
 | --- | --- | --- | --- |
+| 119→1071 | useitem:104 | {"maintainer":5} | 5 |
+| 119→1071 | useitem:2 | {"maintainer":550} | 550 |
+| 119→1071 | useitem:3 | {"maintainer":55} | 55 |
 | 152→694 | useitem:75 | {"kcwiki":2} | 2 |
 | 152→694 | useitem:94 | {"wikiwiki":2} | 未入表（API／冲突） |
+| 411→748 | useitem:104 | {"maintainer":3} | 3 |
+| 411→748 | useitem:2 | {"maintainer":188} | 188 |
+| 411→748 | useitem:3 | {"maintainer":48} | 48 |
+| 412→749 | useitem:104 | {"maintainer":3} | 3 |
+| 412→749 | useitem:2 | {"maintainer":188} | 188 |
+| 412→749 | useitem:3 | {"maintainer":48} | 48 |
 | 503→508 | useitem:2 | {"kcwiki":20} | 20 |
 | 503→508 | useitem:3 | {"kcwiki":10} | 10 |
 | 504→509 | useitem:2 | {"kcwiki":20} | 20 |

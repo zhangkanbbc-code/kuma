@@ -52,12 +52,25 @@ for (const [title, entry, next] of [['三隈', '121→502', '502→507'], ['最�
 pageNeed('春雨', '323→975', /改修资材×5/)
 pageNeed('矢矧', '307→663', /改装设计图×1\+战斗详报×1\+高速建造材×88\+开发资材×88/)
 pageNeed('贝尔格拉诺将军', '734→957', /新型兵装资材x1\+开发资材x30/)
+// 维护新增单向边按公开游戏改装画面登记first；仅补API没有字段的素材。
+const maintainerRows = [
+  { edge: '411→748', stage: 'first', site: 'maintainer', basis: 'maintainer',
+    materials: { 'useitem:104': 3, 'useitem:2': 188, 'useitem:3': 48 },
+    evidence: '公开游戏改装画面（2026-09-10 核）显示 扶桑改二→扶桑改二補：工廠資源3／新型航空兵装資材3／高速建造材188／開発資材48／弾薬3200／鋼材5400', date: '2026-09-10' },
+  { edge: '412→749', stage: 'first', site: 'maintainer', basis: 'maintainer',
+    materials: { 'useitem:104': 3, 'useitem:2': 188, 'useitem:3': 48 },
+    evidence: '公开游戏改装画面（2026-09-10 核）显示 山城改二→山城改二補：工廠資源3／新型航空兵装資材3／高速建造材188／開発資材48／弾薬3200／鋼材5400', date: '2026-09-10' },
+  { edge: '119→1071', stage: 'first', site: 'maintainer', basis: 'maintainer',
+    materials: { 'useitem:104': 5, 'useitem:2': 550, 'useitem:3': 55 },
+    evidence: '公开游戏改装画面（2026-09-10 核）显示 北上改二→北上改三：改装設計図2／新型兵装資材3／工廠資源5／高速建造材550／開発資材55／弾薬1500／鋼材2500', date: '2026-09-10' },
+]
+pageRows.push(...maintainerRows)
 const result = reconcileStagedRemodel(kc, wiki, raw, pages['改造'].text, supplements, [], pageRows)
 const pageReview = Object.entries(pages).filter(([title]) => !['改造', '模块:舰娘数据'].includes(title)).map(([title, page]) => ({
   title, revision: page.revision, extractedEdges: pageRows.filter(r => r.title === title).map(r => r.edge),
   text: page.text.split('\n').filter(line => /(?:开发资材|高速建造材|改修资材)[x×]/.test(line)).join('\n'),
 }))
-const pack = { meta: { id: 'remodel-facts', name: '改造素材', version: '2026.09.07.2', source: 'kuma 第一方登记表', license: '第一方产物', fetchedAt: '2026-09-07T00:00:00.000Z', note: '改造的特殊素材与回程成本', maintainerNote: [
+const pack = { meta: { id: 'remodel-facts', name: '改造素材', version: '2026.09.10.1', source: 'kuma 第一方登记表', license: '第一方产物', fetchedAt: '2026-09-10T12:00:35.000Z', note: '改造的特殊素材与回程成本', maintainerNote: [
   'wikiwiki主条目为first，footnote附加边为convert；百科按列/段落及同边同档整列对齐。API显式值（含零）优先。',
   '三隈502→507初次按公开游戏改装画面（2026-09 核）裁定高建40／开发35；wikiwiki开发45、舰页高建60／开发45为来源错误。往复仍为40/35；507→502往复仍为40/15。',
   '本次全部来源仅作只读核对；来源结构、API核对、分档冲突、缺项及旧解析修正见docs/remodel-facts-report.md。',
@@ -78,7 +91,15 @@ const stagedOutput = Object.fromEntries(Object.keys(baseline.output).map(edge =>
 const differences = ['first', 'convert'].flatMap(stage => remodelDifferences(baseline.output,
   Object.fromEntries(Object.entries(stagedOutput).filter(([, groups]) => groups[stage]).map(([edge, groups]) => [edge, groups[stage].needs])),
 ).filter(row => stagedOutput[row.edge]?.[stage]).map(row => ({ ...row, stage })))
-const fixture = { sourceHashes, raw: oldFixture.raw, baselineHead: baseline.head, stageBaseline: baseline.output,
+// 冻结旧消费输入；维护新增边另存主数据最小投影，供真实素材消费函数复验。
+const maintenanceRaw = {
+  api_mst_ship: raw.api_mst_ship.filter(s => [411, 748, 412, 749, 119, 1071].includes(s.api_id))
+    .map(({ api_id, api_name, api_aftershipid, api_afterlv }) => ({ api_id, api_name, api_aftershipid, api_afterlv })),
+  api_mst_shipupgrade: raw.api_mst_shipupgrade.filter(r => maintainerRows.some(m => m.edge === `${r.api_current_ship_id}→${r.api_id}`)),
+  api_mst_useitem: raw.api_mst_useitem.filter(s => [104, 2, 3, 77, 58, 94].includes(s.api_id)).map(({ api_id, api_name }) => ({ api_id, api_name })),
+  api_mst_slotitem: [],
+}
+const fixture = { sourceHashes, raw: oldFixture.raw, maintenanceRaw, baselineHead: baseline.head, stageBaseline: baseline.output,
   output: stagedOutput, differences, conflicts: result.conflicts, missing: result.missing, corrections: result.corrections,
   unknown: result.unknown, unresolved: result.unresolved, observations: result.observations, sourceErrors: result.sourceErrors, confirmedNone: result.confirmedNone, pageReview, groups: result.groups, direct: result.direct }
 const table = (columns, rows) => [`| ${columns.join(' | ')} |`, `| ${columns.map(() => '---').join(' | ')} |`, ...rows.map(r => `| ${r.map(v => String(v).replaceAll('|', '／').replaceAll('\n', ' ')).join(' | ')} |`)].join('\n')
@@ -89,13 +110,17 @@ const firstCycles = Object.entries(pack.data).filter(([edge, row]) => cyclic(edg
 const reviewEdges = ['506→501', '629→628', '911→916']
 const report = `# 改造素材结构分档核对（2026-09-07）
 
-本单起点 f6a39b7，工作树干净；测试基线3877、skipped 0。跨版本旧消费仍冻结在 ${baseline.head} 的555条边，未覆盖旧基线。当前事实 ${Object.keys(pack.data).length} 条边，初次 ${Object.values(pack.data).filter(r => r.stages.first).length} 条（此前101），往复 ${Object.values(pack.data).filter(r => r.stages.convert).length} 条。循环内初次从0填到 **${firstCycles}** 条。这里只计API表外素材；“缺”不是零，有值也不表示所有素材齐全。
+本单起点 f6a39b7，工作树干净；测试基线3877、skipped 0。跨版本旧消费仍冻结在 ${baseline.head} 的555条边，未覆盖旧基线。当前事实 222 条边，初次 200 条（此前101），往复 45 条。循环内初次从0填到 **25** 条。这里只计API表外素材；“缺”不是零，有值也不表示所有素材齐全。
 
 2026-09-06 画面裁定补单起点 b70d12b，工作树干净；测试基线3911、skipped 0。仅补502→507初次高建40／开发35，往复不变；原始来源冲突保留并标为已裁。
 
+2026-09-10 维护新增边登记：起点a923ce11550f44fcdec0bb1a5dab571646be7c69，工作树干净；测试基线4614、skipped 0。按公开游戏改装画面登记以下三条first事实，仅收API没有字段的工廠資源、高速建造材、開発資材；API显式素材仍由主数据提供。三个目标均无回程，不登记convert或确认无空档。既有222条边的值保留；重生成时，新主数据另使25→58、58→119按既有三源规则确认first无特殊素材，证据逐边列于下表。当前事实${Object.keys(pack.data).length}条，first ${Object.values(pack.data).filter(r => r.stages.first).length}条、convert ${Object.values(pack.data).filter(r => r.stages.convert).length}条，循环内first ${firstCycles}条；确认无共${result.confirmedNone.length}边/档，first ${result.confirmedNone.filter(r => r.stage === 'first').length}、convert ${result.confirmedNone.filter(r => r.stage === 'convert').length}。旧555边消费基线与循环单向进入23边62格的范围不变，新增终点边单独复验，运行时扶桑／山城各4项、北上5项。
+
+${table(['边', '档', '来源依据', '日期', '登记素材', '公开游戏改装画面原文'], maintainerRows.map(r => [r.edge, r.stage, r.basis, r.date, JSON.stringify(r.materials), r.evidence]))}
+
 ## 确认无特殊素材
 
-2026-09-07，首单起点ca53fbe、测试基线3967；续单起点2b216f9、工作树干净、测试基线3998，skipped均为0。某档{}表示确认无特殊素材；缺边或缺档仍未知，stages本身不允许为空。正向first规则保持：wikiwiki目标主条目fromShipId同出发且needs=[]，同边api_mst_shipupgrade全部*_count显式零，以及百科出发形态的改造行“改造后”对齐目标且无图纸或图纸为空。回程first与convert按下面两条补充判据。以下共${result.confirmedNone.length}边/档，first ${result.confirmedNone.filter(r => r.stage === 'first').length}、convert ${result.confirmedNone.filter(r => r.stage === 'convert').length}；数据不限定循环边，显示层仅convertible为真时显示“无特殊素材”，普通单向空档不显示文字。
+2026-09-07，首单起点ca53fbe、测试基线3967；续单起点2b216f9、工作树干净、测试基线3998，skipped均为0。某档{}表示确认无特殊素材；缺边或缺档仍未知，stages本身不允许为空。正向first规则保持：wikiwiki目标主条目fromShipId同出发且needs=[]，同边api_mst_shipupgrade全部*_count显式零，以及百科出发形态的改造行“改造后”对齐目标且无图纸或图纸为空。回程first与convert按下面两条补充判据。以下共85边/档，first 79、convert 6；数据不限定循环边，显示层仅convertible为真时显示“无特殊素材”，普通单向空档不显示文字。
 
 ### 回程与转换段空成本行
 

@@ -79,8 +79,9 @@ test('循环内所有方向无账本仍为两档，覆盖502⇄507及三形态�
 test('555边逐档消费对拍；HEAD旧输出冻结，白名单不扩张', () => {
   assert.equal(fixture.baselineHead, '176de57822f51c6376fc76b08868acc18a76b306')
   assert.equal(Object.keys(fixture.stageBaseline).length, 555)
-  // 旧142条有素材边保持；新增确认无空档另有逐边三源护栏。
-  assert.equal(Object.values(pack.data).filter(row => Object.values(row.stages).some(materials => Object.keys(materials).length)).length, 142)
+  // 旧142条有素材边加维护新增3条；确认无空档另有逐边三源护栏。
+  assert.equal(Object.values(pack.data).filter(row => Object.values(row.stages).some(materials => Object.keys(materials).length)).length, 145)
+  assert.equal(Object.keys(pack.data).length, 227)
   assert.equal(createHash('sha256').update(fs.readFileSync(new URL('../assets/lodes/kcwiki-ships.json', import.meta.url))).digest('hex'), fixture.sourceHashes.kcwiki)
   for (const [edge, expected] of Object.entries(fixture.output)) {
     const [from, to] = edge.split('→').map(Number)
@@ -211,6 +212,40 @@ test('三隈画面订正有维护者证据与日期，原始冲突已裁且错�
   const native = pack.meta.evidence.find(r => r.edge === '502→507' && r.stage === 'first' && r.identity === 'useitem:94')
   assert.deepEqual(native.apiCheck, { field: 'api_arms_mat_count', count: 1 })
   assert.equal(pack.data['502→507'].stages.first['useitem:94'], undefined)
+})
+
+test('09-10三条单向边first仅登记API表外三项，维护证据逐项留日期，真实chip为4／4／5项', () => {
+  const rt = remodelRuntime(fixture.maintenanceRaw, kc, { facts: pack })
+  for (const [from, to, materials, native] of [
+    [411, 748, { 'useitem:104': 3, 'useitem:2': 188, 'useitem:3': 48 }, { 'useitem:77': 3 }],
+    [412, 749, { 'useitem:104': 3, 'useitem:2': 188, 'useitem:3': 48 }, { 'useitem:77': 3 }],
+    [119, 1071, { 'useitem:104': 5, 'useitem:2': 550, 'useitem:3': 55 }, { 'useitem:58': 2, 'useitem:94': 3 }],
+  ]) {
+    const edge = `${from}→${to}`
+    assert.deepEqual(pack.data[edge], { stages: { first: materials } })
+    for (const id of [77, 58, 94]) assert.equal(pack.data[edge].stages.first[`useitem:${id}`], undefined)
+    const rows = pack.meta.evidence.filter(r => r.edge === edge)
+    assert.equal(rows.length, 3)
+    for (const [identity, count] of Object.entries(materials)) {
+      const row = rows.find(r => r.stage === 'first' && r.identity === identity)
+      assert.equal(row.sources.length, 1)
+      assert.equal(row.sources[0].site, 'maintainer')
+      assert.equal(row.sources[0].basis, 'maintainer')
+      assert.equal(row.sources[0].date, '2026-09-10')
+      assert.match(row.sources[0].evidence, /^公开游戏改装画面（2026-09-10 核）显示 /)
+      const name = fixture.maintenanceRaw.api_mst_useitem.find(s => `useitem:${s.api_id}` === identity).api_name
+      assert.ok(row.sources[0].evidence.includes(name + count))
+    }
+    assert.equal(fixture.maintenanceRaw.api_mst_ship.find(s => s.api_id === to).api_aftershipid, '0')
+    assert.equal(fixture.confirmedNone.some(r => r.edge === edge), false)
+    assert.equal(pack.data[`${to}→${from}`], undefined)
+    const result = rt.needChipsHtml(Object.values(kc).find(s => s.ID === from)?.改造?.图纸, to, from)
+    assert.deepEqual(result.stages.map(g => g.stage), ['first'])
+    assert.equal(result.stages[0].missing, false)
+    assert.equal(result.needs.length, to === 1071 ? 5 : 4)
+    assert.deepEqual(Object.fromEntries(result.needs.map(n => [`${n.kind}:${n.id}`, n.count])), { ...native, ...materials })
+    assert.doesNotMatch(result.html, /素材待补|往复|无特殊素材/)
+  }
 })
 
 test('API显式零封住两档事实；逐边API行不串来路；事实显式零封旧包', () => {
@@ -402,11 +437,11 @@ test('初次专属七种原生字段逐边核对；API显式零差异必须记�
   }
 })
 
-test('循环内初次补至20，普通初次101条保留；三组循环逐方向列出', () => {
+test('循环内初次20，普通初次101条加维护新增3条；三组循环逐方向列出', () => {
   const cyclic = edge => fixture.groups.some(g => edge.split('→').map(Number).every(id => g.includes(id)))
   // 仍钉旧有素材档数；确认无不算作新增素材。
   assert.equal(Object.entries(pack.data).filter(([edge, row]) => cyclic(edge) && Object.keys(row.stages.first ?? {}).length).length, 20)
-  assert.equal(Object.entries(pack.data).filter(([edge, row]) => !cyclic(edge) && Object.keys(row.stages.first ?? {}).length).length, 101)
+  assert.equal(Object.entries(pack.data).filter(([edge, row]) => !cyclic(edge) && Object.keys(row.stages.first ?? {}).length).length, 104)
   assert.equal(fixture.direct.length, 21)
   assert.equal(fixture.groups.filter(g => g.length > 2).length, 3)
 })

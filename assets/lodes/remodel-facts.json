@@ -2,16 +2,16 @@
   "meta": {
     "id": "remodel-facts",
     "name": "改造素材",
-    "version": "2026.09.07.2",
+    "version": "2026.09.10.1",
     "source": "kuma 第一方登记表",
     "license": "第一方产物",
-    "fetchedAt": "2026-09-07T00:00:00.000Z",
+    "fetchedAt": "2026-09-10T12:00:35.000Z",
     "note": "改造的特殊素材与回程成本",
     "maintainerNote": [
       "wikiwiki主条目为first，footnote附加边为convert；百科按列/段落及同边同档整列对齐。API显式值（含零）优先。",
       "三隈502→507初次按公开游戏改装画面（2026-09 核）裁定高建40／开发35；wikiwiki开发45、舰页高建60／开发45为来源错误。往复仍为40/35；507→502往复仍为40/15。",
       "本次全部来源仅作只读核对；来源结构、API核对、分档冲突、缺项及旧解析修正见docs/remodel-facts-report.md。",
-      "2026-09-07：first空对象由wikiwiki目标主条目同来路needs=[]、同边API全部*_count显式零、百科出发形态指向目标的改造行无图纸共同确认；直接互逆回程允许主条目来自常规前置形态，但须needs=[]且同向无脚注、转换段无带成本行。convert空对象须直接互逆两向first确认无、两向无脚注且转换段无该对，或转换段同向显式空成本、同向无脚注、API同边全部*_count显式零；缺边或缺档仍未知；无特殊素材标签仅可逆改造显示；命中：77→82/first、87→88/first、243→145/first、143→148/first、209→149/first、210→150/first、211→151/first、212→152/first、171→172/first、280→196/first、9→201/first、10→202/first、32→203/first、11→204/first、12→206/first、78→209/first、86→210/first、85→212/first、100→216/first、23→220/first、17→225/first、18→226/first、19→227/first、20→228/first、15→231/first、42→242/first、43→243/first、44→244/first、96→249/first、98→251/first、48→252/first、69→272/first、71→273/first、72→274/first、80→275/first、81→276/first、91→280/first、26→286/first、27→287/first、113→289/first、114→290/first、132→301/first、133→302/first、134→303/first、138→306/first、181→316/first、185→318/first、405→323/first、409→324/first、421→330/first、424→345/first、453→349/first、458→350/first、423→357/first、448→358/first、452→359/first、456→362/first、486→368/first、526→380/first、534→381/first、492→392/first、544→396/first、201→426/first、248→463/first、468→463/first、253→464/first、470→464/first、463→468/first、464→470/first、521→526/first、117→555/first、574→579/first、561→681/first、528→688/first、674→718/first、886→720/first、922→730/first、522→884/first、911→916/first、464→470/convert、470→464/convert、463→468/convert、468→463/convert、646→698/convert、911→916/convert。"
+      "2026-09-07：first空对象由wikiwiki目标主条目同来路needs=[]、同边API全部*_count显式零、百科出发形态指向目标的改造行无图纸共同确认；直接互逆回程允许主条目来自常规前置形态，但须needs=[]且同向无脚注、转换段无带成本行。convert空对象须直接互逆两向first确认无、两向无脚注且转换段无该对，或转换段同向显式空成本、同向无脚注、API同边全部*_count显式零；缺边或缺档仍未知；无特殊素材标签仅可逆改造显示；命中：25→58/first、77→82/first、87→88/first、58→119/first、243→145/first、143→148/first、209→149/first、210→150/first、211→151/first、212→152/first、171→172/first、280→196/first、9→201/first、10→202/first、32→203/first、11→204/first、12→206/first、78→209/first、86→210/first、85→212/first、100→216/first、23→220/first、17→225/first、18→226/first、19→227/first、20→228/first、15→231/first、42→242/first、43→243/first、44→244/first、96→249/first、98→251/first、48→252/first、69→272/first、71→273/first、72→274/first、80→275/first、81→276/first、91→280/first、26→286/first、27→287/first、113→289/first、114→290/first、132→301/first、133→302/first、134→303/first、138→306/first、181→316/first、185→318/first、405→323/first、409→324/first、421→330/first、424→345/first、453→349/first、458→350/first、423→357/first、448→358/first、452→359/first、456→362/first、486→368/first、526→380/first、534→381/first、492→392/first、544→396/first、201→426/first、248→463/first、468→463/first、253→464/first、470→464/first、463→468/first、464→470/first、521→526/first、117→555/first、574→579/first、561→681/first、528→688/first、674→718/first、886→720/first、922→730/first、522→884/first、911→916/first、464→470/convert、470→464/convert、463→468/convert、468→463/convert、646→698/convert、911→916/convert。"
     ],
     "corrections": [
       {
@@ -537,6 +537,45 @@
           "field": "api_catapult_count",
           "count": 1
         }
+      },
+      {
+        "edge": "119→1071",
+        "stage": "first",
+        "identity": "useitem:104",
+        "sources": [
+          {
+            "site": "maintainer",
+            "evidence": "公开游戏改装画面（2026-09-10 核）显示 北上改二→北上改三：改装設計図2／新型兵装資材3／工廠資源5／高速建造材550／開発資材55／弾薬1500／鋼材2500",
+            "basis": "maintainer",
+            "date": "2026-09-10"
+          }
+        ]
+      },
+      {
+        "edge": "119→1071",
+        "stage": "first",
+        "identity": "useitem:2",
+        "sources": [
+          {
+            "site": "maintainer",
+            "evidence": "公开游戏改装画面（2026-09-10 核）显示 北上改二→北上改三：改装設計図2／新型兵装資材3／工廠資源5／高速建造材550／開発資材55／弾薬1500／鋼材2500",
+            "basis": "maintainer",
+            "date": "2026-09-10"
+          }
+        ]
+      },
+      {
+        "edge": "119→1071",
+        "stage": "first",
+        "identity": "useitem:3",
+        "sources": [
+          {
+            "site": "maintainer",
+            "evidence": "公开游戏改装画面（2026-09-10 核）显示 北上改二→北上改三：改装設計図2／新型兵装資材3／工廠資源5／高速建造材550／開発資材55／弾薬1500／鋼材2500",
+            "basis": "maintainer",
+            "date": "2026-09-10"
+          }
+        ]
       },
       {
         "edge": "121→502",
@@ -4879,6 +4918,84 @@
         }
       },
       {
+        "edge": "411→748",
+        "stage": "first",
+        "identity": "useitem:104",
+        "sources": [
+          {
+            "site": "maintainer",
+            "evidence": "公开游戏改装画面（2026-09-10 核）显示 扶桑改二→扶桑改二補：工廠資源3／新型航空兵装資材3／高速建造材188／開発資材48／弾薬3200／鋼材5400",
+            "basis": "maintainer",
+            "date": "2026-09-10"
+          }
+        ]
+      },
+      {
+        "edge": "411→748",
+        "stage": "first",
+        "identity": "useitem:2",
+        "sources": [
+          {
+            "site": "maintainer",
+            "evidence": "公开游戏改装画面（2026-09-10 核）显示 扶桑改二→扶桑改二補：工廠資源3／新型航空兵装資材3／高速建造材188／開発資材48／弾薬3200／鋼材5400",
+            "basis": "maintainer",
+            "date": "2026-09-10"
+          }
+        ]
+      },
+      {
+        "edge": "411→748",
+        "stage": "first",
+        "identity": "useitem:3",
+        "sources": [
+          {
+            "site": "maintainer",
+            "evidence": "公开游戏改装画面（2026-09-10 核）显示 扶桑改二→扶桑改二補：工廠資源3／新型航空兵装資材3／高速建造材188／開発資材48／弾薬3200／鋼材5400",
+            "basis": "maintainer",
+            "date": "2026-09-10"
+          }
+        ]
+      },
+      {
+        "edge": "412→749",
+        "stage": "first",
+        "identity": "useitem:104",
+        "sources": [
+          {
+            "site": "maintainer",
+            "evidence": "公开游戏改装画面（2026-09-10 核）显示 山城改二→山城改二補：工廠資源3／新型航空兵装資材3／高速建造材188／開発資材48／弾薬3200／鋼材5400",
+            "basis": "maintainer",
+            "date": "2026-09-10"
+          }
+        ]
+      },
+      {
+        "edge": "412→749",
+        "stage": "first",
+        "identity": "useitem:2",
+        "sources": [
+          {
+            "site": "maintainer",
+            "evidence": "公开游戏改装画面（2026-09-10 核）显示 山城改二→山城改二補：工廠資源3／新型航空兵装資材3／高速建造材188／開発資材48／弾薬3200／鋼材5400",
+            "basis": "maintainer",
+            "date": "2026-09-10"
+          }
+        ]
+      },
+      {
+        "edge": "412→749",
+        "stage": "first",
+        "identity": "useitem:3",
+        "sources": [
+          {
+            "site": "maintainer",
+            "evidence": "公开游戏改装画面（2026-09-10 核）显示 山城改二→山城改二補：工廠資源3／新型航空兵装資材3／高速建造材188／開発資材48／弾薬3200／鋼材5400",
+            "basis": "maintainer",
+            "date": "2026-09-10"
+          }
+        ]
+      },
+      {
         "edge": "426→1035",
         "stage": "first",
         "identity": "useitem:2",
@@ -9195,6 +9312,46 @@
         ]
       },
       {
+        "edge": "25→58",
+        "stage": "first",
+        "sources": [
+          {
+            "site": "wikiwiki",
+            "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+            "date": "2026-08-18",
+            "raw": "10",
+            "basis": "目标58主条目fromShipId=25，needs=[]"
+          },
+          {
+            "site": "api",
+            "raw": {
+              "api_current_ship_id": 25,
+              "api_id": 58,
+              "api_drawing_count": 0,
+              "api_catapult_count": 0,
+              "api_report_count": 0,
+              "api_aviation_mat_count": 0,
+              "api_arms_mat_count": 0,
+              "api_tech_count": 0
+            },
+            "basis": "同边升级行全部*_count显式为零"
+          },
+          {
+            "site": "kcwiki",
+            "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+            "raw": {
+              "等级": 10,
+              "弹药": 400,
+              "钢材": 100,
+              "改造前": -1,
+              "改造后": "098",
+              "系列": "020"
+            },
+            "basis": "ID=25的改造后=098对应目标58，图纸栏缺失或为空"
+          }
+        ]
+      },
+      {
         "edge": "77→82",
         "stage": "first",
         "sources": [
@@ -9271,6 +9428,46 @@
               "系列": "004"
             },
             "basis": "ID=87的改造后=103对应目标88，图纸栏缺失或为空"
+          }
+        ]
+      },
+      {
+        "edge": "58→119",
+        "stage": "first",
+        "sources": [
+          {
+            "site": "wikiwiki",
+            "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+            "date": "2026-08-18",
+            "raw": "50",
+            "basis": "目标119主条目fromShipId=58，needs=[]"
+          },
+          {
+            "site": "api",
+            "raw": {
+              "api_current_ship_id": 58,
+              "api_id": 119,
+              "api_drawing_count": 0,
+              "api_catapult_count": 0,
+              "api_report_count": 0,
+              "api_aviation_mat_count": 0,
+              "api_arms_mat_count": 0,
+              "api_tech_count": 0
+            },
+            "basis": "同边升级行全部*_count显式为零"
+          },
+          {
+            "site": "kcwiki",
+            "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+            "raw": {
+              "等级": 50,
+              "弹药": 770,
+              "钢材": 400,
+              "改造前": "020",
+              "改造后": "115",
+              "系列": "020"
+            },
+            "basis": "ID=58的改造后=115对应目标119，图纸栏缺失或为空"
           }
         ]
       },
@@ -12689,6 +12886,15 @@
         }
       }
     },
+    "119→1071": {
+      "stages": {
+        "first": {
+          "useitem:104": 5,
+          "useitem:2": 550,
+          "useitem:3": 55
+        }
+      }
+    },
     "121→502": {
       "stages": {
         "first": {
@@ -13081,6 +13287,24 @@
         "first": {
           "useitem:2": 73,
           "useitem:3": 60
+        }
+      }
+    },
+    "411→748": {
+      "stages": {
+        "first": {
+          "useitem:104": 3,
+          "useitem:2": 188,
+          "useitem:3": 48
+        }
+      }
+    },
+    "412→749": {
+      "stages": {
+        "first": {
+          "useitem:104": 3,
+          "useitem:2": 188,
+          "useitem:3": 48
         }
       }
     },
@@ -13802,12 +14026,22 @@
         }
       }
     },
+    "25→58": {
+      "stages": {
+        "first": {}
+      }
+    },
     "77→82": {
       "stages": {
         "first": {}
       }
     },
     "87→88": {
+      "stages": {
+        "first": {}
+      }
+    },
+    "58→119": {
       "stages": {
         "first": {}
       }

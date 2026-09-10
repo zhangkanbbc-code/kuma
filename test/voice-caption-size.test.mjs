@@ -240,7 +240,7 @@ test('任务详情抬头：编号那半与状态那半同一行，中间一个�
   const source = read('src/renderer/modules/qn.ts')
   assert.match(
     source,
-    /<small>\$\{esc\(row\.code\)\} · \$\{periodOfRow\(row\)\[0\]\}任 · \$\{categoryOf\(row\)\.label\} — <\/small><b>/,
+    /<small>[^\n]* · \$\{periodOfRow\(row\)\[0\]\}任 · \$\{categoryOf\(row\)\.label\}[^\n]* — <\/small><b>/,
     '抬头条的两半之间没有分隔符',
   )
   const rule = ruleOf('.mod-qn .q-drawer-head')

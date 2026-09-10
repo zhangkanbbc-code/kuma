@@ -50,6 +50,7 @@ const SET_FRIENDLY = asReducer(
 )
 
 const HARNESS = `
+import { retireClosedAreas } from ${JSON.stringify(path.join(ROOT, 'src/main/mg/air-bases.ts'))}
 type Section = string
 
 export const state: any = {

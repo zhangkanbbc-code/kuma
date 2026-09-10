@@ -71,6 +71,12 @@ test('任务分类有兜底格：任务库没收的新任务不会从每个分�
   // 修复前**一个都不命中**（只有「全部」看得见它），修复后命中 unclassified，
   // 而正常的 B1 任务仍旧只命中 sortie（兜底格不抢别人的行）。
   const qn = src('renderer/modules/qn.ts')
+  assert.match(bodyOf(qn, 'const periodOfRow ='), /questPeriodFromObserved\(row\.observed\.type, row\.observed\.labelType \?\? 0\)/)
+  const categoryLetter = bodyOf(qn, 'const catOf =')
+  assert.match(categoryLetter, /row\.code === '\?' && row\.observed/)
+  assert.match(categoryLetter, /questCategoryLetterFromObserved\(row\.observed\.category\)/)
+  const chip = qn.slice(qn.indexOf('<span class="t"><span class="id'), qn.indexOf('<span class="q-cat-label">'))
+  assert.ok(chip.includes('#${row.id}') && chip.includes('unlisted'), '未收录任务的编号芯片须显示游戏编号并挂牌')
   // 兜底格的判据必须是「命名分类一个都不命中」的否定，不能自己另写一套编号规则
   // ——另写一套就会与命名分类各判各的，出现两边都收或两边都不收
   assert.match(

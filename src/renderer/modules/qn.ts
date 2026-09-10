@@ -9,6 +9,7 @@ import type { EntityNameIndex, ShipNameEntry, ShipClassEntry } from '../task-ent
 // 精确计数与编成条件 = 铭的计数引擎（kuma自研为主，kcwiki/poi 两个 MIT 源补位）——
 // 本地事件流计数，与服务器进度可能有出入，游戏自报粗档并列展示作对照。
 import type { Quest } from '../../shared/mg-types'
+import { questCategoryLetterFromObserved, questPeriodFromObserved } from '../../shared/quest-observed'
 import { QP_BLOCK_TEXT, QP_RANK_NAME, qpTaskGroups } from '../../shared/qp-types'
 import { decksOnExpedition } from '../../shared/expedition-state'
 
@@ -380,9 +381,13 @@ const CAT_META: Record<string, [string, string]> = {
   S: ['限时', 'var(--gold)'],
 }
 
-const catOf = (code: string) =>
-  code.match(/[A-Z]/g)?.find((letter) => CAT_META[letter]) ?? '其'
-const catColor = (code: string) => CAT_META[catOf(code)]?.[1] ?? 'var(--accent-dim)'
+const catOf = (row: QRow) => {
+  if (row.code === '?' && row.observed) {
+    return questCategoryLetterFromObserved(row.observed.category) ?? '其'
+  }
+  return row.code.match(/[A-Z]/g)?.find((letter) => CAT_META[letter]) ?? '其'
+}
+const catColor = (row: QRow) => CAT_META[catOf(row)]?.[1] ?? 'var(--accent-dim)'
 
 const periodOf = (code: string): [string, string] => {
   const marker = code.charAt(1).toLowerCase()
@@ -536,11 +541,17 @@ interface QRow {
 }
 
 const periodOfRow = (row: QRow): [string, string] => {
-  if (row.observed?.type === 1) return ['日', 'd']
-  if (row.observed?.type === 2) return ['周', 'w']
-  if (row.observed?.type === 3) return ['月', 'm']
+  if (row.observed) {
+    const period = questPeriodFromObserved(row.observed.type, row.observed.labelType ?? 0)
+    if (period.label) return [period.label, period.cls!]
+  }
   return periodOf(row.code)
 }
+
+const questAnnualMonth = (row: QRow): number | null =>
+  annualMonthOf(row.memo2) ?? (row.observed
+    ? questPeriodFromObserved(row.observed.type, row.observed.labelType ?? 0).annualMonth
+    : null)
 
 // 游戏只下发当前任务页，不给已经领取过的单次任务履历。
 // 只沿“当前任务 → pre 前置”回溯，因此同一上游分出的其他后续旁支不会被误算。
@@ -630,7 +641,11 @@ const invalidateQuestTextCache = () => questTextCache.clear()
 const questText = (row: QRow) => {
   const cached = questTextCache.get(row.id)
   if (cached != null) return cached
-  const text = simplifyJp(`${row.name} ${row.desc} ${row.memo2}`)
+  // 既有简化表未收「廃棄」；仅归一未收录任务的游戏文本，不改变库文本的分类。
+  const observedText = row.code === '?'
+    ? ` ${row.observed?.title ?? ''} ${row.observed?.detail ?? ''}`.replace(/廃棄/g, '废弃')
+    : ''
+  const text = simplifyJp(`${row.name} ${row.desc} ${row.memo2}${observedText}`)
   questTextCache.set(row.id, text)
   return text
 }
@@ -640,53 +655,53 @@ const TASK_CATEGORIES: QuestCategory[] = [
     key: 'limited',
     label: '限时',
     color: 'var(--gold)',
-    test: (row) => catOf(row.code) === 'S' || /限时|限定|节分|秋刀鱼|新春|初夏|周年/.test(questText(row)),
+    test: (row) => catOf(row) === 'S' || /限时|限定|节分|秋刀鱼|新春|初夏|周年/.test(questText(row)),
   },
-  { key: 'formation', label: '编成', color: '#67c98a', test: (row) => catOf(row.code) === 'A' },
-  { key: 'sortie', label: '出击', color: '#e06c75', test: (row) => catOf(row.code) === 'B' },
-  { key: 'exercise', label: '演习', color: '#5ab8d8', test: (row) => catOf(row.code) === 'C' },
-  { key: 'expedition', label: '远征', color: '#8fb8e0', test: (row) => catOf(row.code) === 'D' },
+  { key: 'formation', label: '编成', color: '#67c98a', test: (row) => catOf(row) === 'A' },
+  { key: 'sortie', label: '出击', color: '#e06c75', test: (row) => catOf(row) === 'B' },
+  { key: 'exercise', label: '演习', color: '#5ab8d8', test: (row) => catOf(row) === 'C' },
+  { key: 'expedition', label: '远征', color: '#8fb8e0', test: (row) => catOf(row) === 'D' },
   {
     key: 'supply',
     label: '补给',
     color: '#c9a86a',
-    test: (row) => catOf(row.code) === 'E' && !/入渠|修理/.test(questText(row)),
+    test: (row) => catOf(row) === 'E' && !/入渠|修理/.test(questText(row)),
   },
   {
     key: 'repair',
     label: '入渠',
     color: '#d7a76f',
-    test: (row) => catOf(row.code) === 'E' && /入渠|修理/.test(questText(row)),
+    test: (row) => catOf(row) === 'E' && /入渠|修理/.test(questText(row)),
   },
   {
     key: 'build',
     label: '建造',
     color: '#a08a6a',
-    test: (row) => catOf(row.code) === 'F' && /建造|造舰/.test(questText(row)),
+    test: (row) => catOf(row) === 'F' && /建造|造舰/.test(questText(row)),
   },
   {
     key: 'develop',
     label: '开发',
     color: '#b69a75',
-    test: (row) => catOf(row.code) === 'F' && /开发/.test(questText(row)),
+    test: (row) => catOf(row) === 'F' && /开发/.test(questText(row)),
   },
   {
     key: 'scrap',
     label: '废弃',
     color: '#9d806d',
-    test: (row) => catOf(row.code) === 'F' && /废弃|拆解|销毁/.test(questText(row)),
+    test: (row) => catOf(row) === 'F' && /废弃|拆解|销毁/.test(questText(row)),
   },
   {
     key: 'improve',
     label: '改修',
     color: '#b489ff',
-    test: (row) => ['F', 'G'].includes(catOf(row.code)) && /改修|强化装备/.test(questText(row)),
+    test: (row) => ['F', 'G'].includes(catOf(row)) && /改修|强化装备/.test(questText(row)),
   },
   {
     key: 'remodel',
     label: '改造',
     color: '#c59aff',
-    test: (row) => catOf(row.code) === 'G' || /改造|改装/.test(questText(row)),
+    test: (row) => catOf(row) === 'G' || /改造|改装/.test(questText(row)),
   },
 ]
 
@@ -698,7 +713,7 @@ const NAMED_CATEGORY_FILTERS: QuestCategory[] = [
     key: 'factory',
     label: '工厂',
     color: '#b69a75',
-    test: (row) => ['E', 'F', 'G'].includes(catOf(row.code)),
+    test: (row) => ['E', 'F', 'G'].includes(catOf(row)),
   },
 ]
 
@@ -708,6 +723,7 @@ const CATEGORY_FILTERS: QuestCategory[] = [
   // 编号是 `?`，于是它上面一条分类页都命不中——只有「全部」看得见它，玩家停在
   // 任何一个分类页上都会以为没有这条（自扩展公约的反模式：清单先行、对不上就隐身）。
   // 这一格接住它们；任务库补上编号之后它自己就空了，格子随之消失。
+  // 现已优先用游戏自报分类接住未收录任务；上面的旧缺口仅在自报分类也未知时仍需此兜底。
   {
     key: 'unclassified',
     label: '未归类',
@@ -719,9 +735,9 @@ const CATEGORY_FILTERS: QuestCategory[] = [
 
 const categoryOf = (row: QRow): QuestCategory =>
   TASK_CATEGORIES.find((category) => category.test(row)) ?? {
-    key: catOf(row.code),
-    label: CAT_META[catOf(row.code)]?.[0] ?? '其他',
-    color: catColor(row.code),
+    key: catOf(row),
+    label: CAT_META[catOf(row)]?.[0] ?? '其他',
+    color: catColor(row),
     test: () => true,
   }
 
@@ -775,7 +791,7 @@ const QUICK_FILTERS: Record<string, { label: string; test: (r: QRow) => boolean 
         nextReset('daily') - Date.now() <= RESET_SOON.日[1]) return true
       const entry = RESET_SOON[periodOfRow(r)[0]]
       if (!entry) return false
-      return nextReset(entry[0], annualMonthOf(r.memo2)) - Date.now() <= entry[1]
+      return nextReset(entry[0], questAnnualMonth(r)) - Date.now() <= entry[1]
     },
   },
   doable: {
@@ -829,7 +845,10 @@ const applyFilters = (rows: QRow[]): QRow[] => {
         r.desc.toLowerCase().includes(q) ||
         r.memo.toLowerCase().includes(q) ||
         r.memo2.toLowerCase().includes(q) ||
-        (r.observed?.title ?? '').toLowerCase().includes(q),
+        (r.observed?.title ?? '').toLowerCase().includes(q) ||
+        (r.code === '?' && (
+          (r.observed?.detail ?? '').toLowerCase().includes(q) || questText(r).toLowerCase().includes(q)
+        )),
     )
   }
   // 排序：达成 → 进行中 → 库（按 code）。
@@ -976,9 +995,9 @@ const rowHtml = (row: QRow) => {
   return `<div class="q${observed?.state === 3 || inferredCompleted ? ' done-row' : ''}${ghost ? ' ghost' : ''}${state.selected === row.id ? ' selected' : ''}" data-q="${row.id}">
     <div class="q-row">
       <span class="bar-l" style="background:${category.color}"></span>
-      <span class="per ${periodCls}">${periodLabel}</span>
+      <span class="per ${periodCls === 'y' ? 'o' : periodCls}">${periodLabel}</span>
       <span class="q-nm">
-        <span class="t"><span class="id">${esc(row.code)}</span><span class="q-cat-label">${category.label}</span><b title="${esc(entityNamePlain('quest', row.id, row.observed?.title ?? row.name))}">${entityNameHtml('quest', row.id, row.observed?.title ?? row.name, { compact: true })}</b></span>
+        <span class="t"><span class="id${row.code === '?' ? ' unlisted' : ''}"${row.code === '?' ? ' title="任务库尚未收录 · 按游戏自报的分类与周期显示"' : ''}>${row.code === '?' ? `#${row.id}` : esc(row.code)}</span><span class="q-cat-label">${category.label}</span><b title="${esc(entityNamePlain('quest', row.id, row.observed?.title ?? row.name))}">${entityNameHtml('quest', row.id, row.observed?.title ?? row.name, { compact: true })}</b></span>
         ${
           // 追踪器解出了条件（编成门 / 行动需求）就顶掉正文那一行——正文是游戏原话，
           // 要做什么得自己从里面读，而这两半是同一件事的直说。官方介绍在详情抽屉
@@ -1925,7 +1944,7 @@ const sameDayResetHtml = (row: QRow): string => {
 
 const annualResetHtml = (row: QRow): string => {
   if (periodOfRow(row)[0] !== '年') return ''
-  const month = annualMonthOf(row.memo2)
+  const month = questAnnualMonth(row)
   if (!month) {
     return '<div class="annual-reset unknown">年任 · 重置月份未知</div>'
   }
@@ -2126,7 +2145,7 @@ const detailHtml = (row: QRow) => {
   // 右边那半条一直空着，抽屉本身还得为两行留高。破折号前那半仍是暗色小字、
   // 状态仍是亮色——分开的是样式，不再靠换行。
   return `<div class="q-drawer-head">
-      <span><small>${esc(row.code)} · ${periodOfRow(row)[0]}任 · ${categoryOf(row).label} — </small><b>${esc(status)}</b></span>
+      <span><small>${row.code === '?' ? `#${row.id}` : esc(row.code)} · ${periodOfRow(row)[0]}任 · ${categoryOf(row).label}${row.code === '?' ? ' · 未收录' : ''} — </small><b>${esc(status)}</b></span>
       <button data-q-close title="关闭任务详情">×</button>
     </div>
     <div class="q-drawer-body">
@@ -2186,7 +2205,7 @@ const render = () => {
   const nearestAnnual = rows
     .flatMap((row) => {
       if (!row.observed || periodOfRow(row)[0] !== '年') return []
-      const month = annualMonthOf(row.memo2)
+      const month = questAnnualMonth(row)
       return month ? [{ month, ts: nextReset('annual', month) }] : []
     })
     .sort((a, b) => a.ts - b.ts)[0]

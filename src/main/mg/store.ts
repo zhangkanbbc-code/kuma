@@ -8,7 +8,7 @@ import {
   reconcileBattle,
   upgradeBattleView,
 } from './battle'
-import { mergeAirBases, replaceAirBases } from './air-bases'
+import { mergeAirBases, replaceAirBases, retireAirBasesOfArea, retireClosedAreas } from './air-bases'
 import { newSunkEntries } from '../../shared/sortie-mourning'
 import { ANCHORAGE_REPAIR_STEEL_PER_HP } from '../../shared/anchorage-repair'
 import { newEscapeEntries } from '../../shared/sortie-escape'
@@ -171,8 +171,13 @@ export const hydrateDomain = (data: any) => {
     state.sortie = restored as typeof state.sortie
   }
   if (Array.isArray(data.airBases)) {
-    state.player.airBases = data.airBases
+    // 旧构建可能已记下活动关闭却未撤场；回灌时补做，缺少活动窗口的旧快照仍照实保留。
+    state.player.airBases = retireClosedAreas(data.airBases, data.eventAreas ?? {})
     state.player.airBasesTs = data.airBasesTs ?? null
+    if (state.player.airBases !== data.airBases) {
+      state.player.airBasesTs = Date.now()
+      console.log(`[kuma] mg: 回灌时撤下已关闭活动海域的基地航空队 ${data.airBases.length - state.player.airBases.length} 队`)
+    }
   }
   // 泊地修理的计时锚点：丢了就再也算不回来（游戏不下发它），所以旧快照里有就收
   if (data.berthSince && typeof data.berthSince === 'object') {
@@ -1414,6 +1419,7 @@ const four = (v: unknown): [number, number, number, number] =>
 
 const reducers: Record<string, Reducer> = {
   '/kcsapi/api_start2/getData': (body, _post, ts) => {
+    const sections: Section[] = ['master', 'eventAreas']
     const ships: Record<number, MasterShip> = {}
     for (const s of body.api_mst_ship ?? []) {
       ships[s.api_id] = {
@@ -1561,9 +1567,19 @@ const reducers: Record<string, Reducer> = {
         // 就地结账：events/material_log 是可清理的滚动表，活动约一个月，
         // 此刻数据还齐；等它们被清掉就再也算不回来了。归档表本身永久保留。
         ledger.archiveEvent(+idStr, period.firstSeenTs, period.lastSeenTs)
+        // 游戏在活动结束时把该区陆航的飞机退回仓库；kuma 这里只撤中队记录，
+        // 装备实例归属由下一次装备报文自然校正。
+        const previous = state.player.airBases
+        const kept = retireAirBasesOfArea(previous, +idStr)
+        if (kept !== previous) {
+          state.player.airBases = kept
+          state.player.airBasesTs = ts
+          if (!sections.includes('airBases')) sections.push('airBases')
+          console.log(`[kuma] mg: 活动海域 ${idStr} 已关闭，撤下基地航空队 ${previous.length - kept.length} 队`)
+        }
       }
     }
-    return ['master', 'eventAreas']
+    return sections
   },
 
   '/kcsapi/api_port/port': (body, _post, ts) => {
@@ -2891,10 +2907,11 @@ const reducers: Record<string, Reducer> = {
   '/kcsapi/api_req_combined_battle/goback_port': onGobackPort,
 
   /**
-   * 用户账本 489 条响应核出：api_state 0 = 未解放、1 = 已解放且本期未达成、
+   * api_state 0 = 未出撃（已解锁、从未派出，游戏标 NEW）、1 = 已解放且本期未达成、
    * 2 = 已达成；已观测的全量列表里缺号也表示尚未解锁。api_limit_time[0] 是
    * 月次远征每月 15 日 12:00 JST 的重置时刻。状态只在打开远征页时刷新；
    * 重置时刻一过而没有新观测，旧的「本期已完成」不能再信。
+   * 状态含义来源：ElectronicObserver apilist.txt（0=未出撃, 1=未達成, 2=達成済み）。
    */
   '/kcsapi/api_get_member/mission': (body, _post, ts) => {
     const missionStates: Record<number, number> = {}

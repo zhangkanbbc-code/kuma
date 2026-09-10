@@ -519,6 +519,12 @@ const STRUCTURAL_CASEBOOK = {
 
 const STRUCTURAL_ALLOWLIST = [
   {
+    rule: '⑨',
+    file: 'src/renderer/modules/qn.ts',
+    phrase: 'title="任务库尚未收录 · 按游戏自报的分类与周期显示"',
+    why: '用户 2026-09-10 任务存在层自扩展施工单明确指定此完整悬停文案；仅放行该标题，其余游戏自报/自述仍按原判例拦截',
+  },
+  {
     rule: '②',
     file: 'src/renderer/modules/ji.ts',
     phrase: '<div class="ak-empty">待补</div>',
@@ -754,6 +760,26 @@ test('09-09 布局锁定续单文案登记：分隔条、折叠与展开均不�
   assert.ok(read('使用说明.md').includes(manual))
   for (const phrase of [title, manual, '布局已锁定', '折叠此坞（导航条点元素可再展开）', '展开左坞·查阅', '展开右坞·临战', '展开底坞·常驻']) {
     const rows = [{ file: '布局锁定文案登记', line: 1, text: phrase }]
+    assert.deepEqual(offendersIn(rows, RETIRED_WORDS), [])
+    assert.deepEqual(offendersIn(rows, SENTENCE_SHAPES), [])
+  }
+})
+
+test('09-10 远征未远征标签与 NEW 悬停文案通过原棘轮', () => {
+  const bi = fs.readFileSync(new URL('../src/renderer/modules/bi.ts', import.meta.url), 'utf8')
+  for (const phrase of ['未远征', '游戏里标 NEW：已解锁，还没远征过']) {
+    assert.ok(bi.includes(phrase))
+    const rows = [{ file: 'src/renderer/modules/bi.ts', line: 1, text: phrase }]
+    assert.deepEqual(offendersIn(rows, RETIRED_WORDS), [])
+    assert.deepEqual(offendersIn(rows, SENTENCE_SHAPES), [])
+  }
+})
+
+test('09-10 未收录任务标签与按游戏自报显示的悬停文案通过原棘轮', () => {
+  const qn = fs.readFileSync(new URL('../src/renderer/modules/qn.ts', import.meta.url), 'utf8')
+  for (const phrase of ['未收录', '任务库尚未收录 · 按游戏自报的分类与周期显示']) {
+    assert.ok(qn.includes(phrase))
+    const rows = [{ file: 'src/renderer/modules/qn.ts', line: 1, text: phrase }]
     assert.deepEqual(offendersIn(rows, RETIRED_WORDS), [])
     assert.deepEqual(offendersIn(rows, SENTENCE_SHAPES), [])
   }

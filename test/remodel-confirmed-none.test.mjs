@@ -105,16 +105,16 @@ test('非直接互逆仅first；无关对脚注与转换段不阻断本对', () 
   assert.deepEqual(confirmed(s).map(r => [r.edge, r.stage]), [['463→468', 'first']])
 })
 
-test('随包79条first与6条convert逐边有三源证据；冲突与Glorious不收', () => {
+test('随包81条first与6条convert逐边有三源证据；冲突与Glorious不收', () => {
   const empty = Object.entries(pack.data).flatMap(([edge, row]) => Object.entries(row.stages)
     .filter(([, materials]) => !Object.keys(materials).length).map(([stage]) => edge + '/' + stage))
-  assert.equal(empty.length, 85)
+  assert.equal(empty.length, 87)
   assert.deepEqual(empty.sort(), fixture.confirmedNone.map(r => r.edge + '/' + r.stage).sort())
   for (const row of fixture.confirmedNone) {
     for (const site of ['wikiwiki', 'api']) assert.ok(row.sources.some(s => s.site === site))
     assert.ok(row.sources.some(s => s.site.startsWith('kcwiki')))
   }
-  assert.equal(fixture.confirmedNone.filter(r => r.stage === 'first').length, 79)
+  assert.equal(fixture.confirmedNone.filter(r => r.stage === 'first').length, 81)
   assert.equal(fixture.confirmedNone.filter(r => r.stage === 'convert').length, 6)
   for (const edge of ['463→468', '468→463', '464→470', '470→464', '911→916']) assert.deepEqual(pack.data[edge], { stages: { first: {}, convert: {} } })
   assert.deepEqual(pack.data['916→911'].stages.convert, { 'useitem:2': 50, 'useitem:3': 50 })
@@ -203,7 +203,7 @@ test('转换段解析区分空白、横线和缺成本格，保留箭头方向�
   }
 })
 
-test('74条单向空档：真实chip和链摘要均不显示任何文字，保留confirmedNone', () => {
+test('76条单向空档：真实chip和链摘要均不显示任何文字，保留confirmedNone', () => {
   const rt = remodelRuntime(fixture.raw, {}, { facts: pack })
   const { remodelStageLabelHtml } = runtimeHost().extract('src/renderer/modules/ji.ts', ['remodelStageLabelHtml']).api
   let count = 0
@@ -220,7 +220,7 @@ test('74条单向空档：真实chip和链摘要均不显示任何文字，保�
       'globalThis.result = stagePills(specialNeeds, "单向")').result
     assert.equal(summary, '', edge)
   }
-  assert.equal(count, 74)
+  assert.equal(count, 76)
 })
 
 test('单档确认无不填另一档，也不覆盖API正数', () => {

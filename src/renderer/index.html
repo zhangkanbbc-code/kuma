@@ -5458,7 +5458,8 @@
     .mod-qn .per.o { color: #93a4b3; border-color: #2a3742; }
     .mod-qn .q-nm { flex: 1; min-width: 0; }
     .mod-qn .q-nm .t { display: flex; align-items: baseline; gap: 7px; }
-    .mod-qn .q-nm .t .id { font-family: var(--mono); font-size: 10px; color: var(--dim); }
+    .mod-qn :where(.q-nm .t) .id { font-family: var(--mono); font-size: 10px; color: var(--dim); }
+    .mod-qn .id.unlisted { color: var(--gold) }
     .mod-qn .q-nm .t b { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .mod-qn .q-nm .plain { display: block; font-size: 10.5px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     /* 追踪器解出的条件顶掉正文那一行：占的就是 .plain 的位置（同一个类、不另加行高，
@@ -6045,6 +6046,7 @@
     .mod-bi .hero { flex: none; padding: 13px 18px 11px; border-bottom: 1px solid var(--line); background: radial-gradient(420px 180px at 80% 0%, var(--exp-glow), transparent 65%), var(--bg1); }
     .mod-bi .hero .meta { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--sub); flex-wrap: wrap; }
     .mod-bi .exp-state { margin-top: 5px; font-size: 11px; color: var(--dim); }
+    .mod-bi .exp-state.fresh { color: var(--gold) }
     .mod-bi .badge { padding: 1px 7px; border-radius: 3px; font-size: 10.5px; background: var(--bg3); border: 1px solid var(--line); }
     .mod-bi .badge.w { color: #9ad0e0; border-color: #2a5a70; }
     .mod-bi .hero h1 { font-family: var(--serif); font-size: 21px; font-weight: 600; letter-spacing: 1px; margin-top: 3px; }

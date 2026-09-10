@@ -240,7 +240,7 @@ export function reconcileStagedRemodel(kc, wiki, raw, tableText, supplements = [
         if (!sites.includes('wikiwiki') || !sites.some(s => s.startsWith('kcwiki'))) missing.push({ edge, stage, identity, values: { ...values } })
         const field = nativeFields[identity]
         if (stage === 'first' && native && Object.hasOwn(native, field)) values.api = native[field]
-        const sources = rows.filter(r => r.materials[identity] !== undefined).map(({ site, evidence, basis, raw }) => ({ site, evidence, basis, raw }))
+        const sources = rows.filter(r => r.materials[identity] !== undefined).map(({ site, evidence, basis, raw, date }) => ({ site, evidence, basis, raw, ...(date ? { date } : {}) }))
         const correction = MAINTAINER_REMODEL_CORRECTIONS.find(r => r.edge === edge && r.stage === stage && Object.hasOwn(r.materials, identity))
         const resolution = correction && { status: '已裁（画面证据）', count: correction.materials[identity],
           basis: correction.basis, evidence: correction.evidence, date: correction.date }

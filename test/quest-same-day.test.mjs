@@ -108,7 +108,7 @@ test('当日提示复用日任倒计时，解释只放 title；季任务有本�
   assert.equal(render({ id: 2 }), '')
   const filters = compile(qn, 'const RESET_SOON:', '// qp 与编成判定', 'QUICK_FILTERS', {
     qp, nextReset, Date: { now: () => now }, isObservedActive: (r) => r.active,
-    periodOfRow: () => ['季'], annualMonthOf: () => null,
+    periodOfRow: () => ['季'], questAnnualMonth: () => null,
   })
   assert.equal(filters.resetSoon.test({ id: 1, active: true }), true)
   qp.progress[1] = [0]

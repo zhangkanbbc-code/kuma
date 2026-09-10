@@ -4263,6 +4263,7 @@ test('authoritative quest tabs replace ghost active tasks and retain the server 
     api_state,
     api_category: 1,
     api_type: 1,
+    api_label_type: 2,
     api_title: `Q${api_no}`,
     api_progress_flag: 0,
   })
@@ -4288,6 +4289,11 @@ test('authoritative quest tabs replace ghost active tasks and retain the server 
   )
   assert.deepEqual(full.activeIds, actual)
   assert.equal(full.execCount, 8)
+  assert.equal(full.quests[201].labelType, 2)
+  const legacy = reduceQuestList({}, null, {
+    api_list: [{ ...quest(201, 2), api_label_type: undefined }],
+  }, { api_tab_id: '0' })
+  assert.equal(legacy.quests[201].labelType, 0)
   assert.equal(full.quests[218], undefined)
   assert.equal(full.quests[403], undefined)
   assert.equal(full.quests[606], undefined)
@@ -10633,8 +10639,12 @@ test('api_afterbull 是弹药、api_afterfuel 是钢材——字段名陷阱不�
   assert.match(types, /afterSteel: number \/\/ ← api_afterfuel/)
   assert.match(store, /afterAmmo: s\.api_afterbull \?\? 0/)
   assert.match(store, /afterSteel: s\.api_afterfuel \?\? 0/)
-  assert.match(catalog, /弹\$\{\s*wiki\?\.弹药 \?\? predecessor\?\.api_afterbull \?\? '\?'\s*\}/)
-  assert.match(catalog, /钢\$\{wiki\?\.钢材 \?\? predecessor\?\.api_afterfuel \?\? '\?'\}/)
+  // 优先级与字段映射由 remodel-edge-cost 的行为测试核定；这里钉普通/可逆前进边共用结果。
+  assert.match(catalog, /import \{ remodelEdgeCost \} from '\.\.\/\.\.\/shared\/remodel-edge-cost'/)
+  assert.match(catalog, /const fwdCost = remodelEdgeCost\(predecessor, mstId, wiki\)/)
+  assert.match(catalog, /const fwdStats = `弹\$\{fwdCost\.bull\} 钢\$\{fwdCost\.fuel\}`/)
+  assert.match(catalog, /<div class="req rq-t">Lv \$\{fwdCost\.level\}<br>\$\{fwdStats\}<\/div>/)
+  assert.match(catalog, /const fwdLine = `Lv \$\{fwdCost\.level\} \$\{fwdStats\}`/)
   assert.doesNotMatch(catalog, /弹\$\{\s*wiki\?\.弹药 \?\? predecessor\?\.api_afterfuel/)
 })
 
@@ -11376,7 +11386,7 @@ test('条件行顶掉正文的类别闸:只放出击/演习/远征/编成,工厂
 
   // —— 穷举：E/F/G 码族（补给/入渠/建造/开发/废弃/改修/改造）一条都不许进白名单 ——
   const factoryLeaks = rows
-    .filter((row) => ['E', 'F', 'G'].includes(catOf(row.code)))
+    .filter((row) => ['E', 'F', 'G'].includes(catOf(row)))
     .filter((row) => PROSE_REPLACING_CATEGORIES.has(categoryOf(row).key))
     .map((row) => `${row.code}→${categoryOf(row).label}`)
   assert.deepEqual(factoryLeaks, [], '工厂族任务的正文是完整需求清单，一条都不能被条件行顶掉')

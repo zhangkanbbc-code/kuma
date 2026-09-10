@@ -1438,6 +1438,7 @@ const expeditionDisplayState = (e: Exped, now: number) => {
     return { kind, label: `本期已完成${reset ? ` · ${reset}` : ''}` }
   }
   if (kind === 'locked') return { kind, label: '尚未解锁' }
+  if (kind === 'fresh') return { kind, label: '未远征' }
   return null
 }
 
@@ -1773,7 +1774,7 @@ const detailHtml = (e: Exped, now: number): string => {
         ${w?.combat ? `<span class="badge" style="color:var(--warn);border-color:#4a3a22">${esc(w.combat)}</span>` : ''}
       </div>
       <h1><i>${esc(e.dispNo)}</i>${entityNameHtml('expedition', e.dispNo, w?.nameJp ?? e.name)}</h1>
-      ${displayState ? `<div class="exp-state ${displayState.kind}">${esc(displayState.label)}</div>` : ''}
+      ${displayState ? `<div class="exp-state ${displayState.kind}"${displayState.kind === 'fresh' ? ' title="游戏里标 NEW：已解锁，还没远征过"' : ''}>${esc(displayState.label)}</div>` : ''}
       <div class="tline">
         <span class="pill">时间 <b>${fmtDur(e.timeMin)}</b></span>
         <span class="pill">现在出发 → <b class="hl">${pad(rc.getHours())}:${pad(rc.getMinutes())} 返港</b></span>

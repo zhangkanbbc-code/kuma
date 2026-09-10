@@ -9,8 +9,8 @@
     "lifecycleSourceUrl": "https://x.com/KanColle_STAFF/status/2095347759301964029",
     "openedAt": "2026-07-08T21:59:00+09:00",
     "until": "2026-09-10",
-    "endNote": "官方 2026-09-03 公告 9/10 11:00 JST 维护开始即作战完了；活动真正结束后再把 status 改 ended 并跑 npm run lodes:map-intel-event-end",
-    "status": "active",
+    "endNote": "官方 2026-09-03 公告 9/10 11:00 JST 维护开始即作战完了；2026-09-10 已按此归档三包并重生成生命周期",
+    "status": "ended",
     "mapNamesZh": {
       "1": "九州近海/南西诸岛近海",
       "2": "南沙群岛近海/奥尔莫克近海/圣贝纳迪诺海峡近海",

@@ -1,4 +1,4 @@
-export type ExpeditionRowState = 'done' | 'locked' | null
+export type ExpeditionRowState = 'done' | 'locked' | 'fresh' | null
 export type ExpeditionGlow = 'collect' | 'unfit' | 'running' | null
 
 export const decksOnExpedition = (
@@ -36,6 +36,12 @@ export const expeditionGlow = (input: {
   return null
 }
 
+/**
+ * ElectronicObserver apilist.txt：api_state：達成状況　0=未出撃, 1=未達成, 2=達成済み。
+ * 0 = 已解锁、从未派出（游戏标 NEW）；1 = 已解锁未达成；2 = 达成（月次限本期）。
+ * 实测：远征解锁当刻以 state 0 出现，首次派出后转 1。
+ * 已观测的全量列表里缺号 = 尚未解锁；未观测时不标记。
+ */
 export const expeditionRowState = (input: {
   resetType: number
   observed: boolean
@@ -44,7 +50,8 @@ export const expeditionRowState = (input: {
   now: number
 }): ExpeditionRowState => {
   if (!input.observed) return null
-  if (input.state === 0 || input.state === undefined) return 'locked'
+  if (input.state === 0) return 'fresh'
+  if (input.state === undefined) return 'locked'
   if (
     input.resetType === 1 &&
     input.state === 2 &&

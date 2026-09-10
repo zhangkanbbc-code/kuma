@@ -21,12 +21,17 @@ test('未观测过远征状态时不标记', () => {
   assert.equal(expeditionRowState({ ...base, observed: false, state: undefined }), null)
 })
 
-test('api_state 0 标为尚未解锁', () => {
-  assert.equal(expeditionRowState({ ...base, state: 0 }), 'locked')
+test('api_state 0 标为未远征（fresh）', () => {
+  assert.equal(expeditionRowState({ ...base, state: 0 }), 'fresh')
 })
 
 test('已有观测但该远征不在列表里时标为尚未解锁', () => {
   assert.equal(expeditionRowState({ ...base, state: undefined }), 'locked')
+})
+
+test('fresh 与 locked 互斥：0 不是 locked、undefined 不是 fresh', () => {
+  assert.notEqual(expeditionRowState({ ...base, state: 0 }), 'locked')
+  assert.notEqual(expeditionRowState({ ...base, state: undefined }), 'fresh')
 })
 
 test('月次远征 api_state 2 且尚未重置时标为本期已完成', () => {

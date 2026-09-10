@@ -2,7 +2,7 @@
   "sourceHashes": {
     "kcwiki": "dceb8d4808c001d79bfc5aeb7e672a97cccd88a5305ab3aab747b03f44ce9f59",
     "wikiwiki": "0e1932e970dc634f02f95d0879af9f7c101a6e1e3ab8cf26f5b8341539757d2a",
-    "master": "ad14c50d16de5d90c103d4973e7ba7486e67cc68cce414e956a8e2abd15a91bf",
+    "master": "c93fa53bb520547142164931fc612fab6e473a0e91e94df1d29f5fa525e709b4",
     "改造": "2cac5f96f9ab263cc0347d0e594cb9b309372b06253c87921b26b651d54e8039",
     "模块:舰娘数据": "3a6b925e17bf65faa7bb008facde9cabea285b09ca9484c7e8de5fbb2e285820",
     "球磨": "a2f433fc3b534d7f0b066df04b03b06f269d10f65ce3ede81d9395861c75b3e8",
@@ -17181,6 +17181,117 @@
       }
     ]
   },
+  "maintenanceRaw": {
+    "api_mst_ship": [
+      {
+        "api_id": 119,
+        "api_name": "北上改二",
+        "api_aftershipid": "1071",
+        "api_afterlv": 88
+      },
+      {
+        "api_id": 411,
+        "api_name": "扶桑改二",
+        "api_aftershipid": "748",
+        "api_afterlv": 92
+      },
+      {
+        "api_id": 412,
+        "api_name": "山城改二",
+        "api_aftershipid": "749",
+        "api_afterlv": 92
+      },
+      {
+        "api_id": 748,
+        "api_name": "扶桑改二補",
+        "api_aftershipid": "0",
+        "api_afterlv": 0
+      },
+      {
+        "api_id": 749,
+        "api_name": "山城改二補",
+        "api_aftershipid": "0",
+        "api_afterlv": 0
+      },
+      {
+        "api_id": 1071,
+        "api_name": "北上改三",
+        "api_aftershipid": "0",
+        "api_afterlv": 0
+      }
+    ],
+    "api_mst_shipupgrade": [
+      {
+        "api_id": 748,
+        "api_current_ship_id": 411,
+        "api_original_ship_id": 26,
+        "api_upgrade_type": 1,
+        "api_upgrade_level": 3,
+        "api_drawing_count": 0,
+        "api_catapult_count": 0,
+        "api_report_count": 0,
+        "api_aviation_mat_count": 3,
+        "api_arms_mat_count": 0,
+        "api_tech_count": 0,
+        "api_sortno": 1748
+      },
+      {
+        "api_id": 749,
+        "api_current_ship_id": 412,
+        "api_original_ship_id": 27,
+        "api_upgrade_type": 1,
+        "api_upgrade_level": 3,
+        "api_drawing_count": 0,
+        "api_catapult_count": 0,
+        "api_report_count": 0,
+        "api_aviation_mat_count": 3,
+        "api_arms_mat_count": 0,
+        "api_tech_count": 0,
+        "api_sortno": 1749
+      },
+      {
+        "api_id": 1071,
+        "api_current_ship_id": 119,
+        "api_original_ship_id": 25,
+        "api_upgrade_type": 1,
+        "api_upgrade_level": 3,
+        "api_drawing_count": 2,
+        "api_catapult_count": 0,
+        "api_report_count": 0,
+        "api_aviation_mat_count": 0,
+        "api_arms_mat_count": 3,
+        "api_tech_count": 0,
+        "api_sortno": 661
+      }
+    ],
+    "api_mst_useitem": [
+      {
+        "api_id": 2,
+        "api_name": "高速建造材"
+      },
+      {
+        "api_id": 3,
+        "api_name": "開発資材"
+      },
+      {
+        "api_id": 58,
+        "api_name": "改装設計図"
+      },
+      {
+        "api_id": 77,
+        "api_name": "新型航空兵装資材"
+      },
+      {
+        "api_id": 94,
+        "api_name": "新型兵装資材"
+      },
+      {
+        "api_id": 104,
+        "api_name": "工廠資源"
+      }
+    ],
+    "api_mst_slotitem": []
+  },
   "baselineHead": "176de57822f51c6376fc76b08868acc18a76b306",
   "stageBaseline": {
     "1001→1006": {
@@ -23183,6 +23294,30 @@
   ],
   "missing": [
     {
+      "edge": "119→1071",
+      "stage": "first",
+      "identity": "useitem:104",
+      "values": {
+        "maintainer": 5
+      }
+    },
+    {
+      "edge": "119→1071",
+      "stage": "first",
+      "identity": "useitem:2",
+      "values": {
+        "maintainer": 550
+      }
+    },
+    {
+      "edge": "119→1071",
+      "stage": "first",
+      "identity": "useitem:3",
+      "values": {
+        "maintainer": 55
+      }
+    },
+    {
       "edge": "152→694",
       "stage": "first",
       "identity": "useitem:75",
@@ -23196,6 +23331,54 @@
       "identity": "useitem:94",
       "values": {
         "wikiwiki": 2
+      }
+    },
+    {
+      "edge": "411→748",
+      "stage": "first",
+      "identity": "useitem:104",
+      "values": {
+        "maintainer": 3
+      }
+    },
+    {
+      "edge": "411→748",
+      "stage": "first",
+      "identity": "useitem:2",
+      "values": {
+        "maintainer": 188
+      }
+    },
+    {
+      "edge": "411→748",
+      "stage": "first",
+      "identity": "useitem:3",
+      "values": {
+        "maintainer": 48
+      }
+    },
+    {
+      "edge": "412→749",
+      "stage": "first",
+      "identity": "useitem:104",
+      "values": {
+        "maintainer": 3
+      }
+    },
+    {
+      "edge": "412→749",
+      "stage": "first",
+      "identity": "useitem:2",
+      "values": {
+        "maintainer": 188
+      }
+    },
+    {
+      "edge": "412→749",
+      "stage": "first",
+      "identity": "useitem:3",
+      "values": {
+        "maintainer": 48
       }
     },
     {
@@ -28897,6 +29080,45 @@
       "basis": "与同边 wikiwiki first 共有素材全相等，整列归档；未提供素材记来源缺项"
     },
     {
+      "edge": "411→748",
+      "stage": "first",
+      "site": "maintainer",
+      "basis": "maintainer",
+      "materials": {
+        "useitem:104": 3,
+        "useitem:2": 188,
+        "useitem:3": 48
+      },
+      "evidence": "公开游戏改装画面（2026-09-10 核）显示 扶桑改二→扶桑改二補：工廠資源3／新型航空兵装資材3／高速建造材188／開発資材48／弾薬3200／鋼材5400",
+      "date": "2026-09-10"
+    },
+    {
+      "edge": "412→749",
+      "stage": "first",
+      "site": "maintainer",
+      "basis": "maintainer",
+      "materials": {
+        "useitem:104": 3,
+        "useitem:2": 188,
+        "useitem:3": 48
+      },
+      "evidence": "公开游戏改装画面（2026-09-10 核）显示 山城改二→山城改二補：工廠資源3／新型航空兵装資材3／高速建造材188／開発資材48／弾薬3200／鋼材5400",
+      "date": "2026-09-10"
+    },
+    {
+      "edge": "119→1071",
+      "stage": "first",
+      "site": "maintainer",
+      "basis": "maintainer",
+      "materials": {
+        "useitem:104": 5,
+        "useitem:2": 550,
+        "useitem:3": 55
+      },
+      "evidence": "公开游戏改装画面（2026-09-10 核）显示 北上改二→北上改三：改装設計図2／新型兵装資材3／工廠資源5／高速建造材550／開発資材55／弾薬1500／鋼材2500",
+      "date": "2026-09-10"
+    },
+    {
       "site": "preserved",
       "edge": "502→507",
       "stage": "convert",
@@ -28979,6 +29201,46 @@
   ],
   "confirmedNone": [
     {
+      "edge": "25→58",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "10",
+          "basis": "目标58主条目fromShipId=25，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 25,
+            "api_id": 58,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 10,
+            "弹药": 400,
+            "钢材": 100,
+            "改造前": -1,
+            "改造后": "098",
+            "系列": "020"
+          },
+          "basis": "ID=25的改造后=098对应目标58，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
       "edge": "77→82",
       "stage": "first",
       "sources": [
@@ -29055,6 +29317,46 @@
             "系列": "004"
           },
           "basis": "ID=87的改造后=103对应目标88，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "58→119",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "50",
+          "basis": "目标119主条目fromShipId=58，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 58,
+            "api_id": 119,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 50,
+            "弹药": 770,
+            "钢材": 400,
+            "改造前": "020",
+            "改造后": "115",
+            "系列": "020"
+          },
+          "basis": "ID=58的改造后=115对应目标119，图纸栏缺失或为空"
         }
       ]
     },

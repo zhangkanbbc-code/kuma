@@ -241,6 +241,7 @@ export interface Quest {
   no: number
   category: number // api_category：任务分类色
   type: number // 1日 2周 3月 4单发 5他
+  labelType: number // api_label_type：周期图标种别，1 单发 · 2 日 · 3 周 · 6 月 · 7 季 · 101–112 年（100+重置月）
   state: number // 1未受领 2遂行中 3达成
   title: string
   detail?: string // 游戏任务说明（日文原文）
@@ -857,7 +858,7 @@ export interface MgPlayer {
   questActiveIds: number[] | null // tab 0/9 确认的当前受领集合；旧快照没有时为 null
   questActiveTs: number | null // 当前受领集合最近一次被 tab 0/9 或受领/取消动作确认的时刻
   questExecCount: number | null // 游戏 api_exec_count，自报的同时遂行数
-  missionStates: Record<number, number> // 远征 id → 游戏自报 api_state；已观测但缺号 = 尚未解锁
+  missionStates: Record<number, number> // 远征 id → 游戏自报 api_state：0 未远征 · 1 未达成 · 2 达成；已观测但缺号 = 尚未解锁
   missionStatesTs: number | null // 最近一次打开游戏远征页、同步 mission 的时刻
   missionLimitTs: number | null // 本期月次远征重置时刻；游戏没给时为 null
   useitems: Record<number, number> // useitem id → 所持数

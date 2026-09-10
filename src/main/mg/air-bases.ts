@@ -1,4 +1,17 @@
-import type { AirBaseSquad } from '../../shared/mg-types'
+import type { AirBaseSquad, EventArea } from '../../shared/mg-types'
+
+export const retireAirBasesOfArea = (squads: AirBaseSquad[], areaId: number): AirBaseSquad[] => {
+  const kept = squads.filter((squad) => squad.areaId !== areaId)
+  return kept.length === squads.length ? squads : kept
+}
+
+export const retireClosedAreas = (
+  squads: AirBaseSquad[],
+  eventAreas: Record<number, EventArea>,
+): AirBaseSquad[] => {
+  const kept = squads.filter((squad) => eventAreas[squad.areaId]?.closed !== true)
+  return kept.length === squads.length ? squads : kept
+}
 
 // 基地航空队一条中队。半径新版是 {api_base, api_bonus}，老版是数字——两种都吃。
 export const toAirBase = (raw: any, ts: number, fallbackArea = 0): AirBaseSquad => {

@@ -1,6 +1,7 @@
 import { akashiImproveItem } from '../../shared/akashi-improve'
 import { canDeferCatalogRow, canDeferCatalogRows } from '../../shared/catalog-row-layout'
 import { remodelCycles, remodelStagesFor, REMODEL_STAGE_COPY, type RemodelHistory, type RemodelStage } from '../../shared/remodel-stage'
+import { remodelEdgeCost } from '../../shared/remodel-edge-cost'
 import { queryShipLife } from '../kernel'
 // 鉴 (Ji) · 图鉴与在籍列表：舰娘 / 列表 / 装备 / 深海 / 海域 / 道具。
 // 时效纪律：主数据来自 api_start2 快照，页脚标注快照时间；
@@ -2678,9 +2679,9 @@ const shipDrawerHtml = () => {
       }).join('<br>')
       // kcsapi 字段名陷阱：api_afterbull=弹药、api_afterfuel=钢材（两张改装画面
       // 实拍交叉核定，见 MasterShip 注释）。此前写反，kcwiki 缺值时弹钢会互换。
-      const fwdStats = `弹${
-        wiki?.弹药 ?? predecessor?.api_afterbull ?? '?'
-      } 钢${wiki?.钢材 ?? predecessor?.api_afterfuel ?? '?'}`
+      // 主数据定义了这条边时优先取其完整等级/弹钢，避免 kcwiki 旧版「无下一改」的 0 占位压过新边。
+      const fwdCost = remodelEdgeCost(predecessor, mstId, wiki)
+      const fwdStats = `弹${fwdCost.bull} 钢${fwdCost.fuel}`
       // 可逆的一对（乙⇔丙、改二⇔戊）**素材检测按方向各自独立**（用户
       // 2026-08-11 指出此前只检向右）：向右＝链前进，向左＝回程，各自一枚
       // 库存药丸标 →/←。回程弹钢/等级取出发形态（本节点）的原生字段；
@@ -2696,7 +2697,7 @@ const shipDrawerHtml = () => {
         // 与 ⇄ 同一套网格：符号一律压在节点中线上（用户 2026-08-11 定的排布），
         // Lv/弹钢在符号上方、素材药丸在下方
         return `<div class="rm-arrow" title="${esc(arrowTitle)}">
-          <div class="req rq-t">Lv ${wiki?.等级 ?? level}<br>${fwdStats}</div>
+          <div class="req rq-t">Lv ${fwdCost.level}<br>${fwdStats}</div>
           <div class="bi-glyph">→</div>
           <div class="req rq-b">${needPill}</div>
         </div>${node}`
@@ -2706,7 +2707,7 @@ const shipDrawerHtml = () => {
       const fwdPill = stagePills(specialNeeds, `改造素材 · 改往${entityNamePlain('ship', mstId, s.api_name)}`)
       const backNeeds = needChipsHtml(null, predecessorId, mstId, instances.length === 1 ? instances[0].id : undefined)
       const backPill = stagePills(backNeeds, `改造素材 · 改回${from}`)
-      const fwdLine = `Lv ${wiki?.等级 ?? level} ${fwdStats}`
+      const fwdLine = `Lv ${fwdCost.level} ${fwdStats}`
       const backLine = `<span class="back">Lv ${s.api_afterlv ?? '?'} 弹${
         s.api_afterbull ?? '?'
       } 钢${s.api_afterfuel ?? '?'}</span>`

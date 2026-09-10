@@ -10,6 +10,7 @@ const toQuest = (raw: any): Quest => ({
   no: raw.api_no,
   category: raw.api_category ?? 0,
   type: raw.api_type ?? 0,
+  labelType: raw.api_label_type ?? 0,
   state: raw.api_state ?? 1,
   title: raw.api_title ?? '',
   detail: raw.api_detail ?? '',
