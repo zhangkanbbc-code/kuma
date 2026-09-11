@@ -347,6 +347,8 @@ const simPatch = (ships: SimShip[], sunk: SimShip[] = []) => {
         defeated: ship.sunk === true,
         escaped: false,
         repairItemUsed: ship.repairItemUsed ?? null,
+        repairItemUsedAtStart: null,
+        repairItemInstanceAtStart: null,
       })),
       eShips: [],
     } as NonNullable<SortieView['battle']>,

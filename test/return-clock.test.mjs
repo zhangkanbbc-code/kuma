@@ -27,7 +27,7 @@ const title = (html) => {
 const setup = (t, now, returnTs, name = '海上护卫任务') => {
   t.mock.method(Date, 'now', () => now)
   renderer.mg.decks = [{ id: 2, mission: [1, 5, returnTs, 0], ships: [] }]
-  renderer.mg.master.missions = { 5: { dispNo: 5, name } }
+  renderer.mg.master.missions = { 5: { dispNo: '05', name } }
   renderer.setQuest({
     trackers: { 1: { tasks: [{ kind: 'expedition', missionId: 5, count: 3 }] } },
     progress: {}, serverFloors: {},
@@ -43,7 +43,7 @@ for (const [state, now, returnTs, expected] of [
   test(`顶栏芯片 title 全文：${state}`, (t) => {
     setup(t, now, returnTs)
     const collect = now >= returnTs ? ' · 前往港口领取' : ''
-    assert.equal(title(renderer.expeditionsHtml()), `第2舰队 · 海上护卫任务 · ${expected}${collect} · 点击查看舰队`)
+    assert.equal(title(renderer.expeditionsHtml()), `第2舰队 · 05 海上护卫任务 · ${expected}${collect} · 点击查看舰队`)
   })
 
   test(`远征状态格、甘特条及紧凑悬停卡 title：${state}`, (t) => {
@@ -93,6 +93,6 @@ test('顶栏 tick 在到点同拍翻 title 与 class，保留转义名称并随�
     Date.now.mock.mockImplementation(() => now)
     renderer.syncExpeditionChipStates(root)
     assert.equal(classes.has('back'), back)
-    assert.equal(chip.title, `第2舰队 · 护卫 "甲" & <乙> · ${expected} · 点击查看舰队`)
+    assert.equal(chip.title, `第2舰队 · 05 护卫 "甲" & <乙> · ${expected} · 点击查看舰队`)
   }
 })

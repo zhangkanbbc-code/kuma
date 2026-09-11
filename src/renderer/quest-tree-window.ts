@@ -24,6 +24,7 @@ import { QUEST_PRE_ARBITRATION } from '../shared/quest-pre-arbitration'
 import { simplifyQuestScnData } from './kcwiki-zh'
 import { questPreSourceNoteHtml } from './quest-pre-note'
 import { installZhSimplifier } from './zh-simplify'
+import { CAT_META } from './quest-category'
 
 import type {
   CompleteQuestTreeNode,
@@ -40,16 +41,9 @@ interface FullQuest extends QuestChainEntry {
 
 type TreeStatus = 'active' | 'claim' | 'available' | 'completed' | 'unknown'
 
-const CATEGORY_META: Record<string, { label: string; color: string }> = {
-  A: { label: '编成', color: '#67c98a' },
-  B: { label: '出击', color: '#e06c75' },
-  C: { label: '演习', color: '#5ab8d8' },
-  D: { label: '远征', color: '#8fb8e0' },
-  E: { label: '补给·入渠', color: '#c9a86a' },
-  F: { label: '工厂', color: '#a08a6a' },
-  G: { label: '改装', color: '#b489ff' },
-  S: { label: '限时', color: '#e8c66a' },
-}
+const CATEGORY_META = Object.fromEntries(
+  Object.entries(CAT_META).map(([key, [label, color]]) => [key, { label, color }]),
+)
 
 const STATUS_META: Record<TreeStatus, { label: string; color: string }> = {
   active: { label: '进行中', color: 'var(--accent)' },

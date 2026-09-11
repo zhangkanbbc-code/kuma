@@ -11,8 +11,21 @@
 // 好让换源是纯粹的取数口替换、产物逐字节可对账，而不是顺手重新定义格式：
 // 版式怪癖（如 [[6-1|中部海域哨戒战(6-1)]] 会留下 "「6-1|中部海域哨戒战(6-1)」"
 // 这样带竖线的文本）也照原样保留——它们已经写进了消费端的既有行为。
+// 编号合并在此基础上增加维护者定号保护与跨页改码日志；文本字段仍沿用上述口径。
+
+// kcwiki 未定号或编号注释写错时由这里定号；code 去掉内部空白后匹配。
+// asCode 可保留主页使用的任务码，内容仍取命中行，并阻止后续注释行恢复旧内容。
+// 条目只记录公开来源与核对日期，不记录任何账号叙述。
+export const MAINTAINER_QUEST_NO_CORRECTIONS = [
+  { code: '2609Cw1', id: 384, basis: '游戏任务列表编号（2026-09-11 核）' },
+  { code: '2609Cw2', id: 385, basis: '游戏任务列表编号（2026-09-11 核）' },
+  { code: 'By17', id: 1050, basis: '游戏任务列表编号（2026-09-11 核）' },
+  { code: 'By18', id: 1051, basis: '游戏任务列表编号（2026-09-11 核）' },
+  { code: 'Cs8', id: 313, asCode: 'Cs1', basis: '游戏任务列表编号（2026-09-11 核）；「任务」页 313 编号为 Cs1、F40 前置亦引用 Cs1，「最新任务」页写作 Cs8 与之不一致，码按「任务」页保留，内容取「最新任务」页新行' },
+]
 
 /** action=raw 取这两张页；顺序即合并顺序，后者覆盖前者的同号条目。 */
+// 普通注释行仍后者胜；仅已由维护者定号的条目拒绝后续同号异码注释行。
 export const QUEST_PAGE_TITLES = ['任务', '任务/最新任务']
 
 // kcQuests 的 BEFORE_PARSE_FILTERS：整页先把 HTML 标签换成一个空格。
@@ -145,6 +158,7 @@ const substituteLinkTargets = (value) => {
  * 解析若干张任务页。
  *
  * @param {string[]} pages 每张页的 wikitext（顺序＝合并顺序，后者覆盖前者）
+ *   维护者定号行总是写入，之后拒绝同号异码注释行；普通跨页改码仅记信息。
  * @param {Map<number,string>} equipNames 装备 mstId → 中文名
  * @returns {{ quests: Record<string, object>, stats: object }}
  */
@@ -153,35 +167,72 @@ export const parseKcwikiQuestPages = (pages, equipNames) => {
   let templates = 0
   let withoutId = 0
   let duplicates = 0
-  for (const page of pages) {
+  const maintainerHits = []
+  const conflictRows = []
+  const crossPageCodeChanges = []
+  const withoutIdRows = []
+  const maintainerIds = new Set()
+  const finalizedIds = new Set()
+  const lastWrittenPage = new Map()
+  for (const [pageIndex, page] of pages.entries()) {
     const text = `${page}`.replace(HTML_TAG, ' ')
     for (const span of templateSpans(text, '任务表')) {
       templates++
       // api_id 藏在模板内的第一个 HTML 注释里（`| 编号 =A1|<!--101-->|`）。
       // kcQuests 也是取「第一个注释」，注释为空的整条跳过——那是还没定号的任务。
+      // 现在先读 code 与中文名：维护者定号优先于注释，未定号也保留可核对的行明细。
+      const args = splitArguments(span)
+      const quest = { code: '', desc: '', memo: '', memo2: '', name: '', pre: [] }
+      for (const { name, value } of args) {
+        if (name === '编号') quest.code = value.replace(/<!--[\s\S]*?-->/g, '').replace(/\s+/g, '')
+        if (name === '中文任务名字') quest.name = applyWtFilters(value)
+      }
+      const correction = MAINTAINER_QUEST_NO_CORRECTIONS.find(({ code }) => code === quest.code)
       const comment = span.match(/<!--([\s\S]*?)-->/)
-      const id = comment?.[1]?.trim() ?? ''
+      const id = correction ? String(correction.id) : comment?.[1]?.trim() ?? ''
       if (!/^\d+$/.test(id)) {
         withoutId++
+        withoutIdRows.push({ code: quest.code, name: quest.name })
         continue
       }
-      const quest = { code: '', desc: '', memo: '', memo2: '', name: '', pre: [] }
-      for (const { name, value } of splitArguments(span)) {
-        if (name === '编号') quest.code = value.replace(/<!--[\s\S]*?-->/g, '').trim()
+      if (correction) maintainerHits.push({ code: quest.code, id: correction.id })
+      quest.code = correction?.asCode ?? quest.code
+      if (!correction && maintainerIds.has(id) && quests[id].code !== quest.code) {
+        conflictRows.push({ id: Number(id), kept: quests[id].code, skipped: quest.code, name: quest.name })
+        continue
+      }
+      // asCode 已选定新行内容：后来的同码注释行只计重复，不把新奖励换回旧奖励。
+      if (!correction && finalizedIds.has(id)) {
+        duplicates++
+        continue
+      }
+      for (const { name, value } of args) {
         // kcQuests 的判据是 `value.encode().isalnum()`——纯 ASCII 字母数字才算前置码，
         // 空值与中文备注（「待确认」之类）自然落选。
         if (name.includes('前置') && /^[0-9A-Za-z]+$/.test(value)) quest.pre.push(value)
-        if (name === '中文任务名字') quest.name = applyWtFilters(value)
         if (name === '中文任务说明') quest.desc = applyWtFilters(value)
         if (name === '奖励') {
           quest.memo = applyWtFilters(substituteLinkTargets(substituteEquipRewards(value, equipNames)))
         }
         if (name === '备注') quest.memo2 = applyWtFilters(value)
       }
-      if (quests[id]) duplicates++
+      if (quests[id]) {
+        duplicates++
+        if (lastWrittenPage.get(id) !== pageIndex && quests[id].code !== quest.code) {
+          crossPageCodeChanges.push({ id: Number(id), from: quests[id].code, to: quest.code })
+        }
+      }
       // 同一条任务会在多个分类节里重复出现，kcQuests 的 dict.update 是后者胜，照抄。
+      // 同页旧序号与周期码共存也沿用此口径；跨页改码只记信息，不改变写入结果。
+      // 维护者定号行总是写入，并保护该 id 不被之后的异码注释行覆盖。
       quests[id] = { ...quest, memo: `奖励:${quest.memo}` }
+      lastWrittenPage.set(id, pageIndex)
+      if (correction) maintainerIds.add(id)
+      if (correction?.asCode !== undefined) finalizedIds.add(id)
     }
   }
-  return { quests, stats: { templates, withoutId, duplicates, quests: Object.keys(quests).length } }
+  return { quests, stats: {
+    templates, withoutId, withoutIdRows, duplicates, maintainerHits,
+    conflicts: conflictRows.length, conflictRows, crossPageCodeChanges, quests: Object.keys(quests).length,
+  } }
 }

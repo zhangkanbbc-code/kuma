@@ -1,4 +1,6 @@
 import { renderQuestMarkHtml } from '../quest-mark-html'
+import { CAT_META } from '../quest-category'
+import { expeditionLabel } from '../expedition-label'
 import { QUEST_SHIP_TYPE_GROUPS } from '../../shared/quest-ship-type-groups'
 import { taskEntityRawMarks } from '../task-entity-marks'
 import { buildTaskEntityIndexes, taskEntityAliases } from '../task-entity-index'
@@ -370,17 +372,6 @@ const statusLabelOf = (key: typeof state.status) =>
 
 // ---- code 解码：类别字母 + 周期 ----
 
-const CAT_META: Record<string, [string, string]> = {
-  A: ['编成', 'var(--ok)'],
-  B: ['出击', '#e06c75'],
-  C: ['演习', '#5ab8d8'],
-  D: ['远征', '#8fb8e0'],
-  E: ['补给·入渠', '#c9a86a'],
-  F: ['工厂', '#a08a6a'],
-  G: ['改装', '#b489ff'],
-  S: ['限时', 'var(--gold)'],
-}
-
 const catOf = (row: QRow) => {
   if (row.code === '?' && row.observed) {
     return questCategoryLetterFromObserved(row.observed.category) ?? '其'
@@ -659,36 +650,36 @@ const TASK_CATEGORIES: QuestCategory[] = [
   },
   { key: 'formation', label: '编成', color: '#67c98a', test: (row) => catOf(row) === 'A' },
   { key: 'sortie', label: '出击', color: '#e06c75', test: (row) => catOf(row) === 'B' },
-  { key: 'exercise', label: '演习', color: '#5ab8d8', test: (row) => catOf(row) === 'C' },
-  { key: 'expedition', label: '远征', color: '#8fb8e0', test: (row) => catOf(row) === 'D' },
+  { key: 'exercise', label: '演习', color: '#a3dc6f', test: (row) => catOf(row) === 'C' },
+  { key: 'expedition', label: '远征', color: '#3fcab4', test: (row) => catOf(row) === 'D' },
   {
     key: 'supply',
     label: '补给',
-    color: '#c9a86a',
+    color: '#e0c455',
     test: (row) => catOf(row) === 'E' && !/入渠|修理/.test(questText(row)),
   },
   {
     key: 'repair',
     label: '入渠',
-    color: '#d7a76f',
+    color: '#d4b048',
     test: (row) => catOf(row) === 'E' && /入渠|修理/.test(questText(row)),
   },
   {
     key: 'build',
     label: '建造',
-    color: '#a08a6a',
+    color: '#b8895a',
     test: (row) => catOf(row) === 'F' && /建造|造舰/.test(questText(row)),
   },
   {
     key: 'develop',
     label: '开发',
-    color: '#b69a75',
+    color: '#c69a70',
     test: (row) => catOf(row) === 'F' && /开发/.test(questText(row)),
   },
   {
     key: 'scrap',
     label: '废弃',
-    color: '#9d806d',
+    color: '#ad805e',
     test: (row) => catOf(row) === 'F' && /废弃|拆解|销毁/.test(questText(row)),
   },
   {
@@ -700,7 +691,7 @@ const TASK_CATEGORIES: QuestCategory[] = [
   {
     key: 'remodel',
     label: '改造',
-    color: '#c59aff',
+    color: '#b489ff',
     test: (row) => catOf(row) === 'G' || /改造|改装/.test(questText(row)),
   },
 ]
@@ -712,7 +703,7 @@ const NAMED_CATEGORY_FILTERS: QuestCategory[] = [
   {
     key: 'factory',
     label: '工厂',
-    color: '#b69a75',
+    color: CAT_META.F[1],
     test: (row) => ['E', 'F', 'G'].includes(catOf(row)),
   },
 ]
@@ -911,12 +902,12 @@ const FLAG_TEXT = (flag: number) => (flag === 2 ? '≥80%' : flag === 1 ? '≥50
 const progressHtml = (row: QRow) => {
   if (isInferredCompleted(row)) {
     return `<span class="q-prog" title="完成依据：后续任务已解锁"><span class="pb"><i style="width:100%;background:linear-gradient(90deg,#3f806b,var(--ok))"></i></span>
-      <span class="pt"><span>链上确认</span><span>100%</span></span></span>`
+      <span class="pt"><span class="q-prog-label">链上确认</span><span>100%</span></span></span>`
   }
-  if (!row.observed) return '<span class="q-prog"><span class="pt"><span>资料</span><span>—</span></span></span>'
+  if (!row.observed) return '<span class="q-prog"><span class="pt"><span class="q-prog-label">资料</span><span>—</span></span></span>'
   if (row.observed.state === 3) {
     return `<span class="q-prog"><span class="pb"><i style="width:100%;background:linear-gradient(90deg,#b8973a,var(--gold))"></i></span>
-      <span class="pt"><span>完成</span><span>100%</span></span></span>`
+      <span class="pt"><span class="q-prog-label">完成</span><span>100%</span></span></span>`
   }
   const flag = row.observed.progressFlag
   const precise = qpOf(row)
@@ -940,12 +931,12 @@ const progressHtml = (row: QRow) => {
       ? `${baseTip}\n${precise.parts.map((part) => `${part.ratio >= 1 ? '✓' : '◌'} ${part.label} ${part.now}/${part.cap}`).join('\n')}`
       : baseTip
     return `<span class="q-prog" title="${esc(tip)}">${bar}
-      <span class="pt"><span>${paused ? '已保留' : precise.floored ? '下限校正' : '本地计数'}${
+      <span class="pt"><span><span class="q-prog-label">${paused ? '已保留' : precise.floored ? '下限校正' : '本地计数'}</span>${
         precise.approx ? '<span title="部分条件无法核对 · 计数为预估">≈</span>' : ''
       }</span><span>${esc(precise.text)}</span></span></span>`
   }
   if (row.observed.state === 1) {
-    return '<span class="q-prog"><span class="pt"><span>尚未领取</span><span>—</span></span></span>'
+    return '<span class="q-prog"><span class="pt"><span class="q-prog-label">尚未领取</span><span>—</span></span></span>'
   }
   const pct = flag === 2 ? 80 : flag === 1 ? 50 : 5
   // 只剩游戏粗档时，把「为什么没有精确数」写进 tooltip——
@@ -959,7 +950,7 @@ const progressHtml = (row: QRow) => {
         ? `${QP_BLOCK_TEXT[tracker.blocked].label} · ${QP_BLOCK_TEXT[tracker.blocked].how}`
         : ''
   return `<span class="q-prog"${why ? ` title="${esc(why)}"` : ''}><span class="pb"><i style="width:${pct}%"></i></span>
-    <span class="pt"><span>游戏显示</span><span>${FLAG_TEXT(flag)}</span></span></span>`
+    <span class="pt"><span class="q-prog-label">游戏显示</span><span>${FLAG_TEXT(flag)}</span></span></span>`
 }
 
 const rowHtml = (row: QRow) => {
@@ -993,8 +984,8 @@ const rowHtml = (row: QRow) => {
   }
   const category = categoryOf(row)
   return `<div class="q${observed?.state === 3 || inferredCompleted ? ' done-row' : ''}${ghost ? ' ghost' : ''}${state.selected === row.id ? ' selected' : ''}" data-q="${row.id}">
-    <div class="q-row">
-      <span class="bar-l" style="background:${category.color}"></span>
+    <div class="q-row" style="--q-cat:${category.color}">
+      <span class="bar-l" style="background:var(--q-cat)"></span>
       <span class="per ${periodCls === 'y' ? 'o' : periodCls}">${periodLabel}</span>
       <span class="q-nm">
         <span class="t"><span class="id${row.code === '?' ? ' unlisted' : ''}"${row.code === '?' ? ' title="任务库尚未收录 · 按游戏自报的分类与周期显示"' : ''}>${row.code === '?' ? `#${row.id}` : esc(row.code)}</span><span class="q-cat-label">${category.label}</span><b title="${esc(entityNamePlain('quest', row.id, row.observed?.title ?? row.name))}">${entityNameHtml('quest', row.id, row.observed?.title ?? row.name, { compact: true })}</b></span>
@@ -1341,13 +1332,11 @@ const entityChipsHtml = (row: QRow) => {
  * 远征名。`expedition` **不在 `domainOfLink` 里**，所以 elink 永远不会替它本地化，
  * 名字必须在交出去之前查好。译名表里这个域有两套键：`initLocalization` 按 dispNo
  * 落，本模块建实体索引时又按 api id 登了一遍——两把钥匙都试，查不到保原文。
+ * 统一标签后，显示端改按 expeditionLabel 的 dispNo 口径；上述双键仍用于实体索引。
+ * expeditionLabel 在显示端也依次查归一后的 dispNo 与 api id，编号本身保留原文。
  */
 const expeditionDisplayName = (missionId: number): string => {
-  const mission = mg.master.missions[missionId]
-  const raw = mission?.name ?? `#${missionId}`
-  const dispNo = normalizeExpeditionDispNo(mission?.dispNo)
-  return (dispNo ? entityNamePlain('expedition', dispNo, '') : '') ||
-    entityNamePlain('expedition', missionId, raw)
+  return expeditionLabel(missionId, mg.master.missions)
 }
 
 // 追踪任务的可读标签（海域/装备走 elink 反查）。
@@ -2108,8 +2097,7 @@ const expeditionTogetherHtml = (row: QRow): string => {
             : ''
       const itemHtml = items.map(({ missionId, count }) => {
         if (missionId === 0) return `任意远征 ×${count}`
-        const dispNo = normalizeExpeditionDispNo(mg.master.missions[missionId]?.dispNo)
-        const label = dispNo ? `远征 ${dispNo}` : `远征#${missionId}`
+        const label = expeditionLabel(missionId, mg.master.missions)
         return `${elink('expedition', missionId, label)} ×${count}`
       }).join(' · ')
       return `<div class="d-ent">${statusTag}${elink('quest', quest.id, quest.name)} · ${itemHtml}</div>`
@@ -2405,7 +2393,7 @@ const render = () => {
             <span style="margin-left:auto">显示 ${filtered.length} / ${rows.length}</span>
           </div>
         </div>
-        <aside class="q-drawer${selected ? ' open' : ''}${drawerAlreadyOpen ? ' stable' : ''}" aria-hidden="${selected ? 'false' : 'true'}">
+        <aside class="q-drawer${selected ? ' open' : ''}${drawerAlreadyOpen ? ' stable' : ''}" style="--q-cat:${selected ? categoryOf(selected).color : ''}" aria-hidden="${selected ? 'false' : 'true'}">
           ${selected ? detailHtml(selected) : ''}
         </aside>
       </div>

@@ -341,6 +341,24 @@ test('分心模式：默认置顶、四侧选择与顶栏配置事件同步', ()
   assert.match(card(), /class="ychip on" data-distract-side="bottom">下/)
 })
 
+test('分心编队开关：默认开，首次点击保存为关并广播即时重画，再点恢复', () => {
+  const yu = mountYu({ ui: { [SETTINGS_SECTION_UI_KEY]: 'ui' } })
+  const card = () => cardHtml(yu.pane.innerHTML, 'distract')
+  let changes = 0
+  window.addEventListener('kuma-distract-changed', () => { changes++ })
+  assert.match(card(), /显示当前出击编队/)
+  assert.match(card(), /实时血量在战斗卡上方/)
+  assert.match(card(), /class="ysw on"[^>]*data-toggle="kuma\.distract\.showFleet"/)
+  yu.click({ toggle: 'kuma.distract.showFleet' })
+  assert.equal(yu.configOf('kuma.distract.showFleet'), false)
+  assert.match(card(), /class="ysw"[^>]*data-toggle="kuma\.distract\.showFleet"/)
+  assert.equal(changes, 1)
+  yu.click({ toggle: 'kuma.distract.showFleet' })
+  assert.equal(yu.configOf('kuma.distract.showFleet'), true)
+  assert.match(card(), /class="ysw on"[^>]*data-toggle="kuma\.distract\.showFleet"/)
+  assert.equal(changes, 2)
+})
+
 test('发行版：连别的分类里也没有矿脉健康度漏出来', () => {
   for (const section of SETTINGS_SECTIONS) {
     const html = mountYu({ ui: { [SETTINGS_SECTION_UI_KEY]: section.id }, lodes: [] }).pane.innerHTML

@@ -100,6 +100,29 @@ test('搭载角标按装备类别判航空：夜瑞云与夜攻出数，ドラ�
   ])
 })
 
+test('舰载机同一图标同时显示改修、熟练度与搭载数', () => {
+  reset([16], [16], { levels: [2], alvs: [7] })
+  assert.equal(
+    renderEquipChips(),
+    '<span class="equip-icon"><span class="st">★2</span><span class="st alv">≫7</span><span class="pc pc-g">16</span></span>',
+  )
+})
+
+test('只有熟练度时只显示熟练度角标', () => {
+  reset([16], [0], { alvs: [7] })
+  assert.equal(renderEquipChips(), '<span class="equip-icon"><span class="st alv">≫7</span></span>')
+})
+
+test('非舰载机满改修只显示 ★M，不显示熟练度或搭载数', () => {
+  reset([0], [0], { iconIds: [GUN_ICON_ID], type2s: [1], levels: [10] })
+  assert.equal(renderEquipChips(), '<span class="equip-icon"><span class="st">★M</span></span>')
+})
+
+test('无改修无熟练度时两种角标都不显示', () => {
+  reset([16], [0])
+  assert.equal(renderEquipChips(), '<span class="equip-icon"></span>')
+})
+
 // ---- 分母口径：扩过的舰读实例一手上限 ----
 //
 // 这一组是「拿主数据 maxEq 当分母」那种错法唯一照得出来的地方。

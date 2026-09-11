@@ -42,6 +42,8 @@ test('游戏 category 1–11 映射到既有分类字母，0/12 无分类', () =
 
 // 执行线上函数原文，仅隔离 DOM/Electron；分类、文本归一化与月份回退不另抄实现。
 const qn = fs.readFileSync(new URL('../src/renderer/modules/qn.ts', import.meta.url), 'utf8')
+const categorySource = fs.readFileSync(new URL('../src/renderer/quest-category.ts', import.meta.url), 'utf8')
+const { CAT_META } = new Function(transformSync(`${categorySource.replace(/^export /gm, '')}\nreturn { CAT_META }`, { loader: 'ts' }).code)()
 const entity = fs.readFileSync(new URL('../src/renderer/task-entity-match.ts', import.meta.url), 'utf8')
 const slice = (source, start, end) => {
   const from = source.indexOf(start)
@@ -52,12 +54,13 @@ const slice = (source, start, end) => {
 const code = [
   slice(entity, 'export const JP2CN', 'export const normalizeTaskEntityText').replace(/^export /gm, ''),
   'const simplifyJp = simplifyTaskEntityText',
-  slice(qn, 'const CAT_META', '// ---- 重置倒计时'),
+  categorySource.replace(/^export /gm, ''),
+  slice(qn, 'const catOf', '// ---- 重置倒计时'),
   slice(qn, 'const JST =', '// ---- 报酬关键词'),
   slice(qn, 'const periodOfRow =', '// 游戏只下发'),
   slice(qn, 'const questTextCache', '/**\n * 追踪器解出的条件行'),
   slice(qn, 'const annualResetHtml =', 'const questChainNode ='),
-  'return { catOf, catColor, periodOfRow, questAnnualMonth, annualResetHtml, questText, invalidateQuestTextCache, categoryOf, CATEGORY_FILTERS }',
+  'return { catOf, catColor, periodOfRow, questAnnualMonth, annualResetHtml, questText, invalidateQuestTextCache, categoryOf, CATEGORY_FILTERS, TASK_CATEGORIES }',
 ].join('\n')
 const runtime = new Function('questPeriodFromObserved', 'questCategoryLetterFromObserved', 'fmtDurationLong',
   transformSync(code, { loader: 'ts' }).code)(questPeriodFromObserved, questCategoryLetterFromObserved, () => '倒计时')
@@ -94,7 +97,7 @@ test('未收录任务按游戏分类进入命名页和文本细分，已有编�
     assert.deepEqual(pages, [(category >= 5 && category <= 7) || category === 11 ? 'factory' : expected])
   }
   assert.equal(runtime.catOf(row({ code: 'B1', observed: { category: 1 } })), 'B')
-  assert.equal(runtime.catColor(row({ observed: { category: 1 } })), 'var(--ok)')
+  assert.equal(runtime.catColor(row({ observed: { category: 1 } })), '#67c98a')
   runtime.invalidateQuestTextCache()
   assert.deepEqual(runtime.CATEGORY_FILTERS.filter((item) => item.test(row({ observed: { category: 0 } })))
     .map((item) => item.key), ['unclassified'])
@@ -125,4 +128,254 @@ test('实际搜索筛选接入未收录任务的日文标题、说明及简化�
   }
   state.search = '废弃'
   assert.deepEqual(applyFilters([{ ...r, code: 'F1' }]), [])
+})
+
+// 执行实际行与进度模板，沿用上方真实分类/周期函数；外部状态和实体标题服务隔离。
+// 仓内没有任务行 DOM/浏览器夹具，布局与颜色级联另用 CSS 规则守卫，不冒充像素验收。
+const rowDeps = {
+  periodOfRow: runtime.periodOfRow,
+  categoryOf: runtime.categoryOf,
+  isInferredCompleted: (r) => !!r.inferredCompleted,
+  isObservedActive: (r) => r.observed?.state === 2,
+  qpOf: (r) => r.precise ?? null,
+  qp: null,
+  questVerdicts: () => new Map(),
+  state: { selected: null },
+  esc: (value) => String(value).replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;'),
+  entityNamePlain: (_kind, _id, name) => name,
+  PROSE_REPLACING_CATEGORIES: new Set(),
+  taskProseHtml: (value) => value,
+  rewardIcons: () => '奖励',
+  sameDayResetHtml: () => '',
+}
+// 实体名的包装与类别 class 执行生产实现，只隔离译名数据表。
+const localization = fs.readFileSync(new URL('../src/renderer/localization.ts', import.meta.url), 'utf8')
+rowDeps.entityNameHtml = new Function('esc', 'tables', transformSync([
+  slice(localization, 'const ENTITY_COLOR_CLASS_BY_DOMAIN', 'const ENTITY_COLOR_CLASS_BY_LINK_TYPE'),
+  slice(localization, 'export const entityColorClass =', 'export const entityLinkColorClass'),
+  slice(localization, 'const clean =', 'export const registerLocalizedName'),
+  slice(localization, 'export const localizedEntry =', 'export const localizedEntityId'),
+  slice(localization, 'export const bilingualNameHtml =', 'export const entityNamePlain'),
+  'return entityNameHtml',
+].join('\n').replace(/^export /gm, ''), { loader: 'ts' }).code)(rowDeps.esc, {})
+const rowRuntime = new Function(...Object.keys(rowDeps), transformSync([
+  slice(qn, 'const FLAG_TEXT =', 'const SYSTEM_BY_CATEGORY'),
+  'return { rowHtml, progressHtml }',
+].join('\n'), { loader: 'ts' }).code)(...Object.values(rowDeps))
+const preciseProgress = (overrides = {}) => ({ pct: 50, text: '25/50', parts: [], approx: false, floored: false, ...overrides })
+
+test('任务行真实模板按周期、编号、标题、进度、状态排列，保留常规态正文与奖励', () => {
+  runtime.invalidateQuestTextCache()
+  const html = rowRuntime.rowHtml(row({ code: 'Cd1', name: '演习任务标题', desc: '任务正文',
+    observed: { state: 2, type: 1, title: '演习任务标题' }, precise: preciseProgress() }))
+  const tokens = ['class="per d">日', 'class="q-nm"', 'class="id">Cd1', '<b title="演习任务标题">',
+    'class="q-prog"', 'class="st-tag"']
+  const indices = tokens.map((token) => html.indexOf(token))
+  assert.ok(indices.every((index, at) => index >= 0 && (at === 0 || index > indices[at - 1])), html)
+  assert.match(html, /class="plain">任务正文<\/span>/)
+  assert.match(html, /class="q-rew">奖励<\/span>/)
+  assert.match(html, /class="q-prog-label">本地计数<\/span>/)
+  assert.match(html, /<span>25\/50<\/span>/)
+})
+
+test('进度真实模板隔离所有说明标签，隐藏标签仍保留数值、下限、预估符号和分段条', () => {
+  for (const [label, number, overrides] of [
+    ['链上确认', '100%', { inferredCompleted: true }],
+    ['资料', '—', { observed: null }],
+    ['完成', '100%', { observed: { state: 3 } }],
+    ['本地计数', '25/50', { precise: preciseProgress() }],
+    ['下限校正', '≥25/50', { precise: preciseProgress({ floored: true, text: '≥25/50' }) }],
+    ['已保留', '25/50', { observed: { state: 1 }, precise: preciseProgress() }],
+    ['尚未领取', '—', { observed: { state: 1 } }],
+    ['游戏显示', '≥80%', { observed: { state: 2, progressFlag: 2 } }],
+  ]) {
+    const html = rowRuntime.progressHtml(row({ observed: { state: 2 }, ...overrides }))
+    assert.ok(html.includes(`<span class="q-prog-label">${label}</span>`), label)
+    const narrowContent = html.replace(/<span class="q-prog-label">[^<]*<\/span>/g, '')
+    assert.ok(narrowContent.includes(`<span>${number}</span>`), label)
+    assert.ok(!narrowContent.includes(`>${label}<`), label)
+  }
+  const html = rowRuntime.progressHtml(row({ observed: { state: 2 }, precise: preciseProgress({
+    approx: true, text: '1/2 项', parts: [
+      { ratio: 1, label: '条件一', now: 1, cap: 1 },
+      { ratio: 0.5, label: '条件二', now: 1, cap: 2 },
+    ],
+  }) }))
+  assert.match(html, /class="pb seg"><b class="ok"><i style="width:100%"/)
+  assert.match(html, /<b><i style="width:50%"/)
+  assert.match(html, /class="q-prog-label">本地计数<\/span><span title="[^"]+">≈<\/span>/)
+  assert.match(html, /<span>1\/2 项<\/span>/)
+})
+
+test('任务行分类变量沿用真实分类色，左条读取变量，未收录编号保留金色优先类', () => {
+  const colors = new Set()
+  for (const [code, name, expected] of [
+    ['A1', '', '#67c98a'], ['B1', '', '#e06c75'], ['C1', '', '#a3dc6f'],
+    ['D1', '', '#3fcab4'], ['E1', '补给', '#e0c455'], ['E2', '入渠', '#d4b048'],
+    ['F1', '开发', '#c69a70'], ['G1', '', '#b489ff'], ['S1', '', 'var(--gold)'],
+  ]) {
+    runtime.invalidateQuestTextCache()
+    const html = rowRuntime.rowHtml(row({ code, name }))
+    assert.ok(html.includes(`class="q-row" style="--q-cat:${expected}"`), code)
+    assert.match(html, /class="bar-l" style="background:var\(--q-cat\)"/)
+    assert.ok(html.includes(`class="id">${code}</span>`), code)
+    colors.add(expected)
+  }
+  assert.equal(colors.size, 9)
+  runtime.invalidateQuestTextCache()
+  const html = rowRuntime.rowHtml(row({ observed: { category: 3, type: 1 } }))
+  assert.match(html, /class="q-row" style="--q-cat:#a3dc6f"/)
+  assert.match(html, /class="id unlisted" title="[^"]+">#900001<\/span>/)
+})
+
+test('任务行 CSS 仅窄态换行、铺满标题与进度、贯穿色条并隐藏说明，编号金色优先', () => {
+  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const rule = (selector) => {
+    const start = html.indexOf(`${selector} {`)
+    assert.ok(start >= 0, selector)
+    return html.slice(start, html.indexOf('}', start) + 1)
+  }
+  const narrowRow = rule('.mod-qn.narrow .q-row')
+  for (const declaration of ['position: relative;', 'flex-wrap: wrap;', 'row-gap: 3px;']) assert.ok(narrowRow.includes(declaration))
+  assert.match(rule('.mod-qn.narrow .bar-l'), /position: absolute; left: 0; top: 0; bottom: 0;/)
+  assert.match(rule('.mod-qn.narrow .q-nm'), /flex: 1 1 0; min-width: 0;/)
+  assert.match(rule('.mod-qn.narrow .q-row::after'), /content: ''; flex-basis: 100%; order: 1;/)
+  assert.match(rule('.mod-qn.narrow .q-prog'), /order: 2;.*display: flex;.*flex: 1 1 auto; width: auto;/)
+  assert.match(rule('.mod-qn.narrow .q-prog .pb'), /flex: 1;/)
+  assert.match(rule('.mod-qn.narrow .q-prog .pt'), /flex: none;.*margin-top: 0; margin-left: auto;/)
+  assert.match(rule('.mod-qn.narrow .q-row > .st-tag'), /order: 2;/)
+  assert.match(rule('.mod-qn.narrow .st-tag'), /flex-basis: 60px; width: 60px;/)
+  assert.match(rule('.mod-qn.narrow .q-prog-label'), /display: none;/)
+  assert.match(rule('.mod-qn.narrow .q-nm .plain, .mod-qn.narrow .q-rew, .mod-qn.narrow .q-cat-label'), /display: none;/)
+  assert.equal(rule('.mod-qn .q-row'), '.mod-qn .q-row { display: flex; align-items: center; gap: 9px; padding: 8px 14px 8px 12px; }')
+  assert.match(rule('.mod-qn .q-prog'), /flex: none; width: 130px;/)
+  assert.match(rule('.mod-qn .st-tag'), /flex: 0 0 68px; width: 68px;/)
+  assert.match(rule('.mod-qn .q-nm .t b'), /white-space: nowrap; overflow: hidden; text-overflow: ellipsis;/)
+  assert.match(rule('.mod-qn .q-nm .t b'), /color: var\(--q-cat\); font-size: 12.5px; font-weight: 600;/)
+  assert.match(rule('.mod-qn .q-zh > b'), /color: var\(--q-cat\);/)
+  assert.match(rule('.mod-qn .q-nm .plain'), /color: var\(--sub\);/)
+  assert.match(rule('.mod-qn .q-cat-label'), /background: var\(--bg3\);[\s\S]*color: var\(--sub\);/)
+  assert.match(rule('.mod-qn .q.ghost'), /opacity: 0.6;/)
+  assert.match(rule('.mod-qn .q.done-row'), /background: linear-gradient\(90deg, rgba\(232, 198, 106, 0.07\), transparent 60%\);/)
+  assert.match(rule('.mod-qn .q-drawer-head b'), /color: var\(--accent\);/)
+  for (const [period, color] of [['d', '#5ab8d8'], ['w', '#67c98a'], ['m', '#e8a04c'], ['q', '#b489ff']]) {
+    assert.ok(rule(`.mod-qn .per.${period}`).includes(`color: ${color};`))
+  }
+  // :where 内的层级不增加权重，未收录的三类选择器继续胜过普通编号的两类选择器。
+  assert.match(rule('.mod-qn :where(.q-nm .t) .id'), /color: var\(--q-cat\);/)
+  assert.match(rule('.mod-qn .id.unlisted'), /color: var\(--gold\)/)
+  assert.doesNotMatch(html, /\.mod-qn \.q-prog-label\s*\{/)
+})
+
+// 旧值仅作迁移记录；逐类执行真实分类函数并钉住新值，覆盖所有细分色。
+const categoryMigration = [
+  ['limited', 'S1', '', 'var(--gold)', 'var(--gold)'],
+  ['formation', 'A1', '', '#67c98a', '#67c98a'],
+  ['sortie', 'B1', '', '#e06c75', '#e06c75'],
+  ['exercise', 'C1', '', '#5ab8d8', '#a3dc6f'],
+  ['expedition', 'D1', '', '#8fb8e0', '#3fcab4'],
+  ['supply', 'E1', '补给', '#c9a86a', '#e0c455'],
+  ['repair', 'E2', '入渠', '#d7a76f', '#d4b048'],
+  ['build', 'F1', '建造', '#a08a6a', '#b8895a'],
+  ['develop', 'F2', '开发', '#b69a75', '#c69a70'],
+  ['scrap', 'F3', '废弃', '#9d806d', '#ad805e'],
+  ['improve', 'F4', '改修', '#b489ff', '#b489ff'],
+  ['remodel', 'G1', '', '#c59aff', '#b489ff'],
+]
+
+test('十二种任务分类旧值到新值对照逐项精确匹配，模板沿用全部细分色', () => {
+  assert.deepEqual(runtime.TASK_CATEGORIES.map(({ key }) => key), categoryMigration.map(([key]) => key))
+  for (const [key, code, name, previous, expected] of categoryMigration) {
+    runtime.invalidateQuestTextCache()
+    const r = row({ code, name })
+    assert.equal(runtime.categoryOf(r).key, key)
+    assert.equal(runtime.categoryOf(r).color, expected, `${key}: ${previous} → ${expected}`)
+    assert.ok(rowRuntime.rowHtml(r).includes(`style="--q-cat:${expected}"`), key)
+  }
+})
+
+test('八种字母回退色精确匹配，工厂筛选与独立任务树共用同表', () => {
+  assert.deepEqual(Object.fromEntries(Object.entries(CAT_META).map(([key, [, color]]) => [key, color])), {
+    A: '#67c98a', B: '#e06c75', C: '#a3dc6f', D: '#3fcab4',
+    E: '#e0c455', F: '#b8895a', G: '#b489ff', S: 'var(--gold)',
+  })
+  for (const [letter, [, color]] of Object.entries(CAT_META)) {
+    assert.equal(runtime.catColor(row({ code: `${letter}1` })), color)
+  }
+  assert.equal(runtime.CATEGORY_FILTERS.find(({ key }) => key === 'factory').color, CAT_META.F[1])
+  const tree = fs.readFileSync(new URL('../src/renderer/quest-tree-window.ts', import.meta.url), 'utf8')
+  assert.match(qn, /import \{ CAT_META \} from '\.\.\/quest-category'/)
+  assert.match(tree, /import \{ CAT_META \} from '\.\/quest-category'/)
+  const treeMeta = new Function('CAT_META', `${slice(tree, 'const CATEGORY_META', 'const STATUS_META')}\nreturn CATEGORY_META`)(CAT_META)
+  assert.deepEqual(treeMeta, Object.fromEntries(Object.entries(CAT_META).map(([key, [label, color]]) => [key, { label, color }])))
+  assert.doesNotMatch(qn + tree + categorySource, /#5ab8d8|#8fb8e0/)
+})
+
+test('具名分类按小字标准在 bg0 与 bg1 上均达到 4.5:1', () => {
+  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const cssValue = (name) => {
+    const match = html.match(new RegExp(`${name}: (#[0-9a-f]{6});`))
+    assert.ok(match, name)
+    return match[1]
+  }
+  const luminance = (hex) => hex.slice(1).match(/../g).map((part) => parseInt(part, 16) / 255)
+    .map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
+    .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0)
+  const colors = [...runtime.TASK_CATEGORIES.map(({ color }) => color), ...Object.values(CAT_META).map(([, color]) => color)]
+  for (const color of colors) {
+    const foreground = color.startsWith('var(') ? cssValue(color.slice(4, -1)) : color
+    for (const background of ['--bg0', '--bg1']) {
+      const ratio = (luminance(foreground) + 0.05) / (luminance(cssValue(background)) + 0.05)
+      assert.ok(ratio >= 4.5, `${color}/${background}: ${ratio.toFixed(2)}:1`)
+    }
+  }
+})
+
+test('抽屉根模板从选中任务取得同一细分类色，切换与关闭不遗留旧色', () => {
+  const opening = qn.match(/<aside class="q-drawer[^\n]+/)
+  assert.ok(opening)
+  const drawer = new Function('selected', 'drawerAlreadyOpen', 'categoryOf', `return \`${opening[0]}\``)
+  for (const [, code, name, , expected] of categoryMigration) {
+    runtime.invalidateQuestTextCache()
+    for (const stable of [false, true]) {
+      assert.ok(drawer(row({ code, name }), stable, runtime.categoryOf).includes(`style="--q-cat:${expected}"`))
+    }
+  }
+  assert.match(drawer(null, false, runtime.categoryOf), /style="--q-cat:" aria-hidden="true"/)
+  assert.match(slice(qn, 'const detailHtml =', '// 三张下拉'), /<div class="q-zh"><b>\$\{entityNameHtml\('quest', row.id,/)
+})
+
+// 本次事故只钉了 b 的 color，实体名 span 自带色，分类色没有落到可见文字。
+// 护栏须同时验证真实模板的内层 span 与它的 --entity-color，不能再用裸文本替身。
+test('列表与抽屉标题的可见文字由真实实体名 span 承载', () => {
+  const detailDeps = {
+    ...rowDeps,
+    simplifyJp: (value) => value,
+    qpDetailHtml: () => '',
+    noCounterHtml: () => '',
+    questChainHtml: () => '',
+    annualResetHtml: () => '',
+    expeditionTogetherHtml: () => '',
+    entityChipsHtml: () => '',
+    rewardSectionsHtml: () => '',
+    scnLode: null,
+  }
+  const drawer = new Function(...Object.keys(detailDeps), transformSync([
+    slice(qn, 'const detailHtml =', '// 三张下拉'),
+    'return detailHtml',
+  ].join('\n'), { loader: 'ts' }).code)(...Object.values(detailDeps))
+  runtime.invalidateQuestTextCache()
+  const r = row({ code: 'C1', name: '演习任务标题', observed: { title: '演习任务标题', state: 2 } })
+  assert.match(rowRuntime.rowHtml(r), /<b title="演习任务标题"><span class="entity-term e-quest">演习任务标题<\/span><\/b>/)
+  assert.match(drawer(r), /<div class="q-zh"><b><span class="entity-term e-quest">演习任务标题<\/span><\/b>/)
+})
+
+test('分类色只覆盖列表与抽屉标题内层变量，其他任务实体保留全局紫色', () => {
+  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const override = html.match(/([^{}]+)\{\s*--entity-color:\s*var\(--q-cat\);\s*\}/g)
+  assert.equal(override?.length, 1)
+  const selectors = override[0].slice(0, override[0].indexOf('{')).split(',').map((selector) => selector.trim())
+  assert.deepEqual(selectors, ['.mod-qn .q-nm .t b .entity-term', '.mod-qn .q-zh > b .entity-term'])
+  assert.match(html, /\.e-quest\s*\{\s*--entity-color:\s*var\(--entity-quest\);\s*\}/)
+  assert.ok(html.indexOf(override[0].trim()) > html.indexOf('.e-quest {'))
 })

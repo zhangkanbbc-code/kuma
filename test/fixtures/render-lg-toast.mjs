@@ -50,7 +50,7 @@ const STUBS = {
     const ENT = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
     export const esc = (s: unknown): string =>
       String(s ?? '').replace(/[&<>"']/g, (c) => ENT[c as keyof typeof ENT])
-    export const mg: any = { sortie: null, ships: {}, decks: [], ndocks: [], master: { ships: {} }, combinedFlag: 0 }
+    export const mg: any = { sortie: null, ships: {}, quests: {}, decks: [], ndocks: [], master: { ships: {}, slotitems: {} }, combinedFlag: 0 }
 ${ESCORT_STATE}
     // 账本与托盘这几路各记一笔：▶ 测试通知那条护栏问的正是「有没有人偷偷写了一行」
     export const appendNotice = async (row: unknown) => {
@@ -69,11 +69,15 @@ ${ESCORT_STATE}
     export const nextWeeklyReset = () => 0
     export const onMarriage = (_cb: unknown) => {}
     export const commitPaneHtml = (_root: unknown, _key: string, _html: string) => false
-    export const onMgChange = (_cb: unknown) => {}
+    const mgChangeCallbacks: ((keys: string[]) => void)[] = []
+    export const onMgChange = (cb: (keys: string[]) => void) => { mgChangeCallbacks.push(cb) }
+    export const mgChange = (keys: string[]) => { mgChangeCallbacks.forEach((cb) => cb(keys)) }
     export const onPowerupResult = (_cb: unknown) => {}
     export const onQpChange = (_cb: unknown) => {}
     export const onTick = (_cb: unknown) => {}
-    export const onTrayToggleDnd = (_cb: unknown) => {}
+    const trayToggleDndCallbacks: (() => void)[] = []
+    export const onTrayToggleDnd = (cb: () => void) => { trayToggleDndCallbacks.push(cb) }
+    export const trayToggleDnd = () => { trayToggleDndCallbacks.forEach((cb) => cb()) }
     export const pushTrayDnd = async (_on: boolean) => {}
     export const pushTrayUnread = async (n: number) => {
       ((globalThis as any).__trayUnread ??= []).push(n)
@@ -100,7 +104,7 @@ ${ESCORT_STATE}
     export const entityNameHtml = (_k: string, _id: number, name: string) => name
     export const entityTermHtml = (_k: string, _id: number, term: string) => term
   `,
-  'renderer/ship-first-owned.ts': 'export const observeOwnedShips = (_cb: unknown) => {}\n',
+  'renderer/ship-first-owned.ts': 'export const observeOwnedShips = () => []\n',
   'renderer/fatigue.ts': `
     export const FATIGUE_READY_COND = 30
     export const estimatedCond = (_a: unknown, _b: unknown) => 49
@@ -111,7 +115,7 @@ ${ESCORT_STATE}
   'renderer/lg-test-entry.ts': `
     export { notifyAccountChanged, runNotificationDemo, showPowerupResultToast, showSortieReadinessToast } from './modules/lg'
     // 出击态归内核那份 mg 管，勿扰要靠它才摆得出来（桩与铃看的是同一个对象）
-    export { mg } from './kernel'
+    export { mg, mgChange, trayToggleDnd } from './kernel'
   `,
 }
 
@@ -426,6 +430,7 @@ export const mountLgToast = (options = {}) => {
     'setTimeout',
     'clearTimeout',
     'requestAnimationFrame',
+    'ResizeObserver',
     bundle,
   )(
     fakeRequire,
@@ -437,6 +442,7 @@ export const mountLgToast = (options = {}) => {
     fakeSetTimeout,
     fakeClearTimeout,
     (fn) => frames.push(fn),
+    class { observe() {} },
   )
 
   assert.ok(typeof mod.exports.showSortieReadinessToast === 'function', '铃没把弹卡入口导出来')
@@ -463,6 +469,12 @@ export const mountLgToast = (options = {}) => {
   }
   return {
     doc,
+    /** 真装配模块，登记战况变化与托盘勿扰的监听；面板保持未展开 */
+    mount: () => globalThis.__lgModule.mount(new FakeElement('div')),
+    /** 派发内核补丁，走真实探测与 notify */
+    mgChange: (keys) => mod.exports.mgChange(keys),
+    /** 托盘菜单的真实手动勿扰入口 */
+    trayToggleDnd: () => mod.exports.trayToggleDnd(),
     /** 造一张弹卡。走的是真的 showToast（合并、驱逐、倒计时都是那一份） */
     show: (...args) => mod.exports.showSortieReadinessToast(...args),
     /** 造一张近代化改修结果卡。走的是真的 showPowerupResultToast */

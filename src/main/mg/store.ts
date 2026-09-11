@@ -921,6 +921,28 @@ const syncBattleHp = (battle: import('../../shared/mg-types').BattleView): boole
   return changed
 }
 
+// 开战前消耗当场摘格、删实例并记账；后续 ship_deck 的 before 已不含它。
+const consumeBattleStartRepairItems = (battle: import('../../shared/mg-types').BattleView, ts: number): Section[] => {
+  const sortie = state.sortie!
+  let changed = false
+  for (const bs of battle.fShips) {
+    if (bs.repairItemUsedAtStart == null || bs.rosterId == null || bs.repairItemInstanceAtStart == null) continue
+    const instanceId = bs.repairItemInstanceAtStart
+    if (!state.player.slotitems[instanceId]) continue
+    const ship = state.player.ships[bs.rosterId]
+    const slot = ship.slot.indexOf(instanceId)
+    if (slot >= 0) ship.slot[slot] = -1
+    if (ship.slotEx === instanceId) ship.slotEx = -1
+    removeSlotitems([instanceId])
+    sortie.consumedItems.push({
+      rosterId: bs.rosterId, mstId: bs.repairItemUsedAtStart,
+      cell: sortie.currentCell, battleCount: sortie.battleCount, ts,
+    })
+    changed = true
+  }
+  return changed ? ['ships', 'slotitems'] : []
+}
+
 /**
  * 把当前节点战斗里沉掉的我方舰并进出击级名单。
  *
@@ -955,6 +977,7 @@ const onDayBattle = (apiPath: string) => (body: any, _post: Record<string, strin
   }
   state.sortie.battle = battle
   state.sortie.battleCount += 1
+  const sections: Section[] = ['sortie', ...consumeBattleStartRepairItems(battle, ts)]
   // 深海开幕语音的亲历台账：官方在战斗报文里同时给了「哪一艘」与「哪一条音轨」
   //（api_voice_id 就是 kc9998 的档名），那是深海开幕语音**唯一**的官方档名来源。
   // 记在这里而不是 battle.ts：那个文件被几份测试直接 import，不能让它牵进
@@ -962,7 +985,8 @@ const onDayBattle = (apiPath: string) => (body: any, _post: Record<string, strin
   recordAbyssVoiceSightings(battle.flavorVoices, ts)
   state.sortie.updatedTs = ts
   collectSunkShips(ts)
-  return syncBattleHp(battle) ? ['sortie', 'ships'] : ['sortie']
+  if (syncBattleHp(battle) && !sections.includes('ships')) sections.push('ships')
+  return sections
 }
 
 const onNightBattle = (apiPath: string) => (body: any, _post: Record<string, string>, ts: number): Section[] => {
@@ -970,6 +994,7 @@ const onNightBattle = (apiPath: string) => (body: any, _post: Record<string, str
     state.sortie = beginSortie({ startTs: ts })
   }
   const prev = state.sortie.battle
+  const sections: Section[] = ['sortie']
   // 只有「这一格刚打完的昼战」才配被夜战包并进去。三种不配：
   // - 已经并过一次夜战（hasNight）；
   // - 本身就是开幕夜战（nightonly）——那是上一场，不是这一包的前半；
@@ -988,11 +1013,13 @@ const onNightBattle = (apiPath: string) => (body: any, _post: Record<string, str
   } else {
     state.sortie.battle = parseBattle(apiPath, body, fleetContext, ts)
     state.sortie.battleCount += 1
+    sections.push(...consumeBattleStartRepairItems(state.sortie.battle, ts))
   }
   recordAbyssVoiceSightings(state.sortie.battle?.flavorVoices ?? [], ts)
   state.sortie.updatedTs = ts
   collectSunkShips(ts)
-  return syncBattleHp(state.sortie.battle) ? ['sortie', 'ships'] : ['sortie']
+  if (syncBattleHp(state.sortie.battle) && !sections.includes('ships')) sections.push('ships')
+  return sections
 }
 
 // ---- 归约器表：path → (api_data, postBody, ts) => 变更的 section 列表 ----

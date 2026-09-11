@@ -19,12 +19,17 @@ const header = read('src/renderer/header-status.ts')
 const bi = read('src/renderer/modules/bi.ts')
 const qn = read('src/renderer/modules/qn.ts')
 const kernel = read('src/renderer/kernel.ts')
+const ru = read('src/renderer/modules/ru.ts')
+const lg = read('src/renderer/modules/lg.ts')
+const localization = read('src/renderer/localization.ts')
 const shared = (name) => JSON.stringify(path.join(ROOT, `src/shared/${name}.ts`))
 
 const harness = `
 import { fmtReturnClock } from ${shared('return-clock')}
 import { decksOnExpedition } from ${shared('expedition-state')}
 import { qpTaskGroups } from ${shared('qp-types')}
+import { buildExpeditionOverlap } from ${shared('quest-expedition-overlap')}
+import { normalizeExpeditionDispNo } from ${JSON.stringify(path.join(ROOT, 'src/renderer/expedition-name-index.ts'))}
 type Deck = any
 type QRow = any
 export const mg: any = { decks: [], master: { missions: {} } }
@@ -34,15 +39,43 @@ const combinedEscortState = () => null
 const deckOnSortie = () => false
 const fleetHasUnsupplied = () => false
 const fleetLabel = (deck: any) => ({ canonical: '第' + deck.id + '舰队' })
-const entityNamePlain = (_kind: string, _id: number, name: string) => name
+const clean = (value: unknown) => String(value ?? '').trim()
+export const names: any = { expedition: {} }
+const tables = names
+${cut(localization, 'export const localizedEntry =', '\nexport const localizedEntityId =')}
+${cut(localization, 'export const entityNamePlain =', '\nconst domainOfLink =')}
+${cut(read('src/renderer/expedition-label.ts'), 'export const expeditionLabel =', '\n}')}
+}
 const supplyIconHtml = () => ''
 const isCompactMode = () => false
 const qpTaskLabel = () => '远征'
 const FLAG_TEXT = () => ''
+export const lib = new Map()
+const questVerdicts = () => new Map()
+const elink = (kind: string, id: number, label: string) => '<a data-kind="' + kind + '" data-id="' + id + '">' + esc(label) + '</a>'
+${cut(qn, 'const expeditionDisplayName =', '\n// 追踪任务的可读标签')}
+${cut(qn, 'const expeditionTogetherHtml =', '\nconst detailHtml =')}
 const window = { innerWidth: 800, innerHeight: 600 }
 ${cut(kernel, 'export const esc =', '\nexport const fmtTime =')}
 ${cut(kernel, 'export const fmtCountdownShort =', '\n// 下一个 JST 整点时刻')}
 ${cut(header, "type HeaderFoldGroup =", '\nconst docksHtml =')}
+export const routes: any = {}
+const registerEntityRoute = (kind: string, route: any) => { routes[kind] = route }
+const fleetShips = (deck: any) => deck.ships
+const AIR_BASE_TAB_ID = 0
+const focusFleet = () => {}
+export const navigations: any[] = []
+const navigate = (ref: any) => navigations.push(ref)
+${cut(ru, "registerEntityRoute('fleet',", "\nregisterEntityRoute('fleetShip',")}
+export const notices: any[] = []
+export const extras = { expeditionEarly: false }
+const fireOnce = (_key: string, run: () => void) => run()
+const notify = (...args: any[]) => notices.push(args)
+const expFireTs = (ts: number) => ts - (extras.expeditionEarly ? 60000 : 0)
+export const notifyExpeditions = () => {
+  const now = Date.now()
+${cut(lg, '  // 远征返港（可提前 1 分）', '\n  // 入渠 / 建造')}
+}
 ${cut(bi, 'const expeditionDecks =', '\nconst freeDecks =')}
 ${cut(bi, 'const deckStatusHtml =', '\n// ---- 紧凑态：编队状态悬停卡 ----')}
 ${cut(bi, 'let fleetCard:', '\n/**\n * 被动重渲')}
@@ -54,7 +87,7 @@ export const renderCard = (deckId: number) => {
   showFleetCard({ dataset: { fleetPeek: String(deckId) }, getBoundingClientRect: () => ({ left: 10, top: 10, bottom: 30 }) } as any)
   return fleetCard!.innerHTML
 }
-export { expeditionsHtml, deckStatusHtml, fleetStatusHtml, qpDetailHtml, syncExpeditionChipStates }
+export { expeditionsHtml, deckStatusHtml, fleetStatusHtml, qpDetailHtml, syncExpeditionChipStates, expeditionDisplayName, expeditionTogetherHtml }
 `
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-return-clock-'))

@@ -3328,7 +3328,7 @@ test('interaction audit keeps toggles, countdowns, routes, and hidden refreshes 
   // 抬头那格的疲劳恢复时刻自带「士气已回满」。两处共用同一趟 tick，不许各起定时器。
   assert.match(fleet, /label\.textContent = label\.dataset\.readyDone \?\? '全员已就绪'/)
   assert.match(fleet, /data-ready-done="士气已回满"/)
-  assert.match(fleet, /远征 \$\{deck\.mission\[1\]\} 即将返港/)
+  // 远征标签与到点文案改由 expedition-label.test.mjs 对真实舰队卡返回值断言。
   assert.match(kernel, /export const nextWeeklyReset =/)
   assert.match(kernel, /export const nextMonthlyReset =/)
   assert.match(header, /key === 'weekly'\s*\? nextWeeklyReset\(\)/)
@@ -5953,6 +5953,14 @@ test('fleet equip strip shows empty slots with capacity hover and marks an open 
   assert.match(fleet, /eq-ex-mark" title="补强增设已开 · 未装备"/)
   assert.match(html, /\.fleet-skin \.eq \.eq-empty \{/)
   assert.match(html, /\.fleet-skin \.eq \.eq-ex-mark \{/)
+})
+
+test('编队装备角标分居左右上角，收紧后保留横向与换行间距', () => {
+  assert.match(rendererSource, /\.fleet-skin \.equip-icon \.st \{ right: -2px; padding: 0; letter-spacing: -0\.5px; \}/)
+  assert.match(rendererSource, /\.fleet-skin \.equip-icon \.st\.alv \{ left: -2px; right: auto; \}/)
+  assert.match(rendererSource, /\.fleet-skin \.equip-icon \.pc \{ right: -2px; \}/)
+  assert.match(rendererSource, /\.fleet-skin \.eq \{[^}]*\bgap: 5px;/)
+  assert.match(rendererSource, /\.fleet-skin\.narrow \.eq \{[^}]*column-gap: 5px;[^}]*row-gap: 11px;/)
 })
 
 test('battle-count estimates read the current fleet: TC bonus reapplied, flagship 1.5x, MVP still out', () => {
@@ -11341,7 +11349,9 @@ test('条件行顶掉正文的类别闸:只放出击/演习/远征/编成,工厂
     slice(entity, 'export const JP2CN', 'export const normalizeTaskEntityText', 'JP2CN/simplifyTaskEntityText')
       .replace(/^export /gm, ''),
     'const simplifyJp = simplifyTaskEntityText',
-    slice(source, 'const CAT_META', 'const periodOf', 'CAT_META/catOf/catColor'),
+    // 字母色表由主任务页与独立任务树共享，仍执行生产表与分类函数原文。
+    fs.readFileSync(new URL('../src/renderer/quest-category.ts', import.meta.url), 'utf8').replace(/^export /gm, ''),
+    slice(source, 'const catOf', 'const periodOf', 'catOf/catColor'),
     slice(source, 'const questTextCache', 'const TASK_CATEGORIES', 'questText'),
     slice(source, 'const TASK_CATEGORIES', 'const FACTORY_CATEGORY_KEYS', 'TASK_CATEGORIES'),
     slice(source, 'const categoryOf', '// 「即将重置」的时限', 'categoryOf/PROSE_REPLACING_CATEGORIES'),
@@ -12454,7 +12464,8 @@ test('应急修理发动：绿色两档横幅，要員与女神分色分文案�
 
   // 42/43 这两个 id 已对真实 api_start2 主数据核实（2026-08-20：42 応急修理要員、
   // 43 応急修理女神）。这里钉的是「两档按 43 分岔」，不是凭记忆写的数字。
-  assert.match(lg, /const goddess = ship\.repairItemUsed === 43/)
+  assert.match(lg, /const mstId = atStart \? ship\.repairItemUsedAtStart : ship\.repairItemUsed/)
+  assert.match(lg, /const goddess = mstId === 43/)
   assert.match(
     lg,
     /bannerTone: goddess \? 'goddess' : 'repair', icon: goddess \? '神' : '修'/,
@@ -12496,7 +12507,8 @@ test('应急修理发动：绿色两档横幅，要員与女神分色分文案�
   assert.doesNotMatch(lg, /夜战.{0,8}击沉风险/, '把「夜战还会沉」写进文案了，机制上是错的')
   // 破损档从我们自己算出的 hpEnd 读，不照抄规则文本（battle.ts 目前对要員一律 20%，
   // 没有旗舰 50% 特例——文案宁可跟着自家数字走，也不说界面上没有的数）
-  assert.match(lg, /const tier = damageTierOf\(ship\.hpEnd, ship\.hpMax\)/)
+  assert.match(lg, /const hp = atStart \? ship\.hpStart : ship\.hpEnd/)
+  assert.match(lg, /const tier = damageTierOf\(hp, ship\.hpMax\)/)
   assert.match(lg, /DAMAGE_TIER_WORDS\.ship\[tier\]/, '破损档用词没走 battle-damage 那份单一出处')
 
   // 即时派发：不等 battleresult。本工作台的哲学是全程先知，不做防剧透。

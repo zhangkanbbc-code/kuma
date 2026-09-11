@@ -102,9 +102,10 @@ const GUN_ICON_ID = 1 // 小口径主砲，不在集里
  * @param onslot   各格当前搭载数
  * @param options  `onslotMax` = 实例一手上限（缺省 = 这艘舰没被格納庫増設扩过，
  *                 真报文里那个键根本不存在）；`iconIds` / `type2s` = 逐格装备的
- *                 图标 id / 装备类别（缺省全给艦上攻撃機）
+ *                 图标 id / 装备类别（缺省全给艦上攻撃機）；`levels` / `alvs` =
+ *                 逐格改修 / 熟练度（缺省均为 0）
  */
-export const reset = (maxEq, onslot, { onslotMax, iconIds, type2s } = {}) => {
+export const reset = (maxEq, onslot, { onslotMax, iconIds, type2s, levels, alvs } = {}) => {
   loaded.mg.ships = {}
   loaded.mg.master.ships = {}
   loaded.mg.master.slotitems = {}
@@ -114,7 +115,7 @@ export const reset = (maxEq, onslot, { onslotMax, iconIds, type2s } = {}) => {
   const types = type2s ?? maxEq.map(() => 8)
   // 装备实例 id 从 1 起，与格位一一对应；主数据 id 同号，图标 / 类别逐格给
   maxEq.forEach((_cap, i) => {
-    loaded.mg.slotitems[i + 1] = { id: i + 1, mstId: i + 1, level: 0, alv: 0 }
+    loaded.mg.slotitems[i + 1] = { id: i + 1, mstId: i + 1, level: levels?.[i] ?? 0, alv: alvs?.[i] ?? 0 }
     loaded.mg.master.slotitems[i + 1] = {
       id: i + 1,
       name: `装备#${i + 1}`,

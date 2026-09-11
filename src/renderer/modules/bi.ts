@@ -5,6 +5,7 @@
 // 只读纪律：编成/装备请在游戏内操作，这里只做判定与提示。
 // 判定诚实度：舰种解析不出的条件显示 ◌「无法自动判定」绝不假装 ✓/✗；
 // 属性合计按远征判定口径给保守下限；舰载机与改修★的折算说明见条件行及页脚。
+import { expeditionLabel } from '../expedition-label'
 import {
   combinedEscortState,
   deckOnSortie,
@@ -1176,8 +1177,8 @@ const deckStatusHtml = (deck: Deck): string => {
   } else if (busy) {
     const returnTs = deck.mission[2]
     const now = Date.now()
-    const dispNo = mg.master.missions[deck.mission[1]]?.dispNo ?? deck.mission[1]
-    status = `<b class="g-exp-no">${esc(`${dispNo}`)}</b><span class="g-countdown" data-cds="${returnTs}" data-cds-done="返港" title="${esc(`${now >= returnTs ? '已返港' : '预计返港'} ${fmtReturnClock(returnTs, now)}`)}">${fmtCountdownShort(returnTs, '返港')}</span>`
+    const label = expeditionLabel(deck.mission[1], mg.master.missions)
+    status = `<b class="g-exp-no">${esc(label)}</b><span class="g-countdown" data-cds="${returnTs}" data-cds-done="返港" title="${esc(`${now >= returnTs ? '已返港' : '预计返港'} ${fmtReturnClock(returnTs, now)}`)}">${fmtCountdownShort(returnTs, '返港')}</span>`
   } else {
     status = '<span class="g-idle">待命</span>'
   }
@@ -1460,7 +1461,7 @@ const listRowHtml = (e: Exped, now: number): string => {
     .filter(Boolean)
     .join(' · ')
   const sp2 = w?.monthly || /[A-Z]/.test(e.dispNo)
-  const name = entityNamePlain('expedition', e.dispNo, w?.nameJp ?? e.name)
+  const name = expeditionLabel(e.apiId, mg.master.missions)
   const glowTitle =
     glow === 'collect'
       ? `第${runningDeck!.id}舰队已返港 · 可收取`
@@ -1649,7 +1650,6 @@ const detailHtml = (e: Exped, now: number): string => {
     const fsel = expeditionDecks()
       .map((d) => {
         const busy = d.mission?.[0] > 0
-        const runNo = busy ? (mg.master.missions[d.mission[1]]?.dispNo ?? d.mission[1]) : null
         // 联合第 2 舰队与自己出击的队跟「远征中」一样挂 busy：都不是能拿来对条件的队。
         // 不先判，这枚芯片会显示「待命」还亮着可选，点下去就是给一支派不出的队做检查。
         const escort = combinedEscortState(d.id)
@@ -1661,9 +1661,9 @@ const detailHtml = (e: Exped, now: number): string => {
           : onSortie
             ? '出击中'
             : busy
-              ? `远征 ${runNo} 执行中`
+              ? `${expeditionLabel(d.mission[1], mg.master.missions)} 执行中`
               : '待命'
-        return `<span class="fs${d.id === deck.id ? ' on' : ''}${busy || escort || onSortie ? ' busy' : ''}" data-deck="${d.id}">第${d.id}舰队<i>${note}</i></span>`
+        return `<span class="fs${d.id === deck.id ? ' on' : ''}${busy || escort || onSortie ? ' busy' : ''}" data-deck="${d.id}">第${d.id}舰队<i>${esc(note)}</i></span>`
       })
       .join('')
     const ck = rows
@@ -1768,7 +1768,7 @@ const detailHtml = (e: Exped, now: number): string => {
     <div class="hero">
       <div class="meta">
         <span class="badge w">${entityNameHtml('mapArea', e.mapArea, areaName, { compact: true })}</span>
-        <span style="font-family:var(--mono);color:var(--dim)">远征 ${esc(e.dispNo)}</span>
+        <span style="font-family:var(--mono);color:var(--dim)">${esc(expeditionLabel(e.apiId, mg.master.missions))}</span>
         ${e.difficulty > 0 ? `<span class="badge">难度 ${EXPEDITION_DIFFICULTY[e.difficulty] ?? e.difficulty}</span>` : ''}
         ${w?.monthly ? '<span class="badge" style="color:#d8b8ff;border-color:#3d2c5c">月常</span>' : ''}
         ${w?.combat ? `<span class="badge" style="color:var(--warn);border-color:#4a3a22">${esc(w.combat)}</span>` : ''}
@@ -2116,7 +2116,7 @@ registerEntityRoute('expedition', {
       w?.greatNote ?? '',
     ].filter(Boolean)
     return {
-      title: `${m.dispNo} ${w?.nameZh ?? m.name}`,
+      title: expeditionLabel(apiId, mg.master.missions),
       typeLabel: '远征',
       media: rewardMedia || undefined,
       lines: lines.map((l) => esc(l)),

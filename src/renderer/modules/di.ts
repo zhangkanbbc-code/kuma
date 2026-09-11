@@ -8,6 +8,8 @@
 // - 只读面板：阵型/夜战/进退在游戏内操作，这里绝不代打。
 import { engagedShips, fleetAirPower } from '../fleet-calc'
 import { DAMAGE_TIER_WORDS, damageTierOf } from '../../shared/battle-damage'
+import { DISTRACT_DEFAULTS, DISTRACT_PATHS } from '../../shared/distract-mode'
+import { fatigueBand } from '../fatigue'
 import { formationText, optionalFormationText } from '../../shared/enemy-formation'
 import { requiredSunkForA } from '../../shared/battle-rank'
 import { fcdTopologyUsable } from '../../shared/fcd-topology'
@@ -43,6 +45,8 @@ import {
 import {
   applyPaneHtml,
   esc,
+  escapedInSortie,
+  isSunkInSortie,
   fleetLabel,
   fmtCountdownShort,
   fmtTime,
@@ -138,6 +142,7 @@ import {
 import type { EncounterForecastBand } from '../../shared/combat-forecast'
 
 const { ipcRenderer } = require('electron')
+const distractConfig = require('@electron/remote').require('./config')
 
 // ---- 词典 ----
 
@@ -2323,6 +2328,16 @@ const logHtml = (b: BattleView, expanded: boolean): string => {
     groupHead?: string
   }
   const rows: Row[] = []
+  for (const ship of b.fShips) {
+    if (ship.repairItemUsedAtStart == null) continue
+    rows.push({
+      dull: false,
+      stage: -1,
+      action: -1,
+      html: `<div class="lrow"><span class="who">${esc(battleShipName(ship))}</span>
+        <span class="ltail"><span class="tag9 repair">${ship.repairItemUsedAtStart === 43 ? '女神进击时发动 · 开战耐久全满' : '要员进击时发动 · 开战耐久约半'}</span></span></div>`,
+    })
+  }
   const stageHasVisibleEvent = new Set<number>()
   const stages = b.stages ?? []
   const activeIndex = (side: 0 | 1, position: number) =>
@@ -4416,6 +4431,37 @@ const emptyHtml = () => `
     ${practiceLevelingHtml()}
   </div>`
 
+// 读铆的状态而非 DOM 类名：进入时 on 先落下，首次重画不依赖外壳样式同步的先后。
+// 编队只读当前铭状态，复盘中的旧战斗也不能把实时条切回旧血量。
+const distractFleetStripHtml = (s: SortieView | null): string => {
+  if (!getDistractState().on ||
+      !distractConfig.get(DISTRACT_PATHS.showFleet, DISTRACT_DEFAULTS.showFleet) ||
+      !s?.active || s.practice) return ''
+  const deckIds = mg.combinedFlag > 0 && s.deckId === 1 ? [1, 2] : [s.deckId]
+  const rows = deckIds.flatMap((deckId) => {
+    const deck = mg.decks.find((d) => d.id === deckId)
+    return (deck?.ships ?? []).filter((id) => id > 0).map((id) => mg.ships[id]).filter(Boolean).map((ship) => {
+      const master = mg.master.ships[ship.shipId]
+      const tier = damageTierOf(ship.nowhp, ship.maxhp)
+      const hpClass = tier === 'heavy' ? 'hp-r' : tier === 'medium' ? 'hp-o' : tier === 'light' ? 'hp-y' : 'hp-g'
+      const hpPct = ship.maxhp > 0 ? ship.nowhp / ship.maxhp * 100 : 100
+      const fuelPct = master && master.fuelMax > 0 ? ship.fuel / master.fuelMax * 100 : 100
+      const bullPct = master && master.bullMax > 0 ? ship.bull / master.bullMax * 100 : 100
+      const band = fatigueBand(ship.cond)
+      const condClass = ship.cond >= 50 ? 'sp' : band === 'red' ? 'bad' : band === 'orange' ? 'tired' : ''
+      const state = isSunkInSortie(ship.id) ? '沉' : escapedInSortie(ship.id) ? '退避' : ''
+      return `<div class="distract-fleet-row" data-fleet-ship="${ship.id}" data-fleet-deck="${deckId}">
+        <b class="df-name">${entityNameHtml('ship', ship.shipId, masterShipName(ship.shipId), { compact: true })}</b>
+        <span class="df-level">· Lv${ship.lv}</span>
+        <span class="df-hp ${hpClass}"><i style="width:${hpPct}%"></i><span>${ship.nowhp}/${ship.maxhp}</span></span>
+        <span class="fa2"><span class="b fuel${fuelPct < 50 ? ' low' : ''}"><i style="width:${fuelPct}%"></i></span><span class="b ammo${bullPct < 50 ? ' low' : ''}"><i style="width:${bullPct}%"></i></span></span>
+        <span class="cond ${condClass}">${ship.cond}</span><span class="df-state">${state}</span>
+      </div>`
+    })
+  }).join('')
+  return `<div class="distract-fleet-strip fleet-skin">${rows}</div>`
+}
+
 const renderBattlePane = (
   pane: HTMLElement,
   snapshot: BattleSnapshot | null,
@@ -4495,6 +4541,7 @@ const renderBattlePane = (
     // 主体这一层的战斗：防空收纳时是 null，下面四段照原来的三元自然退回航行态。
     const bodyBattle = bodyBattleOf(s)
     const committed = applyPaneHtml(pane, 'di', `<div class="di-app${pane.clientWidth < 700 ? ' narrow' : ''}">
+      ${distractFleetStripHtml(mg.sortie)}
       <div class="battle-col">
         ${
           replayOpenError
@@ -4882,6 +4929,9 @@ registerModule({
   mount(pane) {
     diPane = pane
     registerBattleEntityRoutes()
+    const refreshDistractFleet = () => render(pane)
+    window.addEventListener('kuma-distract-changed', refreshDistractFleet)
+    trackMountCleanup(() => window.removeEventListener('kuma-distract-changed', refreshDistractFleet))
     // 同步注册并在卸载时退订，避免装配重试产生重复 listener。
     const openBattleFromShipLife = (_event: unknown, rawId: unknown) => {
       const id = Number(rawId)
@@ -4922,6 +4972,7 @@ registerModule({
       if (pane.classList.contains('active')) updateCountdowns(pane)
     })
     onMgChange((keys) => {
+      // 战斗 HP 回写与 ship_deck 对账都带 ships；实时编队条随同一轮重画更新。
       if (keys.some((k) => ['sortie', 'mapGauges', 'decks', 'ships', 'master'].includes(k))) {
         const practiceTs =
           mg.sortie?.practice && !mg.sortie.battle

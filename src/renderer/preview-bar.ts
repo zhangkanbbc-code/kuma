@@ -1,5 +1,5 @@
 // 试听的悬浮迷你播放条：默认右下角一枚小胶囊，一行摆完
-// 「在听什么 · 播放/暂停 · 拖到哪 · 时间」，**按住空白处可以整条挪走**。
+// 「在听什么 · 播放/暂停 · 拖到哪 · 时间 · 取消」，**按住空白处可以整条挪走**。
 //
 // 它解决的是「想从哪里听就从哪里听」——♪ 词条与语音钮只有开关两态，一首三分钟的曲子
 // 想跳到副歌无处可跳；而词条本身长在模块面板里，翻一页就看不见了。
@@ -14,7 +14,7 @@
 // ② **状态一律问总机**（renderer/preview-audio），自己不记「现在在放谁」。播放/暂停也是
 //    转手交给总机——绕过去直接 audio.play() 就漏掉了压游戏音量那一步，表现是
 //    「从条子上续播，游戏还哑着」，而且不报错。
-import { activePreview, onPreviewChange, toggleActivePreview } from './preview-audio'
+import { activePreview, cancelActivePreview, onPreviewChange, toggleActivePreview } from './preview-audio'
 
 /** 这几件事发生时进度或时长可能变了，条子要跟着重画。 */
 const AUDIO_EVENTS = ['play', 'pause', 'timeupdate', 'durationchange', 'loadedmetadata'] as const
@@ -192,7 +192,7 @@ const paint = () => {
   if (!host || !nameEl || !toggleEl || !seekEl || !timeEl) return
   const info = activePreview()
   if (!info) {
-    // 播完 / 出错 / 从来没开过口：条子退场，状态清零。
+    // 播完 / 出错 / 取消 / 从来没开过口：条子退场，状态清零。
     // 位置**不清**：同一次运行里再听下一首，它还在玩家上次挪到的地方。
     bindAudio(null)
     host.classList.remove('show')
@@ -298,6 +298,17 @@ const build = (): HTMLElement => {
   timeEl = document.createElement('span')
   timeEl.className = 'pb-time'
 
+  const closeEl = document.createElement('button')
+  closeEl.className = 'pb-close'
+  closeEl.type = 'button'
+  closeEl.textContent = '×'
+  closeEl.setAttribute('aria-label', '取消播放')
+  closeEl.title = '取消播放'
+  closeEl.addEventListener('click', () => {
+    cancelActivePreview()
+    paint()
+  })
+
   // 挪窝。按在钮/滑条上的那一下在 onPointerDown 里就被让开了，控件不被劫持。
   el.addEventListener('pointerdown', onPointerDown)
   el.addEventListener('pointermove', onPointerMove)
@@ -309,6 +320,7 @@ const build = (): HTMLElement => {
   el.appendChild(toggleEl)
   el.appendChild(seekEl)
   el.appendChild(timeEl)
+  el.appendChild(closeEl)
   return el
 }
 

@@ -5,9 +5,10 @@ export const DISTRACT_SIDE_LABEL = { top: '上', bottom: '下', left: '左', rig
 export const DISTRACT_PATHS = {
   side: 'kuma.distract.side',
   alwaysOnTop: 'kuma.distract.alwaysOnTop',
+  showFleet: 'kuma.distract.showFleet',
   bounds: 'kuma.distract.bounds',
 } as const
-export const DISTRACT_DEFAULTS = { side: 'bottom', alwaysOnTop: true } as const
+export const DISTRACT_DEFAULTS = { side: 'bottom', alwaysOnTop: true, showFleet: true } as const
 export const DISTRACT_DEFAULT_SIZE = { width: 600, height: 780 } as const
 
 export const normalizeDistractSide = (raw: unknown): DistractSide =>

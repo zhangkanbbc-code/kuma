@@ -31,20 +31,26 @@ import { OFFSHORE_SUPPLY_RATES, planOffshoreSupply, planOffshoreSupplyConsumptio
 import { mapIdOf } from ${shared('map-id')}
 import { diffConsumedInstances } from ${shared('sortie-consumables')}
 import { patchMapGaugeFromSortiePayload } from ${shared('map-gauge')}
+import { newSunkEntries } from ${shared('sortie-mourning')}
+import { parseBattle, mergeNight } from ${JSON.stringify(path.join(root, 'src/main/mg/battle.ts'))}
 export { describeDeltaDetail } from ${shared('material-delta-text')}
 type Section = string
 ${['state', 'toShip', 'toDeck', 'applyShipUpdates', 'applySortieShipUpdates', 'applyDeckUpdates', 'removeSlotitems',
   'MAT_NAMES', 'mapGains', 'nodeNote', 'applyMapMaterialDelta', 'applyMapUseitemGains',
   'enemyPreviewOf', 'cellFlavorOf', 'sortieNodeOf', 'cellDataOf', 'selectRouteOf',
-  'newSortie', 'bossClearedOf', 'setMapGauge'].map(pick).join('\n')}
+  'newSortie', 'beginSortie', 'bossClearedOf', 'setMapGauge', 'fleetContext',
+  'syncBattleHp', 'consumeBattleStartRepairItems', 'collectSunkShips', 'onDayBattle', 'onNightBattle',
+  'DAY_BATTLE_PATHS', 'NIGHT_BATTLE_PATHS'].map(pick).join('\n')}
 // 本夹具聚焦补给与资源；HP 对账、基地战斗和道具库存各有独立护栏。
 const runSortieHpAudit = () => []
 const incrementUseitem = () => false
-const fleetContext = {}
+const recordAbyssVoiceSightings = () => {}
 const parseBaseDefenseBattle = () => { throw new Error('本用例未设置基地战斗') }
 const reducers = { ${reducers.map(p => p.getText(ast)).join(',\n')} }
+for (const p of DAY_BATTLE_PATHS) reducers[p] = onDayBattle(p)
+for (const p of NIGHT_BATTLE_PATHS) reducers[p] = onNightBattle(p)
 ${source.slice(source.indexOf('export const handle ='))}
-export { state, newSortie, OFFSHORE_SUPPLY_RATES, planOffshoreSupply, planOffshoreSupplyConsumption, offshoreSupplyNote, rationNote }
+export { state, newSortie, consumeBattleStartRepairItems, OFFSHORE_SUPPLY_RATES, planOffshoreSupply, planOffshoreSupplyConsumption, offshoreSupplyNote, rationNote }
 export const logMaterialChanges = (prevMaterials, offshoreBefore, sections, deltaResolution) => {
   const store = { getState: () => state }
   const rows = []
@@ -63,5 +69,5 @@ try {
 } finally {
   fs.rmSync(dir, { recursive: true, force: true })
 }
-export const { state, newSortie, handle, describeDeltaDetail, OFFSHORE_SUPPLY_RATES, planOffshoreSupply,
+export const { state, newSortie, handle, consumeBattleStartRepairItems, describeDeltaDetail, OFFSHORE_SUPPLY_RATES, planOffshoreSupply,
   planOffshoreSupplyConsumption, offshoreSupplyNote, rationNote, logMaterialChanges } = loaded

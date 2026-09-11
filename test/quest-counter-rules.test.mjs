@@ -371,7 +371,7 @@ test('quest counter reports the audited synthetic-master coverage split', () => 
     // EO（quest-trackers）2026-08-21 整层退场，原来钉的 eo 163 一并撤销；
     // 它供的那 164 条现在按优先级落回 kcwiki / poi / 自研三层，
     // 所以 kcwiki 与 kuma 两栏都涨了，总数则因为「合成主数据解不出的整条弃用」而下降。
-    assert.equal(Object.keys(state.trackers).length, 247)
+    assert.equal(Object.keys(state.trackers).length, 249)
     // 2026-08-20 第二批文案清扫：逐源拆分与源站名号撤出 packCredit（那是发布侧悬停），
     // 审计本身改从 trackers 直接算——覆盖数字仍要逐源钉死，只是不再摆给玩家。
     const split = {}
@@ -384,8 +384,9 @@ test('quest counter reports the audited synthetic-master coverage split', () => 
     // text −4、kuma +4；718/719 的最上型条件要从主数据查舰级，这份十条舰的合成主数据里
     // 没有最上，两条按纪律整条弃用（日志里那两行「kuma规则 G10/G11 跳过」），kuma −2、
     // 总数 −2。真机主数据下这两条照常在位——见下面那组近代化改修用例，它们自带最上型。
-    assert.deepEqual(split, { kcwiki: 148, poi: 25, text: 15, kuma: 59 })
-    assert.match(state.packCredit, /精确计数覆盖 247 \/ 644 条/)
+    // 2026-09-11 定号补入四条任务，合成主数据下可解析的自研规则增加两条。
+    assert.deepEqual(split, { kcwiki: 148, poi: 25, text: 15, kuma: 61 })
+    assert.match(state.packCredit, /精确计数覆盖 249 \/ 648 条/)
     assert.match(state.packCredit, / · 规则更新 \d{4}-\d{2}-\d{2}$/)
     assert.doesNotMatch(state.packCredit, /EO|KCWiki|poi/, '发布侧署名不该回潮')
     return

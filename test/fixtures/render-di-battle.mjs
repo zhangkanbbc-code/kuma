@@ -134,6 +134,15 @@ const SPECIAL_ATTACK = path
 const HP_TIMELINE = path.join(ROOT, 'src', 'shared', 'battle-hp-timeline.ts').replace(/\\/g, '/')
 const BATTLE_DAMAGE = path.join(ROOT, 'src', 'shared', 'battle-damage.ts').replace(/\\/g, '/')
 const SHIP_ART_PATH = path.join(ROOT, 'src', 'shared', 'ship-art-path.ts').replace(/\\/g, '/')
+const DISTRACT_MODE = path.join(ROOT, 'src', 'shared', 'distract-mode.ts').replace(/\\/g, '/')
+const FATIGUE = path.join(ROOT, 'src', 'renderer', 'fatigue.ts').replace(/\\/g, '/')
+const SORTIE_ESCAPE = path.join(ROOT, 'src', 'shared', 'sortie-escape.ts').replace(/\\/g, '/')
+const SORTIE_MOURNING = path.join(ROOT, 'src', 'shared', 'sortie-mourning.ts').replace(/\\/g, '/')
+const DISTRACT_FLEET = sliceBetween('const distractFleetStripHtml =', 'const renderBattlePane =', '分心编队条')
+const kernel = fs.readFileSync(path.join(ROOT, 'src', 'renderer', 'kernel.ts'), 'utf8')
+const SORTIE_STATE = kernel.slice(kernel.indexOf('export const sortieSunkShips ='), kernel.indexOf('// 开关（钥 · 击沉特效）')).replaceAll('export ', '')
+assert.ok(SORTIE_STATE.includes('const escapedInSortie ='))
+const MG_CHANGE = sliceBetween('    onMgChange((keys) => {', '    new ResizeObserver', '铭更新重画')
 
 const HARNESS = `
 import { fcdTopologyUsable } from '${FCD_TOPOLOGY}'
@@ -144,6 +153,10 @@ import { SPECIAL_ATTACK_SEGMENT_ORDER, specialAttackLabel } from '${SPECIAL_ATTA
 import { hpAtStage, hpBarSegments, segmentStartOf, shipHpTimeline } from '${HP_TIMELINE}'
 import { DAMAGE_TIER_WORDS, damageTierOf } from '${BATTLE_DAMAGE}'
 import { shipArtDamaged } from '${SHIP_ART_PATH}'
+import { DISTRACT_DEFAULTS, DISTRACT_PATHS } from '${DISTRACT_MODE}'
+import { fatigueBand } from '${FATIGUE}'
+import { escapedShipsOf } from '${SORTIE_ESCAPE}'
+import { mourningShipsOf } from '${SORTIE_MOURNING}'
 
 type BattleView = any
 type BattleAttack = any
@@ -245,6 +258,33 @@ const fcdMap: any = null
 // friendlyRequest 刻意**不给初值**：那正是「从没收到过 set_friendly_request」的未知态，
 // 也是这份桩的默认局面（用例要开要請时自己往上挂）。
 const mg: any = { master: { ships: {}, slotitems: {}, ready: false }, decks: [], ships: {}, slotitems: {} }
+let distractOn = false
+let fleetSetting: boolean | undefined
+const getDistractState = () => ({ on: distractOn })
+const distractConfig = { get: (_key: string, fallback: boolean) => fleetSetting ?? fallback }
+const masterShipName = (id: number) => mg.master.ships[id]?.name ?? ''
+${SORTIE_STATE}
+${DISTRACT_FLEET}
+const renderDistractFleet = (state: any, on: boolean, showFleet?: boolean) => {
+  Object.assign(mg, state)
+  distractOn = on
+  fleetSetting = showFleet
+  return distractFleetStripHtml(mg.sortie)
+}
+const changeFleet = (keys: string[], patch: any) => {
+  Object.assign(mg, patch)
+  let html: string | undefined
+  const pane = {}
+  let lastPracticePreviewTs = 0
+  let replay = null
+  const render = () => { html = distractFleetStripHtml(mg.sortie) }
+  const activateModule = () => {}
+  const loadBattleHistory = async () => {}
+  const refreshFirstEncounters = async () => {}
+  const onMgChange = (listener: (keys: string[]) => void) => listener(keys)
+  ${MG_CHANGE}
+  return html
+}
 // 流水聚焦：null = 跟随最新（默认态）。切片里 browHtml 与 logHtml 都读它，
 // 用例靠下面这个 setter 拨，好验「点住某一阶段时血条画的是那一阶段」。
 let selectedLogStage: number | null = null
@@ -282,6 +322,8 @@ ${ALERT_BANNER}
 
 export {
   mg,
+  renderDistractFleet,
+  changeFleet,
   setSelectedLogStage,
   browHtml,
   battleDropChipHtml,
@@ -323,6 +365,8 @@ const bundle = (() => {
 })()
 
 const loaded = createRequire(import.meta.url)(bundle)
+export const renderDistractFleet = (state, on = true, showFleet) => loaded.renderDistractFleet(state, on, showFleet)
+export const changeFleet = (keys, patch) => loaded.changeFleet(keys, patch)
 
 export const renderLog = (battle, expanded = true) => loaded.logHtml(battle, expanded)
 /** 编队里的一行（血条那一格与灰化那几个类都在里面）。 */

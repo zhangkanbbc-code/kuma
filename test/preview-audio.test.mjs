@@ -119,6 +119,7 @@ test('语音试听开口时把 BGM 按停：只暂停，不归零', async () => 
   ui.api.registerPreviewPlayer('voice', {
     pause: () => voicePauses.push('paused'),
     resume: () => voicePauses.push('resumed'),
+    stop: () => ui.api.notePreviewStopped('voice', 'stopped'),
     audio: () => null,
   })
 
@@ -389,6 +390,7 @@ test('语音那边开口时条子跟着换人：它只认总机，不认识任�
   ui.api.registerPreviewPlayer('voice', {
     pause: () => {},
     resume: () => {},
+    stop: () => ui.api.notePreviewStopped('voice', 'stopped'),
     audio: () => null,
   })
 
@@ -403,6 +405,206 @@ test('语音那边开口时条子跟着换人：它只认总机，不认识任�
 
   ui.api.notePreviewStopped('voice', 'ended')
   assert.equal(ui.bar().shown, false)
+})
+
+// ------------------------------------------------------- × 键取消试听
+
+test('播放中点 ×：停声、退场、放回游戏音量、清空词条记号', async () => {
+  const ui = mountBgmPreview()
+  const el = ui.entry(SONG, '曲101')
+  ui.click(el)
+  await tick()
+  const audio = ui.audio()
+  audio.loadMetadata(180)
+  audio.advance(90)
+  assert.equal(ui.bar().shown, true)
+  assert.equal(ui.bar().bodyLifted, true)
+  assert.deepEqual(ui.marks(el), ['playing'])
+  assert.deepEqual(ui.activeSends(), [true])
+  const close = ui.barHost().children.at(-1)
+  assert.equal(close.tag, 'button')
+  assert.equal(close.className, 'pb-close')
+  assert.equal(close.type, 'button')
+  assert.equal(close.textContent, '×')
+  assert.equal(close.title, '取消播放')
+  assert.equal(close.getAttribute('aria-label'), '取消播放')
+
+  ui.clickClose()
+  await tick()
+  assert.equal(audio.paused, true)
+  assert.equal(audio.src, '')
+  assert.equal(audio.currentTime, 0)
+  assert.equal(audio.loadCalls, 1)
+  assert.equal(ui.api.activePreview(), null)
+  assert.equal(ui.bar().shown, false)
+  assert.equal(ui.bar().bodyLifted, false)
+  assert.equal(ui.bar().seekValue, '0')
+  assert.deepEqual(ui.activeSends(), [true, false])
+  assert.deepEqual(ui.marks(el), [])
+})
+
+test('暂停中点 ×：同样取消退场，游戏音量不重复上报', async () => {
+  const ui = mountBgmPreview()
+  const el = ui.entry(SONG)
+  ui.click(el)
+  await tick()
+  ui.audio().loadMetadata(180)
+  ui.audio().advance(90)
+  ui.clickToggle()
+  assert.deepEqual(ui.marks(el), ['paused'])
+  assert.equal(ui.bar().shown, true)
+  assert.deepEqual(ui.activeSends(), [true, false])
+
+  ui.clickClose()
+  assert.equal(ui.audio().paused, true)
+  assert.equal(ui.audio().src, '')
+  assert.equal(ui.audio().loadCalls, 1)
+  assert.equal(ui.audio().currentTime, 0)
+  assert.equal(ui.api.activePreview(), null)
+  assert.equal(ui.bar().shown, false)
+  assert.equal(ui.bar().bodyLifted, false)
+  assert.equal(ui.bar().seekValue, '0')
+  assert.deepEqual(ui.marks(el), [])
+  assert.deepEqual(ui.activeSends(), [true, false])
+})
+
+test('取消后再点同一枚词条：判为 restart，重设 src 并从头播', async () => {
+  const ui = mountBgmPreview()
+  const el = ui.entry(SONG, '曲101')
+  ui.click(el)
+  await tick()
+  const audio = ui.audio()
+  audio.loadMetadata(180)
+  audio.advance(90)
+  ui.clickClose()
+  assert.equal(previewClickAction(audio, SONG), 'restart')
+  ui.click(el)
+  await tick()
+  assert.equal(ui.audio(), audio)
+  assert.deepEqual(audio.srcWrites, [SONG, SONG])
+  assert.equal(audio.currentTime, 0)
+  assert.equal(audio.paused, false)
+  assert.equal(audio.playCalls, 2)
+  assert.deepEqual(ui.marks(el), ['playing'])
+  assert.equal(ui.bar().shown, true)
+  assert.equal(ui.bar().name, '曲101')
+  assert.deepEqual(ui.activeSends(), [true, false, true])
+})
+
+test('拖过条子后点 ×：不捕获指针、不起拖拽，取消与再播均保留落点', async () => {
+  const ui = await mountBarPlaced()
+  ui.pressBar(1100, 760)
+  ui.moveBar(400, 300)
+  ui.dropBar()
+  const placed = ui.barStyle()
+  const host = ui.barHost()
+  const event = ui.pressBar(400, 300, 'close')
+  ui.moveBar(600, 500)
+  assert.equal(event.defaultPrevented, false)
+  assert.deepEqual(ui.barCaptured(), [])
+  assert.equal(ui.barDragging(), false)
+  ui.clickClose()
+  ui.dropBar()
+  assert.equal(ui.bar().shown, false)
+  assert.deepEqual(ui.barStyle(), placed)
+  ui.click(ui.entry(SONG))
+  await tick()
+  assert.deepEqual(ui.barStyle(), placed)
+  assert.equal(ui.barHost(), host)
+})
+
+test('没有试听时点 ×：不抛、不造 Audio、不改条子或上报', () => {
+  const ui = mountBgmPreview()
+  const before = ui.bar()
+  const style = ui.barStyle()
+  assert.doesNotThrow(() => ui.clickClose())
+  assert.equal(ui.api.activePreview(), null)
+  assert.equal(ui.audio(), null)
+  assert.deepEqual(ui.bar(), before)
+  assert.deepEqual(ui.barStyle(), style)
+  assert.deepEqual(ui.activeSends(), [])
+})
+
+test('右键条子：继续播放，当前项、条子、音量上报与词条记号不变', async () => {
+  const ui = mountBgmPreview()
+  const el = ui.entry(SONG, '曲101')
+  ui.click(el)
+  await tick()
+  const audio = ui.audio()
+  audio.loadMetadata(180)
+  audio.advance(90)
+  const active = ui.api.activePreview()
+  const bar = ui.bar()
+  assert.equal(bar.shown, true)
+  assert.equal(ui.barHost().title, undefined)
+  for (const on of [undefined, 'name', 'toggle', 'seek', 'time', 'close']) {
+    assert.equal(ui.contextMenuBar(on).defaultPrevented, false)
+    assert.equal(audio.paused, false)
+    assert.equal(audio.src, SONG)
+    assert.equal(audio.currentTime, 90)
+    assert.equal(audio.loadCalls, 0)
+    assert.deepEqual(ui.api.activePreview(), active)
+    assert.deepEqual(ui.bar(), bar)
+    assert.deepEqual(ui.activeSends(), [true])
+    assert.deepEqual(ui.marks(el), ['playing'])
+  }
+})
+
+test('总机取消语音：只调用当前 voice 的 stop，清除当前项与标签', () => {
+  const ui = mountBgmPreview()
+  const calls = []
+  ui.api.registerPreviewPlayer('voice', {
+    pause: () => calls.push('pause'),
+    resume: () => calls.push('resume'),
+    stop: () => {
+      calls.push('stop')
+      ui.api.notePreviewStopped('voice', 'stopped')
+    },
+    audio: () => null,
+  })
+  ui.api.claimPreviewPlayback('voice', '语音')
+  ui.clickClose()
+  ui.clickClose()
+  assert.deepEqual(calls, ['stop'])
+  assert.equal(ui.api.activePreview(), null)
+  assert.equal(ui.bar().shown, false)
+  assert.deepEqual(ui.activeSends(), [true, false])
+  ui.api.claimPreviewPlayback('voice')
+  assert.equal(ui.api.activePreview().label, '')
+})
+
+test('元数据未到时取消：不直接写 currentTime', async () => {
+  const ui = mountBgmPreview()
+  ui.click(ui.entry(SONG))
+  await tick()
+  const audio = ui.audio()
+  assert.equal(Number.isNaN(audio.duration), true)
+  Object.defineProperty(audio, 'currentTime', {
+    get: () => 0,
+    set: () => assert.fail('元数据未到时不许裸写 currentTime'),
+    configurable: true,
+  })
+  assert.doesNotThrow(() => ui.clickClose())
+  assert.equal(audio.loadCalls, 1)
+  assert.equal(ui.api.activePreview(), null)
+  assert.equal(ui.bar().shown, false)
+})
+
+test('等待另一首入档时取消：入档完成不再自动播放', async () => {
+  const ui = mountBgmPreview()
+  ui.click(ui.entry(SONG))
+  await tick()
+  ui.click(ui.remoteEntry(103))
+  await tick()
+  assert.equal(ui.audio().paused, true)
+  ui.clickClose()
+  ui.archived(103)
+  await tick()
+  assert.equal(ui.audio().playCalls, 1)
+  assert.equal(ui.audio().paused, true)
+  assert.equal(ui.api.activePreview(), null)
+  assert.equal(ui.bar().shown, false)
+  assert.deepEqual(ui.activeSends(), [true, false])
 })
 
 // ------------------------------------------------------- B'. 迷你条挪窝（可拖拽）

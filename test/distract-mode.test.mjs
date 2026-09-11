@@ -11,11 +11,12 @@ const { DISTRACT_SIDES, DISTRACT_SIDE_LABEL, DISTRACT_PATHS, DISTRACT_DEFAULTS,
 const read = (rel) => fs.readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 
 test('分心默认值、配置路径与玩家侧名固定', () => {
-  assert.deepEqual(DISTRACT_DEFAULTS, { side: 'bottom', alwaysOnTop: true })
+  assert.deepEqual(DISTRACT_DEFAULTS, { side: 'bottom', alwaysOnTop: true, showFleet: true })
   assert.deepEqual(DISTRACT_DEFAULT_SIZE, { width: 600, height: 780 })
   assert.deepEqual(DISTRACT_SIDE_LABEL, { top: '上', bottom: '下', left: '左', right: '右' })
   assert.deepEqual(DISTRACT_PATHS, {
     side: 'kuma.distract.side', alwaysOnTop: 'kuma.distract.alwaysOnTop', bounds: 'kuma.distract.bounds',
+    showFleet: 'kuma.distract.showFleet',
   })
 })
 

@@ -1934,6 +1934,11 @@ const parseQuestsScn = async () => {
     `[lodes]   任务库:${stats.quests} 条 / 模板 ${stats.templates} 次（分类节重复 ${stats.duplicates}）` +
       ` / 未定号跳过 ${stats.withoutId} / 装备名表 ${equipNames.size}`,
   )
+  console.log(`[lodes]   定号表命中 ${stats.maintainerHits.length}（${stats.maintainerHits.map(({ code, id }) => `${code}→${id}`).join('、')}）`)
+  console.log(`[lodes]   定号表冲突 ${stats.conflicts}（${stats.conflictRows.map(({ id, kept, skipped }) => `${id}：${kept} vs ${skipped}`).join('、')}）`)
+  console.log(`[lodes]   跨页改码（信息）${stats.crossPageCodeChanges.length}（${stats.crossPageCodeChanges.map(({ id, from, to }) => `${id}：${from} → ${to}`).join('、')}）`)
+  console.log(`[lodes]   未定号 ${stats.withoutId}`)
+  for (const { code, name } of stats.withoutIdRows) console.log(`[lodes]     ${code}｜${name}`)
   // 「多新」取两张任务页里更晚的那次编辑（装备模块只提供名字，不算内容年龄）
   const latest = QUEST_PAGE_TITLES.map((title) => pages.get(title).timestamp)
     .filter(Boolean)

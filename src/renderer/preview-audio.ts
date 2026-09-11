@@ -16,7 +16,7 @@ const { ipcRenderer } = require('electron')
 export type PreviewOwner = 'bgm' | 'voice'
 
 /**
- * 一个播放器交给总机的三件事。**`resume` 必须走播放器自己那条正常出声的路**
+ * 一个播放器交给总机的四件事。**`resume` 必须走播放器自己那条正常出声的路**
  * （重新 claim、重新取音量、重新打词条记号），迷你条上的续播才跟再点一次 ♪ 完全等价；
  * 绕过去直接 `audio.play()` 就会漏掉压游戏音量那一步，表现是「从条子上续播，游戏还哑着」。
  */
@@ -25,16 +25,18 @@ export interface PreviewPlayerHandle {
   pause: () => void
   /** 从暂停处接着放。没有可续的东西时自行空转 */
   resume: () => void
+  /** 取消：停声、作废进度、清掉自己的界面记号，再报 stopped */
+  stop: () => void
   /** 当前那个 Audio 实例。还没造出来就给 null（两边都是用到才 new） */
   audio: () => HTMLAudioElement | null
 }
 
 /**
- * 这一次「不响了」是哪一种。要害在 `pause` 与另外两种的分野：
+ * 这一次「不响了」是哪一种。要害在 `pause` 与另外三种的分野：
  * 暂停是**试听还在**（进度留着，条子该继续摆着等你接着放），
- * 播完与出错是**试听没了**（条子该消失、状态清零）。
+ * 播完、出错与主动取消是**试听没了**（条子该消失、状态清零）。
  */
-export type PreviewStopReason = 'pause' | 'ended' | 'error'
+export type PreviewStopReason = 'pause' | 'ended' | 'error' | 'stopped'
 
 // 主进程侧的收货口在 src/main/index.ts（游戏 webContents 那一段）
 const ACTIVE_CHANNEL = 'kuma:preview-audio-active'
@@ -97,7 +99,7 @@ export const claimPreviewPlayback = (owner: PreviewOwner, label = '') => {
 }
 
 /**
- * 暂停 / 播完 / 播放失败：这一边不响了。
+ * 暂停 / 播完 / 播放失败 / 取消：这一边不响了。
  *
  * 理由缺省按 `pause` 算——那是**保守的那一头**：条子继续摆着（进度确实还在），
  * 顶多多留一会儿；反过来把暂停当播完，玩家的进度就连同条子一起没了。
@@ -133,6 +135,12 @@ export const toggleActivePreview = () => {
   if (!handle) return
   if (playing.has(active)) handle.pause()
   else handle.resume()
+}
+
+/** 取消当前这一条：由播放器停声并作废进度，再向总机报试听没了。 */
+export const cancelActivePreview = () => {
+  if (!active) return
+  players.get(active)!.stop()
 }
 
 /** 装一个看客：当前这一条变了（换人、换曲、响停、播完）就叫一声。 */

@@ -8,6 +8,7 @@
 //   手机推送（ntfy / Bark，默认全关，出网只发生在主进程；人在电脑前时暂缓、离开后补发）。
 // 出击勿扰：自动（出击在途暂留非阻断）+ 手动开关。记录落进账本（默认不自动清理，
 //   保留天数在钥里；这里另有手动「清空历史」），规则/阈值持久化。
+import { expeditionLabel } from '../expedition-label'
 import {
   appendNotice,
   clearNotices,
@@ -100,12 +101,13 @@ interface EventDef {
   // 建造跳图鉴、演习跳抬头），标签写死成模块名就等于对用户说了假话。
   refLabel?: string
   locked?: boolean // 阻断级：路由全开不可改
+  sortieBorn?: boolean // 出击自身产生的事件：出击自动勿扰不暂留、当场送达；手动勿扰照旧
   na?: RouteKey[] // 该事件不提供的路由（仅徽章类）
 }
 
 const EVENTS: EventDef[] = [
   { id: 'accountChanged', label: '账号已变化', note: '记录不分账号 · 每次换号提醒', sev: 'warn', icon: '⚠', jump: 'yu', jumpLabel: '设置' },
-  { id: 'taiha', label: '大破警告', note: '无条件', sev: 'crit', icon: '!', jump: 'di', jumpLabel: '战斗详情', locked: true },
+  { id: 'taiha', label: '大破警告', note: '无条件', sev: 'crit', icon: '!', jump: 'di', jumpLabel: '战斗详情', locked: true, sortieBorn: true },
   { id: 'expedition', label: '远征返港', note: '', sev: 'blue', icon: '⚓', jump: 'ru', jumpLabel: '编队 · 远征' },
   { id: 'dock', label: '入渠完成', note: '—', sev: 'blue', icon: '🔧', jump: 'lg', jumpLabel: '通知记录', refLabel: '舰娘列表' },
   { id: 'build', label: '建造完成', note: '—', sev: 'blue', icon: '🔨', jump: 'lg', jumpLabel: '通知记录', refLabel: '舰娘图鉴' },
@@ -115,9 +117,9 @@ const EVENTS: EventDef[] = [
   { id: 'condRecover', label: '疲劳预估已恢复', note: '后台预估 · 恢复至 30 · 按舰队', sev: 'ok', icon: '✦', jump: 'ru', jumpLabel: '编队展示' },
   { id: 'questReset', label: '重置前任务未清', note: '日/周/月同规则 · 重置前 2 小时', sev: 'warn', icon: '⏰', jump: 'qn', jumpLabel: '任务面板' },
   { id: 'newShip', label: '新舰入库', note: '首次入库 · 提醒上锁', sev: 'gold', icon: '★', jump: 'ji', jumpLabel: '舰娘图鉴', na: ['system', 'sound'] },
-  { id: 'damecon', label: '应急修理发动', note: '同一舰同一战只报一次', sev: 'ok', icon: '修', jump: 'di', jumpLabel: '战斗详情', refLabel: '战斗详情' },
-  { id: 'anchorageRepair', label: '紧急泊地修理', note: '每次一条', sev: 'ok', icon: '修', jump: 'di', jumpLabel: '战斗详情', refLabel: '战斗详情' },
-  { id: 'shipSunk', label: '舰娘被击沉', note: '无条件 · 每舰一次', sev: 'crit', icon: '沈', jump: 'di', jumpLabel: '战斗详情', refLabel: '战斗详情' },
+  { id: 'damecon', label: '应急修理发动', note: '同一舰同一战只报一次', sev: 'ok', icon: '修', jump: 'di', jumpLabel: '战斗详情', refLabel: '战斗详情', sortieBorn: true },
+  { id: 'anchorageRepair', label: '紧急泊地修理', note: '每次一条', sev: 'ok', icon: '修', jump: 'di', jumpLabel: '战斗详情', refLabel: '战斗详情', sortieBorn: true },
+  { id: 'shipSunk', label: '舰娘被击沉', note: '无条件 · 每舰一次', sev: 'crit', icon: '沈', jump: 'di', jumpLabel: '战斗详情', refLabel: '战斗详情', sortieBorn: true },
   // 婚礼只可能是你亲手点的，人必在机前——系统通知与声音这两路没有意义（同新舰）。
   { id: 'marriage', label: '婚舰 · 结为誓约', note: 'ケッコンカッコカリ 结为誓约时即报 · 每次一条', sev: 'gold', icon: '誓', jump: 'ji', jumpLabel: '舰娘图鉴', refLabel: '舰娘列表', na: ['system', 'sound'] },
 ]
@@ -1157,7 +1159,9 @@ const notify = (
   // ④ 演示不出网：测试通知只看效果，一个字节都不该发出去。
   if (routed('push') && !demo) pushOrHold(notice, title, detail, displayDef.label)
   // 演示无视勿扰：玩家专门点了那个按钮就是要当场看见，攒到归港再送达等于没演示。
-  if (!demo && !blocking && dndActive() && (toast || sound || system)) {
+  // 2026-09-10：1-6 第 2 战带损管的大破提示到归港才见，已错过进击决策；大破、应急修理、紧急泊地修理、击沉四类出击自身事件须绕过自动勿扰，手动勿扰照旧。
+  const holdForDnd = extras.manualDnd || (dndActive() && !def.sortieBorn)
+  if (!demo && !blocking && holdForDnd && (toast || sound || system)) {
     holdNotice({ def: displayDef, title, detail, toast, system, sound, ref })
   } else {
     if (toast) showToast(displayDef, title, detail, ref)
@@ -1295,13 +1299,13 @@ const tickDetect = () => {
   for (const deck of mg.decks) {
     if (deck.mission?.[0] > 0 && deck.mission[2] > 0 && expFireTs(deck.mission[2]) <= now) {
       fireOnce(`exp-${deck.id}-${deck.mission[2]}`, () => {
-        const m = mg.master.missions[deck.mission[1]]
         const early = extras.expeditionEarly && deck.mission[2] > now
         notify(
           'expedition',
-          `远征 ${m?.dispNo ?? deck.mission[1]} ${early ? '即将返港' : '返港'}`,
+          `${expeditionLabel(deck.mission[1], mg.master.missions)} ${early ? '即将返港' : '返港'}`,
           // 远征名的译名键是 dispNo 不是 api id（header-status.ts:156/531 同一实体的写法）
-          `第${deck.id}舰队 ·${m ? ` ${entityNamePlain('expedition', m.dispNo, m.name)} ·` : ''} ${early ? '1 分钟内返回' : '可再次派遣'}`,
+          // 编号与译名已统一放入上面的标题，正文保留舰队与返回提示。
+          `第${deck.id}舰队 · ${early ? '1 分钟内返回' : '可再次派遣'}`,
           { type: 'fleet', id: deck.id },
         )
       })
@@ -1665,6 +1669,8 @@ const detectTaiha = () => {
 //   已查证 battle.ts 现状正确）；wiki 的「旗舰回约 50%」说的是旗舰大破进击时
 //   **开战前**消耗的那一枚（已体现在 hpStart 里），不归战斗结算层，别照它「修」。
 //   下面的破损档**从我们实际算出的 hpEnd 读**，不照抄规则文本。
+//   开战前消耗另由 consumeRepairItemAtStart 写 repairItemUsedAtStart，通知读 hpStart；
+//   它不授予战斗中归零发动的轰沈保护，与 repairItemUsed 分开探测和去重。
 //
 // **即时派发**：报文一到就报，不等 battleresult、不等游戏把动画放完。
 // 本工作台的哲学是全程先知，不做防剧透——「比屏幕上的动画早一两分钟知道」
@@ -1677,6 +1683,13 @@ const detectDamecon = () => {
     return
   }
   for (const ship of s.battle.fShips) {
+    if (ship.repairItemUsedAtStart != null) {
+      const signature = `${s.battleCount}:start:${ship.rosterId ?? ship.index}:${ship.repairItemUsedAtStart}`
+      if (!dameconSeen.has(signature)) {
+        dameconSeen.add(signature)
+        notify(...dameconNotice(ship, s.battleCount, `${s.mapArea}-${s.mapNo}`, true))
+      }
+    }
     if (ship.repairItemUsed == null) continue
     // 同一舰同一战只报一次：昼战解析 + 夜战合并会让同一条 repairItemUsed 被看到两遍。
     const signature = `${s.battleCount}:${ship.rosterId ?? ship.index}:${ship.repairItemUsed}`
@@ -1691,15 +1704,18 @@ const dameconNotice = (
   ship: BattleShipView,
   battleNo: number,
   mapLabel: string,
+  atStart = false,
 ): [string, string, string, EntityRef | undefined, NotifyPresentation] => {
-  const goddess = ship.repairItemUsed === 43
+  const mstId = atStart ? ship.repairItemUsedAtStart : ship.repairItemUsed
+  const goddess = mstId === 43
   const itemName = entityNamePlain(
     'equip',
-    ship.repairItemUsed ?? 0,
-    mg.master.slotitems[ship.repairItemUsed ?? 0]?.name ?? '应急修理',
+    mstId ?? 0,
+    mg.master.slotitems[mstId ?? 0]?.name ?? '应急修理',
   )
   const shipName = entityNamePlain('ship', ship.mstId, ship.name)
-  const tier = damageTierOf(ship.hpEnd, ship.hpMax)
+  const hp = atStart ? ship.hpStart : ship.hpEnd
+  const tier = damageTierOf(hp, ship.hpMax)
   const tierWord = tier ? DAMAGE_TIER_WORDS.ship[tier] : '完好'
   // 「本场安全、进击危险」是这条通知唯一要传达的行动含义。女神回满血，
   // 继续进击的风险与常规无异；要員回两成通常仍是大破，再进击就是裸奔。
@@ -1709,7 +1725,9 @@ const dameconNotice = (
   return [
     'damecon',
     `${shipName} ${itemName}发动`,
-    `${mapLabel} 第 ${battleNo} 战 · 耐久 ${ship.hpEnd}/${ship.hpMax}（${tierWord}）· ${advice}`,
+    atStart
+      ? `${mapLabel} 第 ${battleNo} 战开战时 · 旗舰大破进击消耗 · 耐久 ${ship.hpStart}/${ship.hpMax}（${tierWord}）`
+      : `${mapLabel} 第 ${battleNo} 战 · 耐久 ${ship.hpEnd}/${ship.hpMax}（${tierWord}）· ${advice}`,
     ship.rosterId != null ? { type: 'battleCurrent', id: ship.rosterId } : undefined,
     { bannerTone: goddess ? 'goddess' : 'repair', icon: goddess ? '神' : '修' },
   ]

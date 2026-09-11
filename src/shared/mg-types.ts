@@ -317,6 +317,8 @@ export interface BattleShipView {
    */
   unattackable?: true
   repairItemUsed: number | null // 42 要员 / 43 女神
+  repairItemUsedAtStart: number | null // 旗舰大破进击时消耗：42 要员 / 43 女神
+  repairItemInstanceAtStart: number | null // 开战前消耗的装备实例 id；旧快照缺项保持 undefined
   params?: [number, number, number, number] // 战斗开始时最终 [火力,雷装,对空,装甲]
   expGained?: number // 结算逐舰获得经验；旧快照/战斗中未结算时为空
   expTotalAfter?: number // 结算后累计经验

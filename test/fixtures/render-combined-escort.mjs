@@ -94,6 +94,7 @@ const MG_WATCHED_KEYS = cutFrom(
 
 const HARNESS = `
 import { fmtReturnClock } from ${JSON.stringify(path.join(ROOT, 'src/shared/return-clock.ts'))}
+import { normalizeExpeditionDispNo } from ${JSON.stringify(path.join(ROOT, 'src/renderer/expedition-name-index.ts'))}
 type Deck = any
 type PlayerShip = any
 
@@ -115,6 +116,7 @@ export const plannerPrefs: any = { protectedDeckIds: [], excludedRosterIds: [] }
 const esc = (s: unknown) => \`\${s ?? ''}\`.replace(/[&<>"']/g, (c) => \`&#\${c.charCodeAt(0)};\`)
 const fmtCountdownShort = (_ts: number, done = '') => done || '0:00:00'
 const entityNamePlain = (_kind: string, _id: number, name: string) => name
+${cutFrom(read('src', 'renderer', 'expedition-label.ts'), 'export const expeditionLabel =', null, '远征标签')}
 const entityNameHtml = (_kind: string, _id: number, name: string) => name
 const entityTermHtml = (_kind: string, _id: number, name: string) => name
 const fleetLabel = (deck: any) => ({ canonical: \`第\${deck.id}舰队\`, custom: null })

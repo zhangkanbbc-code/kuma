@@ -32,8 +32,14 @@ class Element extends EventTarget {
     }
     this.widthReads = 0
     this.layoutWidth = 300
+    this.layoutHeight = 56
   }
   get clientWidth() { this.widthReads++; return 1200 }
+  get clientHeight() { return 720 }
+  get offsetHeight() {
+    if (this.className.split(' ').includes('voice-cutin-line')) assert.ok(this.parent, '插入后才能量布局高度')
+    return this.layoutHeight
+  }
   get offsetWidth() {
     if (this.className.split(' ').includes('voice-cutin-line')) assert.ok(this.parent, '插入后才能量布局宽度')
     this.widthReads++
@@ -51,7 +57,7 @@ class Element extends EventTarget {
   querySelector(selector) { return this.children.find(child => child.className.split(' ').includes(selector.slice(1))) ?? null }
 }
 
-const setup = async (t, { style = true, battle = true, voiceRow = row, audio = () => null, boxWidth = 300, anchor = 58 } = {}) => {
+const setup = async (t, { style = true, battle = true, voiceRow = row, audio = () => null, boxWidth = 300, boxHeight = 56, anchor = 58, anchorY = 36, maxW = 56 } = {}) => {
   t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
   const top = new Element()
   const cutin = new Element()
@@ -66,14 +72,17 @@ const setup = async (t, { style = true, battle = true, voiceRow = row, audio = (
   const previousComputedStyle = globalThis.getComputedStyle
   globalThis.getComputedStyle = element => {
     assert.equal(element, cutin)
-    return { getPropertyValue: key => { assert.equal(key, '--cutin-x'); return `${anchor}%` } }
+    return { getPropertyValue: key => {
+      assert.ok(['--cutin-x', '--cutin-y', '--cutin-max-w'].includes(key))
+      return `${{ '--cutin-x': anchor, '--cutin-y': anchorY, '--cutin-max-w': maxW }[key]}%`
+    } }
   }
   globalThis.requestAnimationFrame = callback => { callback(); return 1 }
   globalThis.document = {
     querySelector: selector => ({ '#voice-danmaku': top, '#voice-cutin': cutin, '#voice-subtitle': bottom,
       '#game-wrapper webview': { executeJavaScript: async () => audio() },
     })[selector] ?? null,
-    createElement: tag => Object.assign(new Element(tag), { layoutWidth: boxWidth }),
+    createElement: tag => Object.assign(new Element(tag), { layoutWidth: boxWidth, layoutHeight: boxHeight }),
   }
   captionRuntime.setVoiceCaptionsEnabled(true)
   captionRuntime.setSpecialCaptionStyle(style)
@@ -270,12 +279,12 @@ test('钥特殊攻击视觉加强开关默认、两态热切与总开关灰态',
   assert.match(setting(), /class="ysw" data-toggle="kuma.voiceCaptionsSpecial"/)
 })
 
-test('突入宿主盖满游戏区，字号收紧、84% 自然折行，动画只动 transform 与 opacity', () => {
+test('突入宿主盖满游戏区，字号收紧、56% 均衡折行，动画只动 transform 与 opacity', () => {
   assert.match(html, /id="game-wrapper"[\s\S]*id="voice-danmaku"[^>]*><\/div>\s*<div id="voice-cutin"/)
   const host = html.match(/#voice-cutin \{([^}]+)\}/)[1]
-  for (const property of ['用户实机后微调', '--cutin-x: 58%', '--cutin-y: 36%', 'position: absolute', 'z-index: 8', 'inset: 0', 'pointer-events: none', 'overflow: hidden', 'container-type: size']) assert.ok(host.includes(property), property)
+  for (const property of ['用户实机后微调', '--cutin-x: 58%', '--cutin-y: 36%', '--cutin-max-w: 56%', 'position: absolute', 'z-index: 8', 'inset: 0', 'pointer-events: none', 'overflow: hidden', 'container-type: size']) assert.ok(host.includes(property), property)
   const item = html.match(/\.voice-cutin-line \{([^}]+)\}/)[1]
-  for (const property of ['left: var(--cutin-x)', 'top: var(--cutin-y)', 'transform: translate(-50%, -50%)', 'width: max-content', 'max-width: 84%', 'text-align: center', 'white-space: normal', 'overflow-wrap: anywhere', 'font-size: min(calc(var(--voice-caption-px) * 1.35), 6.5cqh)', 'letter-spacing: 0', 'line-height: 1.2', 'animation: voice-cutin-in 220ms ease-out forwards']) assert.ok(item.includes(property), property)
+  for (const property of ['left: var(--cutin-x)', 'top: var(--cutin-y)', 'transform: translate(-50%, -50%)', 'width: max-content', 'max-width: var(--cutin-max-w)', 'text-wrap: balance', 'text-align: center', 'white-space: normal', 'overflow-wrap: anywhere', 'font-size: min(calc(var(--voice-caption-px) * 1.35), 6.5cqh)', 'letter-spacing: 0', 'line-height: 1.2', 'animation: voice-cutin-in 220ms ease-out forwards']) assert.ok(item.includes(property), property)
   const wing = html.match(/\.voice-cutin-line.wing \{([^}]+)\}/)[1]
   for (const property of ['left: calc(var(--cutin-x) - 9%)', 'top: calc(var(--cutin-y) + 15%)', 'font-size: min(calc(var(--voice-caption-px) * 1.1), 6.5cqh)']) assert.ok(wing.includes(property), property)
   assert.doesNotMatch(item, /white-space: nowrap|line-clamp|overflow: hidden/)
@@ -284,7 +293,7 @@ test('突入宿主盖满游戏区，字号收紧、84% 自然折行，动画只�
   const enter = html.match(/@keyframes voice-cutin-in \{\s*0% \{([^}]+)\}\s*60% \{([^}]+)\}\s*100% \{([^}]+)\}/)
   const leave = html.match(/@keyframes voice-cutin-out \{\s*from \{([^}]+)\}\s*to \{([^}]+)\}/)
   assert.deepEqual(enter.slice(1).map(s => s.trim()), [
-    'transform: translate(-50%,-50%) scale(2.4); opacity: 0;',
+    'transform: translate(-50%,-50%) scale(var(--cutin-scale, 2.4)); opacity: 0;',
     'transform: translate(-50%,-50%) scale(.94); opacity: 1;',
     'transform: translate(-50%,-50%) scale(1); opacity: 1;',
   ])
@@ -347,14 +356,16 @@ test('第三句只替换僚舰，同舰新句重新成为旗舰', async t => {
   assert.equal(view.cutin.children[0].className, 'voice-cutin-line lead')
 })
 
-test('长句按插入后的实际盒宽夹住，旗舰不出右边、僚舰同法保留两侧余量', async t => {
-  const view = await setup(t, { boxWidth: 1008 })
+test('长句按插入后的实际盒宽居中，僚舰跟随旗舰且两侧保留余量', async t => {
+  const view = await setup(t, { boxWidth: 672 })
   const line = { ...view.lines[0], text: '大和，突击！武藏，跟上！第一战队，全部主炮，全力齐射！' }
   view.show(cue, [line])
   view.show({ ...cue, mstId: 2 }, [line])
   const [lead, wing] = view.cutin.children
-  assert.equal(lead.style.left, '55%')
-  assert.equal(wing.style.left, '49%')
+  assert.equal(lead.style.left, '50%')
+  assert.equal(wing.style.left, '41%')
+  assert.equal(lead.properties.get('--cutin-scale'), (1.68).toFixed(2))
+  assert.equal(wing.properties.get('--cutin-scale'), (1.36).toFixed(2))
   for (const item of [lead, wing]) {
     assert.equal(item.widthReads, 1)
     assert.equal(item.textContent, line.text)
@@ -363,14 +374,76 @@ test('长句按插入后的实际盒宽夹住，旗舰不出右边、僚舰同�
     assert.ok(center + halfWidth <= 97)
   }
   // 用户微调锚点后仍走同一夹住算法，覆盖左右两端而非钉死 58%。
-  globalThis.getComputedStyle = () => ({ getPropertyValue: () => '95%' })
-  view.show({ ...cue, mstId: 2 }, [line])
-  assert.equal(view.cutin.children[1].style.left, '55%')
-  globalThis.getComputedStyle = () => ({ getPropertyValue: () => '5%' })
-  view.show(cue, [line])
-  view.show({ ...cue, mstId: 2 }, [line])
-  assert.deepEqual(view.cutin.children.map(item => item.style.left), ['45%', '45%'])
+  const computedStyle = globalThis.getComputedStyle
+  for (const [anchor, expected] of [[95, '69%'], [5, `${672 / 1200 * 50 + 3}%`]]) {
+    delete lead.style.left
+    globalThis.getComputedStyle = element => element === view.cutin
+      ? { getPropertyValue: key => key === '--cutin-x' ? `${anchor}%` : computedStyle(element).getPropertyValue(key) } : computedStyle(element)
+    view.show({ ...cue, mstId: 2 }, [line])
+    assert.equal(view.cutin.children[1].style.left, expected)
+    assert.equal(view.cutin.children[1].widthReads, 1)
+  }
 })
+
+test('短句在 58% 锚点获得完整 2.40 倍砸出', async t => {
+  const view = await setup(t, { boxWidth: 240 })
+  view.show()
+  const item = view.cutin.children[0]
+  assert.equal(item.style.left, '58%')
+  assert.equal(item.properties.get('--cutin-scale'), '2.40')
+  assert.equal(item.widthReads, 1)
+})
+
+for (const [boxWidth, expectedLeft] of [[670, '58%'], [671, '50%'], [672, '50%']]) {
+  test(`折行判据含 0.1 个百分点容差：${boxWidth}px 旗舰位于 ${expectedLeft}`, async t => {
+    const view = await setup(t, { boxWidth })
+    view.show(cue, [{ ...view.lines[0], text: '长'.repeat(200) }])
+    const item = view.cutin.children[0]
+    assert.equal(item.style.left, expectedLeft)
+    assert.equal(item.layoutWidth, boxWidth)
+    assert.ok(item.layoutWidth <= 672)
+    assert.equal(item.properties.get('--cutin-scale'), boxWidth === 670 ? '1.40' : (1.68).toFixed(2))
+    assert.equal(item.widthReads, 1)
+  })
+}
+
+test('折行上限读取宿主自定义属性，50% 上限的 600px 旗舰整块居中', async t => {
+  const view = await setup(t, { boxWidth: 600, maxW: 50 })
+  view.show()
+  const item = view.cutin.children[0]
+  assert.equal(item.style.left, '50%')
+  assert.equal(item.properties.get('--cutin-scale'), '1.88')
+  assert.equal(item.widthReads, 1)
+  assert.equal(view.cutin.widthReads, 1)
+})
+
+test('短僚舰跟随折行旗舰当前中心减 9%，按自身宽度定砸出倍率', async t => {
+  const view = await setup(t, { boxWidth: 672 })
+  view.show()
+  const lead = view.cutin.children[0]
+  const createElement = globalThis.document.createElement
+  globalThis.document.createElement = tag => Object.assign(createElement(tag), { layoutWidth: 240 })
+  view.show({ ...cue, mstId: 2 })
+  const wing = view.cutin.children[1]
+  assert.equal(lead.style.left, '50%')
+  assert.equal(wing.style.left, '41%')
+  assert.equal(wing.properties.get('--cutin-scale'), '2.40')
+  assert.deepEqual([lead.widthReads, wing.widthReads], [1, 1])
+})
+
+for (const [anchor, expectedLeft, expectedWing] of [[5, '13%', '13%'], [95, '87%', '78%']]) {
+  test(`短句在 ${anchor}% 锚点夹住后仍保留 1.15 倍砸出下限`, async t => {
+    const view = await setup(t, { boxWidth: 240, anchor })
+    view.show()
+    view.show({ ...cue, mstId: 2 })
+    const [lead, wing] = view.cutin.children
+    assert.equal(lead.style.left, expectedLeft)
+    assert.equal(lead.properties.get('--cutin-scale'), '1.15')
+    assert.equal(wing.style.left, expectedWing)
+    assert.equal(wing.properties.get('--cutin-scale'), anchor === 5 ? '1.15' : '1.90')
+    assert.deepEqual([lead.widthReads, wing.widthReads], [1, 1])
+  })
+}
 
 test('短句仍在用户微调锚点，僚舰横坐标减 9%，不把所有句子挪到正中', async t => {
   const view = await setup(t, { boxWidth: 120, anchor: 61 })
@@ -378,6 +451,69 @@ test('短句仍在用户微调锚点，僚舰横坐标减 9%，不把所有句�
   view.show({ ...cue, mstId: 2 })
   assert.deepEqual(view.cutin.children.map(item => item.style.left), ['61%', '52%'])
   assert.deepEqual(view.cutin.children.map(item => item.widthReads), [1, 1])
+})
+
+test('单行旗舰保留 CSS top，僚舰按两枚实际高度接排', async t => {
+  const view = await setup(t)
+  view.show()
+  view.show({ ...cue, mstId: 2 })
+  const [lead, wing] = view.cutin.children
+  const leadHeight = 56 / 720 * 100, wingHeight = 56 / 720 * 100
+  assert.equal(Object.hasOwn(lead.style, 'top'), false)
+  assert.equal(wing.style.top, `${36 + leadHeight / 2 + 2 + wingHeight / 2}%`)
+  assert.deepEqual([lead.widthReads, wing.widthReads], [1, 1])
+})
+
+test('僚舰读取旗舰此刻的三行高度，顶边与旗舰底边留出间隔', async t => {
+  const view = await setup(t)
+  view.show()
+  const lead = view.cutin.children[0]
+  lead.layoutHeight = 168
+  view.show({ ...cue, mstId: 2 })
+  const wing = view.cutin.children[1]
+  const leadBottom = 36 + 168 / 720 * 50
+  const wingHalfHeight = 56 / 720 * 50
+  assert.equal(Object.hasOwn(lead.style, 'top'), false)
+  assert.equal(parseFloat(wing.style.top), leadBottom + 2 + wingHalfHeight)
+  assert.ok(parseFloat(wing.style.top) - wingHalfHeight >= leadBottom + 2)
+})
+
+test('极高旗舰上移给两行僚舰留位，僚舰接在其下且底边不超过 97%', async t => {
+  const view = await setup(t, { anchorY: 60, boxWidth: 672, boxHeight: 432 })
+  view.show()
+  const lead = view.cutin.children[0]
+  const createElement = globalThis.document.createElement
+  globalThis.document.createElement = tag => Object.assign(createElement(tag), { layoutHeight: 112 })
+  view.show({ ...cue, mstId: 2 })
+  const wing = view.cutin.children[1]
+  assert.deepEqual([lead.style.left, wing.style.left], ['50%', '41%'])
+  const leadHeight = 432 / 720 * 100, wingHeight = 112 / 720 * 100
+  const leadBottom = 100 - 3 - 16 - 2
+  assert.equal(parseFloat(lead.style.top), leadBottom - leadHeight / 2)
+  assert.ok(parseFloat(lead.style.top) < 60)
+  assert.ok(parseFloat(lead.style.top) - leadHeight / 2 >= 3)
+  assert.equal(parseFloat(wing.style.top), leadBottom + 2 + wingHeight / 2)
+  assert.ok(parseFloat(wing.style.top) - wingHeight / 2 >= leadBottom + 2)
+  assert.ok(parseFloat(wing.style.top) + wingHeight / 2 <= 97)
+  assert.deepEqual([lead.widthReads, wing.widthReads], [1, 1])
+})
+
+test('旗舰未写行内 top 时，僚舰读取当前 CSS 锚点并夹住自身底边', async t => {
+  const view = await setup(t, { anchorY: 42 })
+  view.show()
+  const lead = view.cutin.children[0]
+  assert.equal(Object.hasOwn(lead.style, 'top'), false)
+  const computedStyle = globalThis.getComputedStyle
+  for (const anchorY of [48, 90]) {
+    globalThis.getComputedStyle = element => element === view.cutin
+      ? { getPropertyValue: key => key === '--cutin-y' ? `${anchorY}%` : computedStyle(element).getPropertyValue(key) } : computedStyle(element)
+    view.show({ ...cue, mstId: 2 })
+    const wing = view.cutin.children[1]
+    const halfHeight = 56 / 720 * 50
+    assert.equal(parseFloat(wing.style.top), Math.min(anchorY + halfHeight + 2 + halfHeight, 97 - halfHeight))
+    assert.equal(Object.hasOwn(lead.style, 'top'), false)
+    assert.equal(wing.widthReads, 1)
+  }
 })
 
 test('突入不查询音轨，看门狗兜底移除，关闭后不再触发退场计时器', async t => {

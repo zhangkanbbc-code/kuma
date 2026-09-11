@@ -130,6 +130,8 @@ const makeShip = (
   defeated: false,
   escaped,
   repairItemUsed: null,
+  repairItemUsedAtStart: null,
+  repairItemInstanceAtStart: null,
   equipment,
 })
 
@@ -466,8 +468,8 @@ const useRepairItem = (sim: Sim, ship: BattleShipView): number | null => {
   // 要員回最大耐久的两成、女神回满，**没有旗舰特例**。
   // wikiwiki 那句「50％程度まで耐久値を回復し、中破状態に戻る」挂在
   // 「旗艦装備時の効果」小节下，说的是旗舰大破时玩家选进击、
-  // 「進撃後最初の戦闘開始時」被消耗掉的那一枚——那是开战之前的事，
-  // 落到报文里已经体现在 hpStart 上，不归这一层结算。
+  // 「進撃後最初の戦闘開始時」被消耗掉的那一枚——由本文件的开战判定
+  // consumeRepairItemAtStart 结算，与战斗中归零的 useRepairItem 分两个字段。
   // 战斗中归零发动这一路，两个独立实现都是两成：
   // KC3Kai `Math.floor(ship.maxHp * 0.2)`、
   // kancolle-replay kcsim.js `if (repair == 42) ship.HP = Math.floor(.2*ship.maxHP)`；
@@ -1186,6 +1188,23 @@ const repairItemsFor = (
   return result
 }
 
+// 旗舰大破进击的恢复已体现在报文 hpStart；按恢复量识别消耗，不再改 HP。
+const consumeRepairItemAtStart = (sim: Sim, ctx: FleetContext, deckId: number): void => {
+  const ship = sim.f.find((entry) => entry.fleet === 'main' && entry.position === 0)
+  const info = ctx.fleetShips(deckId)[0]
+  const items = sim.repairItems.get(0)
+  if (!ship || ship.escaped || !info || !positive(info.nowHp) || !positive(info.maxHp)
+    || info.nowHp / info.maxHp > 0.25 || ship.hpStart <= info.nowHp || !items?.length) return
+  const goddess = ship.hpStart === ship.hpMax ? items.findIndex((item) => item.mstId === 43) : -1
+  const at = goddess >= 0 ? goddess : items.findIndex((item) => item.mstId === 42)
+  if (at < 0) return
+  const [item] = items.splice(at, 1)
+  ship.repairItemUsedAtStart = item.mstId
+  ship.repairItemInstanceAtStart = item.instanceId
+  // 开战装备快照也摘掉这一枚，后续可用损管判定才不会把已消耗实例算回来。
+  ship.equipment = ship.equipment?.filter((equipment) => equipment.instanceId !== item.instanceId)
+}
+
 // ---- 胜败预测 ----
 
 const predictRankWith = (
@@ -1633,6 +1652,7 @@ export const parseBattle = (
   const sim = initSim(builtF, builtE, npc, ctx, deckId, practice, activeDeck)
   markEscaped(sim.f, body.api_escape_idx, 0)
   markEscaped(sim.f, body.api_escape_idx_combined, 6)
+  if (!practice) consumeRepairItemAtStart(sim, ctx, deckId)
 
   const kind = battleKindOf(apiPath, body)
   const night = isNightPath(apiPath)

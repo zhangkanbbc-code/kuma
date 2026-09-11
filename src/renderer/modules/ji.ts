@@ -9754,6 +9754,15 @@ const pauseVoice = () => {
 
 registerPreviewPlayer('voice', {
   pause: pauseVoice,
+  stop: () => {
+    if (voiceAudio) {
+      voiceAudio.pause()
+      // 与 BGM 同口径：移除 src 再 load 作废进度，无源不触发 error / ended。
+      voiceAudio.removeAttribute('src')
+      voiceAudio.load()
+    }
+    notePreviewStopped('voice', 'stopped')
+  },
   // 迷你条上的续播：等价于回头再点一次那一格。src 没变、也没播完，
   // playVoiceUrl 那边判出来就是 resume，一个字节都不会碰 src。
   resume: () => {

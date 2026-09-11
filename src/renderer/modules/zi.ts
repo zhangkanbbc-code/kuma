@@ -42,6 +42,7 @@ import { demandedUseitemIds, onUseitemDemandReady, useitemDemand } from './ji'
 import { searchInManager } from './qn'
 import { materialCues, onMaterialCueChange, type MaterialCue } from '../material-deltas'
 import { openDeltaDetail } from './zi-delta-detail'
+import { ziLayoutClass } from '../../shared/zi-layout'
 
 const TILE_ORDER = [0, 1, 2, 3, 5, 4, 6, 7]
 const TILE_META: Record<number, { label: string; ch: string; color: string }> = {
@@ -1393,7 +1394,9 @@ registerModule({
       syncTileGlow()
     })
     new ResizeObserver(() => {
-      pane.classList.toggle('narrow', pane.clientWidth < 700)
+      const layout = ziLayoutClass(pane.clientWidth)
+      pane.classList.toggle('narrow', layout === 'narrow')
+      pane.classList.toggle('wide', layout === 'wide')
     }).observe(pane)
     // 战略道具按名字匹配主数据（不硬编 id）；活动海图在不在也从这份里读
     void queryMasterRaw().then((raw) => {

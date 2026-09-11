@@ -65,8 +65,9 @@ const REVIEWED = {
 
 test('真实全库编成门可疑清单必须精确等于已核清单，新增或消失均要求复核', async () => {
   const result = await runFleetGateAudit()
-  assert.equal(result.summary.total, 394)
-  assert.deepEqual(result.summary.sources, { kcwiki: 259, kuma: 135 })
+  // 2026-09-11 定号表补入 2609Cw1、By17、By18 的编成门，三条均由 kuma 提供。
+  assert.equal(result.summary.total, 397)
+  assert.deepEqual(result.summary.sources, { kcwiki: 259, kuma: 138 })
   assert.deepEqual(result.suspicious.map((row) => row.code).sort(), Object.keys(REVIEWED).sort())
   for (const code of ['C57', 'B194', 'B204', 'F138']) {
     assert.equal(result.rows.find((row) => row.code === code)?.status, 'clear', code)

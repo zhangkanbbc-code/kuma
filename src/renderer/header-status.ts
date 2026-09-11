@@ -23,6 +23,7 @@ import { MATERIAL_ICON_BY_INDEX, materialIconHtml, shipThumbHtml } from './entit
 import { countCapacitySlotitems } from './equip-capacity'
 import { elink, navigate, registerEntityRoute } from './link'
 import { entityNamePlain } from './localization'
+import { expeditionLabel } from './expedition-label'
 import { activateModule } from './mu'
 import { isBuildSpoilerEnabled, openNotifyRule } from './modules/lg'
 import { fleetHasUnsupplied } from './modules/ru'
@@ -248,10 +249,7 @@ const expeditionsHtml = () => {
         </span>`
       }
       if (deck.mission?.[0] > 0) {
-        const mission = mg.master.missions[deck.mission[1]]
-        const missionName = mission
-          ? entityNamePlain('expedition', mission.dispNo, mission.name)
-          : `远征 ${deck.mission[1]}`
+        const missionName = expeditionLabel(deck.mission[1], mg.master.missions)
         const state = expeditionChipState(deck.mission[2], false, now)
         return `<span class="hs-chip exp${EXP_CHIP_CLASS[state]}" data-fleet="${id}" data-timer="mission:${id}"
           title="${esc(`${canonical} · ${missionName} · ${expeditionReturnTitle(deck.mission[2], now)} · 点击查看舰队`)}">
@@ -736,14 +734,9 @@ const timerInfo = (
   if (kind === 'mission') {
     const deck = mg.decks.find((entry) => entry.id === +key && entry.mission?.[0] > 0)
     if (!deck) return null
-    const mission = mg.master.missions[deck.mission[1]]
     return {
       ts: deck.mission[2],
-      title: `远征 ${mission?.dispNo ?? deck.mission[1]}${
-        mission
-          ? ` · ${entityNamePlain('expedition', mission.dispNo, mission.name)}`
-          : ''
-      }`,
+      title: expeditionLabel(deck.mission[1], mg.master.missions),
       detail: `第${deck.id}舰队返港`,
     }
   }

@@ -106,6 +106,7 @@ import { resolveUseitemStock } from '../../shared/useitem-stock'
 import { shipArtDamaged } from '../../shared/ship-art-path'
 import { elink, elinkHtml, navigate, registerEntityRoute } from '../link'
 import { entityNameHtml, entityNamePlain, entityTermHtml } from '../localization'
+import { expeditionLabel } from '../expedition-label'
 import { simplifyKcwikiShipsData } from '../kcwiki-zh'
 import { activateModule, registerModule } from '../mu'
 import { initMapIntel } from '../map-intel'
@@ -379,7 +380,7 @@ const equipChips = (ship: PlayerShip) => {
     const inst = mg.slotitems[instId]
     const mst = inst ? mg.master.slotitems[inst.mstId] : undefined
     const star = inst && inst.level > 0 ? `<span class="st">★${inst.level >= 10 ? 'M' : inst.level}</span>` : ''
-    const alv = !star && inst && inst.alv > 0 ? `<span class="st">≫${inst.alv}</span>` : ''
+    const alv = inst && inst.alv > 0 ? `<span class="st alv">≫${inst.alv}</span>` : ''
     // 分母是**这一格实际的**搭载上限：格納庫増設抬高过的舰只有实例值是对的，
     // 主数据 maxEq 永远是原量（口径见 src/main/mg/index.ts 与内核 hangarSlotCapacity）。
     // 拿原量当分母，扩过的那一格补满了也会被判成「超了」或错档。
@@ -3162,8 +3163,8 @@ registerEntityRoute('fleet', {
             ? `${ships.length} 艘出击中`
           : onExpedition
             ? deck.mission[2] <= Date.now()
-              ? `远征 ${deck.mission[1]} 即将返港`
-              : `远征 ${deck.mission[1]} 执行中 · ${fmtCountdownShort(deck.mission[2])} 后返港`
+              ? `${expeditionLabel(deck.mission[1], mg.master.missions)} 即将返港`
+              : `${expeditionLabel(deck.mission[1], mg.master.missions)} 执行中 · ${fmtCountdownShort(deck.mission[2])} 后返港`
             : `${ships.length} 艘待命`,
         `闪光 ${ships.filter((ship) => ship.cond >= 50).length}/${ships.length}`,
       ],
@@ -3178,7 +3179,7 @@ registerEntityRoute('fleet', {
       { label: '编队展示 · 状态与检查', run: () => focusFleet(id) },
       missionId > 0
         ? {
-            label: `远征规划 · 第 ${missionId} 号执行中`,
+            label: `远征规划 · ${expeditionLabel(missionId, mg.master.missions)} 执行中`,
             run: () => navigate({ type: 'expedition', id: missionId }),
           }
         : { label: '远征规划', disabled: true, hint: '此队未在远征' },

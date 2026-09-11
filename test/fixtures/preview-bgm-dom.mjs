@@ -54,6 +54,7 @@ const STUBS = {
     export { initPreviewBar } from './preview-bar'
     export {
       activePreview,
+      cancelActivePreview,
       claimPreviewPlayback,
       notePreviewStopped,
       registerPreviewPlayer,
@@ -203,7 +204,11 @@ class FakeElement {
    * 用例要能照着摆。
    */
   fire(type, extra = {}) {
-    const event = { type, target: this, preventDefault: () => {}, ...extra }
+    const event = {
+      type, target: this, defaultPrevented: false,
+      preventDefault() { this.defaultPrevented = true },
+      ...extra,
+    }
     for (const handler of [...(this.listeners.get(type) ?? [])]) handler(event)
     return event
   }
@@ -243,6 +248,7 @@ class FakeAudio {
   constructor(registry) {
     this.srcWrites = []
     this.playCalls = 0
+    this.loadCalls = 0
     this.paused = true
     this.ended = false
     this.volume = 1
@@ -261,6 +267,10 @@ class FakeAudio {
         this.duration = Number.NaN
       },
     })
+    this.removeAttribute = (name) => {
+      assert.equal(name, 'src')
+      value = ''
+    }
     registry.push(this)
   }
 
@@ -291,6 +301,17 @@ class FakeAudio {
   pause() {
     this.paused = true
     this.emit('pause')
+  }
+
+  /** 清源后 load：重置媒体，不派发 error / ended，也不走 currentTime 的 seek setter。 */
+  load() {
+    assert.equal(this.src, '', '取消应移除 src 属性后再 load')
+    this.loadCalls += 1
+    this.paused = true
+    this.ended = false
+    Object.defineProperty(this, 'currentTime', { value: 0, writable: true, configurable: true })
+    this.duration = Number.NaN
+    this.emit('emptied')
   }
 
   /** 元数据到手：时长有了 */
@@ -371,12 +392,12 @@ export const mountBgmPreview = () => {
   mod.exports.initBgmPreview()
   mod.exports.initPreviewBar()
 
-  /** 条子上那四个格子。名字/钮/滑条/时间按 preview-bar 挂进去的顺序排。 */
+  /** 条子上那五个格子。名字/钮/滑条/时间/取消按 preview-bar 挂进去的顺序排。 */
   const parts = () => {
     const host = doc.body.children.find((el) => el.id === 'preview-bar') ?? null
     if (!host) return null
-    const [name, toggle, seek, time] = host.children
-    return { host, name, toggle, seek, time }
+    const [name, toggle, seek, time, close] = host.children
+    return { host, name, toggle, seek, time, close }
   }
 
   return {
@@ -442,6 +463,13 @@ export const mountBgmPreview = () => {
     },
     /** 点条子上的播放/暂停钮 */
     clickToggle: () => parts().toggle.fire('click'),
+    /** 点条子右端的取消钮 */
+    clickClose: () => parts().close.fire('click'),
+    /** 整条派发右键，包括来自子控件的冒泡；返回事件以检查右键不再被接管。 */
+    contextMenuBar: (on) => {
+      const found = parts()
+      return found.host.fire('contextmenu', { target: on ? found[on] : found.host })
+    },
 
     // ---- 挪窝：位置写在行内样式上，断言读的就是它写下的那四个键 ----
     /** 摆一次布局：条子此刻量出来在哪、多大。不摆的话尺寸是 0，夹取那一段会自行让开 */
@@ -453,7 +481,7 @@ export const mountBgmPreview = () => {
     /** 还攥着哪些指针。松手后不清空就是「条子粘在手上」 */
     barCaptured: () => [...parts().host.captured],
     /**
-     * 按下。`on` 给 'toggle' / 'seek' 就是按在控件上——那一下不该被拖拽劫持。
+     * 按下。`on` 给 'toggle' / 'seek' / 'close' 就是按在控件上——那一下不该被拖拽劫持。
      * 事件挂在宿主节点上，所以一律从宿主派发，只把 target 换掉（真 DOM 的冒泡同理）。
      */
     pressBar: (x, y, on) => {

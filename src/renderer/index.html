@@ -572,11 +572,12 @@
     }
     #voice-cutin {
       /* 用户实机后微调：第一版角色喊话位置。 */
-      --cutin-x: 58%; --cutin-y: 36%;
+      --cutin-x: 58%; --cutin-y: 36%; --cutin-max-w: 56%;
       position: absolute; z-index: 8; inset: 0;
       pointer-events: none; overflow: hidden; container-type: size;
       /* 首道中心对齐画面正中，下一道相距 1.3em；上下留出同样的裁切余量。 */
-      /* 旧中贯穿双道已退役；现宿主盖满游戏画面，供两句按百分比锚定。 */
+      /* 旧中贯穿双道已退役；现宿主盖满游戏画面，供两句按百分比锚定。僚舰句纵向按旗舰句实际高度接排。 */
+      /* 盒宽封顶 56%，让长句折成两半后整块居中；砸出倍率由 showCutin 按左右余量写进 --cutin-scale。 */
     }
     /* 源码页与构建页同为两层目录；发行版中从 app.asar 内的 assets 取字体。 */
     @font-face {
@@ -589,7 +590,7 @@
     .voice-cutin-line {
       position: absolute; left: var(--cutin-x); top: var(--cutin-y);
       transform: translate(-50%, -50%);
-      width: max-content; max-width: 84%; white-space: normal; overflow-wrap: anywhere; text-align: center;
+      width: max-content; max-width: var(--cutin-max-w); white-space: normal; overflow-wrap: anywhere; text-align: center; text-wrap: balance;
       font-family: 'Noto Sans CJK SC Black', 'Microsoft YaHei', sans-serif;
       font-synthesis: none;
       font-size: min(calc(var(--voice-caption-px) * 1.35), 6.5cqh); font-weight: 900; line-height: 1.2; letter-spacing: 0;
@@ -604,12 +605,13 @@
       animation: voice-cutin-in 220ms ease-out forwards;
     }
     .voice-cutin-line.wing {
+      /* 纵向实际由 showCutin 按旗舰句底边写行内 top；这里只是兜底 */
       left: calc(var(--cutin-x) - 9%); top: calc(var(--cutin-y) + 15%);
       font-size: min(calc(var(--voice-caption-px) * 1.1), 6.5cqh);
     }
     .voice-cutin-line.leaving { animation: voice-cutin-out 260ms ease-out forwards; }
     @keyframes voice-cutin-in {
-      0% { transform: translate(-50%,-50%) scale(2.4); opacity: 0; }
+      0% { transform: translate(-50%,-50%) scale(var(--cutin-scale, 2.4)); opacity: 0; }
       60% { transform: translate(-50%,-50%) scale(.94); opacity: 1; }
       100% { transform: translate(-50%,-50%) scale(1); opacity: 1; }
     }
@@ -897,7 +899,7 @@
     #app.distract [data-distract-card] .mod-di { display: flex; flex: 1 1 auto; }
     body.kuma-distract #overlay-host,
     body.kuma-distract .sea-pop,
-    body.kuma-distract .mod-di .di-app > :not(.battle-col),
+    body.kuma-distract .mod-di .di-app > :not(.battle-col):not(.distract-fleet-strip),
     body.kuma-distract .mod-di .battle-col > .log,
     body.kuma-distract .mod-di .map-peek { display: none; }
     body.kuma-distract .mod-di .di-app {
@@ -906,6 +908,16 @@
       overflow-x: hidden; overflow-y: var(--distract-card-overflow, hidden);
     }
     body.kuma-distract .mod-di .di-app .battle-col { flex: none; overflow: visible; border: 0; }
+    .mod-di .distract-fleet-strip { flex: none; padding: 3px 7px; border-bottom: 1px solid var(--line); }
+    .mod-di .distract-fleet-row { display: grid; grid-template-columns: minmax(0, 1fr) 48px minmax(80px, 1fr) 40px 24px 24px; align-items: center; gap: 5px; height: 16px; font-size: 10px; line-height: 14px; }
+    .mod-di .distract-fleet-row .df-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mod-di .distract-fleet-row .df-level { color: var(--sub); font-family: var(--mono); }
+    .mod-di .distract-fleet-row .df-hp { position: relative; height: 12px; background: var(--bg0); border-radius: 2px; overflow: hidden; }
+    .mod-di .distract-fleet-row .df-hp > i { display: block; height: 100%; }
+    .mod-di .distract-fleet-row .df-hp > span { position: absolute; inset: 0; text-align: center; font: 9px/12px var(--mono); color: var(--text); text-shadow: 0 1px 2px #000; }
+    .mod-di .distract-fleet-row .fa2 { gap: 2px; }
+    .mod-di .distract-fleet-row .cond { width: auto; height: auto; border: 0; border-radius: 0; font-size: 10px; }
+    .mod-di .distract-fleet-row .df-state { color: var(--bad); font-size: 10px; }
     /* 只收分心卡的留白，舰名、血条、徽记与判定内容仍完整保留。 */
     body.kuma-distract .mod-di .di-app .brow { min-height: 26px; padding-block: 1px; }
     body.kuma-distract .mod-di .brow .nm > .ship-thumb { width: 26px; height: 18px; }
@@ -2018,7 +2030,7 @@
     .fleet-skin .cond.bad { border-color: var(--bad); color: var(--bad); }
     .fleet-skin .cond.recovered { border-color: var(--ok); color: var(--ok); border-style: dashed; }
     .fleet-skin .cond .cond-eta { font-size: 8px; color: currentColor; white-space: nowrap; }
-    .fleet-skin .eq { display: flex; align-items: center; gap: 3px; justify-content: flex-end; flex-wrap: nowrap; }
+    .fleet-skin .eq { display: flex; align-items: center; gap: 5px; justify-content: flex-end; flex-wrap: nowrap; }
     /* 空装备格占位（2026-08-19）：虚线框，悬停看该格搭载数 */
     .fleet-skin .eq .eq-empty {
       background: transparent; border: 1px dashed color-mix(in srgb, var(--dim) 42%, transparent);
@@ -2162,10 +2174,15 @@
       position: absolute; top: -5px; right: -4px; font-size: 8px; color: var(--gold);
       background: var(--bg0); border-radius: 2px; padding: 0 1px; font-family: var(--mono);
     }
+    /* 左右各溢出 2px：两枚 10.5–10.9px 角标放进 20+2+2px 并留空；改字号须一起量。
+       间距取 5px：相邻格 ★ 右缘到 ≫ 左缘 = gap − 4 ≥ 1px；改 gap 须一起量。 */
+    .fleet-skin .equip-icon .st { right: -2px; padding: 0; letter-spacing: -0.5px; }
+    .fleet-skin .equip-icon .st.alv { left: -2px; right: auto; }
     .fleet-skin .ei .pc, .fleet-skin .equip-icon .pc {
       position: absolute; bottom: -5px; right: -4px; font-size: 8px; font-family: var(--mono);
       color: var(--sub); background: var(--bg0); border-radius: 2px; padding: 0 1px;
     }
+    .fleet-skin .equip-icon .pc { right: -2px; }
     /* 搭载余量三档：断点与同一行血条的 hp-g/hp-y 同一套（分档函数 ru 的 planeLoadBand）。
        黄档取 --gold，与 hp-y 那根条同色；分母取不到的格不挂这三个类，留原来的 --sub。 */
     .fleet-skin .ei .pc.pc-g, .fleet-skin .equip-icon .pc.pc-g { color: var(--ok); }
@@ -2234,7 +2251,7 @@
     .fleet-skin.narrow .cond { grid-area: cond; width: 28px; height: 28px; font-size: 10px; }
     .fleet-skin.narrow .fa2 { grid-area: fa; flex-direction: row; align-items: center; }
     .fleet-skin.narrow .fa2 .b { width: 16px; }
-    .fleet-skin.narrow .eq { grid-area: eq; justify-content: flex-start; flex-wrap: wrap; }
+    .fleet-skin.narrow .eq { grid-area: eq; justify-content: flex-start; flex-wrap: wrap; column-gap: 5px; row-gap: 11px; }
     .fleet-skin.narrow .ship-detail { margin-left: 0; }
 
     /* ══ 锱 · 资源（移植自设计稿 07，.mod-zi 作用域）══ */
@@ -2797,6 +2814,13 @@
     .mod-zi.narrow .main { border-right: none; }
     .mod-zi.narrow .tiles { grid-template-columns: repeat(2, 1fr); }
     .mod-zi.narrow .side { border-top: 1px solid var(--line); }
+    /* 宽坞八格一行、卡片横排并按可用宽度折行；仍由 .zi-app 统一滚动。 */
+    .mod-zi.wide .zi-app { flex-direction: column; }
+    .mod-zi.wide .main { flex: none; border-right: 0; border-bottom: 1px solid var(--line); }
+    .mod-zi.wide .tiles { grid-template-columns: repeat(8, 1fr); }
+    .mod-zi.wide .side { flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-content: start; gap: 0; }
+    .mod-zi.wide .scard { border-bottom: 0; border-right: 1px solid var(--line-soft); }
+    .mod-zi.wide .scard:last-child { border-right: 0; }
     /* 锱 · 收支分解（设计稿 07 右栏） */
     .mod-zi .res-sel { display: flex; gap: 4px; margin-bottom: 8px; }
     .mod-zi .rs {
@@ -5458,9 +5482,10 @@
     .mod-qn .per.o { color: #93a4b3; border-color: #2a3742; }
     .mod-qn .q-nm { flex: 1; min-width: 0; }
     .mod-qn .q-nm .t { display: flex; align-items: baseline; gap: 7px; }
-    .mod-qn :where(.q-nm .t) .id { font-family: var(--mono); font-size: 10px; color: var(--dim); }
+    .mod-qn :where(.q-nm .t) .id { font-family: var(--mono); font-size: 10px; color: var(--q-cat); }
     .mod-qn .id.unlisted { color: var(--gold) }
-    .mod-qn .q-nm .t b { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mod-qn .q-nm .t b { color: var(--q-cat); font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mod-qn .q-nm .t b .entity-term, .mod-qn .q-zh > b .entity-term { --entity-color: var(--q-cat); }
     .mod-qn .q-nm .plain { display: block; font-size: 10.5px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     /* 追踪器解出的条件顶掉正文那一行：占的就是 .plain 的位置（同一个类、不另加行高，
        窄态的显隐也跟着它走），只在字色上偏一档冷蓝，让人分得清这句是kuma提炼的、
@@ -5720,7 +5745,7 @@
       margin: 0 0 7px; color: var(--dim); font-size: 9.5px;
       font-weight: 600; letter-spacing: .7px;
     }
-    .mod-qn .q-zh > b { color: var(--text); font-size: 14px; font-family: var(--serif); }
+    .mod-qn .q-zh > b { color: var(--q-cat); font-size: 14px; font-family: var(--serif); }
     .mod-qn .q-zh p, .mod-qn .q-memo p, .mod-qn .q-original p {
       margin: 5px 0 0; color: var(--sub); font-size: 11px; line-height: 1.75;
       white-space: pre-wrap;
@@ -5915,9 +5940,16 @@
     .mod-qn.narrow .q-control-strip { flex-wrap: wrap; padding: 4px 6px; }
     .mod-qn.narrow .q-period-strip, .mod-qn.narrow .stat-chips { width: 100%; }
     .mod-qn.narrow .period-timer { min-width: 62px; }
-    .mod-qn.narrow .q-row { gap: 6px; padding: 7px 8px; }
+    .mod-qn.narrow .q-row { position: relative; flex-wrap: wrap; gap: 6px; row-gap: 3px; padding: 7px 8px; }
+    .mod-qn.narrow .bar-l { position: absolute; left: 0; top: 0; bottom: 0; }
+    .mod-qn.narrow .q-nm { flex: 1 1 0; min-width: 0; }
+    .mod-qn.narrow .q-row::after { content: ''; flex-basis: 100%; order: 1; }
     .mod-qn.narrow .q-nm .plain, .mod-qn.narrow .q-rew, .mod-qn.narrow .q-cat-label { display: none; }
-    .mod-qn.narrow .q-prog { width: 74px; }
+    .mod-qn.narrow .q-prog { order: 2; display: flex; align-items: center; gap: 6px; flex: 1 1 auto; width: auto; }
+    .mod-qn.narrow .q-prog .pb { flex: 1; }
+    .mod-qn.narrow .q-prog .pt { flex: none; gap: 3px; margin-top: 0; margin-left: auto; }
+    .mod-qn.narrow .q-prog-label { display: none; }
+    .mod-qn.narrow .q-row > .st-tag { order: 2; }
     .mod-qn.narrow .st-tag { flex-basis: 60px; width: 60px; padding-inline: 4px; }
     .mod-qn.narrow .q-drawer {
       position: absolute; inset: 0; z-index: 7;
@@ -6761,6 +6793,12 @@
        拖了没反应的滑条比没有滑条更糟，所以要一眼看得出它此刻拖不动 */
     #preview-bar .pb-seek:disabled { cursor: default; opacity: .4; }
     #preview-bar .pb-time { flex: none; font: 10px/1 var(--mono); color: var(--dim); white-space: nowrap; }
+    #preview-bar .pb-close {
+      flex: none; width: 16px; height: 16px; padding: 0; display: grid; place-items: center;
+      border: 0; border-radius: 50%; background: transparent; color: var(--dim);
+      font-family: inherit; font-size: 12px; line-height: 1; cursor: pointer;
+    }
+    #preview-bar .pb-close:hover { color: var(--text); background: var(--bg3); }
 
     /* ══ 铎 · 活动仪表盘（移植自设计稿 14，.mod-du 作用域）══ */
     .mod-du { overflow: hidden; --evt: #b489ff; --evt-dim: #5c4a7a; --evt-glow: rgba(180, 137, 255, 0.1); }

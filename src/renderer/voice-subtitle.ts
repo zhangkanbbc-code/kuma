@@ -37,6 +37,7 @@ import {
   danmakuDurationSeconds,
 } from '../shared/voice-caption-hold'
 import { shouldRenderCaption } from '../shared/voice-request-gate'
+import { cutinVerticalLayout } from '../shared/voice-cutin-layout'
 import {
   normalizeSpecialCaptionStyle,
   VOICE_CAPTION_SPECIAL_DEFAULT,
@@ -947,6 +948,7 @@ export const showDanmaku = (
  * 特殊攻击字幕与普通语音同口径单行，只动 transform / opacity，播完移除；
  * 现改为突入式：单元素（最多两枚），取词仍同口径，过宽可折两行；上述动画与移除约束保留。
  * 用户实机后微调：盒宽恒限画面 84%，自然换行居中，不再截成最多两行。
+ * 再次微调：盒宽收至 56% 并均衡折行，旗舰长句整块居中，砸出倍率按左右余量确定。
  * 若崩溃变多，它与主炮妖精彩蛋一起是首查对象。
  * 突入字幕跟演出固定停留，不按语音时长：突入结束后台词可能继续，字幕不能遮挡后续攻击。
  * 旗舰与僚舰各从入场结束起计同一停留常量，淡出及看门狗余量另计。
@@ -979,8 +981,35 @@ export const showCutin = (mstId: number, line: CaptionLine | undefined) => {
   host.appendChild(item)
   // 用户实机后微调：量布局宽度，不把入场 transform 的缩放算进盒宽；左右各留 3%。
   const w = item.offsetWidth / host.clientWidth * 100
-  const anchor = parseFloat(getComputedStyle(host).getPropertyValue('--cutin-x')) - (wing ? 9 : 0)
-  item.style.left = `${Math.max(w / 2 + 3, Math.min(anchor, 97 - w / 2))}%`
+  const cap = parseFloat(getComputedStyle(host).getPropertyValue('--cutin-max-w'))
+  // width: max-content 被 max-width 顶住时块宽恰等于上限，单行短句则小于它；同按画面宽百分比比较，容许 0.1 个百分点取整差。
+  const wrapped = w >= cap - 0.1
+  const anchorX = parseFloat(getComputedStyle(host).getPropertyValue('--cutin-x'))
+  let c = wing
+    ? (cutinLead?.item.style.left ? parseFloat(cutinLead.item.style.left) : anchorX) - 9
+    : wrapped ? 50 : anchorX
+  c = Math.max(w / 2 + 3, Math.min(c, 97 - w / 2))
+  item.style.left = `${c}%`
+  // 按夹住后的中心到左右 3%/97% 边界的余量定倍率；取块宽而非墨迹宽，偏保守。
+  // 两位小数四舍五入与 1.15 下限可能略越过 3%/97% 安全线，保留这一弹的幅度。
+  const s = Math.max(1.15, Math.min(2.4, Math.min(c - 3, 97 - c) / (w / 2)))
+  item.style.setProperty('--cutin-scale', s.toFixed(2))
+  // 量实际布局高度，为僚舰预留两行；未上移的旗舰继续跟随 CSS 锚点。
+  const h = item.offsetHeight / host.clientHeight * 100
+  if (host.clientHeight > 0 && h > 0) {
+    const anchorY = parseFloat(getComputedStyle(host).getPropertyValue('--cutin-y'))
+    if (wing && cutinLead) {
+      const lead = cutinLead.item
+      const leadCenter = lead.style.top ? parseFloat(lead.style.top) : anchorY
+      const leadHeight = lead.offsetHeight / host.clientHeight * 100
+      // 旗舰已在场，按此刻底边接排，不重新夹住它的中心。
+      const wingCenter = Math.min(leadCenter + leadHeight / 2 + 2 + h / 2, 97 - h / 2)
+      item.style.top = `${wingCenter}%`
+    } else {
+      const { leadCenter } = cutinVerticalLayout({ anchorY, leadHeight: h })
+      if (leadCenter < anchorY) item.style.top = `${leadCenter}%`
+    }
+  }
   const caption = { mstId, item, remove }
   if (wing) cutinWing = caption
   else cutinLead = caption

@@ -1116,6 +1116,7 @@ const distractCardHtml = (): string => {
   const side = normalizeDistractSide(config.get(DISTRACT_PATHS.side, DISTRACT_DEFAULTS.side))
   return `<div class="h"><b>分心模式</b></div>
   ${toggleHtml(DISTRACT_PATHS.alwaysOnTop, '进入时置顶', '下次进入分心模式时生效', config.get(DISTRACT_PATHS.alwaysOnTop, DISTRACT_DEFAULTS.alwaysOnTop))}
+  ${toggleHtml(DISTRACT_PATHS.showFleet, '显示当前出击编队', '实时血量在战斗卡上方', config.get(DISTRACT_PATHS.showFleet, DISTRACT_DEFAULTS.showFleet))}
   <div class="yline"><b>战斗卡位置</b>${DISTRACT_SIDES.map((id) =>
     `<span class="ychip${side === id ? ' on' : ''}" data-distract-side="${id}">${DISTRACT_SIDE_LABEL[id]}</span>`,
   ).join('')}</div>`
@@ -2151,6 +2152,7 @@ registerModule({
           'kuma.sunkEffects',
           'kuma.tray.enabled',
           DISTRACT_PATHS.alwaysOnTop,
+          DISTRACT_PATHS.showFleet,
           // 推送的三项保护默认开：取反时按各自默认读，否则第一次点会「开→开」
           PUSH_CONFIG_PATHS.barkEncrypt,
           PUSH_CONFIG_PATHS.titleOnly,
@@ -2158,6 +2160,7 @@ registerModule({
         ].includes(key)
         const next = !config.get(key, dflt)
         config.set(key, next)
+        if (key === DISTRACT_PATHS.showFleet) window.dispatchEvent(new Event('kuma-distract-changed'))
         if (key === 'kuma.remoteArt') {
           setAllowRemoteArt(next)
           setAllowRemoteVoice(next)

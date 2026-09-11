@@ -166,7 +166,20 @@ const resume = () => {
   start(document.querySelector<HTMLElement>('.bgm-pv.paused'), audio.src, false, label)
 }
 
-registerPreviewPlayer('bgm', { pause, resume, audio: () => audio })
+const stop = () => {
+  waiting = null
+  if (audio) {
+    audio.pause()
+    // 移除属性再 load：无源时清掉进度，不写 currentTime，也不制造 error / ended。
+    // 不能赋空串 src（会按无效地址报错）；清源后再点同曲自然走 restart。
+    audio.removeAttribute('src')
+    audio.load()
+  }
+  markEntry(null, null)
+  notePreviewStopped('bgm', 'stopped')
+}
+
+registerPreviewPlayer('bgm', { pause, resume, stop, audio: () => audio })
 
 export const initBgmPreview = () => {
   void ensureBgmArchive()

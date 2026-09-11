@@ -17,6 +17,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import battle from '../dist/main/mg/battle.js'
+import verdict from '../dist/shared/taiha-verdict.js'
 
 const { mergeNight, parseBattle } = battle
 
@@ -64,6 +65,112 @@ const dayBody = (nowhps, extra = {}) => ({
 
 const day = (nowhps, extra, ctx) =>
   parseBattle('/kcsapi/api_req_sortie/battle', dayBody(nowhps, extra), ctx, 0)
+
+const startRepairBattle = ({ equipments = [{ instanceId: 9001, mstId: 43 }], position = 0,
+  nowHp = 4, maxHp = 39, hpStart = 39, api = '/kcsapi/api_req_sortie/battle', extra = {} } = {}) => {
+  const ctx = ctxWith({ [position]: equipments })
+  const fleetShips = ctx.fleetShips
+  ctx.fleetShips = deckId => fleetShips(deckId).map((ship, i) => i === position ? { ...ship, nowHp, maxHp } : ship)
+  const hps = Array(6).fill(HP_MAX)
+  const maxhps = Array(6).fill(HP_MAX)
+  hps[position] = hpStart
+  maxhps[position] = 39
+  return parseBattle(api, dayBody(hps, { api_f_maxhps: maxhps, ...extra }), ctx, 0)
+}
+
+for (const [mstId, hpStart] of [[43, 39], [42, 19]]) {
+  test(`旗舰大破进击：${mstId} 开战恢复 ${hpStart}/39，独立记录种类与实例`, () => {
+    const ship = startRepairBattle({ equipments: [{ instanceId: 9001, mstId }], hpStart }).fShips[0]
+    assert.equal(ship.repairItemUsedAtStart, mstId)
+    assert.equal(ship.repairItemInstanceAtStart, 9001)
+    assert.equal(ship.repairItemUsed, null)
+    assert.equal(ship.hpStart, hpStart)
+    assert.equal(ship.hpEnd, hpStart)
+    assert.deepEqual(ship.equipment, [])
+    assert.equal(verdict.dameconOfShip(ship), null, '开战已消耗的实例不能再算作可用损管')
+  })
+}
+
+for (const [label, options, position] of [
+  ['非旗舰', { position: 1 }, 1],
+  ['未带损管', { equipments: [] }, 0],
+  ['上一份不是大破', { nowHp: 20 }, 0],
+  ['没有恢复', { hpStart: 4 }, 0],
+  ['零耐久上下文', { nowHp: 0 }, 0],
+  ['非正最大耐久', { maxHp: 0 }, 0],
+  ['演习', { api: '/kcsapi/api_req_practice/battle' }, 0],
+  ['退避索引', { extra: { api_escape_idx: [1] } }, 0],
+  ['退避耐久', { hpStart: -1 }, 0],
+  ['只有女神却未回满', { hpStart: 19 }, 0],
+]) test(`开战消耗排除：${label}`, () => {
+  const ship = startRepairBattle(options).fShips[position]
+  assert.equal(ship.repairItemUsedAtStart, null)
+  assert.equal(ship.repairItemInstanceAtStart, null)
+  assert.equal(ship.repairItemUsed, null)
+})
+
+for (const [hpStart, mstId, instanceId, equipments] of [
+  [39, 43, 9002, [{ instanceId: 9001, mstId: 42 }, { instanceId: 9002, mstId: 43 }]],
+  [19, 42, 9002, [{ instanceId: 9001, mstId: 43 }, { instanceId: 9002, mstId: 42 }]],
+]) test(`两种损管混装：开战 ${hpStart}/39 按恢复量选 ${mstId}，不选第一格`, () => {
+  const ship = startRepairBattle({ hpStart, equipments }).fShips[0]
+  assert.equal(ship.repairItemUsedAtStart, mstId)
+  assert.equal(ship.repairItemInstanceAtStart, instanceId)
+  assert.equal(ship.repairItemUsed, null)
+  assert.equal(verdict.dameconOfShip(ship), equipments[0].mstId, '应保留未消耗的第一格')
+  assert.deepEqual(ship.equipment.map(item => item.instanceId), [equipments[0].instanceId])
+})
+
+test('开战消耗后同场归零：第二枚照旧发动，已消耗的女神不能再用', () => {
+  const result = startRepairBattle({
+    equipments: [{ instanceId: 9001, mstId: 43 }, { instanceId: 9002, mstId: 42 }],
+    extra: { api_hougeki1: enemyShelling(0, 50), api_hougeki2: enemyShelling(0, 50) },
+  })
+  const ship = result.fShips[0]
+  assert.equal(ship.repairItemUsedAtStart, 43)
+  assert.equal(ship.repairItemInstanceAtStart, 9001)
+  assert.equal(ship.hpStart, 39)
+  assert.equal(ship.repairItemUsed, 42)
+  assert.equal(verdict.dameconOfShip(ship), null, '开战与战斗中各消耗一枚后不再有可用损管')
+  assert.equal(result.attacks[0].hits[0].repairItem, 42)
+  assert.equal(result.attacks[1].hits[0].repairItem, null)
+  assert.equal(ship.hpEnd, 1)
+  assert.equal(ship.sunk, false)
+})
+
+test('仅开战消耗不赋予轰沈保护，也不能重复消耗同一实例', () => {
+  const result = startRepairBattle({ extra: { api_hougeki1: enemyShelling(0, 50) } })
+  assert.equal(result.fShips[0].repairItemUsedAtStart, 43)
+  assert.equal(result.fShips[0].repairItemUsed, null)
+  assert.equal(result.fShips[0].hpEnd, 0)
+  assert.equal(result.fShips[0].sunk, true)
+})
+
+for (const api of ['api_req_sortie/airbattle', 'api_req_sortie/ld_airbattle', 'api_req_battle_midnight/sp_midnight',
+  'api_req_combined_battle/battle', 'api_req_combined_battle/battle_water', 'api_req_combined_battle/each_battle',
+  'api_req_combined_battle/ec_battle', 'api_req_combined_battle/sp_midnight']) {
+  test(`${api} 共用主队旗舰开战判定`, () => {
+    const result = startRepairBattle({ api: `/kcsapi/${api}` })
+    assert.equal(result.fShips[0].repairItemUsedAtStart, 43)
+    assert.equal(result.fShips[0].repairItemInstanceAtStart, 9001)
+    assert.equal(result.fShips[0].repairItemUsed, null)
+  })
+}
+
+test('联合二队旗舰开战恢复不判消耗，主队旗舰仍判', () => {
+  const ctx = ctxWith({ 0: [{ instanceId: 9001, mstId: 43 }] })
+  const fleetShips = ctx.fleetShips
+  ctx.fleetShips = deckId => fleetShips(deckId).map((ship, i) => i === 0
+    ? { ...ship, nowHp: 4, maxHp: 39, equipments: [{ instanceId: 9000 + deckId, mstId: 43 }] } : ship)
+  const result = parseBattle('/kcsapi/api_req_combined_battle/battle', dayBody([39], {
+    api_f_maxhps: [39], api_f_nowhps_combined: [39], api_f_maxhps_combined: [39],
+  }), ctx, 0)
+  assert.equal(result.fShips[0].repairItemUsedAtStart, 43)
+  assert.equal(result.fShips[1].fleet, 'escort')
+  assert.equal(result.fShips[1].position, 0)
+  assert.equal(result.fShips[1].repairItemUsedAtStart, null)
+  assert.equal(result.fShips[1].repairItemInstanceAtStart, null)
+})
 
 test('要員回两成、女神回满，旗艦位也没有例外', () => {
   // 旗舰（0 号位）带要員、2 号位带女神，同一场各挨一发致死伤害。
