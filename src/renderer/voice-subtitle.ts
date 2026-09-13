@@ -4,6 +4,13 @@
 // 我方（含友军舰队）自左向右，敌方自右向左。
 import { readEnv } from '../shared/env-names'
 import {
+  CAPTION_DODGE_CONFIG_KEY,
+  CAPTION_DODGE_DEFAULT,
+  CAPTION_ZONE_CHANNEL,
+  CAPTION_HOVER_EVENT,
+  captionZoneOf,
+} from '../shared/caption-dodge'
+import {
   masterShipName,
   mg,
   onMgChange,
@@ -72,7 +79,8 @@ interface VoiceEvent {
 }
 
 interface VoiceBroadcaster {
-  addListener: (event: string, listener: (cue: VoiceEvent) => void) => unknown
+  addListener(event: 'kancolle.voice', listener: (cue: VoiceEvent) => void): unknown
+  addListener(event: typeof CAPTION_HOVER_EVENT, listener: (inside: boolean) => void): unknown
 }
 
 type SubtitleTable = Record<string, Record<string, string>>
@@ -207,6 +215,31 @@ type CutinCaption = { mstId: number; item: HTMLElement; remove: () => void }
 let cutinLead: CutinCaption | null = null
 let cutinWing: CutinCaption | null = null
 let captionsEnabled = Boolean(config.get('kuma.voiceCaptions', true))
+let dodgeEnabled = Boolean(config.get(CAPTION_DODGE_CONFIG_KEY, CAPTION_DODGE_DEFAULT))
+let captionZonePending = false
+
+const clearCaptionDodge = () => {
+  document.querySelector('#voice-subtitle')?.classList.remove('dodge')
+  ipcRenderer.send(CAPTION_ZONE_CHANNEL, null)
+}
+
+const scheduleCaptionZone = () => {
+  if (!dodgeEnabled || !captionsEnabled || captionZonePending) return
+  captionZonePending = true
+  requestAnimationFrame(() => {
+    captionZonePending = false
+    const host = document.querySelector<HTMLElement>('#voice-subtitle')
+    const wrapper = document.querySelector<HTMLElement>('#game-wrapper')
+    if (!dodgeEnabled || !captionsEnabled || !wrapper || !host?.classList.contains('show')) return
+    ipcRenderer.send(CAPTION_ZONE_CHANNEL, captionZoneOf(host.getBoundingClientRect(), wrapper.getBoundingClientRect()))
+  })
+}
+
+export const setVoiceCaptionDodge = (enabled: boolean) => {
+  dodgeEnabled = enabled
+  if (!enabled) clearCaptionDodge()
+  else scheduleCaptionZone()
+}
 let specialCaptionStyle = normalizeSpecialCaptionStyle(
   config.get(VOICE_CAPTION_SPECIAL_PATH, VOICE_CAPTION_SPECIAL_DEFAULT),
 )
@@ -235,6 +268,7 @@ const clearCaptionVisuals = () => {
   lineTimers.clear()
   const subtitle = document.querySelector<HTMLElement>('#voice-subtitle')
   subtitle?.classList.remove('show', 'voice-wedding')
+  clearCaptionDodge()
   subtitle?.querySelector<HTMLElement>('.voice-subtitle-speaker')?.replaceChildren()
   subtitle?.querySelector<HTMLElement>('.voice-subtitle-line')?.replaceChildren()
   document.querySelector<HTMLElement>('#voice-danmaku')?.replaceChildren()
@@ -889,14 +923,19 @@ const showSubtitle = ({ speaker: speakerText, text, tone, pathname }: CaptionLin
   host.classList.remove('voice-wedding')
   if (tone === 'wedding') host.classList.add('voice-wedding')
   host.classList.remove('show')
+  clearCaptionDodge()
   // 同一句连续触发时也重新开始淡入和停留计时。
   void host.offsetWidth
-  requestAnimationFrame(() => host.classList.add('show'))
+  const generation = ++captionGeneration
+  requestAnimationFrame(() => {
+    if (!captionsEnabled || generation !== captionGeneration) return
+    host.classList.add('show')
+    scheduleCaptionZone()
+  })
   // 退场分两段（判据全在 shared/voice-caption-hold）：先撑住一个最短展示，
   // 到期**不直接退**，而是先问游戏页这条音轨真有多长，问到就续到音轨结束。
   // 之所以不在一开始就问：那时游戏多半还没解码完（howler 先取字节再 decode 再播），
   // 问了也是空手；等到最短展示到期，这一条早已解出来了。
-  const generation = ++captionGeneration
   const shownAt = Date.now()
   const textLength = [...text].length
   if (hideTimer) clearTimeout(hideTimer)
@@ -908,6 +947,7 @@ const showSubtitle = ({ speaker: speakerText, text, tone, pathname }: CaptionLin
       const remaining = captionHideAtMs({ shownAtMs: shownAt, textLength, audioMs }) - Date.now()
       if (remaining <= 0) {
         host.classList.remove('show')
+        clearCaptionDodge()
         return
       }
       // 只续这一次：第二段到期直接退场，不再问第二遍
@@ -915,6 +955,7 @@ const showSubtitle = ({ speaker: speakerText, text, tone, pathname }: CaptionLin
       hideTimer = setTimeout(() => {
         hideTimer = null
         host.classList.remove('show')
+        clearCaptionDodge()
       }, remaining)
     })
   }, captionMinHoldMs(textLength))
@@ -1174,6 +1215,14 @@ const flushPending = () => {
 }
 
 export const initVoiceSubtitles = (broadcaster: VoiceBroadcaster) => {
+  broadcaster.addListener(CAPTION_HOVER_EVENT, (inside) => {
+    const host = document.querySelector<HTMLElement>('#voice-subtitle')
+    if (dodgeEnabled && captionsEnabled && inside && host?.classList.contains('show')) host.classList.add('dodge')
+    else host?.classList.remove('dodge')
+  })
+  window.addEventListener('resize', () => {
+    if (document.querySelector('#voice-subtitle')?.classList.contains('show')) scheduleCaptionZone()
+  })
   if (captionsEnabled && !document.querySelector('#app')?.classList.contains('distract')) {
     // 首发特殊攻击前预热；字体失败仍由雅黑回落，不干扰字幕初始化。
     void document.fonts.load("900 32px 'Noto Sans CJK SC Black'").catch(() => {})

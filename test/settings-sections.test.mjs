@@ -4,7 +4,7 @@
 //      `data-ycard`——漏一张、重一张、跑到别的类里去，这里当场红。
 //      只断言源码文本是不够的：注册表少接一张卡，源码看着照样齐整。
 //   ③ **两种形态各数一遍**：矿脉健康度、游戏音频链路自检都是维护者工具，
-//      只在 `KUMA_DEBUG_UI=1` 下装配（发行版 26 张 / 调试 28 张）。
+//      只在 `KUMA_DEBUG_UI=1` 下装配（发行版 27 张 / 调试 29 张）。
 //      玩家那份产物里连那两张卡的影子都不许有。
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
@@ -186,11 +186,12 @@ test('分类表：抽掉维护者工具卡之后，没有一类被掏空或只�
   // 五张都是**玩家卡**，不在调试门后。
   // 分心模式新增一张玩家卡，两种形态各加一。
   // 2026-09-09 加入第四份「资源档案」。
-  assert.equal(release.length, 26, '发行版的卡数变了——两种形态的数字都要重新对一遍')
+  // 2026-09-13 加入「外观」，两种形态各加一。
+  assert.equal(release.length, 27, '发行版的卡数变了——两种形态的数字都要重新对一遍')
   // 25：2026-08-26 拔掉战斗演出族时撤走了「索敌飞机 · Δ 校准」那张维护者卡（19），
   // 同日修语音滑条时又添了「游戏音频链路自检」（20）。那两张都只在调试门后装配，
   // 所以发行版那一列在 2026-08-29 之前自始至终是 18；之后添的四张玩家卡两列同涨。
-  assert.equal(SETTINGS_CARD_IDS.length, 28, '调试态的卡数变了')
+  assert.equal(SETTINGS_CARD_IDS.length, 29, '调试态的卡数变了')
 })
 
 // ---- ② 把钥编出来真渲染一遍 ----
@@ -533,4 +534,96 @@ test('没有任何代码跳进钥的某一张卡；真要加，得连页签一�
     [],
     '有代码直接把人送进钥了：请改走「带分类的入口」，否则落地的可能是另一类',
   )
+})
+
+test('外观卡位于游戏画面前，三枚芯片保存档位、即时应用并重绘选中态', () => {
+  const yu = mountYu()
+  const cards = cardsIn(yu.pane.innerHTML)
+  assert.equal(cards[cards.indexOf('game-scale') - 1], 'theme')
+  const card = () => cardHtml(yu.pane.innerHTML, 'theme')
+  assert.match(card(), /<b>外观<\/b><span class="aux">beta · 即时生效<\/span>/)
+  assert.match(card(), /<div class="ynote">底色任选，其余颜色按对比度自动配<\/div>/)
+  assert.deepEqual([...card().matchAll(/data-theme-mode="([^"]+)">([^<]+)<\/span>/g)].map(m => [m[1], m[2]]),
+    [['dark', '深色'], ['light', '浅色'], ['system', '跟随系统']])
+  assert.match(card(), /class="ychip on" data-theme-mode="dark"/)
+  for (const mode of ['light', 'system', 'dark']) {
+    yu.click({ 'theme-mode': mode })
+    assert.equal(yu.configOf('kuma.theme'), mode)
+    assert.equal(globalThis.document.documentElement.dataset.theme, mode === 'dark' ? 'dark' : 'light')
+    assert.equal([...card().matchAll(/class="ychip on"/g)].length, 1)
+    assert.ok(card().includes(`class="ychip on" data-theme-mode="${mode}"`))
+  }
+})
+
+test('外观取色器保存自定义、显示色值，恢复默认与档位芯片清除覆盖', () => {
+  const yu = mountYu()
+  const card = () => cardHtml(yu.pane.innerHTML, 'theme')
+  assert.match(card(), /<span>底色<\/span><input type="color" data-theme-base value="#0d1318">/)
+  for (const mode of ['light', 'system', 'dark']) {
+    yu.change('theme-base', '#123456')
+    assert.equal(yu.configOf('kuma.themeBase'), '#123456')
+    assert.match(card(), /class="ychip on" data-theme-custom>自定义<\/span>/)
+    assert.equal([...card().matchAll(/class="ychip on"/g)].length, 1)
+    assert.match(card(), /data-theme-base value="#123456"/)
+    assert.match(card(), /<b style="font-family:var\(--mono\)">#123456<\/b>/)
+    yu.click({ 'theme-mode': mode })
+    assert.equal(yu.configOf('kuma.themeBase'), '')
+    assert.doesNotMatch(card(), /data-theme-custom/)
+  }
+  yu.change('theme-base', '#ffffff')
+  assert.equal(globalThis.document.documentElement.dataset.theme, 'light')
+  yu.click({ 'theme-base-reset': '' })
+  assert.equal(yu.configOf('kuma.themeBase'), '')
+  assert.equal(globalThis.document.documentElement.dataset.theme, 'dark')
+  assert.match(card(), /data-theme-base value="#0d1318"/)
+  assert.match(card(), /class="ylk" data-theme-base-reset>恢复默认<\/span>/)
+})
+
+test('取色器 input 每帧合并预览且不落盘，change 和恢复默认取消未执行预览', () => {
+  const yu = mountYu()
+  const frames = new Map()
+  let nextFrame = 1, custom = false, unlit = 0
+  const request = globalThis.requestAnimationFrame, cancel = globalThis.cancelAnimationFrame
+  globalThis.requestAnimationFrame = fn => { const id = nextFrame++; frames.set(id, fn); return id }
+  globalThis.cancelAnimationFrame = id => frames.delete(id)
+  const card = {
+    querySelectorAll: () => Array.from({ length: 3 }, () => ({ classList: { remove: name => { assert.equal(name, 'on'); unlit++ } } })),
+    querySelector: selector => selector === '[data-theme-custom]' ? custom : {
+      parentElement: { insertAdjacentHTML: (_position, html) => { assert.match(html, />自定义<\/span>/); custom = true } },
+    },
+  }
+  const input = { value: '#123456', nextElementSibling: { textContent: '' }, closest: () => card }
+  const inputEvent = () => {
+    for (const handler of yu.pane.handlers.get('input')) {
+      handler({ target: { closest: selector => selector === 'input[data-theme-base]' ? input : null } })
+    }
+  }
+  try {
+    inputEvent()
+    input.value = '#abcdef'
+    inputEvent()
+    assert.equal(frames.size, 1)
+    assert.equal(yu.configOf('kuma.themeBase'), undefined)
+    const frame = [...frames.values()][0]
+    frames.clear()
+    frame()
+    assert.equal(globalThis.document.documentElement.style['--bg0'], '#abcdef')
+    assert.equal(input.nextElementSibling.textContent, '#abcdef')
+    assert.equal(unlit, 3)
+    assert.equal(custom, true)
+    assert.equal(yu.configOf('kuma.themeBase'), undefined)
+    input.value = '#202020'
+    inputEvent()
+    yu.change('theme-base', '#ffffff')
+    assert.equal(frames.size, 0)
+    assert.equal(yu.configOf('kuma.themeBase'), '#ffffff')
+    assert.equal(globalThis.document.documentElement.style['--bg0'], '#ffffff')
+    inputEvent()
+    yu.click({ 'theme-base-reset': '' })
+    assert.equal(frames.size, 0)
+    assert.equal(globalThis.document.documentElement.style['--bg0'], undefined)
+  } finally {
+    globalThis.requestAnimationFrame = request
+    globalThis.cancelAnimationFrame = cancel
+  }
 })

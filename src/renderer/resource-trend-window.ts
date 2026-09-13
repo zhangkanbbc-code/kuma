@@ -1,3 +1,7 @@
+import { installThemeBoot } from './theme-boot'
+
+installThemeBoot()
+
 // 独立资源趋势窗口：只读取铭的本地账本，不创建游戏 webview，也不依赖锱模块保持打开。
 import type { MaterialRow } from '../shared/mg-types'
 
@@ -35,7 +39,7 @@ const SERIES = [
   { idx: 1, id: 'l-ammo', label: '弹药', color: 'var(--r-ammo)', axis: 'left' },
   { idx: 2, id: 'l-steel', label: '钢材', color: 'var(--r-steel)', axis: 'left' },
   { idx: 3, id: 'l-baux', label: '铝土', color: 'var(--r-baux)', axis: 'left' },
-  { idx: 5, id: 'l-bucket', label: '桶', color: '#7ac9b8', axis: 'right' },
+  { idx: 5, id: 'l-bucket', label: '桶', color: 'var(--trend-bucket)', axis: 'right' },
 ] as const
 
 const ACTION_MARKERS: Record<string, { label: string; glyph: string }> = {
@@ -154,7 +158,7 @@ const chartHtml = () => {
         }
         points.push(`${x},${y}`)
       })
-      return `<polyline id="${series.id}" class="res" stroke="${series.color}"${series.axis === 'right' ? ' stroke-dasharray="5 3"' : ''} points="${points}"/>`
+      return `<polyline id="${series.id}" class="res"${series.axis === 'right' ? ' stroke-dasharray="5 3"' : ''} points="${points}" style="stroke:${series.color}"/>`
     })
     .join('')
 
@@ -162,7 +166,7 @@ const chartHtml = () => {
   const capLine =
     regenCap != null && regenCap <= leftMax
       ? `<line class="capline" x1="${X0}" y1="${yOf(regenCap, leftMax)}" x2="${X1}" y2="${yOf(regenCap, leftMax)}"/>
-         <text class="axis" x="${X1 - 2}" y="${yOf(regenCap, leftMax) - 4}" text-anchor="end" fill="#efab30">自然回复线 ${regenCap.toLocaleString()}（Lv${mg.basic?.level}）</text>`
+         <text class="axis" x="${X1 - 2}" y="${yOf(regenCap, leftMax) - 4}" text-anchor="end" style="fill:var(--chart-axis-soft)">自然回复线 ${regenCap.toLocaleString()}（Lv${mg.basic?.level}）</text>`
       : ''
 
   const isDay = t1 - t0 <= 26 * 3600 * 1000
@@ -222,7 +226,7 @@ const chartHtml = () => {
         (series) =>
           `<circle class="hover-dot" data-series="${series.id}" data-idx="${series.idx}"
             data-max="${series.axis === 'left' ? leftMax : rightMax}" cx="0" cy="0" r="3"
-            fill="${series.color}" hidden/>`,
+            hidden style="fill:${series.color}"/>`,
       )
       .join('')}</g>`
   // 画布几何交给 paintPointer 用，省得两处各算一遍量程

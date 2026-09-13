@@ -10,6 +10,10 @@
   <title>战斗复盘</title>
   <style>
     :root {
+      /* 字重沿用深色 400/600/400；浅色正文、强调与等宽数字各提一档。 */
+      --weight-body: 400;
+      --weight-strong: 600;
+      --weight-mono: 400;
       color-scheme: dark;
       --bg0: #0d1318;
       --bg1: #151c23;
@@ -47,6 +51,89 @@
       --serif: 'Yu Mincho', 'MS Mincho', 'SimSun', serif;
       --mono: 'Maple Mono NF CN', 'Cascadia Code', 'Consolas', monospace;
       --sans: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+
+      /* 样式表语义颜色：按使用角色保留各档原值。 */
+      /* 亮底徽章和装备回退图标的墨字。 */
+      --ink: #0d1318;
+      /* 默认装备回退底。 */
+      --eqbg-default: #9ab0c0;
+      /* 火炮装备回退底。 */
+      --eqbg-gun: #79c0ea;
+      /* 电探装备回退底。 */
+      --eqbg-rdr: #7ac9b8;
+      /* 侦察装备回退底。 */
+      --eqbg-rec: #e0c27a;
+      /* 鱼雷机装备回退底。 */
+      --eqbg-tpb: #8fb8e0;
+      /* 深海卡片、筛选和损失提示边。 */
+      --tint-abyss-line: #5c2c38;
+      /* 舰娘缩略图渐变起点。 */
+      --thumbnail-surface: #263645;
+      /* 深海缩略图渐变起点。 */
+      --tint-abyss-thumbnail: #321d25;
+      /* 舰娘缩略图渐变末端。 */
+      --thumbnail-surface-deep: #141d25;
+      /* 深海缩略图渐变末端。 */
+      --tint-abyss-thumbnail-deep: #17151a;
+    }
+    :root[data-theme="light"] {
+      --weight-body: 500;
+      --weight-strong: 650;
+      --weight-mono: 500;
+      color-scheme: light;
+      --bg0: #f3f6f9;
+      --bg1: #ffffff;
+      --bg2: #eaf0f5;
+      --bg3: #dfe7ee;
+      --line: #b9c6d2;
+      --line-soft: #cbd6e0;
+      --text: #0f1720;
+      --sub: #3b4a59;
+      --dim: #526577;
+      --accent: #1773b2;
+      --accent-dim: #317bb7;
+      --accent-ink: #0f4f80;
+      --accent-wash: #dcecf8;
+      --gold: #765b0e;
+      --ok: #2a7d4f;
+      --warn: #82470a;
+      --bad: #c0392b;
+      --air: #2b7e35;
+      --night: #323aa8;
+      --abyss-ink: #b32a40;
+      --entity-ship: #155281;
+      --entity-abyss: #c2344a;
+      --entity-equip: #167892;
+      --entity-map: #2b7e48;
+      --r-fuel: #4f7a3a;
+      --scrollbar-track: #d0dbe5;
+      --scrollbar-thumb: #b7c5d1;
+      --scrollbar-thumb-hover: #9db0bf;
+      --scrollbar-thumb-active: #859cae;
+
+      /* 样式表语义颜色：按使用角色保留各档原值。 */
+      /* 亮底徽章和装备回退图标的墨字。 */
+      --ink: #ffffff;
+      /* 默认装备回退底。 */
+      --eqbg-default: #9ab0c0;
+      /* 火炮装备回退底。 */
+      --eqbg-gun: #79c0ea;
+      /* 电探装备回退底。 */
+      --eqbg-rdr: #7ac9b8;
+      /* 侦察装备回退底。 */
+      --eqbg-rec: #e0c27a;
+      /* 鱼雷机装备回退底。 */
+      --eqbg-tpb: #8fb8e0;
+      /* 深海卡片、筛选和损失提示边。 */
+      --tint-abyss-line: #e7aeb7;
+      /* 舰娘缩略图渐变起点。 */
+      --thumbnail-surface: #eaf0f5;
+      /* 深海缩略图渐变起点。 */
+      --tint-abyss-thumbnail: #f4dade;
+      /* 舰娘缩略图渐变末端。 */
+      --thumbnail-surface-deep: #eaf0f5;
+      /* 深海缩略图渐变末端。 */
+      --tint-abyss-thumbnail-deep: #f4dade;
     }
     * {
       margin: 0; padding: 0; box-sizing: border-box;
@@ -105,16 +192,16 @@
     }
     .equip-icon-fallback {
       width: 100%; height: 100%; border-radius: inherit; display: none; place-items: center;
-      background: #9ab0c0; color: #0d1318; font-size: 9.5px; font-weight: 700;
+      background: var(--eqbg-default); color: var(--ink); font-size: 9.5px; font-weight: 700;
     }
     .equip-icon.fallback .equip-icon-fallback { display: grid; }
     .equip-icon.fallback img { display: none; }
-    .equip-icon.gun .equip-icon-fallback { background: #79c0ea; }
+    .equip-icon.gun .equip-icon-fallback { background: var(--eqbg-gun); }
     .equip-icon.ftr .equip-icon-fallback { background: var(--air); }
     .equip-icon.bmb .equip-icon-fallback { background: var(--night); }
-    .equip-icon.tpb .equip-icon-fallback { background: #8fb8e0; }
-    .equip-icon.rdr .equip-icon-fallback { background: #7ac9b8; }
-    .equip-icon.rec .equip-icon-fallback { background: #e0c27a; }
+    .equip-icon.tpb .equip-icon-fallback { background: var(--eqbg-tpb); }
+    .equip-icon.rdr .equip-icon-fallback { background: var(--eqbg-rdr); }
+    .equip-icon.rec .equip-icon-fallback { background: var(--eqbg-rec); }
     .equip-icon-fallback.w2 { font-size: 8px; letter-spacing: -.5px; }
     .equip-icon.xs { width: 15px; height: 15px; border-radius: 3px; background: transparent; }
     .equip-icon.sm { width: 17px; height: 17px; }
@@ -127,7 +214,7 @@
       position: relative; width: 44px; height: 20px; flex: none; overflow: hidden;
       display: inline-grid; place-items: center; vertical-align: middle;
       border: 1px solid var(--line); border-radius: 4px;
-      background: linear-gradient(145deg, #263645, #141d25);
+      background: linear-gradient(145deg, var(--thumbnail-surface), var(--thumbnail-surface-deep));
     }
     .ship-thumb img {
       width: 100%; height: 100%; display: block; object-fit: cover; object-position: 78% center;
@@ -140,7 +227,7 @@
     .ship-thumb.fallback .ship-thumb-fallback { display: grid; }
     .ship-thumb.fallback img { display: none; }
     .ship-thumb.abyss {
-      border-color: #5c2c38; background: linear-gradient(145deg, #321d25, #17151a);
+      border-color: var(--tint-abyss-line); background: linear-gradient(145deg, var(--tint-abyss-thumbnail), var(--tint-abyss-thumbnail-deep));
     }
     .ship-thumb.abyss img { filter: saturate(.72) sepia(.08) hue-rotate(310deg); }
     .ship-thumb.battle { width: 38px; height: 18px; margin-right: 5px; }
@@ -173,6 +260,8 @@
     .e-map { --entity-color: var(--entity-map); }
     .alv-icon { display: inline-block; width: 17px; height: 14px; vertical-align: -2px; }
     .mod-di .beq-alv .alv-icon { width: 14px; height: 11px; vertical-align: -1px; }
+    /* 浅色字重只覆盖对应旧档位；未声明数字字重的粗体及 700 标题保留。 */
+    :root[data-theme="light"] body { font-weight: var(--weight-body); }
   </style>
   <link rel="stylesheet" href="assets/battle-replay.css">
 </head>

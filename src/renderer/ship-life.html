@@ -6,6 +6,10 @@
   <title>kuma · 人生记录</title>
   <style>
     :root {
+      /* 字重沿用深色 400/600/400；浅色正文、强调与等宽数字各提一档。 */
+      --weight-body: 400;
+      --weight-strong: 600;
+      --weight-mono: 400;
       color-scheme: dark;
       --bg0: #0d1318;
       --bg1: #151c23;
@@ -34,6 +38,48 @@
       --mono: 'Cascadia Code', 'Consolas', monospace;
       --serif: 'Source Han Serif SC', 'Noto Serif CJK SC', 'Songti SC', serif;
       font-family: 'Segoe UI', 'Microsoft YaHei UI', sans-serif;
+
+      /* 样式表语义颜色：按使用角色保留各档原值。 */
+      /* 舰娘生涯标题区渐变色标。 */
+      --life-hero-surface: #1b2937;
+      /* 舰娘生涯击沉目标缩略图底。 */
+      --tint-abyss-kill: #2a1a20;
+    }
+    :root[data-theme="light"] {
+      --weight-body: 500;
+      --weight-strong: 650;
+      --weight-mono: 500;
+      color-scheme: light;
+      --bg0: #f3f6f9;
+      --bg1: #ffffff;
+      --bg2: #eaf0f5;
+      --bg3: #dfe7ee;
+      --line: #b9c6d2;
+      --line-soft: #cbd6e0;
+      --text: #0f1720;
+      --sub: #3b4a59;
+      --dim: #526577;
+      --accent: #1773b2;
+      --accent-dim: #317bb7;
+      --accent-ink: #0f4f80;
+      --gold: #765b0e;
+      --ok: #2a7d4f;
+      --warn: #82470a;
+      --bad: #c0392b;
+      --dock: #15536a;
+      --wedding: #d33196;
+      --abyss-ink: #b32a40;
+      --entity-map: #2b7e48;
+      --scrollbar-track: #d0dbe5;
+      --scrollbar-thumb: #b7c5d1;
+      --scrollbar-thumb-hover: #9db0bf;
+      --scrollbar-thumb-active: #859cae;
+
+      /* 样式表语义颜色：按使用角色保留各档原值。 */
+      /* 舰娘生涯标题区渐变色标。 */
+      --life-hero-surface: #eaf0f5;
+      /* 舰娘生涯击沉目标缩略图底。 */
+      --tint-abyss-kill: #f4dade;
     }
     * {
       box-sizing: border-box;
@@ -62,7 +108,7 @@
       flex: none; position: relative; display: flex; gap: 16px; align-items: stretch;
       padding: 14px 18px; border-bottom: 1px solid var(--line);
       background:
-        radial-gradient(120% 160% at 8% 0%, #1b2937 0%, transparent 62%),
+        radial-gradient(120% 160% at 8% 0%, var(--life-hero-surface) 0%, transparent 62%),
         linear-gradient(180deg, var(--bg2), var(--bg1));
       overflow: hidden;
     }
@@ -160,7 +206,7 @@
     .kill-group.open .kill-h .caret { transform: rotate(90deg); }
     .kill-thumb {
       flex: none; width: 46px; height: 15px; overflow: hidden; border-radius: 2px;
-      background: #2a1a20;
+      background: var(--tint-abyss-kill);
     }
     .kill-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .kill-thumb .art-fallback { display: block; }
@@ -244,6 +290,21 @@
       .col + .col { border-left: 0; border-top: 1px solid var(--line); }
       .col-body { overflow-y: visible; }
     }
+    /* 浅色字重只覆盖对应旧档位；未声明数字字重的粗体及 700 标题保留。 */
+    :root[data-theme="light"] body { font-weight: var(--weight-body); }
+    :root[data-theme="light"] .col-h .cnt,
+    :root[data-theme="light"] .kill-h time,
+    :root[data-theme="light"] .kill-battle time,
+    :root[data-theme="light"] .kill-battle .rank,
+    :root[data-theme="light"] .life-event time { font-weight: var(--weight-mono); }
+    :root[data-theme="light"] .hero-name b,
+    :root[data-theme="light"] .pill b,
+    :root[data-theme="light"] .kpi b,
+    :root[data-theme="light"] .col-h b,
+    :root[data-theme="light"] .kill-h .boss,
+    :root[data-theme="light"] .kill-h .n,
+    :root[data-theme="light"] .life-copy b,
+    :root[data-theme="light"] .replay-jump { font-weight: var(--weight-strong); }
   </style>
 </head>
 <body>

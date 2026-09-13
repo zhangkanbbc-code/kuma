@@ -676,7 +676,7 @@ const airAdviceHtml = (info: any, targetNeed: number | null, target: string | nu
 const airBaseCardHtml = (info: any): string => {
   const all = mg.airBases
   if (!all.length) {
-    return `<div class="card" style="--hc:#8fb8e0">
+    return `<div class="card" style="--hc:var(--card-expedition)">
       <div class="h"><b>基地航空</b></div>
       <div style="font-size:11.5px;color:var(--dim)">尚未同步：在游戏里打开一次出击海域选择页</div>
     </div>`
@@ -755,7 +755,7 @@ const airBaseCardHtml = (info: any): string => {
       </div>`
     })
     .join('')
-  return `<div class="card" style="--hc:#8fb8e0">
+  return `<div class="card" style="--hc:var(--card-expedition)">
     <div class="h"><b>基地航空</b><span class="aux">${
       mine.length ? '当前海域' : '全部中队'
     } · 同步于 ${mg.airBasesTs ? fmtTime(mg.airBasesTs) : '—'}</span></div>
@@ -971,7 +971,7 @@ const extrasCardHtml = (info: any): string => {
   const selected = RANK_NAME[mg.mapGauges[info.api_id]?.selectedRank ?? 0]
   const layers = EVENT_DIFFICULTIES.map((difficulty) => {
     const ready = Boolean(mapIntelMap(mapKey, difficulty))
-    return `<span class="diff" style="${ready ? 'border-color:#2f5f45;color:var(--ok)' : 'color:var(--dim);border-color:var(--line)'}">
+    return `<span class="diff" style="${ready ? 'border-color:var(--tint-ok-active-line);color:var(--ok)' : 'color:var(--dim);border-color:var(--line)'}">
       ${difficulty}${difficulty === selected ? ' · 当前' : ''} · ${ready ? '已收录' : '待补'}
     </span>`
   }).join('')
@@ -993,7 +993,7 @@ const extrasCardHtml = (info: any): string => {
     friendlyFleetsOf(info.api_id, difficultyRank),
   )
   return `
-  <div class="card" style="--hc:#e08a97">
+  <div class="card" style="--hc:var(--card-battle)">
     <div class="h"><b>限时掉落 · 敌编成</b></div>
     <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px">${layers}</div>
     <div class="op-head">当前仓库的特效舰匹配 / 完整倍率</div>${specialHtml}
@@ -1171,11 +1171,11 @@ const gaugeCardHtml = (info: any): string => {
         // 也与游戏内血条同向。通关跳回满格会被读成「血条又满了」。
         // 通关态由文字「✓ 已完成」与 .gaug.done 的绿色标识,不靠条的长度。
         `<div class="gaug${gauge.cleared ? ' done' : ''}"><span class="k">${gauge.gaugeNum ? `第${gauge.gaugeNum}血条` : '血条'}</span>
-          <span class="bar"><i style="width:${gauge.cleared ? 0 : pct}%;background:linear-gradient(90deg,#a33448,var(--bad))"></i></span>
+          <span class="bar"><i style="width:${gauge.cleared ? 0 : pct}%;background:linear-gradient(90deg,var(--meter-bad-start),var(--bad))"></i></span>
           <span class="v">${gauge.cleared ? '✓ 已完成' : `${pct}% (${gauge.hpNow}/${gauge.hpMax})`}</span></div>`
       : gauge.required != null && gauge.required > 0
         ? // 扣血口径:条画剩余、数到 0/N 击破,与血条制/游戏内一致
-          `<div class="gaug${gauge.cleared ? ' done' : ''}"><span class="k">击破计数</span><span class="bar"><i style="width:${gauge.cleared ? 0 : Math.round((Math.max(0, gauge.required - (gauge.defeated ?? 0)) / gauge.required) * 100)}%;background:linear-gradient(90deg,#a33448,var(--bad))"></i></span><span class="v">${gauge.cleared ? '✓ 击破' : `剩 ${Math.max(0, gauge.required - (gauge.defeated ?? 0))}/${gauge.required}`}</span></div>`
+          `<div class="gaug${gauge.cleared ? ' done' : ''}"><span class="k">击破计数</span><span class="bar"><i style="width:${gauge.cleared ? 0 : Math.round((Math.max(0, gauge.required - (gauge.defeated ?? 0)) / gauge.required) * 100)}%;background:linear-gradient(90deg,var(--meter-bad-start),var(--bad))"></i></span><span class="v">${gauge.cleared ? '✓ 击破' : `剩 ${Math.max(0, gauge.required - (gauge.defeated ?? 0))}/${gauge.required}`}</span></div>`
         : '<div style="font-size:11px;color:var(--dim)">当前海图暂无血条数据</div>'
   return `<div class="card" style="--hc:var(--bad)">
     <div class="h"><b>血条阶段</b><span class="aux">难度 ${gauge.selectedRank ? RANK_NAME[gauge.selectedRank] : '未选'}

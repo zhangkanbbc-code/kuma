@@ -45,6 +45,10 @@ import {
   shipCostumeBackfillCursor,
   shipCostumes,
 } from '../ship-costume-store'
+import {
+  equipBook, equipBookBackfillCursor, noteEquipBookBackfill,
+  rememberEquipBookPage, rememberEquipSeen,
+} from '../equip-book-store'
 import { resourceVersionOf } from '../../shared/voice-request-gate'
 import {
   clearVoiceArchive,
@@ -385,6 +389,7 @@ const handleEvent = (
       .map(([id]) => Number(id)),
   )
   const sections = timeMain('api:state', () => store.handle(apiPath, body, postBody, ts), () => apiPath)
+  if (sections.includes('slotitems')) learnEquipSeenFromInventory(ts)
   const deltaMaterials = store.getState().player.materials
   const deltaResolution = resolveDeltaCategory(deltaCategoryTrackers, {
     apiPath, ts, postBody, body, before: detailBefore,
@@ -537,6 +542,7 @@ const handleEvent = (
   if (apiPath === '/kcsapi/api_get_member/mapinfo') broadcastSortieScreen(ts)
   // 玩家正在翻图鉴：把这一页的衣装归属学下来（不发请求，只读它返回的报文）
   if (apiPath === '/kcsapi/api_get_member/picture_book') learnCostumesFrom(body)
+  if (apiPath === '/kcsapi/api_get_member/picture_book') learnEquipBookFrom(body, postBody, ts)
   // 打开远征页（api_get_member/mission）时底坞任务/远征格跟到远征；
   // 回母港、出击选择、演习、任务表都算离开，还原进页前那一格。
   if (apiPath === '/kcsapi/api_get_member/mission') broadcastGameScene('mission')
@@ -708,6 +714,65 @@ const backfillShipCostumes = () => {
   }
 }
 setTimeout(backfillShipCostumes, 3_000).unref?.()
+
+// 装备判据也只来自主数据，按快照时间换代。
+let equipMstIds: Set<number> | null = null
+let equipMasterTs = 0
+const isEquipMstId = (mstId: number): boolean => {
+  const raw = ensureMasterRaw()
+  if (!raw?.data) return false
+  if (!equipMstIds || equipMasterTs !== raw.ts) {
+    equipMstIds = new Set(
+      ((raw.data.api_mst_slotitem ?? []) as any[])
+        .map((equip) => Number(equip.api_id))
+        .filter((id) => Number.isInteger(id) && id > 0),
+    )
+    equipMasterTs = raw.ts
+  }
+  return equipMstIds.has(mstId)
+}
+
+const learnEquipBookFrom = (apiData: unknown, post: Record<string, unknown>, ts: number): boolean => {
+  const learned = rememberEquipBookPage(apiData, post, isEquipMstId, ts)
+  if (learned) broadcaster.emit('kancolle.equipbook.learn', equipBook())
+  return learned
+}
+
+const learnEquipSeenFromInventory = (ts: number): void => {
+  const ids = [...new Set(Object.values(store.getState().player.slotitems).map((item) => item.mstId))]
+  if (rememberEquipSeen(ids, ts)) broadcaster.emit('kancolle.equipbook.learn', equipBook())
+}
+
+// 只读账本已有报文；请求参数只在主进程解析，广播仅含装备记录。
+const backfillEquipBook = () => {
+  try {
+    learnEquipSeenFromInventory(Date.now())
+    if (!((ensureMasterRaw()?.data?.api_mst_slotitem ?? []) as any[]).length) return
+    const rows = ledger.queryPictureBookBodies(equipBookBackfillCursor())
+    if (!rows.length) return
+    let learned = false
+    let lastId = 0
+    for (const row of rows) {
+      lastId = row.id
+      let parsed: any
+      let post: Record<string, unknown>
+      try {
+        parsed = JSON.parse(row.body)
+        const params = JSON.parse(row.post_body ?? '{}')
+        post = { api_type: params?.api_type, api_no: params?.api_no }
+      } catch (_e) {
+        continue // 坏报文跳过，游标继续向前；不输出请求参数。
+      }
+      const changed = rememberEquipBookPage(parsed?.api_data ?? parsed, post, isEquipMstId, row.ts)
+      learned = changed || learned
+    }
+    noteEquipBookBackfill(lastId)
+    if (learned) broadcaster.emit('kancolle.equipbook.learn', equipBook())
+  } catch (_error) {
+    console.warn('[kuma] mg: 装备图鉴回灌失败')
+  }
+}
+setTimeout(backfillEquipBook, 3_000).unref?.()
 
 // mstId → 开发表（砲戦/水雷/空母/潜水系）。按主数据时效戳缓存 stype 索引。
 let devStypeByMst: Map<number, number> | null = null

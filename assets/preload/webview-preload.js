@@ -28,6 +28,7 @@ const { installArtArchive } = require('./art-archive')
 const { installAssetArchive } = require('./asset-archive')
 const { installBgmArchive } = require('./bgm-archive')
 const { installXhrHack } = require('./xhr-hack')
+const { installCaptionDodge } = require('./caption-dodge')
 
 // 这个 bridge 对（不可信的）游戏页面上任何脚本都可达，交给广播器前必须校验输入。
 // 这把攻击面收敛到「游戏形状的流量」；无法完全阻止页面内恶意脚本伪造像样的 API
@@ -175,6 +176,7 @@ installVoiceArchive()
 installArtArchive()
 installAssetArchive()
 installBgmArchive()
+installCaptionDodge(ipcRenderer)
 
 // 往页面主世界装 hack。executeInMainWorld 是实验特性，失败只记日志，
 // 不允许中断 preload 其余部分。

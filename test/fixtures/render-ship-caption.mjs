@@ -142,7 +142,7 @@ const runtimeSource = (() => {
     'setVoiceCaptionSize(config.get(VOICE_CAPTION_SIZE_PATH, VOICE_CAPTION_SIZE_DEFAULT))'
   assert.ok(source.includes(sizeInit), 'voice-subtitle.ts 的字号初始化锚点变了')
   return `${source.replace(sizeInit, '')}
-export { loadData as testLoadData, captionsFor as testCaptionsFor, displayAtPlaybackTime as testDisplayAtPlaybackTime }
+export { loadData as testLoadData, captionsFor as testCaptionsFor, displayAtPlaybackTime as testDisplayAtPlaybackTime, showSubtitle as testShowSubtitle }
 `
 })()
 
@@ -208,7 +208,10 @@ export const queryMasterRaw = async () => state.raw
             }
           }
           return {
-            contents: 'module.exports = { ipcRenderer: { invoke: async () => null } }',
+            contents: `module.exports = { ipcRenderer: {
+              invoke: async () => null,
+              send: (...args) => globalThis.${RUNTIME_STATE_KEY}.sent.push(args),
+            } }`,
           }
         })
       },
@@ -218,6 +221,7 @@ export const queryMasterRaw = async () => state.raw
 })()
 
 const runtimeState = {
+  sent: [],
   lodes: {},
   raw: null,
   mg: {
@@ -230,6 +234,7 @@ const runtimeState = {
 globalThis[RUNTIME_STATE_KEY] = runtimeState
 const runtimeLoaded = createRequire(import.meta.url)(runtimeBundle)
 export const captionRuntime = runtimeLoaded
+export const captionMessages = () => runtimeState.sent
 
 const emptyRuntimeLodes = () => ({
   'subtitle-zh': { data: {} },

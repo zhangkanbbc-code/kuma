@@ -53,6 +53,9 @@ const STUBS = {
   // 字幕字号的热切：改一档钥要当场推给字幕层，所以记账而不是空转
   'renderer/voice-subtitle.ts': `
     export const setVoiceCaptionsEnabled = (_v: boolean) => {}
+    export const setVoiceCaptionDodge = (enabled: boolean) => {
+      ;((globalThis as any).__captionDodge ??= []).push(enabled)
+    }
     export const setSpecialCaptionStyle = (style: unknown) => {
       ;((globalThis as any).__specialCaptionStyles ??= []).push(style)
     }
@@ -159,6 +162,7 @@ export const mountYu = ({
   globalThis.__uiWrites = []
   globalThis.__overlayEntrance = []
   globalThis.__captionSizes = []
+  globalThis.__captionDodge = []
   globalThis.__specialCaptionStyles = []
   globalThis.__fairySalvo = []
   globalThis.__yuModule = null
@@ -166,11 +170,16 @@ export const mountYu = ({
   const querySelector = globalThis.document?.querySelector?.bind(globalThis.document)
   globalThis.document = {
     ...(globalThis.document ?? {}),
+    documentElement: { dataset: {}, style: {
+      setProperty(name, value) { this[name] = value },
+      removeProperty(name) { delete this[name] },
+    } },
     querySelector: (selector) => selector === '#app' ? { classList: { contains: (name) => name === 'distract' && distract } } : querySelector?.(selector) ?? null,
     addEventListener: () => {},
     removeEventListener: () => {},
   }
   const events = new EventTarget()
+  globalThis.matchMedia = () => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} })
   globalThis.window = {
     dispatchEvent: (event) => events.dispatchEvent(event),
     addEventListener: (...args) => events.addEventListener(...args),
@@ -180,6 +189,7 @@ export const mountYu = ({
     cb()
     return 1
   }
+  globalThis.cancelAnimationFrame = () => {}
   const configStore = { ...config }
   globalThis.__setDistractSide = (side) => {
     configStore['kuma.distract.side'] = side
@@ -256,6 +266,7 @@ export const mountYu = ({
     overlayEntrance: () => globalThis.__overlayEntrance,
     /** 钥调 setVoiceCaptionSize 的流水账（每改一档字幕字号一次） */
     captionSizes: () => globalThis.__captionSizes,
+    captionDodge: () => globalThis.__captionDodge,
     specialCaptionStyles: () => globalThis.__specialCaptionStyles,
     fairySalvo: () => globalThis.__fairySalvo,
     /** 等 mount 里那个异步 IIFE 把清单读完并重渲一次 */

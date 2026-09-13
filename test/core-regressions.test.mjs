@@ -4,6 +4,24 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
+test('底部字幕悬停淡出接线、默认设置与性能约束', () => {
+  const read = pathname => fs.readFileSync(new URL(`../${pathname}`, import.meta.url), 'utf8')
+  assert.ok(read('src/renderer/index.html').includes('#voice-subtitle.show.dodge { opacity: .15; }'))
+  const preload = read('assets/preload/webview-preload.js')
+  assert.match(preload, /require\('\.\/caption-dodge'\)/)
+  assert.match(preload, /installCaptionDodge\(ipcRenderer\)/)
+  const main = read('src/main/caption-dodge.ts')
+  assert.match(main, /ipcMain\.on\(CAPTION_HOVER_CHANNEL,[\s\S]*getType\(\) === 'webview'/)
+  const settings = read('src/renderer/modules/yu.ts')
+  assert.match(settings, /const uiHintsCardHtml[\s\S]*?CAPTION_DODGE_CONFIG_KEY[\s\S]*?specialCaptionStyleHtml\(\)/)
+  assert.match(settings, /const dflt = \[[^\]]*CAPTION_DODGE_CONFIG_KEY/)
+  assert.match(settings, /setVoiceCaptionDodge\(next\)/)
+  assert.match(read('src/main/config.ts'), /voiceCaptionDodge: true/)
+  const dodge = read('assets/preload/caption-dodge.js')
+  assert.match(dodge, /addEventListener\('mousemove',[\s\S]*?passive: true/)
+  assert.doesNotMatch(dodge, /sendSync|setInterval/)
+})
+
 import { correctLegacyDropForm } from '../scripts/lib/map-drops.mjs'
 import atomicJson from '../dist/main/atomic-json.js'
 import battle from '../dist/main/mg/battle.js'
@@ -2945,7 +2963,9 @@ test('map thumbnails stay readable and expose map codes plus live gauge progress
   assert.match(catalog, /remain \/ gauge\.required/)
   assert.match(catalog, /class="map-thumb-gauge\$\{cls\}"/)
   assert.match(catalog, /节点图<span class="mg-code">\$\{esc\(code\)\}<\/span>/)
-  assert.match(html, /\.mod-ji \.face\.mapface\s*\{[\s\S]*background:\s*#18292c/)
+  // 色值不变的约束同时检查使用处与默认深色定义，允许主题通过 token 覆盖。
+  assert.match(html, /\.mod-ji \.face\.mapface\s*\{[^}]*background:\s*var\(--tint-teal-face\)/)
+  assert.match(html.match(/:root\s*\{([^}]+)\}/)[1], /--tint-teal-face:\s*#18292c;/)
   assert.match(html, /\.mod-ji \.map-thumb-gauge\.done i/)
   assert.match(html, /\.mod-ji \.mg-e\s*\{\s*stroke:\s*var\(--sub\);\s*opacity:\s*\.72/)
 })
@@ -4123,8 +4143,14 @@ test('new ships and taiha use manually dismissed top banners with persistent fra
   assert.match(html, /border: 2px solid transparent/)
   assert.match(html, /lg-banner-gold-pulse/)
   assert.match(html, /lg-banner-red-pulse/)
-  assert.match(html, /inset 0 0 44px rgba\(232, 198, 106, \.25\)/)
-  assert.match(html, /inset 0 0 52px rgba\(224, 108, 117, \.31\)/)
+  // 外框仍使用原来的精确基色与透明度；主题覆盖只经过语义 token。
+  const frameDark = html.match(/:root\s*\{([^}]+)\}/)[1]
+  const goldFrame = html.match(/body\.lg-frame-gold::after\s*\{([^}]+)\}/)[1]
+  const redFrame = html.match(/body\.lg-frame-red::after\s*\{([^}]+)\}/)[1]
+  assert.match(goldFrame, /inset 0 0 44px color-mix\(in srgb, var\(--gold\) 25%, transparent\)/)
+  assert.match(frameDark, /--gold:\s*#e8c66a;/)
+  assert.match(redFrame, /inset 0 0 52px color-mix\(in srgb, var\(--bad\) 31%, transparent\)/)
+  assert.match(frameDark, /--bad:\s*#e06c75;/)
   assert.match(config, /voiceCaptions: true/)
   assert.match(config, /eventBannerEffects: true/)
   assert.match(settings, /显示语音文字/)
@@ -8924,7 +8950,8 @@ test('预测区间配微条，大破用另一种色', () => {
 })
 
 test('色板：次级文字可读，实体色两两分得开', () => {
-  const html = rendererSource
+  // 浅色块同名 token 由 theme-light-palette.test 单独把关。
+  const html = rendererSource.match(/:root\s*\{[^}]*\}/)[0]
   const varOf = (name) => {
     const hit = html.match(new RegExp('--' + name + ':\\s*(#[0-9a-fA-F]{6})'))
     assert.ok(hit, `找不到 --${name}`)
@@ -9379,6 +9406,22 @@ test('沙盘的移出入口要长在看得见的地方', () => {
     ru.includes("closest('[data-sandbox-remove]')) return"),
     '点移出会连带展开该行',
   )
+})
+
+test('海域图鉴最后一段与实体菜单接有关任务，反查和任务抽屉共用海域判据', () => {
+  const atlas = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
+  const quests = fs.readFileSync(new URL('../src/renderer/modules/qn.ts', import.meta.url), 'utf8')
+  const drawer = atlas.slice(atlas.indexOf('const mapDrawerHtml = '), atlas.indexOf('const mapOfficialInfoHtml = '))
+  const related = drawer.indexOf('${mapRelatedQuestsHtml(info.api_id)}')
+  assert.ok(drawer.indexOf('dropPoolHtml(') >= 0)
+  assert.ok(related > drawer.indexOf('dropPoolHtml('), '有关任务应在确认掉落之后')
+  assert.ok(related < drawer.indexOf('<div class="foot">'), '有关任务应在来源脚注之前')
+  const route = atlas.slice(atlas.indexOf("registerEntityRoute('map',"), atlas.indexOf("registerEntityRoute('abyssEquip',"))
+  assert.match(route, /targets: [\s\S]*label: '有关任务', run: \(\) => searchInManager\(mapCodeOf\(id\)\)/)
+  assert.equal(quests.split("taskEntityTextDomainAllowed('map', row.code)").length - 1, 1, '海域判据只保留一份')
+  assert.match(quests, /const maps = questMapRefs\(row, tracker,/)
+  assert.match(quests, /return questMapRefs\(quest, tracker\)\.includes\(mapId\)/)
+  assert.match(atlas, /const mapRelatedQuestsHtml = \(mapId: number\) =>\s*relatedQuestsSectionHtml\(questsInvolvingMap\(mapId\)\)/)
 })
 
 test('有关任务标出做没做完，且「不在表里」只在拿到全量之后才敢解读', () => {
@@ -13052,4 +13095,67 @@ test('第三批：严谨说明只在折叠/悬停里，停更与新鲜度只在�
   assert.match(event, /<span class="mst lk">未同步<\/span>/) // 状态词
   assert.match(quests, /部分条件无法核对 · 计数为预估/) // 估算标注（本来就在悬停里）
   assert.match(resource, /活动开始前暂无资源记录/) // 空态诚实语
+})
+
+
+test('装备图鉴三态的实时、回灌与渲染链均接通', () => {
+  const read = (name) => fs.readFileSync(new URL('../src/' + name, import.meta.url), 'utf8')
+  const mg = read('main/mg/index.ts')
+  const ji = read('renderer/modules/ji.ts')
+  const ledger = read('main/mg/ledger.ts')
+  assert.match(mg, /learnCostumesFrom\(body\)[\s\S]{0,150}learnEquipBookFrom\(body, postBody, ts\)/)
+  assert.match(mg, /sections\.includes\('slotitems'\)\) learnEquipSeenFromInventory\(ts\)/)
+  assert.match(mg, /ledger\.queryPictureBookBodies\(equipBookBackfillCursor\(\)\)/)
+  const query = ledger.slice(ledger.indexOf('queryPictureBookBodies ='), ledger.indexOf('queryPictureBookBodies =') + 800)
+  assert.match(query, /SELECT id, ts, body, post_body FROM events/)
+  assert.match(read('renderer/index.ts'), /broadcaster\.addListener\('kancolle.equipbook.learn', noteEquipBook\)/)
+  assert.match(ji, /document\.addEventListener\('kuma:equip-book-change', onEquipBookChange\)/)
+  assert.match(ji, /trackMountCleanup\(\(\) => document\.removeEventListener\('kuma:equip-book-change', onEquipBookChange\)\)/)
+  const rows = ji.slice(ji.indexOf('const equipCatalogHtml'), ji.indexOf('const equipCollectionFootHtml'))
+  assert.ok(rows.includes("' · 曾持有'"))
+  assert.ok(rows.includes("' ghost once'"))
+  const drawer = ji.slice(ji.indexOf('const equipDrawerHtml'), ji.indexOf('const equipDrawerHtml') + 9000)
+  assert.ok(drawer.includes('<span class="own-pill">曾持有</span>'))
+  assert.match(ji, /: once \? '曾持有' : '未持有'/)
+  const foot = ji.slice(ji.indexOf(' * 装备卷收集度'), ji.indexOf('const EQUIP_STATS:'))
+  assert.equal(foot.includes('游戏本身也不记'), false)
+  assert.match(ji, /equipState\.once = !equipState\.once/)
+  assert.match(read('main/index.ts'), /before-quit', \(\) => flushEquipBook\(\)/)
+  assert.ok(read('main/yu.ts').includes("'equip-book.json'"))
+})
+
+test('主题骨架在六个入口最先启动，主进程安装广播并默认深色', () => {
+  for (const name of ['index', 'battle-replay-window', 'browse-window', 'quest-tree-window', 'resource-trend-window', 'ship-life-window']) {
+    const source = fs.readFileSync(new URL(`../src/renderer/${name}.ts`, import.meta.url), 'utf8')
+    assert.match(source, /^import \{ installThemeBoot \} from '\.\/theme-boot'\s+installThemeBoot\(\)/)
+  }
+  const main = fs.readFileSync(new URL('../src/main/index.ts', import.meta.url), 'utf8')
+  assert.match(main, /import \{ installThemePush, themeBackgroundColor \} from '\.\/theme-push'/)
+  assert.match(main, /installHotkeys\(\(\) => mainWindow\)\s+installThemePush\(\)/)
+  const config = fs.readFileSync(new URL('../src/main/config.ts', import.meta.url), 'utf8')
+  assert.match(config, /theme: 'dark', \/\/ 界面配色 dark\/light\/system/)
+  const yu = fs.readFileSync(new URL('../src/renderer/modules/yu.ts', import.meta.url), 'utf8')
+  assert.match(yu, /THEME_MODES\.map\([\s\S]*?data-theme-mode="\$\{id\}"/)
+  assert.match(yu, /setThemeMode\(themeModeChip\.dataset\.themeMode\)\s+clearThemeBase\(\)\s+render\(\)/)
+  assert.match(yu, /data-theme-base/)
+  assert.match(yu, /data-theme-base-reset/)
+  for (const name of ['battle-replay', 'browse', 'quest-tree', 'resource-trend', 'ship-life']) {
+    const html = fs.readFileSync(new URL(`../src/renderer/${name}.html`, import.meta.url), 'utf8')
+    assert.match(html, /:root\[data-theme="light"\]/)
+  }
+  const browse = fs.readFileSync(new URL('../src/main/browse-window.ts', import.meta.url), 'utf8')
+  assert.match(browse, /preload: path\.join\(ROOT, 'dist', 'main', 'theme-preload\.js'\)/)
+  assert.match(browse, /nodeIntegration: false/)
+  assert.match(browse, /contextIsolation: true/)
+})
+
+test('主题派生覆盖与清除共用完整键表，六个原生窗口使用当前主题底色', async () => {
+  const { default: theme } = await import('../dist/shared/theme.js')
+  assert.deepEqual([...theme.NEUTRAL_TOKENS].sort(), Object.keys(theme.deriveNeutrals('#123456')).sort())
+  const boot = fs.readFileSync(new URL('../src/renderer/theme-boot.ts', import.meta.url), 'utf8')
+  assert.match(boot, /for \(const key of NEUTRAL_TOKENS\)\s*\{\s*if \(neutrals\) document\.documentElement\.style\.setProperty\('--' \+ key, neutrals\[key\]\)\s*else document\.documentElement\.style\.removeProperty\('--' \+ key\)/)
+  for (const [name, count] of [['index', 5], ['browse-window', 1]]) {
+    const source = fs.readFileSync(new URL(`../src/main/${name}.ts`, import.meta.url), 'utf8')
+    assert.equal([...source.matchAll(/backgroundColor: themeBackgroundColor\(\)/g)].length, count)
+  }
 })

@@ -97,7 +97,7 @@ test('未收录任务按游戏分类进入命名页和文本细分，已有编�
     assert.deepEqual(pages, [(category >= 5 && category <= 7) || category === 11 ? 'factory' : expected])
   }
   assert.equal(runtime.catOf(row({ code: 'B1', observed: { category: 1 } })), 'B')
-  assert.equal(runtime.catColor(row({ observed: { category: 1 } })), '#67c98a')
+  assert.equal(runtime.catColor(row({ observed: { category: 1 } })), CAT_META.A[1])
   runtime.invalidateQuestTextCache()
   assert.deepEqual(runtime.CATEGORY_FILTERS.filter((item) => item.test(row({ observed: { category: 0 } })))
     .map((item) => item.key), ['unclassified'])
@@ -210,9 +210,9 @@ test('进度真实模板隔离所有说明标签，隐藏标签仍保留数值�
 test('任务行分类变量沿用真实分类色，左条读取变量，未收录编号保留金色优先类', () => {
   const colors = new Set()
   for (const [code, name, expected] of [
-    ['A1', '', '#67c98a'], ['B1', '', '#e06c75'], ['C1', '', '#a3dc6f'],
-    ['D1', '', '#3fcab4'], ['E1', '补给', '#e0c455'], ['E2', '入渠', '#d4b048'],
-    ['F1', '开发', '#c69a70'], ['G1', '', '#b489ff'], ['S1', '', 'var(--gold)'],
+    ['A1', '', 'var(--qcat-A)'], ['B1', '', 'var(--qcat-B)'], ['C1', '', 'var(--qcat-C)'],
+    ['D1', '', 'var(--qcat-D)'], ['E1', '补给', 'var(--qcat-E)'], ['E2', '入渠', 'var(--qcat-E-repair)'],
+    ['F1', '开发', 'var(--qcat-F-develop)'], ['G1', '', 'var(--qcat-G)'], ['S1', '', 'var(--gold)'],
   ]) {
     runtime.invalidateQuestTextCache()
     const html = rowRuntime.rowHtml(row({ code, name }))
@@ -224,7 +224,7 @@ test('任务行分类变量沿用真实分类色，左条读取变量，未收�
   assert.equal(colors.size, 9)
   runtime.invalidateQuestTextCache()
   const html = rowRuntime.rowHtml(row({ observed: { category: 3, type: 1 } }))
-  assert.match(html, /class="q-row" style="--q-cat:#a3dc6f"/)
+  assert.match(html, /class="q-row" style="--q-cat:var\(--qcat-C\)"/)
   assert.match(html, /class="id unlisted" title="[^"]+">#900001<\/span>/)
 })
 
@@ -256,10 +256,18 @@ test('任务行 CSS 仅窄态换行、铺满标题与进度、贯穿色条并隐
   assert.match(rule('.mod-qn .q-nm .plain'), /color: var\(--sub\);/)
   assert.match(rule('.mod-qn .q-cat-label'), /background: var\(--bg3\);[\s\S]*color: var\(--sub\);/)
   assert.match(rule('.mod-qn .q.ghost'), /opacity: 0.6;/)
-  assert.match(rule('.mod-qn .q.done-row'), /background: linear-gradient\(90deg, rgba\(232, 198, 106, 0.07\), transparent 60%\);/)
+  // 默认深色仍为原金色的 7% 淡底，同时允许浅色主题覆盖该基色。
+  const darkPalette = html.match(/:root\s*\{([^}]+)\}/)[1]
+  assert.match(rule('.mod-qn .q.done-row'), /background: linear-gradient\(90deg, color-mix\(in srgb, var\(--gold\) 7%, transparent\), transparent 60%\);/)
+  assert.match(darkPalette, /--gold:\s*#e8c66a;/)
   assert.match(rule('.mod-qn .q-drawer-head b'), /color: var\(--accent\);/)
-  for (const [period, color] of [['d', '#5ab8d8'], ['w', '#67c98a'], ['m', '#e8a04c'], ['q', '#b489ff']]) {
-    assert.ok(rule(`.mod-qn .per.${period}`).includes(`color: ${color};`))
+  // 四种周期各自保留原值，引用处也必须使用对应语义 token。
+  for (const [period, token, color] of [
+    ['d', 'expedition-soft', '#5ab8d8'], ['w', 'ok', '#67c98a'],
+    ['m', 'warn', '#e8a04c'], ['q', 'event-soft', '#b489ff'],
+  ]) {
+    assert.ok(rule(`.mod-qn .per.${period}`).includes(`color: var(--${token});`))
+    assert.ok(darkPalette.includes(`--${token}: ${color};`))
   }
   // :where 内的层级不增加权重，未收录的三类选择器继续胜过普通编号的两类选择器。
   assert.match(rule('.mod-qn :where(.q-nm .t) .id'), /color: var\(--q-cat\);/)
@@ -269,64 +277,74 @@ test('任务行 CSS 仅窄态换行、铺满标题与进度、贯穿色条并隐
 
 // 旧值仅作迁移记录；逐类执行真实分类函数并钉住新值，覆盖所有细分色。
 const categoryMigration = [
-  ['limited', 'S1', '', 'var(--gold)', 'var(--gold)'],
-  ['formation', 'A1', '', '#67c98a', '#67c98a'],
-  ['sortie', 'B1', '', '#e06c75', '#e06c75'],
-  ['exercise', 'C1', '', '#5ab8d8', '#a3dc6f'],
-  ['expedition', 'D1', '', '#8fb8e0', '#3fcab4'],
-  ['supply', 'E1', '补给', '#c9a86a', '#e0c455'],
-  ['repair', 'E2', '入渠', '#d7a76f', '#d4b048'],
-  ['build', 'F1', '建造', '#a08a6a', '#b8895a'],
-  ['develop', 'F2', '开发', '#b69a75', '#c69a70'],
-  ['scrap', 'F3', '废弃', '#9d806d', '#ad805e'],
-  ['improve', 'F4', '改修', '#b489ff', '#b489ff'],
-  ['remodel', 'G1', '', '#c59aff', '#b489ff'],
+  ['limited', 'S1', '', 'var(--gold)', 'var(--gold)', 'var(--gold)'],
+  ['formation', 'A1', '', '#67c98a', 'var(--qcat-A)', '#67c98a'],
+  ['sortie', 'B1', '', '#e06c75', 'var(--qcat-B)', '#e06c75'],
+  ['exercise', 'C1', '', '#5ab8d8', 'var(--qcat-C)', '#a3dc6f'],
+  ['expedition', 'D1', '', '#8fb8e0', 'var(--qcat-D)', '#3fcab4'],
+  ['supply', 'E1', '补给', '#c9a86a', 'var(--qcat-E)', '#e0c455'],
+  ['repair', 'E2', '入渠', '#d7a76f', 'var(--qcat-E-repair)', '#d4b048'],
+  ['build', 'F1', '建造', '#a08a6a', 'var(--qcat-F)', '#b8895a'],
+  ['develop', 'F2', '开发', '#b69a75', 'var(--qcat-F-develop)', '#c69a70'],
+  ['scrap', 'F3', '废弃', '#9d806d', 'var(--qcat-F-scrap)', '#ad805e'],
+  ['improve', 'F4', '改修', '#b489ff', 'var(--qcat-G)', '#b489ff'],
+  ['remodel', 'G1', '', '#c59aff', 'var(--qcat-G)', '#b489ff'],
 ]
 
 test('十二种任务分类旧值到新值对照逐项精确匹配，模板沿用全部细分色', () => {
   assert.deepEqual(runtime.TASK_CATEGORIES.map(({ key }) => key), categoryMigration.map(([key]) => key))
-  for (const [key, code, name, previous, expected] of categoryMigration) {
+  for (const [key, code, name, previous, expected, dark] of categoryMigration) {
     runtime.invalidateQuestTextCache()
     const r = row({ code, name })
     assert.equal(runtime.categoryOf(r).key, key)
     assert.equal(runtime.categoryOf(r).color, expected, `${key}: ${previous} → ${expected}`)
+    assert.equal(paletteColor(expected), paletteColor(dark), `${key}: 深色保留裁定原值`)
     assert.ok(rowRuntime.rowHtml(r).includes(`style="--q-cat:${expected}"`), key)
   }
 })
 
 test('八种字母回退色精确匹配，工厂筛选与独立任务树共用同表', () => {
   assert.deepEqual(Object.fromEntries(Object.entries(CAT_META).map(([key, [, color]]) => [key, color])), {
-    A: '#67c98a', B: '#e06c75', C: '#a3dc6f', D: '#3fcab4',
-    E: '#e0c455', F: '#b8895a', G: '#b489ff', S: 'var(--gold)',
+    A: 'var(--qcat-A)', B: 'var(--qcat-B)', C: 'var(--qcat-C)', D: 'var(--qcat-D)',
+    E: 'var(--qcat-E)', F: 'var(--qcat-F)', G: 'var(--qcat-G)', S: 'var(--gold)',
   })
   for (const [letter, [, color]] of Object.entries(CAT_META)) {
     assert.equal(runtime.catColor(row({ code: `${letter}1` })), color)
   }
   assert.equal(runtime.CATEGORY_FILTERS.find(({ key }) => key === 'factory').color, CAT_META.F[1])
   const tree = fs.readFileSync(new URL('../src/renderer/quest-tree-window.ts', import.meta.url), 'utf8')
-  assert.match(qn, /import \{ CAT_META \} from '\.\.\/quest-category'/)
+  assert.match(qn, /import \{ CAT_META, CAT_DETAIL_COLORS \} from '\.\.\/quest-category'/)
   assert.match(tree, /import \{ CAT_META \} from '\.\/quest-category'/)
   const treeMeta = new Function('CAT_META', `${slice(tree, 'const CATEGORY_META', 'const STATUS_META')}\nreturn CATEGORY_META`)(CAT_META)
   assert.deepEqual(treeMeta, Object.fromEntries(Object.entries(CAT_META).map(([key, [label, color]]) => [key, { label, color }])))
   assert.doesNotMatch(qn + tree + categorySource, /#5ab8d8|#8fb8e0/)
 })
 
-test('具名分类按小字标准在 bg0 与 bg1 上均达到 4.5:1', () => {
-  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
-  const cssValue = (name) => {
-    const match = html.match(new RegExp(`${name}: (#[0-9a-f]{6});`))
-    assert.ok(match, name)
-    return match[1]
-  }
-  const luminance = (hex) => hex.slice(1).match(/../g).map((part) => parseInt(part, 16) / 255)
-    .map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
-    .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0)
+// 对共享 token 的两个主题分别实算，避免字符串换成 var() 后跳过色相与对比度。
+const paletteSource = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+const palettes = [...paletteSource.matchAll(/:root(?:\[data-theme="light"\])?\s*\{([^}]+)\}/g)]
+  .map(m => Object.fromEntries([...m[1].matchAll(/--([\w-]+):\s*(#[0-9a-f]{6});/g)].map(v => [v[1], v[2]])))
+const paletteColor = (value, mode = 0) => value.startsWith('var(') ? palettes[mode][value.slice(6, -1)] : value
+const luminance = hex => hex.slice(1).match(/../g).map(part => parseInt(part, 16) / 255)
+  .map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
+  .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0)
+const hue = hex => {
+  const [r, g, b] = hex.slice(1).match(/../g).map(v => parseInt(v, 16))
+  const max = Math.max(r, g, b), d = max - Math.min(r, g, b)
+  return d === 0 ? 0 : ((max === r ? (g - b) / d : max === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60 + 360) % 360
+}
+
+test('具名分类两个主题在 bg0 与 bg1 上均达到 4.5:1，浅色色相偏差不超过 15°', () => {
   const colors = [...runtime.TASK_CATEGORIES.map(({ color }) => color), ...Object.values(CAT_META).map(([, color]) => color)]
   for (const color of colors) {
-    const foreground = color.startsWith('var(') ? cssValue(color.slice(4, -1)) : color
-    for (const background of ['--bg0', '--bg1']) {
-      const ratio = (luminance(foreground) + 0.05) / (luminance(cssValue(background)) + 0.05)
-      assert.ok(ratio >= 4.5, `${color}/${background}: ${ratio.toFixed(2)}:1`)
+    const deviation = Math.abs(hue(paletteColor(color)) - hue(paletteColor(color, 1)))
+    assert.ok(Math.min(deviation, 360 - deviation) <= 15, color)
+    for (const mode of [0, 1]) {
+      for (const bg of ['bg0', 'bg1']) {
+        const a = luminance(paletteColor(color, mode)), b = luminance(palettes[mode][bg])
+        const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
+        assert.ok(ratio >= 4.5, color + '/' + bg + ': ' + ratio)
+      }
     }
   }
 })

@@ -1734,7 +1734,7 @@ const detailHtml = (e: Exped, now: number): string => {
       <div class="sec-h">收益 <span class="aux">基础值 · 大成功 ×1.5（资源）</span></div>
       <div class="gains">
         ${card(MATERIAL_NAMES[0], r.fuel, 'f', 0)}${card(MATERIAL_NAMES[1], r.ammo, 'a', 1)}${card(MATERIAL_NAMES[2], r.steel, 's', 2)}${card(MATERIAL_NAMES[3], r.baux, 'b', 3)}
-        <div class="gcard"><div class="k">经验</div><div class="v" style="color:#9ad0e0">${r.shipExp}<small>舰/${r.hqExp}提督</small></div></div>
+        <div class="gcard"><div class="k">经验</div><div class="v" style="color:var(--accent-soft)">${r.shipExp}<small>舰/${r.hqExp}提督</small></div></div>
       </div>
       ${netLine}
       <div class="gnote">
@@ -1770,8 +1770,8 @@ const detailHtml = (e: Exped, now: number): string => {
         <span class="badge w">${entityNameHtml('mapArea', e.mapArea, areaName, { compact: true })}</span>
         <span style="font-family:var(--mono);color:var(--dim)">${esc(expeditionLabel(e.apiId, mg.master.missions))}</span>
         ${e.difficulty > 0 ? `<span class="badge">难度 ${EXPEDITION_DIFFICULTY[e.difficulty] ?? e.difficulty}</span>` : ''}
-        ${w?.monthly ? '<span class="badge" style="color:#d8b8ff;border-color:#3d2c5c">月常</span>' : ''}
-        ${w?.combat ? `<span class="badge" style="color:var(--warn);border-color:#4a3a22">${esc(w.combat)}</span>` : ''}
+        ${w?.monthly ? '<span class="badge" style="color:var(--night-soft);border-color:var(--tint-night-period-line)">月常</span>' : ''}
+        ${w?.combat ? `<span class="badge" style="color:var(--warn);border-color:var(--tint-warn-muted-line)">${esc(w.combat)}</span>` : ''}
       </div>
       <h1><i>${esc(e.dispNo)}</i>${entityNameHtml('expedition', e.dispNo, w?.nameJp ?? e.name)}</h1>
       ${displayState ? `<div class="exp-state ${displayState.kind}"${displayState.kind === 'fresh' ? ' title="游戏里标 NEW：已解锁，还没远征过"' : ''}>${esc(displayState.label)}</div>` : ''}

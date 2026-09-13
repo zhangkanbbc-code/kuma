@@ -8,8 +8,8 @@ import { esc } from './kernel'
 import { sallyTagNameOf } from '../shared/sally-names'
 
 export const TAG_COLORS = [
-  '#67c98a', '#e8a04c', '#5ab8d8', '#b489ff', '#e06c75', '#8fb87a', '#c9a86a',
-  '#8fa8c0', '#e0a94a', '#7db4d8', '#d8b8ff', '#ff9fae', '#8fe0cc', '#e8c66a',
+  'var(--sally-1)', 'var(--sally-2)', 'var(--sally-3)', 'var(--sally-4)', 'var(--sally-5)', 'var(--sally-6)', 'var(--sally-7)',
+  'var(--sally-8)', 'var(--sally-9)', 'var(--sally-10)', 'var(--sally-11)', 'var(--sally-12)', 'var(--sally-13)', 'var(--sally-14)',
 ]
 
 export const sallyTagColor = (tag: number): string =>

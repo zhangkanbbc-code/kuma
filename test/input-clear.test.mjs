@@ -9,6 +9,7 @@ import { buildSync } from 'esbuild'
 const compile = (name) => buildSync({
   entryPoints: [fileURLToPath(new URL(`../src/renderer/${name}.ts`, import.meta.url))],
   bundle: true, write: false, platform: 'browser', format: 'cjs', logLevel: 'silent',
+  external: ['electron', '@electron/remote'],
 }).outputFiles[0].text
 const moduleCode = compile('input-clear')
 const browseCode = compile('browse-window')
@@ -92,13 +93,16 @@ function fixture(browse = false) {
     select() {}
   }
   const document = new Node()
+  document.documentElement = { dataset: {}, style: { removeProperty(name) { delete this[name] } } }
   document.body = new Node('body')
   document.activeElement = null
   const registry = new Map()
   document.querySelector = (selector) => registry.get(selector) ?? null
   document.createElement = (tag) => tag === 'input' ? new Input() : new Node(tag)
   const window = new Node()
+  window.kumaTheme = { get: () => Promise.resolve({ mode: 'dark', base: '' }), onChange: () => {} }
   const context = {
+    matchMedia: () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }),
     document, window, HTMLInputElement: Input, Event: FakeEvent,
     MutationObserver: class {
       constructor(callback) { this.callback = callback; this.targets = new Map(); observers.push(this) }

@@ -6,6 +6,10 @@
   <title>kuma · 完整任务树</title>
   <style>
     :root {
+      /* 字重沿用深色 400/600/400；浅色正文、强调与等宽数字各提一档。 */
+      --weight-body: 400;
+      --weight-strong: 600;
+      --weight-mono: 400;
       color-scheme: dark;
       --bg0: #0d1318;
       --bg1: #151c23;
@@ -28,6 +32,101 @@
       --scrollbar-thumb-active: #5c7b90;
       --mono: 'Cascadia Code', 'Consolas', monospace;
       font-family: 'Segoe UI', 'Microsoft YaHei UI', sans-serif;
+
+      /* 模板与调色数组颜色：保留深色原值，浅色按角色覆盖。 */
+      /* 任务分类：编成。 */
+      --qcat-A: #67c98a;
+      /* 任务分类：出击。 */
+      --qcat-B: #e06c75;
+      /* 任务分类：演习。 */
+      --qcat-C: #a3dc6f;
+      /* 任务分类：远征。 */
+      --qcat-D: #3fcab4;
+      /* 任务分类：补给与入渠。 */
+      --qcat-E: #e0c455;
+      /* 任务分类：工厂。 */
+      --qcat-F: #b8895a;
+      /* 任务分类：改装。 */
+      --qcat-G: #b489ff;
+      /* 模板与调色数组颜色结束。 */
+
+      /* 样式表语义颜色：按使用角色保留各档原值。 */
+      /* 选择按钮与任务分类悬停底。 */
+      --tint-accent-hover: #172733;
+      /* 任务树检查器面层底。 */
+      --inspector-surface: #111820;
+      /* 任务树筛选条面层。 */
+      --tree-filter-surface: #111920;
+      /* 任务树选中节点底。 */
+      --tint-accent-tree-selected: #152c3a;
+      /* 任务树关联按钮文字。 */
+      --accent-relation-soft: #b9dfff;
+      /* 任务树打开主窗按钮底。 */
+      --tint-accent-open: #152b39;
+      /* 任务树打开主窗按钮文字。 */
+      --accent-ink: #bfe6ff;
+      /* 任务树打开主窗按钮悬停底。 */
+      --tint-accent-open-hover: #183547;
+    }
+    :root[data-theme="light"] {
+      --weight-body: 500;
+      --weight-strong: 650;
+      --weight-mono: 500;
+      color-scheme: light;
+      --bg0: #f3f6f9;
+      --bg1: #ffffff;
+      --bg2: #eaf0f5;
+      --bg3: #dfe7ee;
+      --line: #b9c6d2;
+      --line-soft: #cbd6e0;
+      --text: #0f1720;
+      --sub: #3b4a59;
+      --dim: #526577;
+      --accent: #1773b2;
+      --accent-dim: #317bb7;
+      --gold: #765b0e;
+      --ok: #2a7d4f;
+      --warn: #82470a;
+      --bad: #c0392b;
+      --scrollbar-track: #d0dbe5;
+      --scrollbar-thumb: #b7c5d1;
+      --scrollbar-thumb-hover: #9db0bf;
+      --scrollbar-thumb-active: #859cae;
+
+      /* 模板与调色数组颜色：保留深色原值，浅色按角色覆盖。 */
+      /* 任务分类：编成。 */
+      --qcat-A: #2c7b48;
+      /* 任务分类：出击。 */
+      --qcat-B: #ce2b38;
+      /* 任务分类：演习。 */
+      --qcat-C: #49791e;
+      /* 任务分类：远征。 */
+      --qcat-D: #21796b;
+      /* 任务分类：补给与入渠。 */
+      --qcat-E: #806b17;
+      /* 任务分类：工厂。 */
+      --qcat-F: #8c643c;
+      /* 任务分类：改装。 */
+      --qcat-G: #833bff;
+      /* 模板与调色数组颜色结束。 */
+
+      /* 样式表语义颜色：按使用角色保留各档原值。 */
+      /* 选择按钮与任务分类悬停底。 */
+      --tint-accent-hover: #d5e6f1;
+      /* 任务树检查器面层底。 */
+      --inspector-surface: #eaf0f5;
+      /* 任务树筛选条面层。 */
+      --tree-filter-surface: #eaf0f5;
+      /* 任务树选中节点底。 */
+      --tint-accent-tree-selected: #d5e6f1;
+      /* 任务树关联按钮文字。 */
+      --accent-relation-soft: #197bbe;
+      /* 任务树打开主窗按钮底。 */
+      --tint-accent-open: #d5e6f1;
+      /* 任务树打开主窗按钮文字。 */
+      --accent-ink: #0f4f80;
+      /* 任务树打开主窗按钮悬停底。 */
+      --tint-accent-open-hover: #d5e6f1;
     }
     * {
       box-sizing: border-box;
@@ -76,7 +175,7 @@
     .tree-actions button:hover { color: var(--accent); border-color: var(--accent-dim); }
     .filter-row {
       flex: none; min-height: 38px; display: flex; align-items: center; gap: 9px;
-      padding: 5px 14px; border-bottom: 1px solid var(--line-soft); background: #111920;
+      padding: 5px 14px; border-bottom: 1px solid var(--line-soft); background: var(--tree-filter-surface);
     }
     .status-filters {
       min-width: 0; display: flex; align-items: center; gap: 4px;
@@ -87,7 +186,7 @@
       padding: 3px 7px; border-radius: 10px; font-size: 9.5px; white-space: nowrap;
     }
     .status-filters button:hover, .status-filters button.on {
-      border-color: var(--accent-dim); background: #172733; color: var(--text);
+      border-color: var(--accent-dim); background: var(--tint-accent-hover); color: var(--text);
     }
     .status-filters button i {
       width: 6px; height: 6px; border-radius: 50%; background: var(--state); flex: none;
@@ -144,7 +243,7 @@
     }
     .task-node:hover { border-color: var(--accent-dim); background: var(--bg2); color: var(--text); }
     .task-node.selected {
-      border-color: var(--accent); background: #152c3a;
+      border-color: var(--accent); background: var(--tint-accent-tree-selected);
       box-shadow: inset 2px 0 0 var(--accent);
     }
     .task-node.on-path { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
@@ -193,7 +292,7 @@
     }
     #tree-inspector {
       min-width: 0; display: flex; flex-direction: column; overflow: hidden;
-      border-left: 1px solid var(--line); background: #111820;
+      border-left: 1px solid var(--line); background: var(--inspector-surface);
     }
     .inspector-head {
       position: relative; flex: none; padding: 14px 14px 12px;
@@ -232,7 +331,7 @@
       white-space: pre-wrap;
     }
     .relation-list { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
-    .relation-list button { color: #b9dfff; font-size: 9.5px; text-align: left; }
+    .relation-list button { color: var(--accent-relation-soft); font-size: 9.5px; text-align: left; }
     .relation-list span { color: var(--dim); font-size: 9.5px; }
     /* 前置口径的双源说明：只有分歧/补缺/悬空时出现（与任务管理器同一份文案）。
        常驻只留这一枚短标，分歧内容全文进 title 悬停（族 14 收拢） */
@@ -243,9 +342,9 @@
     .open-main {
       flex: none; margin: 0 12px 12px; padding: 7px 10px;
       border: 1px solid var(--accent-dim); border-radius: 5px;
-      background: #152b39; color: #bfe6ff; font-size: 10px;
+      background: var(--tint-accent-open); color: var(--accent-ink); font-size: 10px;
     }
-    .open-main:hover { border-color: var(--accent); background: #183547; }
+    .open-main:hover { border-color: var(--accent); background: var(--tint-accent-open-hover); }
     .inspector-empty, .loading {
       height: 100%; display: grid; place-items: center; color: var(--dim);
       font-size: 11px; text-align: center;
@@ -259,6 +358,17 @@
       main { grid-template-columns: minmax(0, 1fr) 285px; }
       .task-node { max-width: 600px; }
     }
+    /* 浅色字重只覆盖对应旧档位；未声明数字字重的粗体及 700 标题保留。 */
+    :root[data-theme="light"] body,
+    :root[data-theme="light"] .chain-src-note { font-weight: var(--weight-body); }
+    :root[data-theme="light"] .status-filters button b,
+    :root[data-theme="light"] .shown-count,
+    :root[data-theme="light"] .task-node code,
+    :root[data-theme="light"] .child-count,
+    :root[data-theme="light"] .and-req,
+    :root[data-theme="light"] .inspector-head code { font-weight: var(--weight-mono); }
+    :root[data-theme="light"] .title b,
+    :root[data-theme="light"] .inspector-body h3 { font-weight: var(--weight-strong); }
   </style>
 </head>
 <body>

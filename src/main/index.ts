@@ -16,12 +16,15 @@ import config from './config'
 import { exitDistractWindow, installDistractWindow } from './distract-window'
 import { installCrashLogging, reportFatal } from './crash-log'
 import { installCrashDumps } from './crash-dumps'
+import { installThemePush, themeBackgroundColor } from './theme-push'
 import { installGameAudioPush } from './game-audio-push'
+import { installCaptionDodge } from './caption-dodge'
 import { attachApplicationHotkeys, installHotkeys } from './hotkeys'
 import { ROOT } from './env'
 import { installQuitGuard, reapOrphanKumaProcesses } from './quit-guard'
 import { flushShipArtPaths } from './ship-art-store'
 import { flushShipCostumes } from './ship-costume-store'
+import { flushEquipBook } from './equip-book-store'
 import { flushAbyssVoiceSightings } from './abyss-voice-sightings'
 import { flushVoiceArchive } from './voice-archive'
 import { flushArtArchive } from './art-archive'
@@ -93,6 +96,7 @@ require('./push') // 手机推送（Bark）：全仓唯一的推送出网点，�
 app.on('before-quit', () => flushShipArtPaths())
 // 衣装归属同理：学它要玩家在游戏里翻一遍图鉴，丢了就得再翻一遍
 app.on('before-quit', () => flushShipCostumes())
+app.on('before-quit', () => flushEquipBook())
 // 语音档案的索引同理：实物已经落盘了，索引丢了会让刚点亮的格子又灭回去
 app.on('before-quit', () => flushVoiceArchive())
 app.on('before-quit', () => flushAbyssVoiceSightings())
@@ -187,7 +191,7 @@ const openResourceTrendWindow = () => {
     minHeight: 480,
     title: 'kuma · 资源增减折线图',
     icon: appIcon,
-    backgroundColor: '#0d1318',
+    backgroundColor: themeBackgroundColor(),
     show: false,
     webPreferences: {
       nodeIntegration: true,
@@ -268,7 +272,7 @@ const openQuestTreeWindow = (rawFocusId?: unknown) => {
     minHeight: 600,
     title: 'kuma · 完整任务树',
     icon: appIcon,
-    backgroundColor: '#0d1318',
+    backgroundColor: themeBackgroundColor(),
     show: false,
     webPreferences: {
       nodeIntegration: true,
@@ -348,7 +352,7 @@ const openShipLifeWindow = (rawRosterId: unknown) => {
     minHeight: 520,
     title: 'kuma · 人生记录',
     icon: appIcon,
-    backgroundColor: '#0d1318',
+    backgroundColor: themeBackgroundColor(),
     show: false,
     webPreferences: {
       nodeIntegration: true,
@@ -457,7 +461,7 @@ const openBattleReplayWindow = (rawSnapshotId: unknown, sender: Electron.WebCont
     minHeight,
     title: '战斗复盘',
     icon: appIcon,
-    backgroundColor: '#0d1318',
+    backgroundColor: themeBackgroundColor(),
     show: false,
     webPreferences: {
       nodeIntegration: true,
@@ -592,7 +596,7 @@ app.on('ready', () => {
     height,
     title: 'kuma',
     icon: appIcon,
-    backgroundColor: '#0d1318',
+    backgroundColor: themeBackgroundColor(),
     show: false,
     webPreferences: {
       nodeIntegration: true,
@@ -605,6 +609,7 @@ app.on('ready', () => {
   mainWindow = win
   attachApplicationHotkeys(win.webContents)
   installHotkeys(() => mainWindow)
+  installThemePush()
 
   // 窗口一建好就露面，不等 ready-to-show（渲染层首帧）：2.2 MB 的渲染层 bundle 要解析
   // 执行完才有首帧，用户实机感受是「双击后要等两秒才弹窗」（2026-08-26 他裁）。
@@ -619,10 +624,9 @@ app.on('ready', () => {
   const trustedWebviewPreload = path.join(ROOT, 'assets', 'preload', 'webview-preload.js')
   let gameWebContentsId: number | null = null
 
-  installGameAudioPush({
-    config,
-    gameWebContents: () => gameWebContentsId == null ? null : webContents.fromId(gameWebContentsId),
-  })
+  const gameWebContents = () => gameWebContentsId == null ? null : webContents.fromId(gameWebContentsId)
+  installGameAudioPush({ config, gameWebContents })
+  installCaptionDodge({ hostWebContents: win.webContents, gameWebContents })
 
   // ---- 试听时压住游戏声音 ----
   // 渲染层任一试听真的在响就报一声（两个播放器的状态在 renderer/preview-audio 合并过，

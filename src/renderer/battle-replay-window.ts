@@ -1,3 +1,7 @@
+import { installThemeBoot } from './theme-boot'
+
+installThemeBoot()
+
 import {
   initKernel,
   initUiZoom,

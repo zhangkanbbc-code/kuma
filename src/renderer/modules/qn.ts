@@ -1,5 +1,5 @@
 import { renderQuestMarkHtml } from '../quest-mark-html'
-import { CAT_META } from '../quest-category'
+import { CAT_META, CAT_DETAIL_COLORS } from '../quest-category'
 import { expeditionLabel } from '../expedition-label'
 import { QUEST_SHIP_TYPE_GROUPS } from '../../shared/quest-ship-type-groups'
 import { taskEntityRawMarks } from '../task-entity-marks'
@@ -115,7 +115,7 @@ import type { LodeMeta } from '../kernel'
 import type { QpFleetCheck, QpFleetGoal, QpState, QpStockGoal, QpTask } from '../../shared/qp-types'
 import { isEventMapArea, mapCodeOf } from '../../shared/map-id'
 
-interface LibQuest {
+export interface LibQuest {
   id: number
   code: string
   name: string
@@ -648,50 +648,50 @@ const TASK_CATEGORIES: QuestCategory[] = [
     color: 'var(--gold)',
     test: (row) => catOf(row) === 'S' || /限时|限定|节分|秋刀鱼|新春|初夏|周年/.test(questText(row)),
   },
-  { key: 'formation', label: '编成', color: '#67c98a', test: (row) => catOf(row) === 'A' },
-  { key: 'sortie', label: '出击', color: '#e06c75', test: (row) => catOf(row) === 'B' },
-  { key: 'exercise', label: '演习', color: '#a3dc6f', test: (row) => catOf(row) === 'C' },
-  { key: 'expedition', label: '远征', color: '#3fcab4', test: (row) => catOf(row) === 'D' },
+  { key: 'formation', label: '编成', color: CAT_META.A[1], test: (row) => catOf(row) === 'A' },
+  { key: 'sortie', label: '出击', color: CAT_META.B[1], test: (row) => catOf(row) === 'B' },
+  { key: 'exercise', label: '演习', color: CAT_META.C[1], test: (row) => catOf(row) === 'C' },
+  { key: 'expedition', label: '远征', color: CAT_META.D[1], test: (row) => catOf(row) === 'D' },
   {
     key: 'supply',
     label: '补给',
-    color: '#e0c455',
+    color: CAT_META.E[1],
     test: (row) => catOf(row) === 'E' && !/入渠|修理/.test(questText(row)),
   },
   {
     key: 'repair',
     label: '入渠',
-    color: '#d4b048',
+    color: CAT_DETAIL_COLORS.repair,
     test: (row) => catOf(row) === 'E' && /入渠|修理/.test(questText(row)),
   },
   {
     key: 'build',
     label: '建造',
-    color: '#b8895a',
+    color: CAT_META.F[1],
     test: (row) => catOf(row) === 'F' && /建造|造舰/.test(questText(row)),
   },
   {
     key: 'develop',
     label: '开发',
-    color: '#c69a70',
+    color: CAT_DETAIL_COLORS.develop,
     test: (row) => catOf(row) === 'F' && /开发/.test(questText(row)),
   },
   {
     key: 'scrap',
     label: '废弃',
-    color: '#ad805e',
+    color: CAT_DETAIL_COLORS.scrap,
     test: (row) => catOf(row) === 'F' && /废弃|拆解|销毁/.test(questText(row)),
   },
   {
     key: 'improve',
     label: '改修',
-    color: '#b489ff',
+    color: CAT_META.G[1],
     test: (row) => ['F', 'G'].includes(catOf(row)) && /改修|强化装备/.test(questText(row)),
   },
   {
     key: 'remodel',
     label: '改造',
-    color: '#b489ff',
+    color: CAT_META.G[1],
     test: (row) => catOf(row) === 'G' || /改造|改装/.test(questText(row)),
   },
 ]
@@ -901,12 +901,12 @@ const FLAG_TEXT = (flag: number) => (flag === 2 ? '≥80%' : flag === 1 ? '≥50
 
 const progressHtml = (row: QRow) => {
   if (isInferredCompleted(row)) {
-    return `<span class="q-prog" title="完成依据：后续任务已解锁"><span class="pb"><i style="width:100%;background:linear-gradient(90deg,#3f806b,var(--ok))"></i></span>
+    return `<span class="q-prog" title="完成依据：后续任务已解锁"><span class="pb"><i style="width:100%;background:linear-gradient(90deg,var(--meter-quest-unlocked),var(--ok))"></i></span>
       <span class="pt"><span class="q-prog-label">链上确认</span><span>100%</span></span></span>`
   }
   if (!row.observed) return '<span class="q-prog"><span class="pt"><span class="q-prog-label">资料</span><span>—</span></span></span>'
   if (row.observed.state === 3) {
-    return `<span class="q-prog"><span class="pb"><i style="width:100%;background:linear-gradient(90deg,#b8973a,var(--gold))"></i></span>
+    return `<span class="q-prog"><span class="pb"><i style="width:100%;background:linear-gradient(90deg,var(--meter-gold-start),var(--gold))"></i></span>
       <span class="pt"><span class="q-prog-label">完成</span><span>100%</span></span></span>`
   }
   const flag = row.observed.progressFlag
@@ -975,8 +975,8 @@ const rowHtml = (row: QRow) => {
     const precise = qpOf(row)
     tag =
       precise && precise.pct >= 100
-        ? '<span class="st-tag" style="color:var(--gold);border-color:#4a3f22" title="本地计数已完成 · 打开任务界面后由游戏确认">预估完成</span>'
-        : '<span class="st-tag" style="color:var(--accent);border-color:#2a4a5e">进行中</span>'
+        ? '<span class="st-tag" style="color:var(--gold);border-color:var(--tint-gold-line)" title="本地计数已完成 · 打开任务界面后由游戏确认">预估完成</span>'
+        : '<span class="st-tag" style="color:var(--accent);border-color:var(--tint-accent-line)">进行中</span>'
   } else if (observed?.state === 1) {
     tag = qpOf(row)
       ? '<span class="st-tag paused" title="取消任务不会清除本地计数">已暂停</span>'
@@ -1106,6 +1106,35 @@ const equipEntityHtml = (entry: EntityNameIndex) =>
     `<span class="entity-visual">${equipTypeIconHtml(mg.master.slotitems[entry.id]?.iconId ?? 0, { className: 'xs', title: entityNamePlain('equip', entry.id, entry.name) })}${elink('mstEquip', entry.id, entry.name)}</span>`,
   )
 
+// 海域只从出击/复合演习任务的正文反查。远征和工厂说明里的同名作战、
+// 前置任务海域不能反向污染本任务；追踪器结构化地图始终优先。
+const questMapRefs = (
+  row: LibQuest,
+  tracker: QpState['trackers'][number] | undefined,
+  collectMatches?: (hits: ReturnType<typeof matchTaskEntityHits>, refs: Set<number>) => void,
+): number[] => {
+  const goalLabels = (tracker?.fleetGoal?.groups ?? []).map((group) => group.label).join(' ')
+  const text = `${row.name} ${row.desc} ${taskEntityMemoText(row.memo2)} ${goalLabels}`
+  const allowTextMaps = taskEntityTextDomainAllowed('map', row.code)
+  const mapHits = allowTextMaps ? matchTaskEntityHits(mapNameIndex, text, 2) : []
+  const mapRefs = new Set<number>(allowTextMaps ? mapIdsInText(text) : [])
+  mapHits.forEach((hit) => mapRefs.add(hit.entry.id))
+  for (const task of tracker?.tasks ?? []) {
+    if ('map' in task) mapRefs.add(task.map[0] * 10 + task.map[1])
+  }
+  // 抽屉还用命中范围排除海域名里的舰娘名，用过滤前集合判断活动系统入口。
+  collectMatches?.(mapHits, mapRefs)
+  return [...mapRefs]
+    .filter((id) => mapIds.has(id))
+    .sort((a, b) => a - b)
+}
+
+export const questsInvolvingMap = (mapId: number): LibQuest[] =>
+  [...lib.values()].filter((quest) => {
+    const tracker = qp?.trackers[quest.id]
+    return questMapRefs(quest, tracker).includes(mapId)
+  })
+
 // 正文、精确编成条件与计数任务共同反查；奖励文本不参与，避免把奖励舰娘误列成任务要求。
 // 编成条件那一份取 fleetGoal 各组的 label（「海風改二」「山風 / 江風 / 涼風」这种），
 // 它就是从任务正文与主数据解出来的具名串。EO 条件树 2026-08-21 整层退场后，
@@ -1120,18 +1149,12 @@ const entityChipsHtml = (row: QRow) => {
   // 与下面几处 matchTaskEntityHits 的 acceptAlias 同坐标系（见 nationalityRangesInPackedText）
   const nationalityRanges = nationalityRangesInPackedText(text)
 
-  // 海域只从出击/复合演习任务的正文反查。远征和工厂说明里的同名作战、
-  // 前置任务海域不能反向污染本任务；追踪器结构化地图始终优先。
-  const allowTextMaps = taskEntityTextDomainAllowed('map', row.code)
-  const mapHits = allowTextMaps ? matchTaskEntityHits(mapNameIndex, text, 2) : []
-  const mapRefs = new Set<number>(allowTextMaps ? mapIdsInText(text) : [])
-  mapHits.forEach((hit) => mapRefs.add(hit.entry.id))
-  for (const task of tracker?.tasks ?? []) {
-    if ('map' in task) mapRefs.add(task.map[0] * 10 + task.map[1])
-  }
-  const maps = [...mapRefs]
-    .filter((id) => mapIds.has(id))
-    .sort((a, b) => a - b)
+  let mapHits: ReturnType<typeof matchTaskEntityHits> = []
+  let mapRefs = new Set<number>()
+  const maps = questMapRefs(row, tracker, (hits, refs) => {
+    mapHits = hits
+    mapRefs = refs
+  })
     .map((id) => {
       const entry = mapNameIndex.find((map) => map.id === id)
       const label = entry?.simple.includes('-') ? entry.name : mapCodeOf(id)
@@ -2091,7 +2114,7 @@ const expeditionTogetherHtml = (row: QRow): string => {
       const quest = lib.get(questId)!
       const statusTag =
         status === 'active'
-          ? '<span class="st-tag mini" style="color:var(--accent);border-color:#2a4a5e">进行中</span>'
+          ? '<span class="st-tag mini" style="color:var(--accent);border-color:var(--tint-accent-line)">进行中</span>'
           : status === 'open'
             ? '<span class="st-tag mini dim">未领取</span>'
             : ''

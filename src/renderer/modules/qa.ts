@@ -759,7 +759,7 @@ const previewHtml = (row: Row) => {
         ? `条件已满足 ✓${row.kai.blueprint ? `<br>${esc(row.kai.blueprint)}` : ''}`
         : `${row.kai.state === 'flip' ? '双向转换 · ' : ''}距转换等级 ${row.kai.gap} 级${row.kai.expGap != null ? ` · 总${row.kai.expGap.toLocaleString()}` : ''}`
     chainHtml = `<span class="pv-node on">${entityNameHtml('ship', ship.shipId, name, { compact: true })}</span><span class="pv-arr">${req}</span>
-      <span class="pv-node"${row.kai.state === 'ready' ? ' style="border-color:var(--ok);color:#a5e0bb"' : ''}>${esc(row.kai.next)}</span>`
+      <span class="pv-node"${row.kai.state === 'ready' ? ' style="border-color:var(--ok);color:var(--remodel-ready-ink)"' : ''}>${esc(row.kai.next)}</span>`
   }
   return `
     ${shipThumbHtml(ship.shipId, name, { className: 'preview' })}

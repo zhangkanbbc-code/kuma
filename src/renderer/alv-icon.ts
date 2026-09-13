@@ -15,28 +15,28 @@
 // 装备类别图标那边用的是 poi 的 **SVG**（MIT，poi 自绘），性质不同，保持原样。
 
 /** 竖杠档（1–3）与斜杠档（4–6）的配色。7 单独一档 */
-const BAR_COLOR = '#7db4d8'
-const SLASH_COLOR = '#e8a33d'
-const CHEVRON_COLOR = '#e8c66a'
+const BAR_COLOR = 'var(--alv-bar)'
+const SLASH_COLOR = 'var(--alv-slash)'
+const CHEVRON_COLOR = 'var(--alv-chevron)'
 
 const bars = (n: number): string =>
   Array.from({ length: n }, (_, i) => {
     const x = 5 + i * 5
-    return `<rect x="${x}" y="3" width="2.6" height="14" rx="1.1" fill="${BAR_COLOR}" />`
+    return `<rect x="${x}" y="3" width="2.6" height="14" rx="1.1" style="fill:${BAR_COLOR}" />`
   }).join('')
 
 const slashes = (n: number): string =>
   Array.from({ length: n }, (_, i) => {
     const x = 4.5 + i * 5
-    return `<path d="M${x + 3} 3 L${x} 17" stroke="${SLASH_COLOR}" stroke-width="2.6" stroke-linecap="round" />`
+    return `<path d="M${x + 3} 3 L${x} 17" stroke-width="2.6" stroke-linecap="round" style="stroke:${SLASH_COLOR}" />`
   }).join('')
 
 const chevrons = (): string =>
   [0, 5.5]
     .map(
       (dx) =>
-        `<path d="M${6 + dx} 4 L${11 + dx} 10 L${6 + dx} 16" fill="none" stroke="${CHEVRON_COLOR}"
-          stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />`,
+        `<path d="M${6 + dx} 4 L${11 + dx} 10 L${6 + dx} 16" fill="none"
+          stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="stroke:${CHEVRON_COLOR}" />`,
     )
     .join('')
 

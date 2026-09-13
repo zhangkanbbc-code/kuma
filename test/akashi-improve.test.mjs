@@ -120,6 +120,7 @@ let eo: any;
 const friendlyEquips = { get: () => e }, eoByEquip = { get: () => eo }, equipTypes = new Map();
 const eoLode = null, improveCoverageMax = 0, LENG_LABEL = {};
 const equipInstancesOf = () => [], equipStatValues = () => [], equippedInstIds = () => new Set();
+const equipHeldOnce = () => false;
 const equipTypeIconHtml = () => '', entityNamePlain = (_d: any, _id: any, fallback: string) => fallback;
 const improvePackUncovered = () => true;
 const route = { ${peek} };

@@ -12,6 +12,7 @@
 //    2026-09-07 新增分心模式玩家卡后，现为发行版 24 张 / 调试 26 张。
 //
 // 2026-09-08：实验性彩蛋新增一张玩家卡，发行版 25 张 / 调试 27 张。
+// 2026-09-13：外观卡排在游戏画面前，字幕字号顺延；发行版 27 张 / 调试 29 张。
 // 类名用玩家词汇、两三个字：页签是给人扫一眼定位的，不是分类学。
 
 export type SettingsSectionId = 'ui' | 'archive' | 'network' | 'lode' | 'health' | 'experimental'
@@ -23,6 +24,7 @@ export type SettingsSectionId = 'ui' | 'archive' | 'network' | 'lode' | 'health'
 export type SettingsCardId =
   | 'fairy-salvo'
   | 'zoom'
+  | 'theme'
   | 'game-scale'
   | 'caption-size'
   | 'ui-hints'
@@ -73,6 +75,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     // 隔开摆的话，改完倍率要翻页才看得见字幕跟着变成了多少
     cards: [
       'zoom',
+      'theme',
       'game-scale',
       'caption-size',
       'ui-hints',

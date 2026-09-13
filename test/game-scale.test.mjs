@@ -237,10 +237,11 @@ test('自适应模式下选中的档位一律不参与计算', () => {
 const UI = { [SETTINGS_SECTION_UI_KEY]: 'ui' }
 const cardOf = (yu) => cardHtml(yu.pane.innerHTML, 'game-scale')
 
-test('卡摆在「界面」类里，紧跟界面缩放', () => {
+test('卡摆在「界面」类里，紧跟外观且位于界面缩放之后', () => {
   assert.equal(settingsSectionOf('game-scale'), 'ui')
   const cards = cardsIn(mountYu({ ui: UI }).pane.innerHTML)
-  assert.equal(cards[cards.indexOf('game-scale') - 1], 'zoom')
+  assert.equal(cards[cards.indexOf('game-scale') - 1], 'theme')
+  assert.ok(cards.indexOf('zoom') < cards.indexOf('game-scale'))
 })
 
 test('没改过的人开出来仍是自适应，档位那一行不摆', () => {

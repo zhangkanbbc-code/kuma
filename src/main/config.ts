@@ -30,12 +30,15 @@ const DEFAULTS: Record<string, unknown> = {
     dmmcookie: true,
     // 把 dmm 域会话 cookie 复写为持久 cookie，重启免登录
     persistLogin: true,
+    theme: 'dark', // 界面配色 dark/light/system
+    themeBase: '',
     disablenetworkalert: false,
     cache: { path: DEFAULT_CACHE_PATH },
     // 静态美术/语音服务器与账号镇守府绑定；记住上次识别结果，重启后无需等登录 API。
     lastGameHost: '',
     // 游戏画面上的语音字幕/战斗弹幕；关闭只影响文字，不影响游戏原声。
     voiceCaptions: true,
+    voiceCaptionDodge: true, // 指针停在字幕上时淡出
     voiceCaptionsSpecial: VOICE_CAPTION_SPECIAL_DEFAULT,
     // 游戏实际播放的总音量、语音/BGM 分项增益与内容过滤；不改游戏自身设置。
     gameAudio: { volume: 1, voiceVolume: 1, bgmVolume: 1, mode: 'all' },

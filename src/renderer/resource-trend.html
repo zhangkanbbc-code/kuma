@@ -6,6 +6,10 @@
   <title>kuma · 资源增减折线图</title>
   <style>
     :root {
+      /* 字重沿用深色 400/600/400；浅色正文、强调与等宽数字各提一档。 */
+      --weight-body: 400;
+      --weight-strong: 600;
+      --weight-mono: 400;
       color-scheme: dark;
       --bg0: #0d1318;
       --bg1: #121a21;
@@ -32,6 +36,61 @@
       --scrollbar-thumb-active: #5c7b90;
       --mono: 'Maple Mono NF CN', 'Cascadia Code', 'Consolas', monospace;
       font-family: 'Segoe UI', 'Microsoft YaHei UI', sans-serif;
+
+      /* 模板与调色数组颜色：保留深色原值，浅色按角色覆盖。 */
+      /* 资源趋势高速修复材曲线与读数。 */
+      --trend-bucket: #7ac9b8;
+      /* 模板与调色数组颜色结束。 */
+
+      /* 样式表语义颜色：按使用角色保留各档原值。 */
+      /* 选中钮与计数徽章上的字。 */
+      --on-accent: #fff;
+      /* 资源趋势坐标轴文字。 */
+      --chart-axis-soft: #6c8291;
+      /* 资源趋势网格线。 */
+      --chart-grid-line: #263744;
+    }
+    :root[data-theme="light"] {
+      --weight-body: 500;
+      --weight-strong: 650;
+      --weight-mono: 500;
+      color-scheme: light;
+      --bg0: #f3f6f9;
+      --bg1: #ffffff;
+      --bg2: #eaf0f5;
+      --bg3: #dfe7ee;
+      --line: #b9c6d2;
+      --line-soft: #cbd6e0;
+      --text: #0f1720;
+      --sub: #3b4a59;
+      --dim: #526577;
+      --accent: #1773b2;
+      --accent-dim: #317bb7;
+      --ok: #2a7d4f;
+      --bad: #c0392b;
+      --gold: #765b0e;
+      --r-fuel: #4f7a3a;
+      --r-ammo: #524012;
+      --r-steel: #4f6b86;
+      --r-baux: #996408;
+      --r-repair: #267c6b;
+      --scrollbar-track: #d0dbe5;
+      --scrollbar-thumb: #b7c5d1;
+      --scrollbar-thumb-hover: #9db0bf;
+      --scrollbar-thumb-active: #859cae;
+
+      /* 模板与调色数组颜色：保留深色原值，浅色按角色覆盖。 */
+      /* 资源趋势高速修复材曲线与读数。 */
+      --trend-bucket: #317869;
+      /* 模板与调色数组颜色结束。 */
+
+      /* 样式表语义颜色：按使用角色保留各档原值。 */
+      /* 选中钮与计数徽章上的字。 */
+      --on-accent: #ffffff;
+      /* 资源趋势坐标轴文字。 */
+      --chart-axis-soft: #1b2733;
+      /* 资源趋势网格线。 */
+      --chart-grid-line: #eaf0f5;
     }
     * {
       box-sizing: border-box;
@@ -68,7 +127,7 @@
       padding: 3px 10px; font-size: 11px;
     }
     .rchip:hover, .schip:hover { border-color: var(--accent-dim); color: var(--text); }
-    .rchip.on { border-color: var(--accent-dim); background: var(--accent-dim); color: #fff; }
+    .rchip.on { border-color: var(--accent-dim); background: var(--accent-dim); color: var(--on-accent); }
     .schip { display: inline-flex; align-items: center; gap: 5px; background: var(--bg1); }
     .entity-term { color: var(--entity-color, var(--sub)); }
     .e-material-0 { --entity-color: var(--r-fuel); }
@@ -87,9 +146,9 @@
     }
     .chart-wrap { flex: 1; min-height: 0; display: grid; place-items: center; }
     svg.chart { width: 100%; height: auto; min-height: 360px; max-height: calc(100vh - 190px); display: block; }
-    .axis { font-family: var(--mono); font-size: 9px; fill: #6c8291; }
-    .gline { stroke: #263744; stroke-width: 1; }
-    .capline { stroke: #efab30; stroke-width: 1; stroke-dasharray: 4 3; opacity: .65; }
+    .axis { font-family: var(--mono); font-size: 9px; fill: var(--chart-axis-soft); }
+    .gline { stroke: var(--chart-grid-line); stroke-width: 1; }
+    .capline { stroke: var(--r-baux); stroke-width: 1; stroke-dasharray: 4 3; opacity: .65; }
     polyline.res { fill: none; stroke-width: 1.8; stroke-linejoin: round; }
     .event-band { fill: color-mix(in srgb, var(--gold) 7%, transparent); }
     .event-start { stroke: var(--gold); stroke-width: 1; stroke-dasharray: 2 3; opacity: .55; }
@@ -140,6 +199,10 @@
       .chart-card { padding: 10px; }
       svg.chart { min-height: 300px; }
     }
+    /* 浅色字重只覆盖对应旧档位；未声明数字字重的粗体及 700 标题保留。 */
+    :root[data-theme="light"] body { font-weight: var(--weight-body); }
+    :root[data-theme="light"] .chart-op text { font-weight: var(--weight-mono); }
+    :root[data-theme="light"] .trend-title b { font-weight: var(--weight-strong); }
   </style>
 </head>
 <body>

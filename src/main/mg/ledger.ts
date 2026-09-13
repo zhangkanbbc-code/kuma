@@ -827,14 +827,14 @@ class Ledger {
     try {
       return this.db
         .prepare(
-          `SELECT id, body FROM events
+          `SELECT id, ts, body, post_body FROM events
            WHERE path = '/kcsapi/api_get_member/picture_book' AND body IS NOT NULL AND id > ?
            ORDER BY id ASC LIMIT ?`,
         )
         .all(
           Math.max(0, Math.floor(afterId) || 0),
           Math.max(1, Math.min(5000, Math.floor(limit))),
-        ) as { id: number; body: string }[]
+        ) as { id: number; ts: number; body: string; post_body: string | null }[]
     } catch (e) {
       console.warn('[kuma] mg: picture_book query failed', e)
       return []

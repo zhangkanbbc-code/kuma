@@ -1,3 +1,5 @@
+import { equipHeldOnce, equipBookPagesRead } from '../equip-book'
+import { EQUIP_BOOK_PAGE_SIZE } from '../../shared/equip-book'
 import { akashiImproveItem } from '../../shared/akashi-improve'
 import { canDeferCatalogRow, canDeferCatalogRows } from '../../shared/catalog-row-layout'
 import { remodelCycles, remodelStagesFor, REMODEL_STAGE_COPY, type RemodelHistory, type RemodelStage } from '../../shared/remodel-stage'
@@ -236,7 +238,8 @@ import {
   refreshStockViewIfEquipmentChanged,
   setStockViewOpener,
 } from './equip-stock'
-import { questByCode, questVerdicts, questsAwarding, questsAwardingMaterial, questsMentioning, searchInManager } from './qn'
+import { questByCode, questVerdicts, questsAwarding, questsAwardingMaterial, questsInvolvingMap, questsMentioning, searchInManager } from './qn'
+import type { LibQuest } from './qn'
 import { QUEST_AVAILABILITY_LABEL } from '../../shared/quest-availability'
 import type { QuestAvailability, QuestVerdict } from '../../shared/quest-availability'
 import {
@@ -440,12 +443,7 @@ const equipObtainHtml = (mstId: number, jpName: string): string => {
   </div>`
 }
 
-const relatedQuestsHtml = (
-  terms: string[],
-  domain: 'ship' | 'equip' | 'item',
-  exclude?: Set<number>,
-) => {
-  const quests = questsMentioning(terms, domain).filter((q) => !exclude?.has(q.id))
+const relatedQuestsSectionHtml = (quests: LibQuest[]) => {
   if (!quests.length) return ''
   const verdicts = questVerdicts()
   const ordered = [...quests].sort((left, right) => {
@@ -486,6 +484,18 @@ const relatedQuestsHtml = (
     ${summary ? `<div class="q-rel-sum">${esc(summary)}</div>` : ''}
     ${rows}${note}</div>`
 }
+
+const relatedQuestsHtml = (
+  terms: string[],
+  domain: 'ship' | 'equip' | 'item',
+  exclude?: Set<number>,
+) => {
+  const quests = questsMentioning(terms, domain).filter((q) => !exclude?.has(q.id))
+  return relatedQuestsSectionHtml(quests)
+}
+
+const mapRelatedQuestsHtml = (mapId: number) =>
+  relatedQuestsSectionHtml(questsInvolvingMap(mapId))
 
 import type { LodeMeta } from '../kernel'
 import type {
@@ -868,7 +878,7 @@ let eoByEquip: Map<number, any> = new Map() // equip mst id → 改修条目(EO 
 // 每次渲染都要问，逐次扫全表就是白扫（同注册表「别在渲染里逐条扫全表」那条）。
 let improveCoverageMax = 0
 
-const RARITY_COLOR =['', '#8095a8', '#7db4d8', '#79c0ea', '#9ad0e0', '#c9a86a', '#b489ff', '#6ee7ff', '#e8c66a']
+const RARITY_COLOR = ['', 'var(--rarity-1)', 'var(--rarity-2)', 'var(--rarity-3)', 'var(--rarity-4)', 'var(--rarity-5)', 'var(--rarity-6)', 'var(--rarity-7)', 'var(--rarity-8)']
 const RARITY_LABEL = ['', '普通', '普通', '稀有', 'S稀有', 'SS稀有', 'S虹', '虹', 'SS虹']
 // 第 5 档游戏写作「超長+」:玩家侧只有 Ho229,深海侧 8 件(深海空超要塞等)。
 // 旧表只到 4,Ho229 的射程曾因此显示成「—」。
@@ -1111,6 +1121,7 @@ const collapsedShipClasses = new Set<number>(
   uiGet<number[]>('ji.collapsedShipClasses', []).filter((id) => Number.isInteger(id) && id > 0),
 )
 const equipState = {
+  once: false,
   search: '',
   chip: '全部',
   typeFilter: 0,
@@ -1953,7 +1964,7 @@ const huntPlanHtml = (): string => {
 const shipCatalogRowHtml = (root: any): string => {
   const has = chainInstances(root.api_id).length > 0
   const favorite = isFavoriteShipRoot(root.api_id)
-  const color = has ? (RARITY_COLOR[root.api_backs] ?? '#7db4d8') : '#3a4a58'
+  const color = has ? (RARITY_COLOR[root.api_backs] ?? 'var(--rarity-2)') : 'var(--disabled-soft)'
   const on = root.api_id === shipState.selectedRoot && shipState.open
   const yomi = `${root.api_yomi ?? ''}`.trim()
   const subline = [
@@ -5515,6 +5526,7 @@ const equipMatches = (e: any) => {
   // chip 那一层仍按种别——高角炮在分组意义上照旧是主炮，别顺手改坏
   if (equipState.typeFilter && equipCategoryOf(e) !== equipState.typeFilter) return false
   if (!equipChipMatches(equipState.chip, cat, t0)) return false
+  if (equipState.once && (equipInstancesOf(e.api_id).length !== 0 || !equipHeldOnce(e.api_id))) return false
   if (equipState.search) {
     // searchFold:全半角/重音同折(2026-08-12 实锤 Modèle 1927/全角斜线搜不到)
     const q = searchFold(equipState.search)
@@ -5895,6 +5907,7 @@ const equipCatalogHtml = () => {
   // 调了 equipMatches），只是这一栏没渲染出来，看着像不能筛
   const chipsRow = `
     <div class="type-chips">${EQUIP_CHIPS.map((label) => `<span class="chip${label === equipState.chip && !equipState.typeFilter ? ' on' : ''}" data-chip="${label}">${label}</span>`).join('')}
+      <span class="chip${equipState.once ? ' on' : ''}" data-equip-once>曾持有</span>
       <span class="chip more${moreCategoriesOpen ? ' on' : ''}" data-more-cat title="按装备类别逐个筛选（共 ${equipTypes.size} 类）">更多分类 ${
         moreCategoriesOpen ? '▴' : '▾'
       }</span>
@@ -5913,7 +5926,7 @@ const equipCatalogHtml = () => {
     const ready = rows.filter((row) => row.ready).length
     // chip 与搜索本来就在筛这一页（todayImprovementRows 里调了 equipMatches），
     // 只是抬头没说，看着像「今天就这么几条」
-    const filtered = !!(equipState.chip !== '全部' || equipState.typeFilter || equipState.search)
+    const filtered = !!(equipState.chip !== '全部' || equipState.typeFilter || equipState.search || equipState.once)
     const grouped = todayImprovementGroupsHtml(rows)
     return `${searchAndMode}
       ${chipsRow}
@@ -5946,10 +5959,11 @@ const equipCatalogHtml = () => {
         .sort((a, b) => a.api_id - b.api_id)
         .map((e) => {
           const count = equipInstancesOf(e.api_id).length
+          const once = equipHeldOnce(e.api_id)
           const on = e.api_id === equipState.selected && equipState.open
-          return `<div class="row${count ? '' : ' ghost'}${on ? ' on' : ''}" data-equip="${e.api_id}" style="--rc:${count ? '#7db4d8' : '#3a4a58'}">
+          return `<div class="row${count ? '' : once ? ' ghost once' : ' ghost'}${on ? ' on' : ''}" data-equip="${e.api_id}" style="--rc:${count ? 'var(--rarity-2)' : once ? 'var(--ghost-once-soft)' : 'var(--disabled-soft)'}">
             <div class="face eqface">${equipTypeIconHtml(Array.isArray(e.api_type) ? e.api_type[3] : 0, { className: 'lg', title: entityNamePlain('equip', e.api_id, e.api_name) })}</div>
-            <div class="nm"><b>${entityNameHtml('equip', e.api_id, e.api_name, { compact: true })}</b><span>${'★'.repeat(Math.min(e.api_rare ?? 0, 5))}${count ? ` · 持有 ×${count}` : ' · 未持有'}</span></div>
+            <div class="nm"><b>${entityNameHtml('equip', e.api_id, e.api_name, { compact: true })}</b><span>${'★'.repeat(Math.min(e.api_rare ?? 0, 5))}${count ? ` · 持有 ×${count}` : once ? ' · 曾持有' : ' · 未持有'}</span></div>
           </div>`
         })
         .join('')
@@ -5970,21 +5984,36 @@ const equipCatalogHtml = () => {
 }
 
 /**
- * 装备卷的收集度。舰娘卷一直有这一条，装备卷没有——数字现成（持有过就算），
- * 只是没画出来。
- *
- * 口径与舰娘卷一致：分母是图鉴里的**款数**（主数据里的敌我可见装备），
- * 分子是当前手上还有至少一件的款数。装备会被拆、被改修消耗，
- * 所以这是「现在有」而不是「见过」——图鉴没有装备的图鉴号，
- * 游戏本身也不记「曾经持有」，这一点在脚注里说清楚，不装成收集进度。
+ * 装备卷收集度按款数统计：分母是主数据里的敌我可见装备。
+ * 解锁状态来自游戏自己回的图鉴页报文，只对翻过的页可知；
+ * 未翻的页按未持有显示，库存见过记录可补充曾持有，当前实例优先显示持有。
  */
 const equipCollectionFootHtml = (): string => {
   const total = friendlyEquips.size
   if (!total) return ''
   let held = 0
-  for (const id of friendlyEquips.keys()) if (equipInstancesOf(id).length) held++
-  const pct = (held / total) * 100
-  return `<div class="index-foot">当前持有 <b style="color:var(--text)">${held}</b> / ${total} 款
+  let unlocked = 0
+  let maxSortno = 0
+  for (const [id, equip] of friendlyEquips) {
+    const owns = equipInstancesOf(id).length > 0
+    if (owns) held++
+    if (owns || equipHeldOnce(id)) unlocked++
+    maxSortno = Math.max(maxSortno, equip.api_sortno || 0)
+  }
+  const totalPages = Math.ceil(maxSortno / EQUIP_BOOK_PAGE_SIZE)
+  const pages = equipBookPagesRead().filter((p) => p <= totalPages)
+  const ranges: string[] = []
+  for (let i = 0; i < pages.length; i++) {
+    const start = pages[i]
+    let end = start
+    while (i + 1 < pages.length && pages[i + 1] === end + 1) end = pages[++i]
+    ranges.push(start === end ? `${start}` : `${start}–${end}`)
+  }
+  const source = pages.length
+    ? `已解锁来自游戏图鉴页与库存记录 · 图鉴页已读取 第 ${ranges.join('、')} 页 / 共 ${totalPages} 页`
+    : '已解锁来自库存记录 · 图鉴页尚未读取，翻一遍游戏装备图鉴即可补齐'
+  const pct = (unlocked / total) * 100
+  return `<div class="index-foot">已解锁 <b style="color:var(--text)">${unlocked}</b> / ${total} 款 · 当前持有 ${held} <span class="credit-mark" title="${esc(source)}">源</span>
     <span style="float:right;font-family:var(--mono)">${pct.toFixed(1)}%</span>
     <div class="bar"><i style="width:${pct}%"></i></div>
   </div>`
@@ -6140,6 +6169,7 @@ const equipDrawerHtml = () => {
   // 空串会让面包屑变成「› 装备名」凭空少一截、让 .badge 渲成一个空框
   const typeName = entityNamePlain('equipType', cat, equipTypes.get(cat) ?? `分类${cat}`)
   const instances = equipInstancesOf(e.api_id)
+  const once = equipHeldOnce(e.api_id)
   const art = slotItemImageUrl(e.api_id, 'card')
   // ★分布
   const starDist = new Map<number, number>()
@@ -6187,7 +6217,7 @@ const equipDrawerHtml = () => {
         </div>
         <div class="name-block"><h1 style="font-size:24px">${entityNameHtml('equip', e.api_id, e.api_name)}</h1></div>
         <div class="own-line">
-          ${instances.length ? `<span class="own-pill"><span class="dot"></span>持有 <b>×${instances.length}</b></span><span class="own-pill">装备中 <b>${equipped}</b></span>` : '<span class="own-pill" style="opacity:.6">未持有</span>'}
+          ${instances.length ? `<span class="own-pill"><span class="dot"></span>持有 <b>×${instances.length}</b></span><span class="own-pill">装备中 <b>${equipped}</b></span>` : once ? '<span class="own-pill">曾持有</span>' : '<span class="own-pill" style="opacity:.6">未持有</span>'}
           ${distHtml}
         </div>
       </div>
@@ -6514,20 +6544,23 @@ const improveSectionHtml = (e: any, instances: [string, { level?: number }][]): 
                 '<span class="to none">更新不可 · 只能强化到 ★max</span>'
               : ''
           const helpers = (imp.helpers ?? []) as any[]
+          const targetRow = to ? `<div class="ak-to">${to}</div>` : ''
           if (!helpers.length) {
-            return `<div class="ak-row"><span class="ak-warn">资料未收录改修日程与二号舰</span>${to}</div>`
+            return `<div class="ak-imp"><div class="ak-row"><span class="ak-warn">资料未收录改修日程与二号舰</span></div>${targetRow}</div>`
           }
-          return helpers
-            .map((helper, helperIndex) => {
+          // 同一套方案里几组二号舰共用一张卡，更新目标在卡尾只写一次。
+          // 2026-09-13 鬼怒改二案：后排卡片没有目标行，被读成「不能更新」；
+          // 08-25「更新目标只出现一次」现在靠「一卡一目标」满足，避免逐行重复。
+          const helperRows = helpers
+            .map((helper) => {
               const ships = (helper.ship_ids ?? []).map(Number).filter((id: number) => id > 0)
               const who = ships.length
                 ? `<span class="who">${improvementHelperListHtml(ships, 6, '')}<i>二号舰</i></span>`
                 : '<span class="who">无需指定二号舰</span>'
-              // 同一套方案里几组二号舰走的是同一条更新路线：目标只在头一行说，
-              // 逐行重复一遍正是这张卡此前被点名的那种「同一个东西出现好几次」
-              return `<div class="ak-row">${who}${improveWeekHtml(helper.days ?? [])}${helperIndex ? '' : to}</div>`
+              return `<div class="ak-row">${who}${improveWeekHtml(helper.days ?? [])}</div>`
             })
             .join('')
+          return `<div class="ak-imp">${helperRows}${targetRow}</div>`
         })
         .join('')
       // 更新那一档按**目标**分行：同一组里几个目标的价钱本来就不一样，
@@ -6774,9 +6807,9 @@ const abyssEquipCatalogHtml = () => {
         .sort((a, b) => a.api_id - b.api_id)
         .map((e) => {
           const on = e.api_id === abyssState.selected && abyssState.open
-          return `<div class="row${on ? ' on' : ''}" data-abequip="${e.api_id}" style="--rc:#5c2c38">
+          return `<div class="row${on ? ' on' : ''}" data-abequip="${e.api_id}" style="--rc:var(--tint-abyss-line)">
             <div class="face eqface">${equipTypeIconHtml(Array.isArray(e.api_type) ? e.api_type[3] : 0, { className: 'lg abyss', title: entityNamePlain('abyssEquip', e.api_id, e.api_name) })}</div>
-            <div class="nm"><b style="color:#e8b8c0">${entityNameHtml('abyssEquip', e.api_id, e.api_name, { compact: true })}</b><span>ID ${e.api_id}</span></div>
+            <div class="nm"><b style="color:var(--abyss-soft)">${entityNameHtml('abyssEquip', e.api_id, e.api_name, { compact: true })}</b><span>ID ${e.api_id}</span></div>
           </div>`
         })
         .join('')
@@ -6856,7 +6889,7 @@ const abyssEquipDrawerHtml = () => {
   <div class="detail" data-fold-scope="abyss-equip:${esc(e.api_id)}">
     <div class="hero" style="background:radial-gradient(420px 200px at 85% 0%,rgba(255,107,129,.08),transparent 65%),var(--bg1)">
       <div class="hero-l">
-        <div class="meta-line"><span class="badge" style="color:#e8b8c0;border-color:#5c2c38">${entityTermHtml('abyssEquip', e.api_id, typeName)}</span>
+        <div class="meta-line"><span class="badge" style="color:var(--abyss-soft);border-color:var(--tint-abyss-line)">${entityTermHtml('abyssEquip', e.api_id, typeName)}</span>
           <span class="no">ID ${e.api_id}</span></div>
         <div class="name-block"><h1 style="font-size:22px">${entityNameHtml('abyssEquip', e.api_id, e.api_name)}</h1></div>
         <div class="own-line">
@@ -7087,9 +7120,9 @@ const abyssShipGroupsHtml = (list: any[]): string => {
             group.length > 1
               ? ` · <span class="tier" title="${esc(`${group.length} 个编号：${group.map((f) => f.api_id).join(' / ')} · 同形态的不同难度档`)}">${group.length} 档</span>`
               : ''
-          return `<div class="row${on ? ' on' : ''}" data-abyss="${s.api_id}" style="--rc:#5c2c38">
+          return `<div class="row${on ? ' on' : ''}" data-abyss="${s.api_id}" style="--rc:var(--tint-abyss-line)">
             <div class="face shipface">${shipThumbHtml(s.api_id, entityNamePlain('abyssShip', s.api_id, s.api_name), { className: 'catalog', abyss: true })}</div>
-            <div class="nm"><b style="color:#e8b8c0">${entityNameHtml('abyssShip', s.api_id, s.api_name, { compact: true })}${s.api_yomi && s.api_yomi !== '-' && s.api_yomi !== s.api_name ? ` ${esc(s.api_yomi)}` : ''}</b><span>ID ${s.api_id}${tiers}</span></div>
+            <div class="nm"><b style="color:var(--abyss-soft)">${entityNameHtml('abyssShip', s.api_id, s.api_name, { compact: true })}${s.api_yomi && s.api_yomi !== '-' && s.api_yomi !== s.api_name ? ` ${esc(s.api_yomi)}` : ''}</b><span>ID ${s.api_id}${tiers}</span></div>
           </div>`
         })
         .join('')
@@ -7951,7 +7984,7 @@ const abyssDrawerHtml = () => {
           .filter((id: number) => id > 0)
           .map((id: number) => {
             const equip = abyssalEquips.get(id) ?? friendlyEquips.get(id)
-            if (!equip) return `<span class="ro-chip" style="color:#e8b8c0;border-color:#5c2c38">${esc(`#${id}`)}</span>`
+            if (!equip) return `<span class="ro-chip" style="color:var(--abyss-soft);border-color:var(--tint-abyss-line)">${esc(`#${id}`)}</span>`
             const abyss = abyssalEquips.has(id)
             return `<span class="ro-chip abyss-equip-link">${elink(
               abyss ? 'abyssEquip' : 'mstEquip',
@@ -7978,12 +8011,12 @@ const abyssDrawerHtml = () => {
     <div class="hero" style="background:radial-gradient(420px 200px at 85% 0%,rgba(255,107,129,.08),transparent 65%),var(--bg1)">
       <div class="hero-l">
         <div class="meta-line">
-          <span class="badge" style="color:#ff9fae;border-color:#5c2c38">${entityTermHtml('abyssShip', s.api_id, typeName)}</span>
+          <span class="badge" style="color:var(--abyss-ink);border-color:var(--tint-abyss-line)">${entityTermHtml('abyssShip', s.api_id, typeName)}</span>
           <span class="no">ID ${s.api_id}</span>
         </div>
         <div class="name-block">
           ${s.api_yomi && s.api_yomi !== '-' ? `<div class="yomi">${esc(s.api_yomi)}</div>` : ''}
-          <h1 style="font-size:26px;color:#e8b8c0">${entityNameHtml('abyssShip', s.api_id, s.api_name)}</h1>
+          <h1 style="font-size:26px;color:var(--abyss-soft)">${entityNameHtml('abyssShip', s.api_id, s.api_name)}</h1>
         </div>
         <div class="own-line">
           <span class="own-pill">航速 <b>${s.api_soku >= 10 ? '高速' : s.api_soku >= 5 ? '低速' : '陆上'}</b></span>
@@ -8981,7 +9014,7 @@ const mapCatalogHtml = () => {
             : period
               ? `${period.ended ? '已结束' : '进行中'} · ${period.text}`
               : `Lv ${info.api_level ?? '—'}`
-          return `<div class="row${unlocked ? '' : ' ghost'}${on ? ' on' : ''}" data-map="${info.api_id}" style="--rc:#2c5c50">
+          return `<div class="row${unlocked ? '' : ' ghost'}${on ? ' on' : ''}" data-map="${info.api_id}" style="--rc:var(--tint-teal-done-line)">
             <div class="face mapface" title="${code}">${mini ?? ''}${mapThumbOverlayHtml(info)}</div>
             <div class="nm"><b>${entityNameHtml('map', info.api_id, info.api_name, { compact: true })}</b>
               <span class="${period ? `map-event-date ${period.ended ? 'ended' : 'live'}` : ''}"${period ? ` title="${esc(period.basis)}"` : ''}>${esc(periodLine)}</span></div>
@@ -9953,7 +9986,7 @@ const miniMapSvg = (code: string, mapId: number, options: MiniMapOptions = {}): 
       const on = !focusMode && walked.has(key)
       const opacity = on ? 0.95 : focusMode ? (denseCompact ? 0.26 : 0.42) : compact ? 0.8 : 0.58
       const width = on ? 2.2 : focusMode ? 1.05 : compact ? 1.45 : 1.2
-      return `<line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="${on ? 'var(--accent)' : 'var(--sub)'}" stroke-opacity="${opacity}" stroke-width="${width * S}"/>`
+      return `<line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke-opacity="${opacity}" stroke-width="${width * S}" style="stroke:${on ? 'var(--accent)' : 'var(--sub)'}"/>`
     })
     .join('')
   const nodes = Object.entries(spots)
@@ -9962,13 +9995,13 @@ const miniMapSvg = (code: string, mapId: number, options: MiniMapOptions = {}): 
       // “出现海域”只需路线作方位参照；无关节点全画出来会让活动图变成一团圆圈。
       if (focusMode && !isFocused) {
         return t === 'start'
-          ? `<circle cx="${x}" cy="${y}" r="${3.2 * S}" fill="var(--bg1)" stroke="var(--ok)" stroke-width="${1.5 * S}"/>`
+          ? `<circle cx="${x}" cy="${y}" r="${3.2 * S}" stroke-width="${1.5 * S}" style="fill:var(--bg1);stroke:var(--ok)"/>`
           : ''
       }
       const isBoss = !focusMode && bosses.has(l)
       const foughtHere = !focusMode && fought.has(l)
       const stroke = isFocused
-        ? '#ff91a3'
+        ? 'var(--map-thumb-stroke)'
         : isBoss
           ? 'var(--bad)'
           : t === 'start'
@@ -9977,7 +10010,7 @@ const miniMapSvg = (code: string, mapId: number, options: MiniMapOptions = {}): 
               ? 'var(--accent)'
               : 'var(--sub)'
       const fill = isFocused
-        ? '#4a1e29'
+        ? 'var(--map-thumb-fill)'
         : foughtHere
           ? 'color-mix(in srgb, var(--accent) 25%, var(--bg0))'
           : 'var(--bg1)'
@@ -9987,9 +10020,9 @@ const miniMapSvg = (code: string, mapId: number, options: MiniMapOptions = {}): 
           : isBoss ? 7
           : compact ? 4.2 : 5.5
       ) * S
-      const circle = `<circle cx="${x}" cy="${y}" r="${radius}" fill="${fill}" stroke="${stroke}" stroke-width="${(isFocused ? 2 : 1.6) * S}"/>`
+      const circle = `<circle cx="${x}" cy="${y}" r="${radius}" stroke-width="${(isFocused ? 2 : 1.6) * S}" style="fill:${fill};stroke:${stroke}"/>`
       const label = isFocused && showFocusLabels
-        ? `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" fill="#ffe8ec" font-family="var(--mono)" font-size="${9.5 * S}" font-weight="700">${esc(l)}</text>`
+        ? `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-family="var(--mono)" font-size="${9.5 * S}" font-weight="700" style="fill:var(--map-thumb-ink)">${esc(l)}</text>`
         : ''
       return circle + label
     })
@@ -10080,7 +10113,7 @@ const mapDrawerHtml = () => {
     <div class="hero" style="background:radial-gradient(420px 200px at 85% 0%,rgba(63,208,176,.08),transparent 65%),var(--bg1)">
       <div class="hero-l">
         <div class="meta-line">
-          <span class="badge" style="color:#8fe0cc;border-color:#2c5c50">${entityNameHtml('mapArea', info.api_maparea_id, areaName, { compact: true })}</span>
+          <span class="badge" style="color:var(--map-area-ink);border-color:var(--tint-teal-done-line)">${entityNameHtml('mapArea', info.api_maparea_id, areaName, { compact: true })}</span>
           <span class="no">${entityTermHtml('map', info.api_id, code)}</span>
           ${eventPeriod ? `<span class="map-event-hero ${eventPeriod.ended ? 'ended' : 'live'}" title="${esc(eventPeriod.basis)}">${eventPeriod.ended ? '活动已结束' : '活动进行中'} · ${esc(eventPeriod.text)}</span>` : ''}
         </div>
@@ -10104,6 +10137,7 @@ const mapDrawerHtml = () => {
     ${mapForecastHtml(info, code, difficulty)}
     ${prefetchHtml(code, difficulty)}
     ${dropPoolHtml(code, Number(info.api_id) || 0, difficulty)}
+    ${mapRelatedQuestsHtml(info.api_id)}
     <div class="foot"><span class="credit-mark" title="海域名称 ${info.__kumaArchiveFallback ? '旧归档仅保存编号' : eventPeriod?.ended ? '来自活动期间保存的游戏数据' : `来自游戏基础数据 · 更新于 ${masterTs ? fmtDate(masterTs) : '—'}`}${fcdMapLode ? ` ｜ 海图 ${esc(lodeCreditShort(fcdMapLode.meta))}` : ''}${eventLifecycleCredit ? ` ｜ ${esc(lodeCredit(eventLifecycleCredit.meta))}` : ''}">源</span></div>
   </div>`
 }
@@ -10376,8 +10410,8 @@ const itemCatalogHtml = () => {
       const count = stock.count
       const on = u.api_id === itemState.selected && itemState.open
       const uses = remodelNeeds.get(u.api_id)?.length ?? 0
-      return `<div class="row${count ? '' : ' ghost'}${on ? ' on' : ''}" data-item="${u.api_id}" style="--rc:${count ? '#8a6d2f' : '#3a4a58'}">
-        <div class="face" style="color:#e8ce9a">${useItemIconHtml(u.api_id, entityNamePlain('item', u.api_id, u.api_name), { className: 'catalog' })}</div>
+      return `<div class="row${count ? '' : ' ghost'}${on ? ' on' : ''}" data-item="${u.api_id}" style="--rc:${count ? 'var(--tint-item-owned-line)' : 'var(--disabled-soft)'}">
+        <div class="face" style="color:var(--item-soft)">${useItemIconHtml(u.api_id, entityNamePlain('item', u.api_id, u.api_name), { className: 'catalog' })}</div>
         <div class="nm"><b>${entityNameHtml('item', u.api_id, u.api_name, { compact: true })}</b><span>${stock.known ? `持有 ×${count}` : '尚未同步持有数量'}${
           uses ? ` · ${uses} 项改造要用` : ''
         }</span></div>
@@ -11188,7 +11222,7 @@ const itemDrawerHtml = () => {
   <div class="detail" data-fold-scope="item:${esc(u.api_id)}">
     <div class="hero" style="background:radial-gradient(420px 200px at 85% 0%,rgba(224,169,74,.08),transparent 65%),var(--bg1)">
       <div class="hero-l">
-        <div class="meta-line"><span class="badge" style="color:#e8ce9a;border-color:#8a6d2f">道具</span><span class="no">ID ${u.api_id}</span></div>
+        <div class="meta-line"><span class="badge" style="color:var(--item-soft);border-color:var(--tint-item-owned-line)">道具</span><span class="no">ID ${u.api_id}</span></div>
         <div class="name-block"><h1 style="font-size:24px">${entityNameHtml('item', u.api_id, u.api_name)}</h1></div>
         <div class="own-line">
           ${
@@ -11200,7 +11234,7 @@ const itemDrawerHtml = () => {
       </div>
       <div class="item-art">${useItemIconHtml(u.api_id, entityNamePlain('item', u.api_id, u.api_name), { className: 'hero' })}</div>
     </div>
-    ${desc ? `<div class="sec"><div class="sec-h">说明</div><div style="font-size:12px;color:#c3d1dc;white-space:pre-wrap;line-height:1.7">${esc(desc)}</div></div>` : ''}
+    ${desc ? `<div class="sec"><div class="sec-h">说明</div><div style="font-size:12px;color:var(--text-soft);white-space:pre-wrap;line-height:1.7">${esc(desc)}</div></div>` : ''}
     ${itemFunctionHtml(u.api_id)}
     ${itemExchangeHtml(u.api_id)}
     ${itemQueueHtml(u.api_id)}
@@ -11841,7 +11875,7 @@ const catalogGroupsForcedOpen = (): boolean => {
     )
   }
   if (activeBook === 'equip') {
-    return !!(equipState.search || equipState.chip !== '全部' || equipState.typeFilter)
+    return !!(equipState.search || equipState.chip !== '全部' || equipState.typeFilter || equipState.once)
   }
   if (activeBook === 'abyss') {
     return abyssState.tab === 'ship'
@@ -12356,6 +12390,10 @@ const wire = () => {
     equipState.typeFilter = 0
     render()
   })
+  pane.querySelector('[data-equip-once]')?.addEventListener('click', () => {
+    equipState.once = !equipState.once
+    render()
+  })
   pane.querySelector('#ji-equip-wrap .cat-more')?.addEventListener('click', (e) => {
     const cell = (e.target as HTMLElement).closest<HTMLElement>('[data-equip-type]')
     if (!cell) return
@@ -12366,6 +12404,7 @@ const wire = () => {
     render()
   })
   pane.querySelector('[data-clear-equip-scope]')?.addEventListener('click', () => {
+    equipState.once = false
     equipState.typeFilter = 0
     equipState.chip = '全部'
     render()
@@ -12907,6 +12946,7 @@ registerEntityRoute('equipTypeCatalog', {
     equipState.mode = 'catalog'
     equipState.search = ''
     equipState.chip = '全部'
+    equipState.once = false
     equipState.typeFilter = typeId
     equipState.open = false
     render()
@@ -12940,6 +12980,7 @@ registerEntityRoute('equipTypeGroup', {
     activeBook = 'equip'
     equipState.mode = 'catalog'
     equipState.search = ''
+    equipState.once = false
     equipState.chip = chip
     equipState.typeFilter = 0
     equipState.open = false
@@ -13047,6 +13088,7 @@ registerEntityRoute('mstEquip', {
     const e = friendlyEquips.get(mstId)
     if (!e) return null
     const instances = equipInstancesOf(mstId)
+    const once = equipHeldOnce(mstId)
     const dist = new Map<number, number>()
     for (const [, inst] of instances) dist.set(inst.level, (dist.get(inst.level) ?? 0) + 1)
     const distText = [...dist.entries()]
@@ -13094,7 +13136,7 @@ registerEntityRoute('mstEquip', {
         `<span style="font-family:var(--mono);font-size:10px">${stats.join(' ') || '无属性加成'}</span>`,
         instances.length
           ? `持有 ×${instances.length}${distText ? `（${distText}）` : ''} · 装备中 ${equipped}`
-          : '未持有',
+          : once ? '曾持有' : '未持有',
         eo?.improvement?.length
           ? `可改修 · 每周 ${dayCount} 天 · ★10 ${starHighlights || '待补'}`
           : // 「表里没有」不等于「不可改修」：落在改修表覆盖范围之外的（刚实装的那些）
@@ -13192,7 +13234,7 @@ registerEntityRoute('abyssShip', {
     const k = abyssKills?.[id]
     if (k?.met) {
       lines.push(
-        `遭遇 <b style="color:var(--text)">${k.met}</b> 艘次 · 击沉 <b style="color:#ff8b9a">${k.killed}</b>${
+        `遭遇 <b style="color:var(--text)">${k.met}</b> 艘次 · 击沉 <b style="color:var(--abyss-kill-soft)">${k.killed}</b>${
           k.withMask ? `（计入 ${k.withMask}）` : ''
         }`,
       )
@@ -13290,6 +13332,7 @@ registerEntityRoute('map', {
     return [
       { label: '确认掉落', run: () => openMap(id) },
       { label: '带路与节点图', run: () => openMap(id) },
+      { label: '有关任务', run: () => searchInManager(mapCodeOf(id)) },
     ]
   },
 })
@@ -13500,6 +13543,9 @@ registerModule({
     trackMountCleanup(() =>
       document.removeEventListener('kuma:ship-costumes-change', onCostumesChange),
     )
+    const onEquipBookChange = () => scheduleRender()
+    document.addEventListener('kuma:equip-book-change', onEquipBookChange)
+    trackMountCleanup(() => document.removeEventListener('kuma:equip-book-change', onEquipBookChange))
     const onVoiceAbsentChange = () => scheduleRender()
     document.addEventListener('kuma:voice-absent-change', onVoiceAbsentChange)
     trackMountCleanup(() =>

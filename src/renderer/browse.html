@@ -17,6 +17,10 @@
     input.has-clear::-webkit-search-cancel-button { display: none; }
 
     :root {
+      /* 字重沿用深色 400/600/400；浅色正文、强调与等宽数字各提一档。 */
+      --weight-body: 400;
+      --weight-strong: 600;
+      --weight-mono: 400;
       color-scheme: dark;
       --bg0: #0d1318;
       --bg1: #121a21;
@@ -31,6 +35,31 @@
       --accent-dim: #367c9e;
       --mono: 'Maple Mono NF CN', 'Cascadia Code', 'Consolas', monospace;
       font-family: 'Segoe UI', 'Microsoft YaHei UI', sans-serif;
+
+      /* 样式表语义颜色：按使用角色保留各档原值。 */
+      /* 内嵌浏览页面的加载底。 */
+      --browser-surface: #fff;
+    }
+    :root[data-theme="light"] {
+      --weight-body: 500;
+      --weight-strong: 650;
+      --weight-mono: 500;
+      color-scheme: light;
+      --bg0: #f3f6f9;
+      --bg1: #ffffff;
+      --bg2: #eaf0f5;
+      --bg3: #dfe7ee;
+      --line: #b9c6d2;
+      --line-soft: #cbd6e0;
+      --text: #0f1720;
+      --sub: #3b4a59;
+      --dim: #526577;
+      --accent: #1773b2;
+      --accent-dim: #317bb7;
+
+      /* 样式表语义颜色：按使用角色保留各档原值。 */
+      /* 内嵌浏览页面的加载底。 */
+      --browser-surface: #ffffff;
     }
     * { box-sizing: border-box; }
     html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--bg0); color: var(--text); }
@@ -55,8 +84,11 @@
     }
     #nav-address::placeholder { color: var(--dim); font-family: 'Segoe UI', 'Microsoft YaHei UI', sans-serif; }
     #nav-address:focus { outline: none; border-color: var(--accent-dim); background: var(--bg2); }
-    #browse-view { flex: 1; min-height: 0; position: relative; background: #fff; }
+    #browse-view { flex: 1; min-height: 0; position: relative; background: var(--browser-surface); }
     #browse-view webview { position: absolute; inset: 0; width: 100%; height: 100%; }
+    /* 浅色字重只覆盖对应旧档位；未声明数字字重的粗体及 700 标题保留。 */
+    :root[data-theme="light"] body { font-weight: var(--weight-body); }
+    :root[data-theme="light"] #nav-address { font-weight: var(--weight-mono); }
   </style>
 </head>
 <body>

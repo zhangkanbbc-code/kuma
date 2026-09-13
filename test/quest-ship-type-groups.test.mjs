@@ -59,9 +59,13 @@ test('任务舰种纯表的每个别名都存在于引擎，成员集合逐项�
   assert.ok(!questEntityMaster.api_mst_ship.some((ship) => ship.api_sortno && ship.api_stype === 12))
 })
 
+const questMapRefs = compile(qn, 'const questMapRefs =', 'export const questsInvolvingMap =', 'questMapRefs', {
+  ...runtime, ...indexes, simplifyJp: runtime.simplifyTaskEntityText,
+  mapIdsInText: () => [], mapIds: new Set(),
+})
 const entityChips = compile(qn, 'const entityChipsHtml =', 'const expeditionDisplayName =', 'entityChipsHtml', {
   ...runtime, ...indexes, qp: null, simplifyJp: runtime.simplifyTaskEntityText,
-  nationalityRangesInPackedText: () => [], mapIdsInText: () => [], mapIds: new Set(),
+  nationalityRangesInPackedText: () => [], questMapRefs,
   matchedEntities: runtime.matchedTaskEntities, TASK_CATEGORIES: [],
   elink: (type, id, label) => elinkHtml(type, id, esc(label)),
 })

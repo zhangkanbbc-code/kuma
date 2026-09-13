@@ -1,8 +1,13 @@
+import { installThemeBoot } from './theme-boot'
+
+installThemeBoot()
+
 // 镇（渲染层壳）：游戏区 + 工作区（铆装配的模块面板）。
 // webview 参数与 UA 清洗移植自 poi views/kan-game-wrapper.tsx
 // (https://github.com/poooi/poi, MIT License, Copyright (c) poi contributors)。
 import { installCrashBadge, installCrashNet, recordCrash } from './crash-guard'
 import { noteLearnedShipArt, noteShipCostumes, setGameHost } from './kcs-image'
+import { noteEquipBook } from './equip-book'
 import type { ShipArtPathEntry } from '../shared/ship-art-path'
 import { loadVoiceArchive, noteVoiceArchived } from './voice-archive'
 import { loadVoiceAbsent } from './voice-probe'
@@ -346,6 +351,7 @@ broadcaster.addListener('kancolle.shipart.learn', (entry: ShipArtPathEntry) => {
 broadcaster.addListener('kancolle.shipcostume.learn', (map: unknown) => {
   noteShipCostumes(map)
 })
+broadcaster.addListener('kancolle.equipbook.learn', noteEquipBook)
 
 // 刚有一句语音进了持久档案：图鉴里那一格该点亮了。
 // 索引先在启动时拉一次（图鉴渲染时逐行判点亮，不能临时去问主进程）。

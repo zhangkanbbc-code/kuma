@@ -1,3 +1,7 @@
+import { installThemeBoot } from './theme-boot'
+
+installThemeBoot()
+
 // 人生记录窗：一艘舰娘的一生摊在一块面板上。
 //
 // 只读铭的本地账本（履历 + boss 击杀簿）与内核里那份舰队状态，不创建游戏 webview。

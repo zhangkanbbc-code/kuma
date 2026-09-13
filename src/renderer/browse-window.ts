@@ -1,3 +1,7 @@
+import { installThemeBoot } from './theme-boot'
+
+installThemeBoot()
+
 // 浏览窗（渲染层外壳）：一排导航条 + 一层网页，别的什么都不做。
 //
 // 这一层没有 Node、没有 @electron/remote，也不碰账本——它就是个浏览器外壳，

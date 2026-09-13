@@ -47,10 +47,21 @@ const 常规 = () => ({
 
 const countOf = (html, needle) => html.split(needle).length - 1
 
+// 按 div 嵌套深度取完整元素，卡内有周历等 div，不能遇到第一个闭合就截断。
+const divsOf = (html, className) => [...html.matchAll(new RegExp(`<div class="${className}">`, 'g'))].map((match) => {
+  let depth = 0
+  for (const tag of html.slice(match.index).matchAll(/<div\b[^>]*>|<\/div>/g)) {
+    depth += tag[0] === '</div>' ? -1 : 1
+    if (depth === 0) return html.slice(match.index, match.index + tag.index + tag[0].length)
+  }
+  assert.fail(`${className} 没有闭合`)
+})
+
 test('骨架：一张卡里 mats 表一张、更新目标一处、角标贴着它描述的那张表', () => {
   const html = improveCardHtml(常规())
   assert.equal(countOf(html, '<table class="mats"'), 1, '消耗表不止一张')
-  // 更新目标（C型改三）只在 ak-row 右端出现一次——底部那行「更新：X」已退场
+  assert.equal(divsOf(html, 'ak-imp').length, 1, '一条更新路线没独占一张卡')
+  // 更新目标（C型改三）只在 ak-to 卡尾出现一次——表底那行「更新：X」已退场
   assert.equal(countOf(html, '12.7cm連装砲C型改三'), 1, '更新目标出现了不止一次')
   // 角标挂在表抬头行里，不在卡尾
   const caption = /<caption>([\s\S]*?)<\/caption>/.exec(html)
@@ -67,7 +78,7 @@ test('骨架：一张卡里 mats 表一张、更新目标一处、角标贴着�
   assert.match(html, /<tfoot>[\s\S]*燃 20[\s\S]*<\/tfoot>/)
 })
 
-test('一套方案里几组二号舰共走一条更新路线 → 目标只在头一行说', () => {
+test('一套方案里几组二号舰共走一条更新路线 → 同一张卡，目标在卡尾只出现一次', () => {
   const setup = 常规()
   setup.eo.improvement[0].helpers = [
     { ship_ids: [91], days: [1, 2] },
@@ -75,8 +86,60 @@ test('一套方案里几组二号舰共走一条更新路线 → 目标只在头
     { ship_ids: [93], days: [0] },
   ]
   const html = improveCardHtml(setup)
+  const cards = divsOf(html, 'ak-imp')
+  assert.equal(cards.length, 1, '同一更新目标的二号舰被拆成了多张卡')
   assert.equal(countOf(html, '<div class="ak-row">'), 3, '三组二号舰没各占一行')
+  const rows = divsOf(cards[0], 'ak-row')
+  assert.equal(rows.length, 3, '三组二号舰没有全部归入同一张卡')
+  assert.equal(countOf(html, 'class="to"'), 1, '更新目标没有只出现一次')
   assert.equal(countOf(html, '★max 后更新 →'), 1, '更新目标在每一行都重复了一遍')
+  assert.ok(cards[0].indexOf('class="to"') > cards[0].indexOf(rows[2]) + rows[2].length, '目标没在第三行闭合之后')
+  assert.match(cards[0], /<div class="ak-to"><span class="to">[\s\S]*<\/span><\/div><\/div>$/, '目标没在这张卡闭合之前的卡尾')
+})
+
+test('大発動艇形状：三条更新路线各成一张卡，各组二号舰之后只写自己的目标', () => {
+  const setup = 常规()
+  const targets = ['大発動艇(八九式中戦車&陸戦隊)', '特大発動艇', '武装大発']
+  const helpers = [
+    ['阿武隈改二', '皐月改二', 'あきつ丸'],
+    ['龍田改二', '鬼怒改二'],
+    ['浦波改二', '神州丸', '清霜改二丁'],
+  ]
+  setup.equip = { api_id: 68, api_name: '大発動艇', api_type: [1, 1, 1, 1] }
+  setup.eo.eq_id = 68
+  setup.equips = { ...装备 }
+  setup.ships = {}
+  setup.eo.improvement = helpers.map((names, route) => {
+    const target = 300 + route
+    setup.equips[target] = { api_id: target, api_name: targets[route] }
+    return {
+      basis: '整理参照',
+      helpers: names.map((name, group) => {
+        const id = 200 + route * 10 + group
+        setup.ships[id] = { api_id: id, api_name: name }
+        return { ship_ids: [id], days: [group + 1] }
+      }),
+      convert: { id_after: target, lvl_after: 0 },
+      costs: { p1, p2, conv, fuel: 20, ammo: 20, steel: 30, baux: 10 },
+    }
+  })
+  const html = improveCardHtml(setup)
+  const cards = divsOf(html, 'ak-imp')
+  assert.equal(cards.length, 3, '三条路线没各成一张卡')
+  assert.equal(countOf(html, '<table class="mats"'), 1, '相同消耗没共用一张表')
+  assert.equal(countOf(html, '★max 后更新'), 3, '三条路线的更新目标有缺失或重复')
+  cards.forEach((card, route) => {
+    const rows = divsOf(card, 'ak-row')
+    assert.equal(rows.length, helpers[route].length, '卡内二号舰组数不符')
+    assert.equal(countOf(card, 'class="to"'), 1, '卡内更新目标没有恰好一处')
+    const targetName = targets[route].replace('&', '&#38;')
+    const targetAt = card.indexOf(targetName)
+    assert.ok(targetAt > card.indexOf(rows.at(-1)) + rows.at(-1).length, '目标没在最后一组二号舰之后')
+    helpers[route].forEach((name, group) => assert.ok(rows[group].includes(name), '二号舰串到了别的卡或顺序变了'))
+    assert.match(card, /<div class="ak-to"><span class="to">[\s\S]*<\/span><\/div><\/div>$/, '目标没在自己的卡尾')
+  })
+  assert.ok(cards[1].indexOf('龍田改二') < cards[1].indexOf('鬼怒改二'))
+  assert.ok(cards[1].indexOf('鬼怒改二') < cards[1].indexOf('特大発動艇'))
 })
 
 test('布局全在样式表里：改修段一个 inline style 都不许有', () => {
@@ -144,7 +207,7 @@ test('储备不够时说得出还差多少，通常与确保分开说', () => {
   assert.match(html, /<i class="bad">储备 5 · 普通消耗缺 \d+<\/i>/)
 })
 
-test('多套方案消耗相同 → 共用一张表，二号舰各占一行，不给更新的那组写「更新不可」', () => {
+test('多套方案消耗相同 → 共用一张表、各成一张卡，不给更新的那张卡写「更新不可」', () => {
   const setup = 常规()
   setup.eo.improvement = [
     {
@@ -162,9 +225,13 @@ test('多套方案消耗相同 → 共用一张表，二号舰各占一行，不
   const html = improveCardHtml(setup)
   assert.equal(countOf(html, '<table class="mats"'), 1, '消耗一样却拆成了两张表')
   assert.equal(countOf(html, '<div class="ak-row">'), 2, '两组二号舰没各占一行')
+  const cards = divsOf(html, 'ak-imp')
+  assert.equal(cards.length, 2, '两套方案没各成一张卡')
   assert.match(html, /白露改二/)
   assert.match(html, /満潮改二/)
   assert.equal(countOf(html, "更新不可 · 只能强化到 ★max"), 1, "「这个二号舰不给更新」没说清")
+  assert.equal(countOf(cards[0], '更新不可 · 只能强化到 ★max'), 0, '可更新的卡被标成更新不可')
+  assert.equal(countOf(cards[1], '更新不可 · 只能强化到 ★max'), 1, '更新不可没归入第二张卡')
   // 消耗一样的时候只有一档更新，档位名里不必再挂目标
   assert.match(html, /<td class="rng">★max 更新<\/td>/)
   // 方案号只在真有两套消耗时才出现
@@ -220,8 +287,13 @@ test('没给日程的方案保留告警句，位置就在它该在的那一行',
   setup.eo.improvement = [{ basis: '整理参照', helpers: [], costs: { p1, p2 } }]
   const html = improveCardHtml(setup)
   // 09-02 文案审计改成「资料未收录改修日程与二号舰」。
-  // 位置与告警形制不变——钉的正是「它就在那一行，且仍是 ak-warn」。
-  assert.match(html, /<div class="ak-row"><span class="ak-warn">资料未收录改修日程与二号舰/)
+  // 告警仍在 ak-row 中，09-13 起这一行也归入对应方案的 ak-imp 卡。
+  assert.equal(divsOf(html, 'ak-imp').length, 1)
+  assert.match(html, /<div class="ak-imp"><div class="ak-row"><span class="ak-warn">资料未收录改修日程与二号舰<\/span><\/div><\/div>/)
+  assert.equal(countOf(html, 'class="ak-to"'), 0, '没有目标却画了空目标行')
+  setup.eo.improvement[0].convert = { id_after: 3, lvl_after: 0 }
+  const withTarget = improveCardHtml(setup)
+  assert.match(withTarget, /<div class="ak-imp"><div class="ak-row"><span class="ak-warn">资料未收录改修日程与二号舰<\/span><\/div><div class="ak-to"><span class="to">[\s\S]*?<\/span><\/div><\/div>/)
 })
 
 test('整件都没有更新路线时说一句，不在每一行重复', () => {
@@ -230,6 +302,8 @@ test('整件都没有更新路线时说一句，不在每一行重复', () => {
   delete setup.eo.improvement[0].costs.conv
   const html = improveCardHtml(setup)
   assert.equal(countOf(html, '更新不可'), 0, '没有更新路线的件被说成了「更新不可」')
+  assert.equal(divsOf(html, 'ak-imp').length, 1)
+  assert.equal(countOf(html, 'class="ak-to"'), 0, '没有更新路线却画了空目标行')
   assert.match(html, /当前装备无更新路线 · ★max 为终点/)
 })
 
@@ -257,7 +331,7 @@ test('二号舰超过六艘折起来，折叠控件在舰名那一段里', () =>
   const html = improveCardHtml(setup)
   assert.match(
     html,
-    /<span class="who"><details class="improve-helper-more">[\s\S]*等 8 艘/,
+    /<div class="ak-imp"><div class="ak-row"><span class="who"><details class="improve-helper-more">[\s\S]*等 8 艘/,
     '折叠控件没落在 who 段里',
   )
   // 前缀传空时不许在舰名前留出那一格缩进

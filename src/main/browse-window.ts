@@ -20,6 +20,7 @@ import { BrowserWindow, screen } from 'electron'
 import path from 'path'
 
 import config from './config'
+import { themeBackgroundColor } from './theme-push'
 import { ROOT } from './env'
 import { BROWSE_HOME_URL, normalizeBrowseInput } from '../shared/browse-url'
 import { stopFileNavigate } from './webcontent-utils'
@@ -76,11 +77,12 @@ export const openBrowseWindow = (rawUrl?: unknown) => {
     minHeight: MIN_HEIGHT,
     title: 'kuma · 浏览窗',
     icon: path.join(ROOT, 'assets', 'branding', 'kuma.png'),
-    backgroundColor: '#0d1318',
+    backgroundColor: themeBackgroundColor(),
     show: false,
     webPreferences: {
       // 这一层只是导航条外壳，自己不需要 Node，也不需要 @electron/remote。
       // 要加载的那条网址由 loadFile 的 query 递进来，不经 IPC。
+      preload: path.join(ROOT, 'dist', 'main', 'theme-preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: false,

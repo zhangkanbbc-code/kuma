@@ -163,18 +163,19 @@ const USEITEM_FALLBACK_MARKS: Record<number, string> = {
 // 家具币（useitem 44）没有任何现成图源：官方 card_ 树实测 404（见 kcs-image 的
 // 排除名单），poi 素材集也只有家具箱。自绘一枚——金描边圆币 + 屋形剪影，
 // 色取 --gold 的实值（SVG 里用 CSS 变量会随 fallback 容器变灰，这里要它恒金）。
+// 主题收编后以独立占位 token 的 style 属性固定角色色，不再依赖容器 currentColor。
 const FURNITURE_COIN_SVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-  <circle cx="12" cy="12" r="10" fill="#2c2617" stroke="#e8c66a" stroke-width="1.6"/>
-  <path d="M6.8 12.2 12 7.6l5.2 4.6" fill="none" stroke="#e8c66a" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M8.6 12.4v4h6.8v-4" fill="none" stroke="#e8c66a" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="12" cy="12" r="10" stroke-width="1.6" style="fill:var(--art-placeholder-bg);stroke:var(--art-placeholder-ink)"/>
+  <path d="M6.8 12.2 12 7.6l5.2 4.6" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--art-placeholder-ink)"/>
+  <path d="M8.6 12.4v4h6.8v-4" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--art-placeholder-ink)"/>
 </svg>`
 
 // 家具（装饰品）通用小图标：屋形线条，与家具币的屋剪影同构；
 // 色沿任务奖励区原「家」字块的绿。具体家具没有独立美术，这枚是类别标识。
 const FURNITURE_HOUSE_SVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-  <path d="M4.6 12 12 5.4 19.4 12" fill="none" stroke="#9fd6a8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M6.9 11.7V18h10.2v-6.3" fill="none" stroke="#9fd6a8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M10.3 18v-3.4h3.4V18" fill="none" stroke="#9fd6a8" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M4.6 12 12 5.4 19.4 12" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--art-furniture-ink)"/>
+  <path d="M6.9 11.7V18h10.2v-6.3" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--art-furniture-ink)"/>
+  <path d="M10.3 18v-3.4h3.4V18" fill="none" stroke-width="1.5" stroke-linejoin="round" style="stroke:var(--art-furniture-ink)"/>
 </svg>`
 
 export const furnitureIconHtml = (title = '家具', className = ''): string =>

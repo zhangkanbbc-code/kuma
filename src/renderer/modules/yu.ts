@@ -4,6 +4,11 @@
 //
 // 卡片按**分类分页**摆（页签在面板顶部，一次只画一类）。归属表在
 // shared/settings-sections，这里只消费：卡的次序、页签的次序都从那份表来。
+import { applyTheme, setThemeMode, setThemeBase, clearThemeBase } from '../theme-boot'
+import {
+  THEME_CONFIG_KEY, THEME_BASE_CONFIG_KEY, THEME_MODES, THEME_MODE_LABEL,
+  normalizeThemeMode, normalizeThemeBase, resolveThemeGround, DEFAULT_THEME_BASE,
+} from '../../shared/theme'
 import { readEnv } from '../../shared/env-names'
 import { ACCOUNT_CHANGED_MESSAGE } from '../../shared/account-change'
 import { setDistractSide } from '../mu'
@@ -11,7 +16,8 @@ import { DISTRACT_DEFAULTS, DISTRACT_PATHS, DISTRACT_SIDES, DISTRACT_SIDE_LABEL,
 import { crashLog, onCrash } from '../crash-guard'
 import { setAllowRemoteArt } from '../kcs-image'
 import { setAllowRemoteVoice } from '../kcs-voice'
-import { setSpecialCaptionStyle, setVoiceCaptionSize, setVoiceCaptionsEnabled } from '../voice-subtitle'
+import { setSpecialCaptionStyle, setVoiceCaptionSize, setVoiceCaptionsEnabled, setVoiceCaptionDodge } from '../voice-subtitle'
+import { CAPTION_DODGE_CONFIG_KEY, CAPTION_DODGE_DEFAULT } from '../../shared/caption-dodge'
 import {
   normalizeSpecialCaptionStyle,
   VOICE_CAPTION_SPECIAL_DEFAULT,
@@ -967,6 +973,20 @@ const retentionCardHtml = (): string => {
 // 从前这些卡是 render 里一整条模板串，十几次同步跨进程 config 读一趟全做完。
 // 拆开之后只有**当前这一类**的卡会被求值，切页签不再顺手把别人的开关也读一遍。
 
+const themeCardHtml = (): string => {
+  const mode = normalizeThemeMode(config.get(THEME_CONFIG_KEY, 'dark'))
+  const base = normalizeThemeBase(config.get(THEME_BASE_CONFIG_KEY, ''))
+  const ground = resolveThemeGround({ mode, base, systemPrefersDark: matchMedia('(prefers-color-scheme: dark)').matches })
+  const hex = base || DEFAULT_THEME_BASE[ground]
+  const chips = THEME_MODES.map(
+    (id) => `<span class="ychip${!base && mode === id ? ' on' : ''}" data-theme-mode="${id}">${THEME_MODE_LABEL[id]}</span>`,
+  ).join('')
+  return `<div class="h"><b>外观</b><span class="aux">beta · 即时生效</span></div>
+    <div class="yline">${chips}${base ? '<span class="ychip on" data-theme-custom>自定义</span>' : ''}</div>
+    <div class="yline"><span>底色</span><input type="color" data-theme-base value="${hex}"> <b style="font-family:var(--mono)">${hex}</b> <span class="ylk" data-theme-base-reset>恢复默认</span></div>
+    <div class="ynote">底色任选，其余颜色按对比度自动配</div>`
+}
+
 const zoomCardHtml = (): string => {
   const zoom = getUiZoom()
   const zoomChips = [0.9, 1, 1.15, 1.3, 1.5, 1.7]
@@ -1064,6 +1084,13 @@ const uiHintsCardHtml = (): string => `<div class="h"><b>界面提示</b><span c
     '显示语音文字',
     '母港：底部字幕 · 战斗：双向弹幕',
     config.get('kuma.voiceCaptions', true),
+  )}
+  ${toggleHtml(
+    CAPTION_DODGE_CONFIG_KEY,
+    '鼠标移到字幕上时淡出',
+    '指针停在字幕范围内时字幕变淡 · 移开恢复',
+    config.get(CAPTION_DODGE_CONFIG_KEY, CAPTION_DODGE_DEFAULT),
+    !config.get('kuma.voiceCaptions', true),
   )}
   ${specialCaptionStyleHtml()}
   ${toggleHtml(
@@ -1425,6 +1452,7 @@ const aboutCardHtml = (): string => `<div class="h"><b>关于</b></div>
  */
 const CARD_HTML: Record<SettingsCardId, () => string> = {
   zoom: zoomCardHtml,
+  theme: themeCardHtml,
   'game-scale': gameScaleCardHtml,
   'caption-size': captionSizeCardHtml,
   'ui-hints': uiHintsCardHtml,
@@ -1598,7 +1626,31 @@ registerModule({
       recordingHotkey = null
       hotkeyMessage = null
     })
+    let themeBaseFrame = 0
+    const cancelThemeBasePreview = () => {
+      cancelAnimationFrame(themeBaseFrame)
+      themeBaseFrame = 0
+    }
+    trackMountCleanup(cancelThemeBasePreview)
     el.addEventListener('input', (e) => {
+      const themeInput = (e.target as HTMLElement).closest<HTMLInputElement>('input[data-theme-base]')
+      if (themeInput) {
+        if (!themeBaseFrame) themeBaseFrame = requestAnimationFrame(() => {
+          themeBaseFrame = 0
+          const base = normalizeThemeBase(themeInput.value)
+          applyTheme({ mode: normalizeThemeMode(config.get(THEME_CONFIG_KEY, 'dark')), base })
+          themeInput.nextElementSibling!.textContent = base
+          // 拖动时保留取色器节点，只更新芯片和色值，避免打断原生调色板。
+          const card = themeInput.closest('[data-ycard]')!
+          card.querySelectorAll('[data-theme-mode]').forEach((chip) => chip.classList.remove('on'))
+          if (!card.querySelector('[data-theme-custom]')) {
+            card.querySelector('[data-theme-mode]')!.parentElement!.insertAdjacentHTML(
+              'beforeend', '<span class="ychip on" data-theme-custom>自定义</span>',
+            )
+          }
+        })
+        return
+      }
       const input = (e.target as HTMLElement).closest<HTMLInputElement>('input[data-audio-volume]')
       if (!input) return
       const field = input.dataset.audioVolume
@@ -1617,6 +1669,13 @@ registerModule({
       )
     })
     el.addEventListener('change', (e) => {
+      const themeInput = (e.target as HTMLElement).closest<HTMLInputElement>('input[data-theme-base]')
+      if (themeInput) {
+        cancelThemeBasePreview()
+        setThemeBase(themeInput.value)
+        render()
+        return
+      }
       const audioInput = (e.target as HTMLElement).closest<HTMLInputElement>(
         'input[data-audio-volume]',
       )
@@ -1805,6 +1864,20 @@ registerModule({
       const zoomChip = t.closest<HTMLElement>('[data-zoom]')
       if (zoomChip) {
         setUiZoom(parseFloat(zoomChip.dataset.zoom!))
+        return
+      }
+      const themeModeChip = t.closest<HTMLElement>('[data-theme-mode]')
+      if (themeModeChip) {
+        cancelThemeBasePreview()
+        setThemeMode(themeModeChip.dataset.themeMode)
+        clearThemeBase()
+        render()
+        return
+      }
+      if (t.closest('[data-theme-base-reset]')) {
+        cancelThemeBasePreview()
+        clearThemeBase()
+        render()
         return
       }
       const gameScaleModeChip = t.closest<HTMLElement>('[data-game-scale-mode]')
@@ -2134,6 +2207,7 @@ registerModule({
       const toggle = t.closest<HTMLElement>('[data-toggle]')
       if (toggle) {
         const key = toggle.dataset.toggle!
+        if (key === CAPTION_DODGE_CONFIG_KEY && !config.get('kuma.voiceCaptions', true)) return
         if (key === VOICE_CAPTION_SPECIAL_PATH) {
           if (!config.get('kuma.voiceCaptions', true)) return
           const next = !normalizeSpecialCaptionStyle(config.get(key, VOICE_CAPTION_SPECIAL_DEFAULT))
@@ -2148,6 +2222,7 @@ registerModule({
           'kuma.dmmcookie',
           'kuma.remoteArt',
           'kuma.voiceCaptions',
+          CAPTION_DODGE_CONFIG_KEY,
           'kuma.eventBannerEffects',
           'kuma.sunkEffects',
           'kuma.tray.enabled',
@@ -2166,6 +2241,8 @@ registerModule({
           setAllowRemoteVoice(next)
         } else if (key === 'kuma.voiceCaptions') {
           setVoiceCaptionsEnabled(next)
+        } else if (key === CAPTION_DODGE_CONFIG_KEY) {
+          setVoiceCaptionDodge(next)
         } else if (key === 'kuma.eventBannerEffects') {
           setEventBannerEffectsEnabled(next)
         } else if (key === 'kuma.sunkEffects') {

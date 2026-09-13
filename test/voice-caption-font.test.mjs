@@ -7,6 +7,7 @@ import test from 'node:test'
 import { createPackage, extractFile, uncache } from '@electron/asar'
 import { isPackageIgnored } from '../scripts/lib/package-ignore.mjs'
 import { captionRuntime } from './fixtures/render-ship-caption.mjs'
+import dodge from '../dist/shared/caption-dodge.js'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
@@ -72,6 +73,8 @@ test('源码页、构建页与临时 asar 均能解析同一随包字体和许�
 for (const scenario of ['enabled', 'disabled', 'distract', 'rejected']) {
   test(`字幕初始化字体预载：${scenario}`, async t => {
     const previous = globalThis.document
+    const previousWindow = globalThis.window
+    globalThis.window = { addEventListener: () => {} }
     const loads = []
     globalThis.document = {
       querySelector: selector => selector === '#app' ? { classList: { contains: name => name === 'distract' && scenario === 'distract' } } : null,
@@ -80,13 +83,13 @@ for (const scenario of ['enabled', 'disabled', 'distract', 'rejected']) {
         return scenario === 'rejected' ? Promise.reject(new Error('font unavailable')) : Promise.resolve([])
       } },
     }
-    t.after(() => { globalThis.document = previous })
+    t.after(() => { globalThis.document = previous; globalThis.window = previousWindow })
     captionRuntime.setVoiceCaptionsEnabled(scenario !== 'disabled')
     const events = []
     captionRuntime.initVoiceSubtitles({ addListener: event => events.push(event) })
     // 真跑生产初始化；多过一个事件循环，让未吞掉的拒绝被测试运行器捕获。
     await new Promise(resolve => setImmediate(resolve))
     assert.deepEqual(loads, ['disabled', 'distract'].includes(scenario) ? [] : ["900 32px 'Noto Sans CJK SC Black'"])
-    assert.deepEqual(events, ['kancolle.voice'])
+    assert.deepEqual(events, [dodge.CAPTION_HOVER_EVENT, 'kancolle.voice'])
   })
 }

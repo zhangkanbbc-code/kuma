@@ -2964,7 +2964,7 @@ const seaCardHtml = (s: SortieView): string => {
         const a = pair?.[0] ? spots[pair[0]] : null
         const c = pair?.[1] ? spots[pair[1]] : null
         return a && c
-          ? `<line x1="${a[0]}" y1="${a[1]}" x2="${c[0]}" y2="${c[1]}" stroke="#3a4c5c" stroke-width="2.5"/>`
+          ? `<line x1="${a[0]}" y1="${a[1]}" x2="${c[0]}" y2="${c[1]}" stroke-width="2.5" style="stroke:var(--node-link)"/>`
           : ''
       })
       .join('')
@@ -2977,7 +2977,7 @@ const seaCardHtml = (s: SortieView): string => {
       const c = spots[edge.to]
       if (!a || !c) continue
       visitedSet.add(edge.from) // 出发点也是走过的，别留成灰点
-      lines.push(`<line x1="${a[0]}" y1="${a[1]}" x2="${c[0]}" y2="${c[1]}" stroke="#4fc47c" stroke-width="5"/>`)
+      lines.push(`<line x1="${a[0]}" y1="${a[1]}" x2="${c[0]}" y2="${c[1]}" stroke-width="5" style="stroke:var(--node-link-passed)"/>`)
     }
     const dots = Object.entries(spots)
       .map(([name, [x, y]]) => {
@@ -2985,11 +2985,11 @@ const seaCardHtml = (s: SortieView): string => {
         const isBoss = name === bossLetter
         const passed = (visitedSet.has(name) || passedByGame.has(name)) && !isCur
         const canSelect = selectable.has(name)
-        const stroke = isCur ? '#4db8ff' : canSelect ? '#e8b86a' : isBoss ? '#ff5a6e' : passed ? '#4fc47c' : '#5c7284'
-        const fill = isCur ? '#1d3d54' : canSelect ? '#40351f' : isBoss ? '#421823' : passed ? '#17351f' : '#1a2733'
-        const color = isCur ? '#d6efff' : canSelect ? '#ffe0a3' : isBoss ? '#ffc4cd' : passed ? '#bdebc9' : '#a8bac8'
-        const ring = isCur ? `<circle cx="${x}" cy="${y}" r="30" fill="none" stroke="#4db8ff" stroke-width="2.5" opacity=".45"/>` : ''
-        return `${ring}<circle cx="${x}" cy="${y}" r="19" fill="${fill}" stroke="${stroke}" stroke-width="3">${canSelect ? `<title>当前可选择 ${esc(name)} 点</title>` : ''}</circle><text x="${x}" y="${y + 7}" fill="${color}" font-size="19" font-weight="600" text-anchor="middle" font-family="Consolas,monospace">${esc(name)}</text>`
+        const stroke = isCur ? 'var(--node-cur-stroke)' : canSelect ? 'var(--node-select-stroke)' : isBoss ? 'var(--node-boss-stroke)' : passed ? 'var(--node-passed-stroke)' : 'var(--node-idle-stroke)'
+        const fill = isCur ? 'var(--node-cur-fill)' : canSelect ? 'var(--node-select-fill)' : isBoss ? 'var(--node-boss-fill)' : passed ? 'var(--node-passed-fill)' : 'var(--node-idle-fill)'
+        const color = isCur ? 'var(--node-cur-ink)' : canSelect ? 'var(--node-select-ink)' : isBoss ? 'var(--node-boss-ink)' : passed ? 'var(--node-passed-ink)' : 'var(--node-idle-ink)'
+        const ring = isCur ? `<circle cx="${x}" cy="${y}" r="30" fill="none" stroke-width="2.5" opacity=".45" style="stroke:var(--node-cur-stroke)"/>` : ''
+        return `${ring}<circle cx="${x}" cy="${y}" r="19" stroke-width="3" style="fill:${fill};stroke:${stroke}">${canSelect ? `<title>当前可选择 ${esc(name)} 点</title>` : ''}</circle><text x="${x}" y="${y + 7}" font-size="19" font-weight="600" text-anchor="middle" font-family="Consolas,monospace" style="fill:${color}">${esc(name)}</text>`
       })
       .join('')
     svg = `<svg class="mini-map" viewBox="${minX} ${minY} ${w} ${h}">${bgLines}${lines.join('')}${dots}</svg>`
@@ -3058,8 +3058,8 @@ const sortieStatCardHtml = (s: SortieView): string => {
       : `<div class="ammo-bar">${label} <span class="b"><span class="rm2" style="width:${pct}%;background:${grad}"></span><span class="dd2" style="width:${100 - pct}%"></span></span><b>${pct}%</b></div>`
   return `<div class="scard" style="--hc:var(--accent-dim)">
     <div class="h"><b>出击统计</b><span class="r">本次第 ${s.battleCount} 战</span></div>
-    ${bar('弹药', bullPct, 'linear-gradient(90deg,#8a7a3a,#c9a86a)')}
-    ${bar('燃料', fuelPct, 'linear-gradient(90deg,#5a8a4a,#8fb87a)')}
+    ${bar('弹药', bullPct, 'linear-gradient(90deg,var(--bar-ammo-from),var(--bar-ammo-to))')}
+    ${bar('燃料', fuelPct, 'linear-gradient(90deg,var(--bar-fuel-from),var(--bar-fuel-to))')}
   </div>`
 }
 
@@ -3947,7 +3947,7 @@ const navCardHtml = (s: SortieView): string => {
   const confirmedEnemy = confirmedEnemyCompsHtml(mapKey, letter, difficulty, tally)
   if (confirmedEnemy) {
     const confirmedNode = mapIntelNode(mapKey, letter, undefined, difficulty)!
-    return `<div class="scard keep" style="--hc:#e08a97">
+    return `<div class="scard keep" style="--hc:var(--card-battle)">
       <div class="h"><b>敌方编队</b><span class="r">${difficulty ? `${difficulty}难度 · ` : ''}${esc(letter)} 点 · 已确认 ${confirmedNode.enemyComps.length} 种</span></div>
       <div class="nav-sec">本地实测</div>
       ${myCompsHtml(s, tally)}
@@ -3955,7 +3955,7 @@ const navCardHtml = (s: SortieView): string => {
       ${confirmedEnemy}
     </div>`
   }
-  return `<div class="scard keep" style="--hc:#e08a97">
+  return `<div class="scard keep" style="--hc:var(--card-battle)">
     <div class="h"><b>敌方编队</b><span class="r">${esc(letter)} 点 · 本地资料待更新</span></div>
     <div class="nav-sec">本地实测</div>
     ${myCompsHtml(s, tally)}
@@ -4004,7 +4004,7 @@ const dropCardHtml = (s: SortieView): string => {
           data-act="drop-cell-filter" data-drop-cell="${cell}">${esc(cellLetter(s, cell))} 点</button>`).join('')}
       </div>`
     : ''
-  return `<div class="scard keep" style="--hc:#e08a97">
+  return `<div class="scard keep" style="--hc:var(--card-battle)">
     <div class="h"><b>本轮掉落${dropCellFilter == null ? '' : ` · ${esc(cellLetter(s, dropCellFilter))} 点`}</b><span class="r">${shownDrops.length}/${s.drops.length} 舰${s.active ? '' : ' · 已归港'}</span></div>
     ${filters}
     <div class="drops">${rows}</div>

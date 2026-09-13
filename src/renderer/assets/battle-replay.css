@@ -993,3 +993,59 @@
   grid-template-columns: 25px 18px minmax(72px, 1fr) auto;
 }
 .mod-di .di-app.narrow .beq-alv, .mod-di .di-app.narrow .beq-star { display: none; }
+
+/* 浅色战斗血条与燃弹：原深色声明保留，填充实色、空段与底轨同色。
+   虚血仍以不透明斜纹表达本段损失，避免与实血混淆。 */
+:root[data-theme="light"] .mod-di .hpx .bar,
+:root[data-theme="light"] .mod-di .ammo-bar .b,
+:root[data-theme="light"] .mod-di .ammo-bar .b .dd2 { background: var(--line-soft); }
+:root[data-theme="light"] .mod-di .rm.g { background: var(--ok); }
+:root[data-theme="light"] .mod-di .rm.y { background: var(--gold); }
+:root[data-theme="light"] .mod-di .rm.o { background: var(--warn); }
+:root[data-theme="light"] .mod-di .rm.r { background: var(--bad); }
+:root[data-theme="light"] .mod-di .hpx .bar .dl { opacity: 1; }
+:root[data-theme="light"] .mod-di .ammo-bar .rm2[style*="--bar-fuel-from"] { background: var(--bar-fuel-to, var(--r-fuel)) !important; }
+:root[data-theme="light"] .mod-di .ammo-bar .rm2[style*="--bar-ammo-from"] { background: var(--bar-ammo-to, var(--gold)) !important; }
+
+/* 共享战斗视图的浅色数字与显式字重档位。 */
+:root[data-theme="light"] .mod-di .prac-head .cnt,
+:root[data-theme="light"] .mod-di .prac-head .eta,
+:root[data-theme="light"] .mod-di .prac-row .mark,
+:root[data-theme="light"] .mod-di .prac-row .meta,
+:root[data-theme="light"] .mod-di .prac-foot,
+:root[data-theme="light"] .mod-di .lvl-order i,
+:root[data-theme="light"] .mod-di .lvl-row .lv,
+:root[data-theme="light"] .mod-di .lvl-row .need,
+:root[data-theme="light"] .mod-di .lvl-row .gap,
+:root[data-theme="light"] .mod-di .lvl-row .exp,
+:root[data-theme="light"] .mod-di .lvl-more,
+:root[data-theme="light"] .mod-di .brow .nm .bexp,
+:root[data-theme="light"] .mod-di .beq-slot,
+:root[data-theme="light"] .mod-di .beq-star,
+:root[data-theme="light"] .mod-di .prebattle-kind,
+:root[data-theme="light"] .mod-di .prebattle-model-head span,
+:root[data-theme="light"] .mod-di .night-forecast > span,
+:root[data-theme="light"] .mod-di .night-head span,
+:root[data-theme="light"] .mod-di .fc-layer,
+:root[data-theme="light"] .mod-di .practice-preview-summary > header small,
+:root[data-theme="light"] .mod-di .practice-preview-model-meta,
+:root[data-theme="light"] .mod-di .practice-preview-pos,
+:root[data-theme="light"] .mod-di .practice-preview-ship > b,
+:root[data-theme="light"] .mod-di .drop-filter { font-weight: var(--weight-mono); }
+:root[data-theme="light"] .mod-di .gpill b,
+:root[data-theme="light"] .mod-di .airline .kv b,
+:root[data-theme="light"] .mod-di .bship-metrics b,
+:root[data-theme="light"] .mod-di .beq-plane b,
+:root[data-theme="light"] .mod-di .rchip b,
+:root[data-theme="light"] .mod-di .prebattle-match-head,
+:root[data-theme="light"] #di-used-equipment-popover b,
+:root[data-theme="light"] .mod-di .scard .h b,
+:root[data-theme="light"] .mod-di .scard .l b,
+:root[data-theme="light"] .mod-di .drop-r b,
+:root[data-theme="light"] .drop-unowned,
+:root[data-theme="light"] .first-mark,
+:root[data-theme="light"] .first-line b,
+:root[data-theme="light"] .mod-di .dp-summary b,
+:root[data-theme="light"] .mod-du .fleet-allow b,
+:root[data-theme="light"] .mod-du .sr-chip,
+:root[data-theme="light"] .mod-ji .map-official-rewards > b { font-weight: var(--weight-strong); }

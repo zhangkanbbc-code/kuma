@@ -1,3 +1,7 @@
+import { installThemeBoot } from './theme-boot'
+
+installThemeBoot()
+
 // 完整任务树独立窗口：只读 quests-scn 与铭的任务状态，不创建游戏 webview。
 import {
   commitPaneHtml,

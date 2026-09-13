@@ -6,6 +6,7 @@ import { buildSync, transformSync } from 'esbuild'
 import shared from '../dist/shared/fairy-salvo.js'
 import gunTypes from '../dist/shared/equip-main-gun.js'
 import voiceSlots from '../dist/shared/voice-scene-slots.js'
+import dodge from '../dist/shared/caption-dodge.js'
 import { mountYu, cardHtml } from './fixtures/render-yu.mjs'
 
 const { salvoGunsOf, fairyMirrored, salvoAllowed, FAIRY_FACES_LEFT, FAIRY_MIRROR_UI_KEY } = shared
@@ -381,7 +382,8 @@ const voice = ({ enabled = true, practice = false, captionGate = true, noText = 
   let now = 10000
   const context = {
     mg: { sortie: { active: true, practice } }, Date: { now: () => now },
-    window: { dispatchEvent: (e) => emitted.push(e) }, CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail } },
+    window: { dispatchEvent: (e) => emitted.push(e), addEventListener: () => {} }, CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail } },
+    CAPTION_HOVER_EVENT: dodge.CAPTION_HOVER_EVENT,
     captionsEnabled: enabled, captionShownAt: new Map(), shouldRenderCaption: () => captionGate,
     isSpecialAttackVoiceSlot: voiceSlots.isSpecialAttackVoiceSlot,
     document: { querySelector: () => null, fonts: { load: async () => [] } },
