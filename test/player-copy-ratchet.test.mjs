@@ -573,10 +573,11 @@ const fitCorrectionNarrativeOffenders = () => {
   const file = new URL('../src/shared/fit-bonus-corrections.ts', import.meta.url)
   const source = fs.readFileSync(file, 'utf8')
   const notes = [...source.matchAll(/^\s+note:\s*'([^'\r\n]*)',/gm)]
-  assert.equal(notes.length, 73, `第一方修正 UI 说明应为 73 条，实际 ${notes.length}`)
+  // 2026-09-14 起 patch 级 `note` 也计入（322/323 伊勢型改二累积待实测两条）
+  assert.equal(notes.length, 75, `第一方修正 UI 说明应为 75 条，实际 ${notes.length}`)
   assert.match(
     fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8'),
-    /rule\.correction \? ` · <em title="\$\{esc\(rule\.correction\)\}">第一方修正<\/em>`/,
+    /const title = line\.corrections[\s\S]*?\$\{rule\.correction\}[\s\S]*?<em class="fb-fix" title="\$\{esc\(title\)\}">含第一方修正<\/em>/,
     'rule.correction 进 title 的显示路径断了',
   )
   return notes
@@ -670,6 +671,26 @@ test('预计返港只放行已裁定的未来时刻文案，概率限定词仍�
   }
   assert.equal(rule.check(row('预计返港概率 50%')), true)
   assert.equal(rule.check(row('预计返港 14:20 · 当前概率大概 50%')), true)
+})
+
+// 用户 2026-09-14：装备加成按首件与之后每件显示，修正依据和累积待实测进悬停。
+const FIT_DISPLAY_COPY = [
+  ['第 1 件', '首件合计'],
+  ['之后每件', '后续每件合计'],
+  ['含第一方修正', '修正角标'],
+  ['累积待实测', '累积方式角标'],
+  ['来源页未写明第二件起是否累加', '累积方式悬停'],
+  ['第一件含只算一次的部分', '读数口径说明'],
+]
+
+test('09-14 装备加成合计文案逐条登记并通过原棘轮', () => {
+  const { tierA } = collectPlayerCopy()
+  for (const [phrase, scope] of FIT_DISPLAY_COPY) {
+    assert.ok(tierA.some((row) => row.text.includes(phrase)), `${scope}未收录：${phrase}`)
+    const rows = [{ file: '装备加成文案登记', line: 1, text: phrase }]
+    assert.deepEqual(offendersIn(rows, RETIRED_WORDS), [])
+    assert.deepEqual(offendersIn(rows, SENTENCE_SHAPES), [])
+  }
 })
 
 // 用户 2026-09-09：带损管的大破舰不劝退、不红警，只说明消耗与不会击沉。

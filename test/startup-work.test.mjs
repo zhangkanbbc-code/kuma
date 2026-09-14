@@ -7,6 +7,7 @@ import dockLayout from '../dist/shared/dock-layout.js'
 import labels from '../dist/shared/remodel-label.js'
 import chains from '../dist/shared/ship-remodel-chain.js'
 import distractMode from '../dist/shared/distract-mode.js'
+import popModule from '../dist/shared/pop-module.js'
 
 const read = name => fs.readFileSync(new URL(`../src/renderer/${name}.ts`, import.meta.url), 'utf8')
 const run = (source, context) => vm.runInNewContext(transformSync(source, { loader: 'ts', format: 'cjs' }).code, context)
@@ -65,6 +66,7 @@ const layoutFixture = (saved, failWrite = false) => {
   assert.ok(start >= 0 && end > start)
   const writes = []
   const context = {
+    POP_MODULE: null, normalizePopped: popModule.normalizePopped,
     // 分心侧位读同一 config 叶子；这里只桩外壳，常规布局存档判据仍跑原函数。
     ...distractMode,
     remote: { require: () => ({ get: (_key, fallback) => fallback }) },
@@ -82,7 +84,7 @@ const layoutFixture = (saved, failWrite = false) => {
 const savedLayout = () => ({
   docks: { left: [], right: [], bottom: [{ mods: ['qn', 'bi'], active: 'qn' }] },
   dockSize: { left: 330, right: 420, bottom: 280 },
-  collapsed: { left: false, right: false, bottom: false }, focus: false, shelved: [],
+  collapsed: { left: false, right: false, bottom: false }, focus: false, shelved: [], popped: [], poppedFrom: {},
 })
 
 test('初始化布局无变化不写盘，用户保存仍即时执行，缺字段时照常补齐', () => {

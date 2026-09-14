@@ -21,6 +21,7 @@ const ACTIVATE_MODULE = source.slice(start, end)
 
 const HARNESS = `
 type DockId = 'left' | 'right' | 'bottom'
+const POP_MODULE = null
 
 export const layout: any = {
   docks: {
@@ -31,6 +32,7 @@ export const layout: any = {
   collapsed: { left: true, right: true, bottom: true },
   focus: true,
   shelved: [],
+  popped: [],
 }
 
 const removedClasses: string[] = []

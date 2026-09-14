@@ -19,6 +19,7 @@ import { installCrashDumps } from './crash-dumps'
 import { installThemePush, themeBackgroundColor } from './theme-push'
 import { installGameAudioPush } from './game-audio-push'
 import { installCaptionDodge } from './caption-dodge'
+import { installPopWindows } from './pop-windows'
 import { attachApplicationHotkeys, installHotkeys } from './hotkeys'
 import { ROOT } from './env'
 import { installQuitGuard, reapOrphanKumaProcesses } from './quit-guard'
@@ -39,6 +40,7 @@ import {
   handleWindowMinimize,
   setTrayDnd,
   setTrayUnread,
+  setTrayPopWindows,
   showMainWindow,
 } from './tray'
 import {
@@ -607,6 +609,20 @@ app.on('ready', () => {
     },
   })
   mainWindow = win
+  const popWindows = installPopWindows({
+    getMainWindow: () => mainWindow,
+    config,
+    indexHtml: path.join(ROOT, 'dist', 'renderer', 'index.html'),
+    icon: appIcon,
+    backgroundColor: themeBackgroundColor,
+    prepare: (pop) => {
+      electronRemote.enable(pop.webContents)
+      attachApplicationHotkeys(pop.webContents)
+      stopFileNavigate(pop.webContents.id)
+      handleNewWindow(pop.webContents.id)
+    },
+  })
+  setTrayPopWindows(popWindows)
   attachApplicationHotkeys(win.webContents)
   installHotkeys(() => mainWindow)
   installThemePush()
@@ -642,7 +658,8 @@ app.on('ready', () => {
   }
   ipcMain.on('kuma:preview-audio-active', (event, active: unknown) => {
     // 只认主窗口那一个渲染进程：游戏页里的脚本不该按得住自己的喇叭
-    if (event.sender.id !== win.webContents.id) return
+    // 模块弹出后也属于 kuma 渲染进程，试听同样压音；游戏 webview 仍不放行。
+    if (!popWindows.isKumaSender(event.sender)) return
     sendPreviewDuck(active === true)
   })
   // 报信的那一端没了（重载 / 崩溃 / 关窗），那声「恢复」就再也不会来了——
@@ -733,7 +750,10 @@ app.on('ready', () => {
   win.on('close', (e) => {
     if (exitDistractWindow(win)) win.webContents.send('window:distract-exited')
     saveBounds()
-    if (interceptWindowClose(win)) e.preventDefault()
+    if (interceptWindowClose(win)) {
+      e.preventDefault()
+      popWindows.hideAll()
+    }
   })
   win.on('minimize', () => handleWindowMinimize(win))
   win.on('closed', () => {
@@ -757,6 +777,8 @@ app.on('ready', () => {
     // 浏览窗是主窗的附属：主窗没了它们不该把应用留在后台（窗口全关才有
     // window-all-closed → app.quit()，留一扇在那儿等于关不掉）
     closeAllBrowseWindows()
+    // 主窗没了弹出窗不该把应用留在后台。
+    popWindows.closeAll()
   })
 
   // DNS over HTTPS（移植自 poi）

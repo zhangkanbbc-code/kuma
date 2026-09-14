@@ -1268,7 +1268,7 @@ const gameUrlCardHtml = (): string => {
   const raw = typeof current === 'string' ? current : ''
   const unusable = raw.trim() !== '' && !isValidGameUrl(raw)
   return `<div class="h"><b>游戏页面网址</b><span class="aux">修改后重新载入</span></div>
-    <div class="yline"><input class="yin wide" data-game-url value="${esc(raw)}"
+    <div class="yline"><input id="yu-game-url" class="yin wide" data-game-url value="${esc(raw)}"
         placeholder="${esc(DEFAULT_GAME_URL)}">
       <span class="ybtn" data-act="game-url-reset">恢复默认</span></div>
     <div class="yline"><span class="ybtn" data-act="game-url-reload">重新载入游戏页面</span></div>

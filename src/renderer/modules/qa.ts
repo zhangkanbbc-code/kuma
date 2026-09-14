@@ -1470,6 +1470,7 @@ export const locateEquipHolders = (equipMstId: number, name: string) => {
 
 // 在籍舰实例实体（instance 级——与 mstShip 的图鉴级区分）
 registerEntityRoute('ship', {
+  mod: 'ji',
   colorClass: 'e-ship',
   open(ref) {
     const id = ref.num
@@ -1501,6 +1502,7 @@ registerEntityRoute('ship', {
           ...(deck
             ? [{
                 label: `编队 · 定位第${deck.id}舰队中的这艘舰娘`,
+                mod: 'ru',
                 run: () => navigate({ type: 'fleetShip', id: ship.id }),
               }]
             : []),
@@ -1511,6 +1513,7 @@ registerEntityRoute('ship', {
 })
 
 registerEntityRoute('shipCapacity', {
+  mod: 'ji',
   colorClass: 'e-ship',
   open: openRosterCleanup,
   peek() {

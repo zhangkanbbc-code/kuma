@@ -110,7 +110,18 @@ export interface FitBonusCorrection {
   /** 依赖的上游行：任一行的指纹对不上，整条修正作废并告警 */
   watch: readonly { row: number; fingerprint: string }[]
   /** 逐形态的补正量。同一个补正量的形态并成一组，读起来才像人话 */
-  patches: readonly { forms: readonly number[]; delta: FitStats }[]
+  patches: readonly {
+    forms: readonly number[]
+    delta: FitStats
+    /** 缺省沿用条目级 stack */
+    stack?: 'perEquip' | 'once'
+    /** 缺省沿用条目级 note，写入合成行的 correction */
+    note?: string
+    /** 合成行的累积方式待实测，不参与上游指纹 */
+    stackUnverified?: true
+  }[]
+  /** 改写已被 watch 盯住的上游行；给出的字段整个替换，未给出的保留 */
+  rows?: readonly { row: number; stack?: 'perEquip' | 'once'; who?: FitWhoSet }[]
   /** 补正跟着本行的叠加方式走：上游那几行按件数倍乘的，补正也按件数 */
   stack: 'perEquip' | 'once'
   /** 日文一手出处逐字（裁决依据） */
@@ -224,25 +235,33 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       { row: 3, fingerprint: 'who:f663.668|not:|need:|gain:flat[aa+1,evasion+2,fire+3]|stack:perEquip|cap:|set:' },
       { row: 4, fingerprint: 'who:f662|not:|need:|gain:flat[evasion+1,fire+3]|stack:perEquip|cap:|set:' },
     ],
+    rows: [
+      { row: 4, stack: 'once' },
+      { row: 2, who: { forms: [501, 506] } },
+    ],
     patches: [
-      { forms: [553, 554], delta: { fire: 3, aa: 1, evasion: 2 } },
-      { forms: [501, 506], delta: { fire: 1, evasion: 1 } },
-      { forms: [502, 507], delta: { evasion: 1 } },
-      { forms: [662, 663, 668], delta: { fire: 1, asw: 1, evasion: 1 } },
+      {
+        forms: [553, 554], delta: { fire: 3, aa: 1, evasion: 2 }, stack: 'perEquip',
+        stackUnverified: true,
+        note: '伊勢型改二累积待实测 · 加成数值按 wikiwiki 日文原表',
+      },
+      { forms: [502, 507], delta: { fire: 2, aa: 1, evasion: 2 }, stack: 'perEquip' },
+      { forms: [662, 663, 668], delta: { fire: 1, asw: 1, evasion: 1 }, stack: 'once' },
+      { forms: [501, 502, 506, 507], delta: { fire: 1, evasion: 1 }, stack: 'once' },
     ],
     stack: 'perEquip',
-    source: 'wikiwiki.jp/kancolle「瑞雲改二(六三四空)」装備ボーナス表（页面 Last-modified 2026-07-31）',
+    source: 'wikiwiki 「瑞雲改二(六三四空)」「能代改二」「矢矧改二」「矢矧改二乙」「最上改二特」「三隈改二特」「伊勢改二」「日向改二」（2026-09-14 抓取）',
     jp:
-      '伊勢型改二 火力+8 対空+3 対潜+1 回避+4／能代改二 火力+4 対潜+1 回避+2／矢矧改二・乙 +4 +1 対潜+1 回避+3／' +
-      '最上改二・特 +4 +1 回避+3／三隈改二・特 +3 +1 回避+3',
+      '水上爆撃機(共通・1機目)：能代改二・矢矧改二/乙 火力+1 対潜+1 回避+1 累積×／水上爆撃機(共通)：最上改二特・三隈改二特 火力+1 回避+1 累積×／' +
+      '水上爆撃機(その他日本)：能代改二 火力+2 回避+1 累積×、矢矧改二/乙・最上改二特・三隈改二特 火力+2 対空+1 回避+1 累積変動／' +
+      '具名の固有補正：能代改二 火力+3 回避+1 累積×、矢矧改二/乙・最上改二特 火力+3 対空+1 回避+2 累積〇、三隈改二特 火力+2 対空+1 回避+2 累積〇（2026-09-14 抓取）',
     why:
-      '逐格核下来日文一手与上游差一整层：伊勢改二/日向改二 上游给 火力5/对空2/回避2，' +
-      '日文是 火力8/对空3/回避4；最上改二 上游 3/1/2，日文 4/1/3；三隈改二 上游少 回避1；' +
-      '矢矧改二系与能代改二 上游漏了 対潜+1。**不是孤例**：瑞雲/晴嵐系 10 件水上爆撃機在' +
-      '最上改二系上呈现同一个缺口（上游逐装备写，把「水上爆撃機类目 × 最上改二系」那一层漏掉了），' +
-      '这里先裁指标最全的这一件，其余留在待裁清单。',
+      '2026-09-14 抓取按「共通」「その他日本」「具名固有」三层拆读；装备页的一件值包含共通，第二件起扣除共通。' +
+      '能代改二具名固有档与共通都只算一次；上游最上/三隈合档缩为最上，三隈另给 火力+2 対空+1 回避+2 的固有档，按件数累积。' +
+      '伊勢型改二差额沿用 perEquip；装备页累積〇，伊勢改二/日向改二页重複加算？，累积待实测。' +
+      '共通只算一次的判定按本件结算；与其他水上爆撃機混装时共通仍会各算一次，待模型层支持跨装备去重',
     note: '加成数值按 wikiwiki 日文原表',
-    decidedAt: '2026-08-22',
+    decidedAt: '2026-09-14',
   },
   {
     equipId: 19,
@@ -270,24 +289,27 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       { row: 4, fingerprint: 'who:f662|not:|need:|gain:flat[evasion+1,fire+2]|stack:perEquip|cap:|set:' },
       { row: 5, fingerprint: 'who:f663.668|not:|need:|gain:flat[fire+2]|stack:perEquip|cap:|set:' },
     ],
+    rows: [
+      { row: 4, stack: 'once' },
+    ],
     patches: [
-      { forms: [501, 506], delta: { fire: 1, evasion: 1 } },
-      { forms: [502, 507], delta: { evasion: 1 } },
-      { forms: [662, 663, 668], delta: { fire: 1, evasion: 1, asw: 1 } },
+      { forms: [501, 506], delta: { fire: 1, evasion: 1 }, stack: 'once' },
+      { forms: [502, 507], delta: { evasion: 1 }, stack: 'once' },
+      { forms: [662, 663, 668], delta: { fire: 1, evasion: 1, asw: 1 }, stack: 'once' },
     ],
     stack: 'perEquip',
-    source:
-      'wikiwiki.jp/kancolle「瑞雲(六三四空)」「瑞雲12型(六三四空)」装備ボーナス表の「水上爆撃機(その他日本)」类目行（页面 Last-modified 2026-07-27）' +
-      '＋舰娘页「能代改二」(2026-08-15)「矢矧改二」(2026-08-15) 的「水上爆撃機(共通・1機目)」＋「水上爆撃機(その他日本)」两行',
+    source: 'wikiwiki 「瑞雲(六三四空)」「瑞雲12型(六三四空)」「能代改二」「矢矧改二」「矢矧改二乙」「最上改二特」「三隈改二特」（2026-09-14 抓取）',
     jp:
-      '水上爆撃機(その他日本)：能代改二 火力+3 対潜+1 回避+2／矢矧改二・乙 +3 対空+1 対潜+1 回避+2／最上改二・特 +3 +1 回避+2／' +
-      '三隈改二・特 +2 +1 回避+2',
+      '水上爆撃機(共通・1機目)：能代改二・矢矧改二/乙 火力+1 対潜+1 回避+1 累積×／水上爆撃機(共通)：最上改二特・三隈改二特 火力+1 回避+1 累積×／' +
+      '水上爆撃機(その他日本)：能代改二 火力+2 回避+1 累積×、矢矧改二/乙・最上改二特・三隈改二特 火力+2 対空+1 回避+1 累積変動／' +
+      '具名の固有補正：能代改二 火力+3 回避+1 累積×、矢矧改二/乙・最上改二特 火力+3 対空+1 回避+2 累積〇、三隈改二特 火力+2 対空+1 回避+2 累積〇（2026-09-14 抓取）',
     why:
-      '本装备自己的 wikiwiki 页没有「装備ボーナスについて」小节（页在，只是这一族的数值写在类目行里）。日文一手把这四行**写成类目行**「水上爆撃機(その他日本)' +
-      '」——瑞雲系无固有補正的那几件共用同一档，两处互证：① 同族的 79 / 81 页逐格给出该类目行；② 能代改二舰娘页拆成「水上爆撃機(共通・1機目) 火力+1 対潜+1 回避+1」＋「水上爆撃機(その他日本)' +
-      ' 火力+2 回避+1」，相加正是 火力+3 対潜+1 回避+2。上游是逐装备写的，把「水上爆撃機类目 × 最上改二系/阿賀野型改二系」这一层整层漏掉了。',
+      '2026-09-14 抓取按「共通」「その他日本」「具名固有」三层拆读；本件属于 その他日本 档，不取具名固有档。' +
+      '能代改二 その他日本 档与共通都只算一次；七件各形态的一件数值维持 08-22 裁定，仅将原共通差额改为 once。' +
+      '2026-09-14 页面 その他日本 三隈行读到 火+2 対空+1 回避+1 + 共通 火+1 回避+1，与 08-22 读数不同，待复核。' +
+      '矢矧/最上/三隈的 その他日本 档沿用上游 perEquip，変動 未裁。',
     note: '加成数值按 wikiwiki 日文原表',
-    decidedAt: '2026-08-22',
+    decidedAt: '2026-09-14',
   },
   {
     equipId: 39,
@@ -404,24 +426,27 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       { row: 4, fingerprint: 'who:f662|not:|need:|gain:flat[evasion+1,fire+2]|stack:perEquip|cap:|set:' },
       { row: 5, fingerprint: 'who:f663.668|not:|need:|gain:flat[fire+2]|stack:perEquip|cap:|set:' },
     ],
+    rows: [
+      { row: 4, stack: 'once' },
+    ],
     patches: [
-      { forms: [501, 506], delta: { fire: 1, evasion: 1 } },
-      { forms: [502, 507], delta: { evasion: 1 } },
-      { forms: [662, 663, 668], delta: { fire: 1, evasion: 1, asw: 1 } },
+      { forms: [501, 506], delta: { fire: 1, evasion: 1 }, stack: 'once' },
+      { forms: [502, 507], delta: { evasion: 1 }, stack: 'once' },
+      { forms: [662, 663, 668], delta: { fire: 1, evasion: 1, asw: 1 }, stack: 'once' },
     ],
     stack: 'perEquip',
-    source:
-      'wikiwiki.jp/kancolle「瑞雲(六三四空)」「瑞雲12型(六三四空)」装備ボーナス表の「水上爆撃機(その他日本)」类目行（页面 Last-modified 2026-07-27）' +
-      '＋舰娘页「能代改二」(2026-08-15)「矢矧改二」(2026-08-15) 的「水上爆撃機(共通・1機目)」＋「水上爆撃機(その他日本)」两行',
+    source: 'wikiwiki 「瑞雲(六三四空)」「瑞雲12型(六三四空)」「能代改二」「矢矧改二」「矢矧改二乙」「最上改二特」「三隈改二特」（2026-09-14 抓取）',
     jp:
-      '水上爆撃機(その他日本)：能代改二 火力+3 対潜+1 回避+2／矢矧改二・乙 +3 対空+1 対潜+1 回避+2／最上改二・特 +3 +1 回避+2／' +
-      '三隈改二・特 +2 +1 回避+2',
+      '水上爆撃機(共通・1機目)：能代改二・矢矧改二/乙 火力+1 対潜+1 回避+1 累積×／水上爆撃機(共通)：最上改二特・三隈改二特 火力+1 回避+1 累積×／' +
+      '水上爆撃機(その他日本)：能代改二 火力+2 回避+1 累積×、矢矧改二/乙・最上改二特・三隈改二特 火力+2 対空+1 回避+1 累積変動／' +
+      '具名の固有補正：能代改二 火力+3 回避+1 累積×、矢矧改二/乙・最上改二特 火力+3 対空+1 回避+2 累積〇、三隈改二特 火力+2 対空+1 回避+2 累積〇（2026-09-14 抓取）',
     why:
-      '本装备自己的 wikiwiki 页没有「装備ボーナスについて」小节（页在，只是这一族的数值写在类目行里）。日文一手把这四行**写成类目行**「水上爆撃機(その他日本)' +
-      '」——瑞雲系无固有補正的那几件共用同一档，两处互证：① 同族的 79 / 81 页逐格给出该类目行；② 能代改二舰娘页拆成「水上爆撃機(共通・1機目) 火力+1 対潜+1 回避+1」＋「水上爆撃機(その他日本)' +
-      ' 火力+2 回避+1」，相加正是 火力+3 対潜+1 回避+2。上游是逐装备写的，把「水上爆撃機类目 × 最上改二系/阿賀野型改二系」这一层整层漏掉了。',
+      '2026-09-14 抓取按「共通」「その他日本」「具名固有」三层拆读；本件属于 その他日本 档，不取具名固有档。' +
+      '能代改二 その他日本 档与共通都只算一次；七件各形态的一件数值维持 08-22 裁定，仅将原共通差额改为 once。' +
+      '2026-09-14 页面 その他日本 三隈行读到 火+2 対空+1 回避+1 + 共通 火+1 回避+1，与 08-22 读数不同，待复核。' +
+      '矢矧/最上/三隈的 その他日本 档沿用上游 perEquip，変動 未裁。',
     note: '加成数值按 wikiwiki 日文原表',
-    decidedAt: '2026-08-22',
+    decidedAt: '2026-09-14',
   },
   {
     equipId: 63,
@@ -449,21 +474,27 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       { row: 6, fingerprint: 'who:f662|not:|need:|gain:flat[evasion+1,fire+2]|stack:perEquip|cap:|set:' },
       { row: 7, fingerprint: 'who:f663.668|not:|need:|gain:flat[fire+2]|stack:perEquip|cap:|set:' },
     ],
+    rows: [
+      { row: 6, stack: 'once' },
+    ],
     patches: [
-      { forms: [501, 506], delta: { fire: 1, evasion: 1 } },
-      { forms: [502, 507], delta: { evasion: 1 } },
-      { forms: [662, 663, 668], delta: { fire: 1, evasion: 1, asw: 1 } },
+      { forms: [501, 506], delta: { fire: 1, evasion: 1 }, stack: 'once' },
+      { forms: [502, 507], delta: { evasion: 1 }, stack: 'once' },
+      { forms: [662, 663, 668], delta: { fire: 1, evasion: 1, asw: 1 }, stack: 'once' },
     ],
     stack: 'perEquip',
-    source: 'wikiwiki.jp/kancolle「瑞雲(六三四空)」装備ボーナス表（页面 Last-modified 2026-07-27）',
+    source: 'wikiwiki 「瑞雲(六三四空)」「瑞雲12型(六三四空)」「能代改二」「矢矧改二」「矢矧改二乙」「最上改二特」「三隈改二特」（2026-09-14 抓取）',
     jp:
-      '水上爆撃機(その他日本)：能代改二 火力+3 対潜+1 回避+2／矢矧改二 / 乙 +3 対空+1 対潜+1 回避+2／最上改二 / 特 +3 +1 回避+2／' +
-      '三隈改二 / 特 +2 +1 回避+2',
+      '水上爆撃機(共通・1機目)：能代改二・矢矧改二/乙 火力+1 対潜+1 回避+1 累積×／水上爆撃機(共通)：最上改二特・三隈改二特 火力+1 回避+1 累積×／' +
+      '水上爆撃機(その他日本)：能代改二 火力+2 回避+1 累積×、矢矧改二/乙・最上改二特・三隈改二特 火力+2 対空+1 回避+1 累積変動／' +
+      '具名の固有補正：能代改二 火力+3 回避+1 累積×、矢矧改二/乙・最上改二特 火力+3 対空+1 回避+2 累積〇、三隈改二特 火力+2 対空+1 回避+2 累積〇（2026-09-14 抓取）',
     why:
-      '页内脚注写明这四行是「水上爆撃機(その他日本)のカテゴリ補正と水上爆撃機共通補正を加算したもので、本装備1つのみを装備する際の増分」——正是我们的共同分母（★0・1 件）' +
-      '。逐格核下来日文与 EO 一致，上游整族偏低：最上改二/特 少 火力1 回避1，三隈改二/特 少 回避1，矢矧改二系与能代改二 还漏了 対潜+1。',
+      '2026-09-14 抓取按「共通」「その他日本」「具名固有」三层拆读；本件属于 その他日本 档，不取具名固有档。' +
+      '能代改二 その他日本 档与共通都只算一次；七件各形态的一件数值维持 08-22 裁定，仅将原共通差额改为 once。' +
+      '2026-09-14 页面 その他日本 三隈行读到 火+2 対空+1 回避+1 + 共通 火+1 回避+1，与 08-22 读数不同，待复核。' +
+      '矢矧/最上/三隈的 その他日本 档沿用上游 perEquip，変動 未裁。',
     note: '加成数值按 wikiwiki 日文原表',
-    decidedAt: '2026-08-22',
+    decidedAt: '2026-09-14',
   },
   {
     equipId: 80,
@@ -475,24 +506,27 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       { row: 4, fingerprint: 'who:f662|not:|need:|gain:flat[evasion+1,fire+2]|stack:perEquip|cap:|set:' },
       { row: 5, fingerprint: 'who:f663.668|not:|need:|gain:flat[fire+2]|stack:perEquip|cap:|set:' },
     ],
+    rows: [
+      { row: 4, stack: 'once' },
+    ],
     patches: [
-      { forms: [501, 506], delta: { fire: 1, evasion: 1 } },
-      { forms: [502, 507], delta: { evasion: 1 } },
-      { forms: [662, 663, 668], delta: { fire: 1, evasion: 1, asw: 1 } },
+      { forms: [501, 506], delta: { fire: 1, evasion: 1 }, stack: 'once' },
+      { forms: [502, 507], delta: { evasion: 1 }, stack: 'once' },
+      { forms: [662, 663, 668], delta: { fire: 1, evasion: 1, asw: 1 }, stack: 'once' },
     ],
     stack: 'perEquip',
-    source:
-      'wikiwiki.jp/kancolle「瑞雲(六三四空)」「瑞雲12型(六三四空)」装備ボーナス表の「水上爆撃機(その他日本)」类目行（页面 Last-modified 2026-07-27）' +
-      '＋舰娘页「能代改二」(2026-08-15)「矢矧改二」(2026-08-15) 的「水上爆撃機(共通・1機目)」＋「水上爆撃機(その他日本)」两行',
+    source: 'wikiwiki 「瑞雲(六三四空)」「瑞雲12型(六三四空)」「能代改二」「矢矧改二」「矢矧改二乙」「最上改二特」「三隈改二特」（2026-09-14 抓取）',
     jp:
-      '水上爆撃機(その他日本)：能代改二 火力+3 対潜+1 回避+2／矢矧改二・乙 +3 対空+1 対潜+1 回避+2／最上改二・特 +3 +1 回避+2／' +
-      '三隈改二・特 +2 +1 回避+2',
+      '水上爆撃機(共通・1機目)：能代改二・矢矧改二/乙 火力+1 対潜+1 回避+1 累積×／水上爆撃機(共通)：最上改二特・三隈改二特 火力+1 回避+1 累積×／' +
+      '水上爆撃機(その他日本)：能代改二 火力+2 回避+1 累積×、矢矧改二/乙・最上改二特・三隈改二特 火力+2 対空+1 回避+1 累積変動／' +
+      '具名の固有補正：能代改二 火力+3 回避+1 累積×、矢矧改二/乙・最上改二特 火力+3 対空+1 回避+2 累積〇、三隈改二特 火力+2 対空+1 回避+2 累積〇（2026-09-14 抓取）',
     why:
-      '本装备自己的 wikiwiki 页没有「装備ボーナスについて」小节（页在，只是这一族的数值写在类目行里）。日文一手把这四行**写成类目行**「水上爆撃機(その他日本)' +
-      '」——瑞雲系无固有補正的那几件共用同一档，两处互证：① 同族的 79 / 81 页逐格给出该类目行；② 能代改二舰娘页拆成「水上爆撃機(共通・1機目) 火力+1 対潜+1 回避+1」＋「水上爆撃機(その他日本)' +
-      ' 火力+2 回避+1」，相加正是 火力+3 対潜+1 回避+2。上游是逐装备写的，把「水上爆撃機类目 × 最上改二系/阿賀野型改二系」这一层整层漏掉了。',
+      '2026-09-14 抓取按「共通」「その他日本」「具名固有」三层拆读；本件属于 その他日本 档，不取具名固有档。' +
+      '能代改二 その他日本 档与共通都只算一次；七件各形态的一件数值维持 08-22 裁定，仅将原共通差额改为 once。' +
+      '2026-09-14 页面 その他日本 三隈行读到 火+2 対空+1 回避+1 + 共通 火+1 回避+1，与 08-22 读数不同，待复核。' +
+      '矢矧/最上/三隈的 その他日本 档沿用上游 perEquip，変動 未裁。',
     note: '加成数值按 wikiwiki 日文原表',
-    decidedAt: '2026-08-22',
+    decidedAt: '2026-09-14',
   },
   {
     equipId: 81,
@@ -504,21 +538,27 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       { row: 6, fingerprint: 'who:f662|not:|need:|gain:flat[evasion+1,fire+2]|stack:perEquip|cap:|set:' },
       { row: 7, fingerprint: 'who:f663.668|not:|need:|gain:flat[fire+2]|stack:perEquip|cap:|set:' },
     ],
+    rows: [
+      { row: 6, stack: 'once' },
+    ],
     patches: [
-      { forms: [501, 506], delta: { fire: 1, evasion: 1 } },
-      { forms: [502, 507], delta: { evasion: 1 } },
-      { forms: [662, 663, 668], delta: { fire: 1, evasion: 1, asw: 1 } },
+      { forms: [501, 506], delta: { fire: 1, evasion: 1 }, stack: 'once' },
+      { forms: [502, 507], delta: { evasion: 1 }, stack: 'once' },
+      { forms: [662, 663, 668], delta: { fire: 1, evasion: 1, asw: 1 }, stack: 'once' },
     ],
     stack: 'perEquip',
-    source: 'wikiwiki.jp/kancolle「瑞雲12型(六三四空)」装備ボーナス表（页面 Last-modified 2026-07-27）',
+    source: 'wikiwiki 「瑞雲(六三四空)」「瑞雲12型(六三四空)」「能代改二」「矢矧改二」「矢矧改二乙」「最上改二特」「三隈改二特」（2026-09-14 抓取）',
     jp:
-      '水上爆撃機(その他日本)：能代改二 火力+3 対潜+1 回避+2／矢矧改二 / 乙 +3 対空+1 対潜+1 回避+2／最上改二 / 特 +3 +1 回避+2／' +
-      '三隈改二 / 特 +2 +1 回避+2',
+      '水上爆撃機(共通・1機目)：能代改二・矢矧改二/乙 火力+1 対潜+1 回避+1 累積×／水上爆撃機(共通)：最上改二特・三隈改二特 火力+1 回避+1 累積×／' +
+      '水上爆撃機(その他日本)：能代改二 火力+2 回避+1 累積×、矢矧改二/乙・最上改二特・三隈改二特 火力+2 対空+1 回避+1 累積変動／' +
+      '具名の固有補正：能代改二 火力+3 回避+1 累積×、矢矧改二/乙・最上改二特 火力+3 対空+1 回避+2 累積〇、三隈改二特 火力+2 対空+1 回避+2 累積〇（2026-09-14 抓取）',
     why:
-      '页内脚注写明这四行是「水上爆撃機(その他日本)のカテゴリ補正と水上爆撃機共通補正を加算したもので、本装備1つのみを装備する際の増分」——正是我们的共同分母（★0・1 件）' +
-      '。逐格核下来日文与 EO 一致，上游整族偏低：最上改二/特 少 火力1 回避1，三隈改二/特 少 回避1，矢矧改二系与能代改二 还漏了 対潜+1。',
+      '2026-09-14 抓取按「共通」「その他日本」「具名固有」三层拆读；本件属于 その他日本 档，不取具名固有档。' +
+      '能代改二 その他日本 档与共通都只算一次；七件各形态的一件数值维持 08-22 裁定，仅将原共通差额改为 once。' +
+      '2026-09-14 页面 その他日本 三隈行读到 火+2 対空+1 回避+1 + 共通 火+1 回避+1，与 08-22 读数不同，待复核。' +
+      '矢矧/最上/三隈的 その他日本 档沿用上游 perEquip，変動 未裁。',
     note: '加成数值按 wikiwiki 日文原表',
-    decidedAt: '2026-08-22',
+    decidedAt: '2026-09-14',
   },
   {
     equipId: 87,
@@ -595,24 +635,27 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       { row: 4, fingerprint: 'who:f662|not:|need:|gain:flat[evasion+1,fire+2]|stack:perEquip|cap:|set:' },
       { row: 5, fingerprint: 'who:f663.668|not:|need:|gain:flat[fire+2]|stack:perEquip|cap:|set:' },
     ],
+    rows: [
+      { row: 4, stack: 'once' },
+    ],
     patches: [
-      { forms: [501, 506], delta: { fire: 1, evasion: 1 } },
-      { forms: [502, 507], delta: { evasion: 1 } },
-      { forms: [662, 663, 668], delta: { fire: 1, evasion: 1, asw: 1 } },
+      { forms: [501, 506], delta: { fire: 1, evasion: 1 }, stack: 'once' },
+      { forms: [502, 507], delta: { evasion: 1 }, stack: 'once' },
+      { forms: [662, 663, 668], delta: { fire: 1, evasion: 1, asw: 1 }, stack: 'once' },
     ],
     stack: 'perEquip',
-    source:
-      'wikiwiki.jp/kancolle「瑞雲(六三四空)」「瑞雲12型(六三四空)」装備ボーナス表の「水上爆撃機(その他日本)」类目行（页面 Last-modified 2026-07-27）' +
-      '＋舰娘页「能代改二」(2026-08-15)「矢矧改二」(2026-08-15) 的「水上爆撃機(共通・1機目)」＋「水上爆撃機(その他日本)」两行',
+    source: 'wikiwiki 「瑞雲(六三四空)」「瑞雲12型(六三四空)」「能代改二」「矢矧改二」「矢矧改二乙」「最上改二特」「三隈改二特」（2026-09-14 抓取）',
     jp:
-      '水上爆撃機(その他日本)：能代改二 火力+3 対潜+1 回避+2／矢矧改二・乙 +3 対空+1 対潜+1 回避+2／最上改二・特 +3 +1 回避+2／' +
-      '三隈改二・特 +2 +1 回避+2',
+      '水上爆撃機(共通・1機目)：能代改二・矢矧改二/乙 火力+1 対潜+1 回避+1 累積×／水上爆撃機(共通)：最上改二特・三隈改二特 火力+1 回避+1 累積×／' +
+      '水上爆撃機(その他日本)：能代改二 火力+2 回避+1 累積×、矢矧改二/乙・最上改二特・三隈改二特 火力+2 対空+1 回避+1 累積変動／' +
+      '具名の固有補正：能代改二 火力+3 回避+1 累積×、矢矧改二/乙・最上改二特 火力+3 対空+1 回避+2 累積〇、三隈改二特 火力+2 対空+1 回避+2 累積〇（2026-09-14 抓取）',
     why:
-      '本装备自己的 wikiwiki 页没有「装備ボーナスについて」小节（页在，只是这一族的数值写在类目行里）。日文一手把这四行**写成类目行**「水上爆撃機(その他日本)' +
-      '」——瑞雲系无固有補正的那几件共用同一档，两处互证：① 同族的 79 / 81 页逐格给出该类目行；② 能代改二舰娘页拆成「水上爆撃機(共通・1機目) 火力+1 対潜+1 回避+1」＋「水上爆撃機(その他日本)' +
-      ' 火力+2 回避+1」，相加正是 火力+3 対潜+1 回避+2。上游是逐装备写的，把「水上爆撃機类目 × 最上改二系/阿賀野型改二系」这一层整层漏掉了。',
+      '2026-09-14 抓取按「共通」「その他日本」「具名固有」三层拆读；本件属于 その他日本 档，不取具名固有档。' +
+      '能代改二 その他日本 档与共通都只算一次；七件各形态的一件数值维持 08-22 裁定，仅将原共通差额改为 once。' +
+      '2026-09-14 页面 その他日本 三隈行读到 火+2 対空+1 回避+1 + 共通 火+1 回避+1，与 08-22 读数不同，待复核。' +
+      '矢矧/最上/三隈的 その他日本 档沿用上游 perEquip，変動 未裁。',
     note: '加成数值按 wikiwiki 日文原表',
-    decidedAt: '2026-08-22',
+    decidedAt: '2026-09-14',
   },
   {
     equipId: 208,
@@ -624,24 +667,27 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       { row: 4, fingerprint: 'who:f662|not:|need:|gain:flat[evasion+1,fire+2]|stack:perEquip|cap:|set:' },
       { row: 5, fingerprint: 'who:f663.668|not:|need:|gain:flat[fire+2]|stack:perEquip|cap:|set:' },
     ],
+    rows: [
+      { row: 4, stack: 'once' },
+    ],
     patches: [
-      { forms: [501, 506], delta: { fire: 1, evasion: 1 } },
-      { forms: [502, 507], delta: { evasion: 1 } },
-      { forms: [662, 663, 668], delta: { fire: 1, evasion: 1, asw: 1 } },
+      { forms: [501, 506], delta: { fire: 1, evasion: 1 }, stack: 'once' },
+      { forms: [502, 507], delta: { evasion: 1 }, stack: 'once' },
+      { forms: [662, 663, 668], delta: { fire: 1, evasion: 1, asw: 1 }, stack: 'once' },
     ],
     stack: 'perEquip',
-    source:
-      'wikiwiki.jp/kancolle「瑞雲(六三四空)」「瑞雲12型(六三四空)」装備ボーナス表の「水上爆撃機(その他日本)」类目行（页面 Last-modified 2026-07-27）' +
-      '＋舰娘页「能代改二」(2026-08-15)「矢矧改二」(2026-08-15) 的「水上爆撃機(共通・1機目)」＋「水上爆撃機(その他日本)」两行',
+    source: 'wikiwiki 「瑞雲(六三四空)」「瑞雲12型(六三四空)」「能代改二」「矢矧改二」「矢矧改二乙」「最上改二特」「三隈改二特」（2026-09-14 抓取）',
     jp:
-      '水上爆撃機(その他日本)：能代改二 火力+3 対潜+1 回避+2／矢矧改二・乙 +3 対空+1 対潜+1 回避+2／最上改二・特 +3 +1 回避+2／' +
-      '三隈改二・特 +2 +1 回避+2',
+      '水上爆撃機(共通・1機目)：能代改二・矢矧改二/乙 火力+1 対潜+1 回避+1 累積×／水上爆撃機(共通)：最上改二特・三隈改二特 火力+1 回避+1 累積×／' +
+      '水上爆撃機(その他日本)：能代改二 火力+2 回避+1 累積×、矢矧改二/乙・最上改二特・三隈改二特 火力+2 対空+1 回避+1 累積変動／' +
+      '具名の固有補正：能代改二 火力+3 回避+1 累積×、矢矧改二/乙・最上改二特 火力+3 対空+1 回避+2 累積〇、三隈改二特 火力+2 対空+1 回避+2 累積〇（2026-09-14 抓取）',
     why:
-      '本装备自己的 wikiwiki 页没有「装備ボーナスについて」小节（页在，只是这一族的数值写在类目行里）。日文一手把这四行**写成类目行**「水上爆撃機(その他日本)' +
-      '」——瑞雲系无固有補正的那几件共用同一档，两处互证：① 同族的 79 / 81 页逐格给出该类目行；② 能代改二舰娘页拆成「水上爆撃機(共通・1機目) 火力+1 対潜+1 回避+1」＋「水上爆撃機(その他日本)' +
-      ' 火力+2 回避+1」，相加正是 火力+3 対潜+1 回避+2。上游是逐装备写的，把「水上爆撃機类目 × 最上改二系/阿賀野型改二系」这一层整层漏掉了。',
+      '2026-09-14 抓取按「共通」「その他日本」「具名固有」三层拆读；本件属于 その他日本 档，不取具名固有档。' +
+      '能代改二 その他日本 档与共通都只算一次；七件各形态的一件数值维持 08-22 裁定，仅将原共通差额改为 once。' +
+      '2026-09-14 页面 その他日本 三隈行读到 火+2 対空+1 回避+1 + 共通 火+1 回避+1，与 08-22 读数不同，待复核。' +
+      '矢矧/最上/三隈的 その他日本 档沿用上游 perEquip，変動 未裁。',
     note: '加成数值按 wikiwiki 日文原表',
-    decidedAt: '2026-08-22',
+    decidedAt: '2026-09-14',
   },
   {
     equipId: 228,
@@ -672,25 +718,28 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       { row: 5, fingerprint: 'who:f663.668|not:|need:|gain:flat[aa+1,evasion+2,fire+3]|stack:perEquip|cap:|set:' },
       { row: 6, fingerprint: 'who:f662|not:|need:|gain:flat[evasion+1,fire+3]|stack:perEquip|cap:|set:' },
     ],
+    rows: [
+      { row: 6, stack: 'once' },
+      { row: 4, who: { forms: [501, 506] } },
+    ],
     patches: [
-      { forms: [501, 506], delta: { fire: 1, evasion: 1 } },
-      { forms: [502, 507], delta: { evasion: 1 } },
       { forms: [553, 554], delta: { fire: 3, aa: 1, evasion: 2 } },
-      { forms: [662, 663, 668], delta: { fire: 1, evasion: 1, asw: 1 } },
+      { forms: [502, 507], delta: { fire: 2, aa: 1, evasion: 2 }, stack: 'perEquip' },
+      { forms: [662, 663, 668], delta: { fire: 1, asw: 1, evasion: 1 }, stack: 'once' },
+      { forms: [501, 502, 506, 507], delta: { fire: 1, evasion: 1 }, stack: 'once' },
     ],
     stack: 'perEquip',
-    source:
-      'wikiwiki.jp/kancolle「瑞雲(六三四空／熟練)」装備ボーナス表（页面 Last-modified 2026-07-27；本件的页名用全角「／' +
-      '」，取票脚本按 api 名的半角「/」取所以 404 了，2026-08-22 按站内真实页名补抓）',
+    source: 'wikiwiki 「瑞雲(六三四空／熟練)」「能代改二」「矢矧改二」「矢矧改二乙」「最上改二特」「三隈改二特」「伊勢改二」「日向改二」（2026-09-14 抓取）',
     jp:
-      '伊勢型改二 火力+7 対空+1 回避+4／能代改二 +4 対潜+1 回避+2／矢矧改二 / 乙 +4 +1 対潜+1 回避+3／最上改二 / 特 +4 +1 回避+3／' +
-      '三隈改二 / 特 +3 +1 回避+3',
+      '水上爆撃機(共通・1機目)：能代改二・矢矧改二/乙 火力+1 対潜+1 回避+1 累積×／水上爆撃機(共通)：最上改二特・三隈改二特 火力+1 回避+1 累積×／' +
+      '水上爆撃機(その他日本)：能代改二 火力+2 回避+1 累積×、矢矧改二/乙・最上改二特・三隈改二特 火力+2 対空+1 回避+1 累積変動／' +
+      '具名の固有補正：能代改二 火力+3 回避+1 累積×、矢矧改二/乙・最上改二特 火力+3 対空+1 回避+2 累積〇、三隈改二特 火力+2 対空+1 回避+2 累積〇（2026-09-14 抓取）',
     why:
-      '逐格核下来日文一手与 EO 一致，上游整体偏低：伊勢改二/日向改二 上游给 火力4 回避2，日文是 火力7 対空1 回避4；最上改二/特 上游少 火力1 回避1，' +
-      '三隈改二/特 少 回避1，矢矧改二系与能代改二 还漏 対潜+1。akashi 逐行一致（伊勢型改二 火力+7 対空+1 回避+4／能代改二 火力+4 対潜+1 回避+2／' +
-      '…）。',
+      '2026-09-14 抓取按「共通」「その他日本」「具名固有」三层拆读；装备页的一件值包含共通，第二件起扣除共通。' +
+      '能代改二具名固有档与共通都只算一次；上游最上/三隈合档缩为最上，三隈另给 火力+2 対空+1 回避+2 的固有档，按件数累积。' +
+      '伊勢型改二差额沿用原裁定，伊勢改二/日向改二页重複加算〇。',
     note: '加成数值按 wikiwiki 日文原表',
-    decidedAt: '2026-08-22',
+    decidedAt: '2026-09-14',
   },
   {
     equipId: 238,
@@ -946,22 +995,32 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       { row: 3, fingerprint: 'who:f663.668|not:|need:|gain:flat[aa+1,evasion+2,fire+3]|stack:perEquip|cap:|set:' },
       { row: 4, fingerprint: 'who:f662|not:|need:|gain:flat[evasion+1,fire+3]|stack:perEquip|cap:|set:' },
     ],
+    rows: [
+      { row: 4, stack: 'once' },
+      { row: 2, who: { forms: [501, 506] } },
+    ],
     patches: [
-      { forms: [501, 506], delta: { fire: 1, evasion: 1 } },
-      { forms: [502, 507], delta: { evasion: 1 } },
-      { forms: [553, 554], delta: { fire: 3, aa: 1, evasion: 2 } },
-      { forms: [662, 663, 668], delta: { fire: 1, evasion: 1, asw: 1 } },
+      {
+        forms: [553, 554], delta: { fire: 3, aa: 1, evasion: 2 }, stack: 'perEquip',
+        stackUnverified: true,
+        note: '伊勢型改二累积待实测 · 加成数值按 wikiwiki 日文原表',
+      },
+      { forms: [502, 507], delta: { fire: 2, aa: 1, evasion: 2 }, stack: 'perEquip' },
+      { forms: [662, 663, 668], delta: { fire: 1, asw: 1, evasion: 1 }, stack: 'once' },
+      { forms: [501, 502, 506, 507], delta: { fire: 1, evasion: 1 }, stack: 'once' },
     ],
     stack: 'perEquip',
-    source: 'wikiwiki.jp/kancolle「瑞雲改二(六三四空／熟練)」装備ボーナス表（页面 Last-modified 2026-07-27）',
+    source: 'wikiwiki 「瑞雲改二(六三四空／熟練)」「能代改二」「矢矧改二」「矢矧改二乙」「最上改二特」「三隈改二特」「伊勢改二」「日向改二」（2026-09-14 抓取）',
     jp:
-      '伊勢型改二 火力+9 対空+4 対潜+2 回避+5／能代改二 +4 対潜+1 回避+2／矢矧改二 / 乙 +4 +1 対潜+1 回避+3／最上改二 / 特 +4 +1 回避+3／' +
-      '三隈改二 / 特 +3 +1 回避+3',
+      '水上爆撃機(共通・1機目)：能代改二・矢矧改二/乙 火力+1 対潜+1 回避+1 累積×／水上爆撃機(共通)：最上改二特・三隈改二特 火力+1 回避+1 累積×／' +
+      '水上爆撃機(その他日本)：能代改二 火力+2 回避+1 累積×、矢矧改二/乙・最上改二特・三隈改二特 火力+2 対空+1 回避+1 累積変動／' +
+      '具名の固有補正：能代改二 火力+3 回避+1 累積×、矢矧改二/乙・最上改二特 火力+3 対空+1 回避+2 累積〇、三隈改二特 火力+2 対空+1 回避+2 累積〇（2026-09-14 抓取）',
     why:
-      'wikiwiki 与 akashi **两张日文票逐格完全一致**（akashi：伊勢型改二 火力+9 対空+4 対潜+2 回避+5／能代改二 火力+4 対潜+1 回避+2／' +
-      '矢矧改二/乙 火力+4 対空+1 対潜+1 回避+3／最上改二/特 火力+4 対空+1 回避+3），且与 EO 逐格一致。上游偏低同 322 一族。',
+      '2026-09-14 抓取按「共通」「その他日本」「具名固有」三层拆读；装备页的一件值包含共通，第二件起扣除共通。' +
+      '能代改二具名固有档与共通都只算一次；上游最上/三隈合档缩为最上，三隈另给 火力+2 対空+1 回避+2 的固有档，按件数累积。' +
+      '伊勢型改二差额沿用 perEquip；装备页累積〇，伊勢改二/日向改二页重複加算？，累积待实测。',
     note: '加成数值按 wikiwiki 日文原表',
-    decidedAt: '2026-08-22',
+    decidedAt: '2026-09-14',
   },
   {
     equipId: 328,
@@ -1668,20 +1727,27 @@ export const FIT_BONUS_CORRECTIONS: readonly FitBonusCorrection[] = Object.freez
       { row: 3, fingerprint: 'who:f663.668|not:|need:|gain:flat[aa+1,evasion+2,fire+3]|stack:perEquip|cap:|set:' },
       { row: 4, fingerprint: 'who:f662|not:|need:|gain:flat[evasion+1,fire+3]|stack:perEquip|cap:|set:' },
     ],
+    rows: [
+      { row: 4, stack: 'once' },
+      { row: 2, who: { forms: [501, 506] } },
+    ],
     patches: [
-      { forms: [501, 506], delta: { fire: 1, evasion: 1 } },
-      { forms: [502, 507], delta: { evasion: 1 } },
-      { forms: [662, 663, 668], delta: { fire: 1, evasion: 1, asw: 1 } },
+      { forms: [502, 507], delta: { fire: 2, aa: 1, evasion: 2 }, stack: 'perEquip' },
+      { forms: [662, 663, 668], delta: { fire: 1, asw: 1, evasion: 1 }, stack: 'once' },
+      { forms: [501, 502, 506, 507], delta: { fire: 1, evasion: 1 }, stack: 'once' },
     ],
     stack: 'perEquip',
-    source: 'wikiwiki.jp/kancolle「試製 夜間瑞雲(攻撃装備)」装備ボーナス表（页面 Last-modified 2026-08-16）',
-    jp: '能代改二 火力+4 対潜+1 回避+2／矢矧改二 / 乙 +4 対空+1 対潜+1 回避+3／最上改二 / 特 +4 +1 回避+3／三隈改二 / 特 +3 +1 回避+3',
+    source: 'wikiwiki 「試製 夜間瑞雲(攻撃装備)」「能代改二」「矢矧改二」「矢矧改二乙」「最上改二特」「三隈改二特」（2026-09-14 抓取）',
+    jp:
+      '水上爆撃機(共通・1機目)：能代改二・矢矧改二/乙 火力+1 対潜+1 回避+1 累積×／水上爆撃機(共通)：最上改二特・三隈改二特 火力+1 回避+1 累積×／' +
+      '水上爆撃機(その他日本)：能代改二 火力+2 回避+1 累積×、矢矧改二/乙・最上改二特・三隈改二特 火力+2 対空+1 回避+1 累積変動／' +
+      '具名の固有補正：能代改二 火力+3 回避+1 累積×、矢矧改二/乙・最上改二特 火力+3 対空+1 回避+2 累積〇、三隈改二特 火力+2 対空+1 回避+2 累積〇（2026-09-14 抓取）',
     why:
-      '本件与 322 / 237 / 323 同属日文表里那一组「瑞雲(六三四空/熟練)・瑞雲改二(六三四空)・同(熟練)・本装備」并列行，四件同值。伊勢型改二 那一行上游是对的（火力3 対空1 回避2）' +
-      '，差的只有最上/三隈/矢矧/能代这 7 格。akashi 一致（能代改二 火力+4 対潜+1／矢矧改二/乙 火力+4 対空+1 対潜+1／最上改二/特 火力+4 対空+1）' +
-      '。',
+      '2026-09-14 抓取按「共通」「その他日本」「具名固有」三层拆读；装备页的一件值包含共通，第二件起扣除共通。' +
+      '能代改二具名固有档与共通都只算一次；上游最上/三隈合档缩为最上，三隈另给 火力+2 対空+1 回避+2 的固有档，按件数累积。' +
+      '668/最上系/三隈系 具名行未列 試製 夜間瑞雲，沿用上游，待裁。伊勢型改二没有差额，保留上游。',
     note: '加成数值按 wikiwiki 日文原表',
-    decidedAt: '2026-08-22',
+    decidedAt: '2026-09-14',
   },
   {
     equipId: 502,
@@ -1859,6 +1925,7 @@ export type FitCorrectionSkipReason = 'no-equip' | 'no-row' | 'fingerprint'
  * 它表达的是「上游那一行的数应该再加/减多少」，不是「另一个更具体的层」。
  *
  * 返回打上补丁的**新** data（原对象不动，纯函数好测）；`onSkip` 报告作废的条目。
+ * 上游行改写必须在 watch 中；所有指纹均取输入包的原行，全部命中后才改写和补正。
  */
 export const applyFitBonusCorrections = (
   data: FitBonusData,
@@ -1867,6 +1934,11 @@ export const applyFitBonusCorrections = (
   const equips: Record<string, FitEquipEntry> = { ...data.equips }
   let applied = 0
   for (const correction of FIT_BONUS_CORRECTIONS) {
+    for (const rewrite of correction.rows ?? []) {
+      if (!correction.watch.some((watched) => watched.row === rewrite.row)) {
+        throw new Error(`修正台账自检错误：装备 ${correction.equipId} 改写的第 ${rewrite.row} 行不在 watch 中`)
+      }
+    }
     const entry = equips[`${correction.equipId}`]
     if (!entry) {
       onSkip?.(correction, 'no-equip', '包里没有这件装备')
@@ -1874,7 +1946,7 @@ export const applyFitBonusCorrections = (
     }
     let broken = ''
     for (const watched of correction.watch) {
-      const rule = entry.rules.find((one) => one.row === watched.row)
+      const rule = data.equips[`${correction.equipId}`].rules.find((one) => one.row === watched.row)
       if (!rule) {
         broken = `第 ${watched.row} 行不见了`
         break
@@ -1889,14 +1961,20 @@ export const applyFitBonusCorrections = (
       onSkip?.(correction, broken.includes('不见了') ? 'no-row' : 'fingerprint', broken)
       continue
     }
+    const rules = [...entry.rules]
+    for (const rewrite of correction.rows ?? []) {
+      const index = rules.findIndex((rule) => rule.row === rewrite.row)
+      rules[index] = { ...rules[index], ...rewrite }
+    }
     const extra: FitRule[] = correction.patches.map((patch) => ({
       row: 0,
       who: { forms: [...patch.forms] },
       gain: { kind: 'flat', flat: { ...patch.delta } },
-      stack: correction.stack,
-      correction: correction.note,
+      stack: patch.stack ?? correction.stack,
+      correction: patch.note ?? correction.note,
+      ...(patch.stackUnverified ? { stackUnverified: true as const } : {}),
     }))
-    equips[`${correction.equipId}`] = { ...entry, rules: [...entry.rules, ...extra] }
+    equips[`${correction.equipId}`] = { ...entry, rules: [...rules, ...extra] }
     applied += 1
   }
   return { data: { ...data, equips }, applied }

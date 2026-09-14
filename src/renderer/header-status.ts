@@ -386,6 +386,7 @@ const buildDocksHtml = () => {
 // 建造坞预览卡。抬头那格只放得下一个数字，真正有用的几件事都在这里：
 // 大型还是通常、什么时候好、现在抢完要几个高速建造材、还剩几个空坞。
 registerEntityRoute('kdock', {
+  mod: 'header',
   colorClass: 'e-timer',
   open() {
     // 只读：建造在游戏里点。这里给个落点，免得点了毫无反应——
@@ -429,7 +430,7 @@ registerEntityRoute('kdock', {
       primary: '工厂履历',
     }
   },
-  targets: () => [{ label: '工厂履历 · 回顾', run: () => activateModule('shi') }],
+  targets: () => [{ label: '工厂履历 · 回顾', mod: 'shi', run: () => activateModule('shi') }],
 })
 
 const practiceInfo = () => {
@@ -680,6 +681,7 @@ export const initHeaderStatus = (broadcaster?: BgmBroadcaster) => {
 }
 
 registerEntityRoute('practice', {
+  mod: 'header',
   colorClass: 'e-practice',
   open() {
     focusHeaderPractice()
@@ -698,7 +700,7 @@ registerEntityRoute('practice', {
       primary: '游戏抬头',
     }
   },
-  targets: () => [{ label: '通知规则 · 演习提醒', run: () => openNotifyRule('pracRefresh') }],
+  targets: () => [{ label: '通知规则 · 演习提醒', mod: 'lg', run: () => openNotifyRule('pracRefresh') }],
 })
 
 const TIMER_EVENT: Record<string, string> = {
@@ -767,6 +769,7 @@ const timerInfo = (
 }
 
 registerEntityRoute('timer', {
+  mod: 'header',
   colorClass: 'e-timer',
   open(ref) {
     const [kind, key] = parseTimerRef(ref.id)
@@ -791,7 +794,7 @@ registerEntityRoute('timer', {
     const [kind] = parseTimerRef(ref.id)
     const eventId = TIMER_EVENT[kind]
     return eventId
-      ? [{ label: '通知规则 · 为该倒计时设提醒', run: () => openNotifyRule(eventId) }]
+      ? [{ label: '通知规则 · 为该倒计时设提醒', mod: 'lg', run: () => openNotifyRule(eventId) }]
       : [{ label: '通知规则', disabled: true, hint: '该倒计时无对应通知事件' }]
   },
 })

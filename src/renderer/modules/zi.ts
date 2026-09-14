@@ -37,9 +37,8 @@ import { bilingualNameHtml, entityNameHtml, entityNamePlain, entityTermHtml, ent
 import { simplifyQuestScnData } from '../kcwiki-zh'
 import { activateModule, isModuleAvailable, registerModule } from '../mu'
 import { timedRun } from '../perf-guard'
-import { focusExpeditionsForResource } from './bi'
+import { runModuleCommand } from '../module-command'
 import { demandedUseitemIds, onUseitemDemandReady, useitemDemand } from './ji'
-import { searchInManager } from './qn'
 import { materialCues, onMaterialCueChange, type MaterialCue } from '../material-deltas'
 import { openDeltaDetail } from './zi-delta-detail'
 import { ziLayoutClass } from '../../shared/zi-layout'
@@ -1167,7 +1166,7 @@ const render = (force = false) => {
   })
   pane.querySelectorAll<HTMLElement>('[data-exp-resource]').forEach((button) => {
     button.addEventListener('click', () => {
-      focusExpeditionsForResource(parseInt(button.dataset.expResource!, 10))
+      void runModuleCommand('bi', 'focusResource', parseInt(button.dataset.expResource!, 10))
     })
   })
   pane.querySelector<HTMLElement>('[data-open-du]')?.addEventListener('click', () => activateModule('du'))
@@ -1327,6 +1326,7 @@ const focusMaterial = (idx: number) => {
 }
 
 registerEntityRoute('material', {
+  mod: 'zi',
   colorClass: 'e-material',
   open(ref) {
     focusMaterial(ref.num)
@@ -1372,10 +1372,11 @@ registerEntityRoute('material', {
       idx <= 3
         ? { label: '收支分解 · 按来源', run: () => focusMaterial(idx) }
         : { label: '收支分解', disabled: true, hint: '仅燃弹钢铝有分类记账' },
-      { label: '提供该资源的任务', run: () => searchInManager(meta?.label ?? '') },
+      { label: '提供该资源的任务', mod: 'qn', run: () => void runModuleCommand('qn', 'search', meta?.label ?? '') },
       {
         label: `补充${meta?.label ?? '资源'}的远征`,
-        run: () => focusExpeditionsForResource(idx),
+        mod: 'bi',
+        run: () => void runModuleCommand('bi', 'focusResource', idx),
       },
       { label: '储备目标 · 设阈值', run: () => focusMaterial(idx) },
     ]

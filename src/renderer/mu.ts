@@ -15,6 +15,16 @@ import * as remote from '@electron/remote'
 import { DISTRACT_DEFAULTS, DISTRACT_PATHS, normalizeDistractSide } from '../shared/distract-mode'
 import type { DistractSide } from '../shared/distract-mode'
 import { scheduleDistractCardFit, stopDistractCardFit } from './distract-card-fit'
+import { receiveEntityRelay } from './link'
+import { receiveModuleCommand } from './module-command'
+import {
+  isPopModuleId, normalizePopped, popModuleOf,
+  POP_OPEN_CHANNEL, POP_CLOSE_CHANNEL, POP_FOCUS_CHANNEL, POP_CLOSED_CHANNEL,
+  POP_RELAY_CHANNEL, POP_RELAY_EVENT,
+} from '../shared/pop-module'
+
+const POP_MODULE = popModuleOf(location.search)
+export const getPopModule = (): string | null => POP_MODULE
 
 export type DockId = 'left' | 'right' | 'bottom'
 
@@ -101,6 +111,8 @@ interface Layout {
   // 会收起整个坞，误伤同坞其他模块）。与 hiddenModules 的「暂不存在」不同：
   // 搁置的模块保留坞位与导航条元素块（变暗），再点或链接跳转即恢复。
   shelved: string[]
+  popped: string[]
+  poppedFrom: Record<string, { dock: DockId; gi: number }>
 }
 
 import { beginMountScope, endMountScope, onGameScene, runMountCleanup, uiGet, uiSet } from './kernel'
@@ -126,6 +138,8 @@ const layout: Layout = {
   collapsed: { ...DEFAULT_COLLAPSED },
   focus: false,
   shelved: [],
+  popped: [],
+  poppedFrom: {},
 }
 try {
   const saved = uiGet<any>(LAYOUT_KEY, {})
@@ -136,6 +150,8 @@ try {
   Object.assign(layout.dockSize, saved?.dockSize ?? {})
   Object.assign(layout.collapsed, saved?.collapsed ?? {})
   layout.focus = !!saved?.focus
+  layout.popped = normalizePopped(saved?.popped)
+  layout.poppedFrom = saved?.poppedFrom ?? {}
   if (Array.isArray(saved?.shelved)) {
     layout.shelved = saved.shelved.filter((id: unknown) => typeof id === 'string')
   }
@@ -146,6 +162,7 @@ try {
 //（2026-08-22 用户实机：钦/镖那格每次启动都停在镖，理由见 shared/dock-layout）。
 // missionTabRestore 在下面几十行处声明，这里靠函数体延迟求值拿到它。
 const saveLayout = () => {
+  if (POP_MODULE) return
   // 分心借用的页签与搁置状态不能写进常规布局，启动永远回到进入前。
   const saved = distractRestore
   const normal = saved ? {
@@ -231,17 +248,20 @@ const syncLayoutLock = () => {
   })
 }
 export const setLayoutLocked = (on: boolean) => {
+  if (POP_MODULE) return
   layoutLocked = on
   uiSet('layout.locked', layoutLocked)
   syncLayoutLock()
 }
 export const toggleLayoutLock = (): boolean => {
+  if (POP_MODULE) return layoutLocked
   setLayoutLocked(!layoutLocked)
   return layoutLocked
 }
 
 // 模块所在的 {坞, 格序号}
 const locate = (id: string): { dock: DockId; gi: number } | null => {
+  if (POP_MODULE) return null
   for (const dock of DOCKS) {
     const gi = layout.docks[dock].findIndex((g) => g.mods.includes(id))
     if (gi >= 0) return { dock, gi }
@@ -255,19 +275,21 @@ const dockHasMods = (dock: DockId) =>
 // 存档与注册表对账：丢弃未知/弹窗类 id、补入新模块、清空格
 const reconcile = () => {
   const known = new Set(modules.map((m) => m.id).filter((id) => !isOverlay(id)))
+  layout.popped = layout.popped.filter((id) => known.has(id) && moduleVisible(id))
+  for (const id of layout.popped) removeFrom(id)
   layout.shelved = layout.shelved.filter((id) => known.has(id))
   const placed = new Set<string>()
   for (const dock of DOCKS) {
     layout.docks[dock] = layout.docks[dock]
       .map((g) => ({
         ...g,
-        mods: g.mods.filter((id) => known.has(id) && !placed.has(id) && (placed.add(id), true)),
+        mods: g.mods.filter((id) => known.has(id) && !layout.popped.includes(id) && !placed.has(id) && (placed.add(id), true)),
       }))
       .filter((g) => g.mods.length > 0)
   }
   const ordered = [...modules].sort((a, b) => (a.order ?? 99) - (b.order ?? 99))
   for (const mod of ordered) {
-    if (placed.has(mod.id) || isOverlay(mod.id)) continue
+    if (placed.has(mod.id) || isOverlay(mod.id) || layout.popped.includes(mod.id)) continue
     const at = defaultPlace(mod.id)
     const dock = mod.dock ?? at.dock
     const groups = layout.docks[dock]
@@ -425,6 +447,8 @@ export const launchGlowLayout = (): LaunchGlowLayout => ({
 })
 
 export const setModuleVisible = (id: string, visible: boolean) => {
+  if (POP_MODULE) return
+  if (!visible && layout.popped.includes(id)) returnModule(id)
   const changed = visible ? hiddenModules.delete(id) : !hiddenModules.has(id)
   if (!visible) hiddenModules.add(id)
   if (!changed) return
@@ -449,6 +473,7 @@ const setCollapsed = (dock: DockId, collapsed: boolean) => {
 }
 
 export const toggleFocus = (): boolean => {
+  if (POP_MODULE) return layout.focus
   layout.focus = !layout.focus
   document.querySelector('#app')!.classList.toggle('focus', layout.focus)
   refreshRail()
@@ -480,7 +505,9 @@ export const setDistractSide = (side: DistractSide) => {
 }
 
 export const enterDistract = () => {
+  if (POP_MODULE) return
   if (distract.on) return
+  if (layout.popped.includes('di')) returnModule('di')
   const at = locate('di')!
   const group = layout.docks[at.dock][at.gi]
   distractRestore = { ...at, active: group.active, shelved: isShelved('di'), hidden: hiddenModules.has('di') }
@@ -498,6 +525,7 @@ export const enterDistract = () => {
 }
 
 export const exitDistract = (restoreWindow = true) => {
+  if (POP_MODULE) return
   if (!distract.on) return
   distract.on = false
   const saved = distractRestore!
@@ -546,6 +574,7 @@ const overlayStore = document.createElement('div') // 关闭时 pane 的暂存�
 
 // 顶栏/浮层页签上的那个词：模块的功能名
 const funcName = (id: string) => modById(id)?.title ?? id
+export const getModuleTitle = funcName
 
 const renderOverlayTabs = () => {
   if (!overlayTabs) return
@@ -558,6 +587,7 @@ const renderOverlayTabs = () => {
 }
 
 export const closeOverlay = () => {
+  if (POP_MODULE) return
   if (!overlayOpen || !overlayHost) return
   const pane = paneOf.get(overlayOpen)
   if (pane) {
@@ -571,6 +601,7 @@ export const closeOverlay = () => {
 }
 
 export const openOverlay = (id: string) => {
+  if (POP_MODULE) return
   if (!overlayHost || !overlayBody || !modById(id) || !moduleVisible(id)) return
   if (overlayOpen === id) return closeOverlay()
   if (overlayOpen) closeOverlay()
@@ -625,6 +656,14 @@ const buildOverlay = () => {
 
 // 切到指定模块（链的跳转路由用）：展开所在坞 / 弹出浮层，退出专注模式
 export const activateModule = (id: string, opts?: { auto?: boolean }) => {
+  if (POP_MODULE) {
+    if (id !== POP_MODULE) void ipcRenderer.invoke(POP_RELAY_CHANNEL, { to: 'main', kind: 'activate', payload: { id } })
+    return
+  }
+  if (layout.popped.includes(id)) {
+    if (!opts?.auto) void ipcRenderer.invoke(POP_FOCUS_CHANNEL, id)
+    return
+  }
   // 分心期间固定战斗卡；自动切页和链接不改进入前的常规布局。
   if (distract.on) return
   if (isOverlay(id)) {
@@ -685,6 +724,8 @@ const restoreGameMissionScene = () => {
 
 // 该模块此刻是否真的看得见
 const isShowing = (id: string): boolean => {
+  if (POP_MODULE) return id === POP_MODULE
+  if (layout.popped.includes(id)) return false
   if (distract.on) return id === 'di' && displayed('di')
   if (!displayed(id)) return false
   if (isOverlay(id)) return overlayOpen === id
@@ -696,6 +737,7 @@ const isShowing = (id: string): boolean => {
 // 搁置单个模块：只从坞里摘掉它这一页，同坞其他模块不动；
 // 坞里全空时坞才会跟着消失。导航条元素块保留（shelved 态变暗），再点即恢复。
 const shelveModule = (id: string) => {
+  if (POP_MODULE) return
   if (isShelved(id)) return
   layout.shelved.push(id)
   const at = locate(id)
@@ -728,6 +770,7 @@ const removeFrom = (id: string) => {
 
 // target: 目标坞 + 格序号（-1 = 新建一格）
 const moveModule = (id: string, dock: DockId, gi: number) => {
+  if (POP_MODULE) return
   const before = locate(id)
   if (before && before.dock === dock && before.gi === gi) return
   // 先钉住目标格的**对象**再摘人：removeFrom 清空源格时会 splice 掉那个格，
@@ -735,6 +778,16 @@ const moveModule = (id: string, dock: DockId, gi: number) => {
   // 「移到钦镖那格」会变成塞进新建的一格。
   const targetGroup = gi >= 0 && gi < layout.docks[dock].length ? layout.docks[dock][gi] : null
   removeFrom(id)
+  placeModule(id, dock, targetGroup)
+  if (layout.collapsed[dock]) layout.collapsed[dock] = false
+  layoutAll()
+  const at = locate(id)!
+  activateIn(at.dock, at.gi, id)
+  saveLayout()
+}
+
+// 移动与收回共用已钉住的目标格；目标被删时在该坞末尾新建。
+const placeModule = (id: string, dock: DockId, targetGroup: GroupState | null) => {
   const groups = layout.docks[dock]
   if (!targetGroup || !groups.includes(targetGroup)) {
     groups.push({ mods: [id], active: id })
@@ -743,12 +796,59 @@ const moveModule = (id: string, dock: DockId, gi: number) => {
     targetGroup.mods.sort((a, b) => (modById(a)?.order ?? 99) - (modById(b)?.order ?? 99))
     targetGroup.active = id
   }
-  if (layout.collapsed[dock]) layout.collapsed[dock] = false
+}
+
+// 同一轮运行还认原格对象，避免前面的格被 splice 后把原序号误当另一格。
+const poppedGroups = new Map<string, GroupState | null>()
+
+export const popModule = (id: string) => {
+  if (POP_MODULE || !isPopModuleId(id) || isOverlay(id) || !moduleVisible(id) || layout.popped.includes(id)) return
+  if (distract.on && id === 'di') return
+  const at = locate(id)
+  if (at) layout.poppedFrom[id] = at
+  poppedGroups.set(id, at ? layout.docks[at.dock][at.gi] : null)
+  removeFrom(id)
+  tabOf.get(id)?.remove()
+  paneOf.get(id)?.remove()
+  layout.popped.push(id)
   layoutAll()
+  refreshRail()
+  saveLayout()
+  void ipcRenderer.invoke(POP_OPEN_CHANNEL, id)
+}
+
+export const returnModule = (id: string, target?: { dock: DockId; gi: number }) => {
+  if (POP_MODULE || !layout.popped.includes(id)) return
+  layout.popped = layout.popped.filter((other) => other !== id)
+  const { dock, gi } = target ?? layout.poppedFrom[id] ?? defaultPlace(id)
+  const targetGroup = !target && poppedGroups.has(id)
+    ? poppedGroups.get(id)!
+    : layout.docks[dock][gi] ?? null
+  placeModule(id, dock, targetGroup)
+  layout.shelved = layout.shelved.filter((other) => other !== id)
+  layout.collapsed[dock] = false
   const at = locate(id)!
   activateIn(at.dock, at.gi, id)
+  delete layout.poppedFrom[id]
+  poppedGroups.delete(id)
+  layoutAll()
+  refreshRail()
   saveLayout()
+  void ipcRenderer.invoke(POP_CLOSE_CHANNEL, id)
 }
+
+ipcRenderer.on(POP_CLOSED_CHANNEL, (_e, id) => returnModule(String(id)))
+ipcRenderer.on(POP_RELAY_EVENT, (_e, message: unknown) => {
+  if (!message || typeof message !== 'object') return
+  const { kind, payload } = message as Record<string, unknown>
+  if (kind === 'activate' && payload && typeof payload === 'object' && 'id' in payload && typeof payload.id === 'string') {
+    activateModule(payload.id)
+  } else if (kind === 'navigate' || kind === 'target') {
+    receiveEntityRelay(kind, payload)
+  } else if (kind === 'command') {
+    receiveModuleCommand(payload)
+  }
+})
 
 // 换坞菜单（复用链的 .cmenu 皮肤）
 let dockMenu: HTMLElement | null = null
@@ -760,8 +860,10 @@ const showDockMenu = (id: string, x: number, y: number) => {
     document.body.appendChild(dockMenu)
   }
   const mod = modById(id)
-  const at = locate(id)
+  const popped = layout.popped.includes(id)
+  const at = popped ? null : locate(id)
   const items: string[] = []
+  if (popped) items.push('<div class="mi" data-pop-focus="1">切到那扇窗</div>')
   for (const dock of DOCKS) {
     const groups = layout.docks[dock]
     groups.forEach((g, gi) => {
@@ -776,14 +878,24 @@ const showDockMenu = (id: string, x: number, y: number) => {
     })
     items.push(`<div class="mi" data-dock="${dock}" data-gi="-1">${DOCK_LABEL[dock]} · <b>新建一格</b></div>`)
   }
-  dockMenu.innerHTML = `<div class="m-t">${mod?.title ?? id} · 移动到</div>${items.join('')}`
+  if (!popped && isPopModuleId(id) && !(distract.on && id === 'di')) {
+    items.push('<div class="m-sep"></div><div class="mi" data-pop="1">弹出为窗口</div>')
+  }
+  dockMenu.innerHTML = `<div class="m-t">${mod?.title ?? id} · ${popped ? '收回到' : '移动到'}</div>${items.join('')}`
   dockMenu.style.left = `${Math.min(x, window.innerWidth - 200)}px`
   dockMenu.style.top = `${Math.min(y, window.innerHeight - 40 - items.length * 24)}px`
   dockMenu.classList.add('show')
   dockMenu.onclick = (e) => {
-    const target = (e.target as HTMLElement).closest<HTMLElement>('[data-dock]')
+    const target = (e.target as HTMLElement).closest<HTMLElement>('.mi')
     if (!target || target.classList.contains('dis')) return
-    moveModule(id, target.dataset.dock as DockId, parseInt(target.dataset.gi!, 10))
+    if (target.dataset.pop) popModule(id)
+    else if (target.dataset.popFocus) void ipcRenderer.invoke(POP_FOCUS_CHANNEL, id)
+    else if (target.dataset.dock) {
+      const dock = target.dataset.dock as DockId
+      const gi = parseInt(target.dataset.gi!, 10)
+      if (popped) returnModule(id, { dock, gi })
+      else moveModule(id, dock, gi)
+    }
     hideDockMenu()
   }
 }
@@ -795,6 +907,10 @@ document.addEventListener('click', (e) => {
 
 let railEl: HTMLElement
 
+const railTitle = (id: string, name: string) => layout.popped.includes(id)
+  ? `${name}\n已弹出为窗口 · 单击切到那扇窗 · 右键收回`
+  : isOverlay(id) ? `${name}\n单击弹出` : `${name}\n单击切换显示 · 右键调整位置`
+
 const refreshRail = () => {
   if (!railEl) return
   for (const tile of railEl.querySelectorAll<HTMLElement>('.element-tile[data-mod]')) {
@@ -802,7 +918,9 @@ const refreshRail = () => {
     // 搁置的模块元素块必须留在导航条上（变暗）——这是唯一的恢复入口
     tile.hidden = !moduleVisible(id)
     tile.classList.toggle('showing', isShowing(id))
+    tile.classList.toggle('popped', layout.popped.includes(id))
     tile.classList.toggle('shelved', isShelved(id))
+    tile.title = railTitle(id, NAV_MODULES.find(([navId]) => navId === id)?.[1] ?? funcName(id))
     const dot = tile.querySelector<HTMLElement>('.dk')
     if (dot) dot.className = `dk ${isOverlay(id) ? 'overlay' : dockOfModule(id)}`
   }
@@ -819,11 +937,11 @@ const buildRail = () => {
     if (mod) {
       tile.dataset.mod = mod.id
       tile.hidden = !moduleVisible(mod.id)
-      tile.title = isOverlay(mod.id)
-        ? `${name}\n单击弹出`
-        : `${name}\n单击切换显示 · 右键调整位置`
+      tile.title = railTitle(mod.id, name)
       tile.addEventListener('click', () => {
-        if (isOverlay(mod.id)) {
+        if (layout.popped.includes(mod.id)) {
+          void ipcRenderer.invoke(POP_FOCUS_CHANNEL, mod.id)
+        } else if (isOverlay(mod.id)) {
           openOverlay(mod.id) // openOverlay 自带开关语义
         } else if (isShowing(mod.id)) {
           // 只收这一个模块（2026-08-12 用户实锤：原来这里收整个坞，
@@ -1058,9 +1176,17 @@ const showModule = (id: string) => {
 }
 
 export const initModules = () => {
-  buildRail()
-  reconcile()
-  buildOverlay()
+  let popHost: HTMLElement | null = null
+  if (POP_MODULE) {
+    const app = document.querySelector<HTMLElement>('#app')!
+    popHost = document.createElement('div')
+    popHost.id = 'pop-host'
+    app.appendChild(popHost)
+  } else {
+    buildRail()
+    reconcile()
+    buildOverlay()
+  }
 
   // 挂载：tab/pane 先建好，再由 layoutDock 搬进对应格
   const ordered = [...modules].sort((a, b) => (a.order ?? 99) - (b.order ?? 99))
@@ -1068,31 +1194,44 @@ export const initModules = () => {
   syncMountReport() // 先把分母写上：中途整体崩了也能看出「装到第几个断的」
   for (const mod of ordered) {
     if (!moduleVisible(mod.id)) continue
-    if (isOverlay(mod.id)) {
+    if (!POP_MODULE && isOverlay(mod.id)) {
       // 弹窗类：只建 pane，挂在暂存处，openOverlay 时搬进浮层
       const pane = createPane(mod.id)
       overlayStore.appendChild(pane)
       mountModule(mod, pane)
       continue
     }
-    const tab = document.createElement('button')
-    tab.className = 'ws-tab'
-    tab.dataset.mod = mod.id
-    tab.textContent = mod.title
-    tab.title = `${mod.title}（右键调整位置）`
-    tab.addEventListener('click', () => {
-      const at = locate(mod.id)
-      if (at) activateIn(at.dock, at.gi, mod.id)
-    })
-    tab.addEventListener('contextmenu', (e) => {
-      e.preventDefault()
-      showDockMenu(mod.id, e.clientX, e.clientY)
-    })
-    tabOf.set(mod.id, tab)
+    if (!POP_MODULE) {
+      const tab = document.createElement('button')
+      tab.className = 'ws-tab'
+      tab.dataset.mod = mod.id
+      tab.textContent = mod.title
+      tab.title = `${mod.title}（右键调整位置）`
+      tab.addEventListener('click', () => {
+        const at = locate(mod.id)
+        if (at) activateIn(at.dock, at.gi, mod.id)
+      })
+      tab.addEventListener('contextmenu', (e) => {
+        e.preventDefault()
+        showDockMenu(mod.id, e.clientX, e.clientY)
+      })
+      tabOf.set(mod.id, tab)
+    }
 
     const pane = createPane(mod.id)
-    document.body.appendChild(pane) // 暂挂：mount 里可能读尺寸
+    if (POP_MODULE) {
+      if (mod.id === POP_MODULE) {
+        popHost!.appendChild(pane)
+        pane.classList.add('active')
+      }
+    } else document.body.appendChild(pane) // 暂挂：mount 里可能读尺寸
     mountModule(mod, pane)
+    if (!POP_MODULE && layout.popped.includes(mod.id)) pane.remove()
+  }
+
+  if (POP_MODULE) {
+    showModule(POP_MODULE)
+    return
   }
 
   layoutAll()
@@ -1121,4 +1260,5 @@ export const initModules = () => {
     if (scene === 'mission') followGameMissionScene()
     else restoreGameMissionScene()
   })
+  for (const id of layout.popped) void ipcRenderer.invoke(POP_OPEN_CHANNEL, id)
 }

@@ -1,3 +1,4 @@
+import { runModuleCommand } from '../module-command'
 import { equipHeldOnce, equipBookPagesRead } from '../equip-book'
 import { EQUIP_BOOK_PAGE_SIZE } from '../../shared/equip-book'
 import { akashiImproveItem } from '../../shared/akashi-improve'
@@ -41,6 +42,7 @@ import type {
 } from '../../shared/fit-bonus'
 import { applyFitBonusCorrections } from '../../shared/fit-bonus-corrections'
 import { applyFitBonusSupplement } from '../../shared/fit-bonus-supplement'
+import { fitDisplayLines, type FitDisplayLine } from '../../shared/fit-display'
 import {
   buildShipClassNameIndex,
   normalizeShipClassName,
@@ -238,7 +240,7 @@ import {
   refreshStockViewIfEquipmentChanged,
   setStockViewOpener,
 } from './equip-stock'
-import { questByCode, questVerdicts, questsAwarding, questsAwardingMaterial, questsInvolvingMap, questsMentioning, searchInManager } from './qn'
+import { questByCode, questVerdicts, questsAwarding, questsAwardingMaterial, questsInvolvingMap, questsMentioning } from './qn'
 import type { LibQuest } from './qn'
 import { QUEST_AVAILABILITY_LABEL } from '../../shared/quest-availability'
 import type { QuestAvailability, QuestVerdict } from '../../shared/quest-availability'
@@ -4782,6 +4784,21 @@ const fitStackText = (rule: FitRule): string =>
       ? '单次'
       : '按件数分档'
 
+const fitDisplayGainHtml = (line: FitDisplayLine): string =>
+  line.mode === 'passthrough'
+    ? fitGainHtml(line.rules[0].gain)
+    : line.mode === 'mixed'
+      ? `<span class="fb-val">第 1 件 ${esc(fitStatsText(line.first))}</span><span class="fb-val">之后每件 ${esc(fitStatsText(line.more))}</span>`
+      : fitGainHtml({ kind: 'flat', flat: line.first })
+
+const fitDisplayMarksHtml = (line: FitDisplayLine): string => {
+  const title = line.corrections
+    .map((rule) => `${fitStatsText(rule.gain.kind === 'flat' ? rule.gain.flat : {})}${rule.stack === 'once' ? '（只算一次）' : ''} · ${rule.correction}`)
+    .join(' / ')
+  return (line.corrections.length ? ` <em class="fb-fix" title="${esc(title)}">含第一方修正</em>` : '') +
+    (line.stackUnverified ? ' <i class="fb-unv" title="来源页未写明第二件起是否累加">累积待实测</i>' : '')
+}
+
 // ---- 装备卷的「装备加成」段：预期值 + 你的实测（双轨）----
 //
 // akashi-list 的运行时拉取路径 2026-08-22 **整层退役**（该站未声明数据许可）。
@@ -5094,18 +5111,16 @@ const equipFitHtml = (equipMstId: number): string => {
       ${equipObservedHtml(equipMstId)}
     </div>`
   }
-  const rows = entry.rules
+  const rows = fitDisplayLines(entry.rules)
     .slice(0, 24)
     .map(
-      (rule) => `<div class="fb-row${rule.correction ? ' fixed' : ''}">
-        <span class="fb-cond">${fitCondHtml(rule)}${
-          rule.correction ? ` <em title="${esc(rule.correction)}">第一方修正</em>` : ''
-        }</span>
-        <span class="fb-vals">${fitGainHtml(rule.gain)}</span>
-        <span class="fb-mul">${esc(fitStackText(rule))}</span>
+      (line) => `<div class="fb-row${line.corrections.length ? ' fixed' : ''}">
+        <span class="fb-cond">${line.mode === 'passthrough' ? fitCondHtml(line.rules[0]) : fitWhoHtml(line.who)}${fitDisplayMarksHtml(line)}</span>
+        <span class="fb-vals">${fitDisplayGainHtml(line)}</span>
+        <span class="fb-mul">${esc(line.mode === 'passthrough' ? fitStackText(line.rules[0]) : line.mode === 'once' ? '单次' : '按件数')}</span>
         ${
-          rule.setTotal
-            ? `<div class="fb-set">整套满足时合计 ${esc(fitStatsText(rule.setTotal))}</div>`
+          line.mode === 'passthrough' && line.rules[0].setTotal
+            ? `<div class="fb-set">整套满足时合计 ${esc(fitStatsText(line.rules[0].setTotal))}</div>`
             : ''
         }
       </div>`,
@@ -5116,7 +5131,7 @@ const equipFitHtml = (equipMstId: number): string => {
     <div class="q-foot">${fitLode ? `${lodeCreditMark(fitLode.meta)} ` : ''}以本地装备后面板为准</div>
     ${foldedNote(
       '读数口径',
-      '按件数：每件分别加成 · 单次：组合成立时加成一次 · 分档值为累计值',
+      '按件数：每件分别加成 · 单次：组合成立时加成一次 · 第 1 件 / 之后每件：第一件含只算一次的部分 · 分档值为累计值',
     )}
     ${equipObservedHtml(equipMstId)}
   </div>`
@@ -5145,14 +5160,11 @@ const shipFitHtml = (mstId: number): string => {
   const rows = hits
     .slice(0, 40)
     .map(({ entry, rules, topLevel }) => {
-      const detail = rules
-        .slice(0, 4)
+      const detail = fitDisplayLines(rules.map((r) => r.rule), { formId: mstId }).slice(0, 4)
         .map(
-          ({ rule }) =>
-            `<span class="sf-v">${fitGainHtml(rule.gain)}</span>` +
-            `<span class="sf-c">${fitCondHtml(rule)}${
-              rule.correction ? ` · <em title="${esc(rule.correction)}">第一方修正</em>` : ''
-            }</span>`,
+          (line) =>
+            `<span class="sf-v">${fitDisplayGainHtml(line)}</span>` +
+            `<span class="sf-c">${line.mode === 'passthrough' ? fitCondHtml(line.rules[0]) : fitWhoHtml(line.who)}${fitDisplayMarksHtml(line)}</span>`,
         )
         .join('')
       return `<div class="sf-row">
@@ -12754,6 +12766,7 @@ document.addEventListener('keydown', (e) => {
 // ---- 链路由注册（鉴是舰娘/装备实体的宿主）----
 
 registerEntityRoute('shipClass', {
+  mod: 'ji',
   colorClass: 'e-ship',
   open(ref) {
     const ctype = Number(ref.id)
@@ -12786,6 +12799,7 @@ registerEntityRoute('shipClass', {
 })
 
 registerEntityRoute('shipTypeCatalog', {
+  mod: 'ji',
   colorClass: 'e-ship',
   open(ref) {
     const stype = Number(ref.id)
@@ -12816,6 +12830,7 @@ registerEntityRoute('shipTypeCatalog', {
 })
 
 registerEntityRoute('shipTypeGroup', {
+  mod: 'ji',
   colorClass: 'e-ship',
   open(ref) {
     const types = [...new Set(`${ref.id}`.split(',').map(Number).filter(Number.isFinite))]
@@ -12859,6 +12874,7 @@ registerEntityRoute('shipTypeGroup', {
 })
 
 registerEntityRoute('shipNationality', {
+  mod: 'ji',
   colorClass: 'e-nationality',
   open(ref) {
     const nationalityId = Number(ref.id)
@@ -12902,6 +12918,7 @@ registerEntityRoute('shipNationality', {
  * ——详情页的编队小节、更多分类的编队段、别处将来引用队名，走的都是这一条路由。
  */
 registerEntityRoute('histFleet', {
+  mod: 'ji',
   colorClass: 'e-histfleet',
   open(ref) {
     const entry = histFleetById(`${ref.id}`)
@@ -12937,6 +12954,7 @@ registerEntityRoute('histFleet', {
 })
 
 registerEntityRoute('equipTypeCatalog', {
+  mod: 'ji',
   colorClass: 'e-equip',
   open(ref) {
     const typeId = Number(ref.id)
@@ -12972,6 +12990,7 @@ registerEntityRoute('equipTypeCatalog', {
 })
 
 registerEntityRoute('equipTypeGroup', {
+  mod: 'ji',
   colorClass: 'e-equip',
   open(ref) {
     const chip = `${ref.id}`
@@ -13007,6 +13026,7 @@ registerEntityRoute('equipTypeGroup', {
 })
 
 registerEntityRoute('mstShip', {
+  mod: 'ji',
   colorClass: 'e-ship',
   open(ref) {
     const mstId = ref.num
@@ -13022,7 +13042,7 @@ registerEntityRoute('mstShip', {
     const name = friendlyShips.get(mstId)?.api_name ?? ''
     return [
       { label: '舰娘列表定位', run: () => locateShipInList(mstId) },
-      { label: '有关任务', run: () => searchInManager(name) },
+      { label: '有关任务', mod: 'qn', run: () => void runModuleCommand('qn', 'search', name) },
       { label: '掉落海域', run: () => openShipDropTab(mstId) },
     ]
   },
@@ -13063,6 +13083,7 @@ registerEntityRoute('mstShip', {
 })
 
 registerEntityRoute('mstEquip', {
+  mod: 'ji',
   colorClass: 'e-equip',
   open(ref) {
     const mstId = ref.num
@@ -13078,7 +13099,7 @@ registerEntityRoute('mstEquip', {
     const mstId = ref.num
     const name = friendlyEquips.get(mstId)?.api_name ?? ''
     return [
-      { label: '有关任务', run: () => searchInManager(name) },
+      { label: '有关任务', mod: 'qn', run: () => void runModuleCommand('qn', 'search', name) },
       // 铨已装配：筛出身上装着这件装备的在籍舰
       { label: '装备中清单 · 舰娘列表', run: () => locateEquipHolders(mstId, name) },
     ]
@@ -13155,6 +13176,7 @@ registerEntityRoute('mstEquip', {
 })
 
 registerEntityRoute('equipCapacity', {
+  mod: 'ji',
   colorClass: 'e-equip',
   // 舰娘那格点进去是清理视图，装备这格原来进的是图鉴——图鉴回答不了
   // 「哪几件能拆」。两侧对称：都落在各自的在籍轴清理态。
@@ -13184,6 +13206,7 @@ const showMissNotice = (book: Book, text: string) => {
 
 // 深海舰 / 海域 / 道具 也挂进链（其他模块的字段将来可直接互链过来）
 registerEntityRoute('abyssShip', {
+  mod: 'ji',
   colorClass: 'e-abys',
   open(ref) {
     const id = ref.num
@@ -13296,6 +13319,7 @@ const openMap = (id: number) => {
 }
 
 registerEntityRoute('map', {
+  mod: 'ji',
   colorClass: 'e-map',
   open(ref) {
     openMap(ref.num)
@@ -13332,13 +13356,14 @@ registerEntityRoute('map', {
     return [
       { label: '确认掉落', run: () => openMap(id) },
       { label: '带路与节点图', run: () => openMap(id) },
-      { label: '有关任务', run: () => searchInManager(mapCodeOf(id)) },
+      { label: '有关任务', mod: 'qn', run: () => void runModuleCommand('qn', 'search', mapCodeOf(id)) },
     ]
   },
 })
 
 // 深海装备实体：原先只有列表行，没有路由 → Ctrl 左键无从挂载、也无法钉住对比
 registerEntityRoute('abyssEquip', {
+  mod: 'ji',
   colorClass: 'e-abys',
   open(ref) {
     const id = ref.num
@@ -13418,6 +13443,7 @@ const openItem = (id: number) => {
 }
 
 registerEntityRoute('useitem', {
+  mod: 'ji',
   colorClass: 'e-item',
   open(ref) {
     openItem(ref.num)
@@ -13426,10 +13452,10 @@ registerEntityRoute('useitem', {
     const id = ref.num
     const name = useitemMst.get(id)?.api_name ?? ''
     return [
-      { label: '相关任务', run: () => searchInManager(name) },
+      { label: '相关任务', mod: 'qn', run: () => void runModuleCommand('qn', 'search', name) },
       // 资源系道具（桶/建造/开发/螺丝）有真目标：资源统计
       ...(MATERIAL_USEITEM[id] !== undefined
-        ? [{ label: '资源统计', run: () => activateModule('zi') }]
+        ? [{ label: '资源统计', mod: 'zi', run: () => activateModule('zi') }]
         : []),
       // 改造需求反查：有需求队列就给直达目标，没有就给灰目标
       ...(remodelNeeds.get(id)?.length

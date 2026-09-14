@@ -87,6 +87,7 @@ globalThis.document = {
   addEventListener: () => {},
   querySelector: () => null,
 }
+globalThis.location = { search: '' }
 
 // ---- 把真的 mu.ts 编出来 ----
 const KERNEL_STUB = [
@@ -110,8 +111,12 @@ const tempDir = path.join(tempRoot, 'renderer')
 const sharedDir = path.join(tempRoot, 'shared')
 fs.mkdirSync(tempDir, { recursive: true })
 fs.mkdirSync(sharedDir, { recursive: true })
+fs.copyFileSync(
+  fileURLToPath(new URL('../src/shared/pop-module.ts', import.meta.url)),
+  path.join(sharedDir, 'pop-module.ts'),
+)
 // 分心模式新增 Electron 外壳依赖；装配用例不调用窗口，只补只读配置与 IPC 桩。
-fs.writeFileSync(path.join(tempDir, 'electron-stub.ts'), 'export const ipcRenderer = { invoke: async () => {} }')
+fs.writeFileSync(path.join(tempDir, 'electron-stub.ts'), 'export const ipcRenderer = { invoke: async () => {}, on: () => {} }')
 fs.writeFileSync(path.join(tempDir, 'remote-stub.ts'), 'export const require = () => ({ get: (_key, fallback) => fallback })')
 fs.copyFileSync(
   fileURLToPath(new URL('../src/shared/distract-mode.ts', import.meta.url)),
@@ -126,6 +131,9 @@ for (const [source, target] of [['renderer', tempDir], ['shared', sharedDir]]) {
 }
 fs.writeFileSync(path.join(tempDir, 'kernel.ts'), KERNEL_STUB)
 fs.writeFileSync(path.join(tempDir, 'crash-guard.ts'), CRASH_STUB)
+// 跨窗接收与装配重试无关；只补依赖桩，保留下面全部装配行为断言。
+fs.writeFileSync(path.join(tempDir, 'link.ts'), 'export const receiveEntityRelay = () => {}')
+fs.writeFileSync(path.join(tempDir, 'module-command.ts'), 'export const receiveModuleCommand = () => {}')
 fs.copyFileSync(
   fileURLToPath(new URL('../src/shared/dock-layout.ts', import.meta.url)),
   path.join(sharedDir, 'dock-layout.ts'),

@@ -524,8 +524,21 @@ test('数值文本按固定顺序出，零值不写', () => {
 
 // ---- ⑥ 第一方修正台账 ----
 
-test('修正台账：条目自洽（有依据、有指纹、形态不重复）', () => {
+test('修正台账：条目自洽（有依据、有指纹、同一叠加方式内形态不重复）', () => {
   assert.ok(FIT_BONUS_CORRECTIONS.length > 0, '台账空了？那 applyFitBonusCorrections 就是死代码')
+  const assertWatchedRows = (correction) => {
+    for (const rewrite of correction.rows ?? []) {
+      assert.ok(
+        correction.watch.some((watched) => watched.row === rewrite.row),
+        `修正 ${correction.equipId} 改写的第 ${rewrite.row} 行不在 watch 中`,
+      )
+      assert.ok(Object.keys(rewrite).every((key) => ['row', 'stack', 'who'].includes(key)))
+    }
+  }
+  assert.throws(
+    () => assertWatchedRows({ equipId: 1, watch: [{ row: 1 }], rows: [{ row: 2, stack: 'once' }] }),
+    /改写的第 2 行不在 watch 中/,
+  )
   for (const correction of FIT_BONUS_CORRECTIONS) {
     const at = `修正 ${correction.equipId} ${correction.equipName}`
     assert.ok(correction.jp.length > 10, `${at} 没有日文一手依据`)
@@ -534,11 +547,20 @@ test('修正台账：条目自洽（有依据、有指纹、形态不重复）',
     assert.ok(correction.note.length > 0, `${at} 没有给玩家看的一句话`)
     assert.match(correction.decidedAt, /^\d{4}-\d{2}-\d{2}$/, `${at} 裁定日期写法非法`)
     assert.ok(correction.watch.length > 0, `${at} 没盯任何上游行 —— 那它就不会自失效`)
+    assertWatchedRows(correction)
     const seen = new Set()
     for (const patch of correction.patches) {
+      assert.ok(
+        Object.keys(patch).every((key) => ['forms', 'delta', 'stack', 'note', 'stackUnverified'].includes(key)),
+        `${at} 补正字段不在允许名单中`,
+      )
+      if (patch.stack !== undefined) assert.ok(['perEquip', 'once'].includes(patch.stack))
+      if (patch.note !== undefined) assert.equal(typeof patch.note, 'string')
+      if (patch.stackUnverified !== undefined) assert.equal(patch.stackUnverified, true)
       for (const form of patch.forms) {
-        assert.ok(!seen.has(form), `${at} 形态 ${form} 出现在两组补正里，会被加两遍`)
-        seen.add(form)
+        const key = `${form}/${patch.stack ?? correction.stack}`
+        assert.ok(!seen.has(key), `${at} 形态 ${form} 在同一叠加方式中出现两次，会被加两遍`)
+        seen.add(key)
       }
       assert.ok(
         Object.values(patch.delta).some((value) => value !== 0),
@@ -772,6 +794,73 @@ test('真包：同族另外 4 件（322/237/323/490）的伊勢型改二与最�
   }
 })
 
+test('真包：具名水上爆撃機两件只加一次共通，能代整档不累积，三隈固有档分开', { skip: realSkip }, () => {
+  const { data } = applyFitBonusCorrections(realPack)
+  const want = {
+    662: { fire: 4, asw: 1, evasion: 2 },
+    663: { fire: 7, aa: 2, asw: 1, evasion: 5 },
+    668: { fire: 7, aa: 2, asw: 1, evasion: 5 },
+    501: { fire: 7, aa: 2, evasion: 5 },
+    506: { fire: 7, aa: 2, evasion: 5 },
+    502: { fire: 5, aa: 2, evasion: 5 },
+    507: { fire: 5, aa: 2, evasion: 5 },
+  }
+  for (const equipId of [237, 322, 323, 490]) {
+    for (const [formId, stats] of Object.entries(want)) {
+      const equips = Array.from({ length: 2 }, () => ({ mstId: equipId, star: 0 }))
+      const got = expectedFitBonus(data, ship(Number(formId), -1, -1), equips)
+      assert.deepEqual(got.stats, stats, `${equipId} 两件 × 形态 ${formId}`)
+      assert.equal(got.complete, true)
+    }
+  }
+})
+
+test('真包：その他日本七件的共通只算一次，能代整档不累积，其余固有档沿用上游', { skip: realSkip }, () => {
+  const { data } = applyFitBonusCorrections(realPack)
+  const want = {
+    662: { fire: 3, asw: 1, evasion: 2 },
+    663: { fire: 5, aa: 2, asw: 1, evasion: 3 },
+    668: { fire: 5, aa: 2, asw: 1, evasion: 3 },
+    501: { fire: 5, aa: 2, evasion: 3 },
+    506: { fire: 5, aa: 2, evasion: 3 },
+    502: { fire: 4, aa: 2, evasion: 3 },
+    507: { fire: 4, aa: 2, evasion: 3 },
+  }
+  for (const equipId of [26, 62, 79, 80, 81, 207, 208]) {
+    for (const [formId, stats] of Object.entries(want)) {
+      const equips = Array.from({ length: 2 }, () => ({ mstId: equipId, star: 0 }))
+      assert.deepEqual(
+        expectedFitBonus(data, ship(Number(formId), -1, -1), equips).stats,
+        stats,
+        `${equipId} 两件 × 形态 ${formId}`,
+      )
+    }
+  }
+})
+
+test('真包：伊勢型改二 322/323 两件沿用累积并标记待实测，237/490 不加标记', { skip: realSkip }, () => {
+  const { data } = applyFitBonusCorrections(realPack)
+  for (const [equipId, stats] of [
+    [322, { fire: 16, aa: 6, asw: 2, evasion: 8 }],
+    [323, { fire: 18, aa: 8, asw: 4, evasion: 10 }],
+  ]) {
+    for (const formId of [553, 554]) {
+      assert.deepEqual(
+        expectedFitBonus(data, ship(formId, -1, -1), [{ mstId: equipId }, { mstId: equipId }]).stats,
+        stats,
+      )
+      const marked = data.equips[equipId].rules.filter((rule) => rule.stackUnverified)
+      assert.equal(marked.length, 1)
+      assert.deepEqual(marked[0].who, { forms: [553, 554] })
+      assert.equal(marked[0].stack, 'perEquip')
+      assert.equal(marked[0].correction, '伊勢型改二累积待实测 · 加成数值按 wikiwiki 日文原表')
+    }
+  }
+  for (const equipId of [237, 490]) {
+    assert.ok(data.equips[equipId].rules.every((rule) => rule.stackUnverified === undefined))
+  }
+})
+
 test('真包：310 / 359 同一档写了两行被相加，修正后正好等于上游两行之一', { skip: realSkip }, () => {
   // 上游把「夕張」与「夕張改二系」两档都写成 classes:[34]，于是两行都命中、被加了起来。
   // 这一类最好验：修正后的值应当**正好是上游两行中的一行**，而不是它们的和。
@@ -883,12 +972,11 @@ test('真包：69 条修正一条都没作废，且形态在条目之间不重�
   // 但同一件装备的同一个形态**不许**出现在两条的补正里 —— 那会被加两遍。
   const claimed = new Map()
   for (const correction of FIT_BONUS_CORRECTIONS) {
-    for (const patch of correction.patches) {
-      for (const form of patch.forms) {
-        const key = `${correction.equipId}/${form}`
-        assert.ok(!claimed.has(key), `装备 ${correction.equipId} 的形态 ${form} 被两条修正各补了一次`)
-        claimed.set(key, true)
-      }
+    // 同一条目内部允许固有 perEquip 与共通 once 并列，此处仍只检查条目之间。
+    for (const form of new Set(correction.patches.flatMap((patch) => patch.forms))) {
+      const key = `${correction.equipId}/${form}`
+      assert.ok(!claimed.has(key), `装备 ${correction.equipId} 的形态 ${form} 被两条修正各补了一次`)
+      claimed.set(key, true)
     }
   }
 })

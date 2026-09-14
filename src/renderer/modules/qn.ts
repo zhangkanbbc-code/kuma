@@ -1,3 +1,4 @@
+import { registerModuleCommand } from '../module-command'
 import { renderQuestMarkHtml } from '../quest-mark-html'
 import { CAT_META, CAT_DETAIL_COLORS } from '../quest-category'
 import { expeditionLabel } from '../expedition-label'
@@ -344,6 +345,8 @@ export const searchInManager = (term: string) => {
   state.search = simplifyJp(term)
   render()
 }
+
+registerModuleCommand('qn', 'search', searchInManager)
 
 const state = {
   search: '',
@@ -2517,6 +2520,7 @@ export const openQuestInManager = (id: number) => {
 }
 
 registerEntityRoute('quest', {
+  mod: 'qn',
   colorClass: 'e-quest',
   open(ref) {
     openQuestInManager(ref.num)
@@ -2574,6 +2578,7 @@ registerEntityRoute('quest', {
         // 菜单上屏的那半要查译名，否则右键菜单里就是「奖励道具 · 高速修復材」
         ? {
             label: `奖励道具 · ${entityNamePlain('item', item[0], item[1])}`,
+            mod: 'ji',
             run: () => navigate({ type: 'useitem', id: item[0] }),
           }
         : { label: '奖励道具', disabled: true, hint: '此任务文本未明确列出道具' },
@@ -2585,6 +2590,7 @@ registerEntityRoute('quest', {
     if (map) {
       out.push({
         label: `涉及海域 · ${mapCodeOf(map)}`,
+        mod: 'ji',
         run: () => navigate({ type: 'map', id: map }),
       })
     }
@@ -2593,6 +2599,7 @@ registerEntityRoute('quest', {
 })
 
 registerEntityRoute('questBatch', {
+  mod: 'qn',
   colorClass: 'e-quest',
   open(ref) {
     const ids = `${ref.id}`.split(',').map(Number).filter((id) => id > 0)

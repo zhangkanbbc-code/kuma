@@ -1,3 +1,4 @@
+import { registerModuleCommand } from '../module-command'
 // 镖 (Bi) · 远征规划——12 稿。左=远征总表（搜索/海域筛选/时薪排序/三队甘特），
 // 右=推挤详情（条件检查[对所选舰队实时判定]/收益/大成功/原文备注）。
 // 数据分层：官方骨架/奖励物品/示例编成/难度 = api_mst_mission；
@@ -2069,9 +2070,12 @@ export const focusExpeditionsForResource = (resourceIndex: number) => {
   render()
 }
 
+registerModuleCommand('bi', 'focusResource', focusExpeditionsForResource)
+
 // ---- 模块 ----
 
 registerEntityRoute('expedition', {
+  mod: 'bi',
   colorClass: 'e-exp',
   open(ref) {
     state.area = null

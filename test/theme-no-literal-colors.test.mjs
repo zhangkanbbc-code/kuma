@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict'
-import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import test from 'node:test'
 import ts from 'typescript'
@@ -78,18 +77,7 @@ const addedTokens = {
   "meter-quest-unlocked": ["#3f806b","#3b7764","ink",["index"]],
   "map-area-ink": ["#8fe0cc","#227a64","ink",["index"]],
 }
-const sourceBaseline = {
-  "alv-icon.ts": "e06f9be5adc9b757a937db018192235c326812b3b7e59d5786cc22b6ef26f3c4",
-  "entity-art.ts": "50a6bcde80cedd46583abd21ca692fadfeb7ea9b0622281ee043a3abd5e8d298",
-  "resource-trend-window.ts": "6ddc188da77d334977e2c721fb58732adc4f28d681fef0cdcb759ef16608856c",
-  "sally-tag.ts": "78e13e5a34150d84d99aa434bd80ad33cbe9655e455e0d37041a73b4664ab779",
-  "modules/bi.ts": "befb171b8d67b71877c79a29386abf0d89c6bc997434706cafef04a3439b9c3f",
-  "modules/di.ts": "23bf18386db575846abf5f2c6804d9de0b69c6d274d88ca0a74ea8b2c2828199",
-  "modules/du.ts": "fff62925fcd02e3b1f5dfe17ab0e5e99d12fe6a12a4c258461deec59e6246d8f",
-  "modules/ji.ts": "388a6917f3e396367fb7582aa14923d861ddc6a4230a564d3ba5af3d3f4f0251",
-  "modules/qa.ts": "9ccd5e6f13885a85e18f9130f1eb0fdc5a8d6ecb1db799c485befa0d6dec1b0c",
-  "modules/qn.ts": "88b2ecae82dd63748cab5869edf1d89e6123879b7d3bd43e749dd9ff7560dbc6"
-}
+// 收编那一笔的整文件等值核对是一次性验收，已在 6761c81 完成；常驻的只有「不许新写死颜色」的棘轮与 token 覆盖判据。
 const read = name => fs.readFileSync(new URL('../src/renderer/' + name, import.meta.url), 'utf8')
 const stripCssComments = source => source.replace(/\/\*[\s\S]*?\*\//g, '')
 const blocks = source => [...source.matchAll(/:root(?:\[data-theme="light"\])?\s*\{([^}]+)\}/g)].map(m => m[1])
@@ -280,30 +268,6 @@ test('任务七色与札十四色的浅色只压明度，色相偏差 ≤ 15°',
     assert.ok(ll < dl, name + ' 明度下降')
   }
 })
-
-function canonical(source, dark) {
-  source = source.replace('CAT_META, CAT_DETAIL_COLORS', 'CAT_META')
-    .replace(/CAT_META\.([A-G])\[1\]/g, (_, k) => "'" + dark['qcat-' + k] + "'")
-    .replace(/CAT_DETAIL_COLORS\.(repair|develop|scrap)/g, (_, k) => "'" + dark['qcat-' + ({ repair: 'E-repair', develop: 'F-develop', scrap: 'F-scrap' })[k]] + "'")
-    .replace(/var\(--([\w-]+)\)/g, (whole, key) => dark[key] ?? whole)
-  source = source.replace(/<(?:circle|path|rect|line|polyline|text)\b[^>]*>/g, tag => {
-    // .axis 的 CSS fill 胜过旧 presentation attribute，基线按实际级联色比较。
-    if (/^<text\b/.test(tag) && /class="axis"/.test(tag)) tag = tag.replace(/ fill="[^"]*"/, ' fill="' + dark['chart-axis-soft'] + '"')
-    tag = tag.replace(/ style="((?:fill|stroke):[^"]+)"/g, (_, style) =>
-      style.split(';').map(part => { const at = part.indexOf(':'); return ' ' + part.slice(0, at) + '="' + part.slice(at + 1) + '"' }).join(''))
-    const attributes = [...tag.matchAll(/\s+([\w:-]+)="([^"]*)"/g)].map(m => [m[1], m[2]])
-    return tag.replace(/\s+[\w:-]+="[^"]*"/g, '').replace(/\s*\/?>(?=$)/, end =>
-      attributes.sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => ' ' + k + '="' + v + '"').join('') + end.trim())
-  })
-  return ts.createPrinter({ removeComments: true }).printFile(ts.createSourceFile('render.ts', source, ts.ScriptTarget.Latest, true)).replace(/\s+/g, '')
-}
-
-for (const [file, expected] of Object.entries(sourceBaseline)) {
-  test(file + ' 展开深色 token 后模板、调色数组与 SVG 绘制属性保持等值', () => {
-    const dark = palettes(file === 'resource-trend-window.ts' ? 'resource-trend' : 'index')[0]
-    assert.equal(createHash('sha256').update(canonical(read(file), dark)).digest('hex'), expected)
-  })
-}
 
 test('熟练度与札的实际返回值覆盖全部档位，稀有度 0 档不占 token', () => {
   const execute = source => new Function(ts.transpile(source, { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None }))()

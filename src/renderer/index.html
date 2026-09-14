@@ -1541,6 +1541,9 @@
       overflow: hidden;
     }
     #app { display: flex; flex-direction: column; height: 100%; }
+    #app.pop > header, #app.pop #element-rail, #app.pop #workbench { display: none; }
+    #pop-host { position: absolute; inset: 0; display: flex; background: var(--bg0); }
+    #pop-host > .ws-pane.active { flex: 1 1 auto; min-width: 0; min-height: 0; }
 
     /* 出处小记号（kernel.lodeCreditMark）：常驻只留这一枚，全文进 title 悬停。
        尺寸压到比正文小一档、颜色贴底——它的职责是「在」，不是「被读」。 */
@@ -2105,15 +2108,17 @@
     .element-tile.active { color: var(--accent); border-color: var(--accent-dim); background: color-mix(in srgb, var(--accent) 10%, var(--bg2)); }
     .element-tile.mounted { cursor: pointer; }
     .element-tile.mounted:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--bg2)); }
-    .element-tile.showing { color: var(--on-accent); background: var(--accent-dim); border-color: var(--accent); }
+    .element-tile.showing, .element-tile.popped { color: var(--on-accent); background: var(--accent-dim); border-color: var(--accent); }
     /* 被搁置的模块：留在导航条上但压暗——这是唯一的恢复入口，不能消失 */
     .element-tile.shelved { opacity: .45; border-style: dashed; }
+    .element-tile.popped { opacity: 1; border-style: solid; }
     /* 左上角小点：所属坞位（左青/右紫/底金） */
     .element-tile .dk { position: absolute; top: 2px; right: 3px; width: 4px; height: 4px; border-radius: 50%; }
     .element-tile .dk.left { background: var(--dock); }
     .element-tile .dk.right { background: var(--event-soft); }
     .element-tile .dk.bottom { background: var(--gold); }
     .element-tile .dk.overlay { background: var(--sub); }
+    .element-tile.popped .dk { background: transparent; box-shadow: inset 0 0 0 1.5px var(--accent); }
     .element-tile .badge-n {
       position: absolute; top: -3px; left: -3px; font-family: var(--mono); font-size: 8px; font-weight: 700;
       background: var(--bad); color: var(--on-accent); border-radius: 6px; padding: 0 3px; line-height: 1.5;
@@ -4586,6 +4591,7 @@
       transition: opacity var(--motion-fast) ease, transform var(--motion-view) var(--motion-ease);
     }
     .cmenu .m-t { font-size: 10px; color: var(--dim); padding: 4px 9px 3px; border-bottom: 1px solid var(--line-soft); margin-bottom: 3px; }
+    .cmenu .m-sep { height: 1px; background: var(--line-soft); margin: 3px 0; }
     .cmenu .mi {
       display: flex; align-items: center; gap: 8px; padding: 4.5px 9px; border-radius: 5px;
       font-size: 11.5px; color: var(--text-soft); cursor: pointer;
@@ -5473,6 +5479,8 @@
     .mod-ji .fb-cond { flex: 1 1 180px; min-width: 0; color: var(--sub); }
     .mod-ji .fb-cond i { font-style: normal; color: var(--warn); font-size: 10px; }
     .mod-ji .fb-cond em { font-style: normal; font-size: 9.5px; color: var(--accent-ink); }
+    .mod-ji .fb-fix { font-style: normal; font-size: 9.5px; color: var(--accent-ink); }
+    .mod-ji .fb-unv { font-style: normal; font-size: 10px; color: var(--warn); }
     .mod-ji .fb-vals { flex: 0 1 auto; display: flex; flex-wrap: wrap; gap: 4px 8px; }
     .mod-ji .fb-val { font-family: var(--mono); color: var(--ok-soft); }
     .mod-ji .fb-mul { font-size: 9.5px; color: var(--dim); border: 1px solid var(--line); border-radius: 3px; padding: 0 5px; }

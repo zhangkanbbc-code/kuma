@@ -6,6 +6,16 @@
 // - 未知实体/无路由 → 降级纯文本
 import { esc } from './kernel'
 import { entityLinkColorClass, localizedLinkLabel } from './localization'
+import { ipcRenderer } from 'electron'
+import { hostOfModule, normalizePopped, POP_LIST_CHANNEL, POP_RELAY_CHANNEL } from '../shared/pop-module'
+import { getPopModule } from './mu'
+
+let poppedNow: string[] = []
+export const getPoppedNow = (): string[] => poppedNow
+ipcRenderer.on(POP_LIST_CHANNEL, (_event, raw: unknown) => { poppedNow = normalizePopped(raw) })
+void ipcRenderer.invoke(POP_LIST_CHANNEL).then((raw) => { poppedNow = normalizePopped(raw) })
+export const hostFor = (mod: string): string =>
+  mod === 'header' ? 'main' : hostOfModule(mod, getPoppedNow())
 
 export interface EntityRef {
   type: string
@@ -43,12 +53,14 @@ export interface PeekData {
 
 export interface EntityTarget {
   label: string
+  mod?: string // 不写时继承路由宿主；跨模块目标显式声明。
   disabled?: boolean
   hint?: string // 置灰原因，如「待铨装配」
   run?: () => void
 }
 
 interface EntityRoute {
+  mod: string
   colorClass: string // e-ship / e-equip / ...
   open(ref: ResolvedEntityRef): void
   peek?(ref: ResolvedEntityRef): PeekData | null
@@ -110,10 +122,50 @@ const refOf = (span: HTMLElement): EntityRef => ({
   ctx: span.dataset.ectx,
 })
 
-export const navigate = (ref: EntityRef) => {
+export const navigate = async (ref: EntityRef): Promise<void> => {
   const route = routes[ref.type]
-  if (!route) return
-  route.open(resolve(ref))
+  const selfHost = getPopModule() ?? 'main'
+  // 缺路由时无法从本地表推断模块，交给主窗再解析。
+  const host = hostFor(route?.mod ?? 'header')
+  if (!route || host !== selfHost) {
+    const { type, id, ctx } = ref
+    if (await ipcRenderer.invoke(POP_RELAY_CHANNEL, { to: host, kind: 'navigate', payload: { type, id, ctx } })) return
+  }
+  route?.open(resolve(ref))
+}
+
+const runTarget = async (ref: EntityRef, route: EntityRoute, target: EntityTarget): Promise<void> => {
+  const selfHost = getPopModule() ?? 'main'
+  const host = hostFor(target.mod ?? route.mod)
+  if (host !== selfHost) {
+    const { type, id, ctx } = ref
+    if (await ipcRenderer.invoke(POP_RELAY_CHANNEL, {
+      to: host, kind: 'target', payload: { ref: { type, id, ctx }, label: target.label },
+    })) return
+  }
+  target.run?.()
+}
+
+const readRef = (raw: unknown): EntityRef | null => {
+  if (!raw || typeof raw !== 'object') return null
+  const { type, id, ctx } = raw as Record<string, unknown>
+  if (typeof type !== 'string' || (typeof id !== 'string' && typeof id !== 'number')) return null
+  if (ctx !== undefined && typeof ctx !== 'string') return null
+  return { type, id, ctx }
+}
+
+// 接收端只重新解析并执行本地回调；名单短暂不一致也不能把同一消息踢回去。
+export const receiveEntityRelay = (kind: string, payload: unknown) => {
+  if (kind === 'navigate') {
+    const ref = readRef(payload)
+    if (ref) routes[ref.type]?.open(resolve(ref))
+  } else if (kind === 'target') {
+    if (!payload || typeof payload !== 'object') return
+    const raw = payload as Record<string, unknown>
+    const ref = readRef(raw.ref)
+    if (!ref || typeof raw.label !== 'string') return
+    routes[ref.type]?.targets?.(resolve(ref)).find((target) => target.label === raw.label)?.run?.()
+  }
 }
 
 // ---- Peek 速览卡 ----
@@ -264,7 +316,8 @@ const showMenu = (span: HTMLElement, event: MouseEvent) => {
       if (item.dataset.act === 'primary') {
         navigate(ref)
       } else {
-        targets[parseInt(item.dataset.act!, 10)]?.run?.()
+        const target = targets[parseInt(item.dataset.act!, 10)]
+        if (target) void runTarget(ref, route, target)
       }
     })
   })

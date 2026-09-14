@@ -118,6 +118,11 @@ export interface FitRule {
    * `fitRuleFingerprint`（进了会让修正台账已有的指纹全部作废）。
    */
   layer?: string
+  /**
+   * 累积方式待实测。与 layer 同理：上游随包的行不写此标记，不进
+   * fitRuleFingerprint，避免让修正台账已有的指纹作废。
+   */
+  stackUnverified?: true
 }
 
 export interface FitEquipEntry {

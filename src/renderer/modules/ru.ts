@@ -3133,6 +3133,7 @@ const focusFleetShip = (rosterId: number) => {
 }
 
 registerEntityRoute('fleet', {
+  mod: 'ru',
   colorClass: 'e-fleet',
   open(ref) {
     const id = ref.num
@@ -3180,6 +3181,7 @@ registerEntityRoute('fleet', {
       missionId > 0
         ? {
             label: `远征规划 · ${expeditionLabel(missionId, mg.master.missions)} 执行中`,
+            mod: 'bi',
             run: () => navigate({ type: 'expedition', id: missionId }),
           }
         : { label: '远征规划', disabled: true, hint: '此队未在远征' },
@@ -3188,6 +3190,7 @@ registerEntityRoute('fleet', {
 })
 
 registerEntityRoute('fleetShip', {
+  mod: 'ru',
   colorClass: 'e-ship',
   open(ref) {
     focusFleetShip(ref.num)

@@ -68,12 +68,13 @@ const saving = slice('const saveLayout =', '// 启动只在默认补齐')
 const persistence = createRequire(import.meta.url)('../dist/shared/dock-layout.js')
 const makeMu = (dock = 'right', shelved = false, hidden = false) => {
   const layout = { docks: { left: [], right: [], bottom: [] }, collapsed: { left: true, right: true, bottom: true },
-    focus: true, shelved: shelved ? ['di'] : [], dockSize: { left: 400, right: 500, bottom: 300 } }
+    focus: true, shelved: shelved ? ['di'] : [], popped: [], dockSize: { left: 400, right: 500, bottom: 300 } }
   layout.docks[dock] = [{ mods: ['di', 'du'], active: 'du', size: 230 }]
   const calls = [], writes = [], events = [], classes = new Set(), bodyClasses = new Set()
   const app = { dataset: {}, classList: { toggle: (key, on) => on ? classes.add(key) : classes.delete(key) } }
   const docks = Object.fromEntries(['left', 'right', 'bottom'].map((id) => [id, { dataset: {} }]))
   const env = {
+    POP_MODULE: null,
     layout, distract: { on: false, side: 'bottom' }, distractRestore: null,
     scheduleDistractCardFit: (side) => calls.push(['fit', side]), stopDistractCardFit: () => calls.push(['fit-stop']),
     hiddenModules: new Set(hidden ? ['di'] : []), DISTRACT_PATHS, DISTRACT_DEFAULTS, normalizeDistractSide,

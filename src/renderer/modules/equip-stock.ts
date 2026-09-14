@@ -839,7 +839,7 @@ const render = () => {
   const html = `<div class="es-app">
       <div class="es-bar">
         ${viewModeHtml()}
-        <input class="es-search" placeholder="搜装备名" value="${esc(state.search)}">
+        <input id="es-search" class="es-search" placeholder="搜装备名" value="${esc(state.search)}">
         <div class="type-chips">${chips}</div>
         <span class="es-sp"></span>
         <span class="es-cap"${capacity > 0 ? ` title="不计消耗品类装备"` : ''}>
@@ -894,6 +894,7 @@ const wire = () => {
   // 走 onFilterInput 而不是裸 input：重渲会把输入框元素整个换掉，
   // 输入法的组合会话绑在那个元素上，换一次就断（见 kernel 第三道闸门）。
   // compositionend 也冒泡，委托写法照旧成立。
+  // 找回焦点靠 id：focusSelector 只认 id 与 data-*，没有就丢焦点。
   onFilterInput(pane, (e) => {
     const input = (e.target as HTMLElement).closest<HTMLInputElement>('.es-search')
     if (!input) return
@@ -1167,6 +1168,7 @@ export const revealFurnitureInStock = (furnitureId: number) => {
 // 持有判定三态：有 / 没有 / 未同步（mg.furnitures 为 null 时不下「没有」的结论——
 // 识别不到就标灰会把玩家真有的说成没有，2026-08-17 用户点名要避免的坑）。
 registerEntityRoute('furniture', {
+  mod: 'ji',
   colorClass: 'e-item',
   open(ref) {
     ensureFurnitureMst()

@@ -5009,6 +5009,7 @@ registerModule({
 
 export const registerBattleEntityRoutes = () => {
   registerEntityRoute('battle', {
+    mod: 'di',
     colorClass: 'e-map',
     open(ref) {
       void openBattleSnapshot(Number(ref.id))
@@ -5029,6 +5030,7 @@ export const registerBattleEntityRoutes = () => {
   })
 
   registerEntityRoute('battleCurrent', {
+    mod: 'di',
     colorClass: 'e-map',
     open(ref) {
       replay = null

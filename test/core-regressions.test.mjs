@@ -4,6 +4,87 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
+test('搜索框必须可定位：重画后焦点靠 id 或非空 data-* 找回', () => {
+  // 重画后焦点靠 focusSelector 找回，没有定位键＝每敲一字丢一次焦点。
+  // 这是只能查源码文本的存在性判据，不证明焦点恢复行为；
+  // 依据 shared/source-pattern-guards-miss-logic-bugs。
+  const violations = []
+  for (const dir of ['src/renderer', 'src/renderer/modules']) {
+    const base = new URL(`../${dir}/`, import.meta.url)
+    for (const name of fs.readdirSync(base).filter((name) => name.endsWith('.ts')).sort()) {
+      const source = fs.readFileSync(new URL(name, base), 'utf8')
+      // 按完整标签扫描，包含跨行模板；引号内的 > 不结束标签。
+      for (const input of source.matchAll(/<input\b(?:[^"'<>]|"[^"]*"|'[^']*')*>/gi)) {
+        const attrs = [...input[0].matchAll(/\s([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g)]
+          .map((attr) => ({ name: attr[1].toLowerCase(), value: attr[2] ?? attr[3] ?? attr[4] ?? '', quoted: attr[2] !== undefined || attr[3] !== undefined }))
+        const type = attrs.find((attr) => attr.name === 'type')?.value.toLowerCase() ?? 'text'
+        if (!['text', 'search'].includes(type) || !attrs.some((attr) => attr.name === 'placeholder')) continue
+        const locatable = attrs.some((attr) =>
+          (attr.name === 'id' || /^data-.+/.test(attr.name)) && attr.quoted && attr.value.length > 0,
+        )
+        if (!locatable) violations.push(`${dir}/${name}:${source.slice(0, input.index).split('\n').length}`)
+      }
+    }
+  }
+  assert.deepEqual(violations, [], `搜索框缺少非空 id 或 data-* 定位键（文件:行号）：\n${violations.join('\n')}`)
+})
+
+test('图鉴装备与舰娘的加成显示共用形态合并线，修正只进角标悬停', () => {
+  const ji = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
+  const equip = ji.slice(ji.indexOf('const equipFitHtml ='), ji.indexOf('const shipFitHtml ='))
+  const ship = ji.slice(ji.indexOf('const shipFitHtml ='), ji.indexOf('const bonusPanelHtml ='))
+  assert.match(equip, /fitDisplayLines\(entry\.rules\)\s*\.slice\(0, 24\)/)
+  assert.match(ship, /fitDisplayLines\(rules\.map\(\(r\) => r\.rule\), \{ formId: mstId \}\)\.slice\(0, 4\)/)
+  for (const source of [equip, ship]) {
+    assert.match(source, /fitDisplayGainHtml\(line\)/)
+    assert.match(source, /fitDisplayMarksHtml\(line\)/)
+    assert.match(source, /line\.mode === 'passthrough' \? fitCondHtml\(line\.rules\[0\]\) : fitWhoHtml\(line\.who\)/)
+  }
+  assert.doesNotMatch(ji, /<em title="\$\{esc\(rule\.correction\)\}">第一方修正<\/em>/)
+  assert.match(ji, /<em class="fb-fix" title="\$\{esc\(title\)\}">含第一方修正<\/em>/)
+  assert.match(ji, /line\.stackUnverified \? ' <i class="fb-unv" title="来源页未写明第二件起是否累加">累积待实测<\/i>'/)
+})
+
+test('互链两条发送路径共用宿主判据，接收端不二次转发，弹窗试听允许压音', () => {
+  const read = (rel) => fs.readFileSync(new URL(`../src/${rel}`, import.meta.url), 'utf8')
+  const link = read('renderer/link.ts')
+  const navigate = link.slice(link.indexOf('export const navigate ='), link.indexOf('const runTarget ='))
+  const target = link.slice(link.indexOf('const runTarget ='), link.indexOf('const readRef ='))
+  assert.match(navigate, /hostFor\(route\?\.mod/)
+  assert.match(navigate, /kind: 'navigate'/)
+  assert.match(target, /hostFor\(target.mod \?\? route.mod\)/)
+  assert.match(target, /kind: 'target'/)
+  assert.match(link, /if \(target\) void runTarget\(ref, route, target\)/)
+  const mu = read('renderer/mu.ts')
+  const receiver = mu.slice(mu.indexOf('ipcRenderer.on(POP_RELAY_EVENT'), mu.indexOf('// 换坞菜单'))
+  assert.match(receiver, /receiveEntityRelay\(kind, payload\)/)
+  assert.match(receiver, /receiveModuleCommand\(payload\)/)
+  assert.doesNotMatch(receiver, /invoke\(POP_RELAY_CHANNEL/)
+  assert.doesNotMatch(link.slice(link.indexOf('export const receiveEntityRelay ='), link.indexOf('// ---- Peek')), /invoke\(POP_RELAY_CHANNEL/)
+  const command = read('renderer/module-command.ts')
+  assert.doesNotMatch(command.slice(command.indexOf('export const receiveModuleCommand =')), /invoke\(POP_RELAY_CHANNEL/)
+  assert.match(command, /hostOf: hostFor/)
+  assert.equal([...mu.matchAll(/ipcRenderer.on\(POP_RELAY_EVENT/g)].length, 1)
+  assert.equal([...link.matchAll(/ipcRenderer.on\(POP_LIST_CHANNEL/g)].length, 1)
+  const main = read('main/index.ts')
+  assert.match(main, /ipcMain.on\('kuma:preview-audio-active',[\s\S]*?if \(!popWindows.isKumaSender\(event.sender\)\) return/)
+})
+
+test('pop 启动不建游戏 webview，菜单文案单一出处且弹窗不写布局', () => {
+  const index = fs.readFileSync(new URL('../src/renderer/index.ts', import.meta.url), 'utf8')
+  const mu = fs.readFileSync(new URL('../src/renderer/mu.ts', import.meta.url), 'utf8')
+  // pop 模式不该建游戏 webview，动态验只能开 Electron 窗；这里只守调用处门控。
+  const calls = index.split('\n').filter((line) => /\bcreateGameView\(\)/.test(line))
+  assert.ok(calls.length > 0)
+  for (const line of calls) assert.match(line, /if \(!POP_MODULE\) webview = createGameView\(\)/)
+  for (const label of ['弹出为窗口', '收回到', '切到那扇窗']) {
+    // 菜单独立标签只认 HTML 内容或独立字符串；tooltip 的完整句子另有用途。
+    assert.equal([...mu.matchAll(new RegExp(`(?:>|')${label}(?:<|')`, 'g'))].length, 1)
+  }
+  assert.match(mu, /const saveLayout = \(\) => \{\s*if \(POP_MODULE\) return/)
+  assert.match(index, /if \(POP_MODULE\) \{\s*document.title = popWindowTitle\(getModuleTitle\(POP_MODULE\)\)\s*\$\('#app'\)\.classList.add\('pop'\)\s*\$\('#app'\)\.dataset.pop = POP_MODULE/)
+})
+
 test('底部字幕悬停淡出接线、默认设置与性能约束', () => {
   const read = pathname => fs.readFileSync(new URL(`../${pathname}`, import.meta.url), 'utf8')
   assert.ok(read('src/renderer/index.html').includes('#voice-subtitle.show.dodge { opacity: .15; }'))
@@ -3116,6 +3197,17 @@ test('quest rows keep stable progress, reward, and status columns', () => {
   assert.match(html, /\.mod-qn \.q-quick-panel\.open\s*\{[^}]*display:\s*flex;/)
 })
 
+test('主窗关闭时一并关闭模块弹出窗', () => {
+  const main = fs.readFileSync(new URL('../src/main/index.ts', import.meta.url), 'utf8')
+  const closed = main.match(/win\.on\('closed', \(\) => \{([\s\S]*?)\n  \}\)/)
+  assert.ok(closed, '找不到主窗 closed 处理')
+  // 主窗没了弹出窗不该把应用留在后台。
+  assert.match(closed[1], /popWindows\.closeAll\(\)/)
+  assert.match(closed[1], /closeAllBrowseWindows\(\)/)
+  assert.match(main, /setTrayPopWindows\(popWindows\)/)
+  assert.match(main, /if \(interceptWindowClose\(win\)\) \{\s*e\.preventDefault\(\)\s*popWindows\.hideAll\(\)/)
+})
+
 test('complete quest tree opens in a bounded independent window and returns to task details', () => {
   const main = fs.readFileSync(new URL('../src/main/index.ts', import.meta.url), 'utf8')
   const build = fs.readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8')
@@ -4517,7 +4609,8 @@ test('daily decision links form a resource, expedition, quest, fleet, and event-
   assert.match(expedition, /elink\('quest', questId, label\)/)
   assert.match(expedition, /export const focusExpeditionsForResource/)
   assert.match(expedition, /rewards\?\.greatItems/)
-  assert.match(resources, /focusExpeditionsForResource\(parseInt\(button\.dataset\.expResource!/)
+  assert.match(resources, /runModuleCommand\('bi', 'focusResource', parseInt\(button\.dataset\.expResource!/)
+  assert.doesNotMatch(resources, /focusExpeditionsForResource\(/)
   assert.match(resources, /补充\$\{meta\?\.label/)
 
   assert.match(fleet, /queryFleetCheck\(\)/)
@@ -9417,7 +9510,7 @@ test('海域图鉴最后一段与实体菜单接有关任务，反查和任务�
   assert.ok(related > drawer.indexOf('dropPoolHtml('), '有关任务应在确认掉落之后')
   assert.ok(related < drawer.indexOf('<div class="foot">'), '有关任务应在来源脚注之前')
   const route = atlas.slice(atlas.indexOf("registerEntityRoute('map',"), atlas.indexOf("registerEntityRoute('abyssEquip',"))
-  assert.match(route, /targets: [\s\S]*label: '有关任务', run: \(\) => searchInManager\(mapCodeOf\(id\)\)/)
+  assert.match(route, /targets: [\s\S]*label: '有关任务', mod: 'qn', run: \(\) => void runModuleCommand\('qn', 'search', mapCodeOf\(id\)\)/)
   assert.equal(quests.split("taskEntityTextDomainAllowed('map', row.code)").length - 1, 1, '海域判据只保留一份')
   assert.match(quests, /const maps = questMapRefs\(row, tracker,/)
   assert.match(quests, /return questMapRefs\(quest, tracker\)\.includes\(mapId\)/)

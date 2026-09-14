@@ -1,6 +1,8 @@
 import { installThemeBoot } from './theme-boot'
 
 installThemeBoot()
+const POP_MODULE = popModuleOf(location.search)
+import { popModuleOf, popWindowTitle } from '../shared/pop-module'
 
 // 镇（渲染层壳）：游戏区 + 工作区（铆装配的模块面板）。
 // webview 参数与 UA 清洗移植自 poi views/kan-game-wrapper.tsx
@@ -36,7 +38,7 @@ import { initLink } from './link'
 import { initCommandPalette } from './command-palette'
 import { initInputClear } from './input-clear'
 import { initLocalization } from './localization'
-import { exitDistract, getDistractState, initModules, isModuleShowing, launchGlowLayout, setDistractSide, setLayoutDragHooks, toggleDistract, toggleFocus, toggleLayoutLock } from './mu'
+import { exitDistract, getDistractState, getModuleTitle, initModules, isModuleShowing, launchGlowLayout, setDistractSide, setLayoutDragHooks, toggleDistract, toggleFocus, toggleLayoutLock } from './mu'
 import { cycleDistractSide, DISTRACT_DEFAULTS, DISTRACT_PATHS, DISTRACT_SIDE_LABEL } from '../shared/distract-mode'
 import {
   armLaunchGlow,
@@ -119,7 +121,7 @@ const salvoFlagship = () => {
   const ship = mg.decks.find((deck) => deck.id === deckId)?.ships[0]
   return ship === undefined ? undefined : mg.ships[ship]
 }
-initFairySalvo({
+if (!POP_MODULE) initFairySalvo({
   active: () => !!mg.sortie?.active,
   practice: () => !!mg.sortie?.practice,
   flagshipId: () => salvoFlagship()?.shipId,
@@ -131,7 +133,7 @@ initFairySalvo({
   windowVisible: () => remote.getCurrentWindow().isVisible(),
   onSortieChange: (cb) => onMgChange((keys) => { if (keys.includes('sortie')) cb() }),
 }, config.get(FAIRY_SALVO_CONFIG_KEY, FAIRY_SALVO_DEFAULT))
-initVoiceSubtitles(broadcaster)
+if (!POP_MODULE) initVoiceSubtitles(broadcaster)
 
 const APP_ROOT: string = remote.getGlobal('ROOT')
 const SCREENSHOT_PATH: string = remote.getGlobal('DEFAULT_SCREENSHOT_PATH')
@@ -153,6 +155,12 @@ const $ = <T extends HTMLElement>(selector: string): T => {
   return el
 }
 
+if (POP_MODULE) {
+  document.title = popWindowTitle(getModuleTitle(POP_MODULE))
+  $('#app').classList.add('pop')
+  $('#app').dataset.pop = POP_MODULE
+}
+
 // ---- 游戏 webview ----
 type WebviewTag = Electron.WebviewTag
 
@@ -162,6 +170,7 @@ let webview: WebviewTag | null = null
 let webviewReady = false
 
 const applyZoom = () => {
+  if (POP_MODULE) return
   if (!webview || !webviewReady) return
   const { width } = gameWrapper.getBoundingClientRect()
   if (width <= 0) return
@@ -209,6 +218,7 @@ let dragging = false
  * 一个字都不改——老玩家零感知。
  */
 const applyGameLayout = (immediate = false) => {
+  if (POP_MODULE) return
   if (dragging) return
   const layout = gameLayoutNow()
   gameWrapper.style.width = layout.locked ? `${layout.width}px` : ''
@@ -229,6 +239,7 @@ const overlayTitle = $('#overlay-title')
 const overlayDetail = $('#overlay-detail')
 
 const showLoadError = (code: number, description: string, url: string) => {
+  if (POP_MODULE) return
   overlayTitle.textContent = '游戏页面加载失败'
   overlayDetail.textContent =
     `${description} (${code})\n${url}\n\n` +
@@ -238,6 +249,7 @@ const showLoadError = (code: number, description: string, url: string) => {
 }
 
 const hideLoadError = () => {
+  if (POP_MODULE) return
   overlay.classList.remove('visible')
 }
 
@@ -276,22 +288,22 @@ const createGameView = () => {
   view.addEventListener('render-process-gone' as any, () => {
     console.warn('[kuma] game webview crashed, remounting')
     view.remove()
-    webview = createGameView()
+    if (!POP_MODULE) webview = createGameView()
   })
   gameWrapper.appendChild(view)
   return view
 }
 
-$('#btn-retry').addEventListener('click', () => {
+if (!POP_MODULE) $('#btn-retry').addEventListener('click', () => {
   hideLoadError()
   webview?.reload()
 })
 
-webview = createGameView()
-new ResizeObserver(() => applyZoomDebounced()).observe(gameWrapper)
+if (!POP_MODULE) webview = createGameView()
+if (!POP_MODULE) new ResizeObserver(() => applyZoomDebounced()).observe(gameWrapper)
 // 可用区变了要重算档位（锁定档可能从装得下变成装不下）。观察的是 #game-area 而不是
 // wrapper：wrapper 的宽正是这里写进去的，盯着它改它就是自己追自己。
-new ResizeObserver(() => applyGameLayout()).observe(gameArea)
+if (!POP_MODULE) new ResizeObserver(() => applyGameLayout()).observe(gameArea)
 
 // ---- 头部按钮 ----
 const moreBtn = $('#btn-more')
@@ -301,7 +313,7 @@ document.addEventListener('click', (e) => {
   else headerActions.classList.remove('open')
 })
 
-$('#btn-reload').addEventListener('click', () => {
+if (!POP_MODULE) $('#btn-reload').addEventListener('click', () => {
   webview?.reload()
 })
 // 浏览窗：按一次开一扇新的，各开各的、各关各的
@@ -309,6 +321,7 @@ $('#btn-browse').addEventListener('click', () => {
   void openBrowseWindow()
 })
 const captureGame = async () => {
+  if (POP_MODULE) return
   if (!webview) return
   try {
     const dataUrl: string | undefined = await webview.executeJavaScript('window.capture()')
@@ -324,7 +337,7 @@ const captureGame = async () => {
     console.error('[kuma] capture failed', e)
   }
 }
-$('#btn-capture').addEventListener('click', () => void captureGame())
+if (!POP_MODULE) $('#btn-capture').addEventListener('click', () => void captureGame())
 
 // ---- 服务器识别 ----
 const serverBadge = $('#server-badge')
@@ -432,7 +445,7 @@ if (validGameHost(initialServer?.ip)) {
 // 拖动期间的 scale 用的是与松手后同一份布局判据（computeGameLayout），所以拖到哪儿
 // 看到的就是松手后的样子：自适应连续缩，锁定档黑边跟着变、装不下时按档降下来。
 let frozen: DOMRect | null = null
-setLayoutDragHooks({
+if (!POP_MODULE) setLayoutDragHooks({
   start: () => {
     dragging = true
     frozen = gameWrapper.getBoundingClientRect()
@@ -459,7 +472,7 @@ const syncFocusBtn = (on: boolean) => {
 focusBtn.addEventListener('click', () => syncFocusBtn(toggleFocus()))
 
 const syncDistractButtons = () => {
-  refreshFairySalvo()
+  if (!POP_MODULE) refreshFairySalvo()
   const { on, side } = getDistractState()
   $('#btn-distract').textContent = on ? '退出分心' : '分心'
   $('#btn-distract-top').hidden = !on
@@ -520,10 +533,10 @@ void ipcRenderer.invoke('audio:get-mute').then((muted: unknown) => {
 })
 
 ipcRenderer.on('kuma:hotkey', (_event: unknown, id: unknown) => {
-  if (id === 'reload') webview?.reload()
+  if (id === 'reload' && !POP_MODULE) webview?.reload()
   else if (id === 'focus') syncFocusBtn(toggleFocus())
   else if (id === 'distract') toggleDistract()
-  else if (id === 'capture') void captureGame()
+  else if (id === 'capture' && !POP_MODULE) void captureGame()
   else if (id === 'mute') toggleMute()
   else if (id === 'layoutLock') toggleLayoutLock()
 })
@@ -546,9 +559,9 @@ document.addEventListener('keydown', (e) => {
   }
 })
 // 界面缩放改了要重摆：锁定档的 wrapper 宽是「倍率 ÷ 界面缩放」，分母动了宽就得跟着动
-onUiZoom(() => applyGameLayout())
+if (!POP_MODULE) onUiZoom(() => applyGameLayout())
 // 钥里改档位/模式时由这里回摆。登记的这一下也顺手把开机的初始档摆上
-setGameScaleApplier(() => applyGameLayout())
+if (!POP_MODULE) setGameScaleApplier(() => applyGameLayout())
 
 // ---- 启动点亮（测试性功能，钥里默认关）----
 // **在这里就罩暗**，而不是等模块装完：游戏 webview 在本文件顶部就已经开始加载，
@@ -563,7 +576,7 @@ setGameScaleApplier(() => applyGameLayout())
 // ARM_CAP_MS 那只看门狗兜着，反过来则会留一层撤不掉的欢迎屏。
 let glow: LaunchGlowHandle | null = null
 let welcome: LaunchWelcomeHandle | null = null
-try {
+if (!POP_MODULE) try {
   const ceremonyOn: boolean = config.get(LAUNCH_GLOW_CONFIG_KEY, LAUNCH_GLOW_DEFAULT)
   // 同一个开关也管顶栏浮层的打开入场（一个实验开关管整个动画家族）
   setOverlayEntranceEnabled(ceremonyOn)
@@ -815,6 +828,7 @@ const startupFailed = (stage: string, error: unknown) => {
   glow?.cancel()
   welcome?.cancel()
   recordCrash(`startup:${stage}`, error)
+  if (POP_MODULE) return
   const detail = error instanceof Error ? (error.stack ?? error.message) : String(error)
   overlayTitle.textContent = `启动失败：${stage}`
   overlayDetail.textContent = '游戏画面不受影响 · 修复后重启 kuma'
@@ -879,7 +893,7 @@ void (async () => {
     recordCrash('startup:command-palette', error)
   }
   try {
-    initHeaderStatus(broadcaster)
+    if (!POP_MODULE) initHeaderStatus(broadcaster)
   } catch (error) {
     recordCrash('startup:header-status', error)
   }

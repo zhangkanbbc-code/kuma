@@ -451,7 +451,7 @@ test('钥的实验性卡默认关、即时切换；列装备名并逐项移除�
 
 test('镇壳真实接线：按出击队取旗舰、实例解成装备主数据编号，联合取第一队', () => {
   const source = fs.readFileSync(new URL('../src/renderer/index.ts', import.meta.url), 'utf8')
-  const section = source.slice(source.indexOf('const salvoFlagship ='), source.indexOf('initVoiceSubtitles(broadcaster)'))
+  const section = source.slice(source.indexOf('const salvoFlagship ='), source.indexOf('if (!POP_MODULE) initVoiceSubtitles(broadcaster)'))
   const compiled = transformSync(section, { loader: 'ts' }).code
   let data
   const mg = { combinedFlag: 0, sortie: { deckId: 3, active: true },
@@ -459,7 +459,7 @@ test('镇壳真实接线：按出击队取旗舰、实例解成装备主数据�
     ships: { 11: { shipId: 100, slot: [90] }, 22: { shipId: 200, slot: [] }, 33: { shipId: 300, slot: [92, 91, 92] } },
     slotitems: { 90: { mstId: 10 }, 91: { mstId: 11 }, 92: { mstId: 12 } },
     master: { slotitems: { 10: { type2: 3 }, 11: { type2: 4 }, 12: { type2: 1 } } } }
-  const bindings = { mg, initFairySalvo: (value) => { data = value }, salvoGunsOf,
+  const bindings = { POP_MODULE: null, mg, initFairySalvo: (value) => { data = value }, salvoGunsOf,
     config: { get: (_key, fallback) => fallback }, ...shared }
   new Function(...Object.keys(bindings), compiled)(...Object.values(bindings))
   assert.equal(data.flagshipId(), 300); assert.deepEqual(data.guns(), [12])

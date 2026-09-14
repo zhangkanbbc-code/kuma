@@ -22,6 +22,10 @@ const ICON_PATH = path.join(ROOT, 'assets', 'branding', 'kuma.ico')
 
 let tray: Tray | null = null
 let getWindow: () => BrowserWindow | null = () => null
+let popWindows: { hideAll(): void; showAll(): void } | null = null
+export const setTrayPopWindows = (windows: { hideAll(): void; showAll(): void }) => {
+  popWindows = windows
+}
 let unread = 0
 let dnd = false
 // 退出中：close 事件此时必须放行，否则「退出kuma」会被隐藏逻辑吃掉，永远退不掉
@@ -40,6 +44,7 @@ export const showMainWindow = () => {
   if (!win.isVisible()) win.show()
   if (win.isMinimized()) win.restore()
   win.focus()
+  popWindows?.showAll()
 }
 
 const tooltip = () => (unread > 0 ? `kuma · ${unread} 条未读` : 'kuma')
@@ -136,4 +141,5 @@ export const interceptWindowClose = (win: BrowserWindow): boolean => {
 export const handleWindowMinimize = (win: BrowserWindow) => {
   if (quitting || !minimizeToTray()) return
   win.hide()
+  popWindows?.hideAll()
 }
