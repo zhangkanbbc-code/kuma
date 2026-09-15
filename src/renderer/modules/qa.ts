@@ -23,6 +23,7 @@ import {
   queryMasterRaw,
   queryShipLife,
   repairDuration,
+  repairClockText,
   updateCountdowns,
 } from '../kernel'
 import { lifeEventHtml } from '../ship-life-events'
@@ -543,7 +544,7 @@ const rowHtml = (row: Row) => {
   }
   const hurt = hurtBandOf(ship)
   const dockSub = row.dock
-    ? `<span class="sub">入渠中 · 渠${row.dock.id} · <span data-cd="${row.dock.completeTime}">${fmtCountdown(row.dock.completeTime)}</span></span>`
+    ? `<span class="sub">入渠中 · 渠${row.dock.id} · <span data-cd="${row.dock.completeTime}">${fmtCountdown(row.dock.completeTime)}</span> · <span data-repair-clock="${row.dock.completeTime}">${repairClockText(row.dock.completeTime, Date.now())}</span></span>`
     : hurt
       ? // 活动期「谁进渠、谁吃桶」原本要自己心算：修多久、吃多少燃钢，摆出来
         `<span class="sub hurt-sub ${hurt.key}">${hurt.label} ${ship.nowhp}/${ship.maxhp} · 修 ${repairDuration(ship.ndockTime)} · ${ship.ndockItem[0]}燃 ${ship.ndockItem[1]}钢</span>`
@@ -1169,8 +1170,9 @@ const render = () => {
   sortRows(rows)
 
   const { counts, repairList } = tallyRows(all)
+  const dockReadyAt = Math.max(0, ...all.flatMap((row) => row.dock ? [row.dock.completeTime] : []))
   const smartChip = (key: string, label: string, extra = '') =>
-    `<span class="fchip q ${extra}${state.smart === key ? ' on' : ''}" data-smart="${key}"><b style="font-weight:400">${label}</b><i>${counts[key as keyof typeof counts]}</i></span>`
+    `<span class="fchip q ${extra}${state.smart === key ? ' on' : ''}" data-smart="${key}"${key === 'dock' && counts.dock ? ` data-repair-title="${dockReadyAt}" title="${repairClockText(dockReadyAt, Date.now())}"` : ''}><b style="font-weight:400">${label}</b><i>${counts[key as keyof typeof counts]}</i></span>`
 
   const tagChip = (entry: NoteTagTally) =>
     `<span class="fchip ntag${state.noteTags.includes(entry.tag) ? ' on' : ''}" data-ntag="${esc(entry.tag)}" title="备注里写着 #${esc(entry.tag)} 的舰娘 · 多选 = 带其中任一个">#${esc(entry.tag)}<i>${entry.count}</i></span>`
@@ -1481,6 +1483,7 @@ registerEntityRoute('ship', {
     const ship = mg.ships[id]
     if (!ship) return null
     const b = (v: unknown) => `<b style="color:var(--text)">${v}</b>`
+    const dock = mg.ndocks.find((entry) => entry.shipId === id)
     return {
       title: `${entityNamePlain('ship', ship.shipId, masterShipName(ship.shipId))} Lv${ship.lv}`,
       typeLabel: '现有舰娘',
@@ -1489,6 +1492,7 @@ registerEntityRoute('ship', {
         `<span style="font-family:var(--mono);font-size:10px">火${b(ship.karyoku)} 雷${b(ship.raisou)} 空${b(ship.taiku)} 甲${b(ship.soukou)} 避${b(ship.kaihi)}</span>`,
         `<span style="font-family:var(--mono);font-size:10px">潜${b(ship.taisen)} 索${b(ship.sakuteki)} 运${b(ship.lucky)} · ★${b(starSumOf(ship))}</span>`,
         `HP ${ship.nowhp}/${ship.maxhp} · 士气 ${ship.cond}${ship.locked ? ' · 已锁定' : ' · 未锁定'}`,
+        ...(dock ? [`入渠中 · 渠${dock.id} · 剩余 ${fmtCountdown(dock.completeTime)} · ${repairClockText(dock.completeTime, Date.now())}`] : []),
       ],
       primary: '舰娘列表',
     }
@@ -1616,6 +1620,12 @@ const initializeRosterView = () => {
   onTick(() => {
     if (!pane?.isConnected || !pane.offsetWidth) return
     const now = Date.now()
+    pane.querySelectorAll<HTMLElement>('[data-repair-clock]').forEach((el) => {
+      el.textContent = repairClockText(Number(el.dataset.repairClock), now)
+    })
+    pane.querySelectorAll<HTMLElement>('[data-repair-title]').forEach((el) => {
+      el.title = repairClockText(Number(el.dataset.repairTitle), now)
+    })
     // 刚跨过完工时刻的那一秒重渲一次：fmtCountdown 到期只会把文字翻成「完成」，
     // 而整行的状态（士气格的「渠」、待修合账、入渠中角标）还挂在 row.dock 上。
     // 干等游戏的下一个 ndocks 补丁的话，挂机时可能几分钟都停在旧样子。

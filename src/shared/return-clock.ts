@@ -9,3 +9,7 @@ export const fmtReturnClock = (returnTs: number, now: number): string => {
   const day = sameDay ? '' : `${pad(returned.getMonth() + 1)}-${pad(returned.getDate())} `
   return `${day}${pad(returned.getHours())}:${pad(returned.getMinutes())}`
 }
+
+/** 入渠完成的本地时刻；到点判据与倒计时归零一致。 */
+export const repairClockText = (completeTime: number, now: number): string =>
+  completeTime <= now ? '已修好' : `预计 ${fmtReturnClock(completeTime, now)} 修好`

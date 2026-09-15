@@ -386,7 +386,8 @@ test('quest counter reports the audited synthetic-master coverage split', () => 
     // 总数 −2。真机主数据下这两条照常在位——见下面那组近代化改修用例，它们自带最上型。
     // 2026-09-11 定号补入四条任务，合成主数据下可解析的自研规则增加两条。
     assert.deepEqual(split, { kcwiki: 148, poi: 25, text: 15, kuma: 61 })
-    assert.match(state.packCredit, /精确计数覆盖 249 \/ 648 条/)
+    // 2026-09-15 新增 B217/F143；合成主数据不含北上改三，覆盖数不变，目录增至 650。
+    assert.match(state.packCredit, /精确计数覆盖 249 \/ 650 条/)
     assert.match(state.packCredit, / · 规则更新 \d{4}-\d{2}-\d{2}$/)
     assert.doesNotMatch(state.packCredit, /EO|KCWiki|poi/, '发布侧署名不该回潮')
     return

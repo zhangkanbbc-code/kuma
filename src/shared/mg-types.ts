@@ -1341,6 +1341,9 @@ export interface ShipLifeEvent {
 
 export interface ShipLifeReport {
   rosterId: number
+  // 全账本摘要，不受 events 分页限制；顶栏的加入天数/出处/誓约日期读它，别从分页里找。
+  join: ShipLifeEvent | null
+  marriage: ShipLifeEvent | null
   trackingSince: number | null
   lastSeen: number | null
   expGained: number

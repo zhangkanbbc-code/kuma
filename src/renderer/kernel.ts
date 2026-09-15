@@ -1,7 +1,7 @@
 // 渲染层内核：铭状态的本地缓存与订阅、秒级 ticker、公共工具。
 // 各模块（铆装配的面板）只依赖这里，不直接碰 ipc。
 import { readEnv } from '../shared/env-names'
-export { fmtReturnClock } from '../shared/return-clock'
+export { fmtReturnClock, repairClockText } from '../shared/return-clock'
 import type {
   BattleSnapshot,
   BattleSnapshotSummary,

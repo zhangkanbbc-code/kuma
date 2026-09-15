@@ -135,7 +135,7 @@ test('B216 三家正面主张裁为 B207：玩家与开发机均采用仲裁，�
 })
 
 test('仲裁表自身健康：码型合法、裁决都带依据、与已知冲突清单对得上号', () => {
-  assert.equal(QUEST_PRE_ARBITRATION.size, 11, '原 8 条 + 2026-09-06 B211、F48 与 B216 裁决')
+  assert.equal(QUEST_PRE_ARBITRATION.size, 12, '原 8 条 + 2026-09-06 B211、F48 与 B216 裁决 + 2026-09-15 B217 前置归一')
   for (const [code, entry] of QUEST_PRE_ARBITRATION) {
     assert.match(code, /^[A-Z]{1,2}[a-z]?\d+$/, `${code} 码型`)
     assert.ok(entry.pre.length >= 1, `${code} 裁决不能是空前置`)
@@ -147,4 +147,17 @@ test('仲裁表自身健康：码型合法、裁决都带依据、与已知冲�
   assert.deepEqual(QUEST_PRE_ARBITRATION.get('B204')?.pre, ['2409B1'])
   assert.ok(QUEST_PRE_ARBITRATION.get('F128')?.pre.includes('2409B1'))
   assert.ok(QUEST_PRE_ARBITRATION.get('F135')?.pre.includes('2508B1'))
+})
+
+test('B217 前置将 313 的 Cs8 归一为 Cs1，有无 wikiwiki 均可解析且保留上游原码', () => {
+  const arbitration = QUEST_PRE_ARBITRATION.get('B217')
+  const known = new Set(['B217', 'Cs1', 'By17'])
+  for (const wikiwiki of [undefined, ww({ code: 'B217', pre: [], aligned: false, uncertain: true })]) {
+    const result = mergeQuestPre(['Cs8', 'By17'], wikiwiki, known, arbitration)
+    assert.deepEqual(result.pre, ['By17', 'Cs1'])
+    assert.deepEqual(result.dangling, [])
+    assert.deepEqual(result.scnPre, ['By17', 'Cs8'])
+    assert.equal(result.source, 'arbitrated')
+    assert.equal(result.basis, arbitration.basis)
+  }
 })

@@ -20,12 +20,13 @@ const bi = read('src/renderer/modules/bi.ts')
 const qn = read('src/renderer/modules/qn.ts')
 const kernel = read('src/renderer/kernel.ts')
 const ru = read('src/renderer/modules/ru.ts')
+const qa = read('src/renderer/modules/qa.ts')
 const lg = read('src/renderer/modules/lg.ts')
 const localization = read('src/renderer/localization.ts')
 const shared = (name) => JSON.stringify(path.join(ROOT, `src/shared/${name}.ts`))
 
 const harness = `
-import { fmtReturnClock } from ${shared('return-clock')}
+import { fmtReturnClock, repairClockText } from ${shared('return-clock')}
 import { decksOnExpedition } from ${shared('expedition-state')}
 import { qpTaskGroups } from ${shared('qp-types')}
 import { buildExpeditionOverlap } from ${shared('quest-expedition-overlap')}
@@ -57,10 +58,24 @@ ${cut(qn, 'const expeditionDisplayName =', '\n// 追踪任务的可读标签')}
 ${cut(qn, 'const expeditionTogetherHtml =', '\nconst detailHtml =')}
 const window = { innerWidth: 800, innerHeight: 600 }
 ${cut(kernel, 'export const esc =', '\nexport const fmtTime =')}
+${cut(kernel, 'export const fmtCountdown =', '\n// 短格式')}
 ${cut(kernel, 'export const fmtCountdownShort =', '\n// 下一个 JST 整点时刻')}
+${cut(kernel, 'export const fmtTime =', '\nexport const fmt')}
+${cut(kernel, 'export const updateCountdowns =', '\n// ---- 公共工具 ----')}
 ${cut(header, "type HeaderFoldGroup =", '\nconst docksHtml =')}
 export const routes: any = {}
 const registerEntityRoute = (kind: string, route: any) => { routes[kind] = route }
+const masterShipName = (id: number) => mg.master.ships[id].name
+const isBuildSpoilerEnabled = () => extras.buildSpoiler
+const shipThumbHtml = (id: number, name: string) => '<img data-ship="' + id + '" alt="' + esc(name) + '">'
+const activateModule = () => {}
+${cut(header, 'const docksHtml =', '\n// 建造坞。此前它在界面上')}
+${cut(header, 'const isLargeBuild =', '\nconst practiceInfo =')}
+export const runHeaderTick = (host: any, foldPopoverEl: any = null) => {
+  const onTick = (callback: () => void) => callback()
+  const syncFoldChipStates = () => {}
+${cut(header, '  onTick(() => {', '\n  render()\n}')}
+}
 const fleetShips = (deck: any) => deck.ships
 const AIR_BASE_TAB_ID = 0
 const focusFleet = () => {}
@@ -68,7 +83,7 @@ export const navigations: any[] = []
 const navigate = (ref: any) => navigations.push(ref)
 ${cut(ru, "registerEntityRoute('fleet',", "\nregisterEntityRoute('fleetShip',")}
 export const notices: any[] = []
-export const extras = { expeditionEarly: false }
+export const extras = { expeditionEarly: false, buildSpoiler: false }
 const fireOnce = (_key: string, run: () => void) => run()
 const notify = (...args: any[]) => notices.push(args)
 const expFireTs = (ts: number) => ts - (extras.expeditionEarly ? 60000 : 0)
@@ -88,6 +103,38 @@ export const renderCard = (deckId: number) => {
   return fleetCard!.innerHTML
 }
 export { expeditionsHtml, deckStatusHtml, fleetStatusHtml, qpDetailHtml, syncExpeditionChipStates, expeditionDisplayName, expeditionTogetherHtml }
+export { buildDocksHtml }
+export { docksHtml }
+const starSumOf = () => 0
+${cut(qa, "registerEntityRoute('ship',", "\nregisterEntityRoute('shipCapacity',")}
+export const renderRepairSub = (dock: any) => {
+  const row = { dock }
+  const hurt = null
+  const ship: any = {}
+${cut(qa, '  const dockSub =', '\n  const band =')}
+  return dockSub
+}
+export const runQaTick = (pane: any, lastCountdownTick: number) => {
+  const onTick = (callback: () => void) => callback()
+  const render = () => {}
+  const deferPassive = () => {}
+${cut(qa, '  onTick(() => {', '\n  })')}
+  })
+}
+export const renderRepairVerdict = (ships: any[]) => {
+  const scopeShips = () => ships
+  const engagedShips = (ships: any[]) => ships
+  const shipIssues = (ship: any) => ({ docked: !!dockOf(ship.id), tired: !!ship.ready })
+  const dockOf = (id: number) => mg.ndocks.find((dock: any) => dock.shipId === id)
+  const fatigueReadyTs = (id: number) => ships.find((ship) => ship.id === id).ready
+  const FATIGUE_READY_COND = 40
+  const sallyFlagHtml = () => ''
+${cut(ru, 'const verdictHtml =', '\n// ---- 联合舰队 ----')}
+  return verdictHtml({ id: 1 } as any)
+}
+export const runRuRepairTick = (pane: any) => {
+${cut(ru, '  updateCountdowns(pane)\n  const now =', '\n  // 到点翻面的那一趟。')}
+}
 `
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-return-clock-'))

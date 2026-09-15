@@ -19,7 +19,15 @@ const test = (name, fn) =>
 const s2 = hasRuleFixtures
   ? JSON.parse(fs.readFileSync(s2Url, 'utf8'))
   : {}
-const masterRaw = s2.api_data ?? s2
+const baseMaster = s2.api_data ?? s2
+// 既有对账资料早于北上改三实装；补公开主数据字段（2026-09-15 核），不改外部资料。
+const masterRaw = {
+  ...baseMaster,
+  api_mst_ship: [
+    ...(baseMaster.api_mst_ship ?? []).filter((ship) => ship.api_id !== 1071),
+    { api_id: 1071, api_name: '北上改三', api_stype: 4, api_ctype: 4, api_soku: 10, api_sort_id: 10057, api_sortno: 661, api_aftershipid: '0' },
+  ],
+}
 const fcdPack = hasRuleFixtures ? JSON.parse(fs.readFileSync(fcdUrl, 'utf8')) : null
 const fcd = fcdPack?.data ?? fcdPack
 
@@ -45,7 +53,8 @@ test('kuma补充规则全部解析成功——名字解析失败会整条丢弃�
   // 同日演习族十条（Cm2/Cq4/Cy1/Cy3/Cy6/Cy7/Cy12/Cy13/Cy14/Cy16）补进（+10）。
   // 2026-09-08 补 382/2606Cm1 的更新后编成门（+1），现共 64 条。
   // 同日全库编成门体检补 C57/B194/B204/F138/By14（+5），现共 69 条。
-  assert.equal(rules.length, 69, `解析出 ${rules.length} 条`)
+  // 2026-09-15 补 B217/F143 的编成门与准备条件（+2），现共 71 条。
+  assert.equal(rules.length, 71, `解析出 ${rules.length} 条`)
   for (const rule of rules) {
     assert.ok(
       rule.tasks.length || rule.fleetGoal || rule.stateGoal || rule.stockGoals?.length,
@@ -106,6 +115,38 @@ test('B149：四图 Boss S 胜各 2 + Fletcher Mk.II 旗舰 + 美英澳荷 ≥3'
   assert.ok(nat.ships.includes(596), '美籍 Fletcher 应在名单里')
   assert.ok(nat.ships.includes(515), '英籍 Ark Royal 应在名单里')
   assert.ok(!nat.ships.includes(20), '日籍雪風不该在美英澳荷名单里')
+})
+
+test('B217：三图 Boss 各两次 S，北上改三旗舰与八艘指定驱逐中至少两艘', () => {
+  const rule = byId.get(1052)
+  assert.deepEqual(rule.tasks.map((task) => [task.kind, task.map, task.rank, task.count]), [
+    ['bossKill', [1, 3], 6, 2], ['bossKill', [2, 4], 6, 2], ['bossKill', [4, 5], 6, 2],
+  ])
+  for (const escort of ['花月', '潮', '響', '竹', '桐', '榧', '杉', '樫']) {
+    const partner = escort === '花月' ? '潮改二' : '花月改'
+    assert.equal(gatePasses(1052, ['北上改三', escort, partner]), true, escort)
+    assert.equal(gatePasses(1052, ['北上改三', `${escort}改`, partner]), true, `${escort}改`)
+  }
+  assert.equal(gatePasses(1052, ['北上改三', '樫改']), false, '僚舰不足两艘')
+  assert.equal(gatePasses(1052, ['北上改三', '樫改', '雪風改二']), false, '名单外驱逐不计入')
+  assert.equal(gatePasses(1052, ['北上改二', '花月改', '樫改']), false, '旗舰要求改三')
+  assert.equal(gatePasses(1052, ['花月改', '北上改三', '樫改']), false, '北上必须是旗舰')
+})
+
+test('F143：三格废弃计数、准备物资 partial 与第一舰队北上两形态旗舰门', () => {
+  const rule = byId.get(1170)
+  assert.deepEqual(rule.tasks, [
+    { kind: 'scrapEquip', equipId: 10, count: 12, slot: 0 },
+    { kind: 'scrapEquip', equipId: 66, count: 8, slot: 1 },
+    { kind: 'scrapEquip', equipId: 40, count: 4, slot: 2 },
+  ])
+  assert.equal(rule.partial, true)
+  for (const flagship of ['北上改二', '北上改三']) {
+    assert.equal(gatePasses(1170, [flagship, '花月改']), true)
+    assert.equal(gatePasses(1170, ['花月改', flagship]), false, '僚舰不满足旗舰门')
+    assert.equal(gatePasses(1170, [flagship], 2), false, '必须第一舰队')
+  }
+  assert.equal(gatePasses(1170, ['北上改']), false, '改二以前不计')
 })
 
 test('D42：五条远征各 1 次，A1/A2 解析为 100/101', () => {

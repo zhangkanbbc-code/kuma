@@ -119,13 +119,15 @@ test('kcwiki 任务页:跨页改码只记信息,同页改码和跨页同码不�
   assert.equal(quests['314'].code, 'Cs2')
 })
 
-test('kcwiki 任务页:维护者五条定号只记录公开游戏编号与核对日期', () => {
+test('kcwiki 任务页:维护者七条定号只记录公开游戏编号与核对日期', () => {
   assert.deepEqual(MAINTAINER_QUEST_NO_CORRECTIONS, [
     { code: '2609Cw1', id: 384, basis: '游戏任务列表编号（2026-09-11 核）' },
     { code: '2609Cw2', id: 385, basis: '游戏任务列表编号（2026-09-11 核）' },
     { code: 'By17', id: 1050, basis: '游戏任务列表编号（2026-09-11 核）' },
     { code: 'By18', id: 1051, basis: '游戏任务列表编号（2026-09-11 核）' },
     { code: 'Cs8', id: 313, asCode: 'Cs1', basis: '游戏任务列表编号（2026-09-11 核）；「任务」页 313 编号为 Cs1、F40 前置亦引用 Cs1，「最新任务」页写作 Cs8 与之不一致，码按「任务」页保留，内容取「最新任务」页新行' },
+    { code: 'B217', id: 1052, basis: '游戏任务列表编号（2026-09-15 核）' },
+    { code: 'F143', id: 1170, basis: '游戏任务列表编号（2026-09-15 核）' },
   ])
 })
 
@@ -138,9 +140,11 @@ test('kcwiki 任务页:定号表优先于错号或空注释,归一码并替换�
 {{任务表|编号=By17|<!---->|中文任务名字=第九战队出击}}
 {{任务表|编号=By18|<!--待确认-->|中文任务名字=突破敌阵}}
 {{任务表|编号=Cs8|<!---->|中文任务名字=秋季大演习|奖励=工厂资源×1}}
+{{任务表|编号=B217|<!---->|中文任务名字=改装多用途搭载母舰「北上改三」，出击！}}
+{{任务表|编号=F143|<!---->|中文任务名字=利用现有装备开发防空兵装}}
 `], equipNames)
-  assert.deepEqual(Object.keys(quests), ['313', '384', '385', '1050', '1051'])
-  assert.deepEqual(Object.values(quests).map(({ code }) => code), ['Cs1', '2609Cw1', '2609Cw2', 'By17', 'By18'])
+  assert.deepEqual(Object.keys(quests), ['313', '384', '385', '1050', '1051', '1052', '1170'])
+  assert.deepEqual(Object.values(quests).map(({ code }) => code), ['Cs1', '2609Cw1', '2609Cw2', 'By17', 'By18', 'B217', 'F143'])
   assert.equal(quests['313'].memo, '奖励:工厂资源×1')
   assert.equal(quests['384'].name, '与提督的秋祭演习')
   assert.equal(stats.withoutId, 0)
@@ -186,14 +190,14 @@ test('kcwiki 任务页:asCode 保留 Cs1 引用并取新行内容,后来的旧�
 
 test('kcwiki 任务页:未定号明细容许空码,首个非数字注释不向后找编号', () => {
   const { quests, stats } = parseKcwikiQuestPages([`
-{{任务表|编号=B217|<!---->|<!--1052-->|中文任务名字=北上改三出击}}
+{{任务表|编号=SF1|<!---->|<!--1052-->|中文任务名字=初夏的整理整顿}}
 {{任务表|编号=|中文任务名字=利用既存装备开发对空兵装}}
 {{任务表|编号=待定|<!--未定-->|<!--1053-->|中文任务名字=待定任务}}
 `], equipNames)
   assert.deepEqual(quests, {})
   assert.equal(stats.withoutId, 3)
   assert.deepEqual(stats.withoutIdRows, [
-    { code: 'B217', name: '北上改三出击' },
+    { code: 'SF1', name: '初夏的整理整顿' },
     { code: '', name: '利用既存装备开发对空兵装' },
     { code: '待定', name: '待定任务' },
   ])

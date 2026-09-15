@@ -41,6 +41,8 @@ import {
   fleetLabel,
   fmtCountdown,
   fmtCountdownShort,
+  fmtReturnClock,
+  repairClockText,
   fmtTime,
   hangarExpansionOf,
   hangarSlotCapacity,
@@ -1124,7 +1126,7 @@ const shipRow = (deck: Deck, ship: PlayerShip, isFlag: boolean) => {
       ${eventRunningNow() ? sallyMarkHtml(ship.sallyArea, currentEventAreaId()) : ''}
       <div class="hpbody">
         <div class="bar"><i style="width:${dock ? 45 : hpPct}%"></i></div>
-        <div class="num"><span>${dock ? `${ship.nowhp}→${ship.maxhp}` : `${ship.nowhp}/${ship.maxhp}`}</span>${hpLabelOf(ship, !!dock)}</div>
+        <div class="num"${dock ? ` data-repair-title="${dock.completeTime}" title="${repairClockText(dock.completeTime, Date.now())}"` : ''}><span>${dock ? `${ship.nowhp}→${ship.maxhp}` : `${ship.nowhp}/${ship.maxhp}`}</span>${hpLabelOf(ship, !!dock)}</div>
       </div>
     </div>
     <div class="fa2">
@@ -1132,7 +1134,7 @@ const shipRow = (deck: Deck, ship: PlayerShip, isFlag: boolean) => {
       <span class="b ammo${bullPct < 50 ? ' low' : ''}"><i style="width:${bullPct}%"></i></span>
     </div>
     ${condHtml(ship)}
-    <div class="eq">${dock ? `<span class="etimer">⏱ <span data-cd="${dock.completeTime}">${fmtCountdown(dock.completeTime)}</span></span>` : equipChips(ship)}</div>
+    <div class="eq">${dock ? `<span class="etimer" data-repair-title="${dock.completeTime}" title="${repairClockText(dock.completeTime, Date.now())}">⏱ <span data-cd="${dock.completeTime}">${fmtCountdown(dock.completeTime)}</span></span>` : equipChips(ship)}</div>
     <div class="ship-detail">${expanded.has(ship.id) ? shipDetailHtml(deck, ship) : ''}</div>
   </div>`
 }
@@ -1445,6 +1447,7 @@ const verdictHtml = (deck: Deck) => {
   const problems: string[] = []
   let taiha = 0, chuuha = 0, unsup = 0, docked = 0, tired = 0
   const readyTs: number[] = []
+  let repairReadyAt = 0
   // 已退避的舰不再进这几个计数：她被送回港了，「大破进击有被击沉风险」
   // 说的不是她；催修理也不是这一刻的事。
   for (const ship of engagedShips(ships)) {
@@ -1455,7 +1458,11 @@ const verdictHtml = (deck: Deck) => {
     if (issue.docked) {
       docked++
       const dock = dockOf(ship.id)
-      if (dock) readyTs.push(dock.completeTime)
+      if (dock) {
+        readyTs.push(dock.completeTime)
+        // 全员就绪还包含疲劳恢复；修好时刻只取入渠舰。
+        repairReadyAt = Math.max(repairReadyAt, dock.completeTime)
+      }
     }
     if (issue.tired) {
       tired++
@@ -1466,7 +1473,7 @@ const verdictHtml = (deck: Deck) => {
   if (taiha) problems.push(`大破 ${taiha} ⚠`)
   if (chuuha) problems.push(`中破 ${chuuha}`)
   if (unsup) problems.push(`未补给 ${unsup}`)
-  if (docked) problems.push(`入渠中 ${docked}`)
+  if (docked) problems.push(`入渠中 ${docked} · <span data-repair-latest="${repairReadyAt}">${repairReadyAt <= Date.now() ? repairClockText(repairReadyAt, Date.now()) : `最晚 ${fmtReturnClock(repairReadyAt, Date.now())} 修好`}</span>`)
   if (tired) problems.push(`疲劳 ${tired}`)
 
   const sally = sallyFlagHtml(ships)
@@ -3360,6 +3367,14 @@ const render = (force = false) => {
 const tickTimers = () => {
   if (!pane || !pane.classList.contains('active')) return
   updateCountdowns(pane)
+  const now = Date.now()
+  pane.querySelectorAll<HTMLElement>('[data-repair-title]').forEach((el) => {
+    el.title = repairClockText(Number(el.dataset.repairTitle), now)
+  })
+  pane.querySelectorAll<HTMLElement>('[data-repair-latest]').forEach((el) => {
+    const completeTime = Number(el.dataset.repairLatest)
+    el.textContent = completeTime <= now ? repairClockText(completeTime, now) : `最晚 ${fmtReturnClock(completeTime, now)} 修好`
+  })
   // 到点翻面的那一趟。默认词是裁决框的「全员已就绪」；抬头那格问的是另一件事
   // （士气回没回满），所以按 data-cds-done 的同族做法，让挂牌自己带走终态词。
   pane.querySelectorAll<HTMLElement>('[data-ready-ts]').forEach((label) => {

@@ -272,8 +272,8 @@ const activityLedgerHtml = (): string => {
 
 // ---- 储备目标（07 稿右栏）：目标额度可编辑，达成日按近 24h 实测速率外推 ----
 
-const TARGET_ORDER = [0, 1, 2, 3, 5, 7]
-const DEFAULT_TARGETS: Record<number, number> = { 0: 100000, 1: 100000, 2: 100000, 3: 50000, 5: 3000, 7: 300 }
+const TARGET_ORDER = [0, 1, 2, 3, 4, 5, 7]
+const DEFAULT_TARGETS: Record<number, number> = { 0: 100000, 1: 100000, 2: 100000, 3: 50000, 4: 600, 5: 3000, 7: 300 }
 // 硬上限（kcwiki 口径）：燃弹钢铝 35 万，桶/建造/开发/改修 3000
 const HARD_CAP: Record<number, number> = { 0: 350000, 1: 350000, 2: 350000, 3: 350000, 4: 3000, 5: 3000, 6: 3000, 7: 3000 }
 
@@ -347,13 +347,14 @@ const targetsHtml = () => {
 // ---- 战略道具（07 稿）----
 // 三档数据都是实测：所持（require_info 全量下发）、队列需求（鉴的改造反查，同一口径）、
 // 近 30 日收支（useitem_log 差分）。
+// 高速建造材属于资材，收支补取 material_log 的 fastbuild 余额差分。
 // 唯独不给「补齐预计」——战略道具靠任务/活动一次性发放，不是匀速流入，
 // 拿收支除以天数外推出来的日期是编的，不如把最近一次到手的时间摆出来。
 
 // 按主数据名匹配，不硬编 id（游戏更新只改数据不改代码）
 const STRATEGIC_NAMES = [
   '改装設計図', '戦闘詳報', '試製甲板カタパルト', '新型砲熕兵装資材',
-  '新型航空兵装資材', '熟練搭乗員', '勲章', '甲種勲章', 'プレゼント箱',
+  '新型航空兵装資材', '熟練搭乗員', '勲章', '甲種勲章', 'プレゼント箱', '高速建造材',
 ]
 // 応急修理女神/応急修理要員是装备实例，不在 useitem 里
 const GODDESS_NAMES = ['応急修理女神', '応急修理要員']
@@ -363,6 +364,23 @@ let useitemMst: { id: number; name: string }[] = []
 // 只随主数据变，所以跟着 queryMasterRaw 一起取。
 let eventMapsPresent = false
 let itemFlow = new Map<number, { gained: number; spent: number; changes: number; lastTs: number }>()
+
+// queryMaterialHistory 按时序返回窗口前最后一条余额和窗口内记录。
+// 前一条只作基线；没有基线时只累计已观测到的相邻变化，不把首次余额算作收入。
+const fastbuildFlow = (rows: MaterialRow[], startTs: number, endTs: number) => {
+  const flow = { gained: 0, spent: 0, changes: 0, lastTs: 0 }
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i]
+    if (row.ts < startTs || row.ts > endTs) continue
+    const delta = row.values[4] - rows[i - 1].values[4]
+    if (!delta) continue
+    if (delta > 0) flow.gained += delta
+    else flow.spent -= delta
+    flow.changes++
+    flow.lastTs = row.ts
+  }
+  return flow
+}
 
 // 主数据到手：战略道具名表 + 「有没有活动海图」一起更新（两者都只随主数据变）
 const applyMaster = (raw: any) => {
@@ -465,6 +483,7 @@ const strategicHtml = () => {
 }
 
 // ---- 活动就绪度（07 稿）：由储备目标聚合，不另设口径 ----
+// 储备目标纳入高速建造材后，就绪度同步多计这一项；达标比例仍按目标项数聚合。
 
 const readinessHtml = () => {
   const targets = getTargets()
@@ -1229,6 +1248,7 @@ const refresh = async () => {
   today.setHours(0, 0, 0, 0)
   const todayStart = today.getTime()
   const rollingDayStart = now - 24 * 3600 * 1000
+  const monthStart = now - 30 * 24 * 3600 * 1000
   const active = activeEventArea()
   // 账本查询失败不再被吞成空数组：读不出来就说读不出来，别摆一堆 0 当事实。
   let rows
@@ -1237,7 +1257,7 @@ const refresh = async () => {
       queryMaterialHistory(todayStart),
       queryMaterialHistory(rollingDayStart),
       queryDeltaSummary(now - 7 * 24 * 3600 * 1000),
-      queryUseitemSummary(now - 30 * 24 * 3600 * 1000),
+      queryUseitemSummary(monthStart),
       active ? queryMaterialHistory(active[1].firstSeenTs) : Promise.resolve([] as MaterialRow[]),
       active ? queryDeltaSummary(active[1].firstSeenTs) : Promise.resolve([] as CategorySummary[]),
       active
@@ -1247,6 +1267,7 @@ const refresh = async () => {
       // 任务名资料库（kernel 按 id 缓存，重复 refresh 不产生新 IPC）。
       // 拿不到只影响战果行显示裸编号，不该拖垮整个账本。
       senkaQuestNames ? Promise.resolve(null) : queryLode('quests-scn').catch(() => null),
+      queryMaterialHistory(monthStart),
     ])
   } catch (error) {
     if (generation !== refreshGeneration) return
@@ -1257,7 +1278,7 @@ const refresh = async () => {
     return
   }
   if (generation !== refreshGeneration) return
-  const [todayRows, rollingDayRows, dl, flow, activeRows, activeDeltaRows, activeSortieCostRows, senkaRows, questLode] = rows
+  const [todayRows, rollingDayRows, dl, flow, activeRows, activeDeltaRows, activeSortieCostRows, senkaRows, questLode, monthRows] = rows
   // 账外差值不在这里补：EO 与任务的补记都在主进程 mg:senka 那一次查账里按
   // 账本存着的观测完成了，渲染层只负责把补不了的那几笔照实列出来（不入账）。
   // 自检那张单子还要读钦的精确计数——取不到就不列任务（拿不到观测就不说话）。
@@ -1303,6 +1324,8 @@ const refresh = async () => {
     activityDeltas = normalizeDeltaCategories(activeDeltaRows)
     activitySortieCosts = activeSortieCostRows
     itemFlow = new Map(flow.map((r) => [r.id, r]))
+    const buildFlow = fastbuildFlow(monthRows, monthStart, now)
+    if (buildFlow.changes) itemFlow.set(2, buildFlow)
     senka = senkaRows
     lastRefresh = Date.now()
     deferPassive(pane, 'zi', render)

@@ -673,6 +673,38 @@ test('预计返港只放行已裁定的未来时刻文案，概率限定词仍�
   assert.equal(rule.check(row('预计返港 14:20 · 当前概率大概 50%')), true)
 })
 
+// 2026-09-15 入渠时刻定稿；只登记文案，沿用原词表、句式与结构判据。
+const REPAIR_CLOCK_COPY = [
+  '预计 〔插值〕 修好',
+  '预计 14:20 修好',
+  '预计 09-16 02:10 修好',
+  '已修好',
+  '最晚 〔插值〕 修好',
+  '最晚 14:20 修好',
+  '最晚 09-16 02:10 修好',
+  '第1渠 · 测试舰娘 · 预计 14:20 修好 · 点击查看舰娘',
+  '第1渠 · 测试舰娘 · 已修好 · 点击查看舰娘',
+  '入渠中 · 渠1 · 1:20:00 · 预计 14:20 修好',
+  '入渠中 · 渠1 · 完成 · 已修好',
+  '入渠中 · 渠1 · 剩余 1:20:00 · 预计 14:20 修好',
+  '入渠中 · 渠1 · 剩余 完成 · 已修好',
+  '入渠中 2 · 最晚 14:20 修好',
+  '入渠中 2 · 已修好',
+]
+
+test('09-15 入渠修好时刻文案逐字登记并通过原棘轮', () => {
+  const { tierA, tierB } = collectStructuralPlayerCopy()
+  for (const phrase of REPAIR_CLOCK_COPY) {
+    assert.doesNotMatch(phrase, /用户|玩家提供|账本|遭遇志|本机|实况|截图|他的/)
+    const rows = [{ file: '入渠时刻文案登记', line: 1, text: phrase }]
+    assert.deepEqual(offendersIn(rows, RETIRED_WORDS), [])
+    assert.deepEqual(offendersIn(rows, SENTENCE_SHAPES), [])
+  }
+  for (const phrase of ['预计 〔插值〕 修好', '已修好', '最晚 〔插值〕 修好']) {
+    assert.ok([...tierA, ...tierB].some((row) => row.text.includes(phrase)), `未收录：${phrase}`)
+  }
+})
+
 // 用户 2026-09-14：装备加成按首件与之后每件显示，修正依据和累积待实测进悬停。
 const FIT_DISPLAY_COPY = [
   ['第 1 件', '首件合计'],

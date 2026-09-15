@@ -3,7 +3,7 @@
 // 演习类的判定只有两个字段——**评价下限**与**次数**——所以这个模块要做对的也只有两件事：
 // 从中文任务正文里把这两个数读出来，以及在读不准的时候闭嘴。
 //
-// 三条口径（都能在语料里自证，不是从谁的编码里抄的）：
+// 四条口径（都能在语料里自证，不是从谁的编码里抄的）：
 //
 //  1. **「胜利」没写字母时 = B 判定以上**。这不是猜，中文语料自己给了对照：
 //     311/Cm1 的 desc 写「拿下七次演习的胜利」，memo2 写「演习B胜利七次即可」；
@@ -16,6 +16,14 @@
 //     只是对服务器口径存疑，评价照取、标 ≈；没有字母（「各取得一次?胜」）就是**无从取值**，
 //     落 rank 0 + ≈，不替正文拿主意。这条线现役演习任务里一条都没触发（全都写明了），
 //     留着是因为出击类正文里有七条这么写，判别逻辑要同一份。
+//  4. **memo2 的裸「胜利」让位于 desc 明写且确定的评价**（维护者裁决 2026-09-15）。
+//     385/2609Cw2 日文原文逐字：
+//     【期間限定演習】「Algérie」「Vautour」「Mogador」「Béarn」「日枝丸」「平安丸」「大泊」「陸奥」「South Dakota」「Victorious」計3隻以上の艦隊で、本日中に演習【S判定】勝利4回以上を達成せよ！
+//     同包 desc 本来就写着【S判定】，memo2 原句却漏了字母：
+//     期间限定周常任务 以包含【阿尔及利亚、秃鹫、莫加多尔、贝阿恩、日枝丸、平安丸、大泊、陆奥、南达科他、胜利】中3名舰娘的舰队，在单日内取得4次演习胜利。
+//     「只有裸胜利让位」的边界是 memo2 未明写、desc 明写且 sure；无字母「?胜」也属未明写。
+//     字母（含 A/S 胜）与「无论胜负」都算明写；memo2 明写 A、desc 明写 S 仍取 memo2，
+//     不是取较严者；desc 写「S?胜」则不压 memo2 的确定读数。384 两处都没字母，仍是 B×4。
 //
 // 两道闸门：
 //  · **分类位闸门**：只处理编码首字母是 C（演习）的任务。没有这道闸的话，
@@ -82,22 +90,24 @@ interface RankRead {
   rank: number
   /** 正文把评价写明白了；false = 我们是在没有明说的情况下取的值，要标 ≈ */
   sure: boolean
+  /** 字母（含组合）或「无论胜负」是明写；裸「胜利」与无字母「?胜」不是 */
+  explicit: boolean
 }
 
 const readRank = (text: string): RankRead | null => {
-  if (NO_RANK.test(text)) return { rank: 0, sure: true }
+  if (NO_RANK.test(text)) return { rank: 0, sure: true, explicit: true }
   const pair = text.match(RANK_PAIR)
-  if (pair) return { rank: Math.min(RANK_VALUE[pair[1]], RANK_VALUE[pair[2]]), sure: true }
+  if (pair) return { rank: Math.min(RANK_VALUE[pair[1]], RANK_VALUE[pair[2]]), sure: true, explicit: true }
   for (let index = 0; index < text.length; index += 1) {
     const value = RANK_VALUE[text[index]]
     if (value === undefined) continue
     const rest = text.slice(index + 1)
     const hit = rest.match(AFTER_LETTER) ?? rest.match(AFTER_LETTER_JUDGE)
-    if (hit) return { rank: value, sure: !hit[1] }
+    if (hit) return { rank: value, sure: !hit[1], explicit: true }
   }
   // 「?胜」而问号前没有字母：无从取值，落「胜负不限」并标 ≈（偏松，会多计）
-  if (UNLETTERED_QUESTION.test(text)) return { rank: 0, sure: false }
-  if (ANY_WIN.test(text)) return { rank: WIN_WITHOUT_LETTER, sure: true }
+  if (UNLETTERED_QUESTION.test(text)) return { rank: 0, sure: false, explicit: false }
+  if (ANY_WIN.test(text)) return { rank: WIN_WITHOUT_LETTER, sure: true, explicit: false }
   return null
 }
 
@@ -154,6 +164,7 @@ const ARBITRATED: Record<number, { rank?: number; count?: number; why: string }>
  * 303/Cd1 的评价只在 memo2（「无论胜负」）、次数只在 desc（「发起3次「演习」」）；
  * 377/Cy16 的 memo2 只有「年常任务(10月)」，两个数都得读 desc；
  * 365/C75 的 desc 是空的，两个数都只在 memo2 里。
+ * 评价另有文件头口径 4：memo2 未明写而 desc 明写且确定时取 desc；其余仍优先 memo2。
  */
 export const derivePracticeRule = (
   questId: number,
@@ -177,7 +188,11 @@ export const derivePracticeRule = (
   // 一刀清空会把「次数是我们猜的」这件事顺手抹掉。
   let rankApprox = false
   let countApprox = false
-  const rankRead = readRank(fromMemo) ?? readRank(fromDesc)
+  const memoRank = readRank(fromMemo)
+  const descRank = readRank(fromDesc)
+  const rankRead = !memoRank?.explicit && descRank?.explicit && descRank.sure
+    ? descRank
+    : memoRank ?? descRank
   let rank = rankRead?.rank ?? 0
   if (!rankRead) {
     rankApprox = true

@@ -101,8 +101,9 @@ const heroHtml = (report: ShipLifeReport | null): string => {
   const yomi = master?.yomi && master.yomi !== '-' ? master.yomi : ''
   const typeName = master ? (mg.master.stypes[master.stype] ?? '') : ''
   const events = report?.events ?? []
-  const join = events.find((event) => event.kind === 'join')
-  const marriage = events.find((event) => event.kind === 'marriage')
+  // 仅兼容缺少摘要键的旧报告形状；明确的 null 表示全账本没有该事件。
+  const join = report && 'join' in report ? report.join : events.find((event) => event.kind === 'join')
+  const marriage = report && 'marriage' in report ? report.marriage : events.find((event) => event.kind === 'marriage')
   // 只有结过誓约的舰能越过 Lv99——这条是从等级看出来的，日期得另说（见下）
   const vowed = !!marriage || (ship != null && ship.lv > 99)
 

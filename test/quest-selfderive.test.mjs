@@ -506,6 +506,34 @@ test('演习：没写字母的「胜利」= B 判定，中文语料自己给了�
   assert.deepEqual(drillTask(303), { kind: 'exercise', rank: 0, count: 3, slot: 0 })
 })
 
+test('演习：385 正文明写 S 不被补充说明的裸胜利压回 B，384 仍是 B', {
+  skip: !HAS_QUESTS && '缺 quests-scn',
+}, () => {
+  // readLode 直接读未校正的原包，这里验证推导规则本身。
+  // 385 日文原文：【期間限定演習】「Algérie」「Vautour」「Mogador」「Béarn」「日枝丸」「平安丸」「大泊」「陸奥」「South Dakota」「Victorious」計3隻以上の艦隊で、本日中に演習【S判定】勝利4回以上を達成せよ！
+  // memo2 原句：期间限定周常任务 以包含【阿尔及利亚、秃鹫、莫加多尔、贝阿恩、日枝丸、平安丸、大泊、陆奥、南达科他、胜利】中3名舰娘的舰队，在单日内取得4次演习胜利。
+  assert.deepEqual(drillTask(385), { kind: 'exercise', rank: 6, count: 4, slot: 0 })
+  assert.equal(drill(385).approx, false)
+  assert.deepEqual(drillTask(384), { kind: 'exercise', rank: 4, count: 4, slot: 0 })
+  assert.equal(drill(384).approx, false)
+})
+
+test('演习：补充说明未明写才让位，正文存疑字母不压确定的裸胜利', () => {
+  const explicitDesc = practice.derivePracticeRule(9004, 'C99', '演习', '取得4次【S判定】胜利！', '单日内取得4次演习胜利')
+  assert.equal(explicitDesc.tasks[0].rank, 6)
+  const explicitMemo = practice.derivePracticeRule(9005, 'C99', '演习', '取得4次胜利', 'A胜以上4次')
+  assert.equal(explicitMemo.tasks[0].rank, 5)
+  const unsureDesc = practice.derivePracticeRule(9006, 'C99', '演习', '取得1次S?胜', '取得1次演习胜利')
+  assert.equal(unsureDesc.tasks[0].rank, 4)
+  assert.equal(unsureDesc.approx, false)
+  // 两处都明写时仍按 memo2，不是取较严者；组合字母与「无论胜负」也属明写。
+  for (const [memo2, rank] of [['A胜以上4次', 5], ['A/S胜4次', 5], ['无论胜负4次', 0]]) {
+    const bothExplicit = practice.derivePracticeRule(9007, 'C99', '演习', '取得4次【S判定】胜利！', memo2)
+    assert.equal(bothExplicit.tasks[0].rank, rank)
+    assert.equal(bothExplicit.approx, false)
+  }
+})
+
 test('演习：夹在字母与「胜」之间的「判定」「及以上」不能把评价读丢', {
   skip: !HAS_QUESTS && '缺 quests-scn',
 }, () => {

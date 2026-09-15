@@ -65,6 +65,10 @@
 //
 // 609 是维护者在游戏里点出来的，603 是**同机制推定**——两者不许混着写。
 // 详见各条的 `basis`。
+//
+// 量词这一族之外，第二类错是**评价字母漏译**（维护者裁决 2026-09-15）：
+// 385 的 memo2 漏掉 S，判据同样是游戏自己的日文原文【S判定】；
+// 同包 desc 本来就写着【S判定】，补充说明也应把评价写全。证据逐字记在该条 basis。
 
 /** 一条正文校正。 */
 export interface QuestTextCorrection {
@@ -83,6 +87,16 @@ export interface QuestTextCorrection {
 }
 
 export const QUEST_TEXT_CORRECTIONS: readonly QuestTextCorrection[] = Object.freeze([
+  {
+    questId: 385,
+    field: 'memo2',
+    label: '【期间限定扩张任务】秋祭扩张演习！',
+    from: '期间限定周常任务 以包含【阿尔及利亚、秃鹫、莫加多尔、贝阿恩、日枝丸、平安丸、大泊、陆奥、南达科他、胜利】中3名舰娘的舰队，在单日内取得4次演习胜利。',
+    to: '期间限定周常任务 以包含【阿尔及利亚、秃鹫、莫加多尔、贝阿恩、日枝丸、平安丸、大泊、陆奥、南达科他、胜利】中3名舰娘的舰队，在单日内取得4次演习S胜。',
+    basis:
+      '日文原文「【期間限定演習】「Algérie」「Vautour」「Mogador」「Béarn」「日枝丸」「平安丸」「大泊」「陸奥」「South Dakota」「Victorious」計3隻以上の艦隊で、本日中に演習【S判定】勝利4回以上を達成せよ！」；' +
+      '同包 desc 本来就写着【S判定】，memo2 漏译评价字母 S。· 维护者裁决 2026-09-15',
+  },
   {
     questId: 635,
     field: 'memo2',

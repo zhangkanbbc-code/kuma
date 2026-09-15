@@ -140,6 +140,44 @@ interface RuleDraft {
 
 // 依据均为该任务在任务库里的补充说明；「memo」指其中的中文攻略口径。
 const DRAFTS: RuleDraft[] = [
+  // ---- 2026-09-15 北上改三任务逐项复核 ----
+  {
+    // 日文原文：「北上改三」旗艦、随伴に「花月」「潮」「響」「竹」「桐」「榧」「杉」「樫」から2隻以上を配備した艦隊で、
+    // 製油所地帯沿岸、沖ノ島海域、カレー洋リランカ島沖へ反復出撃！敵を撃滅せよ！
+    // 中文补充说明明确三图 Boss 各 2 次 S 胜；正文推导的僚舰名单漏了「樫」，这里按日文补全。
+    questId: 1052,
+    code: 'B217',
+    build: (h) => ({
+      tasks: [boss(1, 3, S, 2), boss(2, 4, S, 2), boss(4, 5, S, 2)],
+      fleetGoal: {
+        groups: [
+          group('北上改三', 1, { ships: h.ships('北上改三'), flagship: true }),
+          group('花月/潮/响/竹/桐/榧/杉/樫', 2, {
+            ships: h.chain('花月', '潮', '響', '竹', '桐', '榧', '杉', '樫'),
+          }),
+        ],
+      },
+    }),
+  },
+  {
+    // 日文原文：第一艦隊旗艦に「北上改二/改三」を配備。「12.7cm連装高角砲」x12及び「8cm高角砲」x8、
+    // 「25mm三連装機銃」x4を廃棄。開発資材x36、弾薬x750、改修資材x8を準備せよ！
+    // 三格仅计废弃；准备物资由游戏判定，保留 partial，不能把废弃完成当作整条达成。
+    questId: 1170,
+    code: 'F143',
+    build: (h) => ({
+      tasks: [
+        { kind: 'scrapEquip', equipId: h.equip('12.7cm連装高角砲'), count: 12, slot: 0 },
+        { kind: 'scrapEquip', equipId: h.equip('8cm高角砲'), count: 8, slot: 1 },
+        { kind: 'scrapEquip', equipId: h.equip('25mm三連装機銃'), count: 4, slot: 2 },
+      ],
+      partial: true,
+      fleetGoal: {
+        fleetId: 1,
+        groups: [group('北上改二/改三', 1, { ships: h.ships('北上改二', '北上改三'), flagship: true })],
+      },
+    }),
+  },
   // ---- 2026-09-08 全库编成门体检（日文原文复核） ----
   {
     // 09-08 体检出处：全库「门要求舰数合计 < 正文最大舰数」筛查，C57 日文原文：

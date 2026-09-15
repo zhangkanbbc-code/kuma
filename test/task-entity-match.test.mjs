@@ -285,8 +285,9 @@ test('全库前后对拍：新增别名来自异常词条；原有整词命中�
   assert.equal(unquoted75, 3)
   // 任务舰种新增 6 处整词、1 处部分命中；两侧共用舰种索引，装备/道具增量仍逐条核对。
   // 2026-09-11 任务库新增四条：整词命中增加 33、部分命中增加 2，未命中数不变。
-  assert.deepEqual(before.summary, { total: 2085, matched: 1809, unmatched: 225, partial: 51 })
-  assert.deepEqual(after.summary, { total: 2085, matched: 1838, unmatched: 205, partial: 42 })
+  // 2026-09-15 B217/F143 增加 18 处整词、2 处部分命中，未命中数不变。
+  assert.deepEqual(before.summary, { total: 2105, matched: 1827, unmatched: 225, partial: 53 })
+  assert.deepEqual(after.summary, { total: 2105, matched: 1856, unmatched: 205, partial: 44 })
 })
 
 test('任务舰种新增的七处审计覆盖：六处整词；改装特务空母只标部分命中', () => {
@@ -387,8 +388,8 @@ test('全库短名规则前后对拍：仅新增八个两字词条 35 处，已�
   const beforeRuntime = { ...runtime, taskEntityRawMarks: (_indexes, ...args) => runtime.taskEntityRawMarks(beforeIndexes, ...args) }
   const before = auditQuestEntities(quests, indexes, beforeRuntime)
   const after = auditQuestEntities(quests, indexes, runtime)
-  assert.deepEqual(before.summary, { total: 2085, matched: 1803, unmatched: 240, partial: 42 })
-  assert.deepEqual(after.summary, { total: 2085, matched: 1838, unmatched: 205, partial: 42 })
+  assert.deepEqual(before.summary, { total: 2105, matched: 1821, unmatched: 240, partial: 44 })
+  assert.deepEqual(after.summary, { total: 2105, matched: 1856, unmatched: 205, partial: 44 })
   const added = []
   for (let i = 0; i < before.occurrences.length; i += 1) {
     const old = before.occurrences[i]
@@ -458,8 +459,8 @@ test('烈风别名前后全库对拍：仅 F15 desc、F47 memo2 两处新增命�
   }
   const before = auditQuestEntities(quests, beforeIndexes, runtime)
   const after = auditQuestEntities(quests, indexes, runtime)
-  assert.deepEqual(before.summary, { total: 2085, matched: 1836, unmatched: 207, partial: 42 })
-  assert.deepEqual(after.summary, { total: 2085, matched: 1838, unmatched: 205, partial: 42 })
+  assert.deepEqual(before.summary, { total: 2105, matched: 1854, unmatched: 207, partial: 44 })
+  assert.deepEqual(after.summary, { total: 2105, matched: 1856, unmatched: 205, partial: 44 })
   assert.equal(after.occurrences.length, before.occurrences.length)
   const added = []
   for (let i = 0; i < before.occurrences.length; i += 1) {

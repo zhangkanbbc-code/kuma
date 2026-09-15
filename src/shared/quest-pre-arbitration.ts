@@ -35,6 +35,14 @@ export interface QuestPreArbitrationEntry {
 
 export const QUEST_PRE_ARBITRATION: ReadonlyMap<string, QuestPreArbitrationEntry> = new Map([
   [
+    'B217',
+    {
+      pre: ['Cs1', 'By17'],
+      basis: 'kcwiki 前置为 Cs8、By17；Cs8 对应游戏编号 313，任务包按维护者定号保留码 Cs1，故前置归一为 Cs1、By17（维护者核 2026-09-15）',
+      date: '2026-09-15',
+    },
+  ],
+  [
     'B216',
     {
       pre: ['B207'],

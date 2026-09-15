@@ -300,7 +300,10 @@ test('既有queryShipLife真实SQL：改装摘要跨分页、隔离roster、无�
   const source = fs.readFileSync(new URL('../src/main/mg/ledger.ts', import.meta.url), 'utf8')
   const start = source.indexOf('  queryShipLife = (rosterId:'), end = source.indexOf('\n  /**', start)
   assert.ok(start > 0 && end > start)
-  const code = transformSync(`return new class { constructor(db) { this.db = db } ${source.slice(start, end)} }(db)`, { loader: 'ts' }).code
+  // 查询的行映射已抽成同文件函数，夹具随查询一起执行它。
+  const mapperStart = source.indexOf('const shipLifeEventOf = '), mapperEnd = source.indexOf('\n}\n', mapperStart) + 2
+  assert.ok(mapperStart >= 0 && mapperEnd > mapperStart)
+  const code = transformSync(`${source.slice(mapperStart, mapperEnd)}\nreturn new class { constructor(db) { this.db = db } ${source.slice(start, end)} }(db)`, { loader: 'ts' }).code
   const db = new DatabaseSync(':memory:')
   try {
     db.exec(`CREATE TABLE ship_life_state (roster_id INTEGER, first_seen INTEGER, last_seen INTEGER);

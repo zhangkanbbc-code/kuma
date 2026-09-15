@@ -300,6 +300,67 @@ test('ship-life shows load more at 200 events and the click raises the query lim
   assert.doesNotMatch(query, /Math\.min\(200,\s*limit/)
 })
 
+const shipLifeHeroHarness = (t) => {
+  const life = read('src/renderer/ship-life-window.ts')
+  const events = read('src/renderer/ship-life-events.ts')
+  const origin = sliceBetween(events, 'export const lifeJoinOriginText = ', '\n/** 这一条 battle', '加入出处')
+  const art = sliceBetween(life, 'const artHtml = ', '\n// 图挂了', '顶栏立绘')
+  const hero = sliceBetween(life, 'const heroHtml = ', '\nconst kpisHtml = ', '履历顶栏')
+  const mapText = read('src/renderer/map-cell-letter.ts')
+  const place = mapText.slice(mapText.indexOf('export const mapPlaceText = '))
+  return bundleHarness(t, 'ship-life-hero', `
+const mg = { ships: {}, master: { ships: {}, stypes: {} } }
+const rosterId = 11
+const DAY_MS = 24 * 3600 * 1000
+const MARRIED_LEVEL_CAP = 180
+const esc = (value: unknown) => String(value)
+const fmtDate = (ts: number) => new Date(ts).toISOString().slice(0, 10)
+const mapCodeOf = (map: number) => Math.floor(map / 10) + '-' + map % 10
+const mapCellLetter = () => 'J'
+const kpisHtml = () => ''
+${place}
+${origin}
+${art}
+${hero}
+export const renderHero = heroHtml
+`)
+}
+
+const heroJoin = { ts: Date.UTC(2026, 0, 1), kind: 'join', map: 15, cell: 10, isBoss: true, detail: { origin: 'drop' } }
+const heroMarriage = { ts: Date.UTC(2026, 0, 3), kind: 'marriage', detail: {} }
+
+test('履历第一页没有加入和誓约时，顶栏仍显示加入天数、出处及誓约日期', (t) => {
+  t.mock.method(Date, 'now', () => Date.UTC(2026, 0, 11, 12))
+  const { renderHero } = shipLifeHeroHarness(t)
+  const html = renderHero({
+    events: [{ ts: Date.UTC(2026, 0, 10), kind: 'battle' }],
+    join: heroJoin, marriage: heroMarriage, trackingSince: Date.UTC(2025, 0, 1),
+  })
+  assert.match(html, /加入 <b>10<\/b> 天/)
+  assert.match(html, /<b>2026-01-01<\/b> 加入镇守府<span class="where"> · 掉落于 1-5 J 点（Boss）<\/span>/)
+  assert.match(html, /誓约 <b>2026-01-03<\/b>/)
+  assert.doesNotMatch(html, /已记录/)
+})
+
+test('履历顶栏仅在旧报告缺少摘要键时兼容分页事件', (t) => {
+  t.mock.method(Date, 'now', () => Date.UTC(2026, 0, 11, 12))
+  const { renderHero } = shipLifeHeroHarness(t)
+  const html = renderHero({ events: [heroJoin, heroMarriage] })
+  assert.match(html, /加入 <b>10<\/b> 天/)
+  assert.match(html, /掉落于 1-5 J 点（Boss）/)
+  assert.match(html, /誓约 <b>2026-01-03<\/b>/)
+})
+
+test('履历顶栏尊重明确的 null 摘要，缺少加入事件才显示已记录天数', (t) => {
+  t.mock.method(Date, 'now', () => Date.UTC(2026, 0, 11, 12))
+  const { renderHero } = shipLifeHeroHarness(t)
+  const html = renderHero({
+    events: [heroJoin, heroMarriage], join: null, marriage: null, trackingSince: Date.UTC(2026, 0, 6),
+  })
+  assert.match(html, /已记录 <b>5<\/b> 天/)
+  assert.doesNotMatch(html, /加入镇守府|掉落于|誓约/)
+})
+
 test('main process owns one replay window on the sender display and leaves the legacy route intact', () => {
   const main = read('src/main/index.ts')
   const open = sliceBetween(

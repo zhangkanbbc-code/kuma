@@ -9,6 +9,7 @@ import {
   fmtCountdown,
   fmtCountdownShort,
   fmtReturnClock,
+  repairClockText,
   fmtTime,
   masterShipName,
   mg,
@@ -317,7 +318,7 @@ const docksHtml = () => {
       return `<span class="${ship ? 'el ' : ''}hs-chip dock on"${
         ship ? ` data-etype="ship" data-eid="${dock.shipId}"` : ''
       } data-timer="ndock:${dock.id}"
-        title="${esc(`第${dock.id}渠 · ${name}${ship ? ' · 点击查看舰娘' : ''}`)}">
+        title="${esc(`第${dock.id}渠 · ${name} · ${repairClockText(dock.completeTime, Date.now())}${ship ? ' · 点击查看舰娘' : ''}`)}">
         <i>${dock.id}</i><b data-cds="${dock.completeTime}">${fmtCountdownShort(dock.completeTime)}</b>
       </span>`
     })
@@ -327,21 +328,53 @@ const docksHtml = () => {
   }`
 }
 
+// 入渠时刻与倒计时同拍更新；只改 title，抬头与展开浮层共用此路径。
+const syncDockChipStates = (root: HTMLElement) => {
+  const now = Date.now()
+  root.querySelectorAll<HTMLElement>('.hs-chip.dock.on:has([data-cds])').forEach((chip) => {
+    const completeTime = Number(chip.querySelector<HTMLElement>('[data-cds]')!.dataset.cds)
+    chip.title = chip.title.replace(
+      / · (?:预计 (?:\d{2}-\d{2} )?\d{2}:\d{2} 修好|已修好)( · 点击查看舰娘)?$/,
+      (_match, action = '') => ` · ${repairClockText(completeTime, now)}${action}`,
+    )
+  })
+}
+
 // 建造坞。此前它在界面上**完全没有入口**：只有一条完成通知，
 // 连 timerInfo 里那条 kdock 分支都是死的（没有任何地方产生 `kdock:` 的计时引用）。
 // 与入渠同一形态摆在旁边，那条定位路径也就跟着活了。
 //
 // state：-1 锁 / 0 空 / 2 建造中 / 3 完成待领。
 // 完成待领与建造中要分得开——「3」是可以去拿了，「2」还得等。
+// 上述是服务器 state 的口径；展示还要看完成时刻，因为进工厂不发 kdock 请求。
+// 建造坞状态只在 api_get_member/require_info、api_get_member/kdock、api_req_kousyou/getship 三处下发，api_port/port 不带。
+// 本地到点即按待领呈现，与服务器口径的偏差最多是它早几秒。
 // recipeFuel 是投入的燃料（api_item1）。大型/通常的判据与铭里算高速建造材消耗的那处
 // 同一条阈值（store.ts：> 1000 收 10 个否则 1 个），两处不能各用一个数。
 const isLargeBuild = (dock: (typeof mg)['kdocks'][number]) => dock.recipeFuel > 1000
 
+const isBuildReady = (dock: Pick<(typeof mg)['kdocks'][number], 'state' | 'completeTime'>, now: number) =>
+  dock.state === 3 || (dock.state === 2 && dock.completeTime > 0 && dock.completeTime <= now)
+
+const buildDockLabel = (dock: (typeof mg)['kdocks'][number]) => {
+  const spoiledChar =
+    isBuildSpoilerEnabled() && dock.createdShipId > 0
+      ? [...entityNamePlain('ship', dock.createdShipId, masterShipName(dock.createdShipId))]
+          .slice(0, 2)
+          .join('')
+      : ''
+  return spoiledChar || '待领'
+}
+
 const buildDocksHtml = () => {
   const open = mg.kdocks.filter((dock) => dock.state >= 0)
   if (!open.length) return ''
-  const busy = open.filter((dock) => dock.state === 2)
-  const ready = open.filter((dock) => dock.state === 3)
+  const now = Date.now()
+  const busy = open.filter((dock) => dock.state === 2 && !isBuildReady(dock, now))
+  const ready = [
+    ...open.filter((dock) => dock.state === 3),
+    ...open.filter((dock) => dock.state === 2 && isBuildReady(dock, now)),
+  ]
   // 芯片本身就做成 EntityLink：peek 只认 `.el` + data-etype/data-eid（见 link.ts 的
   // mouseover 用 closest('.el')）。不走 elinkHtml 是因为它自己会写一个 class，
   // 再从 attrs 传第二个 class 会变成重复属性——后一个被浏览器丢掉，芯片样式就全没了。
@@ -356,22 +389,18 @@ const buildDocksHtml = () => {
     // 头两个字（2026-08-16 空闲态改两字宽后跟进），四个坞各造出了谁一眼分清；
     // 单字名（雪/電）就只有一个字。全名和头像仍在预览卡里。
     ...ready.map((dock) => {
-      const spoiledChar =
-        isBuildSpoilerEnabled() && dock.createdShipId > 0
-          ? [...entityNamePlain('ship', dock.createdShipId, masterShipName(dock.createdShipId))]
-              .slice(0, 2)
-              .join('')
-          : ''
+      const spoiledChar = buildDockLabel(dock)
       return chip(dock, 'ready', `<i>${dock.id}</i><b>${esc(spoiledChar || '待领')}</b>`)
     }),
-    ...busy.map((dock) =>
-      chip(
+    ...busy.map((dock) => {
+      const label = buildDockLabel(dock)
+      return chip(
         dock,
         'on',
-        `<i>${dock.id}</i><b data-cds="${dock.completeTime}">${fmtCountdownShort(dock.completeTime)}</b>`,
+        `<i>${dock.id}</i><b data-cds="${dock.completeTime}" data-cds-done="${esc(label)}">${fmtCountdownShort(dock.completeTime, label)}</b>`,
         true,
-      ),
-    ),
+      )
+    }),
   ].join('')
   return foldGroupHtml(
     'build',
@@ -381,6 +410,17 @@ const buildDocksHtml = () => {
       rows || '<span class="hs-chip build"><em>空闲</em></span>'
     }`,
   )
+}
+
+// 归零的文字与颜色同拍更新；抬头和折叠浮层都只翻 class，不重生成 HTML。
+const syncBuildChipStates = (root: HTMLElement) => {
+  const now = Date.now()
+  root.querySelectorAll<HTMLElement>('.hs-chip.build:has([data-cds])').forEach((chip) => {
+    const completeTime = Number(chip.querySelector<HTMLElement>('[data-cds]')!.dataset.cds)
+    const ready = isBuildReady({ state: 2, completeTime }, now)
+    chip.classList.toggle('on', !ready)
+    chip.classList.toggle('ready', ready)
+  })
 }
 
 // 建造坞预览卡。抬头那格只放得下一个数字，真正有用的几件事都在这里：
@@ -407,7 +447,7 @@ registerEntityRoute('kdock', {
       ? entityNamePlain('ship', dock.createdShipId, masterShipName(dock.createdShipId))
       : ''
     const lines: string[] = []
-    if (dock.state === 3) {
+    if (isBuildReady(dock, Date.now())) {
       lines.push(`${large ? '大型建造' : '通常建造'} · <b>完成待领</b>`)
       if (spoiled) lines.push(`结果 ${spoiledName}`)
     } else if (dock.state === 2) {
@@ -671,9 +711,13 @@ export const initHeaderStatus = (broadcaster?: BgmBroadcaster) => {
   onTick(() => {
     updateCountdowns(host!)
     syncExpeditionChipStates(host!)
+    syncDockChipStates(host!)
+    syncBuildChipStates(host!)
     if (foldPopoverEl) {
       updateCountdowns(foldPopoverEl)
       syncExpeditionChipStates(foldPopoverEl)
+      syncDockChipStates(foldPopoverEl)
+      syncBuildChipStates(foldPopoverEl)
     }
     syncFoldChipStates()
   })

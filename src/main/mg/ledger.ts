@@ -193,6 +193,29 @@ export interface ShipLifeEventInput {
   detail?: Record<string, any>
 }
 
+const shipLifeEventOf = (row: any): ShipLifeEvent => {
+  let detail: Record<string, any> = {}
+  try {
+    const parsed = JSON.parse(row.detail)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) detail = parsed
+  } catch (_e) {
+    /* 坏事件仍保留主字段 */
+  }
+  return {
+    id: Number(row.id),
+    ts: Number(row.ts),
+    kind: row.kind as ShipLifeEventKind,
+    expDelta: Number(row.expDelta ?? 0),
+    map: row.map == null ? null : Number(row.map),
+    cell: row.cell == null ? null : Number(row.cell),
+    rank: row.rank == null ? null : `${row.rank}`,
+    isBoss: row.isBoss === 1,
+    practice: row.practice === 1,
+    mvp: row.mvp === 1,
+    detail,
+  }
+}
+
 // body 不入账、改存最新快照文件的重量级路径
 const SNAPSHOT_ONLY_PATHS = new Set([
   '/kcsapi/api_start2/getData',
@@ -3018,6 +3041,23 @@ class Ledger {
            WHERE roster_id = ? ORDER BY ts DESC, id DESC LIMIT ?`,
         )
         .all(rosterId, Math.max(1, limit | 0)) as any[]
+      // 加入与誓约取全账本最早一条，顶栏摘要不随履历分页改变。
+      const joinRow = this.db
+        .prepare(
+          `SELECT id, ts, kind, exp_delta AS expDelta, map, cell, rank,
+                  is_boss AS isBoss, practice, mvp, detail
+           FROM ship_life_events
+           WHERE roster_id = ? AND kind = 'join' ORDER BY ts ASC, id ASC LIMIT 1`,
+        )
+        .get(rosterId)
+      const marriageRow = this.db
+        .prepare(
+          `SELECT id, ts, kind, exp_delta AS expDelta, map, cell, rank,
+                  is_boss AS isBoss, practice, mvp, detail
+           FROM ship_life_events
+           WHERE roster_id = ? AND kind = 'marriage' ORDER BY ts ASC, id ASC LIMIT 1`,
+        )
+        .get(rosterId)
       // 判改装档位不能只看分页事件：早年的 remodel 也要算，仍只读同一 roster 的账本。
       const remodelTargets = this.db.prepare(
         `SELECT DISTINCT json_extract(detail, '$.afterMstId') AS target
@@ -3028,30 +3068,11 @@ class Ledger {
       const wins = Number(stats?.wins ?? 0)
       const practiceBattles = Number(stats?.practiceBattles ?? 0)
       const practiceWins = Number(stats?.practiceWins ?? 0)
-      const events: ShipLifeEvent[] = rows.map((row) => {
-        let detail: Record<string, any> = {}
-        try {
-          const parsed = JSON.parse(row.detail)
-          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) detail = parsed
-        } catch (_e) {
-          /* 坏事件仍保留主字段 */
-        }
-        return {
-          id: Number(row.id),
-          ts: Number(row.ts),
-          kind: row.kind as ShipLifeEventKind,
-          expDelta: Number(row.expDelta ?? 0),
-          map: row.map == null ? null : Number(row.map),
-          cell: row.cell == null ? null : Number(row.cell),
-          rank: row.rank == null ? null : `${row.rank}`,
-          isBoss: row.isBoss === 1,
-          practice: row.practice === 1,
-          mvp: row.mvp === 1,
-          detail,
-        }
-      })
+      const events: ShipLifeEvent[] = rows.map(shipLifeEventOf)
       return {
         rosterId,
+        join: joinRow ? shipLifeEventOf(joinRow) : null,
+        marriage: marriageRow ? shipLifeEventOf(marriageRow) : null,
         trackingSince: state ? Number(state.firstSeen) : null,
         lastSeen: state ? Number(state.lastSeen) : null,
         expGained: Number(stats?.expGained ?? 0),
