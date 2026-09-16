@@ -141,15 +141,15 @@ export const makeLedger = (db: any) => new BattleRunLedger(db)
   )
 })
 
-test('embedded trail current state follows the snapshot rendered by that host', (t) => {
+test('embedded trail follows its snapshot and uses recorded gauges while active sorties use current gauges', (t) => {
   const di = read('src/renderer/modules/di.ts')
   const trail = sliceBetween(
     di,
-    'const trailHtml = (',
+    'const gaugePillOf = (',
     '\n// 敌联合的夜战交战对象',
     'trailHtml',
   )
-  const { renderTrail } = bundleHarness(
+  const { renderTrail, renderGaugeTrail } = bundleHarness(
     t,
     'battle-trail-host',
     `const replay = { id: 1 }
@@ -189,12 +189,59 @@ const index = [
   { id: 2, ts: 2500, sortieId: 1000, battleNo: 2, map: 65, cell: 2, rank: 'S', isBoss: false, practice: false },
 ]
 export const renderTrail = (snapshot: any) => trailHtml(sortie as any, snapshot, index)
+export const renderGaugeTrail = (partial: any, current: any, snapshot: any = null) => {
+  mg.mapGauges[65] = current
+  return trailHtml({ ...sortie, ...partial }, snapshot ?? { id: 1 }, index)
+}
 `,
   )
   const linkedIds = (html) => [...html.matchAll(/data-replay-id="(\d+)"/g)].map((hit) => Number(hit[1]))
 
   assert.deepEqual(linkedIds(renderTrail({ id: 1 })), [2])
   assert.deepEqual(linkedIds(renderTrail({ id: 2 })), [1])
+
+  const gauge = {
+    cleared: false, defeated: 0, required: 4, hpNow: null, hpMax: null,
+    selectedRank: null, limitFlag: null, gaugeType: 1, gaugeNum: null,
+  }
+  const current = { ...gauge, defeated: 3 }
+  const record = { before: gauge, after: { ...gauge, defeated: 1 } }
+  const replayHtml = renderGaugeTrail({ gauge: record }, current)
+  assert.match(replayHtml, /title="本战结算前 → 结算后（本地记录）">Boss .*<b>4\/4 → 3\/4<\/b>/)
+  assert.doesNotMatch(replayHtml, /<b>1\/4<\/b>/)
+  assert.equal((replayHtml.match(/class="gg"/g) ?? []).length, 1)
+  for (const active of [false, true]) {
+    const later = { active, gauge: { before: current, after: { ...current, defeated: 4 } } }
+    assert.match(renderGaugeTrail(later, current, { sortie: { active: false, gauge: record } }),
+      /<b>4\/4 → 3\/4<\/b>/)
+    assert.doesNotMatch(renderGaugeTrail(later, current, { sortie: { active: false } }),
+      /class="gg"|本地记录|Boss 击破进度/)
+  }
+  for (const missing of [undefined, null, { before: null, after: null }]) {
+    assert.doesNotMatch(renderGaugeTrail({ gauge: missing }, current), /class="gg"|本地记录|Boss 击破进度/)
+  }
+  assert.match(renderGaugeTrail({ gauge: { before: gauge, after: null } }, current),
+    /title="本战开始时的进度（本地记录）">Boss .*<b>4\/4<\/b>/)
+  const unchanged = renderGaugeTrail({ gauge: { before: gauge, after: { ...gauge } } }, current)
+  assert.match(unchanged, /<b>4\/4<\/b>/)
+  assert.doesNotMatch(unchanged, /<b>[^<]*→/)
+  assert.ok(renderGaugeTrail({ active: true, gauge: record }, current).includes(
+    '<span class="gpill" title="Boss 击破进度：剩余 1 次 · 降至 0 后通关">Boss <span class="gg"><i style="width:25%"></i></span><b>1/4</b></span>',
+  ))
+  for (const [gaugeType, label, title] of [[2, '血条', 'Boss 血条'], [3, 'TP', '运输 TP 剩余'], [null, '进度', '海域进度']]) {
+    const before = { ...gauge, required: null, hpNow: 1200, hpMax: 2400, gaugeType }
+    const after = { ...before, hpNow: 900 }
+    const hpRecord = { before, after }
+    assert.ok(renderGaugeTrail({ gauge: hpRecord }, current).includes(
+      `title="本战结算前 → 结算后（本地记录）">${label} <span class="gg"><i style="width:50%"></i></span><b>1200/2400 → 900/2400</b>`,
+    ))
+    assert.ok(renderGaugeTrail({ active: true, gauge: record }, after).includes(
+      `<span class="gpill" title="${title}">${label} <span class="gg"><i style="width:38%"></i></span><b>900/2400</b></span>`,
+    ))
+  }
+  assert.ok(renderGaugeTrail({ active: true }, { ...gauge, required: null, cleared: true }).includes(
+    '<span class="gpill" title="海域已攻略">攻略</span>',
+  ))
 
   const baseDefense = sliceBetween(
     di,

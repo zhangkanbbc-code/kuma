@@ -344,13 +344,8 @@ test('CC 上游包 map-drops 一个字节都没动——校正只走台账这一
 
 const ji = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
 
-test('捞船单子：已终了的不进可捞计数，另起一组换语境', () => {
+test('捞船单子：已终了的不进可捞计数，也不再渲染', () => {
   const plan = ji.slice(ji.indexOf('const huntPlanHtml'), ji.indexOf('const shipCatalogRowHtml'))
-  // 先问「还有没有活路」，有活路的就不该出现在已终了那一组
-  assert.ok(
-    /const endedOnly = missing\.flatMap\(\(id\) => \{\s*if \(confirmedDropSitesOf\(id\)\.length\) return \[\]/.test(plan),
-    '已终了那一组没有先排除「还有活路」的船',
-  )
   // 可捞计数只认 catchable；已终了那一组不许并进去
   assert.ok(
     plan.includes('data-hunt-filter="catchable"') && plan.includes('${catchable.length}'),
@@ -360,15 +355,11 @@ test('捞船单子：已终了的不进可捞计数，另起一组换语境', ()
     !/catchable\.length \+ endedOnly\.length/.test(plan),
     '已终了的被并进了可捞计数——她们实际无路可捞',
   )
-  // 换语境不是删条目：得有独立的一组把她们摆出来
-  assert.ok(plan.includes('限定期已结束 · 对应掉落当前不可获取'), '已结束那一组的标题没了')
-  assert.ok(plan.includes('（限定·已结束）'), '掉点后缀「（限定·已结束）」没了')
+  // 用户 2026-09-15 新裁决：这张单子不再陈列只剩已终了掉点的舰
+  assert.ok(!plan.includes('const endedOnly ='), 'endedOnly 旧分组仍在建表')
+  assert.ok(!plan.includes('endedOnly.map'), 'endedOnly 旧分组仍在渲染')
+  assert.ok(!plan.includes('限定期已结束 · 对应掉落当前不可获取'), '已结束那一组的标题仍在')
   assert.ok(plan.includes('（限定中）'), '还在掉的限定没标「（限定中）」')
-  // 悬停要给批次名与起始日，出处落在窗口本身
-  assert.ok(
-    /limitedWindowText\(site\.window\)/.test(plan),
-    '已终了那一行的悬停没给批次名与起始日',
-  )
 })
 
 test('图鉴掉点：已终了的另起灰显行，不混进「确认掉落海域」的计数', () => {

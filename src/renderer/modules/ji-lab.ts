@@ -38,12 +38,14 @@ import { nightCutinsOf, type NightCutinEquip } from '../../shared/night-cutin'
 import { nightBasePower } from '../../shared/night-battle'
 import { spottingMultiplier, type SpottingShip } from '../../shared/day-spotting'
 import {
+  openingAswLevelOf,
   openingAswOf,
   shipAaciCeiling,
   ROCKET_LAUNCHER_K2_MST_ID,
   type SpecialAbilityEquip,
   type SpecialAbilityShip,
 } from '../../shared/ship-special-attack'
+import { shipGrowthEndpointsOf } from '../fleet-calc'
 import {
   rocketBarrageOf,
   type RocketBarrageEquip,
@@ -456,14 +458,29 @@ const barrageHtml = () => {
 }
 
 const oaswHtml = (stats: ReturnType<typeof adjustedStats>) => {
+  const ship = shipOf(state.rosterId)!
   const shipView = specialShipView(stats.asw)
-  const hit = openingAswOf(shipView, specialEquips())
+  const equips = specialEquips()
+  const hit = openingAswOf(shipView, equips)
+  const endpoints = shipGrowthEndpointsOf(ship.shipId, 'asw', ship.taisenMax)
+  const outlook = openingAswLevelOf(shipView, equips, {
+    init: endpoints.init,
+    max: endpoints.max,
+    lv: ship.lv,
+  })
+  const estimate =
+    outlook.state === 'level'
+      ? `Lv ${outlook.level} 起可发动`
+      : outlook.state === 'never'
+        ? 'Lv188 也达不到'
+        : '缺初始值，算不出'
   return `<div class="lab-card"><div class="h"><b>先制对潜</b>
       <span class="aux">表示对潜 ${stats.asw}（含虚拟装备的原始对潜值）</span></div>
     ${
       hit
         ? `<div class="lab-row"><b>可发动</b><span>${esc(hit.basis)}</span></div>`
-        : '<div class="lab-none">当前组合不满足先制对潜条件</div>'
+        : `<div class="lab-none">当前组合不满足先制对潜条件</div>
+          <div class="lab-row"><b>按虚拟装备估算</b><span>· ${estimate}</span></div>`
     }
     <div class="lab-note">对潜值按各装备的主数据原始值累加，不计 ★ 与熟练</div>
   </div>`

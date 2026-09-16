@@ -6503,6 +6503,12 @@
     /* 临近改造的「按等级/按经验」子分类：从属样式，别跟一级筛选片抢眼 */
     .mod-qa .fchip.lvlsub { font-size: 9.5px; padding: 1px 7px; background: none; border: 1px solid var(--line); color: var(--dim); }
     .mod-qa .fchip.lvlsub.on { border-color: var(--accent-dim); color: var(--accent); }
+    .mod-qa .fchip.oasw-target { cursor: default; }
+    .mod-qa .fchip.oasw-target input {
+      width: 38px; margin-left: 4px; padding: 0 2px; border: 0; border-bottom: 1px solid var(--line);
+      outline: none; background: none; color: var(--text); font: 10px var(--mono); text-align: right;
+    }
+    .mod-qa .fchip.oasw-target input:focus { border-color: var(--accent); }
     .mod-qa .fchip.q.on { border-style: solid; border-color: var(--accent); background: var(--accent-wash); }
     /* 备注标签片：玩家自己写在备注里的 #xxx。等宽体 + 中性色，别跟一级筛选片抢眼；
        备注 120 字，理论上能写出一个长到撑爆这一排的标签——截断在这里，不在解析层 */
@@ -6586,6 +6592,9 @@
     .mod-qa td.rmd .flip b { color: var(--sub); font-weight: 600; }
     .mod-qa td.rmd .exp { margin-left: 5px; font: 9px var(--mono); font-style: normal; color: var(--dim); }
     .mod-qa td.rmd .sub { display: block; font-size: 9px; color: var(--dim); line-height: 1.3; max-width: 200px; white-space: normal; }
+    .mod-qa td.oasw { font: 10px var(--mono); color: var(--sub); }
+    .mod-qa td.oasw span { display: block; line-height: 1.35; }
+    .mod-qa td.oasw span + span { color: var(--dim); font-size: 9px; }
     .mod-qa td.mod { letter-spacing: 2px; font-size: 9px; }
     .mod-qa td.mod s { display: inline-block; width: 7px; height: 7px; border-radius: 50%; text-decoration: none; margin-right: 2px; }
     .mod-qa td.mod s.f { background: var(--equip-fire-mark); }
@@ -6801,6 +6810,9 @@
       white-space: normal; overflow-wrap: anywhere;
     }
     .mod-qa.narrow td.rmd::before { content: "改造 "; color: var(--dim); }
+    .mod-qa.narrow td.oasw {
+      order: 5; flex: 1 0 100%; box-sizing: border-box; padding: 3px 0 1px 40px;
+    }
     .mod-qa.narrow td.cls, .mod-qa.narrow td.nx, .mod-qa.narrow td.mod,
     .mod-qa.narrow td.luck, .mod-qa.narrow td.lk {
       order: 5; flex: 0 1 auto; color: var(--sub); font-size: 9.5px;

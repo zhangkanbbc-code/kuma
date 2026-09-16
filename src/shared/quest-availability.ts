@@ -112,9 +112,14 @@ export const buildQuestAvailability = (
     // 而下游解锁看的是「历史上做过没有」——任何一张当期快照都答不了。
     // 把它算成阻塞的代价实测很重：31 条早就做完的任务被误报成「还不能接」
     // （A56 卡在月常 Bm6、A59 卡在 Bm6、A60 顺着 B53 也卡在同一处）。
+    // 这里的「不构成阻塞」只指不看周期任务自身是否在当期表里；
+    // 它的前置链若未通过，就等于从未解锁过，下游不可能已经交付。
     if (isCyclicQuestCode(code)) {
-      settled.set(code, true)
-      return true
+      visiting.add(code)
+      const unlockable = entry.pre.every((pre) => preSatisfied(pre))
+      visiting.delete(code)
+      settled.set(code, unlockable)
+      return unlockable
     }
     if (input.observed.has(entry.id)) {
       settled.set(code, false) // 还摆在表里 = 没交付

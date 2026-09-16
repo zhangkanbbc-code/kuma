@@ -18,6 +18,7 @@
  */
 import { levelGrowth, MARRIED_LEVEL_CAP, marriageHpBonus, marriedMaxHp } from './ship-growth'
 import type { MasterShip, MasterSlotitem, PlayerShip } from './mg-types'
+import type { OpeningAswOutlook } from './ship-special-attack'
 
 export type StatLayerKind = 'equip' | 'grow' | 'over99' | 'marriage' | 'mod'
 
@@ -35,6 +36,30 @@ export interface GrowthInitValues {
   kaihi: number | null
   taisen: number | null
   sakuteki: number | null
+}
+
+export interface AswTrainingOutlook {
+  aswTarget: number
+  aswTargetLevel: number | null
+  aswReached: boolean
+  oasw: OpeningAswOutlook | null
+}
+
+/** 列表预览与舰卡共用的对潜训练措辞。unknown 时两句都不写。 */
+export const aswTrainingTipParts = (outlook?: AswTrainingOutlook): string[] => {
+  if (!outlook || !outlook.oasw || outlook.oasw.state === 'unknown') return []
+  const naked = outlook.aswReached
+    ? `裸对潜已达 ${outlook.aswTarget}`
+    : outlook.aswTargetLevel == null
+      ? `裸对潜 Lv188 也到不了 ${outlook.aswTarget}`
+      : `裸对潜到 ${outlook.aswTarget} 估算需 Lv ${outlook.aswTargetLevel}`
+  const oasw =
+    outlook.oasw.state === 'ready'
+      ? '已可先制对潜'
+      : outlook.oasw.state === 'level'
+        ? `现装备下估算 Lv ${outlook.oasw.level} 起可先制对潜`
+        : '现装备下 Lv188 也达不到先制对潜'
+  return [naked, oasw]
 }
 
 const clampUp = (value: number) => Math.max(0, value)
@@ -118,6 +143,7 @@ const growthStatRow = (
   equipRaw: number,
   hasEquip: boolean,
   kyouka = 0,
+  extraTip: readonly string[] = [],
 ): InstanceStatRow => {
   const capLv = ship.lv > 99 ? MARRIED_LEVEL_CAP : 99
   const growText = `随等级成长：估算 = 初始 + ⌊(上限−初始)×Lv÷99⌋，Lv99 上限取实例一手值`
@@ -151,6 +177,7 @@ const growthStatRow = (
             ? `至 Lv${capLv} 估算可成长 +${remain}`
             : `已达 Lv${capLv} 成长上限`,
         growText,
+        ...extraTip,
       ].join('\n'),
     }
   }
@@ -165,6 +192,7 @@ const growthStatRow = (
         max99 <= 0
           ? '当前记录缺少 Lv99 上限，无法拆分裸值'
           : '暂缺初始值，无法拆分裸值与装备加成',
+        ...extraTip,
       ].join('\n'),
     }
   }
@@ -189,6 +217,7 @@ const growthStatRow = (
         : '装备对此项无加成',
       remain ? `至 Lv${capLv} 估算可成长 +${remain}` : `已达 Lv${capLv} 成长上限`,
       growText,
+      ...extraTip,
     ].join('\n'),
   }
 }
@@ -202,6 +231,7 @@ export const instanceStatRows = (
   mst: MasterShip,
   equips: MasterSlotitem[],
   init: GrowthInitValues,
+  aswTraining?: AswTrainingOutlook,
 ): InstanceStatRow[] => {
   const sum = (pick: (e: MasterSlotitem) => number) =>
     equips.reduce((acc, e) => acc + (pick(e) || 0), 0)
@@ -214,7 +244,17 @@ export const instanceStatRows = (
     modernizableRow('雷装', ship.raisou, mst.baseRaig, ky(1), mst.maxRaig, sum((e) => e.raig)),
     modernizableRow('对空', ship.taiku, mst.baseTyku, ky(2), mst.maxTyku, sum((e) => e.tyku)),
     growthStatRow('回避', ship.kaihi, ship.kaihiMax, init.kaihi, ship, sum((e) => e.houk), hasEquip),
-    growthStatRow('对潜', ship.taisen, ship.taisenMax, init.taisen, ship, sum((e) => e.tais), hasEquip, ky(6)),
+    growthStatRow(
+      '对潜',
+      ship.taisen,
+      ship.taisenMax,
+      init.taisen,
+      ship,
+      sum((e) => e.tais),
+      hasEquip,
+      ky(6),
+      aswTrainingTipParts(aswTraining),
+    ),
     growthStatRow('索敌', ship.sakuteki, ship.sakutekiMax, init.sakuteki, ship, sum((e) => e.saku), hasEquip),
     luckRow(ship, mst),
   ]

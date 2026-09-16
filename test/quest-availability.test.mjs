@@ -109,6 +109,43 @@ test('a cyclic prerequisite never blocks, because one snapshot cannot answer "di
   assert.equal(listed.get(21).status, 'done')
 })
 
+test('a cyclic prerequisite still blocks when its own prerequisite chain never unlocked it', () => {
+  // 维护者账本实锤 2026-09-16：D39/Dy7/D14/D13。手算：D13(414, state 1) 还在表里，
+  // 所以 D14(415) 未交付；D30(432) 无前置且已出表 = done；Dy7(442) 缺 D14，
+  // 因此 D39(443) 的周期前置 Dy7 从未解锁，D39 也只能 locked。
+  const out = buildQuestAvailability({
+    entries: [
+      { id: 414, code: 'D13', pre: [] },
+      { id: 415, code: 'D14', pre: ['D13'] },
+      { id: 432, code: 'D30', pre: [] },
+      { id: 442, code: 'Dy7', pre: ['D14', 'D30'] },
+      { id: 443, code: 'D39', pre: ['Dy7'] },
+    ],
+    observed: new Map([[414, 1]]),
+    activeIds: null,
+    authoritative: true,
+  })
+  assert.deepEqual(out.get(443), { status: 'locked', missingPre: ['Dy7'], cyclic: false })
+  assert.deepEqual(out.get(442), { status: 'locked', missingPre: ['D14'], cyclic: true })
+  assert.deepEqual(out.get(432), { status: 'done', missingPre: [], cyclic: false })
+})
+
+test('an all-cyclic prerequisite chain stays optimistically satisfied', () => {
+  // 手算：Bd2(23) 无前置，Bm6(20) 只前置 Bd2，两条周期任务都不在表里；
+  // 链上没有「从未解锁」的证据，所以下游 A56(21) 仍乐观放行为 done。
+  const out = buildQuestAvailability({
+    entries: [
+      { id: 23, code: 'Bd2', pre: [] },
+      { id: 20, code: 'Bm6', pre: ['Bd2'] },
+      { id: 21, code: 'A56', pre: ['Bm6'] },
+    ],
+    observed: new Map(),
+    activeIds: null,
+    authoritative: true,
+  })
+  assert.deepEqual(out.get(21), { status: 'done', missingPre: [], cyclic: false })
+})
+
 test('cyclic quests are flagged so the UI can say "this period" instead of "for good"', () => {
   const out = buildQuestAvailability({
     entries: [{ id: 30, code: 'Bd5', pre: [] }, { id: 31, code: 'A1', pre: [] }],

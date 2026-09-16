@@ -9,6 +9,7 @@ const {
   AACI_TABLE,
   aaciEntryOf,
   bestShipAacis,
+  openingAswLevelOf,
   openingAswOf,
   shipAaciCeiling,
   shipAacis,
@@ -235,4 +236,39 @@ test('日向改二认旋翼机：一架要对潜 12 以上，否则要两架', (
 test('判据会说明是哪一条成立的', () => {
   assert.match(openingAswOf(ship({ stype: 2, asw: 100 }), [sonar()]).basis, /对潜 ≥ 100/)
   assert.match(openingAswOf(ship({ stype: 1, asw: 60 }), [sonar()]).basis, /海防舰/)
+})
+
+test('现装备下先制对潜所需等级逐级扫规则表', () => {
+  // 五十铃改二 Lv98 面板 93、无装备仍无条件命中；端点不参与反算。
+  assert.deepEqual(
+    openingAswLevelOf(ship({ mstId: 141, stype: 3, asw: 93 }), [], { init: null, max: null, lv: 98 }),
+    { state: 'ready', basis: '五十铃改二 · 自带先制对潜，不看装备' },
+  )
+
+  const destroyer = ship({ stype: 2, asw: 41 })
+  const strongSonar = equip({ iconId: 18, asw: 18 })
+  // Lv10 插值 23，固定额外值 18；Lv158 插值 82，面板恰到 100。
+  const leveled = openingAswLevelOf(destroyer, [strongSonar], { init: 20, max: 59, lv: 10 })
+  assert.equal(leveled.state, 'level')
+  assert.equal(leveled.level, 158)
+  assert.match(leveled.basis, /驱逐 \/ 轻巡 \/ 雷巡 \/ 练巡 \/ 补给/)
+  // 同一艘不带声呐；即使面板随等级超过 100，装备条件始终不成立。
+  assert.deepEqual(
+    openingAswLevelOf(destroyer, [], { init: 20, max: 59, lv: 10 }),
+    { state: 'never' },
+  )
+  // 初始端点缺失，当前未命中时无法推算以后等级。
+  assert.deepEqual(
+    openingAswLevelOf(destroyer, [strongSonar], { init: null, max: 59, lv: 10 }),
+    { state: 'unknown' },
+  )
+  // 海防 Lv20 插值 38 + 声呐 8 = 46；Lv55 插值 52 + 8 = 60。
+  const escort = openingAswLevelOf(
+    ship({ stype: 1, asw: 46 }),
+    [sonar()],
+    { init: 30, max: 70, lv: 20 },
+  )
+  assert.equal(escort.state, 'level')
+  assert.equal(escort.level, 55)
+  assert.match(escort.basis, /海防舰 · 对潜 ≥ 60 且装备声呐/)
 })

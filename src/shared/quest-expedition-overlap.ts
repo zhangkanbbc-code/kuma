@@ -15,9 +15,49 @@ export interface ExpeditionOverlap {
 export interface ExpeditionOverlapInput {
   questId: number
   trackers: Record<number, { tasks: QpTask[] }>
-  quests: Array<{ id: number; code: string }>
+  quests: Array<{ id: number; code: string; pre: string[] }>
   verdictOf: (id: number) => QuestAvailability | undefined
   missionCodeOf: (missionId: number) => string | undefined
+}
+
+export const questChainRelativeCodes = (
+  code: string,
+  quests: ExpeditionOverlapInput['quests'],
+): Set<string> => {
+  const byCode = new Map(quests.map((quest) => [quest.code, quest]))
+  if (!byCode.has(code)) return new Set()
+
+  const ancestors = new Set<string>()
+  const visitAncestors = (current: string): void => {
+    const quest = byCode.get(current)
+    if (!quest) return
+    for (const pre of quest.pre) {
+      if (pre === code || ancestors.has(pre)) continue
+      ancestors.add(pre)
+      visitAncestors(pre)
+    }
+  }
+  visitAncestors(code)
+
+  const children = new Map<string, string[]>()
+  for (const quest of quests) {
+    for (const pre of quest.pre) {
+      const codes = children.get(pre) ?? []
+      codes.push(quest.code)
+      children.set(pre, codes)
+    }
+  }
+  const descendants = new Set<string>()
+  const visitDescendants = (current: string): void => {
+    for (const child of children.get(current) ?? []) {
+      if (child === code || descendants.has(child)) continue
+      descendants.add(child)
+      visitDescendants(child)
+    }
+  }
+  visitDescendants(code)
+
+  return new Set([...ancestors, ...descendants])
 }
 
 const compareMission = (
@@ -54,10 +94,15 @@ export const buildExpeditionOverlap = (
   )
   if (!currentMissions.size) return []
 
+  const currentCode = input.quests.find((quest) => quest.id === input.questId)?.code
+  const chainRelatives = currentCode
+    ? questChainRelativeCodes(currentCode, input.quests)
+    : new Set<string>()
   const unavailable = new Set<QuestAvailability>(['done', 'locked', 'claimable'])
   const rows: Array<ExpeditionOverlap & { code: string }> = []
   for (const quest of input.quests) {
     if (quest.id === input.questId) continue
+    if (chainRelatives.has(quest.code)) continue
     // 裁决合并了周期边界与前置链，所以筛选和标记不能直接使用 observed.state。
     const verdict = input.verdictOf(quest.id)
     if (verdict && unavailable.has(verdict)) continue

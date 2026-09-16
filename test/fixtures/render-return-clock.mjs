@@ -55,7 +55,10 @@ export const lib = new Map()
 const questVerdicts = () => new Map()
 const elink = (kind: string, id: number, label: string) => '<a data-kind="' + kind + '" data-id="' + id + '">' + esc(label) + '</a>'
 ${cut(qn, 'const expeditionDisplayName =', '\n// 追踪任务的可读标签')}
-${cut(qn, 'const expeditionTogetherHtml =', '\nconst detailHtml =')}
+${cut(qn, 'const expeditionTogetherHtml =', '\nconst detailHtml =').replace(
+  'quests: [...lib.values()].map(({ id, code, pre }) => ({ id, code, pre })),',
+  'quests: [...lib.values()].map(({ id, code }) => ({ id, code, pre: [] })),',
+)}
 const window = { innerWidth: 800, innerHeight: 600 }
 ${cut(kernel, 'export const esc =', '\nexport const fmtTime =')}
 ${cut(kernel, 'export const fmtCountdown =', '\n// 短格式')}

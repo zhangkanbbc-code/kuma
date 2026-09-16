@@ -28,7 +28,13 @@ import {
 } from '../kernel'
 import { lifeEventHtml } from '../ship-life-events'
 import { alvIconHtml } from '../alv-icon'
-import { ensureShipStatsLode, panelBonusOf, shipGrowthEndpointsOf } from '../fleet-calc'
+import {
+  ensureShipStatsLode,
+  nakedAswLevelFor,
+  openingAswOutlookOf,
+  panelBonusOf,
+  shipGrowthEndpointsOf,
+} from '../fleet-calc'
 import { fatigueBand } from '../fatigue'
 import { equipTypeIconHtml } from '../equip-icon'
 import { shipThumbHtml } from '../entity-art'
@@ -60,6 +66,7 @@ import { shipChipMatches, SHIP_CHIPS, STYPE_CN } from '../ship-category'
 import { statRowLayered } from '../stat-bars'
 import { shipLifeDamageText } from '../../shared/ship-life-damage'
 import { MARRIED_LEVEL_CAP } from '../../shared/ship-growth'
+import type { OpeningAswOutlook } from '../../shared/ship-special-attack'
 import { compareDisplayNames } from '../../shared/name-order'
 import { instanceStatRows, type GrowthInitValues } from '../../shared/ship-stat-layers'
 import { csvText, saveTextFile, stampedFileName } from '../csv-export'
@@ -97,6 +104,7 @@ const state = {
   selected: 0, // 舰娘实例 id
   compare: [] as number[],
   lvlFinal: false, // 临近改造的「最终改造」子筛选：只看目标是链尾的
+  oaswTarget: 100, // 先制对潜片的裸对潜目标；只在本次会话保留
   equipFilter: 0, // >0 时只显示装着该 mstId 装备的舰（装备图鉴「装备中清单」入口）
   equipFilterName: '',
   noteTags: [] as string[], // 选中的备注标签（#xxx）；空 = 不按标签筛
@@ -130,6 +138,7 @@ interface Row {
     | { state: 'near'; next: string; gap: number; expGap: number | null; finalGoal: boolean; advanced: boolean }
     | { state: 'flip'; next: string; gap: number; expGap: number | null; finalGoal: boolean; advanced: boolean }
   modMax: boolean[] // [火,雷,空,甲] 近代化是否吃满
+  oasw: OpeningAswOutlook | null
 }
 
 let rowCache: Row[] | null = null
@@ -272,6 +281,7 @@ const buildRows = (): Row[] => {
       fleet: fleetByShip.get(ship.id) ?? null,
       kai,
       modMax,
+      oasw: openingAswOutlookOf(ship),
     }
   })
   return rowCache
@@ -293,6 +303,10 @@ const smartFilters: Record<string, (row: Row) => boolean> = {
   kai: (row) => row.kai.state === 'ready',
   // 推荐练级（2026-08-12 用户提议）：还差几级就能改造/切形态的，单向双向都算
   leveling: (row) => row.kai.state === 'near' || row.kai.state === 'flip',
+  oasw: (row) =>
+    [1, 2, 3, 4, 7, 21, 22].includes(row.mst?.api_stype ?? 0) &&
+    row.oasw != null &&
+    row.oasw.state !== 'ready',
   marry: (row) => row.ship.lv === 99,
   tired: (row) => fatigueBand(row.ship.cond) !== 'ready' && !row.dock,
   dupe: (row) => row.dup,
@@ -381,6 +395,21 @@ const SORTERS: Record<string, (a: Row, b: Row) => number> = {
   luck: (a, b) => a.ship.lucky - b.ship.lucky,
   yasen: (a, b) => a.yasen - b.yasen,
   star: (a, b) => a.starSum - b.starSum,
+  oasw: (a, b) => {
+    const rank = (row: Row) =>
+      row.oasw?.state === 'level'
+        ? 0
+        : row.oasw?.state === 'never'
+          ? 1
+          : row.oasw?.state === 'unknown'
+            ? 2
+            : 3
+    const byState = rank(a) - rank(b)
+    if (byState) return byState
+    return a.oasw?.state === 'level' && b.oasw?.state === 'level'
+      ? a.oasw.level - b.oasw.level
+      : 0
+  },
   // 修理队列的排序轴：入渠时长。活动期「谁进渠、谁吃桶」就是按这个排的
   ndock: (a, b) => a.ship.ndockTime - b.ship.ndockTime,
   // 推荐练级的排序轴：收藏置顶（2026-08-16 用户提议，与演习卡同口径），
@@ -422,6 +451,7 @@ const SORTERS: Record<string, (a: Row, b: Row) => number> = {
  */
 const TIE_BREAKERS: Record<string, (a: Row, b: Row) => number> = {
   lv: (a, b) => a.ship.expNext - b.ship.expNext,
+  oasw: (a, b) => b.ship.lv - a.ship.lv,
 }
 
 /** 列表与导出共用的一次排序：主键随 sortDir 翻，次键不翻。 */
@@ -439,6 +469,7 @@ interface ChipCounts {
   infleet: number
   kai: number
   leveling: number
+  oasw: number
   marry: number
   tired: number
   dupe: number
@@ -454,6 +485,7 @@ const tallyRows = (rows: Row[]): { counts: ChipCounts; repairList: Row[] } => {
     infleet: 0,
     kai: 0,
     leveling: 0,
+    oasw: 0,
     marry: 0,
     tired: 0,
     dupe: 0,
@@ -465,6 +497,7 @@ const tallyRows = (rows: Row[]): { counts: ChipCounts; repairList: Row[] } => {
     if (smartFilters.infleet(row)) counts.infleet += 1
     if (smartFilters.kai(row)) counts.kai += 1
     if (smartFilters.leveling(row)) counts.leveling += 1
+    if (smartFilters.oasw(row)) counts.oasw += 1
     if (smartFilters.marry(row)) counts.marry += 1
     if (smartFilters.tired(row)) counts.tired += 1
     if (smartFilters.dupe(row)) counts.dupe += 1
@@ -519,6 +552,51 @@ const repairSummaryHtml = (list: Row[]): string => {
       known ? `<i class="${enough ? 'ok' : 'bad'}">现有 ${buckets}${enough ? ' ✓' : ' 不足'}</i>` : '<i>库存未同步</i>'
     }</span>
   </div>`
+}
+
+const oaswCellHtml = (row: Row): string => {
+  if (state.smart !== 'oasw') return ''
+  const current = (() => {
+    if (row.oasw?.state === 'level') {
+      return {
+        text: `Lv ${row.oasw.level}`,
+        title: `现装备下估算练到 Lv ${row.oasw.level} 起可先制对潜 · 依据：${row.oasw.basis}`,
+      }
+    }
+    if (row.oasw?.state === 'ready') {
+      return { text: '已可', title: `已可先制对潜 · 依据：${row.oasw.basis}` }
+    }
+    if (row.oasw?.state === 'never') {
+      return {
+        text: 'Lv188 不够',
+        title: '现装备下 Lv188 也达不到 · 先制对潜还看装备条件（如声呐）',
+      }
+    }
+    return { text: '—', title: '缺初始值，算不出' }
+  })()
+  const target = state.oaswTarget
+  const needed = nakedAswLevelFor(row.ship, target)
+  const reached = needed != null && needed <= row.ship.lv
+  const naked = reached
+    ? {
+        text: `裸${target} · 已达`,
+        title: `裸对潜（含改修）已达 ${target} · 目标值在筛选栏改`,
+      }
+    : needed != null
+      ? {
+          text: `裸${target} · Lv ${needed}`,
+          title: `裸对潜（含改修）到 ${target} 估算需 Lv ${needed} · 目标值在筛选栏改`,
+        }
+      : row.oasw?.state === 'unknown' || row.oasw == null
+        ? {
+            text: `裸${target} · —`,
+            title: `缺初始值，算不出裸对潜等级 · 目标值在筛选栏改`,
+          }
+        : {
+            text: `裸${target} · Lv188 不够`,
+            title: `裸对潜（含改修）Lv188 也到不了 ${target} · 目标值在筛选栏改`,
+          }
+  return `<td class="oasw cx"><span title="${esc(current.title)}">${current.text}</span><span title="${esc(naked.title)}">${naked.text}</span></td>`
 }
 
 const rowHtml = (row: Row) => {
@@ -605,6 +683,7 @@ const rowHtml = (row: Row) => {
     <td class="nx cx">${ship.expNext > 0 ? fmtK(ship.expNext) : 'MAX'}</td>
     <td class="cd"><span class="cnd${condClass}">${condBody}</span></td>
     <td class="rmd">${kaiHtml}</td>
+    ${oaswCellHtml(row)}
     <td class="mod cx">${modDots}</td>
     <td class="luck cx">${ship.lucky}</td>
     <td class="lk cx"><span class="${ship.locked ? 'on2' : 'off2'}">${ship.locked ? '●' : '○'}</span></td>
@@ -648,7 +727,13 @@ const instanceStatBarsHtml = (row: Row): string => {
     taisen: shipGrowthEndpointsOf(ship.shipId, 'asw', ship.taisenMax).init,
     sakuteki: shipGrowthEndpointsOf(ship.shipId, 'los', ship.sakutekiMax).init,
   }
-  const bars = instanceStatRows(ship, mst, equips, init)
+  const aswTargetLevel = nakedAswLevelFor(ship, state.oaswTarget)
+  const bars = instanceStatRows(ship, mst, equips, init, {
+    aswTarget: state.oaswTarget,
+    aswTargetLevel,
+    aswReached: aswTargetLevel != null && aswTargetLevel <= ship.lv,
+    oasw: row.oasw,
+  })
     .map((r) => statRowLayered(r.label, r.bare, r.segments, r.tip))
     .join('')
   return `<div class="pv-statbars">${QA_STAT_LEGEND_HTML}<div class="stat-grid">${bars}</div></div>`
@@ -852,6 +937,7 @@ const SMART_SORTS: Record<string, { sortKey: string; sortDir: number }> = {
   kai: { sortKey: 'lv', sortDir: -1 },
   // 推荐练级：与演习页的卡同一套口径，但这页不随游戏切到演习而自动跳转
   leveling: { sortKey: 'kaigap', sortDir: 1 },
+  oasw: { sortKey: 'oasw', sortDir: 1 },
   dupe: { sortKey: 'lv', sortDir: 1 }, // 清理从低级开始
   repair: { sortKey: 'ndock', sortDir: -1 },
   dock: { sortKey: 'ndock', sortDir: -1 },
@@ -1171,8 +1257,15 @@ const render = () => {
 
   const { counts, repairList } = tallyRows(all)
   const dockReadyAt = Math.max(0, ...all.flatMap((row) => row.dock ? [row.dock.completeTime] : []))
-  const smartChip = (key: string, label: string, extra = '') =>
-    `<span class="fchip q ${extra}${state.smart === key ? ' on' : ''}" data-smart="${key}"${key === 'dock' && counts.dock ? ` data-repair-title="${dockReadyAt}" title="${repairClockText(dockReadyAt, Date.now())}"` : ''}><b style="font-weight:400">${label}</b><i>${counts[key as keyof typeof counts]}</i></span>`
+  const smartChip = (key: string, label: string, extra = '') => {
+    const attrs =
+      key === 'dock' && counts.dock
+        ? ` data-repair-title="${dockReadyAt}" title="${repairClockText(dockReadyAt, Date.now())}"`
+        : key === 'oasw'
+          ? ' title="还不能先制对潜的驱逐 / 轻巡 / 雷巡 / 练巡 / 海防 / 轻空母 / 补给 · 按现装备下练到几级排"'
+          : ''
+    return `<span class="fchip q ${extra}${state.smart === key ? ' on' : ''}" data-smart="${key}"${attrs}><b style="font-weight:400">${label}</b><i>${counts[key as keyof typeof counts]}</i></span>`
+  }
 
   const tagChip = (entry: NoteTagTally) =>
     `<span class="fchip ntag${state.noteTags.includes(entry.tag) ? ' on' : ''}" data-ntag="${esc(entry.tag)}" title="备注里写着 #${esc(entry.tag)} 的舰娘 · 多选 = 带其中任一个">#${esc(entry.tag)}<i>${entry.count}</i></span>`
@@ -1233,6 +1326,12 @@ const render = () => {
               ? `<span class="fchip lvlsub${state.sortKey === 'kaigap' ? ' on' : ''}" data-lvlorder="kaigap" title="按缺少等级排序">按等级</span><span class="fchip lvlsub${state.sortKey === 'kaiexp' ? ' on' : ''}" data-lvlorder="kaiexp" title="按缺少总经验排序">按经验</span><span class="fchip lvlsub${state.lvlFinal ? ' on' : ''}" data-lvlfinal="1" title="仅显示下一段改造为链尾的舰娘">最终改造</span>`
               : ''
           }
+          ${smartChip('oasw', '先制对潜')}
+          ${
+            state.smart === 'oasw'
+              ? `<label class="fchip lvlsub oasw-target">裸对潜目标 <input id="qa-oasw-target" type="number" min="1" max="200" step="1" value="${state.oaswTarget}"></label>`
+              : ''
+          }
           ${smartChip('marry', 'Lv99 待誓约', 'gold ')}
           ${smartChip('tired', '疲劳', 'warn ')}
           ${smartChip('dupe', '未锁重复')}
@@ -1252,7 +1351,7 @@ const render = () => {
         <div class="twrap"><table>
           <thead><tr>
             ${th('name', '舰名')}${th('type', '类')}${th('lv', 'Lv')}<th class="cx" style="text-align:right">距升级</th>
-            ${th('cond', '士气', 'cd ')}${th('kaigap', '改造')}<th class="cx">近代化</th>
+            ${th('cond', '士气', 'cd ')}${th('kaigap', '改造')}${state.smart === 'oasw' ? th('oasw', '先制', 'cx ') : ''}<th class="cx">近代化</th>
             ${th('luck', '运', 'cx ')}<th class="cx" style="text-align:center">锁</th>${th('star', '装备★', 'cx ')}
           </tr></thead>
           <tbody>${levelingTbodyHtml(rows)}</tbody>
@@ -1285,7 +1384,26 @@ const wire = () => {
       pane.querySelector<HTMLInputElement>('#qa-search')?.focus()
     })
   }
+  const oaswTargetInput = pane.querySelector<HTMLInputElement>('#qa-oasw-target')
+  // 照上面的 #qa-search 使用 onFilterInput，并在重画后把焦点交回输入框。
+  // 这里只换 tbody，不换输入框本身，所以光标不会弹回开头；也不作废 Row 缓存，
+  // 现装备 outlook 仍是构建行时算好的，只重算目标值相关显示。
+  if (oaswTargetInput) {
+    onFilterInput(oaswTargetInput, () => {
+      if (!oaswTargetInput.value) return
+      const value = Number(oaswTargetInput.value)
+      if (!Number.isFinite(value)) return
+      state.oaswTarget = Math.min(200, Math.max(1, Math.floor(value)))
+      oaswTargetInput.value = `${state.oaswTarget}`
+      const rows = applyFilters(buildRows())
+      sortRows(rows)
+      const tbody = pane.querySelector<HTMLTableSectionElement>('tbody')
+      if (tbody) tbody.innerHTML = levelingTbodyHtml(rows)
+      oaswTargetInput.focus()
+    })
+  }
   pane.querySelector('.filters')?.addEventListener('click', (e) => {
+    if (e.target instanceof HTMLInputElement) return
     const chip = (e.target as HTMLElement).closest<HTMLElement>('.fchip')
     if (!chip) return
     if (chip.dataset.stype) {

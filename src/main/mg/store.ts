@@ -780,6 +780,7 @@ const selectRouteOf = (body: any): number[] =>
 const newSortie = (partial: Partial<SortieView>): SortieView => ({
   active: true,
   practice: false,
+  gauge: null,
   mapArea: 0,
   mapNo: 0,
   deckId: 1,
@@ -1171,6 +1172,7 @@ const onBattleResult = (body: any, _post: Record<string, string>, ts: number): S
     const enemyFlagship = sortie.battle.eShips.find(
       (ship) => ship.fleet === 'main' && ship.position === 0,
     )
+    const before = state.mapGauges[mapId] ? { ...state.mapGauges[mapId] } : null
     gaugeChanged = setMapGauge(
       mapId,
       patchMapGaugeFromBattleResult(state.mapGauges[mapId], {
@@ -1183,6 +1185,8 @@ const onBattleResult = (body: any, _post: Record<string, string>, ts: number): S
         landingHp: body.api_landing_hp,
       }),
     )
+    const after = state.mapGauges[mapId] ? { ...state.mapGauges[mapId] } : null
+    sortie.gauge = { before, after }
   }
   // 结算点再收一次：昼夜两个报文各自解析时都收过，这里是幂等兜底
   // （中途启动kuma、只赶上 battleresult 的那种场次靠它）。
@@ -2643,6 +2647,10 @@ const reducers: Record<string, Reducer> = {
       mapId,
       patchMapGaugeFromSortiePayload(state.mapGauges[mapId], body),
     )
+    state.sortie.gauge = {
+      before: state.mapGauges[mapId] ? { ...state.mapGauges[mapId] } : null,
+      after: null,
+    }
     const sections: Section[] = ['sortie']
     if (gaugeChanged) sections.push('mapGauges')
     if (applyMapMaterialDelta(body)) sections.push('materials')

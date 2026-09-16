@@ -128,6 +128,7 @@ import type {
   SortieForecastReport,
   SortieNode,
   SortieView,
+  MapGauge,
 } from '../../shared/mg-types'
 import { SPECIAL_ATTACK_SEGMENT_ORDER, specialAttackLabel } from '../../shared/fleet-special-attack'
 import { fleetWipeStage } from '../../shared/fleet-wipe'
@@ -1070,6 +1071,41 @@ const enemyName = (mstId: number) => {
  */
 const formationPill = optionalFormationText
 
+const gaugePillOf = (
+  gauge: MapGauge | null | undefined,
+  opts: { after?: MapGauge | null; title?: string } = {},
+): string => {
+  if (!gauge) return ''
+  const valueOf = (gauge: MapGauge): string => {
+    if (gauge.hpNow != null && gauge.hpMax != null) return `${gauge.hpNow}/${gauge.hpMax}`
+    if (gauge.required != null && gauge.required > 0) {
+      const remain = Math.max(0, gauge.required - (gauge.defeated ?? 0))
+      return `${remain}/${gauge.required}`
+    }
+    return gauge.cleared ? '攻略' : ''
+  }
+  const before = valueOf(gauge)
+  const after = opts.after ? valueOf(opts.after) : ''
+  const value = after && before !== after ? `${before} → ${after}` : before
+  if (gauge.hpNow != null && gauge.hpMax != null) {
+    const pct = Math.max(0, Math.min(100, Math.round((gauge.hpNow / (gauge.hpMax || 1)) * 100)))
+    const label = gauge.gaugeType === 3 ? 'TP' : gauge.gaugeType === 2 ? '血条' : '进度'
+    const title = opts.title ?? (gauge.gaugeType === 3 ? '运输 TP 剩余' : gauge.gaugeType === 2 ? 'Boss 血条' : '海域进度')
+    return `<span class="gpill" title="${title}">${label} <span class="gg"><i style="width:${pct}%"></i></span><b>${value}</b></span>`
+  } else if (gauge.required != null && gauge.required > 0) {
+    // 游戏口径:击破计数也画成扣血——剩余次数扣到 0/N 击破,不正着数
+    // (2026-08-12 用户点名「不是 1/6 到 6/6,是 6/6 到 0/6」)
+    const remain = Math.max(0, gauge.required - (gauge.defeated ?? 0))
+    const title = opts.title ?? `Boss 击破进度：剩余 ${remain} 次 · 降至 0 后通关`
+    return `<span class="gpill" title="${title}">Boss <span class="gg"><i style="width:${Math.round((remain / gauge.required) * 100)}%"></i></span><b>${value}</b></span>`
+  } else if (gauge.cleared) {
+    return opts.title
+      ? `<span class="gpill" title="${opts.title}">${value}</span>`
+      : '<span class="gpill" title="海域已攻略">攻略</span>'
+  }
+  return ''
+}
+
 const trailHtml = (
   s: SortieView,
   currentSnapshot: BattleSnapshot | null,
@@ -1144,23 +1180,16 @@ const trailHtml = (
     bossLetter && !reachedBoss
       ? `<span class="te"></span><span class="tn boss" title="Boss 点（来自 fcd 海图）">${esc(bossLetter)}</span>`
       : ''
-  const gauge = mg.mapGauges[mapIdOf(s.mapArea, s.mapNo)]
-  let gaugePill = ''
-  if (gauge) {
-    if (gauge.hpNow != null && gauge.hpMax != null) {
-      const pct = Math.max(0, Math.min(100, Math.round((gauge.hpNow / (gauge.hpMax || 1)) * 100)))
-      const label = gauge.gaugeType === 3 ? 'TP' : gauge.gaugeType === 2 ? '血条' : '进度'
-      const title = gauge.gaugeType === 3 ? '运输 TP 剩余' : gauge.gaugeType === 2 ? 'Boss 血条' : '海域进度'
-      gaugePill = `<span class="gpill" title="${title}">${label} <span class="gg"><i style="width:${pct}%"></i></span><b>${gauge.hpNow}/${gauge.hpMax}</b></span>`
-    } else if (gauge.required != null && gauge.required > 0) {
-      // 游戏口径:击破计数也画成扣血——剩余次数扣到 0/N 击破,不正着数
-      // (2026-08-12 用户点名「不是 1/6 到 6/6,是 6/6 到 0/6」)
-      const remain = Math.max(0, gauge.required - (gauge.defeated ?? 0))
-      gaugePill = `<span class="gpill" title="Boss 击破进度：剩余 ${remain} 次 · 降至 0 后通关">Boss <span class="gg"><i style="width:${Math.round((remain / gauge.required) * 100)}%"></i></span><b>${remain}/${gauge.required}</b></span>`
-    } else if (gauge.cleared) {
-      gaugePill = `<span class="gpill" title="海域已攻略">攻略</span>`
-    }
-  }
+  // 航迹可能借用同次出击的末场或现役 sortie；进度仍属于正在复盘的这一战。
+  const gaugeSortie = currentSnapshot?.sortie ?? s
+  const gaugePill = gaugeSortie.active
+    ? gaugePillOf(mg.mapGauges[mapIdOf(gaugeSortie.mapArea, gaugeSortie.mapNo)])
+    : gaugePillOf(gaugeSortie.gauge?.before, {
+        after: gaugeSortie.gauge?.after,
+        title: gaugeSortie.gauge?.after
+          ? '本战结算前 → 结算后（本地记录）'
+          : '本战开始时的进度（本地记录）',
+      })
   const formation =
     s.battle && s.battle.kind !== 'baseDefense' ? formationPill(s.battle.fFormation) : ''
   const shortFormation = formation.replace(/阵$/, '')

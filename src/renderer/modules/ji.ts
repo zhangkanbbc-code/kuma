@@ -15,6 +15,8 @@ import {
   engagedShips,
   ensureShipStatsLode,
   fleetLos33,
+  nakedAswLevelFor,
+  openingAswOutlookOf,
   panelBonusOf,
   rawAirPower,
   shipEquipInstances,
@@ -225,6 +227,7 @@ import { shipLifeDamageText } from '../../shared/ship-life-damage'
 import { parseNoteTags } from '../../shared/note-tags'
 import { levelGrowth, MARRIED_LEVEL_CAP, marriageHpBonus, marriedMaxHp } from '../../shared/ship-growth'
 import type { ShipGrowthKey } from '../../shared/ship-growth'
+import { aswTrainingTipParts } from '../../shared/ship-stat-layers'
 import {
   locateEquipHolders,
   locateRosterInList,
@@ -1791,6 +1794,9 @@ const shipCategoryPanelHtml = (): string =>
  * 这三份数据本来都在——图鉴知道缺口、离线目录知道掉点、限定期带截止日，
  * 只是分散在三处，玩家得自己逐张海域翻着凑。限定掉落有截止日，
  * 所以「快关门的」单独提前列，那是唯一有时限的决策。
+ *
+ * 2026-09-15 用户裁决：这张面向当下的规划只列当前可获取的掉点；活动或限定期
+ * 已结束就直接撤走。往期语境留给海域卷与舰卡，它们各自保留历史记录。
  */
 const HUNT_SOON_DAYS = 30
 const HUNT_STANDING_CAP = 15
@@ -1818,22 +1824,16 @@ const huntPlanHtml = (): string => {
   const daysBetween = (until: string): number =>
     Math.ceil((Date.parse(`${until}T00:00:00`) - Date.parse(`${today}T00:00:00`)) / 86400000)
 
+  const eventOpen = eventStillRunning()
   const catchable = missing.flatMap((id) => {
-    const sites = confirmedDropSitesOf(id)
+    // 活动已关时只撤掉包里仍写 active 的活动掉点；同舰若还有常规图掉点，仍留在规划里。
+    const sites = confirmedDropSitesOf(id).filter((site) => eventOpen || site.event?.status !== 'active')
     if (!sites.length) return []
     const untils = sites.map((s) => s.limitedUntil).filter((v): v is string => !!v).sort()
     const until = untils[0] ?? null
     return [{ id, sites, until, days: until ? daysBetween(until) : null }]
   })
-  // 只剩已终了掉点的那批：她们**实际无路可捞**，所以一条都不进上面的可捞计数。
-  // 但也一条都不删——照活动结束那批的老规矩，沉到底换个如实的语境，
-  // 好让玩家看得出「不是目录没收录，是那批限定终了了」。
-  const endedOnly = missing.flatMap((id) => {
-    if (confirmedDropSitesOf(id).length) return []
-    const ended = endedDropSitesOf(id)
-    return ended.length ? [{ id, ended }] : []
-  })
-  if (!catchable.length && !endedOnly.length) {
+  if (!catchable.length) {
     return `<div class="hunt-none">缺少 ${missing.length} 艘 · 暂无掉落点资料</div>`
   }
 
@@ -1868,22 +1868,6 @@ const huntPlanHtml = (): string => {
     </div>`
   }
 
-  // 已终了的那批：行长得跟上面一样，只是掉点灰显 + 标「已终了」，也没有倒计时——
-  // 没有什么日子好赶了。悬停给批次名与起始日，说清是哪一批限定把她带进来的。
-  const endedRowOf = (entry: (typeof endedOnly)[number]) => {
-    const places = entry.ended.map(
-      (site) =>
-        `${site.map}${site.difficulty ? ` ${site.difficulty}` : ''} ${site.nodes.slice(0, 3).join('/')}（限定·已结束）`,
-    )
-    const title = entry.ended.map((site) => limitedWindowText(site.window)).join(' · ')
-    return `<div class="hunt-row">
-      <span class="hunt-n">${shipThumbHtml(entry.id, masterShipName(entry.id), { className: 'drop' })}${elink('mstShip', entry.id, masterShipName(entry.id))}${isFavoriteShipRoot(entry.id) ? '<i class="fav-mini" title="已收藏 · 组内靠前显示">★</i>' : ''}</span>
-      <span class="hunt-w ended" title="${esc(title)}">${esc(places.slice(0, 3).join(' · '))}${
-        places.length > 3 ? ` <i>+${places.length - 3} 图</i>` : ''
-      }</span>
-    </div>`
-  }
-
   // 按「会不会消失」分组，而不是按「有没有日期」。这两件事在舰C 里不是一回事：
   //   · 活动图      活动一结束掉落就没了 —— **真的有时限**；官方一般结束前
   //                 1–2 周才公告，公告前 event.until 是 null 属正常；公告后填进资料，
@@ -1896,12 +1880,10 @@ const huntPlanHtml = (): string => {
   // 链根，直接判。「快关门」组仍以剩余天数为先——紧迫性不让位给偏好。
   const favRank = (e: (typeof catchable)[number]) => (isFavoriteShipRoot(e.id) ? 0 : 1)
   // 包说「本期活动」还得跟主数据对一次口供（eventStillRunning 的注释写了为什么）。
-  // 口径是「永不删除，只换语境」：活动已经结束的那批船一条都不从单子上撤，
-  // 只是不再挂在「当前活动图可捞」底下催人去打，改挂如实的语境。
+  // 2026-09-15 用户裁决：活动已关的掉点在 catchable 建表时撤走；往期语境留给
+  // 海域卷与舰卡。混有常规图掉点的舰仍按过滤后剩下的掉点继续归组。
   const packSaysEvent = catchable.filter((e) => e.sites.some((s) => s.event?.status === 'active'))
-  const eventOpen = eventStillRunning()
   const inEvent = (eventOpen ? packSaysEvent : []).sort((a, b) => favRank(a) - favRank(b))
-  const eventClosed = (eventOpen ? [] : packSaysEvent).sort((a, b) => favRank(a) - favRank(b))
   const rest = catchable.filter((e) => !packSaysEvent.includes(e))
   const soon = rest
     .filter((e) => e.days != null && e.days <= HUNT_SOON_DAYS)
@@ -1913,8 +1895,7 @@ const huntPlanHtml = (): string => {
     .filter((e) => !soon.includes(e) && !limitedStanding.includes(e))
     .sort((a, b) => favRank(a) - favRank(b))
   const shownStanding = standing.slice(0, HUNT_STANDING_CAP)
-  const eventName =
-    (inEvent[0] ?? eventClosed[0])?.sites.find((s) => s.event?.status === 'active')?.event?.name ?? ''
+  const eventName = inEvent[0]?.sites.find((s) => s.event?.status === 'active')?.event?.name ?? ''
 
   return `<details class="hunt-plan" data-keep="hunt-plan">
     <summary>还缺 <b>${missing.length}</b> 艘 · 目录里能查到掉点的 <button class="hunt-pick${
@@ -1943,19 +1924,6 @@ const huntPlanHtml = (): string => {
                 ? `<div class="hunt-more">另有 ${standing.length - shownStanding.length} 艘未列出</div>`
                 : ''
             }`
-          : ''
-      }
-      ${
-        // 包还写着 active、主数据里活动图却已经撤了的那批。一条都不删，沉到底
-        // 换个如实的语境（同 di 把已收窗的掉落移进「往期」那一手）
-        eventClosed.length
-          ? `<div class="hunt-h">活动已结束 · 对应掉落当前不可获取${eventName ? ` · ${esc(eventName)}` : ''}</div>${eventClosed.map(rowOf).join('')}`
-          : ''
-      }
-      ${
-        // 同一手：限定期终了的那批也沉到底，只换语境不删行
-        endedOnly.length
-          ? `<div class="hunt-h">限定期已结束 · 对应掉落当前不可获取</div>${endedOnly.map(endedRowOf).join('')}`
           : ''
       }
     </div>
@@ -2852,9 +2820,9 @@ const shipDrawerHtml = () => {
         Array.isArray(raw) && raw.length >= 2 && Number(raw[0]) >= 0 && Number(raw[1]) >= 0
           ? [Number(raw[0]), Number(raw[1])]
           : null // kcwiki 用 -1 标缺数据，照实当缺
-      const liveInstance = Object.values(mg.ships).find(
-        (ship) => ship.shipId === shipState.selectedForm,
-      )
+      const liveInstance = Object.values(mg.ships)
+        .filter((ship) => ship.shipId === shipState.selectedForm)
+        .sort((a, b) => b.lv - a.lv)[0]
       const liveMaxOf: Record<string, number | null> = liveInstance
         ? { 回避: liveInstance.kaihiMax, 对潜: liveInstance.taisenMax, 索敌: liveInstance.sakutekiMax }
         : { 回避: null, 对潜: null, 索敌: null }
@@ -2923,6 +2891,23 @@ const shipDrawerHtml = () => {
         if (base == null && max99 == null) return ''
         const vCap =
           base != null && max99 != null ? levelGrowth(base, max99, MARRIED_LEVEL_CAP) : null
+        // 舰卡没有目标输入框：固定按 100 算，与列表的裸对潜目标框不联动。
+        const heldAswTip = (() => {
+          if (label !== '对潜' || !liveInstance) return ''
+          const aswTarget = 100
+          const aswTargetLevel = nakedAswLevelFor(liveInstance, aswTarget)
+          const parts = aswTrainingTipParts({
+            aswTarget,
+            aswTargetLevel,
+            aswReached: aswTargetLevel != null && aswTargetLevel <= liveInstance.lv,
+            oasw: openingAswOutlookOf(liveInstance),
+          })
+          if (!parts.length) return ''
+          const heldParts = parts.map((part) =>
+            part === '已可先制对潜' ? '现装备下已可先制' : part,
+          )
+          return `\n持有 Lv ${liveInstance.lv} 那艘：${heldParts.join(' · ')}`
+        })()
         return statRowLayered(
           label,
           base,
@@ -2932,7 +2917,7 @@ const shipDrawerHtml = () => {
           ],
           `估算 · 初始与上限之间按等级插值${
             base == null ? '\n初始值暂缺社区资料' : ''
-          }${remodelDeltaTip(label, base)}`,
+          }${remodelDeltaTip(label, base)}${heldAswTip}`,
         )
       }
       const growthRows = ['回避', '对潜', '索敌'].map(growthRow)

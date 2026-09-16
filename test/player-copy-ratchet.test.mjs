@@ -158,6 +158,12 @@ const RETIRED_WORDS = [
     verdict: '用户 2026-09-02 亲裁对空 CI 注文「填了…也不… / 没吃满 / 多出一条 / 那一档」同族',
     fix: '只留成立条件、概率与改修项事实，不写操作后的解释性推论',
   },
+  {
+    id: '09-15 · 捞船规划已结束掉点标题退役',
+    re: /活动已结束 · 对应掉落当前不可获取|限定期已结束 · 对应掉落当前不可获取/,
+    verdict: '用户 2026-09-15 亲裁「可捞的船里面结束了的直接撤走」',
+    fix: '捞船规划不再渲染已结束掉点；往期记录留在海域卷与舰卡',
+  },
 ]
 
 /**
@@ -673,6 +679,29 @@ test('预计返港只放行已裁定的未来时刻文案，概率限定词仍�
   assert.equal(rule.check(row('预计返港 14:20 · 当前概率大概 50%')), true)
 })
 
+const REPLAY_GAUGE_COPY = [
+  '本战结算前 → 结算后（本地记录）',
+  '本战开始时的进度（本地记录）',
+  '〔插值〕 → 〔插值〕',
+  'Boss 4/4 → 3/4',
+  '血条 1200/2400 → 900/2400',
+  'TP 1200/2400 → 900/2400',
+  '进度 1200/2400 → 900/2400',
+]
+
+test('09-15 复盘海域进度文案逐字登记并通过原棘轮', () => {
+  const { tierA } = collectStructuralPlayerCopy()
+  for (const phrase of REPLAY_GAUGE_COPY) {
+    assert.doesNotMatch(phrase, /用户|玩家提供|账本|遭遇志|本机|实况|截图|他的/)
+    const rows = [{ file: '复盘海域进度文案登记', line: 1, text: phrase }]
+    assert.deepEqual(offendersIn(rows, RETIRED_WORDS), [])
+    assert.deepEqual(offendersIn(rows, SENTENCE_SHAPES), [])
+  }
+  for (const phrase of REPLAY_GAUGE_COPY.slice(0, 3)) {
+    assert.ok(tierA.some((row) => row.file.endsWith('modules/di.ts') && row.text.includes(phrase)), `未收录：${phrase}`)
+  }
+})
+
 // 2026-09-15 入渠时刻定稿；只登记文案，沿用原词表、句式与结构判据。
 const REPAIR_CLOCK_COPY = [
   '预计 〔插值〕 修好',
@@ -835,6 +864,65 @@ test('09-10 未收录任务标签与按游戏自报显示的悬停文案通过�
     const rows = [{ file: 'src/renderer/modules/qn.ts', line: 1, text: phrase }]
     assert.deepEqual(offendersIn(rows, RETIRED_WORDS), [])
     assert.deepEqual(offendersIn(rows, SENTENCE_SHAPES), [])
+  }
+})
+
+// 维护者 2026-09-16 定稿：先制对潜所需等级与裸对潜目标值。
+// 动态数值用 123 / 131 / 100 登记成完整成句样本；实现里的插值只替换这些数字。
+const OASW_LEVEL_COPY = [
+  ['先制对潜', '列表筛选片'],
+  ['先制', '列表列头'],
+  ['裸对潜目标', '目标输入子片'],
+  ['还不能先制对潜的驱逐 / 轻巡 / 雷巡 / 练巡 / 海防 / 轻空母 / 补给 · 按现装备下练到几级排', '筛选片悬停'],
+  ['Lv 123', '现装备等级格'],
+  ['已可', '现装备已满足格'],
+  ['Lv188 不够', '现装备上限不足格'],
+  ['—', '现装备未知格'],
+  ['现装备下估算练到 Lv 123 起可先制对潜 · 依据：驱逐条件', '现装备等级悬停'],
+  ['已可先制对潜 · 依据：舰型条件', '现装备已满足悬停'],
+  ['现装备下 Lv188 也达不到 · 先制对潜还看装备条件（如声呐）', '现装备上限不足悬停'],
+  ['缺初始值，算不出', '现装备未知悬停'],
+  ['裸100 · Lv 131', '裸对潜等级格'],
+  ['裸100 · 已达', '裸对潜已达到格'],
+  ['裸100 · Lv188 不够', '裸对潜上限不足格'],
+  ['裸100 · —', '裸对潜未知格'],
+  ['裸对潜（含改修）到 100 估算需 Lv 131 · 目标值在筛选栏改', '裸对潜等级悬停'],
+  ['裸对潜（含改修）已达 100 · 目标值在筛选栏改', '裸对潜已达到悬停'],
+  ['裸对潜（含改修）Lv188 也到不了 100 · 目标值在筛选栏改', '裸对潜上限不足悬停'],
+  ['缺初始值，算不出裸对潜等级 · 目标值在筛选栏改', '裸对潜未知悬停'],
+  ['裸对潜到 100 估算需 Lv 131', '预览卡裸对潜等级提示'],
+  ['裸对潜已达 100', '预览卡裸对潜已达到提示'],
+  ['裸对潜 Lv188 也到不了 100', '预览卡裸对潜上限不足提示'],
+  ['现装备下估算 Lv 123 起可先制对潜', '预览卡现装备等级提示'],
+  ['已可先制对潜', '预览卡现装备已满足提示'],
+  ['现装备下 Lv188 也达不到先制对潜', '预览卡现装备上限不足提示'],
+  ['持有 Lv 98 那艘：裸对潜到 100 估算需 Lv 114 · 现装备下已可先制', '舰卡对潜提示'],
+  ['按虚拟装备估算 · Lv 123 起可发动', '实验室等级提示'],
+  ['按虚拟装备估算 · Lv188 也达不到', '实验室上限不足提示'],
+  ['按虚拟装备估算 · 缺初始值，算不出', '实验室未知提示'],
+]
+
+test('09-16 先制对潜所需等级文案逐字登记并通过原棘轮', () => {
+  for (const [phrase] of OASW_LEVEL_COPY) {
+    assert.doesNotMatch(phrase, /用户|玩家提供|账本|遭遇志|本机|实况|截图|他的/)
+    const rows = [{ file: '先制对潜等级文案登记', line: 1, text: phrase }]
+    assert.deepEqual(offendersIn(rows, RETIRED_WORDS), [])
+    assert.deepEqual(offendersIn(rows, SENTENCE_SHAPES), [])
+  }
+  const qa = fs.readFileSync(new URL('../src/renderer/modules/qa.ts', import.meta.url), 'utf8')
+  const layers = fs.readFileSync(new URL('../src/shared/ship-stat-layers.ts', import.meta.url), 'utf8')
+  const ji = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
+  const lab = fs.readFileSync(new URL('../src/renderer/modules/ji-lab.ts', import.meta.url), 'utf8')
+  for (const phrase of ['裸对潜目标', 'Lv188 不够', '缺初始值，算不出裸对潜等级']) {
+    assert.ok(qa.includes(phrase), `列表未收录：${phrase}`)
+  }
+  for (const phrase of ['裸对潜已达', '现装备下估算 Lv', '现装备下 Lv188 也达不到先制对潜']) {
+    assert.ok(layers.includes(phrase), `属性提示未收录：${phrase}`)
+  }
+  assert.ok(ji.includes('持有 Lv ${liveInstance.lv} 那艘'))
+  assert.ok(ji.includes("'现装备下已可先制'"))
+  for (const phrase of ['按虚拟装备估算', 'Lv188 也达不到', '缺初始值，算不出']) {
+    assert.ok(lab.includes(phrase), `实验室未收录：${phrase}`)
   }
 })
 

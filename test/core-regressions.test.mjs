@@ -8681,8 +8681,9 @@ test('捞船清单：分组按「会不会消失」而不是「有没有日期�
   // ② 只有真的算得出剩余天数的才进「限定期将至」；没有日期一律不催
   assert.ok(fn.includes('e.days != null && e.days <= HUNT_SOON_DAYS'), '「快关门」组的判据松了')
   assert.ok(!fn.includes('资料未写截止日'), 'null 是如实记录，不该说成资料没写')
-  // ③ 活动结束的那批一条都不删，只换语境
-  assert.ok(fn.includes('活动已结束 · 对应掉落当前不可获取'), '活动结束的那批被删掉了')
+  // ③ 用户 2026-09-15 新裁决：这张单子直接撤走活动与限定期已结束的掉点
+  assert.ok(!fn.includes('活动已结束 · 对应掉落当前不可获取'), '活动已结束的旧分组回潮了')
+  assert.ok(!fn.includes('限定期已结束 · 对应掉落当前不可获取'), '限定期已结束的旧分组回潮了')
   // 截断要说出来
   assert.ok(fn.includes('另有 ${standing.length - shownStanding.length} 艘未列出'), '常驻组截断没写明')
 })
@@ -9697,12 +9698,13 @@ test('装备的「可获取途径」把几张正方向的表反查过来，查�
   assert.match(rule, /levelAfter > known\.levelAfter/, '同源多路径该保留星级最高的那条')
 })
 
-test('周期任务不当「前置没做完」的证据——一张当期快照答不了「你做过没有」', () => {
+test('周期前置不看当期表，但它自己的前置链必须通过', () => {
   const rule = fs.readFileSync(new URL('../src/shared/quest-availability.ts', import.meta.url), 'utf8')
 
   // 日/周/月/季/年常任务做完当期就从表里消失，下期又回来。
   // 拿「当期不在表里」当「没做完」，实测把 31 条早就做完的任务报成「还不能接」
   // （A56 卡在月常 Bm6、A59 同样、A60 顺着 B53 也卡在那里）。
+  // 但周期前置的自有前置链若未通过，说明它从未解锁，下游不可能已交付。
   assert.match(rule, /export const isCyclicQuestCode = /)
   assert.ok(rule.includes("new Set(['d', 'w', 'm', 'q', 'y'])"), '周期标记表不对')
   const pre = rule.slice(
@@ -9710,7 +9712,10 @@ test('周期任务不当「前置没做完」的证据——一张当期快照�
     rule.indexOf('const state = input.observed.get'),
   )
   assert.ok(pre.length > 200, '取到的前置判据片段不对')
-  assert.match(pre, /if \(isCyclicQuestCode\(code\)\) \{[\s\S]*?settled\.set\(code, true\)/)
+  assert.match(
+    pre,
+    /if \(isCyclicQuestCode\(code\)\) \{[\s\S]*?visiting\.add\(code\)[\s\S]*?entry\.pre\.every\(\(pre\) => preSatisfied\(pre\)\)[\s\S]*?settled\.set\(code, unlockable\)/,
+  )
   // 但周期任务**自己**的状态照常判，只是 done 要标成「本期」
   assert.match(rule, /cyclic: boolean/)
 })
@@ -10814,7 +10819,9 @@ test('列表详情预览的实例属性条：三层拆解 + 与图鉴共用渲�
   assert.match(roster, /shipGrowthEndpointsOf\(ship\.shipId, 'evasion', ship\.kaihiMax\)/)
   assert.match(roster, /shipGrowthEndpointsOf\(ship\.shipId, 'asw', ship\.taisenMax\)/)
   assert.match(roster, /shipGrowthEndpointsOf\(ship\.shipId, 'los', ship\.sakutekiMax\)/)
-  assert.match(roster, /instanceStatRows\(ship, mst, equips, init\)/)
+  assert.match(roster, /instanceStatRows\(ship, mst, equips, init, \{/)
+  assert.match(roster, /aswTarget: state\.oaswTarget/)
+  assert.match(roster, /oasw: row\.oasw/)
   // 主数据未就绪不画半截条，退回文字药丸
   assert.match(roster, /if \(!mst\) \{/)
   // 图例三个新语义常驻：裸值 / 装备给予 / 可提升（余量沿用图鉴色语）
@@ -12224,11 +12231,12 @@ test('等级排序的同级次序固定「快升级的在前」,不随升降序�
   assert.match(roster, /const TIE_BREAKERS: Record<string, \(a: Row, b: Row\) => number> = \{\s*\n\s*lv: \(a, b\) => a\.ship\.expNext - b\.ship\.expNext,/)
   // 主键乘 sortDir、次键不乘 —— 这一行就是整条口径
   assert.match(roster, /rows\.sort\(\(a, b\) => state\.sortDir \* sorter\(a, b\) \|\| \(tie \? tie\(a, b\) : 0\)\)/)
-  // 列表与导出必须共用这一次排序,否则 CSV 里的顺序跟屏幕上不一样
+  // 列表、导出与裸对潜目标值重画必须共用这一次排序，否则 CSV 或重画后的
+  // 屏幕次序会与当前列表不一致。
   assert.equal(
     (roster.match(/^\s*sortRows\(\w+\)$/gm) ?? []).length,
-    2,
-    '列表与导出这两个排序入口不再共用同一份口径',
+    3,
+    '列表、导出与目标值重画这三个排序入口不再共用同一份口径',
   )
   assert.doesNotMatch(roster, /\.sort\(\(a, b\) => state\.sortDir \* sorter\(a, b\)\)/, '又有人在调用点自己拼排序了')
 })

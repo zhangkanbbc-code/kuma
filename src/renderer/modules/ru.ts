@@ -20,8 +20,6 @@ import {
   bestShipAacis,
   openingAswOf,
   shipAaciCeiling,
-  type SpecialAbilityEquip,
-  type SpecialAbilityShip,
 } from '../../shared/ship-special-attack'
 import {
   BERTH_WARMUP_MS,
@@ -71,6 +69,8 @@ import {
   queryExpSamples,
 } from '../kernel'
 import {
+  abilityEquipsOf,
+  abilityShipOf,
   engagedShips,
   ensureShipStatsLode,
   fleetAirPower,
@@ -729,40 +729,6 @@ const specialAttackChipsHtml = (deck: Deck): string =>
       return `<span class="special-attack-chip ${attack.phase}" title="${esc(title)}">${esc(attack.label)}</span>`
     })
     .join('')
-
-// 逐舰机制（对空CI / 先制对潜）：判定全在 shared/ship-special-attack，这里只取数据和措辞。
-// 装备要连补强增设一起数——增设格里的机枪同样计入对空CI 条件。
-const abilityShipOf = (ship: PlayerShip): SpecialAbilityShip | null => {
-  const master = mg.master.ships[ship.shipId]
-  if (!master) return null
-  return {
-    mstId: ship.shipId,
-    name: master.name,
-    stype: master.stype,
-    ctype: master.ctype,
-    slotNum: master.slotNum,
-    kai: master.kai,
-    asw: ship.taisen,
-  }
-}
-
-const abilityEquipsOf = (ship: PlayerShip): SpecialAbilityEquip[] => {
-  const equips: SpecialAbilityEquip[] = []
-  for (const instId of [...ship.slot, ship.slotEx]) {
-    if (instId <= 0) continue
-    const inst = mg.slotitems[instId]
-    const mst = inst ? mg.master.slotitems[inst.mstId] : undefined
-    if (!inst || !mst) continue
-    equips.push({
-      mstId: inst.mstId,
-      type2: mst.type2,
-      iconId: mst.iconId,
-      antiAir: mst.tyku,
-      asw: mst.tais,
-    })
-  }
-  return equips
-}
 
 // 措辞一律是「可发动」：条件成立不等于打得出来。对空CI 有发动率、一场只结算一艘；
 // 先制对潜还要这一战真有潜水舰——标签上别写成「会」。

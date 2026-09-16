@@ -2104,7 +2104,7 @@ const expeditionTogetherHtml = (row: QRow): string => {
   const overlaps = buildExpeditionOverlap({
     questId: row.id,
     trackers: qp.trackers,
-    quests: [...lib.values()].map(({ id, code }) => ({ id, code })),
+    quests: [...lib.values()].map(({ id, code, pre }) => ({ id, code, pre })),
     verdictOf: (id) => verdicts.get(id)?.status,
     missionCodeOf: (missionId) =>
       normalizeExpeditionDispNo(mg.master.missions[missionId]?.dispNo) || undefined,

@@ -3,7 +3,7 @@ import test from 'node:test'
 
 import shipGrowth from '../dist/shared/ship-growth.js'
 
-const { levelGrowth, MARRIED_LEVEL_CAP, marriageHpBonus, marriedMaxHp } = shipGrowth
+const { levelForGrowth, levelGrowth, MARRIED_LEVEL_CAP, marriageHpBonus, marriedMaxHp } = shipGrowth
 
 test('三维成长公式钉着账本实测的样本', () => {
   // 2026-08-11 用户账本：183 艘全空槽在港舰逐项 546 项检查 544 项吻合。
@@ -23,6 +23,21 @@ test('三维成长公式钉着账本实测的样本', () => {
   assert.equal(levelGrowth(10, 44, 0), null)
   // 上限依据 KC3Kai 经验表（Lv188 到下一级=0，175 之后还有整段）
   assert.equal(MARRIED_LEVEL_CAP, 188)
+})
+
+test('成长目标反算与逐级 floor 语义一致', () => {
+  // 维护者核 2026-09-16：三元组来自港口快照与 ship-stats 包。
+  assert.equal(levelForGrowth(54, 94, 0, 100), 114)
+  assert.equal(levelForGrowth(30, 77, 0, 100), 148)
+  assert.equal(levelForGrowth(30, 77, 0, 90), 127)
+  assert.equal(levelForGrowth(53, 93, 0, 100), 117)
+  assert.equal(levelForGrowth(39, 88, 18, 100), 87) // 时雨改三：改修 6 + 装备 12
+  assert.equal(levelForGrowth(20, 59, 0, 100), null) // Lv188 只有 94
+  assert.equal(levelForGrowth(10, 10, 5, 15), 1)
+  assert.equal(levelForGrowth(0, 0, 0, 1), null)
+  assert.equal(levelForGrowth(-1, 50, 0, 10), null)
+  assert.equal(levelForGrowth(10.5, 50, 0, 10), null)
+  assert.equal(levelForGrowth(10, 50.5, 0, 10), null)
 })
 
 test('结婚耐久档位钉着账本 12 艘婚舰的实测', () => {

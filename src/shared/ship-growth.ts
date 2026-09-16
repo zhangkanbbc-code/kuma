@@ -42,6 +42,24 @@ export const levelGrowth = (base: number, max: number, lv: number): number | nul
 export const MARRIED_LEVEL_CAP = 188
 
 /**
+ * 达到目标成长值所需的最低等级（含额外固定值）。
+ * init/max 任一缺失或不是整数时返回 null；Lv188 仍不够也返回 null。
+ */
+export const levelForGrowth = (
+  init: number,
+  max: number,
+  extra: number,
+  target: number,
+): number | null => {
+  if (!Number.isInteger(init) || init < 0 || !Number.isInteger(max) || max < 0) return null
+  for (let lv = 1; lv <= MARRIED_LEVEL_CAP; lv += 1) {
+    const grown = levelGrowth(init, max, lv)
+    if (grown != null && grown + extra >= target) return lv
+  }
+  return null
+}
+
+/**
  * 结婚耐久加成档位（按未婚初始耐久分档）。
  * 游戏报文 12 艘婚舰逐一验证：+5（初始34/35/37）、+6（40）、+7（53/59/61）、
  * +8（81/85）、+9（98）五档全中，未婚 420 艘 maxhp 恒等于 api_taik[0]。

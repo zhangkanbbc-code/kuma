@@ -17,6 +17,8 @@
 // - 先制对潜还要求这一战真的有潜水舰在场。
 // 所以界面上的措辞是「可发动」，判据一并写进悬停说明供玩家自己核对。
 
+import { levelGrowth, MARRIED_LEVEL_CAP } from './ship-growth'
+
 export interface SpecialAbilityShip {
   mstId: number
   name: string // master 原名：金剛型改二一类要按名字里的「改二」判
@@ -973,4 +975,40 @@ export const openingAswOf = (
 ): OpeningAsw | null => {
   const hit = OPENING_ASW_RULES.find((rule) => rule.match(ship, equips))
   return hit ? { basis: hit.basis } : null
+}
+
+export type OpeningAswOutlook =
+  | { state: 'ready'; basis: string }
+  | { state: 'level'; level: number; basis: string }
+  | { state: 'never' }
+  | { state: 'unknown' }
+
+/** 现装备不变时，最低练到几级可满足先制对潜规则。 */
+export const openingAswLevelOf = (
+  ship: SpecialAbilityShip,
+  equips: readonly SpecialAbilityEquip[],
+  growth: { init: number | null; max: number | null; lv: number },
+): OpeningAswOutlook => {
+  const ready = openingAswOf(ship, equips)
+  if (ready) return { state: 'ready', basis: ready.basis }
+  if (
+    growth.init == null ||
+    growth.max == null ||
+    !Number.isInteger(growth.init) ||
+    !Number.isInteger(growth.max) ||
+    growth.init < 0 ||
+    growth.max < 0
+  ) {
+    return { state: 'unknown' }
+  }
+  const currentGrowth = levelGrowth(growth.init, growth.max, growth.lv)
+  if (currentGrowth == null) return { state: 'unknown' }
+  const extra = ship.asw - currentGrowth
+  for (let lv = growth.lv + 1; lv <= MARRIED_LEVEL_CAP; lv += 1) {
+    const grown = levelGrowth(growth.init, growth.max, lv)
+    if (grown == null) return { state: 'unknown' }
+    const hit = openingAswOf({ ...ship, asw: grown + extra }, equips)
+    if (hit) return { state: 'level', level: lv, basis: hit.basis }
+  }
+  return { state: 'never' }
 }

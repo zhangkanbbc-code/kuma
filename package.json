@@ -1,7 +1,7 @@
 {
   "name": "kuma",
   "productName": "kuma",
-  "version": "1.0.0-beta.18",
+  "version": "1.0.0-beta.19",
   "description": "《舰队 Collection》的信息工作台",
   "main": "dist/main/index.js",
   "private": true,
@@ -44,7 +44,7 @@
   "devDependencies": {
     "@electron/packager": "^20.1.1",
     "@types/node": "^22.10.0",
-    "electron": "^43.6.0",
+    "electron": "^43.7.1",
     "esbuild": "^0.25.0",
     "typescript": "^5.9.0"
   }

@@ -23,7 +23,14 @@ import {
   growthGateKey,
   growthReverseEnabled,
   growthValueAt,
+  levelForGrowth,
 } from '../shared/ship-growth'
+import {
+  openingAswLevelOf,
+  type OpeningAswOutlook,
+  type SpecialAbilityEquip,
+  type SpecialAbilityShip,
+} from '../shared/ship-special-attack'
 
 import type { FitObserved, FitPanelKey } from '../shared/fit-bonus'
 import type { GrowthGate, GrowthVerdict, ShipGrowthKey, ShipStatsPack } from '../shared/ship-growth'
@@ -253,6 +260,39 @@ export type { FitObserved as PanelBonusResult } from '../shared/fit-bonus'
 export const shipEquipInstances = (ship: PlayerShip) =>
   [...ship.slot, ship.slotEx].filter((id) => id > 0).map((id) => mg.slotitems[id]).filter(Boolean)
 
+// 逐舰机制（对空CI / 先制对潜）的共用判据视图。装备连补强增设一起数。
+export const abilityShipOf = (ship: PlayerShip): SpecialAbilityShip | null => {
+  const master = mg.master.ships[ship.shipId]
+  if (!master) return null
+  return {
+    mstId: ship.shipId,
+    name: master.name,
+    stype: master.stype,
+    ctype: master.ctype,
+    slotNum: master.slotNum,
+    kai: master.kai,
+    asw: ship.taisen,
+  }
+}
+
+export const abilityEquipsOf = (ship: PlayerShip): SpecialAbilityEquip[] => {
+  const equips: SpecialAbilityEquip[] = []
+  for (const instId of [...ship.slot, ship.slotEx]) {
+    if (instId <= 0) continue
+    const inst = mg.slotitems[instId]
+    const mst = inst ? mg.master.slotitems[inst.mstId] : undefined
+    if (!inst || !mst) continue
+    equips.push({
+      mstId: inst.mstId,
+      type2: mst.type2,
+      iconId: mst.iconId,
+      antiAir: mst.tyku,
+      asw: mst.tais,
+    })
+  }
+  return equips
+}
+
 // ---- 成长三维（回避/对潜/索敌）的端点表与标定闸门 ----
 //
 // 这三项的裸值主数据没有，要 `插值(端点, 等级)` 算。端点来自第一方 `ship-stats` 汇编包，
@@ -337,6 +377,25 @@ export const growthGateReport = () => {
 /** 这个形态这一项的端点（持有形态优先用游戏一手的 Lv99 上限）。图鉴的三维上限也吃它。 */
 export const shipGrowthEndpointsOf = (mstId: number, key: ShipGrowthKey, liveMax?: number | null) =>
   growthEndpoints(shipStatsPack, mstId, key, liveMax)
+
+/** 现装备保持不变时，这艘舰何时可先制对潜。主数据缺失时不下结论。 */
+export const openingAswOutlookOf = (ship: PlayerShip): OpeningAswOutlook | null => {
+  const subject = abilityShipOf(ship)
+  if (!subject) return null
+  const endpoints = shipGrowthEndpointsOf(ship.shipId, 'asw', ship.taisenMax)
+  return openingAswLevelOf(subject, abilityEquipsOf(ship), {
+    init: endpoints.init,
+    max: endpoints.max,
+    lv: ship.lv,
+  })
+}
+
+/** 裸对潜（含改修）达到目标值所需的最低等级。 */
+export const nakedAswLevelFor = (ship: PlayerShip, target: number): number | null => {
+  const endpoints = shipGrowthEndpointsOf(ship.shipId, 'asw', ship.taisenMax)
+  if (endpoints.init == null || endpoints.max == null) return null
+  return levelForGrowth(endpoints.init, endpoints.max, ship.kyouka[6] ?? 0, target)
+}
 
 export const panelBonusOf = (ship: PlayerShip): FitObserved | null => {
   const mst = mg.master.ships[ship.shipId]

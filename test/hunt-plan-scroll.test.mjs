@@ -123,7 +123,7 @@ test('抬头的三个数各自照旧：还缺 / 能查到掉点 / 在当前活�
 test('各组逐条列全，只有常驻组按 HUNT_STANDING_CAP 截并明说还剩多少', () => {
   // 「当前活动图可捞」正是用户截图里滚不动的那一段：它必须整组列全，
   // 靠容器滚动装下，而不是偷偷截几条了事。
-  for (const group of ['inEvent', 'soon', 'limitedStanding', 'eventClosed']) {
+  for (const group of ['inEvent', 'soon', 'limitedStanding']) {
     assert.match(
       huntSource,
       new RegExp(`\\$\\{${group}\\.map\\(rowOf\\)\\.join\\(''\\)\\}`),

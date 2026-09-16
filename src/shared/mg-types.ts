@@ -710,6 +710,9 @@ export interface SortieEscapedShip {
 export interface SortieView {
   active: boolean
   practice: boolean // 演习（无航迹/罗盘）
+  // 复盘用：before 为本战结算前的进度（出击刚开始时为出击时的进度），after 为结算后。
+  // 每场结算时整体重写；演习为 null。老快照没有此键时不显示，不拿当前进度顶替。
+  gauge?: { before: MapGauge | null; after: MapGauge | null } | null
   mapArea: number
   mapNo: number
   deckId: number
