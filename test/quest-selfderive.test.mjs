@@ -50,6 +50,7 @@ const scrap = (await bundleModule('src/main/mg/quest-scrap-rules.ts', 'quest-scr
 const scrapCtx = scrap.buildScrapRuleContext(scrapMaster, scrapLocalization)
 const conflicts = (await bundleModule('src/main/mg/quest-source-conflicts.ts', 'quest-source-conflicts')).module
 const histFleets = (await bundleModule('src/shared/hist-fleets.ts', 'hist-fleets')).module
+const qpTypes = (await bundleModule('src/shared/qp-types.ts', 'qp-types')).module
 const practice = (await bundleModule('src/main/mg/quest-practice-rules.ts', 'quest-practice-rules')).module
 const mission = (await bundleModule('src/main/mg/quest-mission-rules.ts', 'quest-mission-rules')).module
 const missionCtx = mission.buildMissionRuleContext(missionMaster, expeditionPack)
@@ -1761,10 +1762,11 @@ test('编成：斜杠省写形态不许把「或」后面那一半吞掉', () =>
  * 注册表 × 线上编成门 的对账台账（2026-08-22 逐条核过）。
  *
  * 判据：注册表某条队的成员，在**引用了这支队**的那条任务的门里认不认得出来。
- * 全 184 条 (条目 × questRef) 里 167 条全覆盖；下面这 17 条不覆盖，逐条查明原因。
+ * 全 184 条 (条目 × questRef) 里 167 条全覆盖；下面这些不覆盖项逐条查明原因。
  * （dd-02-2/Cy16 原也在表内，2026-08-30 那条任务在 kuma-quest-rules 里按日文原文
  *  逐条解码后有门了——旗舰子集 + 全集凑 3 艘两组装得下，于是从台账里删掉。）
- * 2026-09-08：2606Cm1 与 2606Am1 同用更新后名单，新增前期名单不覆盖一条，现 18 条。
+ * 2026-09-08：2606Cm1 与 2606Am1 同用更新后名单，新增前期名单不覆盖一条。
+ * 2026-09-17：线上 kcwiki 层能表达组间「或」后，B138 / Bq13 两条不再列为缺门。
  *
  * 覆盖的尺子与门用的同一把：**按整条改造链量**。cd-04 第四航空战队记的是 A60 那一期
  * 要的 伊勢改／日向改，而 B132 要的是改二——按链量就对得上，按写明形态量会判成分歧，
@@ -1776,7 +1778,6 @@ test('编成：斜杠省写形态不许把「或」后面那一半吞掉', () =>
  * 只有 `defines`（正文界定了成员表）才该覆盖，下面四条 defines 的例外各有依据。
  */
 const HIST_FLEET_RECONCILE = [
-  { entry: 'sq-05-hg', code: 'B138', why: '「其他重巡级1艘驱逐舰2艘 或 驱逐舰4艘」是组间「或」，引擎表达不了 → 整条弃用' },
   { entry: 'dd-22', code: 'A49', why: 'A49 的正文只点名 皐月/文月/長月 + 「其他一艘驱逐舰」，游戏这一条不要求 水無月；成员表由同为 defines 的 A79 背书（那条四个人全列了）。注册表没错，是 A49 这一条本来就松' },
   { entry: 'sq-31-e1', code: '2606Am1', why: '一条正文两套名单；2606Am1 在 kuma-quest-rules 里按「更新后」口径手工解码，落的是 sq-31-e2 那一期。前期名单因此不在门里——这是那条手工解码自己的期别选择，不是注册表与门打架' },
   { entry: 'sq-31-e1', code: '2606Cm1', why: '2026-09-08 编成门修正：与 2606Am1 同门，人工规则按更新后八艘改造链凑五艘；前期 sq-31-e1 名单不再由正文推导的前后期并集放行' },
@@ -1792,7 +1793,6 @@ const HIST_FLEET_RECONCILE = [
   { entry: 'sq-03', code: 'C73', why: 'mentions：C73 只要 金刚改二丙（仲裁台账 364 那一条）' },
   { entry: 'sq-16-4', code: 'B179', why: 'mentions：B179 只要这一期里的一部分，其余五位不在这条的要求里' },
   { entry: 'cd-01', code: 'F88', why: 'mentions：F88 真正的门在装备轴（熟练度 max 的流星改），「一航战」在那条里只是称谓' },
-  { entry: 'td-06', code: 'Bq13', why: 'mentions：Bq13 卡在组间「或」（六水战驱逐2艘 或 由良改二），整条无门' },
   { entry: 'rei-1', code: 'Bm7', why: 'mentions：Bm7 的门是纯舰种（驱逐舰旗舰 + 4 艘），队名在那条里只是称谓' },
 ]
 
@@ -1831,8 +1831,10 @@ test('注册表 × 编成门：不覆盖的每一条都在台账里，且台账�
   for (const [idText, row] of Object.entries(questPack.data)) {
     const goal = trackers[Number(idText)]?.fleetGoal
     const ships = new Set()
-    for (const group of goal?.groups ?? []) {
-      if (Array.isArray(group.ships)) for (const mstId of group.ships) ships.add(mstId)
+    for (const expanded of goal ? qpTypes.expandFleetGoal(goal) : []) {
+      for (const group of expanded.groups) {
+        if (Array.isArray(group.ships)) for (const mstId of group.ships) ships.add(mstId)
+      }
     }
     gateOf.set(`${row?.code ?? ''}`, ships)
   }

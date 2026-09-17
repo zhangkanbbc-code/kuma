@@ -13,7 +13,7 @@ import type { EntityNameIndex, ShipNameEntry, ShipClassEntry } from '../task-ent
 // 本地事件流计数，与服务器进度可能有出入，游戏自报粗档并列展示作对照。
 import type { Quest } from '../../shared/mg-types'
 import { questCategoryLetterFromObserved, questPeriodFromObserved } from '../../shared/quest-observed'
-import { QP_BLOCK_TEXT, QP_RANK_NAME, qpTaskGroups } from '../../shared/qp-types'
+import { expandFleetGoal, QP_BLOCK_TEXT, QP_RANK_NAME, qpTaskGroups } from '../../shared/qp-types'
 import { decksOnExpedition } from '../../shared/expedition-state'
 
 import {
@@ -1096,6 +1096,15 @@ const mapIdsInText = (rawText: string): number[] =>
 const nationalityRangesInPackedText = (rawText: string) =>
   matchTaskNationalityHits(normalizeEntityText(rawText))
 
+const qpFleetGoalLabelText = (goal: QpFleetGoal | undefined): string => {
+  if (!goal) return ''
+  const common = goal.groups.map((group) => group.label).join(' ')
+  const alternatives = goal.anyOf
+    ?.map((alternative) => `（${qpFleetGoalLabelText(alternative)}）`)
+    .join('或') ?? ''
+  return [common, alternatives].filter(Boolean).join(' ')
+}
+
 const shipEntityHtml = (entry: ShipNameEntry) =>
   availabilityWrap(
     shipOwned(entry),
@@ -1116,7 +1125,7 @@ const questMapRefs = (
   tracker: QpState['trackers'][number] | undefined,
   collectMatches?: (hits: ReturnType<typeof matchTaskEntityHits>, refs: Set<number>) => void,
 ): number[] => {
-  const goalLabels = (tracker?.fleetGoal?.groups ?? []).map((group) => group.label).join(' ')
+  const goalLabels = qpFleetGoalLabelText(tracker?.fleetGoal)
   const text = `${row.name} ${row.desc} ${taskEntityMemoText(row.memo2)} ${goalLabels}`
   const allowTextMaps = taskEntityTextDomainAllowed('map', row.code)
   const mapHits = allowTextMaps ? matchTaskEntityHits(mapNameIndex, text, 2) : []
@@ -1144,7 +1153,7 @@ export const questsInvolvingMap = (mapId: number): LibQuest[] =>
 // 编成条件只有 fleetGoal 这一种结构化表达，不再另发一份纯文本摘要。
 const entityChipsHtml = (row: QRow) => {
   const tracker = qp?.trackers[row.id]
-  const goalLabels = (tracker?.fleetGoal?.groups ?? []).map((group) => group.label).join(' ')
+  const goalLabels = qpFleetGoalLabelText(tracker?.fleetGoal)
   const text = `${row.name} ${row.desc} ${taskEntityMemoText(row.memo2)} ${goalLabels}`
   const normalizedText = simplifyJp(text).normalize('NFKC')
   const lines: string[] = []
@@ -1450,9 +1459,8 @@ const NEED_MAX_CHARS = 54
 //  · 「限第 N 舰队」例外：漏掉它玩家会把队编在别处白打一场。四个字，且与引擎
 //    判不通过时报的那句（evaluateFleetGoal 的「第N舰队」）是同一份说法。
 const qpFleetNeedItems = (goal: QpFleetGoal): string[] => {
-  const items = goal.groups
-    .filter((group) => group.amount > 0)
-    .map((group) => {
+  const itemsOf = (current: QpFleetGoal): string[] => {
+    const common = current.groups.filter((group) => group.amount > 0).map((group) => {
       const head = group.flagship
         ? '旗舰 '
         : group.position !== undefined
@@ -1466,7 +1474,15 @@ const qpFleetNeedItems = (goal: QpFleetGoal): string[] => {
         group.amount > 1 ? ` ×${group.amount}` : ''
       }`
     })
-  return items.length && goal.fleetId !== undefined ? [`第${goal.fleetId}舰队`, ...items] : items
+    const alternatives = current.anyOf
+      ?.map((alternative) => `（${itemsOf(alternative).join(' + ')}）`)
+      .filter((item) => item !== '（）') ?? []
+    const items = alternatives.length ? [...common, alternatives.join('或')] : common
+    return items.length && current.fleetId !== undefined
+      ? [`第${current.fleetId}舰队`, ...items]
+      : items
+  }
+  return itemsOf(goal)
 }
 
 // 列表行里**顶掉正文那一行**的替换文案：编成门（要凑什么）+ 行动需求（要做什么）。
@@ -1694,15 +1710,23 @@ const qpDetailHtml = (row: QRow): string => {
             ? fleetCheckStaleHtml() + fleetCheck[row.id].diffs!.map((diff) => {
                 // evaluateFleetGoal 先放可选的舰队限制行，再按 groups 原序放各组，末尾才是总量限制。
                 // 按位置关联可区分同名但要求不同的组；不从标签反解舰种。
+                const selectedGoal = expandFleetGoal(tracker.fleetGoal!)[diff.alternative ?? 0]
                 const groupOffset = diff.lines[0]?.kind === 'fleet' ? 1 : 0
                 const details = diff.lines.map((line, index) => {
-                  const group = tracker.fleetGoal!.groups[index - groupOffset]
+                  const group = selectedGoal.groups[index - groupOffset]
                   const label = group?.stypes.length > 0 && !(Array.isArray(group.ships) && group.ships.length)
                     ? elinkHtml('shipTypeGroup', group.stypes.join(','), esc(line.label))
                     : esc(line.label)
                   return `${label} ${line.current}/${line.required}${line.ok ? ' ✓' : ` · ${esc(line.issue ?? '未满足')}`}`
                 }).join('；')
-                return `<div class="fleet-goal-row ${diff.ok ? 'ok' : 'no'}"><b>第${diff.deckId}舰队</b><span>${details}</span></div>`
+                const selectedLabel = selectedGoal.groups
+                  .filter((group) => group.amount > 0)
+                  .map((group) => `${group.label}${group.amount > 1 ? `×${group.amount}` : ''}`)
+                  .join(' + ')
+                const selected = tracker.fleetGoal!.anyOf?.length && selectedLabel
+                  ? `按“${esc(selectedLabel)}”这一种；`
+                  : ''
+                return `<div class="fleet-goal-row ${diff.ok ? 'ok' : 'no'}"><b>第${diff.deckId}舰队</b><span>${selected}${details}</span></div>`
               }).join('')
             : tracker.fleetGoal ? fleetCheckPendingHtml(row, '当前编成') : fleetCheckStaleHtml()
         }

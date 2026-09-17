@@ -67,8 +67,9 @@ test('真实全库编成门可疑清单必须精确等于已核清单，新增�
   const result = await runFleetGateAudit()
   // 2026-09-11 定号表补入 2609Cw1、By17、By18 的编成门，三条均由 kuma 提供。
   // 2026-09-15 B217/F143 新增两道编成门，均由逐项复核后的 kuma 规则提供。
-  assert.equal(result.summary.total, 399)
-  assert.deepEqual(result.summary.sources, { kcwiki: 259, kuma: 140 })
+  // 2026-09-17 B138 / Bq13 的同任务不同编成 or 由 kcwiki 层接住，不再整条丢门。
+  assert.equal(result.summary.total, 401)
+  assert.deepEqual(result.summary.sources, { kcwiki: 261, kuma: 140 })
   assert.deepEqual(result.suspicious.map((row) => row.code).sort(), Object.keys(REVIEWED).sort())
   for (const code of ['C57', 'B194', 'B204', 'F138']) {
     assert.equal(result.rows.find((row) => row.code === code)?.status, 'clear', code)

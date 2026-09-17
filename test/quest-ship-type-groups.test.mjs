@@ -14,6 +14,7 @@ const output = path.join(temp, 'runtime.cjs')
 buildSync({
   stdin: { contents: [
     'export * from "./src/shared/quest-ship-type-groups"',
+    'export * from "./src/shared/qp-types"',
     'export * from "./src/shared/quest-emphasis"',
     'export * from "./src/main/mg/quest-fleet-rules"',
     'export * from "./src/main/mg/kcwiki-quest-rules"',
@@ -42,6 +43,13 @@ const compile = (source, start, end, expression, deps) => {
 const esc = (value) => String(value).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 const elinkHtml = (type, id, inner) => `<span data-etype="${type}" data-eid="${id}">${inner}</span>`
 const indexes = runtime.buildTaskEntityIndexes(questEntityMaster, (_domain, _id, name) => runtime.normalizeTaskEntityText(name))
+const qpFleetGoalLabelText = compile(
+  qn,
+  'const qpFleetGoalLabelText =',
+  'const shipEntityHtml =',
+  'qpFleetGoalLabelText',
+  {},
+)
 
 test('任务舰种纯表的每个别名都存在于引擎，成员集合逐项相等', () => {
   assert.equal(groups.length, 4)
@@ -61,11 +69,12 @@ test('任务舰种纯表的每个别名都存在于引擎，成员集合逐项�
 
 const questMapRefs = compile(qn, 'const questMapRefs =', 'export const questsInvolvingMap =', 'questMapRefs', {
   ...runtime, ...indexes, simplifyJp: runtime.simplifyTaskEntityText,
-  mapIdsInText: () => [], mapIds: new Set(),
+  mapIdsInText: () => [], mapIds: new Set(), qpFleetGoalLabelText,
 })
 const entityChips = compile(qn, 'const entityChipsHtml =', 'const expeditionDisplayName =', 'entityChipsHtml', {
   ...runtime, ...indexes, qp: null, simplifyJp: runtime.simplifyTaskEntityText,
   nationalityRangesInPackedText: () => [], questMapRefs,
+  qpFleetGoalLabelText,
   matchedEntities: runtime.matchedTaskEntities, TASK_CATEGORIES: [],
   elink: (type, id, label) => elinkHtml(type, id, esc(label)),
 })
@@ -114,6 +123,7 @@ test('编成检查按引擎原组关联：舰队限制、同名组、具名舰�
   const diff = runtime.evaluateFleetGoal(fleetGoal, [], 1)
   const detail = compile(qn, 'const qpDetailHtml =', '// kcwiki 任务文本的道具名', 'qpDetailHtml', {
     qp, qpTaskGroups: () => [], mg: {}, esc, elinkHtml,
+    expandFleetGoal: runtime.expandFleetGoal,
     fleetCheck: { 1: { diffs: [diff] } }, fleetCheckStaleHtml: () => '',
   })
   const html = detail({ id: 1 })
@@ -131,6 +141,7 @@ test('qn 编成检查只渲染候选舰队，灰字只随引擎实际剔除结�
     const detail = compile(qn, 'const qpDetailHtml =', '// kcwiki 任务文本的道具名', 'qpDetailHtml', {
       qp: { trackers: { 1: { tasks: [], fleetGoal: goal } }, progress: {}, serverFloors: {} },
       qpTaskGroups: () => [], mg: {}, esc, elinkHtml,
+      expandFleetGoal: runtime.expandFleetGoal,
       fleetCheck: check ? { 1: check } : {}, fleetCheckStaleHtml: () => '',
       fleetCheckPendingHtml: () => '当前编成读取中',
     })

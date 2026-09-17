@@ -9,8 +9,34 @@ import { fileURLToPath } from 'node:url'
 import { buildSync } from 'esbuild'
 
 import { syntheticKcwikiRequirements } from './fixtures/quest-lodes.mjs'
+import { questEntityMaster } from './fixtures/quest-entity-master.mjs'
 import qpTypes from '../dist/shared/qp-types.js'
-const { classifyFleetDiff } = qpTypes
+const { classifyFleetDiff, expandFleetGoal } = qpTypes
+
+test('expandFleetGoal 把公共组并入每个完整备选，备选限制覆盖公共限制', () => {
+  const common = { label: '公共', ships: [1], stypes: [], amount: 1 }
+  const left = { label: '左', ships: [2], stypes: [], amount: 1 }
+  const right = { label: '右', ships: [3], stypes: [], amount: 1 }
+  const expanded = expandFleetGoal({
+    groups: [common],
+    fleetId: 1,
+    maxShips: 6,
+    disallowedStypes: [13],
+    anyOf: [
+      { groups: [left] },
+      { groups: [right], fleetId: 2, maxShips: 5, disallowedStypes: [14] },
+    ],
+  })
+  assert.deepEqual(expanded.map((goal) => ({
+    groups: goal.groups.map((group) => group.label),
+    fleetId: goal.fleetId,
+    maxShips: goal.maxShips,
+    disallowedStypes: goal.disallowedStypes,
+  })), [
+    { groups: ['公共', '左'], fleetId: 1, maxShips: 6, disallowedStypes: [13] },
+    { groups: ['公共', '右'], fleetId: 2, maxShips: 5, disallowedStypes: [14] },
+  ])
+})
 
 test('编成差异 kind 穷举原有失败分支，位置提示不能掩盖数量或能力不足', () => {
   const ship = (stype = 2, extra = {}) => ({ mstId: 1, stype, ctype: 0, lv: 50, soku: 10, ...extra })
@@ -48,6 +74,21 @@ test('编成差异 kind 穷举原有失败分支，位置提示不能掩盖数�
   assert.equal(classifyFleetDiff(mixed), 'no')
 })
 
+test('编成备选都不通过时返回满足行最多的一套，并列才取靠前', () => {
+  const group = (mstId) => ({ label: String(mstId), ships: [mstId], stypes: [], amount: 1 })
+  const fleet = [1, 4].map((mstId) => ({ mstId, stype: 2, ctype: 0, lv: 50, soku: 10 }))
+  const diff = rules.evaluateFleetGoal({
+    groups: [group(1)],
+    anyOf: [
+      { groups: [group(2), group(3)] },
+      { groups: [group(4), group(5)] },
+    ],
+  }, fleet, 1)
+  assert.equal(diff.ok, false)
+  assert.equal(diff.alternative, 1)
+  assert.equal(diff.lines.filter((line) => line.ok).length, 2)
+})
+
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-kcwiki-quest-rules-'))
 const output = path.join(tempDir, 'kcwiki-quest-rules.cjs')
 buildSync({
@@ -82,9 +123,14 @@ test('共用舰名树：最长独立匹配、重名形态、相邻任务隔离�
   const zh = new Map([[6, '黑潮改二'], [3, '朝潮终型']])
   const index = rules.buildQuestShipNameIndex(context, zh)
   const apply = (text, nameIndex = index) => {
-    const draft = { fleetGoal: { groups: [1, 4, 7].map(id => ({ ships: [id], stypes: [], amount: 1, label: String(id) })) } }
+    const draft = {
+      fleetGoal: {
+        groups: [1, 4].map(id => ({ ships: [id], stypes: [], amount: 1, label: String(id) })),
+        anyOf: [{ groups: [{ ships: [7], stypes: [], amount: 1, label: '7' }] }],
+      },
+    }
     rules.augmentShipGroupsFromQuestText(draft, context, text, zh, nameIndex)
-    return draft.fleetGoal.groups.map(group => group.ships)
+    return expandFleetGoal(draft.fleetGoal)[0].groups.map(group => group.ships)
   }
   assert.deepEqual(apply('朝潮改二丁、黑潮改二'), [[1, 3], [4], [7, 8]])
   assert.deepEqual(apply('朝潮改二'), [[1, 2], [4], [7]])
@@ -103,6 +149,88 @@ const questsUrl = new URL('../assets/lodes/quests-scn.json', import.meta.url)
 const quests = fs.existsSync(questsUrl)
   ? JSON.parse(fs.readFileSync(questsUrl, 'utf8')).data
   : {}
+
+const realShipByName = new Map(
+  questEntityMaster.api_mst_ship.map((ship) => [ship.api_name, ship]),
+)
+const realShipView = (name) => {
+  const ship = realShipByName.get(name)
+  assert.ok(ship, `主数据夹具缺少 ${name}`)
+  return {
+    mstId: ship.api_id,
+    name: ship.api_name,
+    stype: ship.api_stype,
+    ctype: ship.api_ctype,
+    lv: 99,
+    soku: 10,
+  }
+}
+
+test('真实 Bq13/B138：同任务不同编成的 or 保留逐图槽与二选一编成门', () => {
+  const context = rules.buildKcwikiRuleContext(questEntityMaster)
+  const bq13 = rules.decodeKcwikiRequirement(requirements[903], context)
+  assert.ok(bq13)
+  assert.deepEqual(
+    bq13.tasks.map(({ kind, map, slot }) => ({ kind, map, slot })),
+    [
+      { kind: 'bossKill', map: [5, 1], slot: 0 },
+      { kind: 'bossKill', map: [5, 4], slot: 1 },
+      { kind: 'bossKill', map: [6, 4], slot: 2 },
+      { kind: 'bossKill', map: [6, 5], slot: 3 },
+    ],
+  )
+  assert.equal(bq13.fleetGoal.groups.length, 1)
+  assert.equal(bq13.fleetGoal.groups[0].flagship, true)
+  assert.ok(bq13.fleetGoal.groups[0].ships.includes(realShipByName.get('夕張改二特').api_id))
+  assert.deepEqual(
+    bq13.fleetGoal.anyOf.map((alternative) =>
+      alternative.groups.map(({ label, amount }) => [label, amount])),
+    [
+      [['睦月 / 如月 / 弥生 / 卯月 / 菊月 / 望月', 2], ['艦', 3]],
+      [['由良改二', 1], ['艦', 4]],
+    ],
+  )
+
+  const b138 = rules.decodeKcwikiRequirement(requirements[237], context)
+  assert.ok(b138)
+  assert.deepEqual(b138.tasks.map(({ slot }) => slot), [0, 1, 2])
+  assert.deepEqual(b138.fleetGoal.groups.map(({ label }) => label), ['羽黒', '神風'])
+  assert.deepEqual(
+    b138.fleetGoal.anyOf.map((alternative) =>
+      alternative.groups.map(({ label, amount }) => [label, amount])),
+    [
+      [['航巡 / 重巡', 1], ['駆逐', 2]],
+      [['駆逐', 4]],
+    ],
+  )
+})
+
+test('真实 Bq13：两个合规编成分别命中，六水战不足与维护者实战编成都不通过', () => {
+  const context = rules.buildKcwikiRuleContext(questEntityMaster)
+  const decoded = rules.decodeKcwikiRequirement(requirements[903], context)
+  assert.ok(decoded?.fleetGoal)
+  const evaluate = (names) => rules.evaluateFleetGoal(
+    decoded.fleetGoal,
+    names.map(realShipView),
+    1,
+  )
+
+  const first = evaluate(['夕張改二特', '睦月改二', '如月改二', '吹雪改', '白雪改', '深雪改'])
+  assert.equal(first.ok, true)
+  assert.equal(first.alternative, 0)
+
+  const second = evaluate(['夕張改二', '由良改二', '吹雪改', '白雪改', '深雪改', '磯波改'])
+  assert.equal(second.ok, true)
+  assert.equal(second.alternative, 1)
+
+  const short = evaluate(['夕張改二', '睦月改二', '吹雪改', '白雪改', '深雪改', '磯波改'])
+  assert.equal(short.ok, false)
+  assert.equal(short.alternative, 0, '同分时取靠前的编成')
+
+  const reported = evaluate(['日向改二', '伊勢改二', '最上改二特', '矢矧改二乙', '白露改二', '時雨改三'])
+  assert.equal(reported.ok, false)
+  assert.match(reported.lines[0].issue, /^旗舰不符合/)
+})
 
 test.after(() => fs.rmSync(tempDir, { recursive: true, force: true }))
 

@@ -100,6 +100,8 @@ export interface QpFleetGoalGroup {
 
 export interface QpFleetGoal {
   groups: QpFleetGoalGroup[]
+  /** 公共 groups 全部满足后，再满足其中任一完整编成目标。 */
+  anyOf?: QpFleetGoal[]
   disallowedStypes?: number[]
   allowOnlyGoalShips?: boolean
   fleetId?: number
@@ -107,6 +109,20 @@ export interface QpFleetGoal {
    *  kcwiki 用「任意组×k + 他の艦禁止」编码它——任意组是允许额度不是下限，
    *  照下限校验会把 4 隻的合规编成打成不通过（2026-08-12 用户实锤）。 */
   maxShips?: number
+}
+
+/** 把公共条件与每个备选合成可直接判定的完整目标。 */
+export const expandFleetGoal = (goal: QpFleetGoal): QpFleetGoal[] => {
+  if (!goal.anyOf?.length) return [goal]
+  const common = { ...goal, anyOf: undefined, groups: [...goal.groups] }
+  return goal.anyOf.flatMap((alternative) =>
+    expandFleetGoal(alternative).map((expanded) => ({
+      ...common,
+      ...expanded,
+      anyOf: undefined,
+      groups: [...common.groups, ...expanded.groups],
+    })),
+  )
 }
 
 export interface QpStateGoalSecretary {
@@ -156,6 +172,7 @@ export interface QpFleetDeckDiff {
   deckId: number
   ok: boolean
   lines: QpFleetGoalLine[]
+  alternative?: number
 }
 
 export const classifyFleetDiff = (diff: QpFleetDeckDiff): 'ok' | 'nearMiss' | 'no' => {

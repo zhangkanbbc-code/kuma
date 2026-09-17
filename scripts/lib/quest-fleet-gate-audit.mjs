@@ -10,6 +10,11 @@ const numberOf = (value) => {
   return digits[value]
 }
 
+const expandFleetGoalGroups = (goal) => !goal.anyOf?.length
+  ? [goal.groups]
+  : goal.anyOf.flatMap((alternative) =>
+      expandFleetGoalGroups(alternative).map((groups) => [...goal.groups, ...groups]))
+
 export const fleetGateBody = (quest) => {
   let text = [quest.desc ?? '', quest.memo2 ?? ''].join(' ').normalize('NFKC')
   // 先消内层再消外层，兼容中文/日文全角括号与嵌套括号；引号不是括号。
@@ -31,8 +36,11 @@ export const auditQuestFleetGates = (quests, trackers) => {
       .map((match) => ({ value: numberOf(match[1]), index: match.index, text: match[0] }))
       .filter((match) => Number.isFinite(match.value))
     const maximum = counts.reduce((best, count) => !best || count.value > best.value ? count : best, null)
-    const groups = tracker.fleetGoal.groups.map(({ label, amount }) => ({ label, amount }))
-    const requiredShips = groups.reduce((sum, group) => sum + group.amount, 0)
+    const alternatives = expandFleetGoalGroups(tracker.fleetGoal)
+    const groups = alternatives.flat().map(({ label, amount }) => ({ label, amount }))
+    const requiredShips = Math.min(...alternatives.map((alternative) =>
+      alternative.reduce((sum, group) => sum + group.amount, 0),
+    ))
     const status = !maximum ? 'noCount' : requiredShips < maximum.value ? 'suspicious' : 'clear'
     const start = Math.max(0, (maximum?.index ?? 0) - 60)
     const end = Math.min(body.length, start + 220)

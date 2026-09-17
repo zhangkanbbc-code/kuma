@@ -38,6 +38,14 @@ import { collectPlayerCopy, collectStructuralPlayerCopy } from './player-copy-co
  */
 const ALLOWLIST = [
   {
+    phrase: '按“',
+    why: '维护者 2026-09-17 明确指定编成二选一命中说明使用「按“…”这一种」；仅放行这句动态模板的开头',
+  },
+  {
+    phrase: '”这一种',
+    why: '维护者 2026-09-17 明确指定编成二选一命中说明使用「按“…”这一种」；仅放行这句动态模板的结尾',
+  },
+  {
     phrase: '未缓存的立绘/语音从游戏资源服务器取',
     why:
       '这是设置项的**正式名称**（定义在 yu.ts 的设置卡上，另有六处文案引用它指路）。' +
@@ -862,6 +870,19 @@ test('09-10 未收录任务标签与按游戏自报显示的悬停文案通过�
   for (const phrase of ['未收录', '任务库尚未收录 · 按游戏自报的分类与周期显示']) {
     assert.ok(qn.includes(phrase))
     const rows = [{ file: 'src/renderer/modules/qn.ts', line: 1, text: phrase }]
+    assert.deepEqual(offendersIn(rows, RETIRED_WORDS), [])
+    assert.deepEqual(offendersIn(rows, SENTENCE_SHAPES), [])
+  }
+})
+
+const FLEET_ALTERNATIVE_COPY = ['按“〔编成〕”这一种']
+
+test('09-17 编成二选一命中说明逐字登记并通过原棘轮', () => {
+  const qn = fs.readFileSync(new URL('../src/renderer/modules/qn.ts', import.meta.url), 'utf8')
+  assert.ok(qn.includes('按“${esc(selectedLabel)}”这一种'))
+  for (const phrase of FLEET_ALTERNATIVE_COPY) {
+    assert.doesNotMatch(phrase, /用户|玩家提供|账本|遭遇志|本机|实况|截图|他的/)
+    const rows = [{ file: '编成二选一命中说明登记', line: 1, text: phrase }]
     assert.deepEqual(offendersIn(rows, RETIRED_WORDS), [])
     assert.deepEqual(offendersIn(rows, SENTENCE_SHAPES), [])
   }

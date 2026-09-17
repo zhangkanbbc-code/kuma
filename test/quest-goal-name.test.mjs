@@ -65,6 +65,9 @@ nodeTest('出口:秘书舰与编成检查逐词中文化,分隔符和空白原�
   const holder = {
     fleetGoal: {
       groups: [{ label: '軽巡', ships: 'any', stypes: [3], amount: 1 }],
+      anyOf: [{
+        groups: [{ label: '翔鶴', ships: [110], stypes: [], amount: 1 }],
+      }],
     },
     tasks: [{
       fleetGoal: {
@@ -77,6 +80,7 @@ nodeTest('出口:秘书舰与编成检查逐词中文化,分隔符和空白原�
   }
   localizeQuestGoalLabels(holder, buildQuestGoalNameIndex(minimalSources()))
   assert.equal(holder.fleetGoal.groups[0].label, '轻巡')
+  assert.equal(holder.fleetGoal.anyOf[0].groups[0].label, '翔鹤')
   assert.equal(holder.tasks[0].fleetGoal.groups[0].label, '赤城 / 翔鹤')
   assert.equal(holder.stateGoal.secretary.label, '赤城 / 翔鹤')
 })

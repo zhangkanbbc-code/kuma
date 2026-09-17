@@ -109,6 +109,7 @@ export const localizeQuestGoalLabels = (
     for (const group of goal?.groups ?? []) {
       group.label = localizeShipWords(group.label, index.properNames)
     }
+    for (const alternative of goal?.anyOf ?? []) localizeFleetGoal(alternative)
   }
 
   localizeFleetGoal(holder.fleetGoal)

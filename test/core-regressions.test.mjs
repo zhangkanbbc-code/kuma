@@ -3706,8 +3706,9 @@ test('ship catalog groups sister ships and task links expose complete owned-awar
   assert.match(quest, /const rewardText = entry\?\.memo \?\? ''/)
   assert.match(catalog, /questsMentioning\(terms, domain\)/)
   assert.match(quest, /queryLode\('kcwiki-expedition'\)/)
-  // 编成条件那一份反查料：EO 退场后 condText 不存在了，改读 fleetGoal 各组的 label
-  assert.match(quest, /\(tracker\?\.fleetGoal\?\.groups \?\? \[\]\)\.map\(\(group\) => group\.label\)/)
+  // 编成条件那一份反查料：EO 退场后 condText 不存在了，公共组与各套编成都递归读 label
+  assert.match(quest, /const qpFleetGoalLabelText =/)
+  assert.match(quest, /qpFleetGoalLabelText\(tracker\?\.fleetGoal\)/)
   assert.doesNotMatch(quest, /condText/, 'condText 已随 EO 条件树退场，不该回潮')
   assert.match(quest, /matchAll\(\/\(\\d\+\)\\s\*\[-‐‑‒–—\]\\s\*\(\\d\+\)\/g\)/)
   assert.match(quest, /if \('map' in task\) mapRefs\.add/)
@@ -11437,6 +11438,16 @@ test('编成门标签语:词取 group.label,形态只补旗舰/位次/等级/数
       { label: '駆逐', ships: [], stypes: [2], amount: 3 },
     ] }),
     ['旗舰 軽巡', '駆逐 ×3'],
+  )
+  assert.deepEqual(
+    fleetItems({
+      groups: [{ label: '夕張改二', ships: [622], stypes: [], amount: 1, flagship: true }],
+      anyOf: [
+        { groups: [{ label: '六水战驱逐', ships: [1], stypes: [], amount: 2 }] },
+        { groups: [{ label: '由良改二', ships: [488], stypes: [], amount: 1 }] },
+      ],
+    }),
+    ['旗舰 夕張改二', '（六水战驱逐 ×2）或（由良改二）'],
   )
   // 「限第 N 舰队」进这一行:漏掉它玩家会把队编在别处白打一场
   assert.deepEqual(

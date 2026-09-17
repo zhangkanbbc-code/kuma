@@ -15,6 +15,7 @@ import {
   syntheticPoiPack,
   syntheticQuestPack,
 } from './fixtures/quest-lodes.mjs'
+import { questEntityMaster } from './fixtures/quest-entity-master.mjs'
 import battleModule from '../dist/main/mg/battle.js'
 
 const { mergeNight, parseBattle } = battleModule
@@ -1008,6 +1009,64 @@ test('kcwiki map-range alternatives count into one boss-win slot', () => {
   }
   assert.deepEqual(globalThis.__qpHandlers['qp:get']().progress[226], [5])
   Object.assign(sortie, before)
+})
+
+test('Bq13 的编成二选一门：不符合不计，符合由良编成计入 5-1 槽', () => {
+  const oldSnapshot = globalThis.__qpSnapshot
+  const oldStore = globalThis.__qpStore
+  const row = (name) => {
+    const found = questEntityMaster.api_mst_ship.find((ship) => ship.api_name === name)
+    assert.ok(found, `主数据夹具缺少 ${name}`)
+    return found
+  }
+  const setFleet = (names) => {
+    const ships = Object.fromEntries(names.map((name, index) => [
+      3000 + index,
+      { id: 3000 + index, shipId: row(name).api_id, lv: 99 },
+    ]))
+    globalThis.__qpStore.player.decks[0].ships = Object.keys(ships).map(Number)
+    globalThis.__qpStore.player.ships = ships
+  }
+  const now = Date.now()
+  globalThis.__qpSnapshot = { body: questEntityMaster }
+  globalThis.__qpStore = {
+    player: {
+      ...oldStore.player,
+      questActiveTs: now,
+      questActiveIds: [903],
+      questsTs: now,
+      quests: {
+        903: { no: 903, state: 2, type: 2, category: 2, title: 'Bq13', progressFlag: 0 },
+      },
+      decks: [{ id: 1, name: '第一舰队', ships: [], mission: [0, 0, 0, 0] }],
+      ships: {},
+    },
+    sortie: {
+      ...oldStore.sortie,
+      practice: false,
+      mapArea: 5,
+      mapNo: 1,
+      currentCell: 1,
+      deckId: 1,
+      nodes: [{ cell: 1, eventId: 5 }],
+    },
+  }
+  try {
+    engine.initQuestCounter()
+    delete globalThis.__qpHandlers['qp:get']().progress[903]
+    setFleet(['日向改二', '伊勢改二', '最上改二特', '矢矧改二乙', '白露改二', '時雨改三'])
+    engine.onQuestApi('/kcsapi/api_req_sortie/battleresult', { api_win_rank: 'S' }, {})
+    assert.equal(globalThis.__qpHandlers['qp:get']().progress[903], undefined)
+
+    setFleet(['夕張改二', '由良改二', '吹雪改', '白雪改', '深雪改', '磯波改'])
+    engine.onQuestApi('/kcsapi/api_req_sortie/battleresult', { api_win_rank: 'S' }, {})
+    assert.deepEqual(globalThis.__qpHandlers['qp:get']().progress[903], [1, 0, 0, 0])
+  } finally {
+    delete globalThis.__qpHandlers['qp:get']().progress[903]
+    globalThis.__qpSnapshot = oldSnapshot
+    globalThis.__qpStore = oldStore
+    engine.initQuestCounter()
+  }
 })
 
 test('a-gou advances sortie, boss arrival, boss victory, and S victory separately', () => {

@@ -8,7 +8,7 @@ import type {
   QpStockGoal,
   QpTask,
 } from '../../shared/qp-types'
-import { isEscortGoalMap, qpTaskGroups } from '../../shared/qp-types'
+import { expandFleetGoal, isEscortGoalMap, qpTaskGroups } from '../../shared/qp-types'
 import { hasEventMaps } from '../../shared/event-area'
 
 type ShipSelector =
@@ -271,7 +271,9 @@ export const augmentShipGroupsFromQuestText = (
       }
     }
   }
-  for (const group of draft.fleetGoal?.groups ?? []) augment(group.ships)
+  for (const goal of draft.fleetGoal ? expandFleetGoal(draft.fleetGoal) : []) {
+    for (const group of goal.groups) augment(group.ships)
+  }
   const secretary = draft.stateGoal?.secretary
   if (secretary) augment(secretary.ships)
 }
@@ -968,6 +970,55 @@ const hasDraftContent = (draft: KcwikiTrackerDraft): boolean =>
 const sameFleetGoal = (left: QpFleetGoal, right: QpFleetGoal): boolean =>
   JSON.stringify(left) === JSON.stringify(right)
 
+const tasksWithoutFleetGoals = (tasks: QpTask[]): string => JSON.stringify(
+  tasks.map(({ fleetGoal: _fleetGoal, ...task }) => task),
+)
+
+const combineAlternativeFleetGoals = (
+  children: KcwikiTrackerDraft[],
+): KcwikiTrackerDraft | null => {
+  if (children.length < 2 || !children.every((child) => child.fleetGoal)) return null
+  const taskShape = tasksWithoutFleetGoals(children[0].tasks)
+  if (children.some((child) => tasksWithoutFleetGoals(child.tasks) !== taskShape)) return null
+
+  const goals = children.map((child) => child.fleetGoal!)
+  const remainingGroups = goals.map((goal) => [...goal.groups])
+  const commonGroups: QpFleetGoalGroup[] = []
+  for (const group of goals[0].groups) {
+    const encoded = JSON.stringify(group)
+    const indexes = remainingGroups.map((groups) =>
+      groups.findIndex((candidate) => JSON.stringify(candidate) === encoded),
+    )
+    if (indexes.some((index) => index < 0)) continue
+    commonGroups.push(group)
+    indexes.forEach((index, goalIndex) => remainingGroups[goalIndex].splice(index, 1))
+  }
+
+  const common: QpFleetGoal = { groups: commonGroups }
+  const commonKeys = ['maxShips', 'disallowedStypes', 'fleetId'] as const
+  for (const key of commonKeys) {
+    const first = goals[0][key]
+    if (
+      first !== undefined &&
+      goals.every((goal) => JSON.stringify(goal[key]) === JSON.stringify(first))
+    ) {
+      ;(common as any)[key] = first
+    }
+  }
+  common.anyOf = goals.map((goal, index) => {
+    const alternative: QpFleetGoal = { ...goal, groups: remainingGroups[index] }
+    for (const key of commonKeys) {
+      if ((common as any)[key] !== undefined) delete (alternative as any)[key]
+    }
+    return alternative
+  })
+  return {
+    tasks: children[0].tasks,
+    fleetGoal: common,
+    partial: children.some((child) => child.partial),
+  }
+}
+
 function decodeKcwikiRequirementAt(
   requirement: unknown,
   context: KcwikiRuleContext,
@@ -987,6 +1038,8 @@ function decodeKcwikiRequirementAt(
     const decoded = children as KcwikiTrackerDraft[]
 
     if (raw.category === 'or') {
+      const combinedFleetGoal = combineAlternativeFleetGoals(decoded)
+      if (combinedFleetGoal) return combinedFleetGoal
       if (
         decoded.some((child) =>
           !child.tasks.length ||
@@ -1129,7 +1182,7 @@ const groupsCanUseDistinctShips = (
   return assign(0)
 }
 
-export const evaluateFleetGoal = (
+const evaluateFlatFleetGoal = (
   goal: QpFleetGoal,
   fleet: FleetGoalShipView[],
   deckId: number,
@@ -1260,6 +1313,26 @@ export const evaluateFleetGoal = (
     })
   }
   return { deckId, ok: lines.every((line) => line.ok), lines }
+}
+
+export const evaluateFleetGoal = (
+  goal: QpFleetGoal,
+  fleet: FleetGoalShipView[],
+  deckId: number,
+): QpFleetDeckDiff => {
+  if (!goal.anyOf?.length) return evaluateFlatFleetGoal(goal, fleet, deckId)
+  let best: QpFleetDeckDiff | null = null
+  let bestOkLines = -1
+  for (const [alternative, expanded] of expandFleetGoal(goal).entries()) {
+    const diff = { ...evaluateFlatFleetGoal(expanded, fleet, deckId), alternative }
+    if (diff.ok) return diff
+    const okLines = diff.lines.filter((line) => line.ok).length
+    if (okLines > bestOkLines) {
+      best = diff
+      bestOkLines = okLines
+    }
+  }
+  return best!
 }
 
 export const decodeKcwikiRequirement = (

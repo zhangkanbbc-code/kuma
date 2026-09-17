@@ -188,7 +188,9 @@ for (const idText of Object.keys(scn).sort((a, b) => a - b)) {
     verdict,
     inLedger: LEDGER_IDS.has(questId),
     liveSource: live?.source ?? null,
-    approx: mine?.approx ?? null,
+    approx: live?.approx ?? null,
+    fleetGoal: live?.fleetGoal ?? null,
+    mineApprox: mine?.approx ?? null,
     live: liveTasks,
     mine: myTasks,
   })
@@ -244,7 +246,7 @@ for (const verdict of ['结构不同', '仅评价不同', '只有上游有', '�
   for (const row of group) {
     console.log(`  ${row.questId} ${row.code} ${row.name}${row.inLedger ? '  [台账已裁]' : ''}`)
     if (verdict !== '只有自研有') console.log(`    线上: ${fmt(row.live)}  [${row.liveSource}]`)
-    if (verdict !== '只有上游有') console.log(`    自研: ${fmt(row.mine)}${row.approx ? ' ≈' : ''}`)
+    if (verdict !== '只有上游有') console.log(`    自研: ${fmt(row.mine)}${row.mineApprox ? ' ≈' : ''}`)
   }
 }
 

@@ -18,6 +18,11 @@ const sliceBetween = (from, to, label) => {
 }
 
 const MAP_IDS = sliceBetween('const mapIdsInText = ', '\nconst nationalityRangesInPackedText = ', 'mapIdsInText')
+const FLEET_LABELS = sliceBetween(
+  'const qpFleetGoalLabelText = ',
+  '\nconst shipEntityHtml = ',
+  'qpFleetGoalLabelText',
+)
 const MAP_REFS = sliceBetween('const questMapRefs = ', '\nexport const questsInvolvingMap = ', 'questMapRefs')
 const INVOLVING = sliceBetween('export const questsInvolvingMap = ', '\nconst entityChipsHtml = ', 'questsInvolvingMap')
 
@@ -42,6 +47,7 @@ export const setQuestMapState = (state) => {
 }
 
 ${MAP_IDS}
+${FLEET_LABELS}
 ${MAP_REFS}
 ${INVOLVING}
 
