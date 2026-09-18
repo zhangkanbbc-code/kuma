@@ -3092,16 +3092,19 @@
     .fleet-skin .bt-ship.out { opacity: .45; }
     .fleet-skin .bt-no { font: 10px var(--mono); color: var(--dim); text-align: center; }
     .fleet-skin .bt-name { font-size: 11.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fleet-skin .bt-cond { font: 10.5px var(--mono); color: var(--sub); }
     .fleet-skin .bt-tag { font-size: 10px; text-align: center; border-radius: 3px; padding: 1px 0; }
     .fleet-skin .bt-tag.s-repairing { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
     .fleet-skin .bt-tag.s-full { color: var(--dim); }
     .fleet-skin .bt-tag.s-hurt { color: var(--warn); background: color-mix(in srgb, var(--tint-warn-hurt) 10%, transparent); }
     .fleet-skin .bt-tag.s-docked { color: var(--dock); }
+    .fleet-skin .bt-tag.s-ready, .fleet-skin .bt-tag.s-provision { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
     .fleet-skin .bt-tag.out { color: var(--dim); }
     .fleet-skin .bt-gain { text-align: right; font: 11px var(--mono); color: var(--ok); }
     .fleet-skin .bt-gain em { font-style: normal; font-size: 9px; color: var(--dim); margin-left: 3px; }
     .fleet-skin.narrow .bt-ship { grid-template-columns: 16px minmax(60px, 1fr) 40px 56px; }
     .fleet-skin.narrow .bt-ship .hpc { display: none; }
+    .fleet-skin.narrow .bt-ship.provision { grid-template-columns: 16px minmax(60px, 1fr) 46px 40px 56px; gap: 4px; }
     .fleet-skin .sd-gap { color: var(--warn); }
     .fleet-skin .sd-ok { color: var(--ok); }
     /* 改造消耗逐项对库存：名称×需求 + 实际持有，够不够单项判定 */
@@ -4347,11 +4350,12 @@
     }
     .mod-di .map-peek:hover, .mod-di .map-peek.on { color: var(--sea); }
     .sea-pop {
-      position: fixed; z-index: 240; width: min(340px, 90vw);
+      position: fixed; z-index: 240; width: min(520px, 92vw);
       box-shadow: 0 16px 44px rgba(0, 0, 0, 0.62); border-radius: 8px;
       visibility: hidden; /* 定位算完才现形，避免先在左上角闪一下 */
     }
     .sea-pop .scard { margin: 0; background: color-mix(in srgb, var(--bg1) 98.5%, transparent); }
+    .sea-pop .mini-map { max-width: none; max-height: 320px; }
     /* 战果账：通常（换算自提督经验）+ 特别（EO 查表），逐笔可展开 */
     .mod-zi .senka-card .senka-chart { width: 100%; height: 30px; display: block; margin: 2px 0 6px; opacity: .85; }
     .mod-zi .senka-sum { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
@@ -4557,6 +4561,12 @@
     .peek.tip { width: 320px; max-height: 60vh; overflow-y: auto; }
     .peek.tip .p-s { user-select: text; cursor: text; line-height: 1.75; }
     .peek.tip.pinned .p-t { cursor: move; }
+    .peek.tip .los33 { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+    .peek.tip.narrow .los33 { flex-direction: column; gap: 4px; }
+    .peek.tip .los-item { display: flex; align-items: baseline; gap: 5px; }
+    .peek.tip .los-item i { font-style: normal; color: var(--accent); font-weight: 600; }
+    .peek.tip .los-item b { font-family: var(--mono); font-size: 12px; color: var(--text); }
+    .peek.tip .los-note { margin-top: 5px; color: var(--dim); font-size: 9px; }
     .peek .p-t { display: flex; align-items: baseline; gap: 7px; }
     .peek .p-t b { font-family: var(--serif); font-size: 14px; font-weight: 600; }
     .peek .p-t .ty { margin-left: auto; font-size: 9px; color: var(--dim); border: 1px solid var(--line-soft); border-radius: 3px; padding: 0 5px; }
@@ -5949,12 +5959,12 @@
     .mod-ji .ro-go:hover { color: var(--accent); border-color: var(--accent-dim); cursor: pointer; }
     .mod-ji .ro-note { flex: 1 0 100%; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 7px; }
     .mod-ji .ro-note > span { color: var(--dim); font: 8.5px var(--mono); }
-    .mod-ji .ro-note input, .mod-ji .personal-note textarea {
+    .mod-ji .ro-note input, .mod-ji .personal-note textarea, .mod-qn .q-lineup textarea {
       min-width: 0; box-sizing: border-box; border: 1px solid var(--line-soft); border-radius: 4px;
       color: var(--sub); background: var(--bg0); font: 10.5px/1.5 var(--sans); outline: none;
     }
     .mod-ji .ro-note input { width: 100%; padding: 2px 6px; }
-    .mod-ji .ro-note input:focus, .mod-ji .personal-note textarea:focus { color: var(--text); border-color: var(--accent-dim); }
+    .mod-ji .ro-note input:focus, .mod-ji .personal-note textarea:focus, .mod-qn .q-lineup textarea:focus { color: var(--text); border-color: var(--accent-dim); }
     /* 输入框本身描不了 #标签；保存后在原行下方逐字回执认出的标签 */
     .mod-ji .ro-note-tags { grid-column: 2; display: flex; gap: 5px; flex-wrap: wrap; }
     .mod-ji .ro-note-tags i {
@@ -5962,7 +5972,7 @@
       color: var(--sub); border: 1px dashed var(--line); border-radius: 3px;
       padding: 1px 6px; font: 9.5px var(--mono); font-style: normal;
     }
-    .mod-ji .personal-note textarea { display: block; width: 100%; min-height: 58px; resize: vertical; padding: 6px 8px; }
+    .mod-ji .personal-note textarea, .mod-qn .q-lineup textarea { display: block; width: 100%; min-height: 58px; resize: vertical; padding: 6px 8px; }
     .mod-ji .mem-counts { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
     .mod-ji .mem-counts span {
       display: inline-flex; align-items: baseline; gap: 5px; padding: 3px 9px;
@@ -7151,6 +7161,28 @@
       margin: 0 0 7px; color: var(--dim); font-size: 9.5px;
       font-weight: 600; letter-spacing: .7px;
     }
+    .mod-qn .lineup-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-bottom: 7px; }
+    .mod-qn .lineup-actions .k { margin-right: 2px; color: var(--dim); font: 9px var(--mono); }
+    .mod-qn .lineup-actions button, .mod-qn .lineup-meta button {
+      padding: 2px 7px; border: 1px solid var(--line); border-radius: 4px;
+      background: var(--bg1); color: var(--sub); cursor: pointer; font-size: 10px;
+    }
+    .mod-qn .lineup-actions button:hover, .mod-qn .lineup-meta button:hover { color: var(--text); border-color: var(--accent-dim); }
+    .mod-qn .lineup-actions button.hit { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 48%, var(--line)); }
+    .mod-qn .lineup-meta { display: flex; align-items: center; gap: 7px; margin: 3px 0 6px; color: var(--dim); font: 9px var(--mono); }
+    .mod-qn .lineup-meta button { margin-left: auto; color: var(--dim); }
+    .mod-qn .lineup-ship {
+      display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 7px;
+      padding: 5px 0; border-top: 1px solid var(--line-soft);
+    }
+    .mod-qn .lineup-ship .no { color: var(--dim); font: 9px var(--mono); text-align: right; }
+    .mod-qn .lineup-ship-info { display: grid; gap: 3px; min-width: 0; }
+    .mod-qn .lineup-ship .who { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; color: var(--text); font-size: 11px; }
+    .mod-qn .lineup-ship .who i { color: var(--dim); font: 9px var(--mono); font-style: normal; }
+    .mod-qn .lineup-ship .eq { color: var(--sub); font-size: 10px; line-height: 1.55; white-space: normal; overflow-wrap: anywhere; }
+    .mod-qn .lineup-ship .eq.dim { color: var(--dim); }
+    .mod-qn .lineup-ship em { margin-right: 3px; color: var(--gold); font: 8.5px var(--mono); font-style: normal; }
+    .mod-qn .q-lineup textarea { margin-top: 7px; }
     .mod-qn .q-zh > b { color: var(--q-cat); font-size: 14px; font-family: var(--serif); }
     .mod-qn .q-zh p, .mod-qn .q-memo p, .mod-qn .q-original p {
       margin: 5px 0 0; color: var(--sub); font-size: 11px; line-height: 1.75;

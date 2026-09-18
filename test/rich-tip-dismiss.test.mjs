@@ -19,6 +19,62 @@ import test from 'node:test'
 
 import { mountRichTips } from './fixtures/rich-tip-hover.mjs'
 
+test('无种类富提示照旧按 data-tip 分行并转义', () => {
+  const ui = mountRichTips()
+  const html = ui.html(ui.trigger('<第一行>&\n第二行'))
+  assert.match(html, /<div class="p-s">&lt;第一行&gt;&amp;<br>第二行<\/div>/)
+})
+
+test('los33 富提示渲染四档倍数与数值', () => {
+  const ui = mountRichTips()
+  ui.registerLos33()
+  const html = ui.html(ui.trigger('退路', { tipKind: 'los33', los33: '12.3,24.6,36.9,49.2' }))
+  assert.equal((html.match(/class="los-item"/g) ?? []).length, 4)
+  assert.match(html, /<i>×3<\/i><b>36\.9<\/b>/)
+  assert.match(html, /<div class="los-note">系数随海域变化<\/div>/)
+})
+
+test('los33 富提示保留整数值的一位小数', () => {
+  const ui = mountRichTips()
+  ui.registerLos33()
+  const html = ui.html(ui.trigger('退路', { tipKind: 'los33', los33: '24.0,48.0,72.0,96.0' }))
+  assert.deepEqual([...html.matchAll(/class="los-item"><i>×\d<\/i><b>([^<]+)<\/b><\/span>/g)].map((match) => match[1]), ['24.0', '48.0', '72.0', '96.0'])
+})
+
+test('los33 富提示遇到非数值时回退到分行正文', () => {
+  const ui = mountRichTips()
+  ui.registerLos33()
+  const html = ui.html(
+    ui.trigger('<退路一>&\n退路二', { tipKind: 'los33', los33: '12.3,24.6,坏值,49.2' }),
+  )
+  assert.match(html, /<div class="p-s">&lt;退路一&gt;&amp;<br>退路二<\/div>/)
+  assert.doesNotMatch(html, /class="los33"|NaN/)
+
+  const emptyHtml = ui.html(ui.trigger('空值退路', { tipKind: 'los33', los33: '12.3,,36.9,49.2' }))
+  assert.match(emptyHtml, /<div class="p-s">空值退路<\/div>/)
+  assert.doesNotMatch(emptyHtml, /class="los33"/)
+})
+
+test('悬停与钉住富提示都沿用触发元素所在面板的窄档', () => {
+  const ui = mountRichTips()
+  const narrowTrigger = ui.trigger('窄', {}, ui.panel(true))
+  const wideTrigger = ui.trigger('宽', {}, ui.panel(false))
+
+  ui.hoverTrigger(narrowTrigger)
+  ui.clock.advance(260)
+  assert.equal(ui.card.classList.contains('narrow'), true)
+  ui.hoverTrigger(wideTrigger)
+  ui.clock.advance(260)
+  assert.equal(ui.card.classList.contains('narrow'), false)
+
+  ui.pinTrigger(narrowTrigger)
+  ui.pinTrigger(wideTrigger)
+  const pinned = ui.pinnedCards()
+  assert.equal(pinned.length, 2)
+  assert.equal(pinned[0].classList.contains('narrow'), true)
+  assert.equal(pinned[1].classList.contains('narrow'), false)
+})
+
 test('卡片自己挂着 mouseleave——收起的出路存在', () => {
   const ui = mountRichTips()
   assert.ok(ui.card.hasListener('mouseleave'), '悬停卡没有 mouseleave，进卡之后就再也收不起来了')

@@ -373,6 +373,7 @@ test('列表与抽屉标题的可见文字由真实实体名 span 承载', () =>
     noCounterHtml: () => '',
     questChainHtml: () => '',
     annualResetHtml: () => '',
+    lineupSectionHtml: () => '',
     expeditionTogetherHtml: () => '',
     entityChipsHtml: () => '',
     rewardSectionsHtml: () => '',

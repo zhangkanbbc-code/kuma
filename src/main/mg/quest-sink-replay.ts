@@ -107,6 +107,7 @@ const emptyReplayState = (): any => ({
     airBasesTs: null,
     lastPortTs: null,
     berthSince: {},
+    provisionSince: null,
   },
   sortie: null,
   mapGauges: {},

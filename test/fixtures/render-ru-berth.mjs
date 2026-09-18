@@ -56,6 +56,7 @@ const BERTH = cut(
 )
 
 const SHARED = path.join(ROOT, 'src', 'shared', 'berth-repair.ts').replace(/\\/g, '/')
+const PROVISION = path.join(ROOT, 'src', 'shared', 'provision-ship.ts').replace(/\\/g, '/')
 
 const HARNESS = `
 import {
@@ -68,6 +69,14 @@ import {
   berthShipState,
   berthWarmupRatio,
 } from '${SHARED}'
+import {
+  PROVISION_COND_CAP,
+  PROVISION_WARMUP_MS,
+  provisionEstimate,
+  provisionHalt,
+  provisionShipAt,
+  provisionShipState,
+} from '${PROVISION}'
 
 type Deck = any
 type PlayerShip = any
@@ -79,6 +88,7 @@ export const mg: any = {
   slotitems: {},
   master: { ships: {} },
   berthSince: {},
+  provisionSince: null,
   combinedFlag: 0,
   sortie: null,
 }
@@ -90,6 +100,8 @@ const SANDBOX_CAP = 6
 const combinedFleetLabel = () => '联合舰队'
 // 与 ru.ts 本尊同一逻辑（一行判据，出击态用它认「一队带二队」）
 const inCombined = (deck: any) => mg.combinedFlag > 0 && (deck.id === 1 || deck.id === 2)
+const deckOnSortie = (deckId: number) =>
+  !!mg.sortie?.active && !mg.sortie.practice && mg.sortie.deckId === deckId
 const scopeShips = (deck: any) => fleetShips(deck)
 const shipIssues = (_s: any) => ({ taiha: false, chuuha: false, unsupplied: false, docked: false, tired: false })
 const trackedAirBases = () => []
@@ -102,6 +114,15 @@ const fleetLabel = (deck: any) => ({ canonical: \`第\${deck.id}舰队\`, custom
 const masterShipName = (mstId: number) => mg.master.ships[mstId]?.name ?? \`#\${mstId}\`
 const entityNamePlain = (_kind: string, _id: number, name: string) => name
 const entityTermHtml = (_kind: string, _id: number, name: string) => String(name)
+const esc = (value: unknown) => String(value ?? '').replace(/&/g, '&#38;').replace(/"/g, '&#34;')
+const fmtTime = (ts: number) => \`T\${ts}\`
+const FATIGUE_FULL_COND = 49
+const estimatedCond = (rosterId: number, cap: number) => {
+  const ship = mg.ships[rosterId]
+  return ship ? Math.min(cap, ship.estimatedCond ?? ship.cond) : null
+}
+const fatigueReadyTs = (_rosterId: number, _target: number) => null
+const fleetFatigueEta = (_ships: any[], _target: number) => ({ ts: null, unknown: 0 })
 
 ${DOCK_OF}
 ${HP_CLASS}
@@ -109,7 +130,7 @@ ${FLEET_SHIPS}
 ${BERTH}
 ${TABS}
 
-export { berthViewHtml, berthHeaderHtml, fleetTabsHtml, BERTH_TAB_ID, REPAIR_FACILITY_MST_ID }
+export { berthViewHtml, berthHeaderHtml, fleetTabsHtml, fleetFatigueHtml, BERTH_TAB_ID, REPAIR_FACILITY_MST_ID }
 `
 
 const bundle = (() => {
@@ -136,6 +157,9 @@ export const BERTH_TAB_ID = loaded.BERTH_TAB_ID
 export const AKASHI = { mstId: 187, name: '明石改', stype: 19 }
 /** 雪风改二：随便一艘驱逐，用来占随伴位。 */
 export const DD = { mstId: 656, name: '雪風改二', stype: 2 }
+/** 野埼 / 野埼改：只按 mst 点名，stype 22 本身不构成资格。 */
+export const NOZAKI = { mstId: 996, name: '野埼', stype: 22, fuelMax: 20, bullMax: 10 }
+export const NOZAKI_KAI = { mstId: 1002, name: '野埼改', stype: 22, fuelMax: 25, bullMax: 15 }
 
 /**
  * 摆一局。
@@ -143,14 +167,19 @@ export const DD = { mstId: 656, name: '雪風改二', stype: 2 }
  * `fleets` 每项：{ id, ships: [{ id, mstId, nowhp, maxhp, ndockTime, facilities }], mission, since }
  * `facilities` 只对旗舰有意义——它决定给旗舰塞几个艦艇修理施設。
  */
-export const reset = ({ fleets = [], docked = [], sortie = null } = {}) => {
+export const reset = ({ fleets = [], docked = [], sortie = null, provisionSince = null } = {}) => {
   mgReset()
   let slotSeq = 1000
   for (const fleet of fleets) {
     const deck = { id: fleet.id, name: `第${fleet.id}舰队`, mission: fleet.mission ?? [0, 0, 0, 0], ships: [] }
     for (const ship of fleet.ships) {
       const spec = ship.spec ?? DD
-      loaded.mg.master.ships[spec.mstId] = { name: spec.name, stype: spec.stype }
+      loaded.mg.master.ships[spec.mstId] = {
+        name: spec.name,
+        stype: spec.stype,
+        fuelMax: spec.fuelMax ?? 10,
+        bullMax: spec.bullMax ?? 10,
+      }
       const slot = []
       for (let i = 0; i < (ship.facilities ?? 0); i += 1) {
         const slotId = (slotSeq += 1)
@@ -164,6 +193,10 @@ export const reset = ({ fleets = [], docked = [], sortie = null } = {}) => {
         nowhp: ship.nowhp,
         maxhp: ship.maxhp,
         ndockTime: ship.ndockTime ?? 0,
+        cond: ship.cond ?? 49,
+        estimatedCond: ship.estimatedCond,
+        fuel: ship.fuel ?? (spec.fuelMax ?? 10),
+        bull: ship.bull ?? (spec.bullMax ?? 10),
         slot,
         slotEx: 0,
       }
@@ -174,6 +207,7 @@ export const reset = ({ fleets = [], docked = [], sortie = null } = {}) => {
   }
   loaded.mg.ndocks = docked.map((shipId, i) => ({ id: i + 1, shipId, completeTime: 0, state: 1 }))
   loaded.mg.sortie = sortie
+  loaded.mg.provisionSince = provisionSince
 }
 
 const mgReset = () => {
@@ -183,6 +217,7 @@ const mgReset = () => {
   loaded.mg.slotitems = {}
   loaded.mg.master.ships = {}
   loaded.mg.berthSince = {}
+  loaded.mg.provisionSince = null
   loaded.mg.combinedFlag = 0
   loaded.mg.sortie = null
 }
@@ -190,4 +225,6 @@ const mgReset = () => {
 export const renderBerth = () => loaded.berthViewHtml()
 export const renderBerthHead = () => loaded.berthHeaderHtml()
 export const renderTabs = (activeId = 1) => loaded.fleetTabsHtml(activeId)
+export const renderFleetFatigue = (deckId = 1) =>
+  loaded.fleetFatigueHtml(loaded.mg.decks.find((deck) => deck.id === deckId))
 export const mgView = () => loaded.mg

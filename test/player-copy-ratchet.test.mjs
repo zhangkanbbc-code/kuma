@@ -888,6 +888,97 @@ test('09-17 编成二选一命中说明逐字登记并通过原棘轮', () => {
   }
 })
 
+// 维护者 2026-09-18 定稿：周期任务详情内的阵容记录、舰队按钮与备注框。
+const LINEUP_RECORD_COPY = [
+  '阵容记录',
+  '记录',
+  '第 1 舰队',
+  '满足编成条件',
+  '暂无记录',
+  '记于 2026-09-18 14:20 · 第 1 舰队',
+  '删除',
+  'Lv 99',
+  '★9',
+  '★MAX',
+  '增设',
+  '无装备',
+  '输入备注……',
+]
+
+test('09-18 周期任务阵容记录文案逐字登记并通过原棘轮', () => {
+  const qn = fs.readFileSync(new URL('../src/renderer/modules/qn.ts', import.meta.url), 'utf8')
+  for (const phrase of LINEUP_RECORD_COPY) {
+    assert.doesNotMatch(phrase, /用户|玩家提供|账本|遭遇志|本机|实况|截图|他的/)
+    const rows = [{ file: '阵容记录文案登记', line: 1, text: phrase }]
+    assert.deepEqual(offendersIn(rows, RETIRED_WORDS), [])
+    assert.deepEqual(offendersIn(rows, SENTENCE_SHAPES), [])
+  }
+  for (const phrase of ['阵容记录', '满足编成条件', '暂无记录', '删除', '增设', '无装备', '输入备注……']) {
+    assert.ok(qn.includes(phrase), `实现未收录：${phrase}`)
+  }
+  assert.ok(qn.includes('第 ${deck.id} 舰队'))
+  assert.ok(qn.includes('记于 ${fmtDate(record.recordedAt)} ${fmtTime(record.recordedAt).slice(0, 5)} · 第 ${record.deckId} 舰队'))
+  assert.ok(qn.includes("slot.level >= 10 ? 'MAX' : slot.level"))
+})
+
+// 维护者 2026-09-18 定稿：泊地修理页的给粮舰卡与编队抬头短句。
+const PROVISION_SHIP_COPY = [
+  '泊地修理与恢复',
+  '暂无工作舰或给粮舰编队',
+  '给粮舰在渠',
+  '给粮舰未补给',
+  '给粮舰小破',
+  '给粮舰士气不足',
+  '可结算 · 已等 15 分',
+  '士气 49',
+  '给粮舰',
+  '已满',
+  '可补',
+  '2 号位',
+  '燃料 −2',
+  '→ 52 估算',
+  '野埼改 · 14:20 起回母港可 +3',
+  '野埼改 · 回母港可 +3',
+]
+
+test('09-18 给粮舰结算计时与士气估算文案逐字登记并通过原棘轮', () => {
+  for (const phrase of PROVISION_SHIP_COPY) {
+    assert.doesNotMatch(phrase, /用户|玩家提供|账本|遭遇志|本机|实况|截图|他的/)
+    const rows = [{ file: '给粮舰文案登记', line: 1, text: phrase }]
+    assert.deepEqual(offendersIn(rows, RETIRED_WORDS), [])
+    assert.deepEqual(offendersIn(rows, SENTENCE_SHAPES), [])
+  }
+  const ru = fs.readFileSync(new URL('../src/renderer/modules/ru.ts', import.meta.url), 'utf8')
+  for (const phrase of [
+    '泊地修理与恢复',
+    '暂无工作舰或给粮舰编队',
+    '给粮舰在渠',
+    '给粮舰未补给',
+    '给粮舰小破',
+    '给粮舰士气不足',
+    '可结算 · 已等',
+    '燃料 −',
+    '起回母港可',
+    '回母港可',
+  ]) {
+    assert.ok(ru.includes(phrase), `实现未收录：${phrase}`)
+  }
+})
+
+// 维护者 2026-09-18 定稿：索敌33 富提示标题与海域系数备注。
+const LOS33_TIP_COPY = ['索敌33 · 分支点系数', '系数随海域变化']
+
+test('09-18 索敌33 富提示文案逐字登记并通过原棘轮', () => {
+  const ru = fs.readFileSync(new URL('../src/renderer/modules/ru.ts', import.meta.url), 'utf8')
+  for (const phrase of LOS33_TIP_COPY) {
+    assert.doesNotMatch(phrase, /用户|玩家提供|账本|遭遇志|本机|实况|截图|他的/)
+    const rows = [{ file: '索敌33 富提示文案登记', line: 1, text: phrase }]
+    assert.deepEqual(offendersIn(rows, RETIRED_WORDS), [])
+    assert.deepEqual(offendersIn(rows, SENTENCE_SHAPES), [])
+    assert.ok(ru.includes(phrase), `实现未收录：${phrase}`)
+  }
+})
+
 // 维护者 2026-09-16 定稿：先制对潜所需等级与裸对潜目标值。
 // 动态数值用 123 / 131 / 100 登记成完整成句样本；实现里的插值只替换这些数字。
 const OASW_LEVEL_COPY = [

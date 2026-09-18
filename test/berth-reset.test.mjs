@@ -15,6 +15,7 @@ import {
   decks,
   henseiChange,
   presetSelect,
+  provisionSince,
   reset,
 } from './fixtures/store-berth-reducer.mjs'
 
@@ -84,4 +85,45 @@ test('认不出的编成请求不拨计时', () => {
   reset(FLEETS)
   henseiChange({ deckId: 9, idx: 1, shipId: 999, ts: TS }) // 没有第 9 队
   assert.deepEqual(berthSince(), {})
+})
+
+// ---- 给粮舰的全局锚点 ----
+
+test('把野埼放到 2 号位 → 给粮舰全局计时拨到本次时刻', () => {
+  reset([{ id: 1, ships: [101, -1, -1, -1, -1, -1] }], { 9960: 996 })
+  henseiChange({ deckId: 1, idx: 1, shipId: 9960, ts: TS })
+  assert.equal(provisionSince(), TS)
+})
+
+test('野埼在旗舰时往 4 号位加人 → 拨表', () => {
+  reset([{ id: 1, ships: [9960, 102, 103, -1, -1, -1] }], { 9960: 996 })
+  henseiChange({ deckId: 1, idx: 3, shipId: 999, ts: TS })
+  assert.equal(provisionSince(), TS)
+})
+
+test('野埼只在 3 号位时改编成 → 不拨表', () => {
+  reset([{ id: 1, ships: [101, 102, 9960, -1, -1, -1] }], { 9960: 996 })
+  henseiChange({ deckId: 1, idx: 3, shipId: 999, ts: TS })
+  assert.equal(provisionSince(), null)
+})
+
+test('随伴一括解除与预设展开都不拨给粮舰计时', () => {
+  reset([{ id: 1, ships: [9960, 102, 103, -1, -1, -1] }], { 9960: 996 })
+  henseiChange({ deckId: 1, idx: 1, shipId: -2, ts: TS })
+  assert.equal(provisionSince(), null)
+
+  reset([{ id: 1, ships: [101, 102, -1, -1, -1, -1] }], { 9960: 996 })
+  presetSelect({ deckId: 1, ships: [9960, 102, -1, -1, -1, -1], ts: TS })
+  assert.equal(provisionSince(), null)
+})
+
+test('对调把野埼从 2 队换到 1 队旗舰 → 全局拨表', () => {
+  reset([
+    { id: 1, ships: [101, 102, -1, -1, -1, -1] },
+    { id: 2, ships: [201, 9960, -1, -1, -1, -1] },
+  ], { 9960: 996 })
+  henseiChange({ deckId: 1, idx: 0, shipId: 9960, ts: TS })
+  assert.equal(provisionSince(), TS)
+  assert.deepEqual(decks()[0].ships.slice(0, 2), [9960, 102])
+  assert.deepEqual(decks()[1].ships.slice(0, 2), [201, 101])
 })

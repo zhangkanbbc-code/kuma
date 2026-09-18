@@ -252,7 +252,10 @@ const routeTallyFor = (_s: any) => ({ tally: new Map() })
 const sortieHeadingDeg = (..._a: any[]) => null
 const rankOutcomeWord = (rank: string) => (rank === 'S' ? '完胜' : '胜')
 const travelledEdges = (..._a: any[]) => []
-const fcdMap: any = null
+let fcdMap: any = null
+const setFcdMap = (value: any) => {
+  fcdMap = value
+}
 
 // 顶层 slotitems 是旗舰 damecon 的账本回退要查的那张表（master.slotitems 是主数据，两回事）。
 // friendlyRequest 刻意**不给初值**：那正是「从没收到过 set_friendly_request」的未知态，
@@ -324,6 +327,7 @@ export {
   mg,
   renderDistractFleet,
   changeFleet,
+  setFcdMap,
   setSelectedLogStage,
   browHtml,
   battleDropChipHtml,
@@ -380,7 +384,14 @@ export const renderResultStrip = (battle) => loaded.resultStripHtml(battle)
 export const renderAirline = (battle, sortie = { active: false, practice: false }) =>
   loaded.airlineHtml(battle, sortie)
 export const renderDropChip = (sortie, battle) => loaded.battleDropChipHtml(sortie, battle)
-export const renderSeaCard = (sortie) => loaded.seaCardHtml(sortie)
+export const renderSeaCard = (sortie, map = null) => {
+  loaded.setFcdMap(map)
+  try {
+    return loaded.seaCardHtml(sortie)
+  } finally {
+    loaded.setFcdMap(null)
+  }
+}
 export const renderNavCard = (sortie) => loaded.navCardHtml(sortie)
 export const renderAlertBanner = (sortie) => loaded.alertBannerHtml(sortie)
 export const renderOffshoreSupplyBanner = (sortie) => loaded.offshoreSupplyBannerHtml(sortie)

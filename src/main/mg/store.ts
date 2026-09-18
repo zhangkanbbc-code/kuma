@@ -19,6 +19,7 @@ import { diffConsumedInstances } from '../../shared/sortie-consumables'
 import { parseAirBaseStrikes } from '../../shared/air-base-strike'
 import { mapIdOf } from '../../shared/map-id'
 import { berthBankedDecks } from '../../shared/berth-repair'
+import { provisionBanked, provisionShipAt } from '../../shared/provision-ship'
 import { detectEventAreas } from '../../shared/event-area'
 import { getLode } from '../lode'
 import ledger from './ledger'
@@ -80,6 +81,7 @@ const state: MgState = {
     airBasesTs: null,
     lastPortTs: null,
     berthSince: {},
+    provisionSince: null,
   },
   sortie: null,
   lastSortieLevelUps: null,
@@ -113,6 +115,11 @@ export const getState = (): MgState => state
  */
 const touchBerth = (deckId: number, ts: number) => {
   if (deckId > 0) state.player.berthSince[deckId] = ts
+}
+
+/** 给粮舰的计时器是全局一枚；编成重置与回港结算都只把它拨到本次时刻。 */
+const touchProvision = (ts: number) => {
+  state.player.provisionSince = ts
 }
 
 // 重启回灌：把上次会话的领域状态（任务/道具/海域进度/演习/出击）放回去。
@@ -183,6 +190,7 @@ export const hydrateDomain = (data: any) => {
   if (data.berthSince && typeof data.berthSince === 'object') {
     state.player.berthSince = data.berthSince
   }
+  if (typeof data.provisionSince === 'number') state.player.provisionSince = data.provisionSince
   // 母港舰队域（编成 / 入渠 / 建造）。**这三样此前完全不落盘**，重启后唯一的来源是
   // 回放 `api_port/port`（带 decks+ndocks）与 `api_get_member/require_info`（带 kdocks）
   // 两份原始快照——也就是「最后一次进母港 / 最后一次登录」那一刻的定格。
@@ -239,6 +247,7 @@ export const domainSnapshot = () => ({
   airBases: state.player.airBases,
   airBasesTs: state.player.airBasesTs,
   berthSince: state.player.berthSince,
+  provisionSince: state.player.provisionSince,
   // 母港舰队三件套：远征 / 入渠 / 建造的倒计时全靠它们跨重启（理由见 hydrateDomain 那侧）。
   // 体积很小（各 4 格定长），落盘频率跟着 1.5s 去抖，不值得为它另开一条通道。
   decks: state.player.decks,
@@ -1696,7 +1705,13 @@ const reducers: Record<string, Reducer> = {
     // 泊地修理落账探测的取样点：必须赶在下面覆盖 ships/decks/ndocks **之前**。
     // 判据要用**回港前**的那套编成与入渠状态——正在计时的是它，不是刚下发的新一份。
     const hpBefore = new Map<number, number>()
-    for (const was of Object.values(p.ships)) hpBefore.set(was.id, was.nowhp)
+    const condBefore = new Map<number, number>()
+    const mstBefore = new Map<number, number>()
+    for (const was of Object.values(p.ships)) {
+      hpBefore.set(was.id, was.nowhp)
+      condBefore.set(was.id, was.cond)
+      mstBefore.set(was.id, was.shipId)
+    }
     const dockedBefore = new Set(p.ndocks.filter((d) => d.shipId > 0).map((d) => d.shipId))
     const decksBefore = p.decks.map((d) => ({ id: d.id, ships: [...d.ships] }))
     p.ships = {}
@@ -1711,9 +1726,16 @@ const reducers: Record<string, Reducer> = {
     // 高速修復材走 nyukyo/speedchange，那条 reducer 当场就把耐久改了，
     // 到这里比不出差值，因此也不会被误认成落账。
     const hpAfter = new Map<number, number>()
-    for (const now of Object.values(p.ships)) hpAfter.set(now.id, now.nowhp)
+    const condAfter = new Map<number, number>()
+    for (const now of Object.values(p.ships)) {
+      hpAfter.set(now.id, now.nowhp)
+      condAfter.set(now.id, now.cond)
+    }
     for (const deckId of berthBankedDecks(decksBefore, hpBefore, dockedBefore, hpAfter)) {
       touchBerth(deckId, ts)
+    }
+    if (provisionBanked(decksBefore, condBefore, dockedBefore, condAfter, (id) => mstBefore.get(id))) {
+      touchProvision(ts)
     }
     const sections: Section[] = ['basic', 'materials', 'ships', 'decks', 'ndocks', 'record', 'portLogs']
     // 本趟最后一战没有 ship_deck 跟在后面（撤退与归港这两支游戏都不发），
@@ -1937,13 +1959,16 @@ const reducers: Record<string, Reducer> = {
     const deck = state.player.decks.find((d) => d.id === deckId)
     if (!deck || Number.isNaN(shipIdx)) return []
 
+    const changedDecks = new Set<Deck>()
+
     if (shipId === -2) {
       deck.ships = deck.ships.map((s, i) => (i === 0 ? s : -1))
-      // 随伴艦一括解除**不**拨计时（理由见 touchBerth 的注）
+      // 随伴艦一括解除**不**拨明石或给粮舰计时；两套机制都明确排除这一支。
     } else if (shipId === -1) {
       deck.ships.splice(shipIdx, 1)
       deck.ships.push(-1)
       touchBerth(deck.id, ts)
+      changedDecks.add(deck)
     } else {
       // 若目标舰已在任一舰队，则与当前位置对调
       const prev = deck.ships[shipIdx]
@@ -1953,10 +1978,21 @@ const reducers: Record<string, Reducer> = {
           d.ships[at] = prev
           // 对调动了两支队的编成，两边的计时都得拨
           if (d.id !== deck.id) touchBerth(d.id, ts)
+          changedDecks.add(d)
         }
       }
       deck.ships[shipIdx] = shipId
       touchBerth(deck.id, ts)
+      changedDecks.add(deck)
+    }
+    // 给粮舰只看**改完后**的受影响队；全局共用一枚锚点，命中任一队就拨一次。
+    // preset_select 不走这个 reducer，随伴一括解除在上面留空，两者都不重置。
+    if (
+      [...changedDecks].some((changed) =>
+        provisionShipAt(changed.ships, (id) => state.player.ships[id]?.shipId),
+      )
+    ) {
+      touchProvision(ts)
     }
     return ['decks']
   },

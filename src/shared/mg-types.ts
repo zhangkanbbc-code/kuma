@@ -915,6 +915,11 @@ export interface MgPlayer {
    * 所以它进 `domainSnapshot`。缺号 = 没观测到过这支队的归零点，那就什么都不报。
    */
   berthSince: Record<number, number>
+  /**
+   * 给粮舰结算的全局计时锚点。多支野埼舰队共用一个计时器，跨重启保留；
+   * `null` = 还没观测到过锚点，不能凭空报等待时长。
+   */
+  provisionSince: number | null
 }
 
 // 活动期观测：活动海域只在活动期间存在于主数据里，它进出 api_start2 的时刻
@@ -996,6 +1001,7 @@ export interface MgPatch {
   airBasesTs?: number | null
   lastPortTs?: number | null
   berthSince?: Record<number, number> // 随 decks 一起推，见 main/mg/index.ts
+  provisionSince?: number | null // 全局给粮舰锚点，也随 decks 一起推
   battleReconciliation?: BattleReconciliationSession
 }
 

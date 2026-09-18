@@ -2983,6 +2983,10 @@ test('fleet view stays complete during expeditions and only hints forward remode
   // 真正要守的是数从哪来：制空只给裸值 + 熟练度区间，索敌走 fleetLos33 的四档系数。
   assert.match(fleet, /const airTitle = `裸制空 \$\{air\.basic\} · 不含熟练度加成`/)
   assert.match(fleet, /分支点系数：×1 \$\{losByFactor\[0\]\}/)
+  assert.match(fleet, /data-tip-title="索敌33 · 分支点系数"/)
+  assert.match(fleet, /data-tip-kind="los33"/)
+  assert.match(fleet, /data-los33="\$\{losByFactor\.map\(\(value\) => value\.toFixed\(1\)\)\.join\(','\)\}"/)
+  assert.doesNotMatch(fleet, /data-mkey="los" title=/)
 })
 
 test('fleet view collapses combined fleets and keeps all land-base areas as a fifth category', () => {
@@ -3053,7 +3057,7 @@ test('map thumbnails stay readable and expose map codes plus live gauge progress
 
 test('fleet equipment icons use the same entity peek route as equipment names', () => {
   const fleet = fs.readFileSync(new URL('../src/renderer/modules/ru.ts', import.meta.url), 'utf8')
-  assert.match(fleet, /import \{ elink, elinkHtml, navigate, registerEntityRoute \} from '\.\.\/link'/)
+  assert.match(fleet, /import \{ elink, elinkHtml, navigate, registerEntityRoute, registerTipBody \} from '\.\.\/link'/)
   assert.match(fleet, /const equipPeekIconHtml = \(/)
   assert.match(fleet, /elinkHtml\('mstEquip', mstId, equipTypeIconHtml\(iconId, options\)/)
   assert.match(fleet, /chips\.push\(equipPeekIconHtml\(inst\.mstId, mst\.iconId, name/)
@@ -9845,6 +9849,31 @@ test('出击海图：搬走右栏那张卡，浮层挂在 body 下', () => {
   assert.ok(di.includes('travelledEdges('), '航线没按边画')
   assert.ok(!/for \(let i = 1; i < visited\.length/.test(di), '又退回字母首尾相连了')
   assert.ok(di.includes('visitedSet.add(edge.from)'), '出发点没算成走过的点，会留成灰点')
+})
+
+test('弹出海图不再被 240px 压扁', async () => {
+  assert.match(rendererSource, /\.sea-pop \.mini-map \{[^}]*max-width: none[^}]*max-height: 320px/)
+  const { renderSeaCard } = await import('./fixtures/render-di-battle.mjs')
+  const card = renderSeaCard(
+    {
+      practice: false,
+      mapArea: 1,
+      mapNo: 1,
+      nodes: [{ cell: 1, eventId: 4 }],
+      cellData: [],
+      selectRoute: [],
+      bossCell: 0,
+    },
+    {
+      data: {
+        '1-1': {
+          spots: { 1: [0, 0, ''], 2: [100, 0, ''] },
+          route: { '1-2': ['1', '2'] },
+        },
+      },
+    },
+  )
+  assert.match(card, /<circle cx="0" cy="0" r="23"/)
 })
 
 test('输出栏按昼夜分段，没出手写 -- 而不是 0', async () => {

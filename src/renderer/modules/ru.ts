@@ -31,6 +31,14 @@ import {
   berthShipState,
   berthWarmupRatio,
 } from '../../shared/berth-repair'
+import {
+  PROVISION_COND_CAP,
+  PROVISION_WARMUP_MS,
+  provisionEstimate,
+  provisionHalt,
+  provisionShipAt,
+  provisionShipState,
+} from '../../shared/provision-ship'
 
 import {
   combinedEscortState,
@@ -106,7 +114,7 @@ import { trainingCruiserSetup } from '../../shared/practice-exp'
 import { parseKcwikiNeeds, type KcwikiNeed } from '../../shared/kcwiki-upgrade'
 import { resolveUseitemStock } from '../../shared/useitem-stock'
 import { shipArtDamaged } from '../../shared/ship-art-path'
-import { elink, elinkHtml, navigate, registerEntityRoute } from '../link'
+import { elink, elinkHtml, navigate, registerEntityRoute, registerTipBody } from '../link'
 import { entityNameHtml, entityNamePlain, entityTermHtml } from '../localization'
 import { expeditionLabel } from '../expedition-label'
 import { simplifyKcwikiShipsData } from '../kcwiki-zh'
@@ -2271,6 +2279,25 @@ const airBaseHeaderHtml = (): string => {
   </div>`
 }
 
+const los33TipBodyHtml = (target: HTMLElement): string => {
+  const rawValues = (target.dataset.los33 ?? '').split(',').map((value) => value.trim())
+  const values = rawValues.map(Number)
+  if (values.length !== 4 || rawValues.some((value) => !value) || values.some((value) => !Number.isFinite(value))) {
+    return (target.dataset.tip ?? '')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => esc(line))
+      .join('<br>')
+  }
+  return `<div class="los33">${rawValues
+    .map((value, index) => `<span class="los-item"><i>×${index + 1}</i><b>${esc(value)}</b></span>`)
+    .join('')}</div>
+    <div class="los-note">系数随海域变化</div>`
+}
+
+let los33TipRegistered = false
+
 const metricsHtml = (deck: Deck) => {
   const ships = scopeShips(deck)
   if (!ships.length) return ''
@@ -2360,7 +2387,7 @@ const metricsHtml = (deck: Deck) => {
   // 两者不是一回事：临战最常看的制空/索敌33 摆在最前，也最后才收。
   return metricsRowHtml('fleet', FLEET_METRIC_FOLD_ORDER, [
     `<span class="mchip" data-mkey="air" title="${esc(airTitle)}">制空 <b class="hi">${airText}</b></span>`,
-    `<span class="mchip" data-mkey="los" title="${esc(losTitle)}">索敌33 <b class="hi">${losByFactor[0].toFixed(1)}</b></span>`,
+    `<span class="mchip" data-mkey="los" data-tip-title="索敌33 · 分支点系数" data-tip-kind="los33" data-los33="${losByFactor.map((value) => value.toFixed(1)).join(',')}" data-tip="${esc(losTitle)}">索敌33 <b class="hi">${losByFactor[0].toFixed(1)}</b></span>`,
     `<span class="mchip" data-mkey="comp">构成 <b>${esc(comp)}</b></span>`,
     `<span class="mchip" data-mkey="soku" title="游戏实时航速（含装备提速）">航速 ${soku}</span>`,
     dameconTitles.length ? `<span class="mchip metric damecon" data-mkey="damecon" title="${esc(dameconTitles.join('\n'))}">损管 <b>${dameconCrew + dameconGoddess}</b> · 要员 <b style="color:var(--damecon-crew)">${dameconCrew}</b> · 女神 <b style="color:var(--damecon-goddess)">${dameconGoddess}</b></span>` : '',
@@ -2428,10 +2455,13 @@ const fleetTabsHtml = (activeId: number) =>
     })()}${(() => {
       // 泊地修理排在沙盘之后（2026-08-26 用户定的位置）
       const fleets = mg.decks.filter(
-        (deck) => deck.id >= 1 && deck.id <= 4 && berthFlagshipOf(deck),
+        (deck) =>
+          deck.id >= 1 &&
+          deck.id <= 4 &&
+          (berthFlagshipOf(deck) || provisionShipOf(deck)),
       ).length
       return `<div class="ftab berth${activeId === BERTH_TAB_ID ? ' on' : ''}" data-deck="${BERTH_TAB_ID}">
-        <span class="d ${fleets ? 'berth-on' : 'sand'}"></span>泊地修理${
+        <span class="d ${fleets ? 'berth-on' : 'sand'}"></span>泊地修理与恢复${
           fleets ? `<span class="t">${fleets}队</span>` : ''
         }</div>`
     })()}`
@@ -2559,6 +2589,10 @@ const BERTH_STATE_LABEL = {
   docked: '入渠',
 } as const
 
+/** 明石卡与给粮舰卡共用同一份出海判据（联合舰队一队出击时两队都算在海上）。 */
+const berthDeckAtSea = (deck: Deck): boolean =>
+  deckOnSortie(deck.id) || (inCombined(deck) && deckOnSortie(1))
+
 /** 一支能修的舰队。旗舰不是工作舰的队根本不进这里。 */
 const berthFleetHtml = (deck: Deck, flag: PlayerShip, now: number): string => {
   const ships = fleetShips(deck)
@@ -2575,9 +2609,7 @@ const berthFleetHtml = (deck: Deck, flag: PlayerShip, now: number): string => {
   // 两源「计时继续」），所以这里只停「显示」、不停表——海上 HP 还在战场上变，
   // 账面是出发前的旧值，摆出来必是算不准的数；回港 HP 落账后自动回到「停泊 N 分」。
   // 判据与出击裁决行同一份（含联合舰队一队带二队）。
-  const s = mg.sortie
-  const atSea =
-    !!s?.active && !s.practice && (s.deckId === deck.id || (inCombined(deck) && s.deckId === 1))
+  const atSea = berthDeckAtSea(deck)
 
   // 计时那一格：停摆时只说停摆（停摆的原因就是玩家要看的那句），
   // 没有锚点时说不知道——都不摆一个算不准的数出来。
@@ -2624,6 +2656,113 @@ const berthFleetHtml = (deck: Deck, flag: PlayerShip, now: number): string => {
   </div>`
 }
 
+const PROVISION_HALT_LABEL = {
+  mission: '远征中',
+  flagDocked: '给粮舰在渠',
+  flagUnsupplied: '给粮舰未补给',
+  flagHurt: '给粮舰小破',
+  flagTired: '给粮舰士气不足',
+} as const
+
+const PROVISION_STATE_LABEL = {
+  docked: '入渠',
+  full: '已满',
+  ready: '可补',
+} as const
+
+/** 0/1 位的给粮舰与她这一轮的增量；两位都有时由共享判据取旗舰。 */
+const provisionShipOf = (
+  deck: Deck,
+): { ship: PlayerShip; index: 0 | 1; gain: number } | null => {
+  const found = provisionShipAt(deck.ships, (rosterId) => mg.ships[rosterId]?.shipId)
+  if (!found) return null
+  const ship = mg.ships[found.rosterId]
+  return ship ? { ship, index: found.index, gain: found.gain } : null
+}
+
+/**
+ * 给粮舰的计时锚点只认全局 provisionSince，没有退回该队编成时刻的退路。
+ * 维护者 2026-09-18 实测：南海在旗舰位改造成野埼后，补给满、无伤、cond 49、不远征、
+ * 随伴不在渠，且离改造与最后一次编成都超过 15 分钟，四次回港游戏都没有结算。
+ * 游戏的表只在野埼位于 0/1 位并完成编成的那一下起；改造上位不会起表，因此退回
+ * berthSince[deck.id] 会把尚未起表报成「可结算」。锚点缺失时只能报「计时未知」。
+ */
+const provisionSinceOf = (_deck: Deck): number | null => mg.provisionSince
+
+/** 回港先结自然回复到 49，再叠给粮舰；账上已经高于 49 的值也不能被拉低。 */
+const provisionBaseCond = (ship: PlayerShip): number =>
+  Math.max(ship.cond, estimatedCond(ship.id, FATIGUE_FULL_COND) ?? ship.cond)
+
+const provisionHaltOf = (deck: Deck, flag: PlayerShip) => {
+  const master = mg.master.ships[flag.shipId]
+  return provisionHalt(flag, {
+    onMission: deck.mission?.[0] > 0,
+    flagDocked: !!dockOf(flag.id),
+    fuelMax: master?.fuelMax ?? Number.POSITIVE_INFINITY,
+    bullMax: master?.bullMax ?? Number.POSITIVE_INFINITY,
+  })
+}
+
+/** 一支 0/1 位有给粮舰的队；传入的 flag 是 provisionShipOf 已核过的那艘。 */
+const provisionFleetHtml = (
+  deck: Deck,
+  flag: { ship: PlayerShip; index: 0 | 1; gain: number },
+  now: number,
+): string => {
+  const ships = fleetShips(deck)
+  const halt = provisionHaltOf(deck, flag.ship)
+  const atSea = berthDeckAtSea(deck)
+  const since = provisionSinceOf(deck)
+  const elapsed = since === null ? null : Math.max(0, now - since)
+  const warm = elapsed !== null && elapsed >= PROVISION_WARMUP_MS
+  const timing = atSea
+    ? '<span class="bt-halt">出击中</span>'
+    : halt
+      ? `<span class="bt-halt">${PROVISION_HALT_LABEL[halt]}</span>`
+      : elapsed === null
+        ? '<span class="bt-idle">计时未知</span>'
+        : warm
+          ? `<span class="bt-on">可结算 · 已等 ${Math.floor(elapsed / 60_000)} 分</span>`
+          : `<span class="bt-warm">缺 ${Math.ceil((PROVISION_WARMUP_MS - elapsed) / 60_000)} 分</span>
+             <span class="bt-bar"><i style="width:${Math.max(0, Math.min(100, (elapsed / PROVISION_WARMUP_MS) * 100)).toFixed(1)}%"></i></span>`
+
+  let fuelCost = 0
+  const rows = ships
+    .map((ship, index) => {
+      const own = ship.id === flag.ship.id
+      const docked = !!dockOf(ship.id)
+      const base = provisionBaseCond(ship)
+      const state = provisionShipState(base, docked)
+      const estimate = !own && !halt && !atSea && warm && state === 'ready'
+        ? provisionEstimate(base, flag.gain)
+        : null
+      if (estimate !== null) fuelCost += 1
+      const name = masterShipName(ship.shipId)
+      const tag = own ? '给粮舰' : PROVISION_STATE_LABEL[state]
+      const tagClass = own ? 's-provision' : `s-${state}`
+      return `<div class="bt-ship provision" data-provision-pos="${index + 1}">
+        <span class="bt-no">${index + 1}</span>
+        <span class="bt-name">${entityTermHtml('ship', ship.shipId, entityNamePlain('ship', ship.shipId, name))}</span>
+        <span class="bt-cond">士气 ${base}</span>
+        <span class="bt-tag ${tagClass}">${tag}</span>
+        <span class="bt-gain">${estimate !== null ? `<b>→ ${estimate}</b><em>估算</em>` : ''}</span>
+      </div>`
+    })
+    .join('')
+
+  const name = entityNamePlain('ship', flag.ship.shipId, masterShipName(flag.ship.shipId))
+  return `<div class="bt-fleet provision">
+    <div class="bt-head">
+      <b>${entityTermHtml('fleet', deck.id, fleetLabel(deck).canonical)}</b>
+      <span class="bt-flag">${entityTermHtml('ship', flag.ship.shipId, name)}</span>
+      <span class="bt-cover">${flag.index === 0 ? '旗舰' : '2 号位'}</span>
+      ${fuelCost ? `<span class="bt-cover">燃料 −${fuelCost}</span>` : ''}
+      <span class="bt-time">${timing}</span>
+    </div>
+    <div class="bt-ships">${rows}</div>
+  </div>`
+}
+
 /**
  * 泊地修理抬头。
  *
@@ -2632,7 +2771,7 @@ const berthFleetHtml = (deck: Deck, flag: PlayerShip, now: number): string => {
  * 数值旁的「估算」两字是唯一限定词；怎么算的写在 shared/berth-repair.ts 头注。
  */
 const berthHeaderHtml = (): string => `<div class="fhead berth-head">
-  <div class="fh-name"><b>泊地修理</b></div>
+  <div class="fh-name"><b>泊地修理与恢复</b></div>
 </div>`
 
 /**
@@ -2647,11 +2786,14 @@ const berthViewHtml = (): string => {
     .filter((deck) => deck.id >= 1 && deck.id <= 4)
     .map((deck) => {
       const flag = berthFlagshipOf(deck)
-      return flag ? berthFleetHtml(deck, flag, now) : ''
+      const provision = provisionShipOf(deck)
+      return `${flag ? berthFleetHtml(deck, flag, now) : ''}${
+        provision ? provisionFleetHtml(deck, provision, now) : ''
+      }`
     })
     .filter(Boolean)
   if (!blocks.length) {
-    return '<div class="bt-empty">暂无工作舰旗舰编队</div>'
+    return '<div class="bt-empty">暂无工作舰或给粮舰编队</div>'
   }
   return `<div class="bt-list">${blocks.join('')}</div>`
 }
@@ -2664,18 +2806,39 @@ const berthViewHtml = (): string => {
  */
 const fleetFatigueHtml = (deck: Deck): string => {
   const ships = scopeShips(deck)
-  if (!ships.length) return '<small></small>'
-  const { ts, unknown } = fleetFatigueEta(ships, FATIGUE_FULL_COND)
-  if (ts == null) {
-    return unknown ? '<small></small>' : '<small>士气已回满</small>'
+  let fatigue = '<small></small>'
+  if (ships.length) {
+    const { ts, unknown } = fleetFatigueEta(ships, FATIGUE_FULL_COND)
+    if (ts == null) {
+      fatigue = unknown ? '<small></small>' : '<small>士气已回满</small>'
+    } else {
+      const last = ships
+        .filter((ship) => ship.cond < FATIGUE_FULL_COND && fatigueReadyTs(ship.id, FATIGUE_FULL_COND) === ts)
+        .map((ship) => entityNamePlain('ship', ship.shipId, masterShipName(ship.shipId)))[0]
+      const title = `全队预计回满至 ${FATIGUE_FULL_COND}${last ? ` · 最晚 ${last}` : ''}`
+      fatigue = `<small data-ready-ts="${ts}" data-ready-done="士气已回满" title="${esc(
+        title,
+      )}">预计回满 ${fmtTime(ts)}</small>`
+    }
   }
-  const last = ships
-    .filter((ship) => ship.cond < FATIGUE_FULL_COND && fatigueReadyTs(ship.id, FATIGUE_FULL_COND) === ts)
-    .map((ship) => entityNamePlain('ship', ship.shipId, masterShipName(ship.shipId)))[0]
-  const title = `全队预计回满至 ${FATIGUE_FULL_COND}${last ? ` · 最晚 ${last}` : ''}`
-  return `<small data-ready-ts="${ts}" data-ready-done="士气已回满" title="${esc(
-    title,
-  )}">预计回满 ${fmtTime(ts)}</small>`
+
+  const provision = provisionShipOf(deck)
+  if (!provision || provisionHaltOf(deck, provision.ship) || berthDeckAtSea(deck)) return fatigue
+  const target = fleetShips(deck).some(
+    (ship) =>
+      ship.id !== provision.ship.id &&
+      !dockOf(ship.id) &&
+      provisionBaseCond(ship) < PROVISION_COND_CAP,
+  )
+  const since = provisionSinceOf(deck)
+  if (!target || since === null) return fatigue
+  const name = entityNamePlain('ship', provision.ship.shipId, masterShipName(provision.ship.shipId))
+  const readyTs = since + PROVISION_WARMUP_MS
+  const done = `${name} · 回母港可 +${provision.gain}`
+  const provisionReady = readyTs > Date.now()
+    ? `<small data-ready-ts="${readyTs}" data-ready-done="${esc(done)}">${esc(name)} · ${fmtTime(readyTs)} 起回母港可 +${provision.gain}</small>`
+    : `<small>${esc(done)}</small>`
+  return `${fatigue}${provisionReady}`
 }
 
 const fleetHeaderHtml = (deck: Deck) => {
@@ -3364,7 +3527,11 @@ const tickTimers = () => {
     activeFleetId === BERTH_TAB_ID &&
     minute !== lastBerthRenderMinute &&
     mg.decks.some(
-      (deck) => deck.id >= 1 && deck.id <= 4 && berthFlagshipOf(deck) && mg.berthSince[deck.id],
+      (deck) =>
+        deck.id >= 1 &&
+        deck.id <= 4 &&
+        ((berthFlagshipOf(deck) && mg.berthSince[deck.id]) ||
+          (provisionShipOf(deck) && provisionSinceOf(deck) !== null)),
     )
   ) {
     lastBerthRenderMinute = minute
@@ -3381,6 +3548,10 @@ registerModule({
   mount(el) {
     pane = el
     pane.classList.add('fleet-skin')
+    if (!los33TipRegistered) {
+      registerTipBody('los33', los33TipBodyHtml)
+      los33TipRegistered = true
+    }
     // pane 级事件委托只在这里挂一次（渲染循环里挂会随渲染次数无限叠加）
     bindFleetPanelDelegates(pane, (id) => (activeFleetId = id), render)
     // 「打开了哪张海域」由主进程从静态资源请求里认出来（见 kcs-resource）。

@@ -112,6 +112,7 @@ const pickSections = (sections: Section[]) => {
         // 泊地修理的计时锚点也是按队记的，且两个归零点（编成变更 / 回港落账）
         // 返回的切片里都有 decks——搭这班车走，不必为它单开一个 Section
         patch.berthSince = state.player.berthSince
+        patch.provisionSince = state.player.provisionSince
         break
       case 'airBases':
         patch.airBases = state.player.airBases

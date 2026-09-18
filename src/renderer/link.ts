@@ -333,6 +333,11 @@ const showMenu = (span: HTMLElement, event: MouseEvent) => {
 // 那是说明文字的详略问题，跟容器选型是两回事。
 let tipEl: HTMLElement | null = null
 let tipTimer: ReturnType<typeof setTimeout> | null = null
+const tipBodyRenderers = new Map<string, (target: HTMLElement) => string>()
+
+export const registerTipBody = (kind: string, render: (target: HTMLElement) => string) => {
+  tipBodyRenderers.set(kind, render)
+}
 
 const tipHtml = (target: HTMLElement, pinned: boolean) => {
   const title = target.dataset.tipTitle ?? ''
@@ -340,10 +345,13 @@ const tipHtml = (target: HTMLElement, pinned: boolean) => {
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
+  const body = target.dataset.tipKind
+    ? tipBodyRenderers.get(target.dataset.tipKind)?.(target)
+    : undefined
   return `<div class="p-t"><b>${esc(title || '说明')}</b>${
     pinned ? '<span class="pin-x" title="取消钉住">✕</span>' : ''
   }</div>
-   <div class="p-s">${lines.map((line) => esc(line)).join('<br>')}</div>
+   <div class="p-s">${body ?? lines.map((line) => esc(line)).join('<br>')}</div>
    ${pinned ? '' : '<div class="p-hint">单击固定 · 支持拖动与复制</div>'}`
 }
 
@@ -352,6 +360,7 @@ const hideTip = () => tipEl?.classList.remove('show')
 const pinTip = (target: HTMLElement) => {
   const card = document.createElement('div')
   card.className = 'peek tip pinned show'
+  card.classList.toggle('narrow', !!target.closest('.narrow'))
   card.innerHTML = tipHtml(target, true)
   document.body.appendChild(card)
   placePinnedCard(card, target.getBoundingClientRect(), (pinnedCount++ % 6) * 26)
@@ -386,6 +395,7 @@ const initRichTips = () => {
     if (tipTimer) clearTimeout(tipTimer)
     tipTimer = setTimeout(() => {
       if (!tipEl) return
+      tipEl.classList.toggle('narrow', !!target.closest('.narrow'))
       tipEl.innerHTML = tipHtml(target, false)
       placeAt(tipEl, target)
     }, 260)

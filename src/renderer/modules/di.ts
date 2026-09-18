@@ -3006,7 +3006,7 @@ const seaCardHtml = (s: SortieView): string => {
       const c = spots[edge.to]
       if (!a || !c) continue
       visitedSet.add(edge.from) // 出发点也是走过的，别留成灰点
-      lines.push(`<line x1="${a[0]}" y1="${a[1]}" x2="${c[0]}" y2="${c[1]}" stroke-width="5" style="stroke:var(--node-link-passed)"/>`)
+      lines.push(`<line x1="${a[0]}" y1="${a[1]}" x2="${c[0]}" y2="${c[1]}" stroke-width="6" style="stroke:var(--node-link-passed)"/>`)
     }
     const dots = Object.entries(spots)
       .map(([name, [x, y]]) => {
@@ -3017,8 +3017,8 @@ const seaCardHtml = (s: SortieView): string => {
         const stroke = isCur ? 'var(--node-cur-stroke)' : canSelect ? 'var(--node-select-stroke)' : isBoss ? 'var(--node-boss-stroke)' : passed ? 'var(--node-passed-stroke)' : 'var(--node-idle-stroke)'
         const fill = isCur ? 'var(--node-cur-fill)' : canSelect ? 'var(--node-select-fill)' : isBoss ? 'var(--node-boss-fill)' : passed ? 'var(--node-passed-fill)' : 'var(--node-idle-fill)'
         const color = isCur ? 'var(--node-cur-ink)' : canSelect ? 'var(--node-select-ink)' : isBoss ? 'var(--node-boss-ink)' : passed ? 'var(--node-passed-ink)' : 'var(--node-idle-ink)'
-        const ring = isCur ? `<circle cx="${x}" cy="${y}" r="30" fill="none" stroke-width="2.5" opacity=".45" style="stroke:var(--node-cur-stroke)"/>` : ''
-        return `${ring}<circle cx="${x}" cy="${y}" r="19" stroke-width="3" style="fill:${fill};stroke:${stroke}">${canSelect ? `<title>当前可选择 ${esc(name)} 点</title>` : ''}</circle><text x="${x}" y="${y + 7}" font-size="19" font-weight="600" text-anchor="middle" font-family="Consolas,monospace" style="fill:${color}">${esc(name)}</text>`
+        const ring = isCur ? `<circle cx="${x}" cy="${y}" r="35" fill="none" stroke-width="2.5" opacity=".45" style="stroke:var(--node-cur-stroke)"/>` : ''
+        return `${ring}<circle cx="${x}" cy="${y}" r="23" stroke-width="3.5" style="fill:${fill};stroke:${stroke}">${canSelect ? `<title>当前可选择 ${esc(name)} 点</title>` : ''}</circle><text x="${x}" y="${y + 8}" font-size="22" font-weight="600" text-anchor="middle" font-family="Consolas,monospace" style="fill:${color}">${esc(name)}</text>`
       })
       .join('')
     svg = `<svg class="mini-map" viewBox="${minX} ${minY} ${w} ${h}">${bgLines}${lines.join('')}${dots}</svg>`

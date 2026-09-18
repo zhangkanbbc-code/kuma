@@ -20,6 +20,9 @@ const ROOT = fileURLToPath(new URL('../..', import.meta.url))
 const source = fs
   .readFileSync(path.join(ROOT, 'src', 'renderer', 'link.ts'), 'utf8')
   .replace(/\r\n/g, '\n')
+const ruSource = fs
+  .readFileSync(path.join(ROOT, 'src', 'renderer', 'modules', 'ru.ts'), 'utf8')
+  .replace(/\r\n/g, '\n')
 
 const sliceBetween = (from, to, label) => {
   const start = source.indexOf(from)
@@ -28,13 +31,22 @@ const sliceBetween = (from, to, label) => {
   return source.slice(start, end)
 }
 
-// hideTip 与 initRichTips 两段，中间的 tipHtml/pinTip 在下面补桩
+const TIP_BODY = sliceBetween(
+  'const tipBodyRenderers',
+  '\nconst hideTip',
+  'tipHtml 与 registerTipBody',
+)
 const HIDE_TIP = sliceBetween(
   "const hideTip = () => tipEl?.classList.remove('show')",
   '\nconst pinTip',
   'hideTip',
 )
+const PIN_TIP = sliceBetween('const pinTip = (target: HTMLElement) => {', '\nconst initRichTips', 'pinTip')
 const INIT = sliceBetween('const initRichTips = () => {', '\nexport const initLink', 'initRichTips')
+const los33Start = ruSource.indexOf('const los33TipBodyHtml = (target: HTMLElement): string => {')
+const los33End = ruSource.indexOf('\nlet los33TipRegistered', los33Start)
+assert.ok(los33Start >= 0 && los33End > los33Start, 'ru.ts 里找不到「los33TipBodyHtml」')
+const LOS33_BODY = ruSource.slice(los33Start, los33End)
 
 const HARNESS = `
 declare const document: any
@@ -44,24 +56,35 @@ declare function clearTimeout(handle: any): void
 
 let tipEl: any = null
 let tipTimer: any = null
+let pinnedCount = 0
 
 // 这几样与本次要守的行为无关，补最小桩
 const esc = (v: unknown) => String(v ?? '')
-const tipHtml = (_t: any, _p: boolean) => '<div class="p-t"></div>'
-const pinTip = (_t: any) => { pinned.push(_t) }
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
 const hideMenu = () => {}
 const hidePeek = () => {}
-export const pinned: any[] = []
+const placePinnedCard = () => {}
+const removePeekCard = () => {}
 
 // placeAt 的真行为里，与收起相关的只有「加上 show」这一条
 const placeAt = (el: any, _target: any) => { el.classList.add('show') }
 
+${TIP_BODY}
+
 ${HIDE_TIP}
+
+${PIN_TIP}
 
 ${INIT}
 
-export { initRichTips, hideTip }
+${LOS33_BODY}
+
+export { initRichTips, hideTip, tipHtml, pinTip }
 export const tipCard = () => tipEl
+export const registerLos33 = () => registerTipBody('los33', los33TipBodyHtml)
 `
 
 const bundle = (() => {
@@ -140,6 +163,10 @@ class FakeEl {
   querySelectorAll() {
     return []
   }
+
+  getBoundingClientRect() {
+    return { left: 0, top: 0, right: 10, bottom: 10, width: 10, height: 10 }
+  }
 }
 
 /** 确定性定时器：只有 advance() 能推动时间。 */
@@ -171,13 +198,14 @@ export const mountRichTips = () => {
   const clock = makeClock()
   const docListeners = new Map()
   const created = []
+  const appended = []
   const fakeDocument = {
     createElement: (tag) => {
       const el = new FakeEl(tag)
       created.push(el)
       return el
     },
-    body: { appendChild: () => {} },
+    body: { appendChild: (el) => appended.push(el) },
     addEventListener: (type, handler) => {
       if (!docListeners.has(type)) docListeners.set(type, [])
       docListeners.get(type).push(handler)
@@ -194,17 +222,28 @@ export const mountRichTips = () => {
   const card = mod.tipCard()
 
   const fireDoc = (type, target) => {
-    for (const handler of docListeners.get(type) ?? []) handler({ target })
+    for (const handler of docListeners.get(type) ?? []) {
+      handler({ target, stopPropagation: () => {}, preventDefault: () => {} })
+    }
   }
 
   return {
     card,
     clock,
-    pinned: mod.pinned,
     /** 一个挂了 data-tip 的触发字 */
-    trigger: (tip = '一行\n两行') => new FakeEl('span', { dataset: { tip, tipTitle: '说明' } }),
+    trigger: (tip = '一行\n两行', dataset = {}, parent = null) =>
+      new FakeEl('span', { dataset: { tip, tipTitle: '说明', ...dataset }, parent }),
+    panel: (narrow = false) => {
+      const panel = new FakeEl('section')
+      if (narrow) panel.classList.add('narrow')
+      return panel
+    },
+    html: (el, pinned = false) => mod.tipHtml(el, pinned),
+    registerLos33: mod.registerLos33,
     hoverTrigger: (el) => fireDoc('mouseover', el),
     leaveTrigger: (el) => fireDoc('mouseout', el),
+    pinTrigger: (el) => fireDoc('click', el),
+    pinnedCards: () => appended.filter((el) => el !== card),
     enterCard: () => {
       card.hovered = true
       card.fire('mouseenter')

@@ -20,11 +20,13 @@ import {
   esc,
   exitWithMotion,
   fmtCountdownShort,
+  fmtDate,
   fmtReturnClock,
   fmtDurationLong,
   fmtTime,
   commitPaneHtml,
   lodeCreditMark,
+  masterShipName,
   mg,
   onMgChange,
   deferPassive,
@@ -39,6 +41,8 @@ import {
   queryQp,
   trackMountCleanup,
   updateCountdowns,
+  uiGet,
+  uiSet,
 } from '../kernel'
 import { hideFilterMenu, showFilterMenu } from '../filter-menu'
 import type { FilterMenuSpec } from '../filter-menu'
@@ -49,6 +53,7 @@ import {
 } from '../expedition-name-index'
 import { furnitureIconHtml, materialIconHtml, shipThumbHtml, useItemIconHtml } from '../entity-art'
 import { equipTypeIconHtml } from '../equip-icon'
+import { alvIconHtml } from '../alv-icon'
 import { activateModule, isCompactMode, registerCompactMode, registerModule } from '../mu'
 import {
   buildQuestChainTree,
@@ -62,6 +67,12 @@ import { buildExpeditionOverlap } from '../../shared/quest-expedition-overlap'
 import { mergeQuestPre } from '../../shared/quest-pre-merge'
 import type { MergedQuestPre, WwQuestPre } from '../../shared/quest-pre-merge'
 import { QUEST_PRE_ARBITRATION } from '../../shared/quest-pre-arbitration'
+import {
+  captureLineup,
+  LINEUP_UI_KEY,
+  lineupApplies,
+  readLineups,
+} from '../../shared/lineup-record'
 import {
   simplifyKcwikiShipsData,
   simplifyQuestScnData,
@@ -151,6 +162,7 @@ let equiptypeNames: Map<number, string> = new Map() // 装备分类名（api_mst
 let entityIndexVersion = 0
 let qp: QpState | null = null // 精确计数（铭引擎镜像）
 let fleetCheck: QpFleetCheck = {} // 编成条件实时判定：questId → 哪几支舰队满足
+let lineups = readLineups(uiGet<unknown>(LINEUP_UI_KEY, {}))
 // 上一次读取编成判定失败了没有。留着是为了**不清空** fleetCheck：手上那份继续
 // 显示，只在上面如实说它可能过时。清空等于把正看着的检查区打回加载态，
 // 而下一次编队变动多半就又好了。
@@ -2122,6 +2134,53 @@ const questChainHtml = (row: QRow): string => {
   </section>`
 }
 
+const lineupSlotHtml = (slot: { mstId: number; level: number; alv: number }): string => {
+  const name = entityNamePlain(
+    'equip',
+    slot.mstId,
+    mg.master.slotitems[slot.mstId]?.name ?? `#${slot.mstId}`,
+  )
+  const level = slot.level > 0 ? ` ★${slot.level >= 10 ? 'MAX' : slot.level}` : ''
+  return `${esc(name)}${level}${alvIconHtml(slot.alv)}`
+}
+
+const lineupSectionHtml = (row: QRow): string => {
+  if (!lineupApplies(periodOfRow(row)[0])) return ''
+  const record = lineups[String(row.id)]
+  const hitDecks = new Set(fleetCheck[row.id]?.decks ?? [])
+  const buttons = [...mg.decks]
+    .filter(
+      (deck) =>
+        deck.id >= 1 &&
+        deck.id <= 4 &&
+        deck.ships.some((rosterId) => rosterId > 0 && mg.ships[rosterId]),
+    )
+    .sort((left, right) => left.id - right.id)
+    .map((deck) => {
+      const hit = hitDecks.has(deck.id)
+      return `<button type="button"${hit ? ' class="hit" title="满足编成条件"' : ''} data-lineup-record="${deck.id}">第 ${deck.id} 舰队</button>`
+    })
+    .join('')
+  const content = record
+    ? `<div class="lineup-meta">记于 ${fmtDate(record.recordedAt)} ${fmtTime(record.recordedAt).slice(0, 5)} · 第 ${record.deckId} 舰队<button type="button" data-lineup-delete>删除</button></div>
+      ${record.ships.map((ship, index) => {
+        const regular = ship.slots.map(lineupSlotHtml)
+        const equipment = ship.ex
+          ? [...regular, `<em>增设</em>${lineupSlotHtml(ship.ex)}`]
+          : regular
+        return `<div class="lineup-ship"><span class="no">${index + 1}</span><span class="lineup-ship-info">
+          <span class="who">${entityNameHtml('ship', ship.mstId, masterShipName(ship.mstId), { compact: true })}<i>Lv ${ship.lv}</i></span>
+          ${equipment.length ? `<span class="eq">${equipment.join('、')}</span>` : '<span class="eq dim">无装备</span>'}
+        </span></div>`
+      }).join('')}
+      <textarea id="qn-lineup-note" maxlength="400" placeholder="输入备注……">${esc(record.note)}</textarea>`
+    : '<div class="d-note">暂无记录</div>'
+  return `<section class="q-section q-lineup"><h4>阵容记录</h4>
+    <div class="lineup-actions"><span class="k">记录</span>${buttons}</div>
+    ${content}
+  </section>`
+}
+
 const expeditionTogetherHtml = (row: QRow): string => {
   if (!qp) return ''
   const verdicts = questVerdicts()
@@ -2208,6 +2267,7 @@ const detailHtml = (row: QRow) => {
           : ''
       }
       ${counter}
+      ${lineupSectionHtml(row)}
       ${expeditionTogetherHtml(row)}
       ${inferredNote}
       ${entityChipsHtml(row)}
@@ -2522,6 +2582,46 @@ const wire = () => {
     state.selected = null
     pane.querySelector<HTMLElement>('.q-work.drawer-open')?.classList.remove('drawer-open')
     exitWithMotion(pane.querySelector<HTMLElement>('.q-drawer.open'), 'open', render)
+  })
+  pane.querySelectorAll<HTMLElement>('[data-lineup-record]').forEach((button) =>
+    button.addEventListener('click', () => {
+      const questId = state.selected
+      const deckId = Number(button.dataset.lineupRecord)
+      const deck = mg.decks.find((candidate) => candidate.id === deckId)
+      if (questId == null || !deck) return
+      const record = captureLineup(
+        deck,
+        mg.ships,
+        mg.slotitems,
+        Date.now(),
+        lineups[String(questId)]?.note ?? '',
+      )
+      if (!record) return
+      lineups = { ...lineups, [String(questId)]: record }
+      uiSet(LINEUP_UI_KEY, lineups)
+      render()
+    }),
+  )
+  pane.querySelector<HTMLElement>('[data-lineup-delete]')?.addEventListener('click', () => {
+    const questId = state.selected
+    if (questId == null || !lineups[String(questId)]) return
+    const next = { ...lineups }
+    delete next[String(questId)]
+    lineups = next
+    uiSet(LINEUP_UI_KEY, lineups)
+    render()
+  })
+  const lineupNote = pane.querySelector<HTMLTextAreaElement>('#qn-lineup-note')
+  lineupNote?.addEventListener('change', () => {
+    const questId = state.selected
+    const record = questId == null ? null : lineups[String(questId)]
+    if (questId == null || !record) return
+    lineups = { ...lineups, [String(questId)]: { ...record, note: lineupNote.value } }
+    uiSet(LINEUP_UI_KEY, lineups)
+  })
+  lineupNote?.addEventListener('keydown', (event) => {
+    if (event.isComposing) return
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) lineupNote.blur()
   })
   pane.querySelectorAll<HTMLElement>('[data-q-system]').forEach((button) =>
     button.addEventListener('click', () => {

@@ -164,6 +164,8 @@ export interface MgView {
   lastPortTs: number | null
   /** 母港泊地修理的计时锚点，deckId → 归零时刻。随 decks 一起到，见 main/mg/index.ts。 */
   berthSince: Record<number, number>
+  /** 给粮舰舰队共用的结算计时锚点；null = 尚未观测到。 */
+  provisionSince: number | null
   battleReconciliation: import('../shared/mg-types').BattleReconciliationSession
 }
 
@@ -201,6 +203,7 @@ export const mg: MgView = {
   airBasesTs: null,
   lastPortTs: null,
   berthSince: {},
+  provisionSince: null,
   battleReconciliation: { checked: 0, mismatched: 0, records: [] },
 }
 
@@ -526,6 +529,7 @@ export const initKernel = (): Promise<void> => {
       mg.airBasesTs = s.player.airBasesTs ?? null
       mg.lastPortTs = s.player.lastPortTs
       mg.berthSince = s.player.berthSince ?? {}
+      mg.provisionSince = s.player.provisionSince ?? null
       // 首屏也要立刻反映哀悼态：出击中重开界面不该先亮一秒彩色再变灰
       syncMourning()
       const initialKeys = Object.keys(mg)

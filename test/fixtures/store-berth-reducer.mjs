@@ -31,8 +31,10 @@ const sliceBetween = (from, to, label) => {
 const TOUCH_BERTH = sliceBetween(
   'const touchBerth = (deckId: number, ts: number) => {',
   '\n\n// 重启回灌',
-  '计时拨零 touchBerth',
+  '明石与给粮舰计时拨零 touchBerth / touchProvision',
 )
+
+const PROVISION = path.join(ROOT, 'src', 'shared', 'provision-ship.ts').replace(/\\/g, '/')
 
 /** 切一个 reducer 出来，改写成具名导出函数，**主体一个字不动**。 */
 const asReducer = (name, head, label) => {
@@ -55,9 +57,11 @@ const PRESET = asReducer(
 )
 
 const HARNESS = `
+import { provisionShipAt } from '${PROVISION}'
+
 type Section = string
 
-export const state: any = { player: { decks: [], berthSince: {} } }
+export const state: any = { player: { decks: [], ships: {}, berthSince: {}, provisionSince: null } }
 
 // 预设展开真正做的事（把整支队换成预设内容）不是这条护栏要看的东西，
 // 这里只需要它**被调过**，好证明 reducer 确实跑到了底。
@@ -89,13 +93,18 @@ const bundle = (() => {
 const loaded = createRequire(import.meta.url)(bundle)
 
 /** 摆一局：几支队各有哪些在籍舰 id（-1 = 空位）。 */
-export const reset = (decks) => {
+export const reset = (decks, shipMst = {}) => {
   loaded.state.player.decks = decks.map((d) => ({ id: d.id, ships: [...d.ships] }))
+  loaded.state.player.ships = Object.fromEntries(
+    Object.entries(shipMst).map(([rosterId, shipId]) => [rosterId, { id: Number(rosterId), shipId }]),
+  )
   loaded.state.player.berthSince = {}
+  loaded.state.player.provisionSince = null
   loaded.deckUpdates.length = 0
 }
 
 export const berthSince = () => ({ ...loaded.state.player.berthSince })
+export const provisionSince = () => loaded.state.player.provisionSince
 export const decks = () => loaded.state.player.decks.map((d) => ({ id: d.id, ships: [...d.ships] }))
 export const deckUpdates = () => loaded.deckUpdates
 
