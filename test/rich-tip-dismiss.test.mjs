@@ -19,6 +19,50 @@ import test from 'node:test'
 
 import { mountRichTips } from './fixtures/rich-tip-hover.mjs'
 
+test('pinCard 建立阵容钉卡、保留正文并在关闭时回调', () => {
+  const ui = mountRichTips()
+  let closed = 0
+  const card = ui.pinCard({
+    title: '任务标题',
+    typeLabel: '阵容对照',
+    body: '<span>传入正文</span>',
+    className: 'lineup',
+    onClose: () => { closed += 1 },
+  })
+  for (const cls of ['peek', 'tip', 'pinned', 'show', 'lineup']) {
+    assert.equal(card.classList.contains(cls), true, cls)
+  }
+  assert.equal(card.querySelector('.p-s').innerHTML, '<span>传入正文</span>')
+  card.querySelector('.pin-x').fire('click')
+  assert.equal(closed, 1)
+  assert.equal(ui.pinnedCards().includes(card), false)
+})
+
+test('pinCard 正文可操作不触发拖动，只有标题栏开始拖动', () => {
+  const ui = mountRichTips()
+  const card = ui.pinCard({ title: '标题', body: '正文', className: 'lineup' })
+  const body = card.querySelector('.p-s')
+  const title = card.querySelector('.p-t')
+
+  card.fire('mousedown', { target: body, clientX: 10, clientY: 10, preventDefault: () => {} })
+  ui.fireDocument('mousemove', { target: body, clientX: 40, clientY: 50 })
+  assert.equal(card.style.left, undefined)
+  assert.equal(card.style.top, undefined)
+
+  let prevented = false
+  card.fire('mousedown', {
+    target: title,
+    clientX: 10,
+    clientY: 10,
+    preventDefault: () => { prevented = true },
+  })
+  ui.fireDocument('mousemove', { target: title, clientX: 40, clientY: 50 })
+  assert.equal(prevented, true)
+  assert.equal(card.style.left, '30px')
+  assert.equal(card.style.top, '40px')
+  ui.fireDocument('mouseup', { target: title })
+})
+
 test('无种类富提示照旧按 data-tip 分行并转义', () => {
   const ui = mountRichTips()
   const html = ui.html(ui.trigger('<第一行>&\n第二行'))

@@ -21,7 +21,12 @@ export interface LineupRecord {
   note: string
 }
 
+export type LineupBook = Record<string, Record<string, LineupRecord>>
+
 export const LINEUP_UI_KEY = 'qn.lineup'
+export const LINEUP_GENERAL_KEY = '0'
+
+export const lineupMapKey = (mapId: number): string => `${mapId}`
 
 const capturedSlot = (
   instanceId: number,
@@ -124,12 +129,23 @@ const readRecord = (raw: unknown): LineupRecord | null => {
   }
 }
 
-export const readLineups = (raw: unknown): Record<string, LineupRecord> => {
+export const readLineups = (raw: unknown): LineupBook => {
   if (!isObject(raw)) return {}
-  const lineups: Record<string, LineupRecord> = {}
+  const lineups: LineupBook = {}
   for (const [questId, value] of Object.entries(raw)) {
-    const record = readRecord(value)
-    if (record) lineups[questId] = record
+    if (isObject(value) && 'deckId' in value && 'ships' in value) {
+      const legacy = readRecord(value)
+      if (legacy) lineups[questId] = { [LINEUP_GENERAL_KEY]: legacy }
+      continue
+    }
+    if (!isObject(value)) continue
+    const records: Record<string, LineupRecord> = {}
+    for (const [mapKey, rawRecord] of Object.entries(value)) {
+      if (!/^(0|[1-9]\d*)$/.test(mapKey)) continue
+      const record = readRecord(rawRecord)
+      if (record) records[mapKey] = record
+    }
+    if (Object.keys(records).length) lineups[questId] = records
   }
   return lineups
 }

@@ -14,28 +14,53 @@ const end = source.indexOf('\nconst expeditionTogetherHtml = ', start)
 assert.ok(start >= 0 && end > start, 'qn.ts 里找不到 lineupSectionHtml，夹具锚点要跟着改')
 
 const HARNESS = `
-import { lineupApplies } from './src/shared/lineup-record'
+import { captureLineup, LINEUP_GENERAL_KEY, lineupApplies, lineupMapKey } from './src/shared/lineup-record'
 
-let mg = { decks: [], ships: {}, master: { ships: {}, slotitems: {} } }
+let mg = { decks: [], ships: {}, slotitems: {}, master: { ships: {}, slotitems: {} } }
 let fleetCheck = {}
 let lineups = {}
+const lineupCards = new Map()
+let qp = { trackers: {} }
+let state = { lineupOpen: false, lineupMap: {}, rows: [], maps: {} }
 const periodOfRow = (row) => [row.periodLabel, '']
+const questMapRefs = (row) => state.maps[row.id] ?? row.mapIds ?? []
+const mapCodeOf = (id) => \`\${Math.floor(id / 10)}-\${id % 10}\`
+const buildRows = () => state.rows
 const fmtDate = () => '2026-09-18'
 const fmtTime = () => '14:20:30'
 const masterShipName = (mstId) => mg.master.ships[mstId]?.name ?? \`#\${mstId}\`
 const esc = (value) => String(value)
   .replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-const entityNameHtml = (_kind, _id, name) => \`<b class="entity">\${esc(name)}</b>\`
+const entityNameHtml = (_kind, _id, name) => \`<span class="entity-term e-ship">\${esc(name)}</span>\`
 const entityNamePlain = (_kind, _id, name) => name
 const alvIconHtml = (alv) => alv > 0 ? \`<span class="alv">熟练\${alv}</span>\` : ''
 
+const pinCard = () => { throw new Error('render fixture does not open cards') }
+
 ${source.slice(start, end)}
 
-export const renderLineup = (state, row) => {
-  mg = state.mg
-  fleetCheck = state.fleetCheck ?? {}
-  lineups = state.lineups ?? {}
+const applyState = (inputState, row) => {
+  state = {
+    lineupOpen: false,
+    lineupMap: {},
+    rows: row ? [row] : [],
+    maps: {},
+    ...inputState,
+  }
+  mg = { slotitems: {}, ...inputState.mg }
+  fleetCheck = inputState.fleetCheck ?? {}
+  lineups = inputState.lineups ?? {}
+  qp = inputState.qp ?? { trackers: {} }
+}
+
+export const renderLineup = (inputState, row) => {
+  applyState(inputState, row)
   return lineupSectionHtml(row)
+}
+
+export const renderLineupCard = (inputState, questId, mapKey) => {
+  applyState(inputState)
+  return lineupCardBodyHtml(questId, mapKey)
 }
 `
 
@@ -55,4 +80,4 @@ buildSync({
   logLevel: 'silent',
 })
 
-export const { renderLineup } = createRequire(import.meta.url)(outfile)
+export const { renderLineup, renderLineupCard } = createRequire(import.meta.url)(outfile)

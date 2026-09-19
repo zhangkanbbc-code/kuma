@@ -3061,9 +3061,9 @@
        不靠页脚的一句话去兜底。 */
     .fleet-skin .ftab.berth .d.berth-on { background: var(--ok); }
     .fleet-skin .berth-head { display: flex; align-items: center; gap: 10px; }
-    .fleet-skin .bt-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+    .fleet-skin .bt-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
     .fleet-skin .bt-empty { font-size: 11.5px; color: var(--dim); padding: 14px 4px; }
-    .fleet-skin .bt-fleet { border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+    .fleet-skin .bt-fleet { flex: none; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
     .fleet-skin .bt-head {
       display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
       padding: 6px 9px; background: rgba(255,255,255,.025); border-bottom: 1px solid var(--line);
@@ -3617,6 +3617,7 @@
     .fleet-skin.narrow .verdict, .fleet-skin.narrow .metrics { flex-basis: 100%; }
     .fleet-skin.narrow .ships,
     .fleet-skin.narrow .fleet-body,
+    .fleet-skin.narrow .bt-list,
     .fleet-skin.narrow .airbase-view { overflow: visible; max-height: none; flex: none; }
     .fleet-skin.narrow .ab-planes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .fleet-skin.narrow .ab-area-ap { margin-left: 0; flex-basis: 100%; }
@@ -4559,6 +4560,7 @@
     /* 富提示：承载多行数据的长提示。比实体速览卡宽，且文字要能选中复制
        ——这正是它取代原生 title 的理由 */
     .peek.tip { width: 320px; max-height: 60vh; overflow-y: auto; }
+    .peek.tip.lineup { width: min(420px, 92vw); }
     .peek.tip .p-s { user-select: text; cursor: text; line-height: 1.75; }
     .peek.tip.pinned .p-t { cursor: move; }
     .peek.tip .los33 { display: flex; flex-wrap: wrap; gap: 4px 14px; }
@@ -7161,27 +7163,41 @@
       margin: 0 0 7px; color: var(--dim); font-size: 9.5px;
       font-weight: 600; letter-spacing: .7px;
     }
-    .mod-qn .lineup-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-bottom: 7px; }
+    .mod-qn .lineup-actions, .lineup-tabs { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-bottom: 7px; }
     .mod-qn .lineup-actions .k { margin-right: 2px; color: var(--dim); font: 9px var(--mono); }
-    .mod-qn .lineup-actions button, .mod-qn .lineup-meta button {
+    .mod-qn .lineup-actions button, .mod-qn .lineup-meta button,
+    .mod-qn .q-lineup summary button, .lineup-tabs button {
       padding: 2px 7px; border: 1px solid var(--line); border-radius: 4px;
       background: var(--bg1); color: var(--sub); cursor: pointer; font-size: 10px;
     }
-    .mod-qn .lineup-actions button:hover, .mod-qn .lineup-meta button:hover { color: var(--text); border-color: var(--accent-dim); }
+    .mod-qn .lineup-actions button:hover, .mod-qn .lineup-meta button:hover,
+    .mod-qn .q-lineup summary button:hover, .lineup-tabs button:hover { color: var(--text); border-color: var(--accent-dim); }
     .mod-qn .lineup-actions button.hit { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 48%, var(--line)); }
-    .mod-qn .lineup-meta { display: flex; align-items: center; gap: 7px; margin: 3px 0 6px; color: var(--dim); font: 9px var(--mono); }
+    .lineup-tabs button.on { color: var(--accent); border-color: var(--accent); }
+    .lineup-tabs button.has::before {
+      content: ''; display: inline-block; width: 4px; height: 4px; margin-right: 5px;
+      border-radius: 50%; background: var(--accent); vertical-align: 2px;
+    }
+    .mod-qn .lineup-meta, .peek.lineup .lineup-meta { display: flex; align-items: center; gap: 7px; margin: 3px 0 6px; color: var(--dim); font: 9px var(--mono); }
     .mod-qn .lineup-meta button { margin-left: auto; color: var(--dim); }
-    .mod-qn .lineup-ship {
+    .mod-qn .lineup-ship, .peek.lineup .lineup-ship {
       display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 7px;
       padding: 5px 0; border-top: 1px solid var(--line-soft);
     }
-    .mod-qn .lineup-ship .no { color: var(--dim); font: 9px var(--mono); text-align: right; }
-    .mod-qn .lineup-ship-info { display: grid; gap: 3px; min-width: 0; }
-    .mod-qn .lineup-ship .who { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; color: var(--text); font-size: 11px; }
-    .mod-qn .lineup-ship .who i { color: var(--dim); font: 9px var(--mono); font-style: normal; }
-    .mod-qn .lineup-ship .eq { color: var(--sub); font-size: 10px; line-height: 1.55; white-space: normal; overflow-wrap: anywhere; }
-    .mod-qn .lineup-ship .eq.dim { color: var(--dim); }
-    .mod-qn .lineup-ship em { margin-right: 3px; color: var(--gold); font: 8.5px var(--mono); font-style: normal; }
+    .mod-qn .lineup-ship .no, .peek.lineup .lineup-ship .no { color: var(--dim); font: 9px var(--mono); text-align: right; }
+    .mod-qn .lineup-ship-info, .peek.lineup .lineup-ship-info { display: grid; gap: 3px; min-width: 0; }
+    .mod-qn .lineup-ship .who, .peek.lineup .lineup-ship .who { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; color: var(--text); font-size: 11px; }
+    .mod-qn .lineup-ship .who i, .peek.lineup .lineup-ship .who i { color: var(--dim); font: 9px var(--mono); font-style: normal; }
+    .mod-qn .lineup-ship .eq, .peek.lineup .lineup-ship .eq { color: var(--sub); font-size: 10px; line-height: 1.55; white-space: normal; overflow-wrap: anywhere; }
+    .mod-qn .lineup-ship .eq.dim, .peek.lineup .lineup-ship .eq.dim { color: var(--dim); }
+    .mod-qn .lineup-ship em, .peek.lineup .lineup-ship em { margin-right: 3px; color: var(--gold); font: 8.5px var(--mono); font-style: normal; }
+    .peek.lineup .lineup-ship.diff { box-shadow: inset 2px 0 var(--warn); padding-left: 6px; }
+    .peek.lineup .lineup-ship .who.diff .entity-term { --entity-color: var(--warn); }
+    .peek.lineup .lineup-ship .who.diff, .peek.lineup .lineup-ship .who.diff i { color: var(--warn); }
+    .peek.lineup .lineup-ship .slot.diff { color: var(--warn); }
+    .lineup-note { margin-top: 6px; color: var(--sub); font-size: 10.5px; white-space: pre-wrap; }
+    .lineup-diff-note { margin-top: 6px; color: var(--dim); font-size: 9px; }
+    .peek.lineup .lineup-diff-note.diff::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 2px; background: var(--warn); vertical-align: -0.5px; }
     .mod-qn .q-lineup textarea { margin-top: 7px; }
     .mod-qn .q-zh > b { color: var(--q-cat); font-size: 14px; font-family: var(--serif); }
     .mod-qn .q-zh p, .mod-qn .q-memo p, .mod-qn .q-original p {
@@ -7223,9 +7239,14 @@
     /* 列表行是 10.5px 的单行摘要，底纹在那个密度下会糊成一条彩带，只留字色 */
     .mod-qn .q-nm .plain .qh { padding: 0; background: none; }
     .mod-qn .q-original { margin-top: 8px; border-top: 1px solid var(--line-soft); padding-top: 6px; }
-    .mod-qn .q-original summary, .mod-qn .q-together summary {
+    .mod-qn .q-original summary, .mod-qn .q-together summary, .mod-qn .q-lineup summary {
       color: var(--accent); cursor: pointer; font-size: 10px;
     }
+    .mod-qn .q-lineup summary { display: flex; align-items: center; gap: 8px; list-style: none; }
+    .mod-qn .q-lineup summary::-webkit-details-marker { display: none; }
+    .mod-qn .q-lineup summary::before { content: '▸'; flex: none; color: var(--dim); }
+    .mod-qn .q-lineup[open] > summary::before { content: '▾'; }
+    .mod-qn .q-lineup summary button { margin-left: auto; color: var(--dim); }
     .mod-qn .st-tag.mini {
       flex: none; width: auto; font-size: 9px; padding: 0 4px;
       margin-right: 5px; vertical-align: 1px;

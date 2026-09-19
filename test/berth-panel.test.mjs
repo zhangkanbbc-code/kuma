@@ -294,6 +294,28 @@ test('这一页的样式真在样式表里', () => {
   }
 })
 
+test('列表滚得动：列表可缩、卡片不缩', () => {
+  // 这是源码文本护栏；布局本身已由隐藏窗探针量过：修复前列表 242/242，三卡 80/71/71；修复后列表 242/614，三卡 214/190/190（client/scroll 或逐卡高度）。
+  const html = fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8')
+  const ruleBody = (selector) => {
+    const start = html.indexOf(selector)
+    assert.notEqual(start, -1, `样式没了：${selector}`)
+    const end = html.indexOf('}', start)
+    assert.notEqual(end, -1, `样式规则没闭合：${selector}`)
+    return html.slice(start + selector.length, end)
+  }
+
+  assert.match(ruleBody('.fleet-skin .bt-list {'), /min-height\s*:\s*0\b/)
+  assert.match(ruleBody('.fleet-skin .bt-fleet {'), /flex\s*:\s*none\b/)
+
+  const narrowStart = html.indexOf('.fleet-skin.narrow .ships,')
+  assert.notEqual(narrowStart, -1, '窄档内部滚动区选择器组没了')
+  const narrowEnd = html.indexOf('{', narrowStart)
+  assert.notEqual(narrowEnd, -1, '窄档内部滚动区选择器组没闭合')
+  const narrowSelectors = html.slice(narrowStart, narrowEnd)
+  assert.ok(narrowSelectors.includes('.fleet-skin.narrow .bt-list'))
+})
+
 // ---- ⑧ 明石队自己出海（2026-08-26 用户指出的缺口）----
 
 test('出击中的明石队：计时格改报出击中、预估暂停；计时本身不清零，演习与别队出击不受影响', () => {

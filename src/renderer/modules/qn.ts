@@ -46,7 +46,7 @@ import {
 } from '../kernel'
 import { hideFilterMenu, showFilterMenu } from '../filter-menu'
 import type { FilterMenuSpec } from '../filter-menu'
-import { elink, elinkHtml, navigate, registerEntityRoute } from '../link'
+import { elink, elinkHtml, navigate, pinCard, registerEntityRoute } from '../link'
 import { entityNameHtml, entityNamePlain, entityTermHtml, registerLocalizedName } from '../localization'
 import {
   normalizeExpeditionDispNo,
@@ -69,10 +69,13 @@ import type { MergedQuestPre, WwQuestPre } from '../../shared/quest-pre-merge'
 import { QUEST_PRE_ARBITRATION } from '../../shared/quest-pre-arbitration'
 import {
   captureLineup,
+  LINEUP_GENERAL_KEY,
   LINEUP_UI_KEY,
   lineupApplies,
+  lineupMapKey,
   readLineups,
 } from '../../shared/lineup-record'
+import type { LineupRecord } from '../../shared/lineup-record'
 import {
   simplifyKcwikiShipsData,
   simplifyQuestScnData,
@@ -368,6 +371,8 @@ const state = {
   quick: null as string | null,
   showQuick: false,
   selected: null as number | null,
+  lineupOpen: false,
+  lineupMap: {} as Record<number, string>,
   // 紧凑态：搜索收成放大镜，点开才摆输入框。常规态不看这个字段（输入框恒显）。
   searchOpen: false,
 }
@@ -2134,21 +2139,173 @@ const questChainHtml = (row: QRow): string => {
   </section>`
 }
 
-const lineupSlotHtml = (slot: { mstId: number; level: number; alv: number }): string => {
+const lineupCards = new Map<number, { card: HTMLElement; mapKey: string; html: string }>()
+
+const lineupSlotHtml = (
+  slot: { mstId: number; level: number; alv: number },
+  different = false,
+): string => {
   const name = entityNamePlain(
     'equip',
     slot.mstId,
     mg.master.slotitems[slot.mstId]?.name ?? `#${slot.mstId}`,
   )
   const level = slot.level > 0 ? ` ★${slot.level >= 10 ? 'MAX' : slot.level}` : ''
-  return `${esc(name)}${level}${alvIconHtml(slot.alv)}`
+  return `<span class="slot${different ? ' diff' : ''}">${esc(name)}${level}${alvIconHtml(slot.alv)}</span>`
+}
+
+const lineupMapContext = (row: LibQuest) => {
+  const maps = questMapRefs(row, qp?.trackers[row.id])
+  const records = lineups[String(row.id)] ?? {}
+  const mapKeys = maps.length ? maps.map(lineupMapKey) : [LINEUP_GENERAL_KEY]
+  if (maps.length && records[LINEUP_GENERAL_KEY]) mapKeys.push(LINEUP_GENERAL_KEY)
+  return { maps, mapKeys, records }
+}
+
+const selectedLineupMap = (row: LibQuest, requested?: string): string => {
+  const { mapKeys, records } = lineupMapContext(row)
+  return requested && mapKeys.includes(requested)
+    ? requested
+    : mapKeys.find((key) => records[key]) ?? mapKeys[0]
+}
+
+const lineupMapLabel = (mapKey: string): string =>
+  mapKey === LINEUP_GENERAL_KEY ? '通用' : mapCodeOf(Number(mapKey))
+
+const lineupTabsHtml = (
+  mapKeys: string[],
+  current: string,
+  records: Record<string, unknown>,
+  card = false,
+): string => `<div class="lineup-tabs">${mapKeys.map((key) =>
+  `<button type="button" class="${key === current ? 'on' : ''}${records[key] ? ' has' : ''}" data-${card ? 'lineup-card-map' : 'lineup-map'}="${key}">${lineupMapLabel(key)}</button>`,
+).join('')}</div>`
+
+const sameLineupSlot = (
+  left: { mstId: number; level: number; alv: number } | null | undefined,
+  right: { mstId: number; level: number; alv: number } | null | undefined,
+): boolean =>
+  left == null && right == null ||
+  left != null && right != null &&
+    left.mstId === right.mstId && left.level === right.level && left.alv === right.alv
+
+const lineupShipsHtml = (
+  record: LineupRecord,
+  current: LineupRecord | null,
+  showDiff: boolean,
+): { html: string; different: boolean } => {
+  let different = current == null || current.ships.length !== record.ships.length
+  const html = record.ships.map((ship, index) => {
+    const currentShip = current?.ships[index]
+    const shipDifferent = showDiff && currentShip?.rosterId !== ship.rosterId
+    if (shipDifferent) different = true
+    const regular = ship.slots.map((slot, slotIndex) => {
+      const slotDifferent = showDiff && !shipDifferent && !sameLineupSlot(slot, currentShip?.slots[slotIndex])
+      if (slotDifferent) different = true
+      return lineupSlotHtml(slot, slotDifferent)
+    })
+    if (showDiff && !shipDifferent && currentShip && currentShip.slots.length !== ship.slots.length) {
+      different = true
+    }
+    const exDifferent = showDiff && !shipDifferent && !sameLineupSlot(ship.ex, currentShip?.ex)
+    if (exDifferent) different = true
+    const equipment = ship.ex
+      ? [...regular, `<em>增设</em>${lineupSlotHtml(ship.ex, exDifferent)}`]
+      : regular
+    return `<div class="lineup-ship${shipDifferent ? ' diff' : ''}"><span class="no">${index + 1}</span><span class="lineup-ship-info">
+      <span class="who${shipDifferent ? ' diff' : ''}">${entityNameHtml('ship', ship.mstId, masterShipName(ship.mstId), { compact: true })}<i>Lv ${ship.lv}</i></span>
+      ${equipment.length ? `<span class="eq">${equipment.join('、')}</span>` : '<span class="eq dim">无装备</span>'}
+    </span></div>`
+  }).join('')
+  return { html, different: showDiff && different }
+}
+
+const currentLineup = (deckId: number) => {
+  const deck = mg.decks.find((candidate) => candidate.id === deckId)
+  return deck ? captureLineup(deck, mg.ships, mg.slotitems, Date.now()) : null
+}
+
+const lineupRecordHtml = (
+  record: LineupRecord,
+  opts: { allowDelete: boolean; allowNoteEdit: boolean; showDiff: boolean },
+): string => {
+  const current = opts.showDiff ? currentLineup(record.deckId) : null
+  const ships = lineupShipsHtml(record, current, opts.showDiff)
+  const note = opts.allowNoteEdit
+    ? `<textarea id="qn-lineup-note" maxlength="400" placeholder="输入备注……">${esc(record.note)}</textarea>`
+    : record.note ? `<div class="lineup-note">${esc(record.note)}</div>` : ''
+  const diffNote = opts.showDiff
+    ? `<div class="lineup-diff-note${ships.different ? ' diff' : ''}">${ships.different
+      ? `高亮 · 与现在的第 ${record.deckId} 舰队不同`
+      : `与现在的第 ${record.deckId} 舰队一致`}</div>`
+    : ''
+  return `<div class="lineup-meta">记于 ${fmtDate(record.recordedAt)} ${fmtTime(record.recordedAt).slice(0, 5)} · 第 ${record.deckId} 舰队${opts.allowDelete ? '<button type="button" data-lineup-delete>删除</button>' : ''}</div>
+    ${ships.html}${note}${diffNote}`
+}
+
+const lineupCardBodyHtml = (questId: number, requestedMapKey: string): string => {
+  const row = buildRows().find((candidate) => candidate.id === questId)
+  if (!row) return '<div class="d-note">暂无记录</div>'
+  const { mapKeys, records } = lineupMapContext(row)
+  const mapKey = selectedLineupMap(row, requestedMapKey)
+  const tabs = mapKeys.length > 1 ? lineupTabsHtml(mapKeys, mapKey, records, true) : ''
+  const record = records[mapKey]
+  return `${tabs}${record
+    ? lineupRecordHtml(record, { allowDelete: false, allowNoteEdit: false, showDiff: true })
+    : '<div class="d-note">暂无记录</div>'}`
+}
+
+const refreshLineupCard = (questId: number) => {
+  const entry = lineupCards.get(questId)
+  if (!entry) return
+  const row = buildRows().find((candidate) => candidate.id === questId)
+  if (row) entry.mapKey = selectedLineupMap(row, entry.mapKey)
+  const html = lineupCardBodyHtml(questId, entry.mapKey)
+  if (html === entry.html) return
+  entry.card.querySelector<HTMLElement>('.p-s')!.innerHTML = html
+  entry.html = html
+}
+
+const refreshLineupCards = () => {
+  for (const questId of lineupCards.keys()) refreshLineupCard(questId)
+}
+
+const openLineupCard = (questId: number, anchor: HTMLElement) => {
+  if (lineupCards.has(questId)) {
+    refreshLineupCard(questId)
+    return
+  }
+  const row = buildRows().find((candidate) => candidate.id === questId)
+  if (!row) return
+  const mapKey = selectedLineupMap(row, state.lineupMap[questId])
+  const html = lineupCardBodyHtml(questId, mapKey)
+  const card = pinCard({
+    title: row.name,
+    typeLabel: '阵容对照',
+    body: html,
+    anchor,
+    className: 'lineup',
+    onClose: () => lineupCards.delete(questId),
+  })
+  lineupCards.set(questId, { card, mapKey, html })
+  card.addEventListener('click', (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLElement>('[data-lineup-card-map]')
+    const entry = lineupCards.get(questId)
+    if (!button || !entry) return
+    entry.mapKey = button.dataset.lineupCardMap!
+    refreshLineupCard(questId)
+  })
 }
 
 const lineupSectionHtml = (row: QRow): string => {
   if (!lineupApplies(periodOfRow(row)[0])) return ''
-  const record = lineups[String(row.id)]
+  const { maps, mapKeys, records } = lineupMapContext(row)
+  const mapKey = selectedLineupMap(row, state.lineupMap[row.id])
+  state.lineupMap[row.id] = mapKey
+  const record = records[mapKey]
+  const legacyGeneral = maps.length > 0 && mapKey === LINEUP_GENERAL_KEY
   const hitDecks = new Set(fleetCheck[row.id]?.decks ?? [])
-  const buttons = [...mg.decks]
+  const buttons = legacyGeneral ? '' : [...mg.decks]
     .filter(
       (deck) =>
         deck.id >= 1 &&
@@ -2161,24 +2318,27 @@ const lineupSectionHtml = (row: QRow): string => {
       return `<button type="button"${hit ? ' class="hit" title="满足编成条件"' : ''} data-lineup-record="${deck.id}">第 ${deck.id} 舰队</button>`
     })
     .join('')
+  const recordedMaps = maps.filter((mapId) => records[lineupMapKey(mapId)]).length
+  const summary = maps.length
+    ? recordedMaps
+      ? `阵容记录 · 已记 ${recordedMaps}/${maps.length} 图`
+      : '阵容记录 · 暂无记录'
+    : record
+      ? '阵容记录 · 已记 1 条'
+      : '阵容记录 · 暂无记录'
+  const tabs = maps.length || mapKeys.length > 1
+    ? lineupTabsHtml(mapKeys, mapKey, records)
+    : ''
+  const actions = legacyGeneral
+    ? ''
+    : `<div class="lineup-actions"><span class="k">记录</span>${buttons}</div>`
   const content = record
-    ? `<div class="lineup-meta">记于 ${fmtDate(record.recordedAt)} ${fmtTime(record.recordedAt).slice(0, 5)} · 第 ${record.deckId} 舰队<button type="button" data-lineup-delete>删除</button></div>
-      ${record.ships.map((ship, index) => {
-        const regular = ship.slots.map(lineupSlotHtml)
-        const equipment = ship.ex
-          ? [...regular, `<em>增设</em>${lineupSlotHtml(ship.ex)}`]
-          : regular
-        return `<div class="lineup-ship"><span class="no">${index + 1}</span><span class="lineup-ship-info">
-          <span class="who">${entityNameHtml('ship', ship.mstId, masterShipName(ship.mstId), { compact: true })}<i>Lv ${ship.lv}</i></span>
-          ${equipment.length ? `<span class="eq">${equipment.join('、')}</span>` : '<span class="eq dim">无装备</span>'}
-        </span></div>`
-      }).join('')}
-      <textarea id="qn-lineup-note" maxlength="400" placeholder="输入备注……">${esc(record.note)}</textarea>`
+    ? lineupRecordHtml(record, { allowDelete: true, allowNoteEdit: true, showDiff: false })
     : '<div class="d-note">暂无记录</div>'
-  return `<section class="q-section q-lineup"><h4>阵容记录</h4>
-    <div class="lineup-actions"><span class="k">记录</span>${buttons}</div>
-    ${content}
-  </section>`
+  return `<details class="q-section q-lineup" data-lineup-current="${mapKey}"${state.lineupOpen ? ' open' : ''}>
+    <summary>${summary}<button type="button" data-lineup-pop>弹出对照</button></summary>
+    ${tabs}${actions}${content}
+  </details>`
 }
 
 const expeditionTogetherHtml = (row: QRow): string => {
@@ -2290,6 +2450,7 @@ const render = () => {
     forgetCommittedHtml(pane, 'qn') // 这一支绕开 commitPaneHtml，记忆不能留着
     pane.innerHTML = `<div class="pane-waiting">
       尚未同步任务数据 · 打开游戏任务页后同步</div>`
+    refreshLineupCards()
     return
   }
   const filtered = applyFilters(rows)
@@ -2512,6 +2673,7 @@ const render = () => {
   if (!commitPaneHtml(pane, 'qn', html)) return
 
   wire()
+  refreshLineupCards()
 }
 
 const wire = () => {
@@ -2583,30 +2745,57 @@ const wire = () => {
     pane.querySelector<HTMLElement>('.q-work.drawer-open')?.classList.remove('drawer-open')
     exitWithMotion(pane.querySelector<HTMLElement>('.q-drawer.open'), 'open', render)
   })
+  const lineupDetails = pane.querySelector<HTMLDetailsElement>('.q-lineup')
+  lineupDetails?.addEventListener('toggle', () => {
+    state.lineupOpen = lineupDetails.open
+  })
+  pane.querySelector<HTMLElement>('[data-lineup-pop]')?.addEventListener('click', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    const questId = state.selected
+    if (questId != null) openLineupCard(questId, event.currentTarget as HTMLElement)
+  })
+  pane.querySelectorAll<HTMLElement>('[data-lineup-map]').forEach((button) =>
+    button.addEventListener('click', () => {
+      const questId = state.selected
+      if (questId == null) return
+      state.lineupMap[questId] = button.dataset.lineupMap!
+      render()
+    }),
+  )
   pane.querySelectorAll<HTMLElement>('[data-lineup-record]').forEach((button) =>
     button.addEventListener('click', () => {
       const questId = state.selected
+      const mapKey = lineupDetails?.dataset.lineupCurrent
       const deckId = Number(button.dataset.lineupRecord)
       const deck = mg.decks.find((candidate) => candidate.id === deckId)
-      if (questId == null || !deck) return
+      if (questId == null || !mapKey || !deck) return
       const record = captureLineup(
         deck,
         mg.ships,
         mg.slotitems,
         Date.now(),
-        lineups[String(questId)]?.note ?? '',
+        lineups[String(questId)]?.[mapKey]?.note ?? '',
       )
       if (!record) return
-      lineups = { ...lineups, [String(questId)]: record }
+      lineups = {
+        ...lineups,
+        [String(questId)]: { ...lineups[String(questId)], [mapKey]: record },
+      }
       uiSet(LINEUP_UI_KEY, lineups)
       render()
     }),
   )
   pane.querySelector<HTMLElement>('[data-lineup-delete]')?.addEventListener('click', () => {
     const questId = state.selected
-    if (questId == null || !lineups[String(questId)]) return
+    const mapKey = lineupDetails?.dataset.lineupCurrent
+    const records = questId == null ? null : lineups[String(questId)]
+    if (questId == null || !mapKey || !records?.[mapKey]) return
+    const nextRecords = { ...records }
+    delete nextRecords[mapKey]
     const next = { ...lineups }
-    delete next[String(questId)]
+    if (Object.keys(nextRecords).length) next[String(questId)] = nextRecords
+    else delete next[String(questId)]
     lineups = next
     uiSet(LINEUP_UI_KEY, lineups)
     render()
@@ -2614,10 +2803,16 @@ const wire = () => {
   const lineupNote = pane.querySelector<HTMLTextAreaElement>('#qn-lineup-note')
   lineupNote?.addEventListener('change', () => {
     const questId = state.selected
-    const record = questId == null ? null : lineups[String(questId)]
-    if (questId == null || !record) return
-    lineups = { ...lineups, [String(questId)]: { ...record, note: lineupNote.value } }
+    const mapKey = lineupDetails?.dataset.lineupCurrent
+    const records = questId == null ? null : lineups[String(questId)]
+    const record = mapKey == null ? null : records?.[mapKey]
+    if (questId == null || !mapKey || !records || !record) return
+    lineups = {
+      ...lineups,
+      [String(questId)]: { ...records, [mapKey]: { ...record, note: lineupNote.value } },
+    }
     uiSet(LINEUP_UI_KEY, lineups)
+    refreshLineupCards()
   })
   lineupNote?.addEventListener('keydown', (event) => {
     if (event.isComposing) return
@@ -2912,6 +3107,10 @@ registerModule({
           ['quests', 'decks', 'ships', 'slotitems', 'useitems', 'materials'].includes(k),
         )
       ) scheduleFleetCheck()
+      if (
+        lineupCards.size > 0 &&
+        keys.some((key) => ['decks', 'ships', 'slotitems'].includes(key))
+      ) refreshLineupCards()
       if (
         keys.some((key) => ['quests', 'slotitems', 'mapGauges', 'useitems', 'materials'].includes(key)) &&
         pane.classList.contains('active')

@@ -67,7 +67,7 @@ const esc = (v: unknown) => String(v ?? '')
 const hideMenu = () => {}
 const hidePeek = () => {}
 const placePinnedCard = () => {}
-const removePeekCard = () => {}
+const removePeekCard = (card: any) => card.remove()
 
 // placeAt 的真行为里，与收起相关的只有「加上 show」这一条
 const placeAt = (el: any, _target: any) => { el.classList.add('show') }
@@ -108,14 +108,48 @@ const bundle = (() => {
 class FakeEl {
   constructor(tag = 'div', attrs = {}) {
     this.tag = tag
-    this.className = ''
-    this.innerHTML = ''
     this.style = {}
     this.dataset = attrs.dataset ?? {}
     this.parent = attrs.parent ?? null
     this.hovered = false
     this._classes = new Set()
     this._listeners = new Map()
+    this._children = new Map()
+    this._className = ''
+    this._innerHTML = ''
+    this.offsetLeft = 0
+    this.offsetTop = 0
+    this.offsetWidth = 320
+    this.offsetHeight = 200
+    this.removed = false
+  }
+
+  set className(value) {
+    this._className = value
+    this._classes = new Set(String(value).split(/\s+/).filter(Boolean))
+  }
+
+  get className() {
+    return this._className
+  }
+
+  set innerHTML(value) {
+    this._innerHTML = value
+    this._children.clear()
+    for (const name of ['p-t', 'p-s', 'pin-x']) {
+      const match = name === 'p-s'
+        ? value.match(/<div class="p-s">([\s\S]*)<\/div>$/)
+        : value.match(new RegExp(`<[^>]+class="[^"]*\\b${name}\\b[^"]*"[^>]*>([\\s\\S]*?)<\\/[^>]+>`))
+      if (!match) continue
+      const child = new FakeEl(name === 'pin-x' ? 'span' : 'div', { parent: this })
+      child.className = name
+      child._innerHTML = match[1]
+      this._children.set(`.${name}`, child)
+    }
+  }
+
+  get innerHTML() {
+    return this._innerHTML
   }
 
   get classList() {
@@ -156,8 +190,8 @@ class FakeEl {
     return null
   }
 
-  querySelector() {
-    return null
+  querySelector(selector) {
+    return this._children.get(selector) ?? null
   }
 
   querySelectorAll() {
@@ -166,6 +200,10 @@ class FakeEl {
 
   getBoundingClientRect() {
     return { left: 0, top: 0, right: 10, bottom: 10, width: 10, height: 10 }
+  }
+
+  remove() {
+    this.removed = true
   }
 }
 
@@ -210,7 +248,10 @@ export const mountRichTips = () => {
       if (!docListeners.has(type)) docListeners.set(type, [])
       docListeners.get(type).push(handler)
     },
-    removeEventListener: () => {},
+    removeEventListener: (type, handler) => {
+      const handlers = docListeners.get(type) ?? []
+      docListeners.set(type, handlers.filter((candidate) => candidate !== handler))
+    },
   }
   globalThis.document = fakeDocument
   globalThis.window = { innerWidth: 1920, innerHeight: 1080 }
@@ -221,9 +262,9 @@ export const mountRichTips = () => {
   mod.initRichTips()
   const card = mod.tipCard()
 
-  const fireDoc = (type, target) => {
+  const fireDoc = (type, target, extra = {}) => {
     for (const handler of docListeners.get(type) ?? []) {
-      handler({ target, stopPropagation: () => {}, preventDefault: () => {} })
+      handler({ target, stopPropagation: () => {}, preventDefault: () => {}, ...extra })
     }
   }
 
@@ -239,11 +280,16 @@ export const mountRichTips = () => {
       return panel
     },
     html: (el, pinned = false) => mod.tipHtml(el, pinned),
+    pinCard: (opts) => mod.pinCard({
+      anchor: new FakeEl('button'),
+      ...opts,
+    }),
     registerLos33: mod.registerLos33,
     hoverTrigger: (el) => fireDoc('mouseover', el),
     leaveTrigger: (el) => fireDoc('mouseout', el),
     pinTrigger: (el) => fireDoc('click', el),
-    pinnedCards: () => appended.filter((el) => el !== card),
+    pinnedCards: () => appended.filter((el) => el !== card && !el.removed),
+    fireDocument: (type, event) => fireDoc(type, event.target, event),
     enterCard: () => {
       card.hovered = true
       card.fire('mouseenter')

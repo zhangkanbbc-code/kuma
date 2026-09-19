@@ -357,14 +357,11 @@ const tipHtml = (target: HTMLElement, pinned: boolean) => {
 
 const hideTip = () => tipEl?.classList.remove('show')
 
-const pinTip = (target: HTMLElement) => {
-  const card = document.createElement('div')
-  card.className = 'peek tip pinned show'
-  card.classList.toggle('narrow', !!target.closest('.narrow'))
-  card.innerHTML = tipHtml(target, true)
-  document.body.appendChild(card)
-  placePinnedCard(card, target.getBoundingClientRect(), (pinnedCount++ % 6) * 26)
-  card.querySelector('.pin-x')?.addEventListener('click', () => removePeekCard(card))
+const wireTipCard = (card: HTMLElement, onClose?: () => void) => {
+  card.querySelector('.pin-x')?.addEventListener('click', () => {
+    removePeekCard(card)
+    onClose?.()
+  })
   card.addEventListener('mousedown', (down) => {
     if ((down.target as HTMLElement).closest('.pin-x')) return
     // 卡片里的文字要能选中复制，所以只有按在标题栏上才开始拖
@@ -383,6 +380,35 @@ const pinTip = (target: HTMLElement) => {
     document.addEventListener('mousemove', move)
     document.addEventListener('mouseup', up)
   })
+}
+
+export const pinCard = (opts: {
+  title: string
+  typeLabel?: string
+  body: string
+  anchor: HTMLElement
+  className?: string
+  onClose?: () => void
+}): HTMLElement => {
+  const card = document.createElement('div')
+  card.className = `peek tip pinned show${opts.className ? ` ${opts.className}` : ''}`
+  card.innerHTML = `<div class="p-t"><b>${esc(opts.title)}</b>${
+    opts.typeLabel ? `<span class="ty">${esc(opts.typeLabel)}</span>` : ''
+  }<span class="pin-x" title="取消钉住">✕</span></div><div class="p-s">${opts.body}</div>`
+  document.body.appendChild(card)
+  placePinnedCard(card, opts.anchor.getBoundingClientRect(), (pinnedCount++ % 6) * 26)
+  wireTipCard(card, opts.onClose)
+  return card
+}
+
+const pinTip = (target: HTMLElement) => {
+  const card = document.createElement('div')
+  card.className = 'peek tip pinned show'
+  card.classList.toggle('narrow', !!target.closest('.narrow'))
+  card.innerHTML = tipHtml(target, true)
+  document.body.appendChild(card)
+  placePinnedCard(card, target.getBoundingClientRect(), (pinnedCount++ % 6) * 26)
+  wireTipCard(card)
 }
 
 const initRichTips = () => {

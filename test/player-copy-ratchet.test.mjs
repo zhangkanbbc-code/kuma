@@ -903,6 +903,15 @@ const LINEUP_RECORD_COPY = [
   '增设',
   '无装备',
   '输入备注……',
+  '弹出对照',
+  '通用',
+  '阵容对照',
+  '阵容记录 · 已记 N/M 图',
+  '阵容记录 · 已记 1 条',
+  '阵容记录 · 暂无记录',
+  '高亮 · 与现在的第 N 舰队不同',
+  '与现在的第 N 舰队一致',
+  '2-2',
 ]
 
 test('09-18 周期任务阵容记录文案逐字登记并通过原棘轮', () => {
@@ -913,9 +922,26 @@ test('09-18 周期任务阵容记录文案逐字登记并通过原棘轮', () =>
     assert.deepEqual(offendersIn(rows, RETIRED_WORDS), [])
     assert.deepEqual(offendersIn(rows, SENTENCE_SHAPES), [])
   }
-  for (const phrase of ['阵容记录', '满足编成条件', '暂无记录', '删除', '增设', '无装备', '输入备注……']) {
+  for (const phrase of [
+    '阵容记录',
+    '满足编成条件',
+    '暂无记录',
+    '删除',
+    '增设',
+    '无装备',
+    '输入备注……',
+    '弹出对照',
+    '通用',
+    '阵容对照',
+    '阵容记录 · 已记 1 条',
+    '阵容记录 · 暂无记录',
+  ]) {
     assert.ok(qn.includes(phrase), `实现未收录：${phrase}`)
   }
+  assert.ok(qn.includes('阵容记录 · 已记 ${recordedMaps}/${maps.length} 图'))
+  assert.ok(qn.includes('高亮 · 与现在的第 ${record.deckId} 舰队不同'))
+  assert.ok(qn.includes('与现在的第 ${record.deckId} 舰队一致'))
+  assert.ok(qn.includes("mapCodeOf(Number(mapKey))"))
   assert.ok(qn.includes('第 ${deck.id} 舰队'))
   assert.ok(qn.includes('记于 ${fmtDate(record.recordedAt)} ${fmtTime(record.recordedAt).slice(0, 5)} · 第 ${record.deckId} 舰队'))
   assert.ok(qn.includes("slot.level >= 10 ? 'MAX' : slot.level"))
