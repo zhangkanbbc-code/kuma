@@ -149,23 +149,25 @@ test('embedded trail follows its snapshot and uses recorded gauges while active 
     '\n// 敌联合的夜战交战对象',
     'trailHtml',
   )
-  const { renderTrail, renderGaugeTrail } = bundleHarness(
+  const { renderTrail, renderGaugeTrail, renderBossTrail } = bundleHarness(
     t,
     'battle-trail-host',
-    `const replay = { id: 1 }
+    `import { fcdTopologyUsable } from ${JSON.stringify(path.join(ROOT, 'src/shared/fcd-topology.ts'))}
+import { bossLettersOf, reachableSpots, sortieBossTarget } from ${JSON.stringify(path.join(ROOT, 'src/shared/sortie-boss.ts'))}
+const replay = { id: 1 }
 const renderingEmbedded = true
 const mg = { mapGauges: {} }
 const formationPill = () => ''
 const mapIdOf = (area: number, no: number) => area * 10 + no
-const cellLetter = (_sortie: any, cell: number) => String.fromCharCode(64 + cell)
+const mapKeyOf = (sortie: any) => \`${'${sortie.mapArea}-${sortie.mapNo}'}\`
+const cellLetter = (sortie: any, cell: number) =>
+  fcdMap?.data?.[mapKeyOf(sortie)]?.route?.[cell]?.[1] ?? String.fromCharCode(64 + cell)
 const nodeEventName = () => '战斗'
 const spotBranches = () => []
 const routeTallyFor = () => new Map()
 const branchTallyText = () => ''
 const branchLabelOf = () => ''
-const mapKeyOf = () => ''
-const fcdTopologyUsable = () => false
-const fcdMap = null
+let fcdMap: any = null
 const sortieMapOpen = false
 const esc = (value: unknown) => String(value)
 ${trail}
@@ -192,6 +194,33 @@ export const renderTrail = (snapshot: any) => trailHtml(sortie as any, snapshot,
 export const renderGaugeTrail = (partial: any, current: any, snapshot: any = null) => {
   mg.mapGauges[65] = current
   return trailHtml({ ...sortie, ...partial }, snapshot ?? { id: 1 }, index)
+}
+export const renderBossTrail = (route: any, cellData: any) => {
+  fcdMap = { data: { '7-5': { spots: { 1: [0, 0, 'start'] }, route } } }
+  const gauge = {
+    cleared: false, defeated: 0, required: null, hpNow: 1000, hpMax: 2000,
+    selectedRank: null, limitFlag: null, gaugeType: 2, gaugeNum: 2,
+  }
+  mg.mapGauges[75] = gauge
+  return trailHtml({
+    ...sortie,
+    active: true,
+    mapArea: 7,
+    mapNo: 5,
+    bossCell: 11,
+    currentCell: 21,
+    cellData,
+    gauge: { before: gauge, after: null },
+    nodes: [
+      { cell: 0, eventId: 0, eventKind: 0 },
+      { cell: 1, eventId: 0, eventKind: 0 },
+      { cell: 2, eventId: 0, eventKind: 0 },
+      { cell: 4, eventId: 0, eventKind: 0 },
+      { cell: 6, eventId: 0, eventKind: 0 },
+      { cell: 10, eventId: 0, eventKind: 0 },
+      { cell: 21, eventId: 4, eventKind: 0 },
+    ],
+  }, null, [])
 }
 `,
   )
@@ -241,6 +270,13 @@ export const renderGaugeTrail = (partial: any, current: any, snapshot: any = nul
   }
   assert.ok(renderGaugeTrail({ active: true }, { ...gauge, required: null, cleared: true }).includes(
     '<span class="gpill" title="海域已攻略">攻略</span>',
+  ))
+
+  const route75 = {"0":[null,"1"],"1":["1","A"],"2":["A","B"],"3":["B","C"],"4":["B","D"],"5":["D","E"],"6":["D","F"],"7":["F","G"],"8":["G","H"],"9":["H","I"],"10":["F","J"],"11":["H","K"],"12":["C","D"],"13":["E","F"],"14":["I","L"],"15":["I","M"],"16":["J","N"],"17":["N","O"],"18":["O","P"],"19":["O","Q"],"20":["L","M"],"21":["J","O"],"22":["P","R"],"23":["P","S"],"24":["P","T"],"25":["R","T"]}
+  const phase2 = [[0,0],[1,10],[2,4],[3,4],[4,4],[5,4],[6,4],[7,4],[8,4],[9,4],[10,4],[11,5],[12,4],[13,4],[14,4],[15,4],[16,4],[17,4],[18,4],[19,5],[20,4],[21,4]]
+    .map(([no, color]) => ({ no, color }))
+  assert.ok(renderBossTrail(route75, phase2).includes(
+    '<span class="te"></span><span class="tn boss" title="Boss 点 · 第2血条（游戏海图标示）">Q</span>',
   ))
 
   const baseDefense = sliceBetween(

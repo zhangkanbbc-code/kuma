@@ -8,7 +8,7 @@
 // 按仓里那条许可纪律不往上游包里塞自己的裁决），所以走加载期台账覆盖。
 //
 // 这份护栏钉四件事：
-//   ① 四条校正的**最终呈现**（635 必须是「废弃5件装备」，385 补上 S）；
+//   ① 五条校正的**最终呈现**（635 必须是「废弃5件装备」，385 补上 S，384 补上「迅鲸」）；
 //   ② 按回的那一族**一个字没被顺手改**（写「次」本来就是对的）；
 //   ③ 台账的 `from` 与现行包**逐条对得上**——上游改了那句话要当场红，
 //      而不是安静退化成空操作（自失效机制最容易烂在这里）；
@@ -34,7 +34,7 @@ const readLode = (id) => {
   return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : null
 }
 
-/** 用户拍板的定稿，照抄。改这四行等于改玩家看到的字，别顺手动。 */
+/** 用户拍板的定稿，照抄。改这些定稿等于改玩家看到的字，别顺手动。 */
 const FINAL = {
   385: '期间限定周常任务 以包含【阿尔及利亚、秃鹫、莫加多尔、贝阿恩、日枝丸、平安丸、大泊、陆奥、南达科他、胜利】中3名舰娘的舰队，在单日内取得4次演习S胜。',
   635: '废弃5件装备',
@@ -45,13 +45,17 @@ const FINAL = {
 /** 按操作回数计的那一族：正文写「次」本来就是对的，一个都不许被改。 */
 const BY_ROUND = ['604', '610', '611', '612', '613', '617']
 
-test('四条校正的最终呈现就是用户定稿的那几个字', () => {
+test('五条校正的最终呈现就是用户定稿的那几个字', () => {
   const pack = readLode('quests-scn')
   if (!pack) return // 裸环境无包：跳过，全量对账由 test:lodes 兜底
   const fixed = applyQuestTextCorrectionsToPack(pack)
   for (const [id, want] of Object.entries(FINAL)) {
     assert.equal(fixed.data[id].memo2, want, `${id} 的 memo2 应呈现为「${want}」`)
   }
+  assert.equal(
+    fixed.data['384'].desc,
+    '【期间限定演习】以包含「秋云」「秋月」「绫波」「敷波」「白露」「浦风」「滨风」「长波」「藤波」「朝霜」「白云」「胧」「涟」「迅鲸」「长鲸」「大淀」「神通」中至少4艘的舰队，在当天内取得4次以上演习胜利！',
+  )
   // 主判据单独再钉一次：这一条是本单的由头
   assert.equal(fixed.data['635'].memo2, '废弃5件装备')
 })
@@ -81,14 +85,15 @@ test('校正只碰点名的那一个字段，别的字段与别的任务原样',
       assert.deepEqual(fixed.data[id], entry, `${id} 没进台账，应逐字段原样`)
       continue
     }
-    for (const field of ['code', 'name', 'desc', 'memo', 'pre']) {
+    const correctedField = QUEST_TEXT_CORRECTIONS.find((fix) => `${fix.questId}` === id).field
+    for (const field of Object.keys(entry).filter((field) => field !== correctedField)) {
       assert.deepEqual(fixed.data[id][field], entry[field], `${id}.${field} 不该被顺手改`)
     }
   }
   // 包对象是 packCache 跨消费端共享的，就地改会污染缓存
   assert.notEqual(fixed.data, pack.data, '应返回新对象')
   for (const fix of QUEST_TEXT_CORRECTIONS) {
-    assert.equal(pack.data[`${fix.questId}`].memo2, fix.from, '原包不该被就地改')
+    assert.equal(pack.data[`${fix.questId}`][fix.field], fix.from, '原包不该被就地改')
   }
 })
 
@@ -101,12 +106,12 @@ test('台账的 from 与现行包逐条对得上（上游改了要当场红，�
     assert.equal(
       entry[fix.field],
       fix.from,
-      `${fix.questId}.${fix.field} 上游原文已变 → 这条校正现在是空操作，必须重新核对量词或评价`,
+      `${fix.questId}.${fix.field} 上游原文已变 → 这条校正现在是空操作，必须重新核对量词、评价或舰名`,
     )
   }
   const { report } = applyQuestTextCorrections(pack.data)
   assert.deepEqual(report.skipped, [], '现行包上不该有任何一条被跳过')
-  assert.equal(report.applied.length, QUEST_TEXT_CORRECTIONS.length, '四条应全部生效')
+  assert.equal(report.applied.length, QUEST_TEXT_CORRECTIONS.length, '五条应全部生效')
 })
 
 test('自失效：上游把那句话改了就跳过，不拿过期校正去改已经变样的句子', () => {
@@ -175,7 +180,8 @@ test('每条校正都写了证据，且实测与推定分得清', () => {
   assert.ok(QUEST_TEXT_CORRECTIONS.length >= 3)
   for (const fix of QUEST_TEXT_CORRECTIONS) {
     assert.ok(fix.basis && fix.basis.length > 30, `${fix.questId} 的 basis 太短，证据要写清`)
-    assert.match(fix.basis, fix.questId === 385 ? /维护者裁决 2026-09-15/ : /2026-08-27/, `${fix.questId} 的 basis 应带裁定日期`)
+    const date = fix.questId === 384 ? /维护者裁决 2026-09-21/ : fix.questId === 385 ? /维护者裁决 2026-09-15/ : /2026-08-27/
+    assert.match(fix.basis, date, `${fix.questId} 的 basis 应带裁定日期`)
     assert.notEqual(fix.from, fix.to, `${fix.questId} 的校正前后不该相同`)
   }
   // 609 是实测、603 是同机制推定——两者的证据等级不许被抹平成一句话

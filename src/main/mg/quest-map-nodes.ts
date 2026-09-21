@@ -6,9 +6,9 @@
 //
 // 所以这里只留人写的那一半——「这张图的第几血条 Boss 是哪个字母」——
 // 边号一律从 poi-fcd-map（MIT）的 route 表现算：route 的每一项是 边号 → [起点, 终点]，
-// 终点等于目标字母的就是入边。实测十行：原九行对得上 EO 的编码（2026-08-21），7-4 P 补于 2026-09-09：
+// 终点等于目标字母的就是入边。实测十一行：原九行对得上 EO 的编码（2026-08-21），7-4 P 补于 2026-09-09：
 //   1-6 N=[14,17] · 5-6 Z=[43] · 7-2 G=[7] M=[15] · 7-3 E=[5,8] P=[18,23,24,25]
-//   7-4 O=[15] · 7-4 P=[16,21,22,23] · 7-5 Q=[19] T=[24,25]
+//   7-4 O=[15] · 7-4 P=[16,21,22,23] · 7-5 K=[11] Q=[19] T=[24,25]
 // 并与账本 encounters 的 is_boss 观测不矛盾（7-2 实测观测到 7 与 15，正是 G/M）。
 //
 // 纪律：表里没有的写法一律吐 null 交人裁，**不许默认取末血条**——
@@ -37,7 +37,7 @@ export interface QuestMapNodeRow {
 }
 
 /**
- * 人工校准的全部内容就是这十行。
+ * 人工校准的全部内容就是这十一行。
  * 每一行都能被 poi-fcd 的入边算式与账本 Boss 格观测双向核对，不是孤证。
  */
 export const QUEST_MAP_NODE_TABLE: readonly QuestMapNodeRow[] = [
@@ -49,6 +49,7 @@ export const QUEST_MAP_NODE_TABLE: readonly QuestMapNodeRow[] = [
   { map: [7, 3], ref: 'P2', spot: 'P', why: '第二血条 Boss' },
   { map: [7, 4], ref: 'O', spot: 'O', why: '正文直接写「O 点」' },
   { map: [7, 4], ref: 'P', spot: 'P', why: 'Boss 格（ヒ船団棲姫，单血条，不登记成 P1 免得被当成多血条图）；2026-09-09 账本实测边 22（L→P）为 Boss 战，同趟罗盘 api_bosscell_no=16（J→P）同指 P；O 是资源点不是 Boss' },
+  { map: [7, 5], ref: 'P1', spot: 'K', why: '第一血条 Boss（艦これ攻略 Wiki 7-5 页第一段作战 Boss=K）；2026-09-21 实测边 11（H→K）为 Boss 战，同期 api_cell_data 色 5 只有这条边' },
   { map: [7, 5], ref: 'P2', spot: 'Q', why: '第二血条 Boss' },
   { map: [7, 5], ref: 'P3', spot: 'T', why: '第三血条 Boss' },
 ]

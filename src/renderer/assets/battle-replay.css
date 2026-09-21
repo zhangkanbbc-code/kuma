@@ -1,7 +1,10 @@
 /* ══ 镝 · 战斗详情（移植自设计稿 10，.mod-di 作用域）══ */
+/* 战斗共享样式禁止颜色字面量（纯黑阴影、纯白高光除外），以免深色字色泄漏到浅色。
+   色板同时定义在 index.html 与 battle-replay.html 的根块，深色逐枚保留原值。
+   新增浅色文字取所属族并保色相压明度至对 bg1 至少 6；底色/流光混白 18%，边线混白 40%。 */
 /* --enemy 与全局 --entity-abyss 肉眼同色（互相对比度 1.19）、语义也同是「深海」，
    值挂钩消掉漂移点；--enemy-dim 保持原深色 */
-.mod-di { overflow: hidden; --enemy: var(--entity-abyss); --enemy-dim: #93394d; --sea: #3fd0b0; }
+.mod-di { overflow: hidden; --enemy: var(--entity-abyss); --enemy-dim: var(--abyss-dim-soft); --sea: var(--sea-soft); }
 .mod-di .di-app { flex: 1; min-height: 0; display: flex; background: var(--bg0); }
 .mod-di .di-empty { margin: auto; text-align: center; padding: 30px; }
 .mod-di .di-empty .t { font-family: var(--serif); font-size: 18px; color: var(--sub); margin-bottom: 10px; }
@@ -75,14 +78,14 @@
 .mod-di .lvl-tier { margin: 3px 0 1px; text-align: center; font-size: 9px; color: var(--dim); letter-spacing: 1px; opacity: .8; }
 .mod-qa .lvl-tier-row td { padding: 3px 6px; text-align: center; font-size: 9.5px; color: var(--dim); letter-spacing: 1px; background: rgba(255,255,255,.02); border-top: 1px dashed var(--line); border-bottom: 1px dashed var(--line); }
 .mod-di .battle-col { flex: 1.35; min-width: 0; display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--line); }
-.mod-di .battle-replay-note { padding: 4px 8px; color: #d8ad72; background: rgba(170, 116, 48, .09); border-bottom: 1px solid rgba(170, 116, 48, .24); font-size: 10px; flex: none; }
+.mod-di .battle-replay-note { padding: 4px 8px; color: var(--warn-missing-soft); background: color-mix(in srgb, var(--tint-warn-missing) 9%, transparent); border-bottom: 1px solid color-mix(in srgb, var(--tint-warn-missing) 24%, transparent); font-size: 10px; flex: none; }
 .mod-di .battle-replay-note button {
-  float: right; padding: 1px 7px; border: 1px solid rgba(216,173,114,.42); border-radius: 4px;
-  color: #e7c58d; background: transparent; font: 9px var(--sans); cursor: pointer;
+  float: right; padding: 1px 7px; border: 1px solid color-mix(in srgb, var(--warn-missing-soft) 42%, transparent); border-radius: 4px;
+  color: var(--warn-dismiss-soft); background: transparent; font: 9px var(--sans); cursor: pointer;
 }
 /* 历史战斗打不开时的错误横条（读失败要在面板上说，正式包没有 DevTools） */
 .mod-di .battle-replay-note.replay-error {
-  color: #ffb3bd; background: rgba(224, 108, 117, .1); border-bottom-color: rgba(224, 108, 117, .3);
+  color: var(--bad-replay-soft); background: color-mix(in srgb, var(--bad) 10%, transparent); border-bottom-color: color-mix(in srgb, var(--bad) 30%, transparent);
 }
 /* 回放与结算对不上时血量数字前的 ≈ 挂牌（护栏 mismatch，中间值为推定） */
 .mod-di .hpx .hp-approx { margin-right: 2px; color: var(--warn); font-size: 10px; cursor: help; }
@@ -93,32 +96,32 @@
   scrollbar-width: none;
 }
 .mod-di .trail::-webkit-scrollbar { display: none; }
-.mod-di .trail .map { font-family: var(--mono); font-size: 13px; font-weight: 700; color: #8fe0cc; flex: none; }
+.mod-di .trail .map { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--trail-map-soft); flex: none; }
 .mod-di .tnodes { display: flex; align-items: center; flex: none; }
 .mod-di .tn {
   width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
   font-family: var(--mono); font-size: 10px; flex: none;
   background: var(--bg0); border: 1.5px solid var(--line); color: var(--dim); position: relative;
 }
-.mod-di .tn.done { border-color: #3f9e63; color: #a5e0bb; }
-.mod-di .tn.air.done { border-color: #b8703a; color: #f0c890; }
+.mod-di .tn.done { border-color: var(--tint-ok-route-line); color: var(--ok-verdict-soft); }
+.mod-di .tn.air.done { border-color: var(--tint-warn-route-line); color: var(--phase-radar-soft); }
 /* 走过的点按遭遇类型分色(类型来自罗盘事件,悬停有战型全名):
    战斗=原绿 · 夜战紫 · 空袭/航空战橙(上一行) · 资源/护卫/扬陆金 · 涡潮青 · 无事灰 */
-.mod-di .tn.night.done { border-color: var(--night); color: #bcc3f7; }
-.mod-di .tn.gain.done { border-color: #b8973a; color: #eede9f; }
-.mod-di .tn.whirl.done { border-color: #3a8ba3; color: #9fd8e8; }
-.mod-di .tn.calm.done { border-color: #566976; color: #b7c6cf; }
-.mod-di .tn.cur { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-wash); box-shadow: 0 0 0 3px rgba(77, 184, 255, 0.15); }
+.mod-di .tn.night.done { border-color: var(--night); color: var(--night-route-node-soft); }
+.mod-di .tn.gain.done { border-color: var(--tint-gold-route-line); color: var(--gold-route-soft); }
+.mod-di .tn.whirl.done { border-color: var(--tint-dock-route-line); color: var(--dock-route-soft); }
+.mod-di .tn.calm.done { border-color: var(--tint-calm-route-line); color: var(--calm-route-soft); }
+.mod-di .tn.cur { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-wash); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent); }
 /* 打过的点可点回放（2026-08-12 用户提议）：有快照的节点给手型与悬停高亮 */
 .mod-di .tn[data-replay-id] { cursor: pointer; }
 .mod-di .tn[data-replay-id]:hover { box-shadow: 0 0 0 3px rgba(255, 255, 255, .14); filter: brightness(1.25); }
-.mod-di .tn.boss { border-color: var(--enemy-dim); color: #c98a97; }
+.mod-di .tn.boss { border-color: var(--enemy-dim); color: var(--abyss-route-soft); }
 /* 当前点就是 Boss:亮红 + 「你在这」光环。boss 声明在 cur 之后,同权重会把
    当前点高亮盖成暗红(2026-08-12 幽灵尾巴修掉后用户报「Boss 点不亮了」) */
-.mod-di .tn.cur.boss { border-color: var(--enemy); color: #ffb9c4; background: rgba(122, 32, 45, .38); box-shadow: 0 0 0 3px rgba(255, 92, 115, .2); }
+.mod-di .tn.cur.boss { border-color: var(--enemy); color: var(--abyss-route-current-soft); background: color-mix(in srgb, var(--tint-abyss-route-current) 38%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--glow-abyss-route) 20%, transparent); }
 .mod-di .tn .r { position: absolute; top: -7px; right: -5px; font-size: 8px; color: var(--ok); font-family: var(--mono); }
 .mod-di .te { width: 14px; height: 1.5px; background: var(--line); flex: none; }
-.mod-di .te.done { background: #3f9e63; }
+.mod-di .te.done { background: var(--tint-ok-route-line); }
 .mod-di .trail .sp { flex: 1; }
 .mod-di .gpill {
   display: inline-flex; align-items: center; gap: 5px; flex: none;
@@ -148,13 +151,13 @@
 .mod-di .battle-drop-chip {
   flex: 1 0 100%; display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
   padding: 5px 9px; border-radius: 6px;
-  border: 1px solid #4a3f22; background: rgba(232, 198, 106, .09);
+  border: 1px solid var(--tint-gold-line); background: color-mix(in srgb, var(--gold) 9%, transparent);
   font-size: 12px;
 }
 .mod-di .battle-drop-chip .k {
   flex: none; font-size: 10px; letter-spacing: 1px; color: var(--gold); opacity: .85;
 }
-.mod-di .battle-drop-chip b { font-size: 13px; font-weight: 700; color: #ffeab4; }
+.mod-di .battle-drop-chip b { font-size: 13px; font-weight: 700; color: var(--gold-drop-soft); }
 /* 后代选择器：名字外面还包着一层实体链接（.el），不再是直接子级 */
 .mod-di .battle-drop-chip b .entity-term { display: inline-flex; }
 .mod-di .battle-drop-chip .ship-thumb.drop { flex: none; }
@@ -163,34 +166,34 @@
 .mod-di .verdict.bd-tuck { cursor: pointer; }
 .mod-di .verdict.bd-tuck:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
 .mod-di .verdict .bd-mk { font-size: 9px; }
-.mod-di .verdict.v-cyan { background: linear-gradient(90deg, rgba(77, 184, 255, 0.08), transparent 60%); }
-.mod-di .verdict.v-cyan .ic { background: var(--accent-wash); border: 1px solid var(--accent-dim); color: #8fd0ff; }
+.mod-di .verdict.v-cyan { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 60%); }
+.mod-di .verdict.v-cyan .ic { background: var(--accent-wash); border: 1px solid var(--accent-dim); color: var(--accent-verdict-soft); }
 .mod-di .verdict.v-cyan .tx b { color: var(--accent-ink); }
-.mod-di .verdict.v-cyan .act { background: var(--accent-dim); color: #fff; }
-.mod-di .verdict.v-green { background: linear-gradient(90deg, rgba(103, 201, 138, 0.08), transparent 60%); }
-.mod-di .verdict.v-green .ic { background: #132a1c; border: 1px solid #2b4a37; color: var(--ok); }
-.mod-di .verdict.v-green .tx b { color: #a5e0bb; }
-.mod-di .verdict.v-green .act { background: #2b6a44; color: #eafff2; }
-.mod-di .verdict.v-gold { background: linear-gradient(90deg, rgba(232, 198, 106, 0.08), transparent 60%); }
-.mod-di .verdict.v-gold .ic { background: #2e2818; border: 1px solid #4a3f22; color: var(--gold); }
+.mod-di .verdict.v-cyan .act { background: var(--accent-dim); color: var(--on-accent); }
+.mod-di .verdict.v-green { background: linear-gradient(90deg, color-mix(in srgb, var(--ok) 8%, transparent), transparent 60%); }
+.mod-di .verdict.v-green .ic { background: var(--tint-ok); border: 1px solid var(--tint-ok-line); color: var(--ok); }
+.mod-di .verdict.v-green .tx b { color: var(--ok-verdict-soft); }
+.mod-di .verdict.v-green .act { background: var(--tint-ok-action); color: var(--ok-action-soft); }
+.mod-di .verdict.v-gold { background: linear-gradient(90deg, color-mix(in srgb, var(--gold) 8%, transparent), transparent 60%); }
+.mod-di .verdict.v-gold .ic { background: var(--tint-gold); border: 1px solid var(--tint-gold-line); color: var(--gold); }
 .mod-di .verdict.v-gold .tx b { color: var(--gold); }
-.mod-di .verdict.v-gold .act { background: linear-gradient(90deg, var(--gold), #f0dfa0); color: #1a140d; }
-.mod-di .verdict.v-red { background: linear-gradient(90deg, rgba(224, 108, 117, 0.16), rgba(224, 108, 117, 0.04) 70%); }
-.mod-di .verdict.v-red .ic { background: #33121b; border: 1px solid var(--bad); color: #ffb3bd; animation: di-blink 1s step-end infinite; }
+.mod-di .verdict.v-gold .act { background: linear-gradient(90deg, var(--gold), var(--glow-gold-action)); color: var(--gold-action-soft); }
+.mod-di .verdict.v-red { background: linear-gradient(90deg, color-mix(in srgb, var(--bad) 16%, transparent), color-mix(in srgb, var(--bad) 4%, transparent) 70%); }
+.mod-di .verdict.v-red .ic { background: var(--tint-bad-deep); border: 1px solid var(--bad); color: var(--bad-critical-soft); animation: di-blink 1s step-end infinite; }
 @keyframes di-blink { 50% { opacity: 0.4; } }
 .mod-di .verdict.v-red .tx b { color: var(--abyss-ink); font-size: 14px; }
-.mod-di .verdict.v-red .act { background: var(--bad); color: #fff; }
-.mod-di .verdict.v-warn { background: linear-gradient(90deg, rgba(232, 160, 76, 0.15), rgba(232, 160, 76, 0.035) 72%); }
-.mod-di .verdict.v-warn .ic { background: #312414; border: 1px solid #7c572c; color: #f0bd73; }
-.mod-di .verdict.v-warn .tx b { color: #f0c890; }
-.mod-di .verdict.v-warn .act { background: #6f4d26; color: #fff1dc; }
+.mod-di .verdict.v-red .act { background: var(--bad); color: var(--on-accent); }
+.mod-di .verdict.v-warn { background: linear-gradient(90deg, color-mix(in srgb, var(--warn) 15%, transparent), color-mix(in srgb, var(--warn) 3.5%, transparent) 72%); }
+.mod-di .verdict.v-warn .ic { background: var(--tint-warn-verdict); border: 1px solid var(--tint-warn-verdict-line); color: var(--warn-verdict-soft); }
+.mod-di .verdict.v-warn .tx b { color: var(--phase-radar-soft); }
+.mod-di .verdict.v-warn .act { background: var(--tint-warn-action); color: var(--warn-action-soft); }
 /* 航空战摘要 */
 .mod-di .airline {
   display: flex; align-items: center; gap: 9px; flex-wrap: wrap; flex: none;
   padding: 6px 14px; border-bottom: 1px solid var(--line-soft);
-  font-size: 11px; color: var(--sub); background: rgba(143, 214, 148, 0.03);
+  font-size: 11px; color: var(--sub); background: color-mix(in srgb, var(--air) 3%, transparent);
 }
-.mod-di .airline .ph2 { font-size: 9.5px; border: 1px solid #2b4a37; color: var(--air); border-radius: 3px; padding: 0 5px; flex: none; }
+.mod-di .airline .ph2 { font-size: 9.5px; border: 1px solid var(--tint-ok-line); color: var(--air); border-radius: 3px; padding: 0 5px; flex: none; }
 .mod-di .airline .as { font-weight: 700; font-size: 11.5px; color: var(--warn); }
 .mod-di .airline .as.ok { color: var(--ok); }
 .mod-di .airline .kv { color: var(--dim); }
@@ -202,22 +205,22 @@
 .mod-di .airline .kv i.aaci-cond {
   display: inline-block; vertical-align: bottom; max-width: 260px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-style: normal; margin-left: 5px; font-size: 10px; color: #a98fd0;
+  font-style: normal; margin-left: 5px; font-size: 10px; color: var(--night-aaci-soft);
 }
 /* 敌我对战区 */
 .mod-di .night-route {
   display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: none;
-  padding: 5px 14px; border-bottom: 1px solid #302743;
-  background: linear-gradient(90deg, rgba(122, 78, 170, 0.11), rgba(122, 78, 170, 0.025) 72%);
+  padding: 5px 14px; border-bottom: 1px solid var(--tint-night-route-line);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--glow-night-route) 11%, transparent), color-mix(in srgb, var(--glow-night-route) 2.5%, transparent) 72%);
   color: var(--sub); font-size: 10.5px;
 }
 .mod-di .night-route .nr-phase {
-  flex: none; color: var(--night); border: 1px solid #3a4076; border-radius: 3px;
+  flex: none; color: var(--night); border: 1px solid var(--tint-night-state-line); border-radius: 3px;
   padding: 0 5px; font-size: 9.5px;
 }
-.mod-di .night-route .nr-side { color: #dbe9f3; font-weight: 650; }
+.mod-di .night-route .nr-side { color: var(--night-side-soft); font-weight: 650; }
 .mod-di .night-route .nr-side.foe { color: var(--abyss-ink); }
-.mod-di .night-route .nr-arrow { color: #8f75ad; font-family: var(--mono); }
+.mod-di .night-route .nr-arrow { color: var(--night-arrow-soft); font-family: var(--mono); }
 .mod-di .night-route .nr-rule { margin-left: auto; color: var(--dim); font-size: 9.5px; }
 .mod-di .arena { display: flex; gap: 0; flex: none; border-bottom: 1px solid var(--line-soft); }
 .mod-di .fside { flex: 1; min-width: 0; padding: 7px 10px 9px; }
@@ -238,8 +241,8 @@
   flex: none; border-radius: 3px; padding: 0 4px; letter-spacing: 0;
   font-size: 8.5px; line-height: 15px; border: 1px solid var(--line-soft);
 }
-.mod-di .night-state.active { color: var(--night); border-color: #3a4076; background: rgba(100, 110, 215, 0.08); }
-.mod-di .night-state.inactive { color: var(--dim); border-color: #2a3036; background: rgba(255, 255, 255, 0.015); }
+.mod-di .night-state.active { color: var(--night); border-color: var(--tint-night-state-line); background: color-mix(in srgb, var(--tint-night-state) 8%, transparent); }
+.mod-di .night-state.inactive { color: var(--dim); border-color: var(--tint-night-inactive-line); background: rgba(255, 255, 255, 0.015); }
 .mod-di .fs-sub .night-state { margin-left: auto; }
 /* 整队被打光：横线划在队名上。非联合时队名就是那一队；联合时主力队对应
    标题栏的队名、护卫队对应「敌护卫舰队」那一行，各画各的。
@@ -269,7 +272,7 @@
 .mod-di .wipe-note {
   flex: none; margin-left: 5px; padding: 0 5px;
   border: 1px solid var(--bad); border-radius: 3px;
-  background: #33121b; color: #ffb3bd;
+  background: var(--tint-bad-deep); color: var(--bad-critical-soft);
   font-size: 9px; line-height: 1.7; font-weight: 700; letter-spacing: .5px;
 }
 /* 三列的下限之和（58+34+86 + gap + padding = 198px）曾经超过窄容器给的宽度，
@@ -353,7 +356,7 @@
   white-space: nowrap; color: var(--dim); font-size: 8.5px;
   border: 1px solid var(--line-soft); border-radius: 3px; padding: 0 3px;
 }
-.mod-di .beq-plane b { color: #9fd8ff; font: 600 9px var(--mono); }
+.mod-di .beq-plane b { color: var(--accent-log-soft); font: 600 9px var(--mono); }
 .mod-di .fside.foe .beq-plane b { color: var(--abyss-ink); }
 .mod-di .bship-note, .mod-di .bship-empty {
   color: var(--dim); font-size: 8.5px; line-height: 1.55;
@@ -367,18 +370,18 @@
 /* 这一列留几位由 di.ts 按这一侧实际打出的最大位数写进 --dmg-ch（上限 5）。
    ch 要在 .dmg 自己的等宽字体下量，所以宽度写在格子上、轨道用 min-content 跟着它；
    数字仍右对齐，同一侧各行位数相同、右边界仍然对齐。 */
-.mod-di .brow .dmg { width: calc(var(--dmg-ch, 5) * 1ch); font-family: var(--mono); font-size: 10.5px; text-align: right; color: #9fd8ff; }
+.mod-di .brow .dmg { width: calc(var(--dmg-ch, 5) * 1ch); font-family: var(--mono); font-size: 10.5px; text-align: right; color: var(--accent-log-soft); }
 .mod-di .fside.foe .brow .dmg { color: var(--abyss-ink); }
 .mod-di .brow .dmg.zero { color: var(--dim); }
 .mod-di .enemy-token { display: inline-flex; align-items: center; margin: 2px 7px 2px 0; }
-.mod-di .hpx .bar { height: 5px; border-radius: 3px; background: #1b2733; overflow: hidden; display: flex; }
+.mod-di .hpx .bar { height: 5px; border-radius: 3px; background: var(--stat-track); overflow: hidden; display: flex; }
 .mod-di .hpx .bar .rm { height: 100%; }
 /* 空段：虚条之前掉的 + 开战前就缺的。只占位不着色，露出底轨——
    任何时刻条上只有一截虚条，旧伤不再有第二种伤色。 */
 .mod-di .hpx .bar .dd { height: 100%; }
 /* 虚条：跟随最新时是本段（昼/夜）结算掉的，红斜杠。满格不变，条子读起来就是
    「实血按当时战损档着色，本段掉的画成斜杠，更早掉的归于空」。 */
-.mod-di .hpx .bar .dl { height: 100%; background: repeating-linear-gradient(135deg, var(--bad) 0 3px, #8a3644 3px 6px); opacity: 0.8; }
+.mod-di .hpx .bar .dl { height: 100%; background: repeating-linear-gradient(135deg, var(--bad) 0 3px, var(--tint-bad-loss) 3px 6px); opacity: 0.8; }
 /* 点住流水某一阶段：虚条的含义换成「**这一阶段**掉的」（基准是该阶段的开局血），
    颜色也跟着换成蓝斜杠——与选中那一行的左边框同一个 --accent，一眼对得上是哪一行；
    同时把它和残血红分开：小破以下的舰实血本来就是 .rm.r 那道红渐变，
@@ -389,10 +392,10 @@
 .mod-di .hpx .bar > span { transition: width var(--motion-view) var(--motion-ease); }
 .mod-di .hpx .nums { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 8.5px; color: var(--dim); margin-top: 1px; }
 .mod-di .hpx .nums .st9 { font-size: 8.5px; }
-.mod-di .rm.g { background: linear-gradient(90deg, #3f9e63, #67c98a); }
-.mod-di .rm.y { background: linear-gradient(90deg, #b8973a, #e8c66a); }
-.mod-di .rm.o { background: linear-gradient(90deg, #b8703a, #e8a04c); }
-.mod-di .rm.r { background: linear-gradient(90deg, #a33448, #e06c75); }
+.mod-di .rm.g { background: linear-gradient(90deg, var(--meter-ok-start), var(--ok)); }
+.mod-di .rm.y { background: linear-gradient(90deg, var(--meter-gold-start), var(--gold)); }
+.mod-di .rm.o { background: linear-gradient(90deg, var(--meter-warn-start), var(--warn)); }
+.mod-di .rm.r { background: linear-gradient(90deg, var(--meter-bad-start), var(--bad)); }
 /* 战果 strip */
 .mod-di .result { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: none; padding: 7px 14px; background: var(--bg1); border-bottom: 1px solid var(--line); }
 .mod-di .rchip {
@@ -513,15 +516,15 @@
   border-radius: 5px; color: var(--dim); font-size: 8.5px; line-height: 1.55;
 }
 .mod-di .prebattle-model {
-  margin: 6px 0; padding: 6px; border: 1px solid color-mix(in srgb, #8f75ad 38%, var(--line));
-  border-radius: 6px; background: linear-gradient(110deg, rgba(143,117,173,.06), transparent 62%), var(--bg0);
+  margin: 6px 0; padding: 6px; border: 1px solid color-mix(in srgb, var(--tint-night-forecast-line) 38%, var(--line));
+  border-radius: 6px; background: linear-gradient(110deg, color-mix(in srgb, var(--tint-night-forecast-line) 6%, transparent), transparent 62%), var(--bg0);
 }
 .mod-di .prebattle-model.pending { display: flex; flex-direction: column; gap: 2px; color: var(--dim); font-size: 8.5px; }
 .mod-di .prebattle-model.pending b { color: var(--sub); font-size: 9.5px; }
 .mod-di .prebattle-model-head {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px 8px; margin-bottom: 5px;
 }
-.mod-di .prebattle-model-head b { color: #c7b3dc; font-size: 10px; }
+.mod-di .prebattle-model-head b { color: var(--night-model-soft); font-size: 10px; }
 .mod-di .prebattle-model-head span { color: var(--dim); font: 8.5px var(--mono); }
 .mod-di .prebattle-model-rule {
   margin-top: 5px; padding-top: 5px; border-top: 1px dashed var(--line-soft);
@@ -536,16 +539,16 @@
 .mod-di .night-forecast {
   margin-top: 6px; padding: 5px 0 0 7px;
   border-top: 1px dashed var(--line-soft);
-  border-left: 2px solid color-mix(in srgb, #6f7fbf 55%, var(--line));
+  border-left: 2px solid color-mix(in srgb, var(--tint-night-model-line) 55%, var(--line));
 }
 .mod-di .night-forecast.none {
   display: flex; align-items: baseline; gap: 6px; padding-bottom: 2px; color: var(--dim);
 }
 .mod-di .night-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin-bottom: 4px; }
-.mod-di .night-forecast b { color: #a8b4e0; font-size: 9.5px; }
+.mod-di .night-forecast b { color: var(--night-forecast-soft); font-size: 9.5px; }
 .mod-di .night-forecast > span, .mod-di .night-head span { color: var(--dim); font: 8.5px var(--mono); cursor: help; }
 .mod-di .prebattle-grid.mechanic.night .forecast-metric {
-  border-color: color-mix(in srgb, #6f7fbf 25%, var(--line-soft));
+  border-color: color-mix(in srgb, var(--tint-night-model-line) 25%, var(--line-soft));
 }
 .mod-di .prebattle-grid.mechanic.night .forecast-metric.risk em { color: var(--warn); }
 /* 「这个数里含了什么」：逐层挂牌，悬停看凭据与来源 */
@@ -558,13 +561,13 @@
 .mod-di .fc-layer b { color: var(--text); font-size: 9.5px; }
 .mod-di .fc-layer.land { border-color: color-mix(in srgb, var(--enemy) 34%, var(--line)); }
 .mod-di .fc-layer.bonus { border-color: color-mix(in srgb, var(--gold) 40%, var(--line)); }
-.mod-di .fc-layer.lbas { border-color: color-mix(in srgb, #6fa8c9 40%, var(--line)); }
-.mod-di .fc-layer.spot { border-color: color-mix(in srgb, #c9a06f 40%, var(--line)); }
-.mod-di .fc-layer.asw { border-color: color-mix(in srgb, #7fc9a8 40%, var(--line)); }
+.mod-di .fc-layer.lbas { border-color: color-mix(in srgb, var(--tint-air-layer-line) 40%, var(--line)); }
+.mod-di .fc-layer.spot { border-color: color-mix(in srgb, var(--tint-gold-layer-line) 40%, var(--line)); }
+.mod-di .fc-layer.asw { border-color: color-mix(in srgb, var(--tint-ok-layer-line) 40%, var(--line)); }
 /* 含推定值/空航空队：挂虚线，别让不确定的数看起来跟确定的一样 */
 .mod-di .fc-layer.unsure { border-style: dashed; color: var(--warn); }
 .mod-di .prebattle-grid.mechanic .forecast-metric {
-  border-color: color-mix(in srgb, #8f75ad 25%, var(--line-soft));
+  border-color: color-mix(in srgb, var(--tint-night-forecast-line) 25%, var(--line-soft));
 }
 .mod-di .prebattle-grid { grid-template-columns: repeat(3, minmax(74px, 1fr)); }
 .mod-di .prebattle-note {
@@ -603,7 +606,7 @@
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px;
   margin-top: 7px; color: var(--dim); font: 8.5px var(--mono);
 }
-.mod-di .practice-preview-model-meta b { color: #c7b3dc; }
+.mod-di .practice-preview-model-meta b { color: var(--night-model-soft); }
 .mod-di .practice-preview-fleets {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
   gap: 8px; margin-top: 9px;
@@ -656,22 +659,22 @@
 .mod-di .lrow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 3px 0; border-bottom: 1px dashed var(--line-soft); font-size: 11.5px; }
 /* 阶段折叠头：默认全展开，折起来只是玩家当场的收纳动作（状态不落盘，换一场就清空） */
 .mod-di .lstage-h { display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 3px 4px; margin: 2px 0 0 -6px; border-left: 2px solid transparent; font-size: 10.5px; color: var(--dim); }
-.mod-di .lstage-h:hover { background: #16212b; }
+.mod-di .lstage-h:hover { background: var(--tint-accent-log-hover); }
 .mod-di .lstage-h:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
 .mod-di .lstage-h .lstage-mk { flex: none; width: 9px; font-size: 9px; line-height: 1; }
 .mod-di .lstage-h .lstage-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mod-di .lstage-h .lstage-nm.air, .mod-di .lstage-h .lstage-nm.lbas { color: var(--air); }
-.mod-di .lstage-h .lstage-nm.tor { color: #8fb8e0; }
-.mod-di .lstage-h .lstage-nm.gun { color: #e0c27a; }
+.mod-di .lstage-h .lstage-nm.air, .mod-di .lstage-h .lstage-nm.lbas { color: var(--phase-air-soft); }
+.mod-di .lstage-h .lstage-nm.tor { color: var(--phase-torpedo-soft); }
+.mod-di .lstage-h .lstage-nm.gun { color: var(--phase-gun-soft); }
 .mod-di .lstage-h .lstage-nm.night { color: var(--night); }
-.mod-di .lstage-h .lstage-nm.sup { color: #b9c8e8; }
-.mod-di .lstage-h .lstage-nm.friend { color: #9fd8ff; }
-.mod-di .lstage-h .lstage-nm.radar { color: #f0c890; }
+.mod-di .lstage-h .lstage-nm.sup { color: var(--phase-support-soft); }
+.mod-di .lstage-h .lstage-nm.friend { color: var(--accent-log-soft); }
+.mod-di .lstage-h .lstage-nm.radar { color: var(--phase-radar-soft); }
 .mod-di .lstage-h.folded { border-bottom: 1px dashed var(--line-soft); }
 /* 流水的每一行都是时间轴锚点：点它，上面的编队血条退回那一阶段结算完的样子 */
 .mod-di .lrow[data-log-stage] { cursor: pointer; border-left: 2px solid transparent; padding-left: 4px; margin-left: -6px; }
-.mod-di .lrow[data-log-stage]:hover { background: #16212b; }
-.mod-di .lrow[data-log-stage].on { background: #16242f; border-left-color: var(--accent); }
+.mod-di .lrow[data-log-stage]:hover { background: var(--tint-accent-log-hover); }
+.mod-di .lrow[data-log-stage].on { background: var(--tint-accent-highlight); border-left-color: var(--accent); }
 /* pin 住某一阶段时，其余行淡下去——提醒上面看到的不是最终结果 */
 .mod-di .log.pinned .lrow[data-log-stage]:not(.on) { opacity: .62; }
 /* 特殊攻击的「打包」：一次特攻在报文里本是一个单元携带多段伤害，解析层把它摊成
@@ -684,22 +687,22 @@
 .mod-di .lrow.lgrp-h { border-bottom: 0; padding-bottom: 1px; }
 .mod-di .lgrp-b { margin-left: 4px; padding-left: 10px; border-left: 1px solid var(--line-soft); }
 .mod-di .lrow .ph { flex: none; min-width: 48px; max-width: 108px; text-align: center; font-size: 9.5px; border-radius: 3px; padding: 0 5px; border: 1px solid var(--line-soft); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mod-di .lrow .ph.air { color: var(--air); border-color: #2b4a37; }
-.mod-di .lrow .ph.tor { color: #8fb8e0; border-color: #2c4258; }
-.mod-di .lrow .ph.gun { color: #e0c27a; border-color: #4a3f22; }
-.mod-di .lrow .ph.night { color: var(--night); border-color: #343a6e; }
-.mod-di .lrow .ph.sup { color: #b9c8e8; border-color: #3a4658; }
-.mod-di .lrow .ph.lbas { color: var(--air); border-color: #2b4a37; }
-.mod-di .lrow .ph.friend { color: #9fd8ff; border-color: #2a5a70; }
-.mod-di .lrow .ph.radar { color: #f0c890; border-color: #6b4f2a; }
+.mod-di .lrow .ph.air { color: var(--phase-air-soft); border-color: var(--tint-ok-line); }
+.mod-di .lrow .ph.tor { color: var(--phase-torpedo-soft); border-color: var(--tint-torpedo-phase-line); }
+.mod-di .lrow .ph.gun { color: var(--phase-gun-soft); border-color: var(--tint-gold-line); }
+.mod-di .lrow .ph.night { color: var(--night); border-color: var(--tint-night-phase-line); }
+.mod-di .lrow .ph.sup { color: var(--phase-support-soft); border-color: var(--tint-support-phase-line); }
+.mod-di .lrow .ph.lbas { color: var(--phase-air-soft); border-color: var(--tint-ok-line); }
+.mod-di .lrow .ph.friend { color: var(--accent-log-soft); border-color: var(--tint-teal-line); }
+.mod-di .lrow .ph.radar { color: var(--phase-radar-soft); border-color: var(--tint-warn-line); }
 /* 一行流水的一眼位置是「谁打谁、打掉多少」：舰名与伤害数字一律不收缩，
    让路的是行尾那些注记（2026-08-26 用户按截图定的口径——对空CI 的装备列
    把整行挤到截断，被挤掉的却是舰名和击坠数）。
    .list 是多名/装备列那种本来就成串的位置，仍可收，全文在 title 里 */
-.mod-di .lrow .who { color: #c3d1dc; white-space: nowrap; flex: none; }
+.mod-di .lrow .who { color: var(--text-soft); white-space: nowrap; flex: none; }
 .mod-di .lrow .who.list { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.mod-di .lrow .who.foe { color: #e0a5ae; }
-.mod-di .lrow .who.friend { color: #9fd8ff; }
+.mod-di .lrow .who.foe { color: var(--abyss-log-soft); }
+.mod-di .lrow .who.friend { color: var(--accent-log-soft); }
 .mod-di .lrow .arr { color: var(--dim); font-size: 10px; }
 .mod-di .lrow .dv { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--text); flex: none; }
 /* 行尾整块（伤害数字 + 全部标记）：整行唯一肯让路的一段，让的方式是**折行**不是截字
@@ -720,7 +723,7 @@
    收缩的方式是**折行不是截字**：ellipsis 会把「弹着连击」这种收无可收的短标记
    吃到一个字宽（2026-08-27 截图），语义标记读不出来就等于没有。 */
 .mod-di .lrow .tag9.ci {
-  color: var(--night); border: 1px solid #343a6e;
+  color: var(--night); border: 1px solid var(--tint-night-phase-line);
   flex: 0 1 auto; min-width: 0;
   max-width: 260px; white-space: normal; overflow-wrap: anywhere;
 }
@@ -729,18 +732,18 @@
 .mod-di .lrow .tag9.ci .used-equip-link {
   max-width: 100%; overflow: visible; white-space: normal; overflow-wrap: anywhere; text-overflow: clip;
 }
-.mod-di .lrow .tag9.repair { color: var(--ok); border: 1px solid #2b4a37; }
+.mod-di .lrow .tag9.repair { color: var(--ok); border: 1px solid var(--tint-ok-line); }
 .mod-di .lrow .tag9.squadron {
   min-width: 0; max-width: min(36%, 240px); overflow: hidden; flex: 0 1 auto;
   color: var(--sub); border: 1px solid var(--line); white-space: nowrap; text-overflow: ellipsis;
 }
 .mod-di .lrow .tag9.used-equip {
-  color: #a8cfdf; border: 1px solid #315160; background: rgba(49, 81, 96, .1);
+  color: var(--dock-equipment-soft); border: 1px solid var(--tint-dock-equipment-line); background: color-mix(in srgb, var(--tint-dock-equipment) 10%, transparent);
   white-space: nowrap; cursor: default; transition: color var(--motion-fast) ease, border-color var(--motion-fast) ease, background var(--motion-fast) ease;
 }
 .mod-di .lrow .tag9.used-equip:hover,
 .mod-di .lrow .tag9.used-equip:focus-visible {
-  color: #d5edf5; border-color: #4b788b; background: rgba(75, 120, 139, .18); outline: none;
+  color: var(--dock-equipment-active-soft); border-color: var(--tint-dock-equipment-active-line); background: color-mix(in srgb, var(--tint-dock-equipment-active) 18%, transparent); outline: none;
 }
 .mod-di .lrow .used-equip-link {
   display: inline-block; min-width: 0; max-width: 100%; overflow: hidden;
@@ -761,10 +764,10 @@
 }
 #di-used-equipment-popover .used-equip-popover-card {
   display: flex; flex-direction: column; gap: 6px; min-width: 190px; max-width: 320px;
-  padding: 8px 10px; color: var(--sub); background: rgba(18, 25, 31, .985);
-  border: 1px solid #315160; border-radius: 7px; box-shadow: 0 12px 34px rgba(0, 0, 0, .55);
+  padding: 8px 10px; color: var(--sub); background: color-mix(in srgb, var(--tint-equipment-popover) 98.5%, transparent);
+  border: 1px solid var(--tint-dock-equipment-line); border-radius: 7px; box-shadow: 0 12px 34px rgba(0, 0, 0, .55);
 }
-#di-used-equipment-popover b { color: #d5edf5; font-size: 10.5px; font-weight: 600; }
+#di-used-equipment-popover b { color: var(--dock-equipment-active-soft); font-size: 10.5px; font-weight: 600; }
 #di-used-equipment-popover small { color: var(--dim); font-size: 8.5px; }
 #di-used-equipment-popover .used-equip-popover-list { display: flex; flex-direction: column; gap: 3px; }
 #di-used-equipment-popover .used-equip-popover-item {
@@ -772,14 +775,14 @@
   min-width: 0; padding: 2px 4px; border-radius: 4px; background: rgba(255, 255, 255, .018);
   font-size: 10.5px; white-space: normal;
 }
-#di-used-equipment-popover .used-equip-popover-item:hover { background: rgba(75, 120, 139, .12); }
+#di-used-equipment-popover .used-equip-popover-item:hover { background: color-mix(in srgb, var(--tint-dock-equipment-active) 12%, transparent); }
 #di-used-equipment-popover .used-equip-popover-item i {
   color: var(--dim); font: normal 8.5px var(--mono); text-align: right;
 }
 #di-used-equipment-popover .used-equip-link { min-width: 0; overflow-wrap: anywhere; }
 .mod-di .lrow.stage-row {
   flex-direction: column; align-items: stretch; gap: 2px;
-  background: rgba(143, 214, 148, 0.025);
+  background: color-mix(in srgb, var(--air) 2.5%, transparent);
 }
 .mod-di .stage-row .stage-main {
   min-width: 0; display: flex; align-items: baseline; gap: 8px;
@@ -816,9 +819,9 @@
 .mod-di .cond-row .mk.wait { color: var(--warn); }
 .mod-di .cond-row .r { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
 .mod-di .ammo-bar { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--sub); padding: 2.5px 0; }
-.mod-di .ammo-bar .b { flex: 1; height: 5px; border-radius: 3px; background: #1b2733; overflow: hidden; display: flex; }
+.mod-di .ammo-bar .b { flex: 1; height: 5px; border-radius: 3px; background: var(--stat-track); overflow: hidden; display: flex; }
 .mod-di .ammo-bar .b .rm2 { height: 100%; }
-.mod-di .ammo-bar .b .dd2 { height: 100%; background: #3a4a58; }
+.mod-di .ammo-bar .b .dd2 { height: 100%; background: var(--tint-ammo-empty); }
 .mod-di .ammo-bar b { font-family: var(--mono); font-size: 10.5px; color: var(--text); }
 .mod-di .drops { display: flex; flex-direction: column; gap: 3px; }
 .mod-di .drop-filters { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
@@ -829,11 +832,11 @@
 .mod-di .drop-filter:hover { color: var(--sub); border-color: var(--accent-dim); }
 .mod-di .drop-filter.on { color: var(--accent); border-color: var(--accent); }
 .mod-di .drop-r { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--sub); }
-.mod-di .drop-r b { color: #9fd8ff; font-weight: 600; }
+.mod-di .drop-r b { color: var(--accent-log-soft); font-weight: 600; }
 .drop-unowned {
   display: inline-flex; align-items: center; flex: none; margin-left: 3px;
-  padding: 0 4px; border: 1px solid #765c2f; border-radius: 3px;
-  color: var(--gold); background: rgba(232, 198, 106, .055);
+  padding: 0 4px; border: 1px solid var(--tint-gold-unowned-line); border-radius: 3px;
+  color: var(--gold); background: color-mix(in srgb, var(--gold) 5.5%, transparent);
   font-size: 8.5px; line-height: 1.45; font-weight: 600;
 }
 /* 首见志：⚓ = 我方首次获得，⚔ = 敌方首次击沉。敌我靠符号与配色双重区分。 */
@@ -844,8 +847,8 @@
 }
 .first-mark i { font-style: normal; font-size: 8.5px; letter-spacing: .5px; }
 .first-mark.compact { padding: 0 2px; }
-.first-mark.drop { color: #8fd0ff; border: 1px solid #2f5d78; background: rgba(77, 184, 255, .08); }
-.first-mark.kill { color: var(--abyss-ink); border: 1px solid #78323d; background: rgba(224, 108, 117, .09); }
+.first-mark.drop { color: var(--accent-first-soft); border: 1px solid var(--tint-accent-first-line); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.first-mark.kill { color: var(--abyss-ink); border: 1px solid var(--tint-abyss-first-line); background: color-mix(in srgb, var(--bad) 9%, transparent); }
 /* 后台正在取新数据、屏幕上这份还是刚才那份——不塌成加载态，只做个不打眼的注脚 */
 .stale { font-style: normal; opacity: .55; }
 .first-row {
@@ -853,7 +856,7 @@
   border-radius: 5px; background: var(--bg0); border: 1px solid var(--line-soft);
 }
 .first-line { display: inline-flex; align-items: baseline; gap: 4px; font-size: 10.5px; }
-.first-line.drop { color: #8fd0ff; }
+.first-line.drop { color: var(--accent-first-soft); }
 .first-line.kill { color: var(--abyss-ink); }
 .first-line.none { color: var(--dim); }
 .first-line b { font-weight: 600; color: var(--text); }
@@ -931,7 +934,7 @@
 .mod-du .sr-chip {
   display: inline-flex; align-items: center; gap: 3px;
   padding: 1px 6px; border-radius: 8px; font-size: 9.5px;
-  color: #10141a; background: var(--tag, var(--bg3)); font-weight: 600;
+  color: var(--sally-tag-soft); background: var(--tag, var(--bg3)); font-weight: 600;
 }
 .mod-du .sr-chip i { font-style: normal; font-size: 8.5px; opacity: .62; }
 /* 禁入：留住札的颜色当身份线索，但整枚退成描边——一眼分得出「不能带」 */
@@ -996,6 +999,7 @@
 
 /* 浅色战斗血条与燃弹：原深色声明保留，填充实色、空段与底轨同色。
    虚血仍以不透明斜纹表达本段损失，避免与实血混淆。 */
+:root[data-theme="light"] .mod-di { font-weight: var(--weight-body); }
 :root[data-theme="light"] .mod-di .hpx .bar,
 :root[data-theme="light"] .mod-di .ammo-bar .b,
 :root[data-theme="light"] .mod-di .ammo-bar .b .dd2 { background: var(--line-soft); }

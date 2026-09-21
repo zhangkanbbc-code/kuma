@@ -116,9 +116,13 @@ test('the badge is withheld unless a real first can be established', () => {
   const html =
     fs.readFileSync(new URL('../src/renderer/index.html', import.meta.url), 'utf8') +
     fs.readFileSync(new URL('../src/renderer/assets/battle-replay.css', import.meta.url), 'utf8')
-  assert.match(html, /\.first-mark\.drop \{[^}]*color: #8fd0ff/)
+  assert.match(html, /\.first-mark\.drop \{[^}]*color: var\(--accent-first-soft\)/)
   // #ff9fae 已收编为 --abyss-ink（深海亮字 token），语义不变
   assert.match(html, /\.first-mark\.kill \{[^}]*color: var\(--abyss-ink\)/)
+  // html 以 index.html 开头，首个 :root 是主窗深色色板；敌我原色分别钉住。
+  const darkRoot = html.match(/:root\s*\{([^}]+)\}/)[1]
+  const dark = Object.fromEntries([...darkRoot.matchAll(/--([\w-]+):\s*([^;]+);/g)].map(m => [m[1], m[2].trim()]))
+  assert.deepEqual([dark['accent-first-soft'], dark['abyss-ink']], ['#8fd0ff', '#ff9fae'])
 })
 
 test('a ship already on hand before the ledger started never counts as a first catch', () => {

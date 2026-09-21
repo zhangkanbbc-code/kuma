@@ -11692,6 +11692,8 @@ test('Boss 点判定按字母不按 bosscell 边号:多入边 Boss 不再挂幽�
   // api_bosscell_no 只是通往 Boss 的某一条边号(6-2 K:bosscell=11,J 边到达 api_no=18),
   // 数字直比在多入边 Boss 点永远不等 → 已到 Boss 还追加幽灵 Boss 尾巴
   assert.match(battle, /s\.nodes\.some\(\(n\) => n\.eventId === 5 \|\| cellLetter\(s, n\.cell\) === bossLetter\)/)
+  assert.match(battle, /bossLettersOf\(s\.cellData, entry\.route\)/)
+  assert.match(battle, /sortieBossTarget\(\{/)
   assert.doesNotMatch(battle, /const reachedBoss = s\.nodes\.some\(\(n\) => n\.cell === s\.bossCell\)/)
   assert.doesNotMatch(battle, /const isBoss = n\.cell === s\.bossCell/)
 })

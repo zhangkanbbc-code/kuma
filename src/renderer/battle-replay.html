@@ -52,6 +52,7 @@
       --mono: 'Maple Mono NF CN', 'Cascadia Code', 'Consolas', monospace;
       --sans: 'Segoe UI', 'Microsoft YaHei', sans-serif;
 
+      --stat-track: #1b2733;
       /* 样式表语义颜色：按使用角色保留各档原值。 */
       /* 亮底徽章和装备回退图标的墨字。 */
       --ink: #0d1318;
@@ -75,6 +76,93 @@
       --thumbnail-surface-deep: #141d25;
       /* 深海缩略图渐变末端。 */
       --tint-abyss-thumbnail-deep: #17151a;
+      --abyss-dim-soft: #93394d; /* 战斗深海弱强调与边线基色。 */
+      --sea-soft: #3fd0b0; /* 海域卡片与海图入口强调。 */
+      --warn-missing-soft: #d8ad72;
+      --tint-warn-missing: #aa7430;
+      --warn-dismiss-soft: #e7c58d;
+      --bad-replay-soft: #ffb3bd; /* 复盘读取失败提示文字。 */
+      --trail-map-soft: #8fe0cc; /* 战斗航迹的海域编号。 */
+      --tint-ok-route-line: #3f9e63; /* 已走战斗节点及连接线。 */
+      --ok-verdict-soft: #a5e0bb; /* 已走战斗节点与成功决策文字。 */
+      --tint-warn-route-line: #b8703a; /* 已走航空节点边线。 */
+      --phase-radar-soft: #f0c890; /* 航空节点、警告决策与雷达阶段文字。 */
+      --night-route-node-soft: #bcc3f7; /* 已走夜战节点文字。 */
+      --tint-gold-route-line: #b8973a; /* 已走资源节点边线。 */
+      --gold-route-soft: #eede9f; /* 已走资源节点文字。 */
+      --tint-dock-route-line: #3a8ba3; /* 已走涡潮节点边线。 */
+      --dock-route-soft: #9fd8e8; /* 已走涡潮节点文字。 */
+      --tint-calm-route-line: #566976; /* 已走无事节点边线。 */
+      --calm-route-soft: #b7c6cf; /* 已走无事节点文字。 */
+      --abyss-route-soft: #c98a97; /* 航迹首领节点文字。 */
+      --abyss-route-current-soft: #ffb9c4; /* 当前首领节点文字。 */
+      --tint-abyss-route-current: #7a202d; /* 当前首领节点底色基色。 */
+      --glow-abyss-route: #ff5c73; /* 当前首领节点光环基色。 */
+      --tint-gold-line: #4a3f22;
+      --gold-drop-soft: #ffeab4; /* 战斗掉落舰名。 */
+      --accent-verdict-soft: #8fd0ff; /* 航行决策图标文字。 */
+      --on-accent: #fff;
+      --tint-ok: #132a1c;
+      --tint-ok-line: #2b4a37;
+      --tint-ok-action: #2b6a44; /* 成功决策按钮底色。 */
+      --ok-action-soft: #eafff2; /* 成功决策按钮文字。 */
+      --tint-gold: #2e2818;
+      --glow-gold-action: #f0dfa0; /* 金色决策按钮渐变末端。 */
+      --gold-action-soft: #1a140d; /* 金色决策按钮墨字。 */
+      --tint-bad-deep: #33121b;
+      --bad-critical-soft: #ffb3bd;
+      --tint-warn-verdict: #312414; /* 警告决策图标底色。 */
+      --tint-warn-verdict-line: #7c572c; /* 警告决策图标边线。 */
+      --warn-verdict-soft: #f0bd73; /* 警告决策图标文字。 */
+      --tint-warn-action: #6f4d26; /* 警告决策按钮底色。 */
+      --warn-action-soft: #fff1dc; /* 警告决策按钮文字。 */
+      --night-aaci-soft: #a98fd0; /* 对空特殊攻击装备条件文字。 */
+      --tint-night-route-line: #302743; /* 夜战路线条分隔线。 */
+      --glow-night-route: #7a4eaa; /* 夜战路线条渐变基色。 */
+      --tint-night-state-line: #3a4076; /* 夜战阶段与活动状态边线。 */
+      --night-side-soft: #dbe9f3; /* 夜战路线我方队名。 */
+      --night-arrow-soft: #8f75ad; /* 夜战路线箭头文字。 */
+      --tint-night-state: #646ed7; /* 夜战活动状态底色基色。 */
+      --tint-night-inactive-line: #2a3036; /* 夜战非活动状态边线。 */
+      --accent-log-soft: #9fd8ff; /* 战斗友军名、伤害、载机数与掉落记录文字。 */
+      --tint-bad-loss: #8a3644; /* 本段损失血条斜纹暗段。 */
+      --meter-ok-start: #3f9e63;
+      --meter-gold-start: #b8973a;
+      --meter-warn-start: #b8703a;
+      --meter-bad-start: #a33448;
+      --tint-night-forecast-line: #8f75ad;
+      --night-model-soft: #c7b3dc;
+      --tint-night-model-line: #6f7fbf; /* 夜战预测与机理指标边线。 */
+      --night-forecast-soft: #a8b4e0; /* 夜战预测标题文字。 */
+      --tint-air-layer-line: #6fa8c9; /* 基地航空预测层边线。 */
+      --tint-gold-layer-line: #c9a06f; /* 观测射击预测层边线。 */
+      --tint-ok-layer-line: #7fc9a8; /* 对潜预测层边线。 */
+      --tint-accent-log-hover: #16212b; /* 战斗阶段头与流水悬停底色。 */
+      --phase-air-soft: #8fd694; /* 航空阶段头与流水阶段文字。 */
+      --phase-torpedo-soft: #8fb8e0; /* 雷击阶段文字。 */
+      --phase-gun-soft: #e0c27a; /* 炮击阶段文字。 */
+      --phase-support-soft: #b9c8e8; /* 支援阶段文字。 */
+      --tint-accent-highlight: #16242f;
+      --tint-torpedo-phase-line: #2c4258; /* 雷击阶段芯片边线。 */
+      --tint-night-phase-line: #343a6e; /* 夜战阶段与特殊攻击芯片边线。 */
+      --tint-support-phase-line: #3a4658; /* 支援阶段芯片边线。 */
+      --tint-teal-line: #2a5a70;
+      --tint-warn-line: #6b4f2a;
+      --text-soft: #c3d1dc;
+      --abyss-log-soft: #e0a5ae; /* 战斗流水敌舰名。 */
+      --dock-equipment-soft: #a8cfdf; /* 战斗使用装备芯片文字。 */
+      --tint-dock-equipment-line: #315160; /* 战斗使用装备芯片与浮层边线。 */
+      --tint-dock-equipment: #315160; /* 战斗使用装备芯片底色基色。 */
+      --dock-equipment-active-soft: #d5edf5; /* 战斗装备芯片交互态与浮层标题文字。 */
+      --tint-dock-equipment-active-line: #4b788b; /* 战斗使用装备芯片交互态边线。 */
+      --tint-dock-equipment-active: #4b788b; /* 战斗装备芯片与浮层项目交互底色基色。 */
+      --tint-equipment-popover: #12191f; /* 战斗使用装备浮层底色基色。 */
+      --tint-ammo-empty: #3a4a58; /* 燃弹条缺失段底色。 */
+      --tint-gold-unowned-line: #765c2f; /* 未持有掉落标记边线。 */
+      --accent-first-soft: #8fd0ff; /* 首见获得标记与记录文字。 */
+      --tint-accent-first-line: #2f5d78; /* 首次获得标记边线。 */
+      --tint-abyss-first-line: #78323d; /* 首次击沉标记边线。 */
+      --sally-tag-soft: #10141a; /* 札标签墨字。 */
     }
     :root[data-theme="light"] {
       --weight-body: 500;
@@ -111,6 +199,7 @@
       --scrollbar-thumb-hover: #9db0bf;
       --scrollbar-thumb-active: #859cae;
 
+      --stat-track: #d0dbe5;
       /* 样式表语义颜色：按使用角色保留各档原值。 */
       /* 亮底徽章和装备回退图标的墨字。 */
       --ink: #ffffff;
@@ -134,6 +223,93 @@
       --thumbnail-surface-deep: #eaf0f5;
       /* 深海缩略图渐变末端。 */
       --tint-abyss-thumbnail-deep: #f4dade;
+      --abyss-dim-soft: #b53145; /* 战斗深海弱强调与边线基色。 */
+      --sea-soft: #15536a; /* 海域卡片与海图入口强调。 */
+      --warn-missing-soft: #8f4e0b;
+      --tint-warn-missing: #e9ded3;
+      --warn-dismiss-soft: #8f4e0b;
+      --bad-replay-soft: #b43628; /* 复盘读取失败提示文字。 */
+      --trail-map-soft: #226e5f; /* 战斗航迹的海域编号。 */
+      --tint-ok-route-line: #aacbb9; /* 已走战斗节点及连接线。 */
+      --ok-verdict-soft: #267047; /* 已走战斗节点与成功决策文字。 */
+      --tint-warn-route-line: #cdb59d; /* 已走航空节点边线。 */
+      --phase-radar-soft: #82470a; /* 航空节点、警告决策与雷达阶段文字。 */
+      --night-route-node-soft: #323aa8; /* 已走夜战节点文字。 */
+      --tint-gold-route-line: #c8bd9f; /* 已走资源节点边线。 */
+      --gold-route-soft: #765b0e; /* 已走资源节点文字。 */
+      --tint-dock-route-line: #a1bac3; /* 已走涡潮节点边线。 */
+      --dock-route-soft: #15536a; /* 已走涡潮节点文字。 */
+      --tint-calm-route-line: #9fa2a6; /* 已走无事节点边线。 */
+      --calm-route-soft: #0f1720; /* 已走无事节点文字。 */
+      --abyss-route-soft: #b53145; /* 航迹首领节点文字。 */
+      --abyss-route-current-soft: #b53145; /* 当前首领节点文字。 */
+      --tint-abyss-route-current: #f4dade; /* 当前首领节点底色基色。 */
+      --glow-abyss-route: #f4dade; /* 当前首领节点光环基色。 */
+      --tint-gold-line: #c8bd9f;
+      --gold-drop-soft: #765b0e; /* 战斗掉落舰名。 */
+      --accent-verdict-soft: #1567a0; /* 航行决策图标文字。 */
+      --on-accent: #ffffff;
+      --tint-ok: #d9e8df;
+      --tint-ok-line: #aacbb9;
+      --tint-ok-action: #d9e8df; /* 成功决策按钮底色。 */
+      --ok-action-soft: #267047; /* 成功决策按钮文字。 */
+      --tint-gold: #e6e1d4;
+      --glow-gold-action: #e6e1d4; /* 金色决策按钮渐变末端。 */
+      --gold-action-soft: #0f1720; /* 金色决策按钮墨字。 */
+      --tint-bad-deep: #f4dbd9;
+      --bad-critical-soft: #c0392b;
+      --tint-warn-verdict: #e9ded3; /* 警告决策图标底色。 */
+      --tint-warn-verdict-line: #cdb59d; /* 警告决策图标边线。 */
+      --warn-verdict-soft: #82470a; /* 警告决策图标文字。 */
+      --tint-warn-action: #e9ded3; /* 警告决策按钮底色。 */
+      --warn-action-soft: #82470a; /* 警告决策按钮文字。 */
+      --night-aaci-soft: #323aa8; /* 对空特殊攻击装备条件文字。 */
+      --tint-night-route-line: #adb0dc; /* 夜战路线条分隔线。 */
+      --glow-night-route: #dadcef; /* 夜战路线条渐变基色。 */
+      --tint-night-state-line: #adb0dc; /* 夜战阶段与活动状态边线。 */
+      --night-side-soft: #0f1720; /* 夜战路线我方队名。 */
+      --night-arrow-soft: #323aa8; /* 夜战路线箭头文字。 */
+      --tint-night-state: #dadcef; /* 夜战活动状态底色基色。 */
+      --tint-night-inactive-line: #9fa2a6; /* 夜战非活动状态边线。 */
+      --accent-log-soft: #1567a0; /* 战斗友军名、伤害、载机数与掉落记录文字。 */
+      --tint-bad-loss: #f4dbd9; /* 本段损失血条斜纹暗段。 */
+      --meter-ok-start: #2d8654;
+      --meter-gold-start: #81630f;
+      --meter-warn-start: #8f4e0b;
+      --meter-bad-start: #c0392b;
+      --tint-night-forecast-line: #adb0dc;
+      --night-model-soft: #323aa8;
+      --tint-night-model-line: #adb0dc; /* 夜战预测与机理指标边线。 */
+      --night-forecast-soft: #323aa8; /* 夜战预测标题文字。 */
+      --tint-air-layer-line: #aacbae; /* 基地航空预测层边线。 */
+      --tint-gold-layer-line: #c8bd9f; /* 观测射击预测层边线。 */
+      --tint-ok-layer-line: #aacbb9; /* 对潜预测层边线。 */
+      --tint-accent-log-hover: #d5e6f1; /* 战斗阶段头与流水悬停底色。 */
+      --phase-air-soft: #277130; /* 航空阶段头与流水阶段文字。 */
+      --phase-torpedo-soft: #1567a0; /* 雷击阶段文字。 */
+      --phase-gun-soft: #765b0e; /* 炮击阶段文字。 */
+      --phase-support-soft: #1567a0; /* 支援阶段文字。 */
+      --tint-accent-highlight: #d5e6f1;
+      --tint-torpedo-phase-line: #a2c7e0; /* 雷击阶段芯片边线。 */
+      --tint-night-phase-line: #adb0dc; /* 夜战阶段与特殊攻击芯片边线。 */
+      --tint-support-phase-line: #a2c7e0; /* 支援阶段芯片边线。 */
+      --tint-teal-line: #a1bac3;
+      --tint-warn-line: #cdb59d;
+      --text-soft: #1b2733;
+      --abyss-log-soft: #b53145; /* 战斗流水敌舰名。 */
+      --dock-equipment-soft: #15536a; /* 战斗使用装备芯片文字。 */
+      --tint-dock-equipment-line: #a1bac3; /* 战斗使用装备芯片与浮层边线。 */
+      --tint-dock-equipment: #d5e0e4; /* 战斗使用装备芯片底色基色。 */
+      --dock-equipment-active-soft: #15536a; /* 战斗装备芯片交互态与浮层标题文字。 */
+      --tint-dock-equipment-active-line: #a1bac3; /* 战斗使用装备芯片交互态边线。 */
+      --tint-dock-equipment-active: #d5e0e4; /* 战斗装备芯片与浮层项目交互底色基色。 */
+      --tint-equipment-popover: #d4d5d7; /* 战斗使用装备浮层底色基色。 */
+      --tint-ammo-empty: #d4d5d7; /* 燃弹条缺失段底色。 */
+      --tint-gold-unowned-line: #c8bd9f; /* 未持有掉落标记边线。 */
+      --accent-first-soft: #1567a0; /* 首见获得标记与记录文字。 */
+      --tint-accent-first-line: #a2c7e0; /* 首次获得标记边线。 */
+      --tint-abyss-first-line: #e7aeb7; /* 首次击沉标记边线。 */
+      --sally-tag-soft: #0f1720; /* 札标签墨字。 */
     }
     * {
       margin: 0; padding: 0; box-sizing: border-box;

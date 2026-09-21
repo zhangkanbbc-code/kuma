@@ -13,6 +13,7 @@ import { fatigueBand } from '../fatigue'
 import { formationText, optionalFormationText } from '../../shared/enemy-formation'
 import { requiredSunkForA } from '../../shared/battle-rank'
 import { fcdTopologyUsable } from '../../shared/fcd-topology'
+import { bossLettersOf, reachableSpots, sortieBossTarget } from '../../shared/sortie-boss'
 import { isBuiltInActiveBranchSpot } from '../../shared/active-branch-spots'
 import { DAY_NIGHT_LABEL, battlePhaseOrder, dealtByPhaseOf } from '../../shared/battle-phase-damage'
 import { hpAtStage, hpBarSegments, segmentStartOf, shipHpTimeline } from '../../shared/battle-hp-timeline'
@@ -1119,13 +1120,27 @@ const trailHtml = (
     }</span></div>`
   }
   const trailMapId = mapIdOf(s.mapArea, s.mapNo)
+  const entry = fcdMap?.data?.[mapKeyOf(s)]
+  const gameBossPath = fcdTopologyUsable(entry) && (s.cellData?.length ?? 0) > 0
+  const bossLetters = gameBossPath ? bossLettersOf(s.cellData, entry.route) : []
+  const gaugeNum = gameBossPath
+    ? (s.gauge?.before?.gaugeNum ?? mg.mapGauges[mapIdOf(s.mapArea, s.mapNo)]?.gaugeNum ?? null)
+    : null
+  const target = gameBossPath
+    ? sortieBossTarget({
+        bossLetters,
+        gaugeNum,
+        reachable: reachableSpots(entry.route, cellLetter(s, s.currentCell)),
+      })
+    : null
   const nodes = s.nodes
     .map((n, i) => {
       const letter = cellLetter(s, n.cell)
       const isCur = n.cell === s.currentCell && i === s.nodes.length - 1
       // Boss 判定同 reachedBoss 的口径:eventId 5 权威,字母匹配兜多入边
-      const isBoss =
-        n.eventId === 5 || (s.bossCell > 0 && letter === cellLetter(s, s.bossCell))
+      const isBoss = gameBossPath
+        ? n.eventId === 5 || bossLetters.includes(letter)
+        : n.eventId === 5 || (s.bossCell > 0 && letter === cellLetter(s, s.bossCell))
       // 走过的点按遭遇类型分色(2026-08-12 用户提议)。类型全部来自游戏罗盘
       // 事件(eventId/eventKind),不是推测:战斗=done 原绿,夜战紫,空袭/航空战橙,
       // 资源/护卫成功/扬陆金,涡潮青,无事灰,Boss 红。
@@ -1173,11 +1188,25 @@ const trailHtml = (
   // api_bosscell_no 只是通往 Boss 的**某一条**边号;多入边的 Boss 点(6-2 K:
   // bosscell=11,走 J 边到达时 api_no=18)数字直比永远不等,航迹条会在当前点
   // 旁再挂一个幽灵 Boss 尾巴(2026-08-12 用户报出)。按字母比才是「同一个点」。
-  const reachedBoss =
+  // 多血条图里 api_bosscell_no 又只报第 1 血条；2026-09-21 维护者实机报出后，
+  // 改看随相位揭开的 api_cell_data 色 5 边，血条号优先取复盘自己的 gauge.before，
+  // 实时态再取 mapGauges。当前位置到不了候选时按 fcd 拓扑回退到仍可达的 Boss；
+  // 旧快照没有 cellData、或 fcd 拓扑不可用时，仍留在上面的旧判据。
+  const legacyReachedBoss =
     bossLetter != null &&
     s.nodes.some((n) => n.eventId === 5 || cellLetter(s, n.cell) === bossLetter)
-  const bossTail =
-    bossLetter && !reachedBoss
+  const reachedBoss = gameBossPath
+    ? s.nodes.some((n) => n.eventId === 5 || bossLetters.includes(cellLetter(s, n.cell)))
+    : legacyReachedBoss
+  const bossTail = gameBossPath
+    ? target && !reachedBoss
+      ? `<span class="te"></span><span class="tn boss" title="${
+          bossLetters.length > 1 && gaugeNum
+            ? `Boss 点 · 第${gaugeNum}血条（游戏海图标示）`
+            : 'Boss 点（游戏海图标示）'
+        }">${esc(target)}</span>`
+      : ''
+    : bossLetter && !reachedBoss
       ? `<span class="te"></span><span class="tn boss" title="Boss 点（来自 fcd 海图）">${esc(bossLetter)}</span>`
       : ''
   // 航迹可能借用同次出击的末场或现役 sortie；进度仍属于正在复盘的这一战。
@@ -2986,6 +3015,8 @@ const seaCardHtml = (s: SortieView): string => {
     )
     const selectable = new Set((s.selectRoute ?? []).map((cell) => cellLetter(s, cell)))
     const cur = visited[visited.length - 1]
+    const gameBossPath = fcdTopologyUsable(fcd) && (s.cellData?.length ?? 0) > 0
+    const bossLetters = gameBossPath ? bossLettersOf(s.cellData, route) : []
     const bossLetter = s.bossCell > 0 ? cellLetter(s, s.bossCell) : null
     // 背景：全部航路边（暗线），让整张图形状可读
     const bgLines = Object.values(route)
@@ -3011,7 +3042,7 @@ const seaCardHtml = (s: SortieView): string => {
     const dots = Object.entries(spots)
       .map(([name, [x, y]]) => {
         const isCur = name === cur
-        const isBoss = name === bossLetter
+        const isBoss = gameBossPath ? bossLetters.includes(name) : name === bossLetter
         const passed = (visitedSet.has(name) || passedByGame.has(name)) && !isCur
         const canSelect = selectable.has(name)
         const stroke = isCur ? 'var(--node-cur-stroke)' : canSelect ? 'var(--node-select-stroke)' : isBoss ? 'var(--node-boss-stroke)' : passed ? 'var(--node-passed-stroke)' : 'var(--node-idle-stroke)'

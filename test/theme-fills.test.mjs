@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict'
-import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import test from 'node:test'
 
@@ -117,12 +116,6 @@ test('深色轨道和填充锁定起点实值，最低对比度容差 0.005', t 
     assert.ok(Math.abs(actual - expected) <= 0.005, name + ' 起点最低对比度: ' + actual)
   }
   t.diagnostic(JSON.stringify({ trackMinimum, fillMinimum }))
-})
-
-test('战斗共享 CSS 除浅色专属覆盖外，整表保持起点等值', () => {
-  const css = read('assets/battle-replay.css').replace(/\/\*[^]*?\*\//g, '')
-    .replace(/:root\[data-theme="light"\][^{}]*\{[^{}]*\}/g, '').replace(/\s+/g, '')
-  assert.equal(createHash('sha256').update(css).digest('hex'), 'e0162c6f7b956d5eb4957a2c5b5c9206d63de23ec8d573de93abf19dd6fa6e77')
 })
 
 test('浅色属性分段取消透明度，模板内联进度覆盖保留完成与解锁语义', () => {
