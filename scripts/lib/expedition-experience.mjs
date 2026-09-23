@@ -5,7 +5,7 @@ export const MAINTAINER_EXPEDITION_CORRECTIONS = [{
   date: '2026-09-06',
 }]
 
-/** events 原始报文；普通成功只取非旗舰经验，不反推旗舰或大成功倍率。 */
+/** events 原始报文；普通成功只取非旗舰经验，不反推旗舰或大成功倍率。パターン2 随机使舰娘经验翻倍，与大成功无关，核对时接受资料值的两倍。 */
 export const auditExpeditionExperience = (events, current, wiki) => {
   const names = new Map(Object.entries(current).map(([id, entry]) => [entry.nameJp, id]))
   const rows = new Map(), unknownNames = new Map()
@@ -47,8 +47,8 @@ export const auditExpeditionExperience = (events, current, wiki) => {
   const expeditions = [...rows.values()].sort((a, b) => a.id.localeCompare(b.id, 'en', { numeric: true }))
   return {
     total, expeditions,
-    differences: expeditions.filter(row => row.observed !== null && row.observed !== row.current),
-    wikiDifferences: expeditions.filter(row => row.observed !== null && row.observed !== row.wikiwiki),
+    differences: expeditions.filter(row => row.observed !== null && row.observed !== row.current && (row.current === null || row.observed !== row.current * 2)),
+    wikiDifferences: expeditions.filter(row => row.observed !== null && row.observed !== row.wikiwiki && (row.wikiwiki === null || row.observed !== row.wikiwiki * 2)),
     unknownNames: [...unknownNames].map(([name, count]) => ({ name, count })),
   }
 }

@@ -16,7 +16,7 @@
 //   - 「(1驱逐+1海防不可)」= 禁混搭:2 个坑必须同一舰种凑满(homogeneous)。
 //   - 「护卫空母」≠ 轻空母:主数据 api_tais 恰好只长在护卫空母身上
 //     (大鷹 35/鳳翔改二戦 34,龍驤等普通轻母没有),cve 标记让判定端
-//     用 stype=7 且基础对潜>0 落实,不能拿任意轻母顶包。
+//     只对 stype=7 的轻母位要求基础对潜>0,并列的其他舰种不受此限定。
 
 // 舰种中文名 → stype 集(宽松匹配;映射不到 → null = 无法判定)
 const TYPE_RULES: [RegExp, number[]][] = [
@@ -48,7 +48,7 @@ export interface CompReq {
   count: number
   flagship: boolean
   wildcard: boolean // 其他/任意
-  /** 要求护卫空母:stype 7 且主数据基础对潜 > 0,普通轻母不算 */
+  /** 这条要求里的轻母位(stype 7)必须是护卫空母,主数据基础对潜 > 0;其他舰种不受限 */
   cve: boolean
   /** 多舰种组禁混搭(「1驱逐+1海防不可」):须单一舰种凑满 count */
   homogeneous: boolean
@@ -105,13 +105,16 @@ const parseBranchText = (text: string): CompReq[] => {
       if (rule) rule[1].forEach((t) => typeSet.add(t))
       else if (part.trim()) unknown = true
     }
+    const lightCarrierParts = namePart.split('/').filter((part) =>
+      TYPE_RULES.find(([re]) => re.test(part))?.[1].includes(7),
+    )
     reqs.push({
       label,
       types: unknown || !typeSet.size ? null : [...typeSet],
       count,
       flagship,
       wildcard: false,
-      cve: CVE_RE.test(namePart),
+      cve: lightCarrierParts.length > 0 && lightCarrierParts.every((part) => CVE_RE.test(part)),
       homogeneous,
     })
   }
@@ -215,6 +218,9 @@ export interface CompShipView {
   cve: boolean
 }
 
+export const compShipFits = (req: CompReq, ship: CompShipView): boolean =>
+  !!req.types?.includes(ship.stype) && (!req.cve || ship.stype !== 7 || ship.cve)
+
 /**
  * 单条编成要求的判定。多舰种禁混搭组取「单一舰种的最大数」;
  * 旗舰要求看 ships[0]。types=null(无法判定)的要求不该喂进来。
@@ -223,8 +229,7 @@ export const compReqStatus = (
   req: CompReq,
   ships: CompShipView[],
 ): { matched: number; ok: boolean; flagOk: boolean | null } => {
-  const fits = (ship: CompShipView) =>
-    !!req.types?.includes(ship.stype) && (!req.cve || ship.cve)
+  const fits = (ship: CompShipView) => compShipFits(req, ship)
   let matched: number
   if (req.homogeneous) {
     const byType = new Map<number, number>()

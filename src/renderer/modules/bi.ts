@@ -49,6 +49,7 @@ import { airborneEquipTypesOf, isAirborneEquip } from '../equip-category'
 import { matchSlots } from '../../shared/slot-matching'
 import {
   compReqStatus,
+  compShipFits,
   parseCompositionBranches,
 } from '../../shared/expedition-composition'
 import type { CompShipView } from '../../shared/expedition-composition'
@@ -629,8 +630,6 @@ const slotsOf = (e: Exped): PlanSlot[] => {
   let flagshipTaken = false
   for (const req of reqs) {
     if (!req.types || req.wildcard) continue
-    const types = req.types
-    const needCve = req.cve
     const role = req.label.replace(/\(旗舰\)/, '')
     for (let i = 0; i < req.count; i++) {
       // 「軽巡(旗舰)*1」这类要求里，旗舰就是它自己的第一格，不额外再占一格
@@ -641,8 +640,7 @@ const slotsOf = (e: Exped): PlanSlot[] => {
         role: isFlag ? '旗舰' : role,
         flagship: isFlag,
         accepts: (s) =>
-          types.includes(stypeOf(s)) &&
-          (!needCve || isCveShip(s)) &&
+          compShipFits(req, { stype: stypeOf(s), cve: isCveShip(s) }) &&
           (!isFlag || s.lv >= flagLv),
       })
     }

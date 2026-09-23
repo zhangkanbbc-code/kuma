@@ -5883,7 +5883,12 @@ test('native master and sortie fields stay connected to player-facing decisions'
   // 「演习只记录不代打」那条测试钉着 /挑谁打在游戏里点/。这里改钉脚注还在说
   // 阵型默认值这件事本身，别把整条脚注也删空。
   assert.match(combat, /水面战默认单纵阵（联合第四）、纯潜水编成默认单横阵（联合第一）/)
-  assert.match(ledger, /json_extract\(comp, '\$\[\$\{index\}\]'\)/)
+  // 2026-09-22：逐位匹配移入共享模块，不足三艘的长度口径由 enemy-preview 行为测试验证。
+  const enemyPreview = fs.readFileSync(new URL('../src/shared/enemy-preview.ts', import.meta.url), 'utf8')
+  assert.match(enemyPreview, /json_extract\(comp, '\$\[\$\{index\}\]'\)/)
+  assert.match(ledger, /const clause = previewSampleClause\(previewIds\)/)
+  assert.match(ledger, /\$\{clause\.sql\}/)
+  assert.match(ledger, /\.\.\.clause\.params/)
   assert.match(ledger, /boss_rank IN \('S', 'A'\)/)
 
   assert.match(battle, /body\.api_fParam/)

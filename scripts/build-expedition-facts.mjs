@@ -44,7 +44,7 @@ for (const [id, value] of [['21', 3], ['44', 6]]) {
   add(id, 'drumTotal', value, 'kcwiki 字段值与其说明文字不一致，按说明文字（与 wikiwiki 一致）收')
 }
 
-// 原文携带的可行分支转成已有 CompBranch 结构；5/42/A4/44 跨站编成不同，整格留待裁。
+// 原文携带的可行分支转成已有 CompBranch 结构；5/42/A4 按维护者裁决登记，44 跨站编成不同，整格留待裁。
 // B5/B6 的非编成属性备注被旧解析器当成未知舰种；移入结构后只保留两站一致的舰种条件。
 const branchIds = ['4', '9', '20', '43', 'A3', 'A5', 'A6', 'B5', 'B6']
 for (const id of branchIds) {
@@ -71,7 +71,28 @@ for (const resource of ['ammo', 'steel', 'baux']) {
   add('D3', `rewards.${resource}`, b, 'wikiwiki 单站每时数值；基础数值两站一致')
 }
 
-for (const { id, field, value, basis, ...provenance } of MAINTAINER_EXPEDITION_CORRECTIONS) {
+const compositionCorrections = [
+  {
+    id: '5', composition: '轻巡*1、驱逐/海防*2、其他*1',
+    evidence: '维护者裁决 2026-09-23：kcwiki 2025-06-29 改为驱逐/海防×3；wikiwiki「遠征」与 ElectronicObserver（andanteyk 2019-09-30、ElectronicObserverEN 2025-11-26 仍沿用）均为轻巡1＋（驱逐+海防）2＋其他1，取多数；变体编成取 wikiwiki 原文，ElectronicObserver 同认；en.kancollewiki.net「Expedition」（2021-04 起）同为轻巡或护卫空母1＋（驱逐/海防）2＋其他1，并列海防模式',
+  },
+  {
+    id: '42', composition: '轻巡*1、驱逐*2、其他*1',
+    evidence: '维护者裁决 2026-09-23：wikiwiki「遠征」基础驱逐2 并列五种海防模式、明写轻巡1驱逐1海防1 失败，kamigame（2023-01）与 zekamashi（2023-01）亦写驱逐2；kcwiki 要求驱逐至少1只（2021-09-30）放行轻巡1驱逐1海防1、不认零驱逐模式；ElectronicObserver 与 4/5/9 共用判定、未单列 42。取 wikiwiki 原文；en.kancollewiki.net「Expedition」42 行（2022-12 起写 1CVE/CL 1DD 3DD/DE）要求驱逐/海防不少于 3，与轻巡2驱逐2护卫空母1 的成功记录（2026-09-12）不符，不计票',
+  },
+  {
+    id: 'A4', composition: '轻巡*1、驱逐*2、其他*2',
+    evidence: '维护者裁决 2026-09-23：kcwiki 要求轻巡或护卫空母旗舰（2021-09-30），wikiwiki 与 ElectronicObserver 均不限旗舰，取多数；基础驱逐2 不计海防（kcwiki、wikiwiki 两票，ElectronicObserver 计海防）；变体编成取 wikiwiki 原文；en.kancollewiki.net「Expedition」（2021-04 起）同样不限旗舰、并列海防模式',
+  },
+].map(({ id, composition, evidence }) => {
+  if (wiki[id].composition !== composition
+    || (id === '42' && !kc[id].composition.includes('驱逐至少1只'))
+    || !wiki[id].rawComposition.includes('の編成でも成功')) throw new Error(`${id} 编成裁决依据漂移`)
+  return { id, field: 'compositionBranches', value: parseCompositionBranches(wiki[id].composition, wiki[id].rawComposition),
+    basis: 'maintainer', evidence, date: '2026-09-23' }
+})
+const corrections = [...MAINTAINER_EXPEDITION_CORRECTIONS, ...compositionCorrections]
+for (const { id, field, value, basis, ...provenance } of corrections) {
   add(id, field, value, basis, provenance)
 }
 
@@ -92,7 +113,8 @@ for (const id of ids) {
     if (['24', '40'].includes(id) && cell.field === 'drumTotal') {
       corrected.push({ ...row, reason: '2026-09-06 裁定：大成功桶数被误提取为普通门槛，不恢复' })
     } else {
-      conflicts.push({ ...row, reason: id === '24' && cell.field.startsWith('greatSuccess')
+      const correction = corrections.find(r => r.id === id && r.field === cell.field)
+      conflicts.push({ ...row, reason: correction ? `已裁：${correction.evidence}` : id === '24' && cell.field.startsWith('greatSuccess')
         ? '4 个以上／2 个以上混杂；大成功条件整个不收，底层原说明保留'
         : cell.field === 'compositionBranches' ? '两站编成机制不同，不覆盖 kcwiki'
           : cell.field.startsWith('rewards.') ? '两站奖励数值或普通／大成功分组不同，不覆盖 kcwiki'
@@ -102,7 +124,7 @@ for (const id of ids) {
 }
 const counts = Object.fromEntries(['wikiwiki 有 kcwiki 无', '两者值不同', 'kcwiki 有 wikiwiki 无'].map((key) => [key, rawDifferences.filter((row) => row.category === key).length]))
 const pack = { meta: {
-  id: 'expedition-facts', name: '远征条件（第一方登记）', version: '2026.09.06.2',
+  id: 'expedition-facts', name: '远征条件（第一方登记）', version: '2026.09.23.1',
   source: 'kuma 第一方登记表', license: '第一方产物', fetchedAt: '2026-09-06T00:00:00.000Z',
   note: '远征的舰队条件与大成功条件',
   maintainerNote: [
@@ -110,16 +132,17 @@ const pack = { meta: {
     '21/44：kcwiki 字段值与其说明文字不一致，按说明文字（与 wikiwiki 一致）收',
     '同一站内字段与说明冲突按说明定，单列汇报；跨站机制冲突仅经维护者带出处订正才覆盖 kcwiki，见 docs/expedition-facts-report.md',
     '24/40 不收普通成功桶门槛；40 的桶数只在 greatSuccess；24 大成功说明歧义不收',
-    ...accepted.map(({ id, field, basis, evidence, date }) => `${id}.${field}：${basis}${evidence ? `；${evidence}；${date}；待游戏结算报文核对（维护者核 2026-09-06）` : ''}`),
+    ...accepted.map(({ id, field, basis, evidence, date }) => `${id}.${field}：${basis}${evidence ? `；${evidence}；${date}${field === 'rewards.shipExp' ? '；待游戏结算报文核对（维护者核 2026-09-06）' : ''}` : ''}`),
   ],
-  corrections: MAINTAINER_EXPEDITION_CORRECTIONS,
+  corrections,
 }, data }
 const sourceConflicts = [{ id: '44', field: 'composition', kcwiki: kc['44'].composition, wikiwiki: wiki['44'].composition,
   reason: '1-2 与 1 不同且含待验证标记，不收；现有解析器均按 1 消费，故无运行时语义差异' }]
 const fixture = { sourceHashes: hashes, ids, baseSemantics, oldSemantics, conflicts, corrected }
+const pendingConflicts = conflicts.filter(({ id, field }) => !corrections.some(r => r.id === id && r.field === field))
 const table = (rows) => ['| 远征 | 字段 | kcwiki／新值 | wikiwiki／旧值 | 分类或说明 |', '|---|---|---|---|---|',
   ...rows.map((r) => `| ${r.id} | ${r.field} | ${JSON.stringify(r.kcwiki).replaceAll('|', '\\|')} | ${JSON.stringify(r.wikiwiki).replaceAll('|', '\\|')} | ${r.category ?? r.reason ?? ''} |`)].join('\n')
-const report = `# 远征第一方事实层对照（2026-09-06）
+const report = `# 远征第一方事实层对照（2026-09-23）
 
 基线 beea4bb。63 项逐一对照；对象递归到叶字段，数组为一格，null 与无字段同为缺项。
 原始差异 ${rawDifferences.length} 格：${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join('；')}。
@@ -133,15 +156,24 @@ ${accepted.map((r) => `- ${r.id}.${r.field} = ${JSON.stringify(r.value)}；${r.b
 
 ## 两站冲突清单
 
-${conflicts.length} 格未收。下表为运行时消费语义的逐格值；空数组与分组有意义，奖励原始文本在全差异表。
-5/42/A4/44 编成整格不覆盖；未裁的奖励时薪、奖励分组、舰经验和交战档位冲突同样留底层。
-${table(MAINTAINER_EXPEDITION_CORRECTIONS.map(r => ({ id: r.id, field: r.field, kcwiki: kc[r.id].rewards.shipExp, wikiwiki: wiki[r.id].rewards.shipExp,
+${pendingConflicts.length} 格未收。下表为运行时消费语义的逐格值；空数组与分组有意义，奖励原始文本在全差异表。
+44 编成整格不覆盖；未裁的奖励时薪、奖励分组、舰经验和交战档位冲突同样留底层。
+${table(corrections.filter(r => r.field === 'rewards.shipExp').map(r => ({ id: r.id, field: r.field, kcwiki: kc[r.id].rewards.shipExp, wikiwiki: wiki[r.id].rewards.shipExp,
   reason: `已裁（第三票）·待实测；运行时 ${r.value}；${r.date}；${r.evidence}` })))}
 
-${table(conflicts)}
+${table(pendingConflicts)}
 
 来源本身另有 ${sourceConflicts.length} 格编成歧义，当前解析器未表达该差异，仍单列待裁：
 ${table(sourceConflicts)}
+
+## 维护者编成订正
+
+5/42/A4 按维护者裁决逐格登记；主编成与 wikiwiki 原文变体一并转成 compositionBranches。
+42 基础编成为轻巡1、驱逐2、其他1，另认五种海防模式；轻巡1驱逐1海防1 判失败，与 wikiwiki 原文消费语义一致。
+
+| 远征 | 字段 | 依据 |
+|---|---|---|
+${compositionCorrections.map(({ id, field, evidence }) => `| ${id} | ${field} | ${evidence} |`).join('\n')}
 
 ## 提取纠错与续单裁定
 

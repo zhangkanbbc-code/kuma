@@ -2,7 +2,7 @@
   "meta": {
     "id": "expedition-facts",
     "name": "远征条件（第一方登记）",
-    "version": "2026.09.06.2",
+    "version": "2026.09.23.1",
     "source": "kuma 第一方登记表",
     "license": "第一方产物",
     "fetchedAt": "2026-09-06T00:00:00.000Z",
@@ -38,7 +38,10 @@
       "D3.rewards.ammo：wikiwiki 单站每时数值；基础数值两站一致",
       "D3.rewards.steel：wikiwiki 单站每时数值；基础数值两站一致",
       "D3.rewards.baux：wikiwiki 单站每时数值；基础数值两站一致",
-      "D1.rewards.shipExp：maintainer；wikiwiki 45；en.kancollewiki.net/Expeditions 页（维护者核 2026-09-06）45；kcwiki 40 为来源错误；narublo 实测页 35 为提督经验；2026-09-06；待游戏结算报文核对（维护者核 2026-09-06）"
+      "D1.rewards.shipExp：maintainer；wikiwiki 45；en.kancollewiki.net/Expeditions 页（维护者核 2026-09-06）45；kcwiki 40 为来源错误；narublo 实测页 35 为提督经验；2026-09-06；待游戏结算报文核对（维护者核 2026-09-06）",
+      "5.compositionBranches：maintainer；维护者裁决 2026-09-23：kcwiki 2025-06-29 改为驱逐/海防×3；wikiwiki「遠征」与 ElectronicObserver（andanteyk 2019-09-30、ElectronicObserverEN 2025-11-26 仍沿用）均为轻巡1＋（驱逐+海防）2＋其他1，取多数；变体编成取 wikiwiki 原文，ElectronicObserver 同认；en.kancollewiki.net「Expedition」（2021-04 起）同为轻巡或护卫空母1＋（驱逐/海防）2＋其他1，并列海防模式；2026-09-23",
+      "42.compositionBranches：maintainer；维护者裁决 2026-09-23：wikiwiki「遠征」基础驱逐2 并列五种海防模式、明写轻巡1驱逐1海防1 失败，kamigame（2023-01）与 zekamashi（2023-01）亦写驱逐2；kcwiki 要求驱逐至少1只（2021-09-30）放行轻巡1驱逐1海防1、不认零驱逐模式；ElectronicObserver 与 4/5/9 共用判定、未单列 42。取 wikiwiki 原文；en.kancollewiki.net「Expedition」42 行（2022-12 起写 1CVE/CL 1DD 3DD/DE）要求驱逐/海防不少于 3，与轻巡2驱逐2护卫空母1 的成功记录（2026-09-12）不符，不计票；2026-09-23",
+      "A4.compositionBranches：maintainer；维护者裁决 2026-09-23：kcwiki 要求轻巡或护卫空母旗舰（2021-09-30），wikiwiki 与 ElectronicObserver 均不限旗舰，取多数；基础驱逐2 不计海防（kcwiki、wikiwiki 两票，ElectronicObserver 计海防）；变体编成取 wikiwiki 原文；en.kancollewiki.net「Expedition」（2021-04 起）同样不限旗舰、并列海防模式；2026-09-23"
     ],
     "corrections": [
       {
@@ -48,6 +51,628 @@
         "basis": "maintainer",
         "evidence": "wikiwiki 45；en.kancollewiki.net/Expeditions 页（维护者核 2026-09-06）45；kcwiki 40 为来源错误；narublo 实测页 35 为提督经验",
         "date": "2026-09-06"
+      },
+      {
+        "id": "5",
+        "field": "compositionBranches",
+        "value": [
+          {
+            "label": "",
+            "reqs": [
+              {
+                "label": "轻巡",
+                "types": [
+                  3
+                ],
+                "count": 1,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "驱逐/海防",
+                "types": [
+                  2,
+                  1
+                ],
+                "count": 2,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "其他*1",
+                "types": null,
+                "count": 1,
+                "flagship": false,
+                "wildcard": true,
+                "cve": false,
+                "homogeneous": false
+              }
+            ]
+          },
+          {
+            "label": "wiki 变体1",
+            "reqs": [
+              {
+                "label": "駆",
+                "types": [
+                  2
+                ],
+                "count": 1,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "海防",
+                "types": [
+                  1
+                ],
+                "count": 3,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              }
+            ]
+          },
+          {
+            "label": "wiki 变体2",
+            "reqs": [
+              {
+                "label": "護母",
+                "types": [
+                  7
+                ],
+                "count": 1,
+                "flagship": false,
+                "wildcard": false,
+                "cve": true,
+                "homogeneous": false
+              },
+              {
+                "label": "駆",
+                "types": [
+                  2
+                ],
+                "count": 2,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "他",
+                "types": null,
+                "count": 1,
+                "flagship": false,
+                "wildcard": true,
+                "cve": false,
+                "homogeneous": false
+              }
+            ]
+          },
+          {
+            "label": "wiki 变体3",
+            "reqs": [
+              {
+                "label": "護母",
+                "types": [
+                  7
+                ],
+                "count": 1,
+                "flagship": false,
+                "wildcard": false,
+                "cve": true,
+                "homogeneous": false
+              },
+              {
+                "label": "海防",
+                "types": [
+                  1
+                ],
+                "count": 2,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "他",
+                "types": null,
+                "count": 1,
+                "flagship": false,
+                "wildcard": true,
+                "cve": false,
+                "homogeneous": false
+              }
+            ]
+          },
+          {
+            "label": "wiki 变体4",
+            "reqs": [
+              {
+                "label": "練巡",
+                "types": [
+                  21
+                ],
+                "count": 1,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "海防",
+                "types": [
+                  1
+                ],
+                "count": 2,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "他",
+                "types": null,
+                "count": 1,
+                "flagship": false,
+                "wildcard": true,
+                "cve": false,
+                "homogeneous": false
+              }
+            ]
+          }
+        ],
+        "basis": "maintainer",
+        "evidence": "维护者裁决 2026-09-23：kcwiki 2025-06-29 改为驱逐/海防×3；wikiwiki「遠征」与 ElectronicObserver（andanteyk 2019-09-30、ElectronicObserverEN 2025-11-26 仍沿用）均为轻巡1＋（驱逐+海防）2＋其他1，取多数；变体编成取 wikiwiki 原文，ElectronicObserver 同认；en.kancollewiki.net「Expedition」（2021-04 起）同为轻巡或护卫空母1＋（驱逐/海防）2＋其他1，并列海防模式",
+        "date": "2026-09-23"
+      },
+      {
+        "id": "42",
+        "field": "compositionBranches",
+        "value": [
+          {
+            "label": "",
+            "reqs": [
+              {
+                "label": "轻巡",
+                "types": [
+                  3
+                ],
+                "count": 1,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "驱逐",
+                "types": [
+                  2
+                ],
+                "count": 2,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "其他*1",
+                "types": null,
+                "count": 1,
+                "flagship": false,
+                "wildcard": true,
+                "cve": false,
+                "homogeneous": false
+              }
+            ]
+          },
+          {
+            "label": "wiki 变体1",
+            "reqs": [
+              {
+                "label": "駆",
+                "types": [
+                  2
+                ],
+                "count": 1,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "海防",
+                "types": [
+                  1
+                ],
+                "count": 3,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              }
+            ]
+          },
+          {
+            "label": "wiki 变体2",
+            "reqs": [
+              {
+                "label": "軽",
+                "types": [
+                  3
+                ],
+                "count": 1,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "海防",
+                "types": [
+                  1
+                ],
+                "count": 2,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "他",
+                "types": null,
+                "count": 1,
+                "flagship": false,
+                "wildcard": true,
+                "cve": false,
+                "homogeneous": false
+              }
+            ]
+          },
+          {
+            "label": "wiki 变体3",
+            "reqs": [
+              {
+                "label": "護母",
+                "types": [
+                  7
+                ],
+                "count": 1,
+                "flagship": false,
+                "wildcard": false,
+                "cve": true,
+                "homogeneous": false
+              },
+              {
+                "label": "駆",
+                "types": [
+                  2
+                ],
+                "count": 2,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "他",
+                "types": null,
+                "count": 1,
+                "flagship": false,
+                "wildcard": true,
+                "cve": false,
+                "homogeneous": false
+              }
+            ]
+          },
+          {
+            "label": "wiki 变体4",
+            "reqs": [
+              {
+                "label": "護母",
+                "types": [
+                  7
+                ],
+                "count": 1,
+                "flagship": false,
+                "wildcard": false,
+                "cve": true,
+                "homogeneous": false
+              },
+              {
+                "label": "海防",
+                "types": [
+                  1
+                ],
+                "count": 2,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "他",
+                "types": null,
+                "count": 1,
+                "flagship": false,
+                "wildcard": true,
+                "cve": false,
+                "homogeneous": false
+              }
+            ]
+          },
+          {
+            "label": "wiki 变体5",
+            "reqs": [
+              {
+                "label": "練巡",
+                "types": [
+                  21
+                ],
+                "count": 1,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "海防",
+                "types": [
+                  1
+                ],
+                "count": 2,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "他",
+                "types": null,
+                "count": 1,
+                "flagship": false,
+                "wildcard": true,
+                "cve": false,
+                "homogeneous": false
+              }
+            ]
+          }
+        ],
+        "basis": "maintainer",
+        "evidence": "维护者裁决 2026-09-23：wikiwiki「遠征」基础驱逐2 并列五种海防模式、明写轻巡1驱逐1海防1 失败，kamigame（2023-01）与 zekamashi（2023-01）亦写驱逐2；kcwiki 要求驱逐至少1只（2021-09-30）放行轻巡1驱逐1海防1、不认零驱逐模式；ElectronicObserver 与 4/5/9 共用判定、未单列 42。取 wikiwiki 原文；en.kancollewiki.net「Expedition」42 行（2022-12 起写 1CVE/CL 1DD 3DD/DE）要求驱逐/海防不少于 3，与轻巡2驱逐2护卫空母1 的成功记录（2026-09-12）不符，不计票",
+        "date": "2026-09-23"
+      },
+      {
+        "id": "A4",
+        "field": "compositionBranches",
+        "value": [
+          {
+            "label": "",
+            "reqs": [
+              {
+                "label": "轻巡",
+                "types": [
+                  3
+                ],
+                "count": 1,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "驱逐",
+                "types": [
+                  2
+                ],
+                "count": 2,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "其他*2",
+                "types": null,
+                "count": 2,
+                "flagship": false,
+                "wildcard": true,
+                "cve": false,
+                "homogeneous": false
+              }
+            ]
+          },
+          {
+            "label": "wiki 变体1",
+            "reqs": [
+              {
+                "label": "駆",
+                "types": [
+                  2
+                ],
+                "count": 1,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "海防",
+                "types": [
+                  1
+                ],
+                "count": 3,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "他",
+                "types": null,
+                "count": 1,
+                "flagship": false,
+                "wildcard": true,
+                "cve": false,
+                "homogeneous": false
+              }
+            ]
+          },
+          {
+            "label": "wiki 变体2",
+            "reqs": [
+              {
+                "label": "護母",
+                "types": [
+                  7
+                ],
+                "count": 1,
+                "flagship": false,
+                "wildcard": false,
+                "cve": true,
+                "homogeneous": false
+              },
+              {
+                "label": "駆",
+                "types": [
+                  2
+                ],
+                "count": 2,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "他",
+                "types": null,
+                "count": 2,
+                "flagship": false,
+                "wildcard": true,
+                "cve": false,
+                "homogeneous": false
+              }
+            ]
+          },
+          {
+            "label": "wiki 变体3",
+            "reqs": [
+              {
+                "label": "護母",
+                "types": [
+                  7
+                ],
+                "count": 1,
+                "flagship": false,
+                "wildcard": false,
+                "cve": true,
+                "homogeneous": false
+              },
+              {
+                "label": "海防",
+                "types": [
+                  1
+                ],
+                "count": 2,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "他",
+                "types": null,
+                "count": 2,
+                "flagship": false,
+                "wildcard": true,
+                "cve": false,
+                "homogeneous": false
+              }
+            ]
+          },
+          {
+            "label": "wiki 变体4",
+            "reqs": [
+              {
+                "label": "練巡",
+                "types": [
+                  21
+                ],
+                "count": 1,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "海防",
+                "types": [
+                  1
+                ],
+                "count": 2,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "他",
+                "types": null,
+                "count": 2,
+                "flagship": false,
+                "wildcard": true,
+                "cve": false,
+                "homogeneous": false
+              }
+            ]
+          },
+          {
+            "label": "wiki 变体5",
+            "reqs": [
+              {
+                "label": "軽",
+                "types": [
+                  3
+                ],
+                "count": 1,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "海防",
+                "types": [
+                  1
+                ],
+                "count": 2,
+                "flagship": false,
+                "wildcard": false,
+                "cve": false,
+                "homogeneous": false
+              },
+              {
+                "label": "他",
+                "types": null,
+                "count": 2,
+                "flagship": false,
+                "wildcard": true,
+                "cve": false,
+                "homogeneous": false
+              }
+            ]
+          }
+        ],
+        "basis": "maintainer",
+        "evidence": "维护者裁决 2026-09-23：kcwiki 要求轻巡或护卫空母旗舰（2021-09-30），wikiwiki 与 ElectronicObserver 均不限旗舰，取多数；基础驱逐2 不计海防（kcwiki、wikiwiki 两票，ElectronicObserver 计海防）；变体编成取 wikiwiki 原文；en.kancollewiki.net「Expedition」（2021-04 起）同样不限旗舰、并列海防模式",
+        "date": "2026-09-23"
       }
     ]
   },
@@ -185,6 +810,182 @@
               "count": 2,
               "flagship": false,
               "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            }
+          ]
+        }
+      ]
+    },
+    "5": {
+      "compositionBranches": [
+        {
+          "label": "",
+          "reqs": [
+            {
+              "label": "轻巡",
+              "types": [
+                3
+              ],
+              "count": 1,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "驱逐/海防",
+              "types": [
+                2,
+                1
+              ],
+              "count": 2,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "其他*1",
+              "types": null,
+              "count": 1,
+              "flagship": false,
+              "wildcard": true,
+              "cve": false,
+              "homogeneous": false
+            }
+          ]
+        },
+        {
+          "label": "wiki 变体1",
+          "reqs": [
+            {
+              "label": "駆",
+              "types": [
+                2
+              ],
+              "count": 1,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "海防",
+              "types": [
+                1
+              ],
+              "count": 3,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            }
+          ]
+        },
+        {
+          "label": "wiki 变体2",
+          "reqs": [
+            {
+              "label": "護母",
+              "types": [
+                7
+              ],
+              "count": 1,
+              "flagship": false,
+              "wildcard": false,
+              "cve": true,
+              "homogeneous": false
+            },
+            {
+              "label": "駆",
+              "types": [
+                2
+              ],
+              "count": 2,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "他",
+              "types": null,
+              "count": 1,
+              "flagship": false,
+              "wildcard": true,
+              "cve": false,
+              "homogeneous": false
+            }
+          ]
+        },
+        {
+          "label": "wiki 变体3",
+          "reqs": [
+            {
+              "label": "護母",
+              "types": [
+                7
+              ],
+              "count": 1,
+              "flagship": false,
+              "wildcard": false,
+              "cve": true,
+              "homogeneous": false
+            },
+            {
+              "label": "海防",
+              "types": [
+                1
+              ],
+              "count": 2,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "他",
+              "types": null,
+              "count": 1,
+              "flagship": false,
+              "wildcard": true,
+              "cve": false,
+              "homogeneous": false
+            }
+          ]
+        },
+        {
+          "label": "wiki 变体4",
+          "reqs": [
+            {
+              "label": "練巡",
+              "types": [
+                21
+              ],
+              "count": 1,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "海防",
+              "types": [
+                1
+              ],
+              "count": 2,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "他",
+              "types": null,
+              "count": 1,
+              "flagship": false,
+              "wildcard": true,
               "cve": false,
               "homogeneous": false
             }
@@ -412,6 +1213,217 @@
           }
         ]
       }
+    },
+    "42": {
+      "compositionBranches": [
+        {
+          "label": "",
+          "reqs": [
+            {
+              "label": "轻巡",
+              "types": [
+                3
+              ],
+              "count": 1,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "驱逐",
+              "types": [
+                2
+              ],
+              "count": 2,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "其他*1",
+              "types": null,
+              "count": 1,
+              "flagship": false,
+              "wildcard": true,
+              "cve": false,
+              "homogeneous": false
+            }
+          ]
+        },
+        {
+          "label": "wiki 变体1",
+          "reqs": [
+            {
+              "label": "駆",
+              "types": [
+                2
+              ],
+              "count": 1,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "海防",
+              "types": [
+                1
+              ],
+              "count": 3,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            }
+          ]
+        },
+        {
+          "label": "wiki 变体2",
+          "reqs": [
+            {
+              "label": "軽",
+              "types": [
+                3
+              ],
+              "count": 1,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "海防",
+              "types": [
+                1
+              ],
+              "count": 2,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "他",
+              "types": null,
+              "count": 1,
+              "flagship": false,
+              "wildcard": true,
+              "cve": false,
+              "homogeneous": false
+            }
+          ]
+        },
+        {
+          "label": "wiki 变体3",
+          "reqs": [
+            {
+              "label": "護母",
+              "types": [
+                7
+              ],
+              "count": 1,
+              "flagship": false,
+              "wildcard": false,
+              "cve": true,
+              "homogeneous": false
+            },
+            {
+              "label": "駆",
+              "types": [
+                2
+              ],
+              "count": 2,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "他",
+              "types": null,
+              "count": 1,
+              "flagship": false,
+              "wildcard": true,
+              "cve": false,
+              "homogeneous": false
+            }
+          ]
+        },
+        {
+          "label": "wiki 变体4",
+          "reqs": [
+            {
+              "label": "護母",
+              "types": [
+                7
+              ],
+              "count": 1,
+              "flagship": false,
+              "wildcard": false,
+              "cve": true,
+              "homogeneous": false
+            },
+            {
+              "label": "海防",
+              "types": [
+                1
+              ],
+              "count": 2,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "他",
+              "types": null,
+              "count": 1,
+              "flagship": false,
+              "wildcard": true,
+              "cve": false,
+              "homogeneous": false
+            }
+          ]
+        },
+        {
+          "label": "wiki 变体5",
+          "reqs": [
+            {
+              "label": "練巡",
+              "types": [
+                21
+              ],
+              "count": 1,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "海防",
+              "types": [
+                1
+              ],
+              "count": 2,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "他",
+              "types": null,
+              "count": 1,
+              "flagship": false,
+              "wildcard": true,
+              "cve": false,
+              "homogeneous": false
+            }
+          ]
+        }
+      ]
     },
     "43": {
       "compositionBranches": [
@@ -733,7 +1745,225 @@
     "A4": {
       "stats": {
         "火力": 300
-      }
+      },
+      "compositionBranches": [
+        {
+          "label": "",
+          "reqs": [
+            {
+              "label": "轻巡",
+              "types": [
+                3
+              ],
+              "count": 1,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "驱逐",
+              "types": [
+                2
+              ],
+              "count": 2,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "其他*2",
+              "types": null,
+              "count": 2,
+              "flagship": false,
+              "wildcard": true,
+              "cve": false,
+              "homogeneous": false
+            }
+          ]
+        },
+        {
+          "label": "wiki 变体1",
+          "reqs": [
+            {
+              "label": "駆",
+              "types": [
+                2
+              ],
+              "count": 1,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "海防",
+              "types": [
+                1
+              ],
+              "count": 3,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "他",
+              "types": null,
+              "count": 1,
+              "flagship": false,
+              "wildcard": true,
+              "cve": false,
+              "homogeneous": false
+            }
+          ]
+        },
+        {
+          "label": "wiki 变体2",
+          "reqs": [
+            {
+              "label": "護母",
+              "types": [
+                7
+              ],
+              "count": 1,
+              "flagship": false,
+              "wildcard": false,
+              "cve": true,
+              "homogeneous": false
+            },
+            {
+              "label": "駆",
+              "types": [
+                2
+              ],
+              "count": 2,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "他",
+              "types": null,
+              "count": 2,
+              "flagship": false,
+              "wildcard": true,
+              "cve": false,
+              "homogeneous": false
+            }
+          ]
+        },
+        {
+          "label": "wiki 变体3",
+          "reqs": [
+            {
+              "label": "護母",
+              "types": [
+                7
+              ],
+              "count": 1,
+              "flagship": false,
+              "wildcard": false,
+              "cve": true,
+              "homogeneous": false
+            },
+            {
+              "label": "海防",
+              "types": [
+                1
+              ],
+              "count": 2,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "他",
+              "types": null,
+              "count": 2,
+              "flagship": false,
+              "wildcard": true,
+              "cve": false,
+              "homogeneous": false
+            }
+          ]
+        },
+        {
+          "label": "wiki 变体4",
+          "reqs": [
+            {
+              "label": "練巡",
+              "types": [
+                21
+              ],
+              "count": 1,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "海防",
+              "types": [
+                1
+              ],
+              "count": 2,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "他",
+              "types": null,
+              "count": 2,
+              "flagship": false,
+              "wildcard": true,
+              "cve": false,
+              "homogeneous": false
+            }
+          ]
+        },
+        {
+          "label": "wiki 变体5",
+          "reqs": [
+            {
+              "label": "軽",
+              "types": [
+                3
+              ],
+              "count": 1,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "海防",
+              "types": [
+                1
+              ],
+              "count": 2,
+              "flagship": false,
+              "wildcard": false,
+              "cve": false,
+              "homogeneous": false
+            },
+            {
+              "label": "他",
+              "types": null,
+              "count": 2,
+              "flagship": false,
+              "wildcard": true,
+              "cve": false,
+              "homogeneous": false
+            }
+          ]
+        }
+      ]
     },
     "A5": {
       "stats": {

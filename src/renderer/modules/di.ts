@@ -11,6 +11,7 @@ import { DAMAGE_TIER_WORDS, damageTierOf } from '../../shared/battle-damage'
 import { DISTRACT_DEFAULTS, DISTRACT_PATHS } from '../../shared/distract-mode'
 import { fatigueBand } from '../fatigue'
 import { formationText, optionalFormationText } from '../../shared/enemy-formation'
+import { compFitsPreview, previewRevealsWholeFleet } from '../../shared/enemy-preview'
 import { requiredSunkForA } from '../../shared/battle-rank'
 import { fcdTopologyUsable } from '../../shared/fcd-topology'
 import { bossLettersOf, reachableSpots, sortieBossTarget } from '../../shared/sortie-boss'
@@ -3187,6 +3188,7 @@ const previewEncounterCandidates = (
 ): PreviewEncounterMatches => {
   if (!previewIds.length) return { exact: [], fuzzy: [] }
   const matches = (ships: number[]) =>
+    compFitsPreview(previewIds, ships.length) &&
     previewIds.every((mstId, index) => ships[index] === mstId)
   // 同一套舰列只算一个候选:本地遭遇/确认目录、单纵/梯形都只是它的属性。
   // 以前签名掺了阵形,同编成被拆成四五张重复卡(2026-08-12 用户报出);
@@ -3233,6 +3235,7 @@ const previewEncounterCandidates = (
   // 「0 命中」的黑盒比看到如实标注的候选更糟（2026-08-12 用户点名）。这里降一档
   // 做「模糊命中」：逐位解析成**同名同级候选池**（口径与定号脚本共用），揭示的
   // 前三舰逐位落在池内才算命中；展示时保留 wiki 标注原文并明说形态未定。
+  // 揭示不足三艘时还要求编成长度相等——整队已经揭示，更长的编成不可能出现。
   const fuzzyBySignature = new Map<string, FuzzyEncounterCandidate>()
   for (const comp of confirmed?.enemyComps ?? []) {
     const ids = enemyCompIds(comp)
@@ -3243,6 +3246,7 @@ const previewEncounterCandidates = (
     const pools = comp.ships.map((ship) => abyssalPoolOf(ship))
     // 有一位连候选池都给不出（基名不在主数据）就整条不认，半截的池没法核对
     if (!pools.length || pools.some((pool) => !pool.length)) continue
+    if (!compFitsPreview(previewIds, pools.length)) continue
     if (!previewIds.every((mstId, index) => pools[index]?.includes(mstId))) continue
     const labels = comp.ships.map((ship, index) =>
       typeof ship === 'number'
@@ -3286,20 +3290,23 @@ const previewEncounterCandidatesHtml = (
   previewEncounterCandidatesOnce: () => PreviewEncounterMatches,
 ): { html: string; label: string } => {
   if (!previewIds.length) return { html: '', label: '该点整体记录' }
+  const whole = previewRevealsWholeFleet(previewIds.length)
   // 只有手上真的没有这个点的样本时才显示加载态。同点内重取（打完一场、结算落账）
   // 旧候选仍然成立，继续显示，免得每次都塌一下再填回来。
   const chron = chronFor(s)
   if (chron.loading && !chron.encounters.length) {
     return {
       html: '<div class="prebattle-match-note">敌编成匹配中</div>',
-      label: '前三舰匹配中',
+      label: whole ? '敌编成匹配中' : '前三舰匹配中',
     }
   }
   const { exact: candidates, fuzzy } = previewEncounterCandidatesOnce()
   if (!candidates.length && !fuzzy.length) {
     return {
-      html: '<div class="prebattle-match-note">前三舰未匹配到已知编成</div>',
-      label: '前三舰预估',
+      html: whole
+        ? '<div class="prebattle-match-note">已揭示编成暂无记录</div>'
+        : '<div class="prebattle-match-note">前三舰未匹配到已知编成</div>',
+      label: whole ? '敌编成已全揭示' : '前三舰预估',
     }
   }
   const exactStatus = !candidates.length
@@ -3371,9 +3378,11 @@ const previewEncounterCandidatesHtml = (
     : ''
   return {
     html: `<div class="prebattle-match"><div class="prebattle-match-head">${status}</div>${rows}${fuzzyRows}${fuzzyNote}</div>`,
-    label: candidates.length
-      ? candidates.length === 1 ? '前三舰唯一命中' : `前三舰命中 ${candidates.length} 套`
-      : `前三舰模糊命中 ${fuzzy.length} 套`,
+    label: whole
+      ? '敌编成已全揭示'
+      : candidates.length
+        ? candidates.length === 1 ? '前三舰唯一命中' : `前三舰命中 ${candidates.length} 套`
+        : `前三舰模糊命中 ${fuzzy.length} 套`,
   }
 }
 
@@ -3541,11 +3550,14 @@ const preBattleMechanicHtml = (
           return ids ? [{ formation: comp.formation, ships: ids }] : []
         })
   if (!comps.length) {
+    const whole = previewRevealsWholeFleet(previewIds.length)
     const reason = !previewIds.length
       ? '当前点暂无完整敌编成'
       : fuzzyMatched.length
-        ? '前三舰仅模糊匹配 · 各形态耐久与装备不同'
-        : '前三舰未命中完整候选'
+        ? whole
+          ? '已揭示编成仅模糊匹配 · 各形态耐久与装备不同'
+          : '前三舰仅模糊匹配 · 各形态耐久与装备不同'
+        : whole ? '已揭示编成未命中完整候选' : '前三舰未命中完整候选'
     return `<div class="prebattle-model pending">
       <b>暂无机制预估 · 敌编成未定</b><span>${reason}</span>
     </div>`
@@ -3803,11 +3815,14 @@ const preBattleIntelHtml = (s: SortieView): string => {
   const chron = chronFor(s)
   const exact = chron.forecast.preview
   const sample = exact && exact.total > 0 ? exact : chron.forecast.current
+  const whole = previewRevealsWholeFleet(previewIds.length)
   const sampleScope =
     exact && exact.total > 0
-      ? `${matched.label} · 同前缀样本`
+      ? whole ? `${matched.label} · 同编成样本` : `${matched.label} · 同前缀样本`
       : first?.shipIds?.length
-        ? `${matched.label} · 暂无前缀样本 · 使用当前点整体记录`
+        ? whole
+          ? `${matched.label} · 暂无同编成样本 · 使用当前点整体记录`
+          : `${matched.label} · 暂无前缀样本 · 使用当前点整体记录`
         : '该点整体记录'
   const fleets = previews
     .map((deck) => `<div class="prebattle-fleet">

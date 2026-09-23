@@ -12,7 +12,7 @@ import { diffCells, semanticExpedition } from '../scripts/lib/expedition-fact-au
 import { auditExpeditionExperience } from '../scripts/lib/expedition-experience.mjs'
 
 const { mergeExpeditionFacts, expeditionGreatNote } = factModule
-const { parseCompositionBranches, compReqStatus } = compositionModule
+const { parseCompositionBranches, compReqStatus, compShipFits } = compositionModule
 const { evaluateExpeditionStats } = statModule
 const { validateLodePack } = validationModule
 const json = (relative) => JSON.parse(readFileSync(new URL(relative, import.meta.url), 'utf8'))
@@ -26,7 +26,7 @@ test('远征事实对账夹具固定 63 项与真实 kcwiki 基线，不读取 w
   assert.deepEqual(fixture.ids, Object.keys(kc))
   assert.equal(createHash('sha256').update(readFileSync(new URL('../assets/lodes/kcwiki-expedition.json', import.meta.url))).digest('hex'), fixture.sourceHashes.kcwiki)
   assert.deepEqual(Object.fromEntries(fixture.ids.map((id) => [id, semanticExpedition(kc[id])])), fixture.baseSemantics)
-  assert.equal(fixture.conflicts.length, 121)
+  assert.equal(fixture.conflicts.length, 118)
   assert.deepEqual(fixture.corrected.map(({ id, field }) => `${id}.${field}`), ['24.drumTotal', '40.drumTotal'])
 })
 
@@ -41,7 +41,7 @@ const harness = () => {
   const context = vm.createContext({
     mg: { master: { missions } },
     expedLocalizationLode: { data: kc }, expedLode: pack,
-    mergeExpeditionFacts, parseCompositionBranches, compReqStatus, evaluateExpeditionStats,
+    mergeExpeditionFacts, parseCompositionBranches, compReqStatus, compShipFits, evaluateExpeditionStats,
     esc: String, entityNameHtml: () => '舰娘', masterShipName: () => '舰娘', elink: () => '',
     compViewOf: (ships) => ships.map((s) => ({ stype: s.stype, cve: s.cve ?? false })),
     stypeOf: (s) => s.stype, isCveShip: (s) => s.cve ?? false,
@@ -90,6 +90,25 @@ test('账本经验取普通成功非旗舰最小值，排除旗舰取整、大�
   assert.deepEqual(result.wikiDifferences, [])
   assert.equal(result.expeditions.find(row => row.id === '2').observed, null)
   assert.deepEqual({ events, current, wiki }, before)
+})
+
+// 2026-09-23：舰娘经验每次结算随机取 パターン1（×1）或 パターン2（×2），与大成功无关
+// （wikiwiki「遠征」：旗艦で1.5倍、パターン2で2倍、大成功で2倍）。只见到 ×2 样本不算资料差异。
+test('经验核对认 パターン2：只见到两倍样本不报差异，其他倍数照报', () => {
+  const result = (id, escortExp) => ({
+    path: '/kcsapi/api_req_mission/result', ts: Date.UTC(2026, 8, 23),
+    body: { api_result: 1, api_data: { api_quest_name: kc[id].nameJp, api_clear_result: 1, api_get_ship_exp: [999, escortExp, escortExp] } },
+  })
+  const current = { A3: kc.A3, '29': kc['29'], '2': kc['2'] }
+  const events = [
+    result('A3', kc.A3.rewards.shipExp * 2),
+    result('29', kc['29'].rewards.shipExp * 2),
+    result('2', kc['2'].rewards.shipExp + 1),
+  ]
+  const audit = auditExpeditionExperience(events, current, current)
+  assert.deepEqual(audit.differences.map((row) => row.id), ['2'])
+  assert.deepEqual(audit.wikiDifferences.map((row) => row.id), ['2'])
+  assert.equal(audit.expeditions.find((row) => row.id === 'A3').observed, kc.A3.rewards.shipExp * 2)
 })
 
 for (const id of fixture.ids) {
@@ -149,6 +168,52 @@ test('结构化分支驱动真实检查：4 号护卫空母变体无需 wiki 原
   const e = expeds.get('4')
   assert.equal(runtime.checkShips(e, ships).fails, 0)
   assert.ok(runtime.checkShips({ ...e, wiki: kc['4'] }, ships).fails > 0)
+})
+
+// 2026-09-23 维护者裁决：5/42/A4 两站编成打架的格，以 ElectronicObserver
+// （日文原版 2019–2020、英文分支 2025-11 仍沿用）为第三票逐格取多数。
+test('5/42/A4 编成按三方多数登记：基础条件、五种新模式与失败组合逐格判定', () => {
+  const stats = { firepower: 100, antiAir: 100, antiSubmarine: 100, lineOfSight: 100 }
+  const ship = (stype, cve = false) => ({ stype, cve, lv: 99, cond: 49, stats })
+  const CL = () => ship(3), DD = () => ship(2), DE = () => ship(1), CT = () => ship(21)
+  const CA = () => ship(5), CVE = () => ship(7, true), CVL = () => ship(7)
+  const passes = (id, ships) => runtime.checkShips(expeds.get(id), ships).fails === 0
+  for (const id of ['5', '42', 'A4']) {
+    const correction = pack.meta.corrections.find((row) => row.id === id && row.field === 'compositionBranches')
+    assert.ok(correction, `${id} 编成订正要带来源登记`)
+    assert.equal(correction.basis, 'maintainer')
+    assert.equal(correction.date, '2026-09-23')
+    assert.match(correction.evidence, /ElectronicObserver/)
+  }
+
+  // 5：（驱+海防）×2 + 其他×1，kcwiki 2025-06 改的 ×3 不取
+  assert.equal(passes('5', [CL(), DD(), DE(), CA()]), true, '5 轻巡1 驱逐1 海防1 其他1')
+  assert.equal(passes('5', [CL(), DE(), DE(), CA()]), true, '5 轻巡1 海防2 其他1')
+  assert.equal(passes('5', [DD(), DE(), DE(), DE()]), true, '5 驱逐1 海防3')
+  assert.equal(passes('5', [CT(), DE(), DE(), CA()]), true, '5 练巡1 海防2 其他1')
+  assert.equal(passes('5', [CVE(), DD(), DD(), CA()]), true, '5 护卫空母1 驱逐2 其他1')
+  assert.equal(passes('5', [CL(), DD(), CA(), CA()]), false, '5 驱逐海防只有 1 艘')
+
+  // 42：基础驱逐×2（海防不算），另认五种海防模式；轻巡1驱逐1海防1 按社区共识判失败
+  assert.equal(passes('42', [CL(), DD(), DD(), CA()]), true, '42 轻巡1 驱逐2 其他1')
+  assert.equal(passes('42', [CL(), DE(), DE(), CA()]), true, '42 轻巡1 海防2 其他1')
+  assert.equal(passes('42', [CL(), DD(), DE(), CA()]), false, '42 轻巡1 驱逐1 海防1 其他1 失败')
+  assert.equal(passes('42', [DD(), DE(), DE(), DE()]), true, '42 驱逐1 海防3')
+  assert.equal(passes('42', [CVE(), DE(), DE(), CA()]), true, '42 护卫空母1 海防2 其他1')
+  assert.equal(passes('42', [CT(), DE(), DE(), CA()]), true, '42 练巡1 海防2 其他1')
+  assert.equal(passes('42', [CVE(), DD(), DE(), CA()]), false, '42 护卫空母1 驱逐1 海防1 失败')
+  assert.equal(passes('42', [CT(), DD(), DD(), CA()]), false, '42 练巡1 驱逐2 失败')
+  assert.equal(passes('42', [CVL(), DD(), DD(), CA()]), false, '42 普通轻母不顶护卫空母')
+
+  // A4：基础驱逐×2（海防不算），不限旗舰
+  assert.equal(passes('A4', [CL(), DD(), DD(), DD(), DD(), DD()]), true, 'A4 轻巡旗舰 驱逐5')
+  assert.equal(passes('A4', [CA(), CL(), DD(), DD(), CA()]), true, 'A4 重巡旗舰 轻巡1 驱逐2 其他2')
+  assert.equal(passes('A4', [DD(), DE(), DE(), DE(), CA()]), true, 'A4 驱逐1 海防3 其他1')
+  assert.equal(passes('A4', [CA(), CVE(), DE(), DE(), CA()]), true, 'A4 护卫空母非旗舰 海防2 其他2')
+  assert.equal(passes('A4', [CA(), CT(), DE(), DE(), CA()]), true, 'A4 练巡非旗舰 海防2 其他2')
+  assert.equal(passes('A4', [CL(), DE(), DE(), CA(), CA()]), true, 'A4 轻巡1 海防2 其他2')
+  assert.equal(passes('A4', [CL(), DD(), DE(), CA(), CA()]), false, 'A4 轻巡1 驱逐1 海防1 失败（kcwiki 与 wikiwiki 两票）')
+  assert.equal(passes('A4', [CVL(), DD(), DD(), CA(), CA()]), false, 'A4 普通轻母不顶护卫空母')
 })
 
 test('规划器首选分支与槽位顺序逐项对账，允许的编成冲突除外', () => {

@@ -6,7 +6,7 @@ import test from 'node:test'
 
 import expeditionComposition from '../dist/shared/expedition-composition.js'
 
-const { parseCompositionBranches, parseSuccessVariants, compReqStatus } =
+const { parseCompositionBranches, parseSuccessVariants, compReqStatus, compShipFits } =
   expeditionComposition.default ?? expeditionComposition
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -103,6 +103,79 @@ test('判定语义:禁混搭取单一舰种最大数,护卫空母不许拿轻母
   const fake = compReqStatus(cveReq, [ryujo])
   assert.equal(fake.ok, false, '普通轻母不是护卫空母')
   assert.equal(fake.flagOk, false)
+})
+
+// 2026-09-23 玩家报 A4 川内改二旗舰被判「旗舰舰种不符」：「护卫空母/轻巡」并列时，
+// 护卫空母限定曾套到整组，轻巡也被要求是护卫空母。限定只管轻母位，
+// 并列里另有普通轻母写法（45「护卫空母/轻空母」）时整组不限定。
+test('「护卫空母/X」并列：护卫空母限定只管轻母位，不连带另一舰种', () => {
+  const sendai = { stype: 3, cve: false }
+  const taiyou = { stype: 7, cve: true }
+  const ryujo = { stype: 7, cve: false }
+  const dd = { stype: 2, cve: false }
+  const de = { stype: 1, cve: false }
+
+  // kcwiki A4 原文
+  const a4 = parseCompositionBranches(
+    '护卫空母/轻巡(必须旗舰) 驱逐*2 其他*2 \n或练巡旗舰+海防舰*2 其他*2',
+  )[0].reqs[0]
+  assert.deepEqual([...a4.types].sort((a, b) => a - b), [3, 7])
+  assert.equal(a4.flagship, true)
+  assert.equal(a4.cve, true, '轻母位仍须是护卫空母')
+  const a4Sendai = compReqStatus(a4, [sendai, dd, dd, dd, dd, dd])
+  assert.equal(a4Sendai.ok, true, '轻巡旗舰合法')
+  assert.equal(a4Sendai.flagOk, true)
+  assert.equal(compReqStatus(a4, [taiyou, dd, dd, dd, dd]).ok, true, '护卫空母旗舰合法')
+  assert.equal(compReqStatus(a4, [ryujo, dd, dd, dd, dd]).ok, false, '普通轻母旗舰仍不合法')
+
+  // kcwiki 42 原文
+  const m42 = parseCompositionBranches('护卫空母/轻巡*1 驱逐/海防*2 （驱逐至少1只） 其他*1')[0].reqs[0]
+  assert.equal(compReqStatus(m42, [sendai, dd, de, dd]).ok, true)
+  assert.equal(compReqStatus(m42, [ryujo, dd, de, dd]).ok, false)
+
+  // kcwiki 45 原文：护卫空母或轻空母皆可，普通轻母不受限
+  const m45 = parseCompositionBranches('护卫空母/轻空母（旗舰固定）*1，\n驱逐/海防*4')[0].reqs[0]
+  assert.equal(m45.flagship, true)
+  assert.equal(m45.cve, false, '并列里有普通轻母写法，整组不限定护卫空母')
+  assert.equal(compReqStatus(m45, [ryujo, dd, dd, dd, de]).ok, true)
+  assert.equal(compReqStatus(m45, [taiyou, dd, dd, dd, de]).ok, true)
+
+  // 单舰逐艘判定与合计判定同一口径
+  assert.equal(compShipFits(a4, sendai), true)
+  assert.equal(compShipFits(a4, taiyou), true)
+  assert.equal(compShipFits(a4, ryujo), false)
+  assert.equal(compShipFits(a4, dd), false)
+  assert.equal(compShipFits(m45, ryujo), true)
+
+  // 纯护卫空母要求照旧（43 编成一）
+  const m43 = parseCompositionBranches('护卫空母*1(必须旗舰) 驱逐/海防*2(1驱逐+1海防不可)\n其他*3')[0].reqs[0]
+  assert.equal(m43.cve, true)
+  assert.equal(compShipFits(m43, ryujo), false)
+  assert.equal(compShipFits(m43, taiyou), true)
+})
+
+test('规划器坑位与条件检查共用单舰判定，不再各写一套护卫空母判法', () => {
+  const bi = readFileSync(path.join(root, 'src', 'renderer', 'modules', 'bi.ts'), 'utf8')
+  assert.match(bi, /compShipFits\(req, /)
+  assert.doesNotMatch(bi, /!needCve \|\| isCveShip/)
+})
+
+const kcPackFile = path.join(root, 'assets', 'lodes', 'kcwiki-expedition.json')
+test('kcwiki-expedition 真包：A4/42/45 的合法编成判为满足', { skip: !existsSync(kcPackFile) }, () => {
+  const pack = JSON.parse(readFileSync(kcPackFile, 'utf8'))
+  const rows = Array.isArray(pack.data) ? pack.data : Object.values(pack.data)
+  const byId = (id) => rows.find((row) => String(row?.id) === id)
+  const sendai = { stype: 3, cve: false }
+  const ryujo = { stype: 7, cve: false }
+  const dd = { stype: 2, cve: false }
+  const de = { stype: 1, cve: false }
+  const passes = (id, ships) =>
+    parseCompositionBranches(byId(id).composition, byId(id).escortText ?? null).some((branch) =>
+      branch.reqs.every((req) => req.wildcard || !req.types || compReqStatus(req, ships).ok),
+    )
+  assert.equal(passes('A4', [sendai, dd, dd, dd, dd, dd]), true, 'A4 川内旗舰 + 驱逐五')
+  assert.equal(passes('42', [sendai, dd, de, dd]), true, '42 轻巡 + 驱逐海防')
+  assert.equal(passes('45', [ryujo, dd, dd, dd, de]), true, '45 普通轻母旗舰')
 })
 
 test('镖的判定端接的是分支口径,护卫空母用主数据 api_tais 落实', () => {

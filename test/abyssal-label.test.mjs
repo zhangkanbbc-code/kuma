@@ -85,6 +85,8 @@ test('镝的模糊命中按候选池匹配，绝不在运行时指认具体形�
   assert.match(di, /const \{ exact: matched, fuzzy: fuzzyMatched \} = previewEncounterCandidates/)
   // 同上：措辞缩成「各形态耐久与装备不同」，「不出数」这件事仍要当场说清
   assert.match(di, /前三舰仅模糊匹配 · 各形态耐久与装备不同/)
+  assert.match(di, /compFitsPreview\(previewIds, pools\.length\)/)
+  assert.match(di, /compFitsPreview\(previewIds, ships\.length\)/)
 })
 
 test('模糊 token 有独立视觉记号，与精确命中一眼分开', () => {

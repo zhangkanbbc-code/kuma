@@ -39,6 +39,7 @@ import {
   type AbyssSeenEntry,
 } from '../../shared/abyss-seen'
 import { fitObservationStars } from '../../shared/fit-observation'
+import { previewSampleClause } from '../../shared/enemy-preview'
 import {
   groupFriendlySightings,
   replayFriendlySightings,
@@ -4409,9 +4410,7 @@ class Ledger {
         .slice(0, 3)
       let preview: SortieForecastReport['preview'] = null
       if (previewIds.length) {
-        const prefixSql = previewIds
-          .map((_, index) => `CAST(json_extract(comp, '$[${index}]') AS INTEGER) = ?`)
-          .join(' AND ')
+        const clause = previewSampleClause(previewIds)
         const row = this.db
           .prepare(
             `SELECT COUNT(*) AS total,
@@ -4424,7 +4423,7 @@ class Ledger {
                     COALESCE(SUM(CASE WHEN is_boss = 1 THEN 1 ELSE 0 END), 0) AS bosses
              FROM node_samples
              WHERE map = ? AND cell = ? AND difficulty = ? AND event_key = ?
-               AND combined_type = ? AND sortie_id <> ? AND ${prefixSql}`,
+               AND combined_type = ? AND sortie_id <> ? AND ${clause.sql}`,
           )
           .get(
             scope.map,
@@ -4433,7 +4432,7 @@ class Ledger {
             scope.eventKey,
             scope.combinedType,
             scope.excludeSortieId,
-            ...previewIds,
+            ...clause.params,
           ) as any
         preview = {
           total: Number(row?.total ?? 0),
