@@ -6,6 +6,35 @@ export interface ExpeditionGreatSuccess {
   tentative?: boolean
 }
 
+export const parseGreatNote = (text: string | null | undefined): ExpeditionGreatSuccess | null => {
+  if (!text) return null
+  const sentence = /^大成功要(.+?)(\(待验证\)|（待验证）)?$/.exec(text)
+  if (!sentence || sentence[0] !== text) return null
+  const alternatives: ExpeditionGreatSuccess['alternatives'] = []
+  for (const branch of sentence[1].split('或')) {
+    const part: Partial<ExpeditionGreatSuccess['alternatives'][number]> = {}
+    for (const component of branch.split('+')) {
+      const match = /^(?:旗舰(\d+)级以上|(\d+)桶以上|(\d+)闪)$/.exec(component)
+      if (!match) return null
+      const key = match[1] !== undefined ? 'flagLv' : match[2] !== undefined ? 'drumTotal' : 'kira'
+      if (part[key] !== undefined) return null
+      part[key] = Number(match[1] ?? match[2] ?? match[3])
+    }
+    if (part.kira === undefined) return null
+    alternatives.push({ ...part, kira: part.kira })
+  }
+  return { alternatives, ...(sentence[2] ? { tentative: true } : {}) }
+}
+
+export const greatSuccessMet = (
+  condition: ExpeditionGreatSuccess,
+  fleet: { kira: number; flagLv: number; drumTotal: number },
+): boolean => condition.alternatives.some((part) =>
+  fleet.kira >= part.kira &&
+  (part.flagLv === undefined || fleet.flagLv >= part.flagLv) &&
+  (part.drumTotal === undefined || fleet.drumTotal >= part.drumTotal),
+)
+
 export interface ExpeditionFacts {
   stats?: Record<string, number>
   drumTotal?: number

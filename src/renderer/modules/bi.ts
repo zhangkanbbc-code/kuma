@@ -59,7 +59,7 @@ import {
   expeditionRowState,
 } from '../../shared/expedition-state'
 import { evaluateExpeditionStats } from '../../shared/expedition-stats'
-import { mergeExpeditionFacts } from '../../shared/expedition-facts'
+import { mergeExpeditionFacts, parseGreatNote, greatSuccessMet } from '../../shared/expedition-facts'
 import type {
   ExpeditionStatKey,
   ExpeditionStatRequirements,
@@ -304,6 +304,7 @@ interface CheckRow {
   text: string
   cur: string
   title?: string
+  advisory?: true
 }
 
 const DRUM_MST = 75 // ドラム缶(輸送用)
@@ -534,17 +535,24 @@ const checkShips = (e: Exped, ships: PlayerShip[]): { rows: CheckRow[]; fails: n
       cur: `已装载 <b>${total}</b>（${carriers} 艘舰娘）· 库存 ${stock} ${elink('mstEquip', DRUM_MST, '装备图鉴 →')}`,
     })
   }
-  // 大成功（口径复杂，只提示 + 闪光实况）
+  // 大成功只作说明、不计入汇总；条件达成时打勾，并显示闪光实况。
   if (w?.greatNote) {
     const kira = ships.filter((s) => s.cond >= 50).length
+    const condition = w.greatSuccess ?? parseGreatNote(w.greatNote)
+    const met = condition && greatSuccessMet(condition, {
+      kira,
+      flagLv: ships[0]?.lv ?? 0,
+      drumTotal: ships.reduce((total, ship) => total + drumCount(ship), 0),
+    })
     rows.push({
-      mark: 'wait',
+      mark: met ? 'ok' : 'wait',
+      advisory: true,
       text: `大成功：${esc(w.greatNote)}`,
       cur: `当前闪光 <b>${kira}/${ships.length}</b>`,
     })
   }
-  const fails = rows.filter((r) => r.mark === 'no').length
-  const unknowns = rows.filter((r) => r.mark === 'wait').length
+  const fails = rows.filter((r) => !r.advisory && r.mark === 'no').length
+  const unknowns = rows.filter((r) => !r.advisory && r.mark === 'wait').length
   return { rows, fails, unknowns }
 }
 

@@ -11,7 +11,7 @@ import validationModule from '../dist/main/lode-validation.js'
 import { diffCells, semanticExpedition } from '../scripts/lib/expedition-fact-audit.mjs'
 import { auditExpeditionExperience } from '../scripts/lib/expedition-experience.mjs'
 
-const { mergeExpeditionFacts, expeditionGreatNote } = factModule
+const { mergeExpeditionFacts, expeditionGreatNote, parseGreatNote, greatSuccessMet } = factModule
 const { parseCompositionBranches, compReqStatus, compShipFits } = compositionModule
 const { evaluateExpeditionStats } = statModule
 const { validateLodePack } = validationModule
@@ -42,6 +42,7 @@ const harness = () => {
     mg: { master: { missions } },
     expedLocalizationLode: { data: kc }, expedLode: pack,
     mergeExpeditionFacts, parseCompositionBranches, compReqStatus, compShipFits, evaluateExpeditionStats,
+    parseGreatNote, greatSuccessMet,
     esc: String, entityNameHtml: () => '舰娘', masterShipName: () => '舰娘', elink: () => '',
     compViewOf: (ships) => ships.map((s) => ({ stype: s.stype, cve: s.cve ?? false })),
     stypeOf: (s) => s.stype, isCveShip: (s) => s.cve ?? false,
@@ -161,6 +162,75 @@ test('24/40 不产生普通桶门槛；40 与 D1–D3 大成功只提示，D3 �
   assert.equal(expeds.get('40').wiki.greatNote, '大成功要4桶以上+4闪')
   assert.equal(expeds.get('D1').wiki.greatNote, '大成功要5闪或旗舰128级以上+4闪')
   assert.equal(expeds.get('D3').wiki.greatNote, '大成功要5闪或旗舰128级以上+4闪（待验证）')
+})
+
+// 2026-09-24：大成功条件只作说明，不是普通成功门槛——达成时打勾，
+// 未达成或说明解不开时只提示，都不计入「低于推荐值」（此前 A5 六闪仍报 1 项）。
+test('大成功说明逐条可解析：kcwiki 九种原句与结构化重述往返一致', () => {
+  const notes = new Set(Object.values(kc).map((row) => row.greatNote).filter(Boolean))
+  assert.equal(notes.size, 9)
+  for (const note of notes) {
+    const parsed = parseGreatNote(note)
+    assert.ok(parsed, `解不开：${note}`)
+    assert.equal(expeditionGreatNote(parsed), note.replace('(待验证)', '（待验证）'))
+  }
+  const plain = (value) => JSON.parse(JSON.stringify(value))
+  assert.deepEqual(plain(parseGreatNote('大成功要5闪或旗舰128级以上+4闪')), { alternatives: [{ kira: 5 }, { flagLv: 128, kira: 4 }] })
+  assert.deepEqual(plain(parseGreatNote('大成功要4桶以上+4闪')), { alternatives: [{ drumTotal: 4, kira: 4 }] })
+  assert.deepEqual(plain(parseGreatNote('大成功要旗舰33级以上+5闪或旗舰128级以上+4闪(待验证)')),
+    { alternatives: [{ flagLv: 33, kira: 5 }, { flagLv: 128, kira: 4 }], tentative: true })
+  // 任一分支解不开就整句不认，不拿半句去判
+  for (const bad of [null, undefined, '', '大成功要旗舰为轻巡', '大成功要5闪或全员闪', '5闪', '大成功要旗舰128级以上']) {
+    assert.equal(parseGreatNote(bad), null, String(bad))
+  }
+})
+
+test('大成功条件判定：闪光数、旗舰等级、桶数任一分支全满足即达成', () => {
+  const lv = parseGreatNote('大成功要5闪或旗舰128级以上+4闪')
+  assert.equal(greatSuccessMet(lv, { kira: 5, flagLv: 1, drumTotal: 0 }), true)
+  assert.equal(greatSuccessMet(lv, { kira: 6, flagLv: 85, drumTotal: 0 }), true)
+  assert.equal(greatSuccessMet(lv, { kira: 4, flagLv: 128, drumTotal: 0 }), true)
+  assert.equal(greatSuccessMet(lv, { kira: 4, flagLv: 127, drumTotal: 0 }), false)
+  assert.equal(greatSuccessMet(lv, { kira: 3, flagLv: 175, drumTotal: 0 }), false)
+  const drum = parseGreatNote('大成功要4桶以上+4闪')
+  assert.equal(greatSuccessMet(drum, { kira: 4, flagLv: 1, drumTotal: 4 }), true)
+  assert.equal(greatSuccessMet(drum, { kira: 4, flagLv: 1, drumTotal: 3 }), false)
+  assert.equal(greatSuccessMet(drum, { kira: 3, flagLv: 1, drumTotal: 9 }), false)
+})
+
+test('A5 六闪（玩家反馈同款编成）大成功行打勾；任何情况下大成功行都不计入低于推荐值', () => {
+  const stats = { firepower: 60, antiAir: 40, antiSubmarine: 45, lineOfSight: 30 }
+  const fleet = (kira, flagLv = 85, drums = 0) => [3, 2, 2, 2, 2, 2].map((stype, i) => ({
+    stype, lv: i === 0 ? flagLv : 94, cond: i < kira ? 53 : 49, stats, drums: i < drums ? 1 : 0,
+  }))
+  const great = (checked) => checked.rows.find((row) => row.text.startsWith('大成功：'))
+  const a5 = expeds.get('A5')
+  const six = runtime.checkShips(a5, fleet(6))
+  assert.equal(great(six).mark, 'ok')
+  assert.equal(six.fails, 0)
+  assert.equal(six.unknowns, 0)
+  const four = runtime.checkShips(a5, fleet(4))
+  assert.equal(great(four).mark, 'wait')
+  assert.equal(four.fails, 0)
+  assert.equal(four.unknowns, 0)
+  assert.equal(great(runtime.checkShips(a5, fleet(4, 128))).mark, 'ok')
+  // 桶数分支：40 走第一方结构化条件
+  assert.equal(great(runtime.checkShips(expeds.get('40'), fleet(4, 85, 4))).mark, 'ok')
+  assert.equal(great(runtime.checkShips(expeds.get('40'), fleet(4, 85, 3))).mark, 'wait')
+  // 解不开的说明照旧只提示
+  const odd = { ...a5, wiki: { ...a5.wiki, greatNote: '大成功要旗舰为轻巡', greatSuccess: undefined } }
+  assert.equal(great(runtime.checkShips(odd, fleet(6))).mark, 'wait')
+  assert.equal(runtime.checkShips(odd, fleet(6)).unknowns, 0)
+  // 全表：有无大成功说明，失败数与低于推荐值数都不变
+  for (const e of expeds.values()) {
+    if (!e.wiki?.greatNote) continue
+    const bare = { ...e, wiki: { ...e.wiki, greatNote: null, greatSuccess: undefined } }
+    for (const ships of [[], fleet(0), fleet(6, 130, 6)]) {
+      const withNote = runtime.checkShips(e, ships), without = runtime.checkShips(bare, ships)
+      assert.equal(withNote.fails, without.fails, `${e.dispNo} fails`)
+      assert.equal(withNote.unknowns, without.unknowns, `${e.dispNo} unknowns`)
+    }
+  }
 })
 
 test('结构化分支驱动真实检查：4 号护卫空母变体无需 wiki 原文', () => {
