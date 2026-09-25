@@ -11,6 +11,7 @@ import { isAbyssMstId } from '../../shared/kcs-domain'
 import { onChronicleApi } from './chronicle'
 import { appendPerf } from '../perf-log'
 import { createLastApiMemo } from '../../shared/crash-context'
+import { createMissionSceneTracker } from '../../shared/game-scene'
 import { mainLongTaskMs, timeMain } from '../perf-time'
 import ledger from './ledger'
 import { getLode } from '../lode'
@@ -26,6 +27,8 @@ import {
 } from '../../shared/material-delta-detail'
 import { questFixedSenka, senkaMonthEnd, senkaMonthStart } from '../../shared/senka'
 import type { SenkaQuestOption } from '../../shared/senka'
+import { assembleSenkaRanking, SENKA_RANKING_PATH } from '../../shared/senka-ranking'
+import type { RankingServer } from '../../shared/senka-ranking'
 import { questAnnualMonth, questPeriodFromCode } from '../../shared/quest-period'
 import type { QuestPeriodKind } from '../../shared/quest-period'
 import { onQuestApi, reconcileQuestProgress } from './quest-counter-host'
@@ -86,7 +89,12 @@ import type {
 
 const MARRIAGE_PATH = '/kcsapi/api_req_kaisou/marriage'
 const HANGAR_EXPAND_PATH = '/kcsapi/api_req_kaisou/hangar_expand'
+const currentRankingServer = (): RankingServer | null => {
+  const server = broadcaster.serverInfo
+  return server.ip ? { num: server.num!, name: server.name!, host: server.ip } : null
+}
 const lastApis = createLastApiMemo()
+const missionScene = createMissionSceneTracker()
 export const lastApiPaths = () => lastApis.list()
 
 const pickSections = (sections: Section[]) => {
@@ -545,16 +553,9 @@ const handleEvent = (
   if (apiPath === '/kcsapi/api_get_member/picture_book') learnCostumesFrom(body)
   if (apiPath === '/kcsapi/api_get_member/picture_book') learnEquipBookFrom(body, postBody, ts)
   // 打开远征页（api_get_member/mission）时底坞任务/远征格跟到远征；
-  // 回母港、出击选择、演习、任务表都算离开，还原进页前那一格。
-  if (apiPath === '/kcsapi/api_get_member/mission') broadcastGameScene('mission')
-  if (
-    apiPath === '/kcsapi/api_port/port' ||
-    apiPath === '/kcsapi/api_get_member/mapinfo' ||
-    apiPath === '/kcsapi/api_get_member/practice' ||
-    apiPath === '/kcsapi/api_get_member/questlist'
-  ) {
-    broadcastGameScene('away')
-  }
+  // 页内出现首个非远征页请求就报一次离开，还原进页前那一格。
+  const scene = missionScene(apiPath)
+  if (scene) broadcastGameScene(scene)
   // 领域状态落盘（去抖）：重启后仍能显示「最后一次抓到的内容」
   if (sections.some((s) => DOMAIN_SECTIONS.has(s))) scheduleDomainSave()
 }
@@ -821,12 +822,15 @@ broadcaster.addListener(
     }
     const parsedAt = performance.now()
     ledger.record(method, apiPath, body, postBody, ts, secretaryMst)
+    if (apiPath === SENKA_RANKING_PATH) ledger.recordRankingServer(currentRankingServer())
     const recordedAt = performance.now()
     const apiData = parsed?.api_data ?? parsed
     if (apiPath === '/kcsapi/api_start2/getData') {
       masterRawCache = { ts, data: apiData }
     }
     handleEvent(apiPath, apiData, post, ts)
+    // 沿用 mg:patch → onMgChange 的战果刷新链，重查主卡与已打开的详情。
+    if (apiPath === SENKA_RANKING_PATH) broadcast(['basic'])
     const total = performance.now() - startedAt
     if (total >= mainLongTaskMs()) {
       appendPerf(
@@ -1209,8 +1213,7 @@ ipcMain.handle('mg:exp-samples', () =>
   ledger.queryExpSamples((mstId) => store.getState().master.ships[mstId]?.stype ?? null),
 )
 
-ipcMain.handle('mg:senka', (_event, at?: number) => {
-  const when = typeof at === 'number' ? at : Date.now()
+const reconcileSenka = (when: number) => {
   // EO 自动对账（2026-08-17 用户提议）：查账前先按本月海域页观测补齐漏记的
   // EO——重置点后观测到 cleared=1 必属本月，去重与实时路径共用账本同月同图闸
   const booked = ledger.autoBookEoFromMapinfo(when)
@@ -1222,22 +1225,64 @@ ipcMain.handle('mg:senka', (_event, at?: number) => {
     const quests = ledger.autoBookQuestSenkaFromEvents(when, questSenkaInfo)
     if (quests.length) console.log(`[kuma] mg: senka 自动补记任务 ${quests.join(',')}`)
   }
+}
+
+const querySenkaRanking = (when: number) => {
+  const monthStart = senkaMonthStart(when)
+  const monthEnd = senkaMonthEnd(when)
+  const months = new Map<number, ReturnType<typeof ledger.querySenka>>()
+  const hints = new Map<number, number>()
+  return assembleSenkaRanking(ledger.queryRankingPages(monthStart - 40 * 24 * 3600_000), {
+    nickname: store.getState().player.basic?.nickname ?? '',
+    monthStart,
+    monthEnd,
+    // 舰C账号不能换服；旧页缺标记时按当前账号的服务器补，视图明确标出推定。
+    fallbackServer: currentRankingServer() ?? ledger.latestRankingServer(),
+    ownHintAt: cutoff => {
+      if (!hints.has(cutoff)) {
+        const start = senkaMonthStart(cutoff)
+        if (!months.has(start)) months.set(start, ledger.querySenka(cutoff))
+        // total = 继承 + 本月通常 + 本月特别；扣掉截止之后的账内新增。
+        // sumSenkaBetween 走全量 SQL，不使用已截断的 entries，也不使用任何校准值。
+        hints.set(cutoff, months.get(start)!.total - ledger.sumSenkaBetween(cutoff, senkaMonthEnd(cutoff)))
+      }
+      return hints.get(cutoff)!
+    },
+  })
+}
+
+ipcMain.handle('mg:senka-ranking', (_event, at?: number) => {
+  const when = typeof at === 'number' ? at : Date.now()
+  reconcileSenka(when)
+  return querySenkaRanking(when)
+})
+
+ipcMain.handle('mg:senka', (_event, at?: number) => {
+  const when = typeof at === 'number' ? at : Date.now()
+  reconcileSenka(when)
   const summary = ledger.querySenka(when)
   // 实际校准：renderer 经 uiSet 写进 config（ui.senka.calibration），这里组装。
   // 只认本战果月内的校准——过月后继承重算，旧校准自动失效。
   const saved = config.get('ui.senka.calibration', null) as { value?: number; ts?: number } | null
+  let calibration: { value: number; ts: number; source: 'manual' | 'ranking' } | null = null
   if (
     saved &&
     typeof saved.value === 'number' &&
     typeof saved.ts === 'number' &&
-    saved.ts >= summary.monthStart
+    saved.ts >= summary.monthStart && saved.ts < senkaMonthEnd(when)
   ) {
-    const gained = ledger.sumSenkaBetween(saved.ts, senkaMonthEnd(when))
+    calibration = { value: saved.value, ts: saved.ts, source: 'manual' }
+  }
+  const ranking = querySenkaRanking(when).ownCalibration
+  if (ranking && (!calibration || ranking.ts > calibration.ts)) {
+    calibration = { ...ranking, source: 'ranking' }
+  }
+  if (calibration) {
+    const gained = ledger.sumSenkaBetween(calibration.ts, senkaMonthEnd(when))
     summary.calibration = {
-      value: saved.value,
-      ts: saved.ts,
+      ...calibration,
       gainedSince: gained,
-      current: saved.value + gained,
+      current: calibration.value + gained,
     }
   }
   return summary

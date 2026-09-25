@@ -74,6 +74,17 @@ const FODDER = sliceBetween(
   '/** 七枚圆点的周历',
   'improveFodderHtml',
 )
+// 收藏组里今天不能改的那几行要画「哪几天能改」，周历与星期表都引真的
+const WEEK_CHIPS = sliceBetween(
+  'const CALENDAR_WEEKDAY_CHIPS = [',
+  '\n// ---- 主数据索引',
+  'CALENDAR_WEEKDAY_CHIPS',
+)
+const WEEK = sliceBetween(
+  '/** 七枚圆点的周历',
+  '/** 素材现在手上有几件',
+  'improveWeekHtml',
+)
 
 const abs = (...parts) => path.join(ROOT, ...parts).replace(/\\/g, '/')
 
@@ -92,15 +103,23 @@ export const stub: any = {
   equipTypes: {},
   state: {},
   day: 2,
+  favorites: [],
+  match: null,
 }
 
 const esc = (s: unknown) => \`\${s ?? ''}\`.replace(/[&<>"']/g, (c) => \`&#\${c.charCodeAt(0)};\`)
 const mg: any = new Proxy({}, { get: (_t, key: string) => stub.state[key] })
-const eoByEquip = { values: () => stub.eo as any[] }
+const eoByEquip = {
+  values: () => stub.eo as any[],
+  get: (id: number) => (stub.eo as any[]).find((eo) => eo.eq_id === id),
+}
 const friendlyEquips = { get: (id: number) => stub.equips[id] }
 const friendlyShips = { get: (id: number) => stub.ships[id] }
 const useitemMst = { get: (id: number) => stub.items[id] }
-const equipMatches = (_equip: any) => true
+const equipMatches = (equip: any) => (stub.match ? stub.match(equip) : true)
+// 改修收藏名单（src/renderer/improve-favorites.ts 的两个读口）：用例自己摆
+const isImproveFavorite = (mstId: number) => (stub.favorites as number[]).includes(mstId)
+const improveFavoriteIds = (): number[] => [...(stub.favorites as number[])]
 const jstDayOfWeek = () => stub.day
 const masterShipName = (mstId: number) => stub.ships[mstId]?.api_name ?? \`舰娘 #\${mstId}\`
 const elink = (domain: string, id: number, name: string) =>
@@ -137,6 +156,10 @@ ${COST_CELL}
 
 ${FODDER}
 
+${WEEK_CHIPS}
+
+${WEEK}
+
 export { todayImprovementRows, todayImprovementGroupsHtml, invalidateEquippedInstIds }
 `
 
@@ -172,6 +195,8 @@ export const todayRows = (setup = {}) => {
   stub.items = setup.items ?? {}
   stub.equipTypes = setup.equipTypes ?? {}
   stub.day = setup.day ?? 2
+  stub.favorites = setup.favorites ?? []
+  stub.match = setup.match ?? null
   stub.state = {
     ships: {},
     slotitems: {},

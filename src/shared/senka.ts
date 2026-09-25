@@ -1,6 +1,6 @@
 // 战果（戦果）的换算与固定分值表。
 //
-// 游戏 API **不下发战果数值**——它只在游戏内的排名页出现，由服务器算。
+// 通常报文不直接下发战果；排行页另有编码战果，由 senka-ranking 解读。
 // 但 wikiwiki「称号・戦果」给出了明确公式，而公式的输入（提督经验）API 是给的：
 //
 //   通常戦果 = 该月获得的提督经验 × 7 / 10000
@@ -223,11 +223,12 @@ export interface SenkaSummary {
   total: number
   /**
    * 实际校准（2026-08-17 用户提议）：玩家在游戏排名页看到自己的官方战果后
-   * 手动填入，此后显示 = 校准值 + 校准时刻之后的账内新增。
-   * 排名报文是加密的，官方值只能人眼读、手动进来；过战果月自动失效。
+   * 手动填入，或由排行页解码自动校准；此后显示 = 校准值 + 校准时刻之后的账内新增。
+   * 两者取较新的校准，过战果月自动失效。
    */
   calibration: {
-    value: number // 手填的官方值
+    source: 'manual' | 'ranking'
+    value: number // 官方值
     ts: number // 校准时刻
     gainedSince: number // 校准之后账内新增
     current: number // value + gainedSince

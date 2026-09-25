@@ -1,5 +1,5 @@
 import { registerModuleCommand } from '../module-command'
-// 镖 (Bi) · 远征规划——12 稿。左=远征总表（搜索/海域筛选/时薪排序/三队甘特），
+// 镖 (Bi) · 远征规划——12 稿。左=远征总表（搜索/海域筛选/默认游戏顺序/三队甘特），
 // 右=推挤详情（条件检查[对所选舰队实时判定]/收益/大成功/原文备注）。
 // 数据分层：官方骨架/奖励物品/示例编成/难度 = api_mst_mission；
 // 条件+基础报酬+大成功 = kcwiki-expedition 底层 + expedition-facts；中文名称固定取 kcwiki。
@@ -59,6 +59,7 @@ import {
   expeditionRowState,
 } from '../../shared/expedition-state'
 import { evaluateExpeditionStats } from '../../shared/expedition-stats'
+import { EXPEDITION_SORT_DEFAULT, compareGameOrder, restoreSortKey } from '../../shared/expedition-order'
 import { mergeExpeditionFacts, parseGreatNote, greatSuccessMet } from '../../shared/expedition-facts'
 import type {
   ExpeditionStatKey,
@@ -90,6 +91,7 @@ interface PlannerPrefs {
   excludedRosterIds: number[]
 }
 const PLANNER_PREFS_KEY = 'bi.planner-prefs.v1'
+const SORT_KEY = 'bi.sort.v1'
 const savedPlannerPrefs = uiGet<Partial<PlannerPrefs>>(PLANNER_PREFS_KEY, {})
 let plannerPrefs: PlannerPrefs = {
   protectedDeckIds: Array.isArray(savedPlannerPrefs.protectedDeckIds)
@@ -131,7 +133,8 @@ const savePlannerPrefs = () => {
 const state = {
   search: '',
   area: null as string | null, // 'a1'..'a7' | 'monthly' | 'support' | null
-  sort: 'total' as
+  sort: EXPEDITION_SORT_DEFAULT as
+    | 'game'
     | 'total'
     | 'fuel'
     | 'ammo'
@@ -152,6 +155,7 @@ const state = {
 let filterMenuSpecs: Record<string, FilterMenuSpec> = {}
 
 const SORT_FILTERS: { key: typeof state.sort; label: string }[] = [
+  { key: 'game', label: '游戏顺序' },
   { key: 'total', label: '综合/时' },
   { key: 'fuel', label: '燃/时' },
   { key: 'ammo', label: '弹/时' },
@@ -163,6 +167,11 @@ const SORT_FILTERS: { key: typeof state.sort; label: string }[] = [
 ]
 const sortLabelOf = (key: typeof state.sort) =>
   SORT_FILTERS.find((entry) => entry.key === key)?.label ?? key
+
+state.sort = restoreSortKey(
+  uiGet<unknown>(SORT_KEY, EXPEDITION_SORT_DEFAULT),
+  SORT_FILTERS.map((entry) => entry.key),
+) as typeof state.sort
 
 const RESOURCE_FOCUS: Record<
   number,
@@ -1883,7 +1892,9 @@ const render = () => {
   const referenceShips = costReferenceShips()
   // 装饰-排序-去装饰：比较器里现算 estimatedNet 会在 O(n log n) 次比较中
   // 对同一条远征反复算（150 条一帧上千次，内部还要遍历参照舰队）
-  if (sortKey === 'time') {
+  if (sortKey === 'game') {
+    list = [...list].sort(compareGameOrder)
+  } else if (sortKey === 'time') {
     list = [...list].sort((a, b) => a.timeMin - b.timeMin)
   } else if (isItemSort(sortKey)) {
     // 件数降序，所以一件都没有的（支援远征、以及主数据奖励栏为空的那十条）
@@ -1969,7 +1980,8 @@ const render = () => {
       pick: (value) => {
         // 排序没有「全部」这一项：这几格覆盖全部排法，value 恒非空
         state.resourceFocus = null
-        state.sort = (value ?? 'total') as typeof state.sort
+        state.sort = (value ?? EXPEDITION_SORT_DEFAULT) as typeof state.sort
+        uiSet(SORT_KEY, state.sort)
         render()
       },
     },
@@ -2001,7 +2013,7 @@ const render = () => {
           <button class="sel-btn${state.area ? ' on' : ''}" data-filter-menu="area"><span>海域</span><b>${esc(
             currentArea.label,
           )}</b><i>${currentArea.count}</i></button>
-          <button class="sel-btn${state.sort === 'total' ? '' : ' on'}" data-filter-menu="sort"><span>排序</span><b>${esc(
+          <button class="sel-btn${state.sort === EXPEDITION_SORT_DEFAULT ? '' : ' on'}" data-filter-menu="sort"><span>排序</span><b>${esc(
             sortLabelOf(state.sort),
           )}</b></button>
           ${compactSearchHtml}
@@ -2228,6 +2240,7 @@ registerModule({
       if (sortEl) {
         state.resourceFocus = null
         state.sort = sortEl.dataset.sort as typeof state.sort
+        uiSet(SORT_KEY, state.sort)
         render()
         return
       }

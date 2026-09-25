@@ -1688,10 +1688,12 @@ const fleetAirStages = (b: BattleView) =>
 const airlineHtml = (b: BattleView, s: SortieView): string => {
   const air = b.air
   const airStages = (b.stages ?? []).filter((stage) => stage.air)
+  const lbasStages = (b.stages ?? []).filter((stage) => stage.phase === 'lbas')
   const engagement = actualEngagementText(b)
   const hasContext =
     !!air ||
     airStages.length > 0 ||
+    lbasStages.length > 0 ||
     !!b.detection ||
     b.hasSupport ||
     b.smokeType > 0 ||
@@ -1724,6 +1726,16 @@ const airlineHtml = (b: BattleView, s: SortieView): string => {
   const fLoss = (air ? air.fLost + air.fLost2 : 0) + (air2 ? air2.fLost + air2.fLost2 : 0)
   const eLoss = (air ? air.eLost + air.eLost2 : 0) + (air2 ? air2.eLost + air2.eLost2 : 0)
   const eWiped = !!air && air.eCount > 0 && eLoss >= air.eCount
+  const lbasBases = new Set(lbasStages.flatMap((stage) => stage.airBaseId != null ? [stage.airBaseId] : [])).size
+  const lbasCount = `${lbasBases > 0 ? `${lbasBases}队` : ''}${lbasStages.length}波`
+  const lbasFLoss = lbasStages.reduce((sum, stage) => sum + (stage.air ? stage.air.fLost + stage.air.fLost2 : 0), 0)
+  const lbasELoss = lbasStages.reduce((sum, stage) => sum + (stage.air ? stage.air.eLost + stage.air.eLost2 : 0), 0)
+  const lbasDetail = lbasStages.map((stage) => {
+    const a = stage.air
+    if (!a) return `${stage.label}：无航空战`
+    const seiku = a.seiku != null ? (SEIKU[a.seiku] ?? '') : ''
+    return `${stage.label}：我 ${a.fCount} 机 损 ${a.fLost + a.fLost2} · 敌 ${a.eCount} 机 击坠 ${a.eLost + a.eLost2}${seiku ? ` · ${seiku}` : ''}`
+  }).join('\n')
   const detection = b.detection
     ? [DETECTION[b.detection[0]], DETECTION[b.detection[1]]].filter(Boolean).join(' / ')
     : null
@@ -1773,6 +1785,7 @@ const airlineHtml = (b: BattleView, s: SortieView): string => {
         : ''
     }
     ${air ? `<span class="kv">我方机损 <b class="${fLoss ? 'loss' : ''}">${fLoss}</b> · 敌机损 <b>${eWiped ? '全灭' : eLoss}</b></span>` : ''}
+    ${lbasStages.length ? `<span class="kv lbas-sum" title="${esc(lbasDetail)}">基地航空 <b>${lbasCount}</b> · 我机损 <b${lbasFLoss > 0 ? ' class="loss"' : ''}>${lbasFLoss}</b> · 敌机损 <b>${lbasELoss}</b></span>` : ''}
     ${detection ? `<span class="kv">${esc(detection)}</span>` : ''}
     ${b.smokeType > 0 ? `<span class="kv">烟幕 <b>Lv.${b.smokeType}</b></span>` : ''}
     ${b.balloonCell === true ? `<span class="kv" title="此点位为阻塞气球生效格：双方装备的阻塞气球在本战斗生效（判据为战斗报文的格级旗标，推定）">阻塞气球 <b>已触发</b></span>` : ''}

@@ -132,6 +132,8 @@ import {
   type SenkaEntry,
   type SenkaSummary,
 } from '../../shared/senka'
+import { SENKA_RANKING_PATH } from '../../shared/senka-ranking'
+import type { RankingPage, RankingRowData, RankingServer } from '../../shared/senka-ranking'
 import {
   planManualQuestSenkaBooking,
   planQuestSenkaBooking,
@@ -258,13 +260,19 @@ class Ledger {
       -- 2026-09-07 归因：firstPort / charge / shipDeck 原计划只走 idx_events_path，
       -- 每个候选分别扫描 4298 / 1884 / 1201 行再滤 ts；复合索引同时收窄路径与时间窗口。
       CREATE INDEX IF NOT EXISTS idx_events_path_ts ON events(path, ts);
+      CREATE TABLE IF NOT EXISTS ranking_pages (
+        event_id INTEGER PRIMARY KEY,
+        server_num INTEGER,
+        server_name TEXT,
+        server_host TEXT
+      );
       CREATE TABLE IF NOT EXISTS material_log (
         ts INTEGER NOT NULL,
         fuel INTEGER, ammo INTEGER, steel INTEGER, bauxite INTEGER,
         fastbuild INTEGER, bucket INTEGER, devmat INTEGER, screw INTEGER
       );
       CREATE INDEX IF NOT EXISTS idx_material_ts ON material_log(ts);
-      -- 战果账：游戏不下发战果数值，但公式的输入（提督经验）它给。
+      -- 战果账：通常报文给公式的输入（提督经验），排行编码值另行解读。
       -- 每笔单独记，才能回答「这一笔是怎么来的」而不是只给一个月度总数。
       CREATE TABLE IF NOT EXISTS senka_log (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -712,6 +720,42 @@ class Ledger {
     } catch (e) {
       console.warn('[kuma] mg: ledger record failed', e)
     }
+  }
+
+  recordRankingServer = (server: RankingServer | null) => {
+    if (this.lastRecordedEventId == null) return
+    this.db.prepare(
+      `INSERT INTO ranking_pages (event_id, server_num, server_name, server_host) VALUES (?, ?, ?, ?)`,
+    ).run(this.lastRecordedEventId, server?.num ?? null, server?.name ?? null, server?.host ?? null)
+  }
+
+  latestRankingServer = (): RankingServer | null => {
+    const row = this.db.prepare(
+      `SELECT r.server_num AS num, r.server_name AS name, r.server_host AS host
+       FROM ranking_pages r JOIN events e ON e.id = r.event_id
+       WHERE r.server_host IS NOT NULL ORDER BY e.ts DESC, e.id DESC LIMIT 1`,
+    ).get() as RankingServer | undefined
+    return row ?? null
+  }
+
+  queryRankingPages = (fromTs: number): RankingPage[] => {
+    const rows = this.db.prepare(
+      `SELECT e.ts, e.body, r.server_num, r.server_name, r.server_host
+       FROM events e LEFT JOIN ranking_pages r ON r.event_id = e.id
+       WHERE e.path = ? AND e.ts >= ? ORDER BY e.ts ASC, e.id ASC`,
+    ).all(SENKA_RANKING_PATH, fromTs) as {
+      ts: number; body: string; server_num: number | null; server_name: string | null; server_host: string | null
+    }[]
+    return rows.map(row => {
+      const body = JSON.parse(row.body)
+      return {
+        ts: row.ts,
+        list: (body.api_data ?? body).api_list as RankingRowData[],
+        server: row.server_host == null ? null : {
+          num: row.server_num!, name: row.server_name!, host: row.server_host,
+        },
+      }
+    })
   }
 
   private actionsSinceLastUseitemSync = (): UseitemCauseAction[] => {
@@ -2150,7 +2194,7 @@ class Ledger {
       special,
       carry,
       total: normal + special + (carry?.total ?? 0),
-      calibration: null, // 校准值存在 config，由 mg:senka handler 组装
+      calibration: null, // 手动与排行校准由 mg:senka handler 组装
       // 只砍经验行：EO/任务行是「记没记过」的判据，被挤出列表会引发假漏记
       // （2026-08-17 实锤：317 行月账把 8/9 的 EO 顶出 slice(0,300)，自检误报）
       entries: capSenkaEntries(entries),

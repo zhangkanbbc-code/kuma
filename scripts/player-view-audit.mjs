@@ -52,7 +52,8 @@ async function consume(packs, raw) {
   const abyssalShips = new Map(ships.filter(s => !s.api_sortno).map(s => [s.api_id, s]))
   const mg = { master: { ships: Object.fromEntries(ships.map(s => [s.api_id, { name: s.api_name, stype: s.api_stype, sortId: s.api_sort_id }])), slotitems: Object.fromEntries(equips.map(s => [s.api_id, { name: s.api_name }])), missions: {}, upgrades: {} }, ships: {}, slotitems: {}, decks: [], mapGauges: {}, eventAreas: {}, sortie: null }
   const host = runtimeHost({
-    './kernel': { mg, esc, queryLode: async id => p(id), queryMasterRaw: async () => ({ data: raw }), masterShipName: id => mg.master.ships[id]?.name ?? String(id) },
+    // uiGet/uiSet：界面偏好（如改修收藏名单）一律按空账户处理，审计看的是资料本身
+    './kernel': { mg, esc, queryLode: async id => p(id), queryMasterRaw: async () => ({ data: raw }), masterShipName: id => mg.master.ships[id]?.name ?? String(id), uiGet: (_key, fallback) => fallback, uiSet: () => {} },
     './env': { ROOT: REPO_ROOT, APPDATA_PATH: '' },
   })
   const shared = name => host.load(`src/shared/${name}.ts`)

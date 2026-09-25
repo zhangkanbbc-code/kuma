@@ -2585,10 +2585,11 @@ test('opening the expedition screen follows the bottom 远征 tab and restores o
   const main = fs.readFileSync(new URL('../src/main/mg/index.ts', import.meta.url), 'utf8')
   const kernel = fs.readFileSync(new URL('../src/renderer/kernel.ts', import.meta.url), 'utf8')
   const host = fs.readFileSync(new URL('../src/renderer/mu.ts', import.meta.url), 'utf8')
-  assert.match(main, /apiPath === '\/kcsapi\/api_get_member\/mission'/)
+  // 离开判据的行为本体在 shared/game-scene（test/game-scene.test.mjs 按真实请求序列测）；
+  // 这里只钉主进程把它接上了广播。
   assert.match(main, /webContents\.send\('mg:game-scene', scene\)/)
-  assert.match(main, /broadcastGameScene\('mission'\)/)
-  assert.match(main, /broadcastGameScene\('away'\)/)
+  assert.match(main, /createMissionSceneTracker\(\)/)
+  assert.match(main, /broadcastGameScene\(/)
   assert.match(kernel, /ipcRenderer\.on\('mg:game-scene'/)
   assert.match(kernel, /export const onGameScene/)
   assert.match(host, /onGameScene\(\(scene\) =>/)
@@ -2598,17 +2599,6 @@ test('opening the expedition screen follows the bottom 远征 tab and restores o
   assert.match(host, /if \(prev !== 'bi'\) activateModule\('bi', \{ auto: true \}\)/)
   assert.match(host, /group\.active === saved\.id/)
   assert.match(host, /activateModule\(saved\.id, \{ auto: true \}\)/)
-  // 出发/强制归还/结算都还在远征流程里，不能当成离开。
-  const sceneBlock = main.slice(
-    main.indexOf("if (apiPath === '/kcsapi/api_get_member/mission')"),
-    main.indexOf('if (sections.some((s) => DOMAIN_SECTIONS.has(s)))'),
-  )
-  assert.match(sceneBlock, /api_port\/port/)
-  assert.match(sceneBlock, /api_get_member\/mapinfo/)
-  assert.match(sceneBlock, /api_get_member\/practice/)
-  assert.match(sceneBlock, /api_get_member\/questlist/)
-  assert.doesNotMatch(sceneBlock, /api_req_mission\/start/)
-  assert.doesNotMatch(sceneBlock, /api_req_mission\/result/)
 })
 
 test('基地航空队状态改亮页签，编队横幅只留札，开图铃仍按海区提醒', () => {

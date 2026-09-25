@@ -16,6 +16,9 @@ import {
   senkaQuestPeriodStartedInMonth,
 } from '../../shared/senka'
 import type { SenkaEntry, SenkaQuestOption, SenkaSummary } from '../../shared/senka'
+import type { SenkaRankingView } from '../../shared/senka-ranking'
+import { senkaRankingHtml } from '../senka-ranking-view'
+import { querySenkaRanking } from '../kernel'
 import { questCountsObservedFull } from '../../shared/senka-quest-book'
 import { qpTaskGroups } from '../../shared/qp-types'
 import type { QpState } from '../../shared/qp-types'
@@ -529,6 +532,7 @@ const readinessCardHtml = (eventMaps: boolean, bodyHtml: () => string): string =
 }
 
 let senka: SenkaSummary | null = null
+let senkaRanking: SenkaRankingView | null = null
 // 钦的精确计数镜像。自检那张提示单只认它——「计数本周期数满了」是 kuma
 // 自家的观测，与「看着已完成」那条推断链没有关系（判据见 computeQuestMisses）。
 // queryQp 返回的是主进程状态的**同一个对象**，实时 patch 原地改，握着引用即可。
@@ -628,6 +632,7 @@ const senkaHtml = (): string => {
         ? `<div class="senka-cal-tag" title="大数字 = 官方校准值 + 此后新增">已按官方值校准 ${fmtMonthDay(senka.calibration.ts)} · 基准 ${senka.calibration.value.toLocaleString()}</div>`
         : ''
     }
+    ${senkaRanking?.ownRank != null ? `<div class="senka-cal-tag">排行第${senkaRanking.ownRank}名</div>` : ''}
     ${rows || '<div class="l">本月暂无新增战果</div>'}
     ${
       senka.entries.length > 6
@@ -874,7 +879,7 @@ const senkaDetailBodyHtml = (): string => {
       <div class="sd-h">实际校准</div>
       ${
         cal
-          ? `<div class="sd-cal-now">${fmtDateTime(cal.ts)} 校准为 <b>${cal.value.toLocaleString()}</b> · 此后账内 +${fmt(cal.gainedSince)} → 当前估算 <b class="cur">${fmt(cal.current)}</b></div>${
+          ? `<div class="sd-cal-now">${fmtDateTime(cal.ts)} ${cal.source === 'ranking' ? '按排行自动校准为' : '校准为'} <b>${cal.value.toLocaleString()}</b> · 此后账内 +${fmt(cal.gainedSince)} → 当前估算 <b class="cur">${fmt(cal.current)}</b></div>${
               cal.current - senka.total > 0.5
                 ? `<div class="sd-note2">比账内估算多 ${fmt(cal.current - senka.total)}</div>`
                 : '<div class="sd-note2">与账内估算一致</div>'
@@ -885,11 +890,12 @@ const senkaDetailBodyHtml = (): string => {
         <input class="sd-cal-input" type="number" min="0" step="1" placeholder="排名页看到的战果值"
           title="统计存在「未使用 kuma 之前」的经验差值，kuma 仅能统计使用期间数据">
         <button class="sd-cal-btn" data-act="senka-calibrate">${cal ? '重新校准' : '以此为准'}</button>
-        ${cal ? '<button class="sd-cal-btn ghost" data-act="senka-cal-clear">清除校准</button>' : ''}
+        ${cal && cal.source !== 'ranking' ? '<button class="sd-cal-btn ghost" data-act="senka-cal-clear">清除校准</button>' : ''}
       </div>
     </div>`
   return `
     ${calibrationBlock}
+    ${senkaRanking ? senkaRankingHtml(senkaRanking) : ''}
     ${selfCheckBlock}
     <div class="sd-block">
       <div class="sd-total"><b>${fmt(senka.total)}</b><span>本战果月合计（账内估算）</span></div>
@@ -1073,17 +1079,21 @@ const openSenkaDetail = () => {
   // 选单要现查一次：taken 是账本此刻的状态，攒着上一次打开的结果会说谎
   void (async () => {
     await loadSenkaQuestOptions()
-    const body = senkaDetailEl?.querySelector('.sd-body')
-    if (body) body.innerHTML = senkaDetailBodyHtml()
+    await refreshSenkaDetail()
   })()
 }
 
 // 校准写入后：重查战果（主进程组装校准段）→ 弹窗换块 + 主卡重渲
+const renderSenkaDetail = () => {
+  const body = senkaDetailEl?.querySelector('.sd-body')
+  if (body) body.innerHTML = senkaDetailBodyHtml()
+}
+
 const refreshSenkaDetail = async () => {
   senka = await querySenka()
+  senkaRanking = await querySenkaRanking()
   deferPassive(pane, 'zi:senka', () => {
-    const body = senkaDetailEl?.querySelector('.sd-body')
-    if (body) body.innerHTML = senkaDetailBodyHtml()
+    renderSenkaDetail()
     render()
   })
 }
@@ -1268,6 +1278,7 @@ const refresh = async () => {
       // 拿不到只影响战果行显示裸编号，不该拖垮整个账本。
       senkaQuestNames ? Promise.resolve(null) : queryLode('quests-scn').catch(() => null),
       queryMaterialHistory(monthStart),
+      querySenkaRanking(),
     ])
   } catch (error) {
     if (generation !== refreshGeneration) return
@@ -1278,7 +1289,7 @@ const refresh = async () => {
     return
   }
   if (generation !== refreshGeneration) return
-  const [todayRows, rollingDayRows, dl, flow, activeRows, activeDeltaRows, activeSortieCostRows, senkaRows, questLode, monthRows] = rows
+  const [todayRows, rollingDayRows, dl, flow, activeRows, activeDeltaRows, activeSortieCostRows, senkaRows, questLode, monthRows, rankingRows] = rows
   // 账外差值不在这里补：EO 与任务的补记都在主进程 mg:senka 那一次查账里按
   // 账本存着的观测完成了，渲染层只负责把补不了的那几笔照实列出来（不入账）。
   // 自检那张单子还要读钦的精确计数——取不到就不列任务（拿不到观测就不说话）。
@@ -1327,7 +1338,9 @@ const refresh = async () => {
     const buildFlow = fastbuildFlow(monthRows, monthStart, now)
     if (buildFlow.changes) itemFlow.set(2, buildFlow)
     senka = senkaRows
+    senkaRanking = rankingRows
     lastRefresh = Date.now()
+    deferPassive(pane, 'zi:senka-detail', renderSenkaDetail)
     deferPassive(pane, 'zi', render)
     scheduleDayRollover(now)
   })
@@ -1443,9 +1456,12 @@ registerModule({
           deferPassive(pane, 'zi', render)
         })
       }
+      if (keys.includes('basic') && senkaDetailEl) {
+        void refreshSenkaDetail()
+      }
       if (keys.includes('eventAreas')) {
         runPassiveRefresh()
-      } else if (sortieEnded || keys.some((k) => ['materials', 'useitems', 'kdocks'].includes(k))) {
+      } else if (sortieEnded || keys.some((k) => ['materials', 'useitems', 'kdocks', 'basic'].includes(k))) {
         if (queryTimer) clearTimeout(queryTimer)
         queryTimer = setTimeout(runPassiveRefresh, sortieEnded ? 500 : 3000)
       }

@@ -44,7 +44,7 @@ for (const [id, value] of [['21', 3], ['44', 6]]) {
   add(id, 'drumTotal', value, 'kcwiki 字段值与其说明文字不一致，按说明文字（与 wikiwiki 一致）收')
 }
 
-// 原文携带的可行分支转成已有 CompBranch 结构；5/42/A4 按维护者裁决登记，44 跨站编成不同，整格留待裁。
+// 原文携带的可行分支转成已有 CompBranch 结构；5/42/A4/44 按维护者裁决登记。
 // B5/B6 的非编成属性备注被旧解析器当成未知舰种；移入结构后只保留两站一致的舰种条件。
 const branchIds = ['4', '9', '20', '43', 'A3', 'A5', 'A6', 'B5', 'B6']
 for (const id of branchIds) {
@@ -90,6 +90,17 @@ const compositionCorrections = [
     || !wiki[id].rawComposition.includes('の編成でも成功')) throw new Error(`${id} 编成裁决依据漂移`)
   return { id, field: 'compositionBranches', value: parseCompositionBranches(wiki[id].composition, wiki[id].rawComposition),
     basis: 'maintainer', evidence, date: '2026-09-23' }
+})
+if (!wiki['44'].composition.includes('空母(水母,护卫空母可)')
+  || !wiki['44'].rawComposition.includes('水母×2')) throw new Error('44 编成裁决依据漂移')
+compositionCorrections.push({
+  id: '44', field: 'compositionBranches',
+  // 坑位按整队计数，舰种重叠会让同一艘水母被数两次，因此按 ElectronicObserver 的或条件拆成两支。
+  // 显式列出轻空母/空母，避免括号替代条件被丢弃；普通轻空母也收，解析得到 [7, 11, 18] 且 cve=false。
+  value: parseCompositionBranches('水母*2、轻巡*1、驱逐/海防*2、其他*1 或轻空母/空母*1、水母*1、轻巡*1、驱逐/海防*2、其他*1')
+    .map((branch, index) => ({ ...branch, label: ['水母2', '空母系＋水母'][index] })),
+  basis: 'maintainer', date: '2026-09-25',
+  evidence: '维护者裁决 2026-09-25：wikiwiki「遠征」44 写空母(水母,護母可)1隻、水母1隻、軽1隻、(駆+海防)2隻、他1隻必要(要検証)，另列水母×2,軽×1,駆×3；kcwiki 同文，空母数量写作 *1-2 并标待验证；ElectronicObserver（andanteyk 原版与 ElectronicObserverEN 分支现行代码相同）要求水母≥2 或水母≥1 且空母系(水母除く)≥1，另需轻巡≥1、（驱逐+海防）≥2、6 艘。三方一致：空母一格收正规空母、装甲空母、轻空母（含护卫空母）或第二艘水母，另需水母1、轻巡1、驱逐/海防2、其他1',
 })
 const corrections = [...MAINTAINER_EXPEDITION_CORRECTIONS, ...compositionCorrections]
 for (const { id, field, value, basis, ...provenance } of corrections) {
@@ -137,12 +148,12 @@ const pack = { meta: {
   corrections,
 }, data }
 const sourceConflicts = [{ id: '44', field: 'composition', kcwiki: kc['44'].composition, wikiwiki: wiki['44'].composition,
-  reason: '1-2 与 1 不同且含待验证标记，不收；现有解析器均按 1 消费，故无运行时语义差异' }]
+  reason: '1-2 与 1 不同且含待验证标记；维护者裁决 2026-09-25 已按三方一致登记 compositionBranches，空母一格认空母系或第二艘水母，原文差异留底' }]
 const fixture = { sourceHashes: hashes, ids, baseSemantics, oldSemantics, conflicts, corrected }
 const pendingConflicts = conflicts.filter(({ id, field }) => !corrections.some(r => r.id === id && r.field === field))
 const table = (rows) => ['| 远征 | 字段 | kcwiki／新值 | wikiwiki／旧值 | 分类或说明 |', '|---|---|---|---|---|',
   ...rows.map((r) => `| ${r.id} | ${r.field} | ${JSON.stringify(r.kcwiki).replaceAll('|', '\\|')} | ${JSON.stringify(r.wikiwiki).replaceAll('|', '\\|')} | ${r.category ?? r.reason ?? ''} |`)].join('\n')
-const report = `# 远征第一方事实层对照（2026-09-23）
+const report = `# 远征第一方事实层对照（2026-09-25）
 
 基线 beea4bb。63 项逐一对照；对象递归到叶字段，数组为一格，null 与无字段同为缺项。
 原始差异 ${rawDifferences.length} 格：${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join('；')}。
@@ -157,19 +168,20 @@ ${accepted.map((r) => `- ${r.id}.${r.field} = ${JSON.stringify(r.value)}；${r.b
 ## 两站冲突清单
 
 ${pendingConflicts.length} 格未收。下表为运行时消费语义的逐格值；空数组与分组有意义，奖励原始文本在全差异表。
-44 编成整格不覆盖；未裁的奖励时薪、奖励分组、舰经验和交战档位冲突同样留底层。
+44 编成已按维护者裁决登记；未裁的奖励时薪、奖励分组、舰经验和交战档位冲突仍留底层。
 ${table(corrections.filter(r => r.field === 'rewards.shipExp').map(r => ({ id: r.id, field: r.field, kcwiki: kc[r.id].rewards.shipExp, wikiwiki: wiki[r.id].rewards.shipExp,
   reason: `已裁（第三票）·待实测；运行时 ${r.value}；${r.date}；${r.evidence}` })))}
 
 ${table(pendingConflicts)}
 
-来源本身另有 ${sourceConflicts.length} 格编成歧义，当前解析器未表达该差异，仍单列待裁：
+来源本身另有 ${sourceConflicts.length} 格编成原文差异，裁决与留底说明如下：
 ${table(sourceConflicts)}
 
 ## 维护者编成订正
 
 5/42/A4 按维护者裁决逐格登记；主编成与 wikiwiki 原文变体一并转成 compositionBranches。
 42 基础编成为轻巡1、驱逐2、其他1，另认五种海防模式；轻巡1驱逐1海防1 判失败，与 wikiwiki 原文消费语义一致。
+44 按 ElectronicObserver 的或条件登记两个分支：「水母2」为水母2、轻巡1、驱逐/海防2、其他1；「空母系＋水母」为空母系1、水母1、轻巡1、驱逐/海防2、其他1。每支共6艘，坑位舰种互不重叠；普通轻空母与护卫空母均可，桶数、属性与等级条件不变。
 
 | 远征 | 字段 | 依据 |
 |---|---|---|

@@ -26,7 +26,7 @@ test('远征事实对账夹具固定 63 项与真实 kcwiki 基线，不读取 w
   assert.deepEqual(fixture.ids, Object.keys(kc))
   assert.equal(createHash('sha256').update(readFileSync(new URL('../assets/lodes/kcwiki-expedition.json', import.meta.url))).digest('hex'), fixture.sourceHashes.kcwiki)
   assert.deepEqual(Object.fromEntries(fixture.ids.map((id) => [id, semanticExpedition(kc[id])])), fixture.baseSemantics)
-  assert.equal(fixture.conflicts.length, 118)
+  assert.equal(fixture.conflicts.length, 119)
   assert.deepEqual(fixture.corrected.map(({ id, field }) => `${id}.${field}`), ['24.drumTotal', '40.drumTotal'])
 })
 
@@ -284,6 +284,38 @@ test('5/42/A4 编成按三方多数登记：基础条件、五种新模式与失
   assert.equal(passes('A4', [CL(), DE(), DE(), CA(), CA()]), true, 'A4 轻巡1 海防2 其他2')
   assert.equal(passes('A4', [CL(), DD(), DE(), CA(), CA()]), false, 'A4 轻巡1 驱逐1 海防1 失败（kcwiki 与 wikiwiki 两票）')
   assert.equal(passes('A4', [CVL(), DD(), DD(), CA(), CA()]), false, 'A4 普通轻母不顶护卫空母')
+})
+
+// 2026-09-25 维护者裁决（玩家反馈 44 判定有误）：kcwiki「空母(水母，护母可)*1-2」被解析成
+// 只收正规/装甲空母的一格，水母×2 与轻空母编成全被判失败。wikiwiki「空母(水母,護母可)1隻、
+// 水母1隻…」＋ 其备注「水母×2,軽×1,駆×3」＋ ElectronicObserver（原版与英文分支同写
+// 「水母≥2 或 水母≥1 且空母系(水母除く)≥1」）三方一致：空母那格认任一空母系（正规、装甲、
+// 轻空母含护卫空母）或第二艘水母。
+test('44 编成：空母那格认空母系或第二艘水母，其余照旧逐格判定', () => {
+  const stats = { firepower: 100, antiAir: 100, antiSubmarine: 100, lineOfSight: 100 }
+  const ship = (stype, { cve = false, drums = 0 } = {}) => ({ stype, cve, drums, lv: 99, cond: 49, stats })
+  // 桶：前三艘各 2 个，凑满「3 艘携带、合计 6 个」，让用例只考编成
+  const fleet = (...types) => types.map((t, i) => ship(t.stype, { cve: t.cve, drums: i < 3 ? 2 : 0 }))
+  const AV = { stype: 16 }, CL = { stype: 3 }, DD = { stype: 2 }, DE = { stype: 1 }, CA = { stype: 5 }
+  const CV = { stype: 11 }, CVB = { stype: 18 }, CVL = { stype: 7 }, CVE = { stype: 7, cve: true }
+  const passes = (ships) => runtime.checkShips(expeds.get('44'), ships).fails === 0
+  const correction = pack.meta.corrections.find((row) => row.id === '44' && row.field === 'compositionBranches')
+  assert.ok(correction, '44 编成订正要带来源登记')
+  assert.equal(correction.basis, 'maintainer')
+  assert.equal(correction.date, '2026-09-25')
+  assert.match(correction.evidence, /ElectronicObserver/)
+
+  assert.equal(passes(fleet(AV, AV, CL, DD, DD, DD)), true, '44 水母2 轻巡1 驱逐3')
+  assert.equal(passes(fleet(AV, AV, CL, DE, DE, CA)), true, '44 水母2 轻巡1 海防2 其他1')
+  assert.equal(passes(fleet(CVL, AV, CL, DD, DD, DD)), true, '44 轻空母1 水母1 轻巡1 驱逐3')
+  assert.equal(passes(fleet(CV, AV, CL, DD, DE, CA)), true, '44 正规空母1 水母1 轻巡1 驱逐1 海防1 其他1')
+  assert.equal(passes(fleet(CVB, AV, CL, DD, DD, DD)), true, '44 装甲空母1 水母1 轻巡1 驱逐3')
+  assert.equal(passes(fleet(CVE, AV, CL, DE, DE, DE)), true, '44 护卫空母1 水母1 轻巡1 海防3')
+  assert.equal(passes(fleet(AV, CL, DD, DD, DD, DD)), false, '44 只有 1 艘水母、没有空母')
+  assert.equal(passes(fleet(CV, CV, CL, DD, DD, DD)), false, '44 没有水母')
+  assert.equal(passes(fleet(AV, AV, CA, DD, DD, DD)), false, '44 没有轻巡')
+  assert.equal(passes(fleet(AV, AV, CL, DD, CA, CA)), false, '44 驱逐海防只有 1 艘')
+  assert.equal(passes(fleet(AV, AV, CL, DD, DD)), false, '44 不足 6 艘')
 })
 
 test('规划器首选分支与槽位顺序逐项对账，允许的编成冲突除外', () => {

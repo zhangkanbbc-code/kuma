@@ -71,6 +71,7 @@ export const stub: any = {
   akashi: null,
   uncovered: false,
   coverageMax: 0,
+  favorites: [],
 }
 export const setCoverage = (n: number) => {
   improveCoverageMax = n
@@ -102,6 +103,8 @@ const equipVisualLink = (mstId: number, label?: string) =>
 const improvementMaterialLink = (index: number, label: string) =>
   \`<a class="el" data-material="\${index}">\${label}</a>\`
 const entityNamePlain = (_domain: string, _id: number, fallback: string) => fallback
+// 改修收藏名单（src/renderer/improve-favorites.ts 的读口）：用例自己摆
+const isImproveFavorite = (mstId: number) => (stub.favorites as number[]).includes(mstId)
 
 ${CHIPS}
 
@@ -148,6 +151,7 @@ export const improveCardHtml = (setup = {}) => {
   stub.akashi = setup.akashi ?? null
   stub.bundledAkashi = setup.bundledAkashi ?? null
   stub.uncovered = setup.uncovered ?? false
+  stub.favorites = setup.favorites ?? []
   loaded.setCoverage(setup.coverageMax ?? 0)
   return loaded.improveSectionHtml(
     setup.equip ?? { api_id: 1, api_name: '样本装备' },

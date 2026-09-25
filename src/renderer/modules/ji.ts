@@ -1,5 +1,6 @@
 import { runModuleCommand } from '../module-command'
 import { equipHeldOnce, equipBookPagesRead } from '../equip-book'
+import { improveFavoriteIds, isImproveFavorite, toggleImproveFavorite } from '../improve-favorites'
 import { EQUIP_BOOK_PAGE_SIZE } from '../../shared/equip-book'
 import { akashiImproveItem } from '../../shared/akashi-improve'
 import { canDeferCatalogRow, canDeferCatalogRows } from '../../shared/catalog-row-layout'
@@ -5537,6 +5538,7 @@ const equipMatches = (e: any) => {
 
 interface TodayImprovementRow {
   equipId: number
+  favorite: boolean
   variant: number
   type2: number // 装备类别，用于分组
   ready: boolean
@@ -5667,6 +5669,7 @@ const todayImprovementRows = (): TodayImprovementRow[] => {
   for (const eo of eoByEquip.values()) {
     const equip = friendlyEquips.get(eo.eq_id)
     if (!equip || !equipMatches(equip)) continue
+    const favorite = isImproveFavorite(eo.eq_id)
     // 372 条方案 × 一次全表 entries(mg.slotitems) 是这一页最贵的一笔白工；
     // equipInstanceIndex 已按 mstId 建好索引（随 mg.slotitems 身份失效）
     const targets = equipInstancesOf(eo.eq_id).map(([id, item]) => ({ id: parseInt(id, 10), ...item }))
@@ -5780,6 +5783,7 @@ const todayImprovementRows = (): TodayImprovementRow[] => {
       }
       rows.push({
         equipId: eo.eq_id,
+        favorite,
         variant,
         type2: Array.isArray(equip.api_type) ? equip.api_type[2] : 0,
         ready,
@@ -5809,6 +5813,7 @@ const todayImprovementRows = (): TodayImprovementRow[] => {
             ${fodder === '—' ? '' : `<div class="ti-row">素材 ${fodder}</div>`}
             ${best.missing.length ? `<div class="ti-row bad">缺 ${best.missing.map(esc).join(' · ')}</div>` : ''}
             <a class="ti-open" data-improve-open="${eo.eq_id}">装备详情 ›</a>
+            <a class="ti-fav" data-improve-favorite="${eo.eq_id}">${favorite ? '★ 已收藏' : '☆ 收藏'}</a>
           </div>
         </details>`,
       })
@@ -5824,8 +5829,38 @@ const todayImprovementRows = (): TodayImprovementRow[] => {
   )
 }
 
+// 没有实际方案行的收藏都列灰行：含未持有、已改满，周历仍展示该款全部日程。
+const todayImprovementFavoriteGhosts = (rows: TodayImprovementRow[]): string[] => {
+  const todayIds = new Set(rows.map((row) => row.equipId))
+  return improveFavoriteIds().sort((a, b) => a - b).flatMap((id) => {
+    if (todayIds.has(id)) return []
+    const eo = eoByEquip.get(id)
+    const equip = friendlyEquips.get(id)
+    if (!eo || !equip || !equipMatches(equip)) return []
+    const days = [...new Set<number>((eo.improvement ?? []).flatMap((imp: any) =>
+      (imp.helpers ?? []).flatMap((helper: any) => helper.days ?? []),
+    ))]
+    const iconId = Array.isArray(equip.api_type) ? equip.api_type[3] : 0
+    return [`<details class="improve-item" data-equip="${id}">
+      <summary><div class="row improve-row ghost">
+        <div class="face eqface">${equipTypeIconHtml(iconId, { className: 'lg', title: entityNamePlain('equip', id, equip.api_name) })}</div>
+        <div class="nm">
+          <b>${elinkHtml('mstEquip', id, entityNameHtml('equip', id, equip.api_name, { compact: true }))}</b>
+          ${improveWeekHtml(days)}
+        </div>
+        <span class="today-status">今日不可改修</span>
+      </div></summary>
+      <div class="ti-more">
+        <div class="ti-row">持有 ${equipInstancesOf(id).length}</div>
+        <a class="ti-open" data-improve-open="${id}">装备详情 ›</a>
+        <a class="ti-fav" data-improve-favorite="${id}">★ 已收藏</a>
+      </div>
+    </details>`]
+  })
+}
+
 /**
- * 今日改修按装备类别分组，每组接可折叠组头（默认全展开，见 `groupBoxHtml`）。
+ * 今日改修先列收藏，再按装备类别分组，每组接可折叠组头（默认全展开，见 `groupBoxHtml`）。
  *
  * **组之间按「可做条数」排**——今天能动手的类别浮到最上面，组内保持原来的
  * 「现在可做 → 二号舰已匹配 → 缺口较少」。纯按类别 id 排会把能做的那几条
@@ -5838,9 +5873,20 @@ const todayImprovementRows = (): TodayImprovementRow[] => {
  * 所以筛空的类别根本进不到这里——不会剩下一个空组头。
  */
 const todayImprovementGroupsHtml = (rows: TodayImprovementRow[]): string => {
+  const favorites = rows.filter((row) => row.favorite)
+  const ghosts = todayImprovementFavoriteGhosts(rows)
+  const total = favorites.length + ghosts.length
+  const ready = favorites.filter((row) => row.ready).length
+  const favoriteGroup = total ? groupBoxHtml(
+    'equipToday:收藏',
+    `<b>收藏</b><span class="cnt">${ready ? `<i class="grp-ready">可做 ${ready}</i> / ` : ''}${total}</span>`,
+    favorites.map((row) => row.html).join('') + ghosts.join(''),
+  ) : ''
   const groups = new Map<number, TodayImprovementRow[]>()
-  for (const row of rows) groups.set(row.type2, [...(groups.get(row.type2) ?? []), row])
-  return [...groups.entries()]
+  for (const row of rows) {
+    if (!row.favorite) groups.set(row.type2, [...(groups.get(row.type2) ?? []), row])
+  }
+  return favoriteGroup + [...groups.entries()]
     .map(([type2, list]) => ({ type2, list, ready: list.filter((r) => r.ready).length }))
     .sort((a, b) => b.ready - a.ready || a.type2 - b.type2)
     .map(({ type2, list, ready: n }) => {
@@ -6665,7 +6711,7 @@ const improveSectionHtml = (e: any, instances: [string, { level?: number }][]): 
       </details>`
     : '<details class="ak-grow"><summary>逐星加成</summary><div class="ak-empty">待补</div></details>'
   return `<div class="sec">
-    <div class="sec-h">改修工厂<span class="aux${openToday ? ' ok' : ''}" title="改修日程">${JST_WEEKDAY_LABELS[today]} · ${openToday ? '今日可改修 ✓' : '今日不可改修 ✗'}</span><span class="sp"></span>${eoLode ? lodeCreditMark(eoLode.meta) : ''}</div>
+    <div class="sec-h">改修工厂<span class="aux${openToday ? ' ok' : ''}" title="改修日程">${JST_WEEKDAY_LABELS[today]} · ${openToday ? '今日可改修 ✓' : '今日不可改修 ✗'}</span><span class="sp"></span><a class="ak-fav" data-improve-favorite="${e.api_id}">${isImproveFavorite(e.api_id) ? '★ 已收藏' : '☆ 收藏'}</a>${eoLode ? lodeCreditMark(eoLode.meta) : ''}</div>
     <div class="akashi">
       ${starTable}${planHtml}
       ${anyConvert ? '' : '<div class="ak-note">当前装备无更新路线 · ★max 为终点</div>'}
@@ -12408,6 +12454,23 @@ const wire = () => {
   })
   pane.querySelector('#ji-equip-list')?.addEventListener('click', (e) => {
     const target = e.target as HTMLElement
+    const favorite = target.closest<HTMLElement>('[data-improve-favorite]')
+    if (favorite) {
+      e.preventDefault()
+      e.stopPropagation()
+      const id = Number(favorite.dataset.improveFavorite)
+      const selector = `.improve-item[data-equip="${id}"]`
+      // 同款可能有多条方案；搬组后按同款内的顺序找回刚点的那一条。
+      const index = [...pane.querySelectorAll(selector)].indexOf(favorite.closest('.improve-item')!)
+      toggleImproveFavorite(id)
+      render()
+      const item = pane.querySelectorAll<HTMLDetailsElement>(selector)[index]
+      if (item) {
+        item.open = true
+        revealSection(item)
+      }
+      return
+    }
     // 「今日改修」的行是行内折叠：点行就地展开，只有「装备详情 ›」这一枚进抽屉。
     // 用户裁的——那一页要能一眼扫完，不是每看一条就把整个抽屉推出来一次
     const opener = target.closest<HTMLElement>('[data-improve-open]')
@@ -12437,6 +12500,14 @@ const wire = () => {
     }
     equipState.selected = parseInt(row.dataset.equip!, 10)
     equipState.open = true
+    render()
+  })
+  pane.querySelector('#ji-equip-wrap .drawer')?.addEventListener('click', (e) => {
+    const favorite = (e.target as HTMLElement).closest<HTMLElement>('[data-improve-favorite]')
+    if (!favorite) return
+    e.preventDefault()
+    e.stopPropagation()
+    toggleImproveFavorite(Number(favorite.dataset.improveFavorite))
     render()
   })
   pane.querySelector('#ji-equip-close')?.addEventListener('click', () => {

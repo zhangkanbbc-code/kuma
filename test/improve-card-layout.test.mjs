@@ -179,6 +179,26 @@ test('抬头只回答「今天能不能改」，不再报「N 套方案 · 每�
   assert.match(周五, /星期五 · 今日不可改修 ✗/)
 })
 
+// 2026-09-25 维护者裁决：装备详情的「改修工厂」节头也能收藏，与今日改修展开层同一份名单；
+// 哪天都能点（今天不能改的款也能先收藏）。
+const 节头 = (html) => /<div class="sec-h">([\s\S]*?)<\/div>/.exec(html)?.[1] ?? ''
+
+test('改修工厂节头带收藏开关：未收藏「☆ 收藏」、已收藏「★ 已收藏」，今天不能改也照样有', () => {
+  for (const day of [2, 5]) {
+    assert.match(节头(improveCardHtml({ ...常规(), day })), /data-improve-favorite="2"[^>]*>\s*☆ 收藏/, `星期${day}`)
+    assert.match(节头(improveCardHtml({ ...常规(), day, favorites: [2] })), /data-improve-favorite="2"[^>]*>\s*★ 已收藏/, `星期${day}`)
+  }
+  // 段名不变，折叠记忆照旧认得
+  assert.equal(sectionTitleOf(improveCardHtml({ ...常规(), favorites: [2] })), '改修工厂')
+})
+
+test('不可改修与未收录的装备不给收藏开关', () => {
+  for (const uncovered of [true, false]) {
+    const html = improveCardHtml({ equip: 装备[1], equips: 装备, eo: null, uncovered, coverageMax: 500 })
+    assert.ok(!html.includes('data-improve-favorite'), uncovered ? '未收录' : '不可改修')
+  }
+})
+
 test('段名与折叠默认集对得上——改了名就得同步改，否则卡会静默变回折起', () => {
   const html = improveCardHtml(常规())
   const title = sectionTitleOf(html)

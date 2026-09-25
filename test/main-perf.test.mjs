@@ -253,6 +253,8 @@ test('network.on.response：采用同一阈值，原有分段日志格式保持'
       ledger: { record: (...args) => { calls.push(args); h.advance(duration) } },
       handleEvent: () => calls.push('handleEvent'),
       appendPerf: (...args) => entries.push(args),
+      // 排行报文在监听里另记服务器；这条用例只走 port，给个常量让比较能跑
+      SENKA_RANKING_PATH: '/kcsapi/api_req_ranking/mxltvkpyuklh',
     })
     listener('POST', ['', '/kcsapi/api_port/port'], '{"api_result":1,"api_data":{}}', '{}', 123)
     assert.deepEqual(lastApis.list(), [{ path: '/kcsapi/api_port/port', ts: 123 }])

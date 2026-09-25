@@ -10946,6 +10946,161 @@
     },
     {
       "id": "44",
+      "field": "compositionBranches",
+      "kcwiki": [
+        [
+          {
+            "count": 2,
+            "flagship": false,
+            "wildcard": false,
+            "cve": false,
+            "homogeneous": false,
+            "types": [
+              16
+            ]
+          },
+          {
+            "count": 1,
+            "flagship": false,
+            "wildcard": false,
+            "cve": false,
+            "homogeneous": false,
+            "types": [
+              3
+            ]
+          },
+          {
+            "count": 2,
+            "flagship": false,
+            "wildcard": false,
+            "cve": false,
+            "homogeneous": false,
+            "types": [
+              1,
+              2
+            ]
+          },
+          {
+            "count": 1,
+            "flagship": false,
+            "wildcard": true,
+            "cve": false,
+            "homogeneous": false,
+            "types": null
+          }
+        ],
+        [
+          {
+            "count": 1,
+            "flagship": false,
+            "wildcard": false,
+            "cve": false,
+            "homogeneous": false,
+            "types": [
+              7,
+              11,
+              18
+            ]
+          },
+          {
+            "count": 1,
+            "flagship": false,
+            "wildcard": false,
+            "cve": false,
+            "homogeneous": false,
+            "types": [
+              16
+            ]
+          },
+          {
+            "count": 1,
+            "flagship": false,
+            "wildcard": false,
+            "cve": false,
+            "homogeneous": false,
+            "types": [
+              3
+            ]
+          },
+          {
+            "count": 2,
+            "flagship": false,
+            "wildcard": false,
+            "cve": false,
+            "homogeneous": false,
+            "types": [
+              1,
+              2
+            ]
+          },
+          {
+            "count": 1,
+            "flagship": false,
+            "wildcard": true,
+            "cve": false,
+            "homogeneous": false,
+            "types": null
+          }
+        ]
+      ],
+      "wikiwiki": [
+        [
+          {
+            "count": 1,
+            "flagship": false,
+            "wildcard": false,
+            "cve": false,
+            "homogeneous": false,
+            "types": [
+              11,
+              18
+            ]
+          },
+          {
+            "count": 1,
+            "flagship": false,
+            "wildcard": false,
+            "cve": false,
+            "homogeneous": false,
+            "types": [
+              16
+            ]
+          },
+          {
+            "count": 1,
+            "flagship": false,
+            "wildcard": false,
+            "cve": false,
+            "homogeneous": false,
+            "types": [
+              3
+            ]
+          },
+          {
+            "count": 2,
+            "flagship": false,
+            "wildcard": false,
+            "cve": false,
+            "homogeneous": false,
+            "types": [
+              1,
+              2
+            ]
+          },
+          {
+            "count": 1,
+            "flagship": false,
+            "wildcard": true,
+            "cve": false,
+            "homogeneous": false,
+            "types": null
+          }
+        ]
+      ],
+      "reason": "已裁：维护者裁决 2026-09-25：wikiwiki「遠征」44 写空母(水母,護母可)1隻、水母1隻、軽1隻、(駆+海防)2隻、他1隻必要(要検証)，另列水母×2,軽×1,駆×3；kcwiki 同文，空母数量写作 *1-2 并标待验证；ElectronicObserver（andanteyk 原版与 ElectronicObserverEN 分支现行代码相同）要求水母≥2 或水母≥1 且空母系(水母除く)≥1，另需轻巡≥1、（驱逐+海防）≥2、6 艘。三方一致：空母一格收正规空母、装甲空母、轻空母（含护卫空母）或第二艘水母，另需水母1、轻巡1、驱逐/海防2、其他1"
+    },
+    {
+      "id": "44",
       "field": "rewards.items",
       "kcwiki": [
         {
