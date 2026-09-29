@@ -133,7 +133,7 @@ import {
   type SenkaSummary,
 } from '../../shared/senka'
 import { SENKA_RANKING_PATH } from '../../shared/senka-ranking'
-import type { RankingPage, RankingRowData, RankingServer } from '../../shared/senka-ranking'
+import type { RankingPage, RankingRewardRow, RankingRowData, RankingServer } from '../../shared/senka-ranking'
 import {
   planManualQuestSenkaBooking,
   planQuestSenkaBooking,
@@ -738,7 +738,19 @@ class Ledger {
     return row ?? null
   }
 
-  queryRankingPages = (fromTs: number): RankingPage[] => {
+  rankingEventStamp = (): { count: number; maxId: number; firstTs: number | null } =>
+    this.db.prepare(
+      `SELECT COUNT(*) AS count, COALESCE(MAX(id), 0) AS maxId, MIN(ts) AS firstTs FROM events WHERE path = ?`,
+    ).get(SENKA_RANKING_PATH) as { count: number; maxId: number; firstTs: number | null }
+
+  querySenkaCalendarEntries = (from: number, to: number): { ts: number; senka: number }[] =>
+    this.db.prepare(`SELECT ts, senka FROM senka_log WHERE ts >= ? AND ts < ? ORDER BY ts ASC`)
+      .all(from, to) as { ts: number; senka: number }[]
+
+  earliestSenkaTs = (): number | null =>
+    (this.db.prepare(`SELECT MIN(ts) AS ts FROM senka_log`).get() as { ts: number | null }).ts
+
+  queryRankingPages = (fromTs = 0): RankingPage[] => {
     const rows = this.db.prepare(
       `SELECT e.ts, e.body, r.server_num, r.server_name, r.server_host
        FROM events e LEFT JOIN ranking_pages r ON r.event_id = e.id
@@ -757,6 +769,12 @@ class Ledger {
       }
     })
   }
+
+  queryRankingRewardRows = (): RankingRewardRow[] =>
+    this.db.prepare(
+      `SELECT ts, item_id, delta, cause FROM useitem_log
+       WHERE cause IS NULL AND delta > 0 ORDER BY ts ASC, rowid ASC`,
+    ).all() as RankingRewardRow[]
 
   private actionsSinceLastUseitemSync = (): UseitemCauseAction[] => {
     const endId = this.lastRecordedEventId

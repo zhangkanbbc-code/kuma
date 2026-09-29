@@ -18,7 +18,8 @@ import {
 import type { SenkaEntry, SenkaQuestOption, SenkaSummary } from '../../shared/senka'
 import type { SenkaRankingView } from '../../shared/senka-ranking'
 import { senkaRankingHtml } from '../senka-ranking-view'
-import { querySenkaRanking } from '../kernel'
+import { senkaCalendarHtml } from '../senka-calendar-view'
+import { querySenkaCalendar, querySenkaRanking } from '../kernel'
 import { questCountsObservedFull } from '../../shared/senka-quest-book'
 import { qpTaskGroups } from '../../shared/qp-types'
 import type { QpState } from '../../shared/qp-types'
@@ -35,7 +36,7 @@ import { mapCodeOf } from '../../shared/map-id'
 import { hasEventMaps } from '../../shared/event-area'
 import { sortieJustEnded } from '../../shared/passive-refresh'
 import { MATERIAL_ICON_BY_INDEX, materialIconHtml, useItemIconHtml } from '../entity-art'
-import { elink, navigate, registerEntityRoute } from '../link'
+import { elink, navigate, pinCard, registerEntityRoute } from '../link'
 import { bilingualNameHtml, entityNameHtml, entityNamePlain, entityTermHtml, entityTermTrustedHtml } from '../localization'
 import { simplifyQuestScnData } from '../kcwiki-zh'
 import { activateModule, isModuleAvailable, registerModule } from '../mu'
@@ -621,7 +622,7 @@ const senkaHtml = (): string => {
     </svg>`
   })()
   return `<div class="scard senka-card"><div class="h">战果<span class="aux">${monthLabel} 月 · 换算自提督经验
-    <span class="credit-mark" title="通常 = 该月提督经验 ×7/10000；EO 攻略按固定分值查表，与游戏排名页可能有小数差">口径</span></span><span class="senka-detail-link" data-act="senka-detail">详情</span></div>
+    <span class="credit-mark" title="通常 = 该月提督经验 ×7/10000；EO 攻略按固定分值查表，与游戏排名页可能有小数差">口径</span></span><span class="senka-detail-link" data-act="senka-detail">详情</span><span class="senka-cal-link" data-act="senka-calendar">日历</span></div>
     ${chart}
     <div class="senka-sum">
       <span class="big">${fmt(senka.calibration ? senka.calibration.current : senka.total)}</span>
@@ -645,6 +646,59 @@ const senkaHtml = (): string => {
 // ---- 战果详情弹窗（2026-08-17 用户要的）----
 // 挂 body：底坞面板既裁 overflow 又有 transform 包含块，absolute 会被裁、
 // fixed 会飞（浮层一律挂 body 的既定纪律）。
+let senkaCalendarEl: HTMLElement | null = null
+let senkaCalendarMonth: string | undefined
+let senkaCalendarOpening = false
+let senkaCalendarRequest = 0
+
+const closeSenkaCalendar = () => {
+  senkaCalendarRequest++
+  senkaCalendarOpening = false
+  senkaCalendarEl?.remove()
+  senkaCalendarEl = null
+}
+
+const refreshSenkaCalendar = async () => {
+  const card = senkaCalendarEl
+  if (!card) return
+  const request = ++senkaCalendarRequest
+  try {
+    const model = await querySenkaCalendar(senkaCalendarMonth)
+    if (request !== senkaCalendarRequest || card !== senkaCalendarEl) return
+    senkaCalendarMonth = model.month
+    card.querySelector('.p-s')!.innerHTML = senkaCalendarHtml(model)
+  } catch (error) {
+    console.warn('[kuma] 战果日历读取失败', error)
+  }
+}
+
+const toggleSenkaCalendar = async (anchor: HTMLElement) => {
+  if (senkaCalendarEl || senkaCalendarOpening) {
+    closeSenkaCalendar()
+    return
+  }
+  senkaCalendarOpening = true
+  const request = ++senkaCalendarRequest
+  try {
+    const model = await querySenkaCalendar()
+    if (request !== senkaCalendarRequest) return
+    senkaCalendarMonth = model.month
+    senkaCalendarEl = pinCard({ title: '战果日历', body: senkaCalendarHtml(model), anchor,
+      className: 'senka-cal-card', onClose: closeSenkaCalendar })
+    senkaCalendarEl.addEventListener('click', event => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-cal-nav]')
+      if (!button || button.disabled) return
+      const [year, month] = senkaCalendarMonth!.split('-').map(Number)
+      senkaCalendarMonth = new Date(Date.UTC(year, month - 1 + Number(button.dataset.calNav), 1)).toISOString().slice(0, 7)
+      void refreshSenkaCalendar()
+    })
+  } catch (error) {
+    console.warn('[kuma] 战果日历读取失败', error)
+  } finally {
+    if (request === senkaCalendarRequest) senkaCalendarOpening = false
+  }
+}
+
 let senkaDetailEl: HTMLElement | null = null
 
 const closeSenkaDetail = () => {
@@ -895,7 +949,13 @@ const senkaDetailBodyHtml = (): string => {
     </div>`
   return `
     ${calibrationBlock}
-    ${senkaRanking ? senkaRankingHtml(senkaRanking) : ''}
+    ${senkaRanking ? senkaRankingHtml({
+      ...senkaRanking,
+      history: senkaRanking.history?.map(month => ({
+        ...month,
+        rewards: month.rewards.map(item => ({ ...item, name: entityNamePlain('item', item.itemId, item.name) })),
+      })),
+    }) : ''}
     ${selfCheckBlock}
     <div class="sd-block">
       <div class="sd-total"><b>${fmt(senka.total)}</b><span>本战果月合计（账内估算）</span></div>
@@ -1091,7 +1151,8 @@ const renderSenkaDetail = () => {
 
 const refreshSenkaDetail = async () => {
   senka = await querySenka()
-  senkaRanking = await querySenkaRanking()
+  senkaRanking = await querySenkaRanking(undefined, { history: true })
+  void refreshSenkaCalendar()
   deferPassive(pane, 'zi:senka', () => {
     renderSenkaDetail()
     render()
@@ -1144,6 +1205,9 @@ const render = (force = false) => {
   })
   pane.querySelector<HTMLElement>('[data-act="senka-detail"]')?.addEventListener('click', () => {
     openSenkaDetail()
+  })
+  pane.querySelector<HTMLElement>('[data-act="senka-calendar"]')?.addEventListener('click', event => {
+    void toggleSenkaCalendar(event.currentTarget as HTMLElement)
   })
   pane.querySelector<HTMLElement>('[data-act="zi-delta-detail"]')?.addEventListener('click', () => {
     openDeltaDetail(id => senkaQuestNames?.get(id) ?? null)
@@ -1235,6 +1299,7 @@ const scheduleShipsRender = () => {
 const runPassiveRefresh = () => {
   if (!pane?.classList.contains('active')) {
     refreshPending = true
+    void refreshSenkaCalendar()
     return
   }
   refreshPending = false
@@ -1338,7 +1403,11 @@ const refresh = async () => {
     const buildFlow = fastbuildFlow(monthRows, monthStart, now)
     if (buildFlow.changes) itemFlow.set(2, buildFlow)
     senka = senkaRows
+    // 常规刷新只更新本月字段，保留已打开详情中加载的往月。
+    if (senkaDetailEl && senkaRanking?.history) rankingRows.history = senkaRanking.history
     senkaRanking = rankingRows
+    // 全量排行只在日历打开时查询；不放进每拍常规刷新的 Promise.all。
+    void refreshSenkaCalendar()
     lastRefresh = Date.now()
     deferPassive(pane, 'zi:senka-detail', renderSenkaDetail)
     deferPassive(pane, 'zi', render)

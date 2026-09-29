@@ -4512,6 +4512,24 @@
     .mod-zi .senka-cal-tag { font-size: 9.5px; color: var(--gold); margin: -2px 0 4px; cursor: help; }
     .mod-zi .senka-detail-link { margin-left: auto; font-size: 10px; color: var(--accent); cursor: pointer; }
     .mod-zi .senka-detail-link:hover { text-decoration: underline; }
+    .mod-zi .senka-cal-link { font-size: 10px; color: var(--accent); cursor: pointer; }
+    .mod-zi .senka-cal-link:hover { text-decoration: underline; }
+    .peek.tip.senka-cal-card { width: 320px; max-width: calc(100vw - 8px); }
+    .senka-cal-card .sc-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; color: var(--text); }
+    .sc-head button { padding: 1px 9px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg2); color: var(--text); cursor: pointer; }
+    .sc-head button:disabled { opacity: .35; cursor: default; }
+    .sc-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+    .sc-wd { text-align: center; color: var(--dim); }
+    .sc-cell { min-width: 0; min-height: 58px; padding: 3px 2px; border-radius: 4px; background: color-mix(in srgb, var(--ok) calc(var(--heat) * 35%), transparent); color: var(--text); overflow-wrap: anywhere; }
+    .sc-cell.blank { background: transparent; }
+    .sc-cell.today { outline: 1px solid var(--accent); outline-offset: -1px; }
+    .sc-cell.future { opacity: .4; }
+    .sc-d { color: var(--sub); }
+    .sc-g { color: var(--ok); font-weight: 600; }
+    .sc-r { font-size: 9px; line-height: 1.4; white-space: normal; }
+    .sc-r .up { color: var(--ok); }
+    .sc-r .down { color: var(--bad); }
+    .sc-total { margin-top: 8px; border-top: 1px solid var(--line-soft); padding-top: 5px; color: var(--text); }
     /* 收支明细：浮层挂 body，避开模块的裁剪与 transform 包含块。 */
     .mod-zi .zi-detail-btn, .zi-detail-host .zi-detail-btn {
       border: 1px solid var(--line); border-radius: 6px; background: none;
@@ -4606,8 +4624,14 @@
     .sd-rank-chart polyline { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
     .sd-rank-chart circle { fill: currentColor; }
     .sd-rank-chart .est { fill: var(--sub); }
+    .sd-rank-hit { fill: transparent; pointer-events: all; }
+    .sd-rank-hit:hover { fill: var(--accent-wash); fill-opacity: .35; }
     .sd-rank-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 10px; margin: 5px 0 10px; }
     .sd-rank-legend span::before { content: ''; display: inline-block; width: 12px; border-top: 2px solid currentColor; vertical-align: middle; margin-right: 4px; }
+    .sd-rank-history { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+    .sd-rank-month { padding: 7px 8px; border-bottom: 1px solid var(--line-soft); font-size: 11px; line-height: 1.8; color: var(--text); }
+    .sd-rank-history-lines { color: var(--sub); font-family: var(--mono); }
+    .sd-rank-rewards { color: var(--sub); }
     .senka-detail-host .sd-total { display: flex; align-items: baseline; gap: 8px; }
     .senka-detail-host .sd-total b { font: 600 24px var(--mono); color: var(--entity-quest); }
     .senka-detail-host .sd-total span { color: var(--dim); font-size: 10.5px; }

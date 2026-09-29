@@ -707,8 +707,11 @@ export const queryFactoryStats = (
 export const querySenka = (at?: number): Promise<import('../shared/senka').SenkaSummary> =>
   ipcRenderer.invoke('mg:senka', at)
 
-export const querySenkaRanking = (at?: number): Promise<import('../shared/senka-ranking').SenkaRankingView> =>
-  ipcRenderer.invoke('mg:senka-ranking', at)
+export const querySenkaRanking = (at?: number, opts?: { history?: boolean }): Promise<import('../shared/senka-ranking').SenkaRankingView> =>
+  ipcRenderer.invoke('mg:senka-ranking', at, opts)
+
+export const querySenkaCalendar = (month?: string): Promise<import('../shared/senka-calendar').SenkaCalendarModel> =>
+  ipcRenderer.invoke('mg:senka-calendar', month)
 
 // 任务战果的补记（连同 EO 的自动对账）都在主进程 mg:senka 查询时完成，渲染端
 // 不经手：入账只认账本里存着的 clearitemget 报文，渲染层的「看着已完成」是推断，

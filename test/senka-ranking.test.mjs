@@ -215,3 +215,65 @@ test('曲线补点：两个真实点之间缺的日子按日期线性插值并�
   assert.deepEqual(fillLineGaps([]), [])
   assert.deepEqual(JSON.parse(JSON.stringify(fillLineGaps([{ day: '2026-09-10', senka: 3000 }]))), [{ day: '2026-09-10', senka: 3000 }])
 })
+
+// ---- 往月记录与疑似排行奖励（2026-09-29 维护者要的：「都做 正好马上就要发奖励了」）----
+// 往月：每个战果月一行——当月最后一次看到的本人名次/战果，以及第 5/20/100/500 名最后看到的值。
+// 排行每天 15:00 最后一刷（统计截至 14:00），月末 14:00～22:00 的战果不在排行里，所以叫「最后看到」。
+const { senkaMonthHistory, rankingRewardCandidates } = rankingModule
+const AUG = Date.parse('2026-07-31T22:00+09:00'), SEP_START = Date.parse('2026-08-31T22:00+09:00')
+const monthStartOf = (ts) => (ts >= SEP_START ? SEP_START : AUG)
+
+test('往月记录：每月取最后一次看到的本人与四档，当前月不列，新月在前', () => {
+  const history = senkaMonthHistory([
+    ownPage(jst('2026-08-20T10:00'), 700),
+    ownPage(jst('2026-08-31T20:00'), 884),
+    { ts: jst('2026-08-31T20:05'), server: YOKOSUKA, list: pageOf(1, [9300, 9250, 9240, 9235, 9230, 9000, 8900, 8800, 8700, 8600], 76) },
+    ownPage(jst('2026-09-10T22:37'), 1385),
+  ], {
+    nickname: '本人', monthStartOf, before: SEP_START,
+    ownHintAt: (cutoff) => (cutoff < jst('2026-08-25T00:00') ? 700 : cutoff < SEP_START ? 850 : 1350),
+  })
+  assert.equal(history.length, 1)
+  const aug = history[0]
+  assert.equal(aug.monthStart, AUG)
+  assert.deepEqual(aug.own, { rank: 230, senka: 884, refreshAt: jst('2026-08-31T15:00') })
+  assert.deepEqual(aug.lines[5], { senka: 9230, refreshAt: jst('2026-08-31T15:00') })
+  assert.equal(aug.lines[20], null)
+  assert.equal(aug.lines[100], null)
+  assert.equal(aug.lines[500], null)
+})
+
+test('往月记录：本人当月一页都没解出来时 own 为 null，月份照列', () => {
+  const bad = ownPage(jst('2026-08-20T10:00'), 700)
+  bad.list[1].api_wuhnhojjxmke += 1
+  const history = senkaMonthHistory([bad], { nickname: '本人', ownHintAt: () => 700, monthStartOf, before: SEP_START })
+  assert.equal(history.length, 1)
+  assert.equal(history[0].own, null)
+  assert.equal(history[0].undecoded, 1)
+})
+
+// 疑似排行奖励：战果月交界后 72 小时内、道具流水里来路不明（cause 为空）的增加，
+// 归到刚结束的那个月；按道具合并件数，记第一次入账时刻。尚未与游戏报文核对，界面标「疑似」。
+test('疑似排行奖励：交界后 72 小时内来路不明的增加，归到刚结束的月份', () => {
+  const rows = [
+    { ts: jst('2026-09-01T03:12'), item_id: 57, delta: 1, cause: null },
+    { ts: jst('2026-09-01T03:12'), item_id: 57, delta: 1, cause: null },
+    { ts: jst('2026-09-02T10:00'), item_id: 61, delta: 1, cause: null },
+    { ts: jst('2026-09-05T10:00'), item_id: 57, delta: 1, cause: null }, // 超过 72 小时
+    { ts: jst('2026-09-01T04:00'), item_id: 10, delta: 1, cause: '/kcsapi/api_req_mission/result' }, // 有来路
+    { ts: jst('2026-09-01T05:00'), item_id: 57, delta: -1, cause: null }, // 减少
+    { ts: jst('2026-08-31T21:00'), item_id: 57, delta: 1, cause: null }, // 交界之前
+  ]
+  const names = { 57: '勋章', 61: '甲种勋章' }
+  const out = rankingRewardCandidates(rows, { boundaries: [SEP_START], monthStartOf: (ts) => (ts < SEP_START ? AUG : SEP_START), nameOf: (id) => names[id] ?? `道具${id}` })
+  assert.deepEqual(JSON.parse(JSON.stringify(out)), {
+    [AUG]: [
+      { itemId: 57, name: '勋章', count: 2, ts: jst('2026-09-01T03:12') },
+      { itemId: 61, name: '甲种勋章', count: 1, ts: jst('2026-09-02T10:00') },
+    ],
+  })
+})
+
+test('疑似排行奖励：没有候选时是空对象', () => {
+  assert.deepEqual(rankingRewardCandidates([], { boundaries: [SEP_START], monthStartOf, nameOf: String }), {})
+})

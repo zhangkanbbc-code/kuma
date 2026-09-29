@@ -32,6 +32,27 @@ interface RankingRow {
 
 type SenkaLines = Record<LineRank, { day: string; senka: number }[]>
 
+export interface SenkaMonthHistory {
+  monthStart: number
+  own: { rank: number; senka: number; refreshAt: number } | null
+  lines: Record<LineRank, { senka: number; refreshAt: number } | null>
+  undecoded: number
+}
+
+export interface RankingRewardRow {
+  ts: number
+  item_id: number
+  delta: number
+  cause: string | null
+}
+
+export interface RankingRewardCandidate {
+  itemId: number
+  name: string
+  count: number
+  ts: number
+}
+
 /** 只在相邻真实点之间按 JST 日历日插值；真实点原样保留，首尾不外推。 */
 export const fillLineGaps = (
   points: readonly { day: string; senka: number }[],
@@ -67,6 +88,7 @@ export interface SenkaRankingView {
   ownRank: number | null
   server: RankingServer | null
   serverInferred: boolean
+  history?: (SenkaMonthHistory & { rewards: RankingRewardCandidate[] })[]
 }
 
 /** 不晚于观测时刻的 03:00 / 15:00 JST 刷新。 */
@@ -125,6 +147,90 @@ export const senkaLineSeries = (
   return lines
 }
 
+function* decodedRankingPages(
+  pages: readonly RankingPage[],
+  nickname: string,
+  ownHintAt: (cutoff: number) => number | null,
+) {
+  let lastFactor: number | null = null
+  for (const page of [...pages].sort((a, b) => a.ts - b.ts)) {
+    const cutoff = rankingCutoffAt(page.ts)
+    const decoded = decodeRankingPage(page.list, { nickname, ownHint: ownHintAt(cutoff), lastFactor })
+    if (decoded) lastFactor = decoded.factor
+    yield { page, cutoff, decoded }
+  }
+}
+
+export const ownRankByDay = (
+  pages: readonly RankingPage[],
+  { nickname, ownHintAt }: { nickname: string; ownHintAt: (cutoff: number) => number | null },
+): { day: string; rank: number; senka: number }[] => {
+  const days = new Map<string, { rank: number; senka: number }>()
+  for (const { page, decoded } of decodedRankingPages(pages, nickname, ownHintAt)) {
+    if (!decoded?.own) continue
+    const day = new Date(rankingRefreshAt(page.ts) + 9 * HOUR).toISOString().slice(0, 10)
+    days.set(day, decoded.own)
+  }
+  return [...days].map(([day, own]) => ({ day, ...own }))
+}
+
+export const senkaMonthHistory = (
+  pages: readonly RankingPage[],
+  { nickname, ownHintAt, monthStartOf, before }: {
+    nickname: string
+    ownHintAt: (cutoff: number) => number | null
+    monthStartOf: (ts: number) => number
+    before: number
+  },
+): SenkaMonthHistory[] => {
+  const months = new Map<number, SenkaMonthHistory>()
+  for (const { page, cutoff, decoded } of decodedRankingPages(pages, nickname, ownHintAt)) {
+    const monthStart = monthStartOf(cutoff)
+    if (monthStart >= before) continue
+    let month = months.get(monthStart)
+    if (!month) {
+      month = { monthStart, own: null, lines: { 5: null, 20: null, 100: null, 500: null }, undecoded: 0 }
+      months.set(monthStart, month)
+    }
+    if (!decoded) {
+      month.undecoded++
+      continue
+    }
+    const refreshAt = rankingRefreshAt(page.ts)
+    if (decoded.own) month.own = { ...decoded.own, refreshAt }
+    for (const row of decoded.rows) {
+      if (RANKS.includes(row.rank as LineRank)) month.lines[row.rank as LineRank] = { senka: row.senka, refreshAt }
+    }
+  }
+  return [...months.values()].sort((a, b) => b.monthStart - a.monthStart)
+}
+
+export const rankingRewardCandidates = (
+  rows: readonly RankingRewardRow[],
+  { boundaries, monthStartOf, nameOf }: {
+    boundaries: readonly number[]
+    monthStartOf: (ts: number) => number
+    nameOf: (itemId: number) => string
+  },
+): Record<number, RankingRewardCandidate[]> => {
+  const months: Record<number, RankingRewardCandidate[]> = {}
+  for (const boundary of boundaries) {
+    const items = new Map<number, RankingRewardCandidate>()
+    for (const row of rows) {
+      if (row.ts < boundary || row.ts >= boundary + 72 * HOUR || row.cause != null || row.delta <= 0) continue
+      const item = items.get(row.item_id)
+      if (item) {
+        item.count += row.delta
+        item.ts = Math.min(item.ts, row.ts)
+      } else {
+        items.set(row.item_id, { itemId: row.item_id, name: nameOf(row.item_id), count: row.delta, ts: row.ts })
+      }
+    }
+    if (items.size) months[monthStartOf(boundary - 1)] = [...items.values()].sort((a, b) => a.ts - b.ts)
+  }
+  return months
+}
+
 export const assembleSenkaRanking = (
   pages: readonly RankingPage[],
   { nickname, monthStart, monthEnd, fallbackServer, ownHintAt }: {
@@ -139,13 +245,9 @@ export const assembleSenkaRanking = (
     refreshAt: null, rows: [], lines: { 5: [], 20: [], 100: [], 500: [] },
     undecoded: 0, ownCalibration: null, ownRank: null, server: null, serverInferred: false,
   }
-  let lastFactor: number | null = null
   const rows = new Map<number, SenkaRankingView['rows'][number]>()
   const snapshots: { ts: number; rows: RankingRow[] }[] = []
-  for (const page of pages) {
-    const cutoff = rankingCutoffAt(page.ts)
-    const decoded = decodeRankingPage(page.list, { nickname, ownHint: ownHintAt(cutoff), lastFactor })
-    if (decoded) lastFactor = decoded.factor
+  for (const { page, cutoff, decoded } of decodedRankingPages(pages, nickname, ownHintAt)) {
     // 上月的页只传递系数，本月列表、曲线和校准都按统计截止归月。
     if (cutoff < monthStart || cutoff >= monthEnd) continue
     const refreshAt = rankingRefreshAt(page.ts)

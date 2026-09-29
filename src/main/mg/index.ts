@@ -27,7 +27,8 @@ import {
 } from '../../shared/material-delta-detail'
 import { questFixedSenka, senkaMonthEnd, senkaMonthStart } from '../../shared/senka'
 import type { SenkaQuestOption } from '../../shared/senka'
-import { assembleSenkaRanking, SENKA_RANKING_PATH } from '../../shared/senka-ranking'
+import { assembleSenkaRanking, ownRankByDay, rankingRewardCandidates, senkaMonthHistory, SENKA_RANKING_PATH } from '../../shared/senka-ranking'
+import { buildSenkaCalendar, senkaDailyGains } from '../../shared/senka-calendar'
 import type { RankingServer } from '../../shared/senka-ranking'
 import { questAnnualMonth, questPeriodFromCode } from '../../shared/quest-period'
 import type { QuestPeriodKind } from '../../shared/quest-period'
@@ -1227,34 +1228,95 @@ const reconcileSenka = (when: number) => {
   }
 }
 
+const rankingOwnHintAt = () => {
+  const months = new Map<number, ReturnType<typeof ledger.querySenka>>()
+  const hints = new Map<number, number>()
+  return (cutoff: number) => {
+    if (!hints.has(cutoff)) {
+      const start = senkaMonthStart(cutoff)
+      if (!months.has(start)) months.set(start, ledger.querySenka(cutoff))
+      // total = 继承 + 本月通常 + 本月特别；扣掉截止之后的账内新增。
+      // sumSenkaBetween 走全量 SQL，不使用已截断的 entries，也不使用任何校准值。
+      hints.set(cutoff, months.get(start)!.total - ledger.sumSenkaBetween(cutoff, senkaMonthEnd(cutoff)))
+    }
+    return hints.get(cutoff)!
+  }
+}
+
 const querySenkaRanking = (when: number) => {
   const monthStart = senkaMonthStart(when)
   const monthEnd = senkaMonthEnd(when)
-  const months = new Map<number, ReturnType<typeof ledger.querySenka>>()
-  const hints = new Map<number, number>()
   return assembleSenkaRanking(ledger.queryRankingPages(monthStart - 40 * 24 * 3600_000), {
     nickname: store.getState().player.basic?.nickname ?? '',
     monthStart,
     monthEnd,
     // 舰C账号不能换服；旧页缺标记时按当前账号的服务器补，视图明确标出推定。
     fallbackServer: currentRankingServer() ?? ledger.latestRankingServer(),
-    ownHintAt: cutoff => {
-      if (!hints.has(cutoff)) {
-        const start = senkaMonthStart(cutoff)
-        if (!months.has(start)) months.set(start, ledger.querySenka(cutoff))
-        // total = 继承 + 本月通常 + 本月特别；扣掉截止之后的账内新增。
-        // sumSenkaBetween 走全量 SQL，不使用已截断的 entries，也不使用任何校准值。
-        hints.set(cutoff, months.get(start)!.total - ledger.sumSenkaBetween(cutoff, senkaMonthEnd(cutoff)))
-      }
-      return hints.get(cutoff)!
-    },
+    ownHintAt: rankingOwnHintAt(),
   })
 }
 
-ipcMain.handle('mg:senka-ranking', (_event, at?: number) => {
+let calendarRanks: { count: number; maxId: number; ranks: ReturnType<typeof ownRankByDay> } | null = null
+
+ipcMain.handle('mg:senka-calendar', (_event, month?: string) => {
+  const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
+  const currentMonth = today.slice(0, 7)
+  const stamp = ledger.rankingEventStamp()
+  // 日历打开才解析全量排行；事件条数和最大 id 未变时复用按日名次。
+  if (!calendarRanks || calendarRanks.count !== stamp.count || calendarRanks.maxId !== stamp.maxId) {
+    calendarRanks = { ...stamp, ranks: ownRankByDay(ledger.queryRankingPages(), {
+      nickname: store.getState().player.basic?.nickname ?? '',
+      ownHintAt: rankingOwnHintAt(),
+    }) }
+  }
+  const firstTs = Math.min(ledger.earliestSenkaTs() ?? Infinity, stamp.firstTs ?? Infinity)
+  const firstMonth = Number.isFinite(firstTs)
+    ? new Date(firstTs + 9 * 3600_000).toISOString().slice(0, 7) : currentMonth
+  const selected = month == null ? currentMonth : month < firstMonth ? firstMonth : month > currentMonth ? currentMonth : month
+  const [year, number] = selected.split('-').map(Number)
+  // 日历按 JST 自然月，不能套用战果结算月的边界。
+  const from = Date.UTC(year, number - 1, 1) - 9 * 3600_000
+  const to = Date.UTC(year, number, 1) - 9 * 3600_000
+  return { ...buildSenkaCalendar({ month: selected,
+    gains: senkaDailyGains(ledger.querySenkaCalendarEntries(from, to)), ranks: calendarRanks.ranks, today }),
+  canPrev: selected > firstMonth, canNext: selected < currentMonth }
+})
+
+ipcMain.handle('mg:senka-ranking', (_event, at?: number, opts?: { history?: boolean }) => {
   const when = typeof at === 'number' ? at : Date.now()
   reconcileSenka(when)
-  return querySenkaRanking(when)
+  const view = querySenkaRanking(when)
+  // 常规刷新不带 history，避免每拍全量解析历史排行页；只在详情请求时计算往月和奖励候选。
+  if (opts?.history !== true) return view
+  const history = senkaMonthHistory(ledger.queryRankingPages(), {
+    nickname: store.getState().player.basic?.nickname ?? '',
+    ownHintAt: rankingOwnHintAt(),
+    monthStartOf: senkaMonthStart,
+    before: senkaMonthStart(when),
+  })
+  const boundaries: number[] = []
+  const earliest = ledger.earliestEventTs()
+  if (earliest != null) {
+    for (let boundary = senkaMonthStart(earliest); boundary <= when; boundary = senkaMonthEnd(boundary)) {
+      boundaries.push(boundary)
+    }
+  }
+  const names = new Map<number, string>(
+    (ensureMasterRaw()?.data?.api_mst_useitem ?? []).map((item: { api_id: number; api_name: string }) => [item.api_id, item.api_name]),
+  )
+  const rewards = rankingRewardCandidates(ledger.queryRankingRewardRows(), {
+    boundaries, monthStartOf: senkaMonthStart, nameOf: id => names.get(id) ?? `道具${id}`,
+  })
+  const months = new Map(history.map(month => [month.monthStart, month]))
+  for (const key of Object.keys(rewards)) {
+    const monthStart = Number(key)
+    if (!months.has(monthStart)) {
+      months.set(monthStart, { monthStart, own: null, lines: { 5: null, 20: null, 100: null, 500: null }, undecoded: 0 })
+    }
+  }
+  view.history = [...months.values()].sort((a, b) => b.monthStart - a.monthStart)
+    .map(month => ({ ...month, rewards: rewards[month.monthStart] ?? [] }))
+  return view
 })
 
 ipcMain.handle('mg:senka', (_event, at?: number) => {
