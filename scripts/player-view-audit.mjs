@@ -72,7 +72,7 @@ async function consume(packs, raw) {
     collectSigns(domain, html)
   }
 
-  for (const m of raw.api_mst_mission ?? []) mg.master.missions[m.api_id] = { dispNo: m.api_disp_no, name: m.api_name, time: m.api_time, deckNum: m.api_deck_num, details: m.api_details }
+  for (const m of raw.api_mst_mission ?? []) mg.master.missions[m.api_id] = { dispNo: m.api_disp_no, name: m.api_name, time: m.api_time, deckNum: m.api_deck_num, details: m.api_details, mapArea: m.api_maparea_id, returnFlag: m.api_return_flag }
   const bi = host.extract('src/renderer/modules/bi.ts', ['allExpeds', 'checkShips'], {
     ...common, expedLocalizationLode: p('kcwiki-expedition') ? { ...p('kcwiki-expedition'), data: host.load('src/renderer/kcwiki-zh.ts').simplifyKcwikiExpeditionData(d('kcwiki-expedition')) } : null, expedLode: p('expedition-facts'),
     compViewOf: () => [], expeditionStatShipsOf: () => [], drumStock: () => 0,

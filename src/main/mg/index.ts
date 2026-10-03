@@ -27,9 +27,9 @@ import {
 } from '../../shared/material-delta-detail'
 import { questFixedSenka, senkaMonthEnd, senkaMonthStart } from '../../shared/senka'
 import type { SenkaQuestOption } from '../../shared/senka'
-import { assembleSenkaRanking, ownRankByDay, rankingRewardCandidates, senkaMonthHistory, SENKA_RANKING_PATH } from '../../shared/senka-ranking'
-import { buildSenkaCalendar, senkaDailyGains } from '../../shared/senka-calendar'
-import type { RankingServer } from '../../shared/senka-ranking'
+import { assembleSenkaRanking, newPortLogMessages, ownRankByDay, rankingRewardCandidates, senkaMonthHistory, SENKA_RANKING_PATH } from '../../shared/senka-ranking'
+import { buildSenkaCalendar, senkaDailyGains, senkaMonthTailWindow } from '../../shared/senka-calendar'
+import type { PortLogMessage, RankingServer } from '../../shared/senka-ranking'
 import { questAnnualMonth, questPeriodFromCode } from '../../shared/quest-period'
 import type { QuestPeriodKind } from '../../shared/quest-period'
 import { onQuestApi, reconcileQuestProgress } from './quest-counter-host'
@@ -97,6 +97,23 @@ const currentRankingServer = (): RankingServer | null => {
 const lastApis = createLastApiMemo()
 const missionScene = createMissionSceneTracker()
 export const lastApiPaths = () => lastApis.list()
+
+let previousPortLogs: PortLogMessage[] = []
+let knownSlotitemIds = new Set<number>()
+
+const recordNewSlotitems = (ts: number, apiPath: string) => {
+  const player = store.getState().player
+  // 第一次启用时已有的全部装备只立基线；之后只在装备段变化时与内存 Set 比较。
+  const source = knownSlotitemIds.size ? apiPath : 'baseline'
+  const unseen = Object.entries(player.slotitems).filter(([id]) => !knownSlotitemIds.has(Number(id)))
+  if (!unseen.length) return
+  const equipped = new Set(Object.values(player.ships).flatMap(ship => [...ship.slot, ship.slotEx]))
+  ledger.logSlotitemSeen(unseen.map(([id, item]) => ({
+    id: Number(id), mstId: item.mstId, level: item.level, firstTs: ts, source,
+    equipped: equipped.has(Number(id)),
+  })))
+  for (const [id] of unseen) knownSlotitemIds.add(Number(id))
+}
 
 const pickSections = (sections: Section[]) => {
   const state = store.getState()
@@ -400,6 +417,13 @@ const handleEvent = (
   )
   const sections = timeMain('api:state', () => store.handle(apiPath, body, postBody, ts), () => apiPath)
   if (sections.includes('slotitems')) learnEquipSeenFromInventory(ts)
+  if (sections.includes('slotitems')) recordNewSlotitems(ts, apiPath)
+  if (apiPath === '/kcsapi/api_port/port' && Array.isArray((body as any)?.api_log)) {
+    // 与 store 同源的过滤与转换已经完成；只记滚动列表相较上一份多出的条目。
+    const next = store.getState().player.portLogs
+    ledger.logPortMessages(ts, newPortLogMessages(previousPortLogs, next))
+    previousPortLogs = next
+  }
   const deltaMaterials = store.getState().player.materials
   const deltaResolution = resolveDeltaCategory(deltaCategoryTrackers, {
     apiPath, ts, postBody, body, before: detailBefore,
@@ -1274,11 +1298,17 @@ ipcMain.handle('mg:senka-calendar', (_event, month?: string) => {
     ? new Date(firstTs + 9 * 3600_000).toISOString().slice(0, 7) : currentMonth
   const selected = month == null ? currentMonth : month < firstMonth ? firstMonth : month > currentMonth ? currentMonth : month
   const [year, number] = selected.split('-').map(Number)
-  // 日历按 JST 自然月，不能套用战果结算月的边界。
+  // 格子按 JST 自然日；合计扣本月末 22 点后、加上月末 22 点后，按战果月结算。
   const from = Date.UTC(year, number - 1, 1) - 9 * 3600_000
   const to = Date.UTC(year, number, 1) - 9 * 3600_000
+  const tailWindow = senkaMonthTailWindow(selected)
+  const previousMonth = new Date(Date.UTC(year, number - 2, 1)).toISOString().slice(0, 7)
+  const headWindow = senkaMonthTailWindow(previousMonth)
+  // 与每日 gains 共用 [from, to) 的全量查询，包含任意 kind 和手动行。
+  const tail = ledger.querySenkaCalendarEntries(tailWindow.from, tailWindow.to).reduce((sum, entry) => sum + entry.senka, 0)
+  const head = ledger.querySenkaCalendarEntries(headWindow.from, headWindow.to).reduce((sum, entry) => sum + entry.senka, 0)
   return { ...buildSenkaCalendar({ month: selected,
-    gains: senkaDailyGains(ledger.querySenkaCalendarEntries(from, to)), ranks: calendarRanks.ranks, today }),
+    gains: senkaDailyGains(ledger.querySenkaCalendarEntries(from, to)), ranks: calendarRanks.ranks, today, tail, head }),
   canPrev: selected > firstMonth, canNext: selected < currentMonth }
 })
 
@@ -1306,6 +1336,9 @@ ipcMain.handle('mg:senka-ranking', (_event, at?: number, opts?: { history?: bool
   )
   const rewards = rankingRewardCandidates(ledger.queryRankingRewardRows(), {
     boundaries, monthStartOf: senkaMonthStart, nameOf: id => names.get(id) ?? `道具${id}`,
+    equips: ledger.querySlotitemSeen(boundaries[0] ?? Infinity),
+    knownEquipEventTs: ledger.queryKnownEquipEventTs(boundaries[0] ?? Infinity),
+    equipNameOf: id => store.getState().master.slotitems[id]?.name ?? `装备${id}`,
   })
   const months = new Map(history.map(month => [month.monthStart, month]))
   for (const key of Object.keys(rewards)) {
@@ -1542,6 +1575,9 @@ export const rehydrate = () => {
   }
   reconcileQuestProgress()
   primeShipLife(store.getState().player.lastPortTs ?? Date.now())
+  previousPortLogs = store.getState().player.portLogs
+  knownSlotitemIds = new Set(ledger.slotitemSeenIds())
+  if (!knownSlotitemIds.size) recordNewSlotitems(Date.now(), 'baseline')
   console.log('[kuma] mg: rehydrated from snapshots')
 }
 

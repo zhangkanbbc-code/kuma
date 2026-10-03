@@ -90,6 +90,7 @@ export interface MasterMission {
   useBull: number
   deckNum: number // 需求舰数（主数据口径）
   mapArea: number
+  returnFlag: number
   difficulty: number // api_difficulty：游戏原生难度，不用社区表反推
   winItem1: [number, number] // 官方奖励物品 [useitem id, 数量]；概率仍由资料包补充
   winItem2: [number, number]

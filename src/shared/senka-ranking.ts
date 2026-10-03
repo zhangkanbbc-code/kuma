@@ -2,6 +2,26 @@
 export const SENKA_RANKING_PATH = '/kcsapi/api_req_ranking/mxltvkpyuklh'
 export const SENKA_RANK_FACTORS = [8931, 1201, 1156, 5061, 4569, 4732, 3779, 4568, 5695, 4619, 4912, 5669, 6586] as const
 
+export const EQUIP_FULL_LIST_PATHS = [
+  '/kcsapi/api_get_member/require_info',
+  '/kcsapi/api_get_member/slot_item',
+] as const
+
+export const KNOWN_EQUIP_SOURCE_PATHS = [
+  '/kcsapi/api_req_kousyou/createitem',
+  '/kcsapi/api_req_kousyou/getship',
+  '/kcsapi/api_req_quest/clearitemget',
+  '/kcsapi/api_req_sortie/battleresult',
+  '/kcsapi/api_req_combined_battle/battleresult',
+  '/kcsapi/api_req_member/itemuse',
+  '/kcsapi/api_req_member/payitemuse',
+  '/kcsapi/api_req_member/get_event_selected_reward',
+  '/kcsapi/api_req_kaisou/remodeling',
+  '/kcsapi/api_req_kousyou/remodel_slot',
+  // 另加改修恢复：本地装备变更处理会从 api_after_slot 写入恢复后的实例，来源可解释。
+  '/kcsapi/api_req_kousyou/remodel_slot_recover',
+] as const
+
 const HOUR = 3600_000
 const RANKS = [5, 20, 100, 500] as const
 type LineRank = typeof RANKS[number]
@@ -47,10 +67,46 @@ export interface RankingRewardRow {
 }
 
 export interface RankingRewardCandidate {
+  kind?: 'item' | 'equip'
   itemId: number
   name: string
+  level?: number
   count: number
   ts: number
+}
+
+export interface RankingRewardEquip {
+  id: number
+  mstId: number
+  level: number
+  firstTs: number
+  source: string
+  equipped: boolean
+}
+
+export interface PortLogMessage {
+  type: number
+  message: string
+}
+
+/** 滚动消息按多重集扣除旧条目，新增条目保留本次报文的顺序。 */
+export const newPortLogMessages = (
+  prev: readonly PortLogMessage[],
+  next: readonly PortLogMessage[],
+): PortLogMessage[] => {
+  const remaining = new Map<string, number>()
+  const keyOf = (entry: PortLogMessage) => JSON.stringify([entry.type, entry.message])
+  for (const entry of prev) {
+    const key = keyOf(entry)
+    remaining.set(key, (remaining.get(key) ?? 0) + 1)
+  }
+  return next.filter(entry => {
+    const key = keyOf(entry)
+    const count = remaining.get(key) ?? 0
+    if (!count) return true
+    remaining.set(key, count - 1)
+    return false
+  })
 }
 
 /** 只在相邻真实点之间按 JST 日历日插值；真实点原样保留，首尾不外推。 */
@@ -207,26 +263,49 @@ export const senkaMonthHistory = (
 
 export const rankingRewardCandidates = (
   rows: readonly RankingRewardRow[],
-  { boundaries, monthStartOf, nameOf }: {
+  { boundaries, monthStartOf, nameOf, equips = [], knownEquipEventTs = [], equipNameOf = String }: {
     boundaries: readonly number[]
     monthStartOf: (ts: number) => number
     nameOf: (itemId: number) => string
+    equips?: readonly RankingRewardEquip[]
+    knownEquipEventTs?: readonly number[]
+    equipNameOf?: (mstId: number) => string
   },
 ): Record<number, RankingRewardCandidate[]> => {
   const months: Record<number, RankingRewardCandidate[]> = {}
-  for (const boundary of boundaries) {
+  for (const [index, boundary] of boundaries.entries()) {
+    // 次月中下旬也可能发奖；每个交界直到下一交界的候选仍归上一个战果月。
+    const end = boundaries[index + 1] ?? Infinity
     const items = new Map<number, RankingRewardCandidate>()
     for (const row of rows) {
-      if (row.ts < boundary || row.ts >= boundary + 72 * HOUR || row.cause != null || row.delta <= 0) continue
+      if (row.ts < boundary || row.ts >= end || row.cause != null || row.delta <= 0) continue
       const item = items.get(row.item_id)
       if (item) {
         item.count += row.delta
         item.ts = Math.min(item.ts, row.ts)
       } else {
-        items.set(row.item_id, { itemId: row.item_id, name: nameOf(row.item_id), count: row.delta, ts: row.ts })
+        items.set(row.item_id, { kind: 'item', itemId: row.item_id, name: nameOf(row.item_id), count: row.delta, ts: row.ts })
       }
     }
-    if (items.size) months[monthStartOf(boundary - 1)] = [...items.values()].sort((a, b) => a.ts - b.ts)
+    const equipment = new Map<string, RankingRewardCandidate>()
+    for (const row of equips) {
+      if (row.firstTs < boundary || row.firstTs >= end || row.equipped ||
+        !EQUIP_FULL_LIST_PATHS.some(path => path === row.source) ||
+        knownEquipEventTs.some(ts => ts >= row.firstTs - 10 * 60_000 && ts <= row.firstTs)) continue
+      const key = `${row.mstId}:${row.level}`
+      const equip = equipment.get(key)
+      if (equip) {
+        equip.count++
+        equip.ts = Math.min(equip.ts, row.firstTs)
+      } else {
+        equipment.set(key, {
+          kind: 'equip', itemId: row.mstId, name: equipNameOf(row.mstId),
+          level: row.level, count: 1, ts: row.firstTs,
+        })
+      }
+    }
+    const candidates = [...items.values(), ...equipment.values()]
+    if (candidates.length) months[monthStartOf(boundary - 1)] = candidates.sort((a, b) => a.ts - b.ts)
   }
   return months
 }

@@ -953,7 +953,7 @@ const senkaDetailBodyHtml = (): string => {
       ...senkaRanking,
       history: senkaRanking.history?.map(month => ({
         ...month,
-        rewards: month.rewards.map(item => ({ ...item, name: entityNamePlain('item', item.itemId, item.name) })),
+        rewards: month.rewards.map(item => ({ ...item, name: entityNamePlain(item.kind === 'equip' ? 'equip' : 'item', item.itemId, item.name) })),
       })),
     }) : ''}
     ${selfCheckBlock}

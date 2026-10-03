@@ -1534,6 +1534,7 @@ const reducers: Record<string, Reducer> = {
         useBull: m.api_use_bull ?? 0,
         deckNum: m.api_deck_num ?? 0,
         mapArea: m.api_maparea_id ?? 0,
+        returnFlag: m.api_return_flag ?? 1,
         difficulty: m.api_difficulty ?? 0,
         winItem1: pair(m.api_win_item1),
         winItem2: pair(m.api_win_item2),

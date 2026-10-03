@@ -132,8 +132,8 @@ import {
   type SenkaEntry,
   type SenkaSummary,
 } from '../../shared/senka'
-import { SENKA_RANKING_PATH } from '../../shared/senka-ranking'
-import type { RankingPage, RankingRewardRow, RankingRowData, RankingServer } from '../../shared/senka-ranking'
+import { KNOWN_EQUIP_SOURCE_PATHS, SENKA_RANKING_PATH } from '../../shared/senka-ranking'
+import type { PortLogMessage, RankingPage, RankingRewardEquip, RankingRewardRow, RankingRowData, RankingServer } from '../../shared/senka-ranking'
 import {
   planManualQuestSenkaBooking,
   planQuestSenkaBooking,
@@ -266,6 +266,24 @@ class Ledger {
         server_name TEXT,
         server_host TEXT
       );
+      -- 母港快照只留最新一份；滚动消息的新增部分独立留证，供实际发奖后核对。
+      CREATE TABLE IF NOT EXISTS port_log (
+        id INTEGER PRIMARY KEY,
+        ts INTEGER NOT NULL,
+        type INTEGER NOT NULL,
+        message TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_port_log_ts ON port_log(ts);
+      -- 装备实例只记录首次出现，不随改修、装备位置或后续整表覆盖而改写。
+      CREATE TABLE IF NOT EXISTS slotitem_seen (
+        id INTEGER PRIMARY KEY,
+        mst_id INTEGER NOT NULL,
+        level INTEGER NOT NULL,
+        first_ts INTEGER NOT NULL,
+        source TEXT NOT NULL,
+        equipped INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_slotitem_seen_ts ON slotitem_seen(first_ts);
       CREATE TABLE IF NOT EXISTS material_log (
         ts INTEGER NOT NULL,
         fuel INTEGER, ammo INTEGER, steel INTEGER, bauxite INTEGER,
@@ -775,6 +793,39 @@ class Ledger {
       `SELECT ts, item_id, delta, cause FROM useitem_log
        WHERE cause IS NULL AND delta > 0 ORDER BY ts ASC, rowid ASC`,
     ).all() as RankingRewardRow[]
+
+  logPortMessages = (ts: number, messages: readonly PortLogMessage[]) => {
+    const insert = this.db.prepare('INSERT INTO port_log (ts, type, message) VALUES (?, ?, ?)')
+    for (const entry of messages) insert.run(ts, entry.type, entry.message)
+  }
+
+  queryPortLog = (fromTs = 0): (PortLogMessage & { id: number; ts: number })[] =>
+    this.db.prepare('SELECT id, ts, type, message FROM port_log WHERE ts >= ? ORDER BY ts, id')
+      .all(fromTs) as (PortLogMessage & { id: number; ts: number })[]
+
+  slotitemSeenIds = (): number[] =>
+    (this.db.prepare('SELECT id FROM slotitem_seen').all() as { id: number }[]).map(row => row.id)
+
+  logSlotitemSeen = (rows: readonly RankingRewardEquip[]) => {
+    const insert = this.db.prepare(
+      'INSERT OR IGNORE INTO slotitem_seen (id, mst_id, level, first_ts, source, equipped) VALUES (?, ?, ?, ?, ?, ?)',
+    )
+    for (const row of rows) insert.run(row.id, row.mstId, row.level, row.firstTs, row.source, Number(row.equipped))
+  }
+
+  querySlotitemSeen = (fromTs: number): RankingRewardEquip[] => {
+    const rows = this.db.prepare(
+      `SELECT id, mst_id AS mstId, level, first_ts AS firstTs, source, equipped
+       FROM slotitem_seen WHERE first_ts >= ? ORDER BY first_ts, id`,
+    ).all(fromTs) as (Omit<RankingRewardEquip, 'equipped'> & { equipped: number })[]
+    return rows.map(row => ({ ...row, equipped: Boolean(row.equipped) }))
+  }
+
+  queryKnownEquipEventTs = (fromTs: number): number[] =>
+    (this.db.prepare(
+      `SELECT ts FROM events WHERE path IN (${KNOWN_EQUIP_SOURCE_PATHS.map(() => '?').join(',')})
+       AND ts >= ? ORDER BY ts, id`,
+    ).all(...KNOWN_EQUIP_SOURCE_PATHS, fromTs) as { ts: number }[]).map(row => row.ts)
 
   private actionsSinceLastUseitemSync = (): UseitemCauseAction[] => {
     const endId = this.lastRecordedEventId

@@ -7,7 +7,7 @@ import test from 'node:test'
 import calendarModule from '../dist/shared/senka-calendar.js'
 import rankingModule from '../dist/shared/senka-ranking.js'
 
-const { senkaDailyGains, buildSenkaCalendar } = calendarModule
+const { senkaDailyGains, buildSenkaCalendar, senkaMonthTailWindow } = calendarModule
 const { ownRankByDay } = rankingModule
 const jst = (s) => Date.parse(`${s}+09:00`)
 
@@ -61,7 +61,7 @@ test('格子：当天增加、当天最后看到的名次、与本月上一次�
   assert.equal(cellOf(cal, '2026-09-10').gain, 0)
   // 今天之后的格子标未来，不写数
   assert.deepEqual(JSON.parse(JSON.stringify(cellOf(cal, '2026-09-30'))), {
-    day: '2026-09-30', date: 30, gain: 0, rank: null, rankDelta: null, future: true, today: false,
+    day: '2026-09-30', date: 30, gain: 0, rank: null, rankDelta: null, future: true, today: false, tail: 0,
   })
 })
 
@@ -104,4 +104,35 @@ test('名次按日：刷新时刻的 JST 日期归日，取当天最后一次；
     { day: '2026-09-28', rank: 151, senka: 4267 },
     { day: '2026-09-29', rank: 165, senka: 4267 },
   ])
+})
+
+// 2026-09-30 维护者提出、裁决：战果月在月末那天 22:00 切换，日历却按自然日。
+// 格子照旧按自然日；「本月合计」改按战果月（与战果卡一致）；月末那一格单独记 22 点后计入下月的那段（tail），
+// 本月日历另记上月末 22 点后计入本月的那段（head）。
+test('月末 22 点窗口：该月最后一天 22:00 到次月 1 日 0:00（JST）', () => {
+  assert.deepEqual(senkaMonthTailWindow('2026-09'), { from: jst('2026-09-30T22:00'), to: jst('2026-10-01T00:00') })
+  assert.deepEqual(senkaMonthTailWindow('2026-08'), { from: jst('2026-08-31T22:00'), to: jst('2026-09-01T00:00') })
+  assert.deepEqual(senkaMonthTailWindow('2026-02'), { from: jst('2026-02-28T22:00'), to: jst('2026-03-01T00:00') })
+  assert.deepEqual(senkaMonthTailWindow('2026-12'), { from: jst('2026-12-31T22:00'), to: jst('2027-01-01T00:00') })
+})
+
+test('本月合计按战果月：自然月合计 − 月末 22 点后 + 上月末 22 点后；月末那格带 tail，模型带 head', () => {
+  const cal = buildSenkaCalendar({
+    month: '2026-09',
+    gains: { '2026-09-01': 100, '2026-09-30': 50 },
+    ranks: [],
+    today: '2026-09-30',
+    tail: 8,
+    head: 0.1,
+  })
+  assert.ok(Math.abs(cal.total - (150 - 8 + 0.1)) < 1e-9)
+  assert.equal(cal.head, 0.1)
+  assert.equal(cellOf(cal, '2026-09-30').tail, 8)
+  assert.equal(cellOf(cal, '2026-09-30').gain, 50, '格子本身仍是自然日合计')
+  assert.equal(cellOf(cal, '2026-09-29').tail, undefined, '只有月末那格带 tail')
+  // 不传 tail/head 时按 0
+  const plain = buildSenkaCalendar({ month: '2026-09', gains: { '2026-09-01': 100 }, ranks: [], today: '2026-09-30' })
+  assert.equal(plain.total, 100)
+  assert.equal(plain.head, 0)
+  assert.equal(cellOf(plain, '2026-09-30').tail, 0)
 })

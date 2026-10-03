@@ -17,7 +17,7 @@ export const senkaRankingHtml = (view: SenkaRankingView): string => {
     const [year, monthNumber] = senkaMonthLabel(month.monthStart).split('-')
     const own = month.own ? `第${month.own.rank}名 · ${month.own.senka.toLocaleString()}` : '未看到本人'
     const lines = ranks.map(rank => `${labels[rank].split('·')[0]} ${month.lines[rank]?.senka.toLocaleString() ?? '—'}`).join(' · ')
-    const rewards = month.rewards.length ? `<div class="sd-rank-rewards" title="战果月交界后72小时内来路不明的道具入账，尚未与游戏报文核对">疑似排行奖励：${month.rewards.map(item => `${esc(item.name)}×${item.count}`).join('、')}</div>` : ''
+    const rewards = month.rewards.length ? `<div class="sd-rank-rewards" title="战果月交界后到下一次交界之间来路不明的道具与新装备，尚未与游戏报文核对">疑似排行奖励：${month.rewards.map(item => `${esc(item.name)}${item.kind === 'equip' && (item.level ?? 0) > 0 ? `★+${item.level}` : ''}×${item.count}`).join('、')}</div>` : ''
     return `<div class="sd-rank-month"><div>${year}年${Number(monthNumber)}月 · ${own}</div><div class="sd-rank-history-lines">${lines}</div>${rewards}</div>`
   }).join('')}</div>` : ''
   const series = ranks.map(rank => ({ rank, line: fillLineGaps(view.lines[rank]) }))

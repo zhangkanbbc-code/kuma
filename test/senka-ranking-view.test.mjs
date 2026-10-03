@@ -148,3 +148,19 @@ test('往月：本人没解出来写「未看到本人」；没有疑似奖励�
   assert.ok(!view.senkaRankingHtml(sample({ history: [] })).includes('sd-rank-history'))
   assert.ok(!view.senkaRankingHtml(sample()).includes('sd-rank-history'))
 })
+
+// 2026-09-30：疑似奖励也收装备——装备写名字、改修星（有才写）与件数，道具照旧名字×件数。
+test('往月：疑似排行奖励里的装备写改修星，道具照旧', () => {
+  const AUG = Date.parse('2026-07-31T22:00+09:00')
+  const html = view.senkaRankingHtml(sample({
+    history: [{
+      monthStart: AUG, own: null, lines: { 5: null, 20: null, 100: null, 500: null }, undecoded: 0,
+      rewards: [
+        { kind: 'equip', itemId: 22, name: '零式艦戦22型(251空)', level: 5, count: 1, ts: jst('2026-09-29T20:00') },
+        { kind: 'equip', itemId: 110, name: '一式陸攻(野中隊)', level: 0, count: 2, ts: jst('2026-09-29T20:01') },
+        { kind: 'item', itemId: 57, name: '勋章', count: 1, ts: jst('2026-09-29T20:02') },
+      ],
+    }],
+  }))
+  assert.match(html, /疑似排行奖励：零式艦戦22型\(251空\)★\+5×1、一式陸攻\(野中隊\)×2、勋章×1/)
+})

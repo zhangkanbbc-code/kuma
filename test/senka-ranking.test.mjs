@@ -219,7 +219,7 @@ test('曲线补点：两个真实点之间缺的日子按日期线性插值并�
 // ---- 往月记录与疑似排行奖励（2026-09-29 维护者要的：「都做 正好马上就要发奖励了」）----
 // 往月：每个战果月一行——当月最后一次看到的本人名次/战果，以及第 5/20/100/500 名最后看到的值。
 // 排行每天 15:00 最后一刷（统计截至 14:00），月末 14:00～22:00 的战果不在排行里，所以叫「最后看到」。
-const { senkaMonthHistory, rankingRewardCandidates } = rankingModule
+const { senkaMonthHistory, rankingRewardCandidates, newPortLogMessages } = rankingModule
 const AUG = Date.parse('2026-07-31T22:00+09:00'), SEP_START = Date.parse('2026-08-31T22:00+09:00')
 const monthStartOf = (ts) => (ts >= SEP_START ? SEP_START : AUG)
 
@@ -252,28 +252,72 @@ test('往月记录：本人当月一页都没解出来时 own 为 null，月份�
   assert.equal(history[0].undecoded, 1)
 })
 
-// 疑似排行奖励：战果月交界后 72 小时内、道具流水里来路不明（cause 为空）的增加，
-// 归到刚结束的那个月；按道具合并件数，记第一次入账时刻。尚未与游戏报文核对，界面标「疑似」。
-test('疑似排行奖励：交界后 72 小时内来路不明的增加，归到刚结束的月份', () => {
+// 疑似排行奖励（2026-09-30 改口径）：wikiwiki「称号・戦果」——报酬在次月中旬至月末前后发放（发放前才在官方推特公布），
+// 以装备为主（装备栏满时暂时领不到，腾出空位后重载）；情报仓库各期都分 1-5/6-20/21-100/101-500 四档。
+// 所以月份 M 的奖励在 M 之后的整个战果月里任何时候都可能到账（维护者：「9 月月末发 8 月战果奖励」）。
+// 判法：交界 B 之后、到下一个交界之前，来路不明的道具增加与来路不明的新装备，都归到 B 之前结束的那个月；尚未与实发报文核对，界面标「疑似」。
+const SEP_END = Date.parse('2026-09-30T22:00+09:00')
+const monthStartOf3 = (ts) => (ts < SEP_START ? AUG : ts < SEP_END ? SEP_START : SEP_END)
+test('疑似排行奖励（道具）：交界后整个下一个战果月里来路不明的增加，归到交界前结束的那个月', () => {
   const rows = [
     { ts: jst('2026-09-01T03:12'), item_id: 57, delta: 1, cause: null },
     { ts: jst('2026-09-01T03:12'), item_id: 57, delta: 1, cause: null },
+    { ts: jst('2026-09-29T20:00'), item_id: 57, delta: 1, cause: null }, // 9 月底：仍是 8 月的
     { ts: jst('2026-09-02T10:00'), item_id: 61, delta: 1, cause: null },
-    { ts: jst('2026-09-05T10:00'), item_id: 57, delta: 1, cause: null }, // 超过 72 小时
+    { ts: jst('2026-10-05T10:00'), item_id: 61, delta: 1, cause: null }, // 下一个交界之后：归 9 月
     { ts: jst('2026-09-01T04:00'), item_id: 10, delta: 1, cause: '/kcsapi/api_req_mission/result' }, // 有来路
     { ts: jst('2026-09-01T05:00'), item_id: 57, delta: -1, cause: null }, // 减少
-    { ts: jst('2026-08-31T21:00'), item_id: 57, delta: 1, cause: null }, // 交界之前
+    { ts: jst('2026-08-31T21:00'), item_id: 57, delta: 1, cause: null }, // 第一个交界之前
   ]
   const names = { 57: '勋章', 61: '甲种勋章' }
-  const out = rankingRewardCandidates(rows, { boundaries: [SEP_START], monthStartOf: (ts) => (ts < SEP_START ? AUG : SEP_START), nameOf: (id) => names[id] ?? `道具${id}` })
+  const out = rankingRewardCandidates(rows, { boundaries: [SEP_START, SEP_END], monthStartOf: monthStartOf3, nameOf: (id) => names[id] ?? `道具${id}` })
   assert.deepEqual(JSON.parse(JSON.stringify(out)), {
     [AUG]: [
-      { itemId: 57, name: '勋章', count: 2, ts: jst('2026-09-01T03:12') },
-      { itemId: 61, name: '甲种勋章', count: 1, ts: jst('2026-09-02T10:00') },
+      { kind: 'item', itemId: 57, name: '勋章', count: 3, ts: jst('2026-09-01T03:12') },
+      { kind: 'item', itemId: 61, name: '甲种勋章', count: 1, ts: jst('2026-09-02T10:00') },
+    ],
+    [SEP_START]: [
+      { kind: 'item', itemId: 61, name: '甲种勋章', count: 1, ts: jst('2026-10-05T10:00') },
     ],
   })
 })
 
+// 来路不明的新装备：第一次出现在整表报文（require_info / slot_item）里、当时没装在任何舰上
+//（捞到或建出来的舰自带的装备是装着的）、出现前 10 分钟内没有已知会给装备的操作（开发、建造领舰、
+// 任务领奖、战斗结算、使用道具、改装、改修等）。启用记录那一刻已有的装备记为 baseline，不算。
+test('疑似排行奖励（装备）：只认整表里第一次出现、未装备、前 10 分钟没有已知来源的新装备，同款同星合并', () => {
+  const equips = [
+    { id: 9001, mstId: 22, level: 5, firstTs: jst('2026-10-20T20:00'), source: '/kcsapi/api_get_member/require_info', equipped: false },
+    { id: 9002, mstId: 22, level: 5, firstTs: jst('2026-10-20T20:00'), source: '/kcsapi/api_get_member/require_info', equipped: false },
+    { id: 9003, mstId: 110, level: 0, firstTs: jst('2026-10-20T20:01'), source: '/kcsapi/api_get_member/slot_item', equipped: false },
+    { id: 9004, mstId: 2, level: 0, firstTs: jst('2026-10-20T21:00'), source: '/kcsapi/api_req_kousyou/createitem', equipped: false }, // 开发
+    { id: 9005, mstId: 3, level: 0, firstTs: jst('2026-10-21T08:00'), source: '/kcsapi/api_get_member/slot_item', equipped: true }, // 新舰自带
+    { id: 9006, mstId: 4, level: 0, firstTs: jst('2026-10-21T09:00'), source: '/kcsapi/api_get_member/slot_item', equipped: false }, // 前面有任务领奖
+    { id: 1, mstId: 1, level: 0, firstTs: jst('2026-10-01T00:00'), source: 'baseline', equipped: false },
+  ]
+  const knownEquipEventTs = [jst('2026-10-21T08:55')]
+  const equipNames = { 22: '零式艦戦22型(251空)', 110: '一式陸攻(野中隊)' }
+  const out = rankingRewardCandidates([], {
+    boundaries: [SEP_START, SEP_END], monthStartOf: monthStartOf3, nameOf: String,
+    equips, knownEquipEventTs, equipNameOf: (id) => equipNames[id] ?? `装备${id}`,
+  })
+  assert.deepEqual(JSON.parse(JSON.stringify(out)), {
+    [SEP_START]: [
+      { kind: 'equip', itemId: 22, name: '零式艦戦22型(251空)', level: 5, count: 2, ts: jst('2026-10-20T20:00') },
+      { kind: 'equip', itemId: 110, name: '一式陸攻(野中隊)', level: 0, count: 1, ts: jst('2026-10-20T20:01') },
+    ],
+  })
+})
+
+// 母港报文 api_log 只存最新一份快照，会被下一次回港覆盖；新版起把「这一次比上一次多出来的消息」逐条留历史，
+// 给 10 月实际发奖时核对发放方式用。同一条消息在新旧两份里各出现几次按多重集比较。
+test('母港消息日志：只取比上一份多出来的消息，多重集比较、保持新一份的顺序', () => {
+  const prev = [{ type: 1, message: 'A' }, { type: 2, message: 'B' }, { type: 1, message: 'A' }]
+  const next = [{ type: 3, message: 'C' }, { type: 1, message: 'A' }, { type: 1, message: 'A' }, { type: 1, message: 'A' }, { type: 2, message: 'B' }]
+  assert.deepEqual(newPortLogMessages(prev, next), [{ type: 3, message: 'C' }, { type: 1, message: 'A' }])
+  assert.deepEqual(newPortLogMessages([], [{ type: 1, message: 'X' }]), [{ type: 1, message: 'X' }])
+  assert.deepEqual(newPortLogMessages(next, next), [])
+})
 test('疑似排行奖励：没有候选时是空对象', () => {
   assert.deepEqual(rankingRewardCandidates([], { boundaries: [SEP_START], monthStartOf, nameOf: String }), {})
 })

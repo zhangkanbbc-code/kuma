@@ -101,3 +101,24 @@ test('月汇总：本月合计与最后看到的名次；本月没看过排行�
   assert.match(none, /本月 \+234/)
   assert.doesNotMatch(none, /本月 \+234 · 第/)
 })
+
+// 2026-09-30：月末那格标出 22 点后计入下月的那段；本月日历开头标出上月末 22 点后计入本月的那段。
+// 取整后为 0 的不显示（仍计入合计）。
+test('月末拆分：月末那格 ↪+N（悬停说明计入下月），开头一行写上月末 22 点后计入本月', () => {
+  const html = view.senkaCalendarHtml(model({
+    head: 3.4,
+    weeks: [[cell({ day: '2026-09-30', date: 30, gain: 50, tail: 8 }), null, null, null, null, null, null]],
+  }))
+  const d30 = cellHtml(html, '2026-09-30')
+  assert.match(d30, /<div class="sc-t" title="22点后的战果，计入下月">↪\+8<\/div>/)
+  assert.match(html, /<div class="sc-head">上月末22点后 \+3 计入本月<\/div>/)
+})
+
+test('月末拆分：取整为 0 或没有时都不显示', () => {
+  const html = view.senkaCalendarHtml(model({
+    head: 0.1,
+    weeks: [[cell({ day: '2026-09-30', date: 30, gain: 50, tail: 0.2 }), null, null, null, null, null, null]],
+  }))
+  assert.ok(!html.includes('class="sc-t"') && !html.includes('class="sc-head"'))
+  assert.ok(!view.senkaCalendarHtml(model()).includes('class="sc-head"'))
+})

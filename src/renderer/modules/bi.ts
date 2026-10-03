@@ -203,6 +203,7 @@ interface Exped {
   useBull: number
   deckNum: number
   mapArea: number
+  returnFlag: number
   difficulty: number
   winItem1: [number, number]
   winItem2: [number, number]
@@ -231,6 +232,7 @@ const allExpeds = (): Exped[] => {
       useBull: m.useBull,
       deckNum: m.deckNum,
       mapArea: m.mapArea,
+      returnFlag: m.returnFlag,
       difficulty: m.difficulty,
       winItem1: m.winItem1,
       winItem2: m.winItem2,
@@ -301,7 +303,8 @@ const estimatedNet = (
   }
 }
 
-const isSupport = (e: Exped) => /支援/.test(e.wiki?.nameZh ?? e.name) || e.mapArea > 10
+// api_return_flag（遠征中止可否）为 0 表示不能召回的支援远征；活动海域沿用海域号判定。
+const isSupport = (e: Exped) => e.returnFlag === 0 || e.mapArea > 10
 
 // ---- 条件检查引擎 ----
 
