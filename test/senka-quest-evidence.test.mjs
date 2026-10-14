@@ -125,7 +125,7 @@ export const makeLedger = (db: any) => new QuestSenkaLedger(db)
 
 const bundle = (() => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-senka-evidence-'))
-  for (const name of ['senka.ts', 'quest-period.ts', 'senka-quest-book.ts']) {
+  for (const name of ['senka.ts', 'quest-period.ts', 'senka-quest-book.ts', 'jst-day.ts']) {
     fs.copyFileSync(path.join(ROOT, 'src', 'shared', name), path.join(dir, name))
   }
   const entry = path.join(dir, 'quest-evidence.ts')
@@ -197,22 +197,20 @@ test('周期终点：一期的右边界就是下一期的起点，跨年跨季�
   }
 })
 
-test('去重窗口 = 周期 ∪ 战果月：两头都要盖住', () => {
-  // 季任在季中：周期比战果月宽，窗口就是那一季
+test('去重窗口 = 任务周期；周期定位不到才退回战果月', () => {
+  // 2026-10-14 改口径（体检第 4 条）：原先取「周期 ∪ 战果月」，是为了框住老账里 ts 钉在月初整值上的合成行；
+  // 可并集会把月末 22:00 之后才交的上一期月任，算进下一期的窗口，下一期的正常入账被挡掉，
+  // 违反同一天立的「循环任务一个周期只计一次」。老合成行改在入账判定里单独认（见「老账兼容」两条）。
+  // 季任在季中：窗口就是那一季
   const sep = jstUtc(2026, 10, 15, 12) // 10 月 15 日，属 9–11 月那一季
   const wide = questSenkaBookingWindow('quarterly', sep)
   assert.equal(wide.from, jstUtc(2026, 9, 1, 5))
   assert.equal(wide.to, jstUtc(2026, 12, 1, 5))
-  // 月任在月中：周期起点（1 日 05:00）晚于月界（前月末 22:00），
-  // 取并集才框得住那些 ts 被钉在月初整值上的老合成行
+  // 月任在月中：窗口是 1 日 05:00 到下月 1 日 05:00，不再退到前月末 22:00 的月界
   const mid = jstUtc(2026, 9, 15, 12)
   const monthly = questSenkaBookingWindow('monthly', mid)
-  assert.equal(monthly.from, senkaMonthStart(mid), '并集的左端必须退到月界，不是 1 日 05:00')
-  assert.ok(monthly.from < questPeriodStart('monthly', mid))
-  // 右端同理往后让 7 小时（下月 1 日 05:00 晚于月末 22:00 的月界）：
-  // 9/30 23:00 交的月任已经算 10 月战果月，但仍是 9 月那一期，同一期不许记第二笔
+  assert.equal(monthly.from, questPeriodStart('monthly', mid))
   assert.equal(monthly.to, questPeriodEnd('monthly', mid))
-  assert.ok(monthly.to > senkaMonthEnd(mid))
   // 周期定位不到（年任重置月未知 / 不是常设编码）：只剩战果月那一段，不放大也不缩小
   assert.deepEqual(questSenkaBookingWindow(null, mid), {
     from: senkaMonthStart(mid),
@@ -315,6 +313,58 @@ test('老账兼容：ts 被钉在月初整值上的合成行照样挡得住重�
   })
   assert.equal(verdict.book, false)
   assert.equal(verdict.reason, 'already-booked')
+})
+
+test('月末 22:00 之后才交的上一期月任，不挡下一期（体检第 4 条）', () => {
+  // 10-31 23:00 交的是 10 月那一期（任务 11-01 05:00 才重置），战果已算 11 月；
+  // 11-20 交的是 11 月那一期——同一个战果月里两期各一笔，都该记
+  const late = jstUtc(2026, 10, 31, 23)
+  const next = planQuestSenkaBooking({
+    senka: 80, kind: 'monthly', annualMonth: null, evidenceTs: jstUtc(2026, 11, 20, 12), bookedTs: [late],
+  })
+  assert.equal(next.book, true)
+  assert.equal(next.reason, 'booked')
+  // 季任同理：11-30 23:00 交的是 9–11 月那一季，12-10 是新一季
+  const q = planQuestSenkaBooking({
+    senka: 330, kind: 'quarterly', annualMonth: null, evidenceTs: jstUtc(2026, 12, 10, 12), bookedTs: [jstUtc(2026, 11, 30, 23)],
+  })
+  assert.equal(q.book, true)
+  // 手动补记同一口径：选单不该把下一期显示成「已记」
+  const manual = planManualQuestSenkaBooking({
+    senka: 80, kind: 'monthly', annualMonth: null, at: jstUtc(2026, 11, 20, 12), bookedTs: [late],
+  })
+  assert.equal(manual.book, true)
+})
+
+test('月末空档里手动补的上一期，落账在月界上，也不挡下一期的真报文', () => {
+  // 10-31 23:30 按下补记：本期是 10 月那一期，落账时刻 = max(11 月战果月起点 10-31 22:00, 10-01 05:00) = 10-31 22:00
+  const at = jstUtc(2026, 10, 31, 23, 30)
+  const manualTs = manualQuestSenkaTs('monthly', at)
+  assert.equal(manualTs, jstUtc(2026, 10, 31, 22))
+  // 它恰好落在战果月起点上，但不是 09-01 改口径之前的老合成行，不许被当成 11 月那一期
+  const real = planQuestSenkaBooking({
+    senka: 80, kind: 'monthly', annualMonth: null, evidenceTs: jstUtc(2026, 11, 20, 12), bookedTs: [manualTs],
+  })
+  assert.equal(real.book, true)
+  // 同一期（10 月）再来一笔真报文仍要挡住
+  const dup = planQuestSenkaBooking({
+    senka: 80, kind: 'monthly', annualMonth: null, evidenceTs: jstUtc(2026, 10, 31, 23, 50), bookedTs: [manualTs],
+  })
+  assert.equal(dup.reason, 'already-booked')
+})
+
+test('老账兼容的边界：只认 09-01 改口径之前、钉在战果月起点上的行', () => {
+  // 老合成行最晚一批钉在 8/31 22:00（9 月战果月起点）；它代表的是 9 月那一期
+  const synthetic = jstUtc(2026, 8, 31, 22)
+  const sameQuarter = planQuestSenkaBooking({
+    senka: 330, kind: 'quarterly', annualMonth: null, evidenceTs: jstUtc(2026, 10, 20, 12), bookedTs: [synthetic],
+  })
+  assert.equal(sameQuarter.reason, 'already-booked', '9–11 月那一季已被老合成行占了')
+  // 不是钉在月界整值上的普通行，按自身时刻归期：8/31 21:00 属 6–8 月那一季，挡不住 9–11 月
+  const plainRow = planQuestSenkaBooking({
+    senka: 330, kind: 'quarterly', annualMonth: null, evidenceTs: jstUtc(2026, 10, 20, 12), bookedTs: [jstUtc(2026, 8, 31, 21)],
+  })
+  assert.equal(plainRow.book, true)
 })
 
 // ---- ④ 账本那一层：真 SQL、真 events ----

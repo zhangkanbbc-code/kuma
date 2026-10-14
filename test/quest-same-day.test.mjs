@@ -101,7 +101,7 @@ test('当日提示复用日任倒计时，解释只放 title；季任务有本�
   const render = compile(qn, 'const sameDayResetHtml =', 'const annualResetHtml =', 'sameDayResetHtml', {
     qp, nextReset, fmtDurationLong: (ts) => `${(ts - now) / 3600000}小时`,
   })
-  assert.match(render({ id: 1 }), /当日内完成 · 05:00 重置/)
+  assert.match(render({ id: 1 }), /当日内完成 · JST 05:00 重置/)
   assert.match(render({ id: 1 }), /data-same-day-reset data-cdl="1788811200000">1小时/)
   assert.match(render({ id: 1 }), /title="[^"]*清零本地计数[^"]*"/)
   assert.doesNotMatch(render({ id: 1 }).replace(/title="[^"]*"/, ''), /清零本地计数/)
@@ -139,11 +139,11 @@ test('编队分组只收本队遂行中 nearMiss，链接 title 列出全部失�
   const html = render({ id: 1 })
   assert.equal((html.match(/class="fleet-quests"/g) ?? []).length, 1)
   assert.equal((html.match(/class="fq-group"/g) ?? []).length, 2)
-  assert.ok(html.indexOf('满足编成条件') < html.indexOf('编成待调整'))
+  assert.ok(html.indexOf('满足编成条件') >= 0 && html.indexOf('满足编成条件') < html.indexOf('编成待调整'))
   const failedHtml = render({ id: 1 }, true)
   assert.equal((failedHtml.match(/class="fleet-quests"/g) ?? []).length, 1)
   assert.equal((failedHtml.match(/class="fq-group"/g) ?? []).length, 3)
-  assert.ok(failedHtml.indexOf('满足编成条件') < failedHtml.indexOf('编成待调整'))
+  assert.ok(failedHtml.indexOf('满足编成条件') >= 0 && failedHtml.indexOf('满足编成条件') < failedHtml.indexOf('编成待调整'))
   assert.match(failedHtml, /编成待调整[\s\S]*<span class="fq-group"><span class="more" title="[^"]*">编成任务读取失败 · 上次读取结果 · 返港后重试<\/span><\/span><\/div>$/)
   assert.match(html, /title="旗舰不符合「轻巡」\n仅限第2舰队"/)
   assert.doesNotMatch(html, /class="approx"/)

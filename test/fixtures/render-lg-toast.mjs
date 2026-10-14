@@ -74,11 +74,13 @@ ${ESCORT_STATE}
     export const mgChange = (keys: string[]) => { mgChangeCallbacks.forEach((cb) => cb(keys)) }
     export const onPowerupResult = (_cb: unknown) => {}
     export const onQpChange = (_cb: unknown) => {}
-    export const onTick = (_cb: unknown) => {}
+    const ticks: (() => void)[] = []
+    export const onTick = (cb: () => void) => { ticks.push(cb) }
+    export const tick = () => ticks.forEach((cb) => cb())
     const trayToggleDndCallbacks: (() => void)[] = []
     export const onTrayToggleDnd = (cb: () => void) => { trayToggleDndCallbacks.push(cb) }
     export const trayToggleDnd = () => { trayToggleDndCallbacks.forEach((cb) => cb()) }
-    export const pushTrayDnd = async (_on: boolean) => {}
+    export const pushTrayDnd = async (on: boolean) => { ((globalThis as any).__trayDnd ??= []).push(on) }
     export const pushTrayUnread = async (n: number) => {
       ((globalThis as any).__trayUnread ??= []).push(n)
     }
@@ -96,6 +98,7 @@ ${ESCORT_STATE}
     export const elink = (_k: string, _id: number, text: string) => text
   `,
   'renderer/mu.ts': `
+    export const getPopModule = () => (globalThis as any).__lgPop ?? null
     export const registerModule = (def: unknown) => { (globalThis as any).__lgModule = def }
     export const activateModule = (id: string) => { ((globalThis as any).__activate ??= []).push(id) }
   `,
@@ -115,7 +118,7 @@ ${ESCORT_STATE}
   'renderer/lg-test-entry.ts': `
     export { notifyAccountChanged, runNotificationDemo, showPowerupResultToast, showSortieReadinessToast } from './modules/lg'
     // 出击态归内核那份 mg 管，勿扰要靠它才摆得出来（桩与铃看的是同一个对象）
-    export { mg, mgChange, trayToggleDnd } from './kernel'
+    export { mg, mgChange, trayToggleDnd, tick } from './kernel'
   `,
 }
 
@@ -359,13 +362,14 @@ const require_ = createRequire(import.meta.url)
  * `options.config`：配置底稿（键是 config 的完整路径），点击写进去的值也进这份表。
  */
 export const mountLgToast = (options = {}) => {
-  globalThis.__navigate = []
-  globalThis.__activate = []
-  globalThis.__lgModule = null
-  globalThis.__appendNotice = []
-  globalThis.__markRead = []
-  globalThis.__trayUnread = []
-  globalThis.__invoke = []
+  const state = { __lgPop: options.pop ?? null }
+  state.__navigate = []
+  state.__activate = []
+  state.__lgModule = null
+  state.__appendNotice = []
+  state.__markRead = []
+  state.__trayUnread = []
+  state.__invoke = []
 
   const wrapper = options.gameWrapper == null ? null : new FakeElement('div')
   if (wrapper) {
@@ -378,7 +382,7 @@ export const mountLgToast = (options = {}) => {
     querySelector: (selector) => (selector === '#game-wrapper' ? wrapper : null),
     addEventListener: () => {},
     // 窗口有焦点：系统通知那一路就地返回，不去碰 Notification（这台上没有）
-    hasFocus: () => true,
+    hasFocus: () => options.focus ?? true,
   }
   if (wrapper) doc.body.appendChild(wrapper)
 
@@ -407,7 +411,7 @@ export const mountLgToast = (options = {}) => {
           on: () => {},
           send: () => {},
           invoke: async (channel, payload) => {
-            globalThis.__invoke.push([channel, payload])
+            state.__invoke.push([channel, payload])
             return null
           },
         },
@@ -421,6 +425,7 @@ export const mountLgToast = (options = {}) => {
   // document / setTimeout 这几样用**形参**递进去，只在这份产物里生效——
   // 覆盖 globalThis 会连 node --test 自己的计时一起换掉
   new Function(
+    'globalThis',
     'require',
     'module',
     'exports',
@@ -431,8 +436,11 @@ export const mountLgToast = (options = {}) => {
     'clearTimeout',
     'requestAnimationFrame',
     'ResizeObserver',
+    'AudioContext',
+    'Notification',
     bundle,
   )(
+    state,
     fakeRequire,
     mod,
     mod.exports,
@@ -443,6 +451,14 @@ export const mountLgToast = (options = {}) => {
     fakeClearTimeout,
     (fn) => frames.push(fn),
     class { observe() {} },
+    class {
+      constructor() { state.__sounds = (state.__sounds ?? 0) + 1; this.currentTime = 0 }
+      createOscillator() { return { frequency: {}, connect: () => ({ connect() {} }), start() {}, stop() {} } }
+      createGain() { return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} } } }
+    },
+    class {
+      constructor(title, options) { (state.__systemNotices ??= []).push([title, options]) }
+    },
   )
 
   assert.ok(typeof mod.exports.showSortieReadinessToast === 'function', '铃没把弹卡入口导出来')
@@ -470,7 +486,11 @@ export const mountLgToast = (options = {}) => {
   return {
     doc,
     /** 真装配模块，登记战况变化与托盘勿扰的监听；面板保持未展开 */
-    mount: () => globalThis.__lgModule.mount(new FakeElement('div')),
+    mount: () => state.__lgModule.mount(new FakeElement('div')),
+    tick: () => mod.exports.tick(),
+    trayDndCalls: () => state.__trayDnd ?? [],
+    sounds: () => state.__sounds ?? 0,
+    systemNotices: () => state.__systemNotices ?? [],
     /** 派发内核补丁，走真实探测与 notify */
     mgChange: (keys) => mod.exports.mgChange(keys),
     /** 托盘菜单的真实手动勿扰入口 */
@@ -487,11 +507,11 @@ export const mountLgToast = (options = {}) => {
     /** 外框光效那圈类名 */
     bodyClasses: () => [...doc.body.classes],
     /** 写进账本的通知行 */
-    appendNoticeCalls: () => globalThis.__appendNotice,
+    appendNoticeCalls: () => state.__appendNotice,
     /** 推给托盘的未读数（updateBadge 一路） */
-    trayUnreadCalls: () => globalThis.__trayUnread,
+    trayUnreadCalls: () => state.__trayUnread,
     /** 发出去的 ipc（推送就走这里） */
-    invokeCalls: () => globalThis.__invoke,
+    invokeCalls: () => state.__invoke,
     /** 内核那份战况。摆 sortie 进去就是「出击中」，自动勿扰随之生效 */
     mg: mod.exports.mg,
     /** 眼下还挂着的那些卡 */
@@ -502,8 +522,8 @@ export const mountLgToast = (options = {}) => {
     boxCorner: () => box()?.dataset.corner ?? null,
     config,
     click: clickOn,
-    navigateCalls: () => globalThis.__navigate,
-    activateCalls: () => globalThis.__activate,
+    navigateCalls: () => state.__navigate,
+    activateCalls: () => state.__activate,
     /** 催一次自动关闭（8 秒那一档），没被 clearTimeout 掉的才跑 */
     fireTimers: () => {
       for (const timer of [...timers]) if (!timer.cleared && !timer.fired) {

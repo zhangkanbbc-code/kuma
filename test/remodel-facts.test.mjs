@@ -325,26 +325,26 @@ test('既有queryShipLife真实SQL：改装摘要跨分页、隔离roster、无�
   } finally { db.close() }
 })
 
-test('账本异步刷新沿用queryShipLife，旧请求不能覆盖改装后的新判档', async () => {
+test('账本批量异步刷新保留旧判档，旧请求不能覆盖改装后的新判档', async () => {
   const calls = [], pending = [], cache = new Map([[11, histories.get(11)]])
   const state = { master: { upgrades: { 506: [{ currentShipId: 501 }], 501: [{ currentShipId: 506 }] } }, ships: { 11: { id: 11, shipId: 501 } } }
   let builds = 0
   const rt = runtimeHost().extract('src/renderer/modules/ji.ts', ['refreshRemodelHistories'], {
     mg: state, friendlyShips: new Map(sampleRaw.api_mst_ship.map(s => [s.api_id, s])), remodelHistories: cache,
     buildRemodelNeeds: () => { builds++ },
-    queryShipLife: (id, limit) => { calls.push([id, limit]); return new Promise(resolve => pending.push(resolve)) },
+    queryRemodelHistories: ids => { calls.push(ids); return new Promise(resolve => pending.push(resolve)) },
   }).api
   const old = rt.refreshRemodelHistories()
-  assert.equal(cache.size, 0)
+  assert.deepEqual(cache.get(11), histories.get(11))
   state.ships[11].shipId = 506
   const newer = rt.refreshRemodelHistories()
-  pending[1]({ remodelHistory: histories.get(12) })
+  pending[1]([{ rosterId: 11, history: histories.get(12) }])
   await newer
-  pending[0]({ remodelHistory: histories.get(11) })
+  pending[0]([{ rosterId: 11, history: histories.get(11) }])
   await old
   assert.deepEqual(cache.get(11), histories.get(12))
-  assert.deepEqual(calls, [[11, 1], [11, 1]])
-  assert.equal(builds, 3)
+  assert.deepEqual(calls, [[11], [11]])
+  assert.equal(builds, 1)
 })
 
 const emptyConversionTable = '==可以进行转换改装的舰船==\n{|\n!\n|-\n!\n|}'

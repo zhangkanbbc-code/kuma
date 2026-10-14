@@ -809,6 +809,8 @@ export const popModule = (id: string) => {
   poppedGroups.set(id, at ? layout.docks[at.dock][at.gi] : null)
   removeFrom(id)
   tabOf.get(id)?.remove()
+  paneOf.get(id)?.classList.remove('active')
+  paneOf.get(id)!.dataset.popped = 'true'
   paneOf.get(id)?.remove()
   layout.popped.push(id)
   layoutAll()
@@ -828,6 +830,7 @@ export const returnModule = (id: string, target?: { dock: DockId; gi: number }) 
   layout.shelved = layout.shelved.filter((other) => other !== id)
   layout.collapsed[dock] = false
   const at = locate(id)!
+  delete paneOf.get(id)!.dataset.popped
   activateIn(at.dock, at.gi, id)
   delete layout.poppedFrom[id]
   poppedGroups.delete(id)
@@ -1114,6 +1117,7 @@ const freshPane = (id: string, stale: HTMLElement): HTMLElement => {
   const pane = createPane(id)
   // 只继承「此刻是不是显示中」；narrow / fleet-skin 之类是模块自己加的，重挂时会再加一遍
   pane.classList.toggle('active', stale.classList.contains('active'))
+  if (stale.dataset.popped === 'true') pane.dataset.popped = 'true'
   // 坞格里 / 浮层里 / 暂存处——原地顶替，父容器是谁都不必知道。
   // 搁置中的面板本就被 layoutDock 摘下（无父节点），此时是空转，等下次重铺照样摆回去。
   stale.replaceWith(pane)
@@ -1189,6 +1193,8 @@ export const initModules = () => {
   }
 
   // 挂载：tab/pane 先建好，再由 layoutDock 搬进对应格
+  // 资料服务仍随各模块装配（任务供图鉴/编队/远征读取，图鉴供资源读取）。
+  // 通知和设置在各自入口门控，副作用只归主窗。
   const ordered = [...modules].sort((a, b) => (a.order ?? 99) - (b.order ?? 99))
   expectedModules = ordered.filter((mod) => moduleVisible(mod.id)).length
   syncMountReport() // 先把分母写上：中途整体崩了也能看出「装到第几个断的」
@@ -1219,6 +1225,7 @@ export const initModules = () => {
     }
 
     const pane = createPane(mod.id)
+    if (!POP_MODULE && layout.popped.includes(mod.id)) pane.dataset.popped = 'true'
     if (POP_MODULE) {
       if (mod.id === POP_MODULE) {
         popHost!.appendChild(pane)
@@ -1226,7 +1233,11 @@ export const initModules = () => {
       }
     } else document.body.appendChild(pane) // 暂挂：mount 里可能读尺寸
     mountModule(mod, pane)
-    if (!POP_MODULE && layout.popped.includes(mod.id)) pane.remove()
+    if (!POP_MODULE && layout.popped.includes(mod.id)) {
+      pane.classList.remove('active')
+      pane.dataset.popped = 'true'
+      pane.remove()
+    }
   }
 
   if (POP_MODULE) {

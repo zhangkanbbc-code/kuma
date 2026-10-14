@@ -142,7 +142,13 @@ const runtimeSource = (() => {
     'setVoiceCaptionSize(config.get(VOICE_CAPTION_SIZE_PATH, VOICE_CAPTION_SIZE_DEFAULT))'
   assert.ok(source.includes(sizeInit), 'voice-subtitle.ts 的字号初始化锚点变了')
   return `${source.replace(sizeInit, '')}
-export { loadData as testLoadData, captionsFor as testCaptionsFor, displayAtPlaybackTime as testDisplayAtPlaybackTime, showSubtitle as testShowSubtitle }
+// 每个用例会整份替换主数据，相当于生产里的 master 补丁，不能沿用上一例的目录缓存。
+export const testLoadData = () => {
+  voiceGraphLoading = null
+  voiceGraphRetryAt = 0
+  return loadData()
+}
+export { captionsFor as testCaptionsFor, displayAtPlaybackTime as testDisplayAtPlaybackTime, showSubtitle as testShowSubtitle }
 `
 })()
 

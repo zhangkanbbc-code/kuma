@@ -390,6 +390,7 @@ const voice = ({ enabled = true, practice = false, captionGate = true, noText = 
     resolveVoiceRequest: (pathname) => ({ kind: pathname.includes('enemy') ? 'enemy' : 'ship', mstId: 100, voiceId: Number(pathname.split('/').at(-1).replace('.mp3', '')) }),
     ipcRenderer: { invoke: async () => {} }, captionsFor: () => noText ? [] : [{ text: '台词' }],
     displayAtPlaybackTime: (...args) => captions.push(args), ready: true, ensureData: async () => {},
+    ensureVoiceGraph: async () => {},
     onMgChange: () => {}, flushPending: () => {},
   }
   const api = new Function(...Object.keys(context), voiceCode)(...Object.values(context))

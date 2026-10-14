@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import test from 'node:test'
+import test, { mock } from 'node:test'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 
@@ -16,6 +16,11 @@ import {
   syntheticQuestPack,
 } from './fixtures/quest-lodes.mjs'
 import { questEntityMaster } from './fixtures/quest-entity-master.mjs'
+
+// 体检 10-14：被测的 quest-counter 内部直接取 Date.now()（resetExpiredProgress 等），本文件又在顶层用 Date.now() 造状态；
+// 跑测试时恰好跨过 JST 05:00 就确定性变红 9 条（周一 05:00 再加 5 条、每月 1 日 05:00 再加 3 条）。
+// 整份测试把 Date 冻结在一个不贴任何重置线的时刻（周三中午、月中、季中）；只冻结 Date，不碰定时器。
+mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-10-14T12:00:00+09:00') })
 import battleModule from '../dist/main/mg/battle.js'
 
 const { mergeNight, parseBattle } = battleModule

@@ -72,6 +72,7 @@ import {
   repairDuration,
   trackMountCleanup,
   uiGet,
+  onUiPreferenceChange,
   uiSet,
   updateCountdowns,
   queryExpSamples,
@@ -1622,6 +1623,8 @@ onSortieScreen(() => {
  */
 let lastSallyCue = 0
 const warnOnEventMapOpen = (areaId: number, ts: number): void => {
+  // 开图是主进程的即时事件，可能先于偏好 IPC 到达；提醒判据现取已落盘的集合。
+  mutedAreas = uiGet<number[]>(AIR_BASE_MUTE_KEY, [])
   // **出击途中一律闭嘴**(2026-08-27 用户在活动图打到一半被反复弹出抓的)。
   // 这条信号是「取了某张海域的美术」,而进点、过场同样在取——它认不出
   // 你是在选图还是已经踩在 F 点上,下面那道 8 秒防抖跨点位再加载也挡不住。
@@ -1870,6 +1873,12 @@ type MetricRowId = keyof typeof METRIC_ROW_ITEMS
 const metricsHidden: Record<MetricRowId, string[]> = {
   fleet: uiGet<string[]>('ru.metricsHidden.fleet', []),
   airbase: uiGet<string[]>('ru.metricsHidden.airbase', []),
+}
+for (const rowId of ['fleet', 'airbase'] as const) {
+  onUiPreferenceChange(`ru.metricsHidden.${rowId}`, () => {
+    metricsHidden[rowId] = uiGet<string[]>(`ru.metricsHidden.${rowId}`, [])
+    scheduleRender()
+  })
 }
 
 /** 纯函数出口给产物回归测试：隐藏发生在拼串前，收纳只会量到剩余芯片。 */
@@ -2253,6 +2262,10 @@ const initMetricsFoldCard = () => {
  * 和就绪判据；09-08 用户裁定被打空算严重缺少补给，未补给、疲劳、被打空三类一起静默。
  */
 let mutedAreas = uiGet<number[]>(AIR_BASE_MUTE_KEY, [])
+onUiPreferenceChange(AIR_BASE_MUTE_KEY, () => {
+  mutedAreas = uiGet<number[]>(AIR_BASE_MUTE_KEY, [])
+  scheduleRender()
+})
 
 const airBaseHeaderHtml = (): string => {
   const bases = trackedAirBases()
@@ -2917,8 +2930,10 @@ const fleetQuestHtml = (deck: Deck): string => {
  * 不删数据）——清掉的话那一行会无声消失，看上去像「这支队一个都不满足」。
  */
 const scheduleFleetQuestCheck = () => {
+  if (pane?.dataset.popped === 'true') return
   if (fleetQuestTimer) clearTimeout(fleetQuestTimer)
   fleetQuestTimer = setTimeout(() => {
+    if (pane?.dataset.popped === 'true') return
     const generation = ++fleetQuestGeneration
     void queryFleetCheck()
       .then((result) => {
@@ -3156,6 +3171,7 @@ const bindFleetPanelDelegates = (
   root.addEventListener('click', (event) => {
     const button = (event.target as HTMLElement).closest<HTMLElement>('[data-act="air-base-mute"]')
     if (!button) return
+    mutedAreas = uiGet<number[]>(AIR_BASE_MUTE_KEY, [])
     mutedAreas = toggleAirBaseAreaMute(mutedAreas, Number(button.dataset.areaId))
     uiSet(AIR_BASE_MUTE_KEY, mutedAreas)
     rerender()
@@ -3421,6 +3437,7 @@ const scheduleRender = () => {
 }
 
 const render = (force = false) => {
+  if (pane?.dataset.popped === 'true') return
   if (!pane || (!force && !pane.classList.contains('active'))) return
   // 疲劳观测点不在这里记：写入方是铃（lg.ts），它无条件装配、
   // 按 ships 补丁记账，并且用 lastPortTs 而不是 Date.now() 锚定，比这里准。
@@ -3547,6 +3564,7 @@ registerModule({
   order: 2,
   mount(el) {
     pane = el
+    for (const key of ['ru.sandbox', 'ship.personal.v1']) onUiPreferenceChange(key, scheduleRender)
     pane.classList.add('fleet-skin')
     if (!los33TipRegistered) {
       registerTipBody('los33', los33TipBodyHtml)
@@ -3630,5 +3648,8 @@ registerModule({
     scheduleFleetQuestCheck()
     render(true)
   },
-  onShow: render,
+  onShow: () => {
+    scheduleFleetQuestCheck()
+    render()
+  },
 })

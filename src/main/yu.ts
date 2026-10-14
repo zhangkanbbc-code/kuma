@@ -8,14 +8,15 @@ import path from 'path'
 import { createHash } from 'crypto'
 import { pipeline } from 'stream/promises'
 
-import { app, dialog, ipcMain, session, shell, webContents } from 'electron'
+import { app, dialog, ipcMain, session, shell } from 'electron'
 
 import config = require('./config')
 import { APPDATA_PATH } from './env'
 import { GAME_URL_CONFIG_KEY, normalizeGameUrl } from '../shared/game-url'
 import { dmmLogoutTargets } from '../shared/dmm-logout'
 import { isNavigationAborted } from '../shared/navigation-error'
-import { ensureModDir } from './kcs-resource'
+import { localDayOf } from '../shared/local-calendar'
+import { ensureModDir, gameWebContents } from './kcs-resource'
 import ledger from './mg/ledger'
 import { registerCriticalQuitWork } from './quit-guard'
 
@@ -182,6 +183,20 @@ ipcMain.handle('yu:open-mod-dir', async () => {
   return { ok: !message, path: dir, message }
 })
 
+ipcMain.handle('yu:open-mod-night-dir', async () => {
+  const dir = ensureModDir('night')
+  const message = await shell.openPath(dir)
+  if (message) console.warn('[kuma] yu: 打开夜间魔改目录失败', dir, message)
+  return { ok: !message, path: dir, message }
+})
+
+ipcMain.handle('yu:open-mod-day-dir', async () => {
+  const dir = ensureModDir('day')
+  const message = await shell.openPath(dir)
+  if (message) console.warn('[kuma] yu: 打开白天魔改目录失败', dir, message)
+  return { ok: !message, path: dir, message }
+})
+
 /**
  * 「游戏页面网址 → 重新载入游戏页面」。
  *
@@ -189,14 +204,12 @@ ipcMain.handle('yu:open-mod-dir', async () => {
  * 此刻停在的那条 URL，跟配置里刚改的那条没有关系——玩家会按下去、看着页面确实刷新了，
  * 然后以为新网址不生效。所以给一条明确的路：按配置里那条重新导航。
  *
- * 游戏页在主窗口的 webview 里，而全应用只有那一个（多余的 webview 在
- * will-attach-webview 那道门就被挡掉了），按类型找即可，不必再传一个 id 进来。
+ * 游戏页在主窗口的 webview 里；浏览窗也有 webview，所以按 kcs-resource
+ * 登记的游戏身份找，不按创建顺序取第一个。
  */
 const reloadGameUrl = async (throwOnError = false) => {
   const url = normalizeGameUrl(config.get(GAME_URL_CONFIG_KEY))
-  const game = webContents
-    .getAllWebContents()
-    .find((contents) => !contents.isDestroyed() && contents.getType() === 'webview')
+  const game = gameWebContents()
   if (!game) return { ok: false, url }
   try {
     await game.loadURL(url)
@@ -223,8 +236,8 @@ ipcMain.handle('yu:logout-dmm', async () => {
   }
   // Electron 的 clearStorageData 不提供 sessionstorage 选项；只在游戏页的 DMM
   // frame 内清 DOM 会话存储，并在执行时再核对源，避免导航途中清到游戏服务器。
-  for (const game of webContents.getAllWebContents()) {
-    if (game.isDestroyed() || game.getType() !== 'webview' || game.session !== ses) continue
+  const game = gameWebContents()
+  if (game?.session === ses) {
     for (const frame of game.mainFrame.framesInSubtree) {
       if (!targets.origins.some((origin) => frame.url.startsWith(`${origin}/`))) continue
       await frame.executeJavaScript(
@@ -257,7 +270,7 @@ ipcMain.handle('yu:doc-path', (_event, name: unknown) => {
 })
 
 ipcMain.handle('yu:backup-ledger', async () => {
-  const stamp = new Date().toISOString().slice(0, 10)
+  const stamp = localDayOf(Date.now())
   const picked = await dialog.showSaveDialog({
     title: '备份 kuma 数据与设置',
     defaultPath: path.join(app.getPath('documents'), `kuma 完整备份-${stamp}.kuma-backup`),

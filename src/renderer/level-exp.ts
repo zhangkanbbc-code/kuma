@@ -14,7 +14,7 @@
 // 这些点不是用来补矿脉的洞，而是**用来对表**：接包时 95 个实测点逐点核对，
 // 全部一致。日后游戏调表或包过期，冲突会在这里现形——那时以实测为准，
 // 因为它直接来自玩家自己的游戏。
-import { mg, queryLode, uiGet, uiSet } from './kernel'
+import { mg, onUiPreferenceChange, queryLode, uiGet, uiSet } from './kernel'
 import { expToLevel, levelExpPointsOf, mergeLevelExp, type LevelExpShip } from '../shared/level-exp'
 
 const KEY = 'levelExp'
@@ -26,6 +26,7 @@ let lodeAsked = false
 /** 从玩家自己的舰反推的实测点，落盘累积 */
 let observed = new Map<number, number>()
 let loaded = false
+onUiPreferenceChange(KEY, () => { loaded = false })
 
 /** 与矿脉表对不上的实测点：等级 → [实测, 矿脉] */
 const conflicts = new Map<number, [number, number]>()

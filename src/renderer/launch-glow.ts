@@ -59,6 +59,8 @@ import {
   type LaunchStaggerTiming,
   type LaunchWelcomeSignal,
 } from '../shared/launch-glow'
+import { mountWelcomeScene } from './launch-welcome-scene'
+import type { WelcomeScene } from '../shared/launch-welcome-scene'
 
 const ARMED_CLASS = 'kuma-glow'
 const RUN_CLASS = 'kuma-glow-run'
@@ -325,7 +327,7 @@ export interface LaunchWelcomeHandle {
  * 返回 null = 这次不挂（开关关着）。此时**什么都没做**——一个节点、一个监听都不加。
  * 减少动态效果时**照挂**（它是缓冲不是动画），只是淡入淡出改硬切；minShow 照等。
  */
-export const armLaunchWelcome = (enabled: boolean): LaunchWelcomeHandle | null => {
+export const armLaunchWelcome = (enabled: boolean, scene: WelcomeScene = { key: 'base' }): LaunchWelcomeHandle | null => {
   if (!enabled) return null
   if (typeof document === 'undefined' || !document.body) return null
 
@@ -359,6 +361,7 @@ export const armLaunchWelcome = (enabled: boolean): LaunchWelcomeHandle | null =
     skip.style.animationDuration = `${timing.fade}ms`
   }
   document.body.appendChild(layer)
+  const seasonal = mountWelcomeScene(layer, box, scene, calm)
 
   const startedAt = Date.now()
   const ready = new Set<string>()
@@ -385,6 +388,7 @@ export const armLaunchWelcome = (enabled: boolean): LaunchWelcomeHandle | null =
     document.removeEventListener('pointerdown', skipNow, true)
     document.removeEventListener('keydown', skipNow, true)
     layer.removeEventListener('animationend', onFadeEnd)
+    seasonal?.dispose()
     layer.remove()
     const next = handoff
     handoff = null
@@ -432,6 +436,7 @@ export const armLaunchWelcome = (enabled: boolean): LaunchWelcomeHandle | null =
       // 提督名只认第一次：同一件报两次（重试路径）不该把已经写好的名字擦回回退称呼
       if (signal === 'snapshot' && !ready.has('snapshot')) {
         name.textContent = launchWelcomeName(nickname)
+        seasonal?.syncPlate()
       }
       ready.add(signal)
       if (openedAt !== null || !launchWelcomeGateOpen(ready)) return

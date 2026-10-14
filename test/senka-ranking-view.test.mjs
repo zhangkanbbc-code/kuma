@@ -52,7 +52,7 @@ const sample = (over = {}) => ({
 test('名次表：每行名次、提督名、战果，本人那一行高亮，名字转义', () => {
   const html = view.senkaRankingHtml(sample())
   assert.match(html, /排行/)
-  assert.match(html, /9月25日 3:00 刷新/)
+  assert.match(html, /9月25日 JST 3:00 刷新/)
   const rows = html.match(/<div class="sd-rank-row[^"]*"[\s\S]*?<\/div>/g) ?? []
   assert.equal(rows.length, 3)
   assert.match(rows[1], /class="sd-rank-row me"/)
@@ -133,6 +133,7 @@ test('往月：每月一行，本人名次与战果、四档最后看到的值�
   const block = /<div class="sd-rank-history"[\s\S]*$/.exec(html)?.[0] ?? ''
   assert.ok(block, '缺往月小节')
   assert.match(block, /往月/)
+  assert.match(block, /title="名次取当月最后一次看到的排行；排行JST 15:00最后一刷，月末JST 14:00至22:00的战果不计入"/)
   assert.match(block, /2026年8月[\s\S]*第1327名[\s\S]*884/)
   assert.match(block, /联合 9,230 · 一群 6,532 · 二群 — · 三群 3,203/)
   assert.match(block, /疑似排行奖励：勋章×2/)

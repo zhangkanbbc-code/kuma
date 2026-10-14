@@ -23,6 +23,7 @@ import { readEnv } from '../shared/env-names'
 import { createMemoryTrail } from '../shared/crash-context'
 import type { MemorySample } from '../shared/crash-context'
 import { reportMainTiming, setMainTimingSink } from './perf-time'
+import { redactSensitiveDetail } from '../shared/redact-detail'
 
 const log = createRollingLog(path.join(APPDATA_PATH, 'perf.log'), {
   verbatimTimes: 5,
@@ -33,8 +34,7 @@ export const appendPerf = (source: string, scope: string, message: string) =>
   log.append(source, scope, message)
 
 // perf.log 会由玩家交给维护者；IPC detail 中的会话凭据必须在落盘前隐去。
-export const redactPerfDetail = (detail: string): string =>
-  detail.replace(/\b(?:api_token|token)=[^&\s]*/g, 'api_token=［已隐去］')
+export const redactPerfDetail = redactSensitiveDetail
 
 const PING_EVERY_MS = 10_000
 const HANG_AFTER_MS = 25_000

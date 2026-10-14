@@ -323,7 +323,11 @@ ipcMain.handle('chron:event-sortie-costs', (_event, areaId: number, sinceTs: num
 )
 
 // 活动归档（鉴的活动卷）：历次活动的期间统计
-ipcMain.handle('chron:event-archives', () => ledger.queryEventArchives())
+ipcMain.handle('chron:event-archives', async () => {
+  await ledger.seasonal.ready
+  ledger.seasonal.enrichEventArchives()
+  return ledger.queryEventArchives()
+})
 
 // 手动补档：活动还开着时也能先结一次账（数据随时间增长，可反复覆盖同一行）
 ipcMain.handle('chron:archive-event', (_event, areaId: number, opened: number, closed: number) =>

@@ -9,7 +9,7 @@
 // 只有 sourcemap 一项，逐路的取舍写在各自的 build() 上面。默认（不带这个标）是
 // 开发构建，行为一个字节都没变——测试与 npm start 跑的都还是那份。
 import { build } from 'esbuild'
-import { cpSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
+import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -112,4 +112,16 @@ rmSync(path.join(rendererOut, 'assets'), { recursive: true, force: true })
 cpSync(path.join(root, 'src', 'renderer', 'assets'), path.join(rendererOut, 'assets'), {
   recursive: true,
 })
+// 外部 symbol 的渐变 stop 不继承宿主的主题变量。让 sprite 自己也带同一份 token，
+// 颜色仍只维护在 index.html 的主题表里；不用为每片花瓣在开屏 DOM 中重复定义渐变。
+const welcomeSprite = readFileSync(path.join(root, 'src', 'renderer', 'assets', 'launch-welcome.svg'), 'utf8')
+const themeCss = readFileSync(path.join(root, 'src', 'renderer', 'index.html'), 'utf8')
+const themeTokens = (block) => Object.fromEntries([...block.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]))
+const darkTokens = themeTokens(themeCss.match(/:root\s*\{([^}]+)/)[1])
+const lightTokens = { ...darkTokens, ...themeTokens(themeCss.match(/:root\[data-theme="light"\]\s*\{([^}]+)/)[1]) }
+const spriteTokens = [...new Set([...welcomeSprite.matchAll(/var\((--[\w-]+)\)/g)].map((m) => m[1]))]
+for (const [theme, tokens] of [['dark', darkTokens], ['light', lightTokens]]) {
+  const css = `<style>:root{${spriteTokens.map((key) => `${key}:${tokens[key]};`).join('')}}</style>`
+  writeFileSync(path.join(rendererOut, 'assets', `launch-welcome-${theme}.svg`), welcomeSprite.replace('<defs>', `${css}\n<defs>`))
+}
 console.log(`[kuma] build ok${RELEASE ? '（发行版：渲染层不出 sourcemap）' : ''}`)

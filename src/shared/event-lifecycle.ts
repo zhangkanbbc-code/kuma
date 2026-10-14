@@ -19,6 +19,10 @@ interface EventLifecyclePack {
   events: EventLifecycleEntry[]
 }
 
+/** 欢迎屏作战灯沿用登记的分段；没有登记时保留一条连续航线。 */
+export const eventPhasesOf = (pack: unknown, mapAreaId: number): EventLifecycleEntry['phases'] =>
+  (pack as EventLifecyclePack | null)?.events.find((entry) => entry.mapAreaId === mapAreaId)?.phases ?? []
+
 export const eventLifecycleOf = (
   pack: unknown,
   mapAreaId: number,

@@ -27,9 +27,10 @@ import {
 } from '../../shared/material-delta-detail'
 import { questFixedSenka, senkaMonthEnd, senkaMonthStart } from '../../shared/senka'
 import type { SenkaQuestOption } from '../../shared/senka'
-import { assembleSenkaRanking, newPortLogMessages, ownRankByDay, rankingRewardCandidates, senkaMonthHistory, SENKA_RANKING_PATH } from '../../shared/senka-ranking'
+import { assembleSenkaRanking, failedSenkaRanking, newPortLogMessages, ownRankByDay, rankingRewardCandidates, senkaMonthHistory, SENKA_RANKING_PATH } from '../../shared/senka-ranking'
 import { buildSenkaCalendar, senkaDailyGains, senkaMonthTailWindow } from '../../shared/senka-calendar'
-import type { PortLogMessage, RankingServer } from '../../shared/senka-ranking'
+import { fmtJstDate, jstMonthRange } from '../../shared/jst-day'
+import type { PortLogMessage, RankingServer, SenkaRankingView } from '../../shared/senka-ranking'
 import { questAnnualMonth, questPeriodFromCode } from '../../shared/quest-period'
 import type { QuestPeriodKind } from '../../shared/quest-period'
 import { onQuestApi, reconcileQuestProgress } from './quest-counter-host'
@@ -74,6 +75,7 @@ import {
 } from '../bgm-archive'
 import { assetArchiveEntries, assetArchiveStats, clearAssetArchive, keepAssetBlob } from '../asset-archive'
 import { captureDisplayedAsset, captureDisplayedArt, captureDisplayedVoice, captureDisplayedBgm } from '../archive-capture'
+import { isKumaSender } from '../kuma-sender'
 import { clearVoiceAbsent, probeVoiceSlot, voiceAbsentEntries } from '../voice-probe'
 import {
   applySlotitemInventoryMutation,
@@ -620,9 +622,26 @@ const scheduleDomainSave = () => {
     saveDomainNow()
   }, 1500)
 }
-app.on('before-quit', () => {
+let ledgerCompactingOnQuit = false
+let ledgerCompactAttempted = false
+app.on('before-quit', event => {
+  if (ledgerCompactingOnQuit) { event.preventDefault(); return }
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) window.hide()
+  }
   if (domainSaveTimer) saveDomainNow()
   flushVoiceUnmatched()
+  ledger.slotitemBodyRetention.stop()
+  if (!ledgerCompactAttempted && ledger.slotitemBodyRetention.needsVacuum) {
+    event.preventDefault()
+    ledgerCompactingOnQuit = true
+    ledgerCompactAttempted = true
+    ledger.closeDatabase()
+    // 只在玩家退出后压实，最多等 3.5 秒，短于既有 4 秒退出兜底。
+    void ledger.slotitemBodyRetention.compactOnQuit().catch(error => {
+      console.warn('[kuma] mg: vacuum on quit failed', error)
+    }).finally(() => { ledgerCompactingOnQuit = false; app.quit() })
+  }
 })
 
 type ApiRequestInfo = [string | undefined, string | undefined, string]
@@ -854,6 +873,9 @@ broadcaster.addListener(
       masterRawCache = { ts, data: apiData }
     }
     handleEvent(apiPath, apiData, post, ts)
+    if (apiPath === '/kcsapi/api_get_member/questlist' || apiPath === '/kcsapi/api_get_member/useitem') {
+      settleSeasonalCampaigns()
+    }
     // 沿用 mg:patch → onMgChange 的战果刷新链，重查主卡与已打开的详情。
     if (apiPath === SENKA_RANKING_PATH) broadcast(['basic'])
     const total = performance.now() - startedAt
@@ -872,6 +894,23 @@ broadcaster.addListener(
 
 // 鉴按需拉取全量主数据（不塞进 mg:patch，避免状态广播膨胀）。带时效戳。
 ipcMain.handle('mg:master-raw', () => ensureMasterRaw())
+
+const settleSeasonalCampaigns = () => {
+  const player = store.getState().player
+  ledger.seasonal.settle({ now: Date.now(), stock: player.useitems, stockTs: player.useitemsTs,
+    quests: Object.values(player.quests), questsTs: player.questsFullTs })
+}
+
+ipcMain.handle('mg:seasonal-history', async () => {
+  await ledger.seasonal.ready
+  settleSeasonalCampaigns()
+  return ledger.seasonal.current(store.getState().player.useitems, Date.now())
+})
+ipcMain.handle('mg:seasonal-archives', async () => {
+  await ledger.seasonal.ready
+  settleSeasonalCampaigns()
+  return ledger.seasonal.archives()
+})
 
 // 渲染层初始状态拉取
 ipcMain.handle('mg:get-state', () => store.getState())
@@ -898,7 +937,7 @@ ipcMain.handle('mg:abyss-voice-record', (_event, input: unknown) =>
 // 这个 channel 对（不可信的）游戏页面上任何脚本都可达，所以两样都不裸信：
 // 路径的形状由 voice-archive 那边的白名单正则再判一次，字节由它的大小上限拦一次。
 // 最坏情况是页面往档案里塞了一段自己的音频——它塞不进别的目录（路径正则钉死
-// /kcs/sound/ 且文件名由主进程按内容指纹另起），也塞不满盘（500 MB 上限 + 淘汰）。
+// /kcs/sound/ 且文件名由主进程按内容指纹另起）；默认不限量，玩家可设总量上限与淘汰。
 ipcMain.on('kuma:voice-archive-blob', (event, input: unknown) => {
   if (!isGameWebContents(event.sender.id)) return
   if (!input || typeof input !== 'object') return
@@ -927,7 +966,7 @@ ipcMain.handle('mg:voice-archive-entries', () => voiceArchiveEntries())
 // 路径形状由 art-archive 的白名单正则再判一次，字节由它的大小上限与 PNG 魔数
 // 各拦一次。最坏情况是页面往档案里塞了一张自己的 PNG：它塞不进别的目录
 //（路径正则钉死 /kcs2/resources/ship/ 且文件名由主进程按内容指纹另起），
-// 也塞不满盘（2 GB 上限 + 淘汰）。
+// 默认不限量，玩家可设总量上限与淘汰。
 ipcMain.on('kuma:art-archive-blob', (event, input: unknown) => {
   if (!isGameWebContents(event.sender.id)) return
   if (!input || typeof input !== 'object') return
@@ -953,7 +992,8 @@ ipcMain.on('kuma:art-archive-blob', (event, input: unknown) => {
 // ⚠️ 这两个 channel 的发起方是**kuma自己的渲染层**，不是游戏页——所以这里
 // 不能套 `isGameWebContents`（那会把自家的调用全挡掉）。形状仍旧不裸信：
 // 路径正则与字节上限在 archive-capture 与两个 archive 模块里各判一次。
-ipcMain.on('kuma:archive-capture-art', (_event, input: unknown) => {
+ipcMain.on('kuma:archive-capture-art', (event, input: unknown) => {
+  if (!isKumaSender(event)) return
   if (!input || typeof input !== 'object') return
   const payload = input as { pathname?: unknown; url?: unknown; version?: unknown }
   void captureDisplayedArt(payload.pathname, payload.url, payload.version).then((kept) => {
@@ -963,7 +1003,8 @@ ipcMain.on('kuma:archive-capture-art', (_event, input: unknown) => {
   })
 })
 
-ipcMain.on('kuma:archive-capture-voice', (_event, input: unknown) => {
+ipcMain.on('kuma:archive-capture-voice', (event, input: unknown) => {
+  if (!isKumaSender(event)) return
   if (!input || typeof input !== 'object') return
   const payload = input as { pathname?: unknown; url?: unknown }
   void captureDisplayedVoice(payload.pathname, payload.url).then((kept) => {
@@ -974,6 +1015,7 @@ ipcMain.on('kuma:archive-capture-voice', (_event, input: unknown) => {
 // BGM 试听也来自 UI 窗口，沿用上面的收货口，不套游戏 webContents 门。
 // 失败回给发起窗口，让「正在取」结束；成功仍走既有广播，在点亮那一拍开始播放。
 ipcMain.on('kuma:archive-capture-bgm', (event, input: unknown) => {
+  if (!isKumaSender(event)) return
   if (!input || typeof input !== 'object') return
   const payload = input as { pathname?: unknown; url?: unknown }
   if (typeof payload.pathname !== 'string' || typeof payload.url !== 'string') return
@@ -1038,7 +1080,7 @@ ipcMain.handle('mg:voice-absent-clear', (_event, input: unknown) => {
 // 游戏页面上任何脚本都可达，所以路径形状由 bgm-archive 的白名单正则再判一次，
 // 字节由它的大小上限拦一次。最坏情况是页面往档案里塞了一段自己的 mp3：
 // 它塞不进别的目录（路径正则钉死 /kcs2/resources/bgm/ 且文件名由主进程按内容
-// 指纹另起），也塞不满盘（单条 8 MB 上限 + 玩家可设的总量上限与淘汰）。
+// 指纹另起）；单条 8 MB 上限，总量默认不限，玩家可另设总量上限与淘汰。
 ipcMain.on('kuma:bgm-archive-blob', (event, input: unknown) => {
   if (!isGameWebContents(event.sender.id)) return
   if (!input || typeof input !== 'object') return
@@ -1084,6 +1126,10 @@ ipcMain.handle('mg:art-archive-entries', () => {
 // 资源历史（锱的曲线数据源）
 ipcMain.handle('mg:material-history', (_event, sinceTs: number) =>
   ledger.queryMaterials(typeof sinceTs === 'number' ? sinceTs : Date.now() - 7 * 24 * 3600 * 1000),
+)
+
+ipcMain.handle('mg:fastbuild-flow', (_event, sinceTs: number, untilTs: number) =>
+  ledger.queryFastbuildFlow(sinceTs, untilTs),
 )
 
 // 逐日资源快照（史的「每日资源」曲线）：每个本地自然日只回当天最后一条。
@@ -1267,23 +1313,44 @@ const rankingOwnHintAt = () => {
   }
 }
 
-const querySenkaRanking = (when: number) => {
-  const monthStart = senkaMonthStart(when)
-  const monthEnd = senkaMonthEnd(when)
-  return assembleSenkaRanking(ledger.queryRankingPages(monthStart - 40 * 24 * 3600_000), {
-    nickname: store.getState().player.basic?.nickname ?? '',
-    monthStart,
-    monthEnd,
-    // 舰C账号不能换服；旧页缺标记时按当前账号的服务器补，视图明确标出推定。
-    fallbackServer: currentRankingServer() ?? ledger.latestRankingServer(),
-    ownHintAt: rankingOwnHintAt(),
-  })
+let rankingFailure: { key: string | null; at: number } | null = null
+const querySenkaRanking = (when: number, reconcile = false): SenkaRankingView => {
+  if (rankingFailure?.key === null && Date.now() - rankingFailure.at < 30_000) {
+    return failedSenkaRanking(rankingFailure.at)
+  }
+  let key: string | null = null
+  try {
+    const monthStart = senkaMonthStart(when)
+    const monthEnd = senkaMonthEnd(when)
+    const stamp = ledger.rankingEventStamp()
+    key = JSON.stringify([monthStart, stamp.count, stamp.maxId, store.getState().player.basic?.nickname ?? ''])
+    if (rankingFailure?.key === key && Date.now() - rankingFailure.at < 30_000) {
+      return failedSenkaRanking(rankingFailure.at)
+    }
+    if (reconcile) reconcileSenka(when)
+    const view = assembleSenkaRanking(ledger.queryRankingPages(monthStart - 40 * 24 * 3600_000), {
+      nickname: store.getState().player.basic?.nickname ?? '',
+      monthStart,
+      monthEnd,
+      // 舰C账号不能换服；旧页缺标记时按当前账号的服务器补，视图明确标出推定。
+      fallbackServer: currentRankingServer() ?? ledger.latestRankingServer(),
+      ownHintAt: rankingOwnHintAt(),
+    })
+    // mg:senka 只取自动校准，不需要重复扫描奖励输入版本。
+    if (reconcile) view.historyKey = `${key}:${ledger.rankingRewardStamp()}`
+    rankingFailure = null
+    return view
+  } catch (error) {
+    console.warn('[kuma] 战果排行读取失败', error)
+    rankingFailure = { key, at: Date.now() }
+    return failedSenkaRanking(rankingFailure.at)
+  }
 }
 
 let calendarRanks: { count: number; maxId: number; ranks: ReturnType<typeof ownRankByDay> } | null = null
 
 ipcMain.handle('mg:senka-calendar', (_event, month?: string) => {
-  const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
+  const today = fmtJstDate(Date.now())
   const currentMonth = today.slice(0, 7)
   const stamp = ledger.rankingEventStamp()
   // 日历打开才解析全量排行；事件条数和最大 id 未变时复用按日名次。
@@ -1295,12 +1362,11 @@ ipcMain.handle('mg:senka-calendar', (_event, month?: string) => {
   }
   const firstTs = Math.min(ledger.earliestSenkaTs() ?? Infinity, stamp.firstTs ?? Infinity)
   const firstMonth = Number.isFinite(firstTs)
-    ? new Date(firstTs + 9 * 3600_000).toISOString().slice(0, 7) : currentMonth
+    ? fmtJstDate(firstTs).slice(0, 7) : currentMonth
   const selected = month == null ? currentMonth : month < firstMonth ? firstMonth : month > currentMonth ? currentMonth : month
   const [year, number] = selected.split('-').map(Number)
   // 格子按 JST 自然日；合计扣本月末 22 点后、加上月末 22 点后，按战果月结算。
-  const from = Date.UTC(year, number - 1, 1) - 9 * 3600_000
-  const to = Date.UTC(year, number, 1) - 9 * 3600_000
+  const { from, to } = jstMonthRange(selected)
   const tailWindow = senkaMonthTailWindow(selected)
   const previousMonth = new Date(Date.UTC(year, number - 2, 1)).toISOString().slice(0, 7)
   const headWindow = senkaMonthTailWindow(previousMonth)
@@ -1312,44 +1378,53 @@ ipcMain.handle('mg:senka-calendar', (_event, month?: string) => {
   canPrev: selected > firstMonth, canNext: selected < currentMonth }
 })
 
-ipcMain.handle('mg:senka-ranking', (_event, at?: number, opts?: { history?: boolean }) => {
+ipcMain.handle('mg:senka-ranking', (_event, at?: number, opts?: { history?: boolean; retry?: boolean }) => {
   const when = typeof at === 'number' ? at : Date.now()
-  reconcileSenka(when)
-  const view = querySenkaRanking(when)
+  if (opts?.retry) rankingFailure = null
+  const view = querySenkaRanking(when, true)
   // 常规刷新不带 history，避免每拍全量解析历史排行页；只在详情请求时计算往月和奖励候选。
-  if (opts?.history !== true) return view
-  const history = senkaMonthHistory(ledger.queryRankingPages(), {
-    nickname: store.getState().player.basic?.nickname ?? '',
-    ownHintAt: rankingOwnHintAt(),
-    monthStartOf: senkaMonthStart,
-    before: senkaMonthStart(when),
-  })
-  const boundaries: number[] = []
-  const earliest = ledger.earliestEventTs()
-  if (earliest != null) {
-    for (let boundary = senkaMonthStart(earliest); boundary <= when; boundary = senkaMonthEnd(boundary)) {
-      boundaries.push(boundary)
+  if (opts?.history !== true || view.failedAt) return view
+  try {
+    const history = senkaMonthHistory(ledger.queryRankingPages(), {
+      nickname: store.getState().player.basic?.nickname ?? '',
+      ownHintAt: rankingOwnHintAt(),
+      monthStartOf: senkaMonthStart,
+      before: senkaMonthStart(when),
+    })
+    const boundaries: number[] = []
+    const earliest = ledger.earliestEventTs()
+    if (earliest != null) {
+      for (let boundary = senkaMonthStart(earliest); boundary <= when; boundary = senkaMonthEnd(boundary)) {
+        boundaries.push(boundary)
+      }
     }
-  }
-  const names = new Map<number, string>(
-    (ensureMasterRaw()?.data?.api_mst_useitem ?? []).map((item: { api_id: number; api_name: string }) => [item.api_id, item.api_name]),
-  )
-  const rewards = rankingRewardCandidates(ledger.queryRankingRewardRows(), {
-    boundaries, monthStartOf: senkaMonthStart, nameOf: id => names.get(id) ?? `道具${id}`,
-    equips: ledger.querySlotitemSeen(boundaries[0] ?? Infinity),
-    knownEquipEventTs: ledger.queryKnownEquipEventTs(boundaries[0] ?? Infinity),
-    equipNameOf: id => store.getState().master.slotitems[id]?.name ?? `装备${id}`,
-  })
-  const months = new Map(history.map(month => [month.monthStart, month]))
-  for (const key of Object.keys(rewards)) {
-    const monthStart = Number(key)
-    if (!months.has(monthStart)) {
-      months.set(monthStart, { monthStart, own: null, lines: { 5: null, 20: null, 100: null, 500: null }, undecoded: 0 })
+    const names = new Map<number, string>(
+      (ensureMasterRaw()?.data?.api_mst_useitem ?? []).map((item: { api_id: number; api_name: string }) => [item.api_id, item.api_name]),
+    )
+    // 交界后的首次出现可能来自交界前；两份事件都从交界前最近一次整表同步起查。
+    // 没有前次同步时从头查，由候选判定排除找不到上一次整表的装备。
+    const equipEventFrom = ledger.latestEquipSyncBefore(boundaries[0] ?? Infinity) ?? 0
+    const rewards = rankingRewardCandidates(ledger.queryRankingRewardRows(), {
+      boundaries, monthStartOf: senkaMonthStart, nameOf: id => names.get(id) ?? `道具${id}`,
+      equips: ledger.querySlotitemSeen(boundaries[0] ?? Infinity),
+      equipSyncTs: ledger.queryEquipSyncTs(equipEventFrom),
+      knownEquipEventTs: ledger.queryLateEquipEventTs(equipEventFrom),
+      equipNameOf: id => store.getState().master.slotitems[id]?.name ?? `装备${id}`,
+    })
+    const months = new Map(history.map(month => [month.monthStart, month]))
+    for (const key of Object.keys(rewards)) {
+      const monthStart = Number(key)
+      if (!months.has(monthStart)) {
+        months.set(monthStart, { monthStart, own: null, lines: { 5: null, 20: null, 100: null, 500: null }, undecoded: 0 })
+      }
     }
+    view.history = [...months.values()].sort((a, b) => b.monthStart - a.monthStart)
+      .map(month => ({ ...month, rewards: rewards[month.monthStart] ?? [] }))
+    return view
+  } catch (error) {
+    console.warn('[kuma] 往月排行读取失败', error)
+    return { ...view, historyFailedAt: Date.now() }
   }
-  view.history = [...months.values()].sort((a, b) => b.monthStart - a.monthStart)
-    .map(month => ({ ...month, rewards: rewards[month.monthStart] ?? [] }))
-  return view
 })
 
 ipcMain.handle('mg:senka', (_event, at?: number) => {
@@ -1465,6 +1540,9 @@ ipcMain.handle('mg:expedition-history', (_event, missionId: number, limit?: numb
 // 在籍舰人生记录：实例级永久履历，首次同步只建基线，之后按确认事件增量记录。
 ipcMain.handle('mg:ship-life', (_event, rosterId: number, limit?: number) =>
   ledger.queryShipLife(rosterId | 0, limit ?? 80),
+)
+ipcMain.handle('mg:remodel-histories', (_event, rosterIds: number[]) =>
+  ledger.queryRemodelHistories(rosterIds),
 )
 ipcMain.handle('mg:ship-memorial', (_event, mstIds: number[]) =>
   ledger.queryShipMemorial(Array.isArray(mstIds) ? mstIds : []),
@@ -1601,6 +1679,7 @@ ipcMain.on('kuma:asset-archive-blob', (event, input: unknown) => {
 
 // 显示侧来自 kuma 窗口，不套游戏 webContents 门；完成回执释放逐路径去重。
 ipcMain.on('kuma:archive-capture-asset', (event, input: unknown) => {
+  if (!isKumaSender(event)) return
   if (!input || typeof input !== 'object') return
   const payload = input as { pathname?: unknown; url?: unknown; version?: unknown }
   void captureDisplayedAsset(payload.pathname, payload.url, payload.version).then((kept) => {

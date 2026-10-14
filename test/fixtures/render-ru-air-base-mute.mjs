@@ -23,8 +23,15 @@ type AirBaseSquad = any
 export const mg: any = { airBases: [], eventAreas: {}, decks: [], slotitems: {}, master: { slotitems: {} }, sortie: null }
 export const writes: any[] = []
 export const toasts: any[] = []
-const uiGet = (_key: string, fallback: any) => fallback
-const uiSet = (key: string, value: any) => writes.push([key, value])
+const fixturePrefs: Record<string, any> = {}
+const uiGet = (key: string, fallback: any) => __kernel ? __kernel.uiGet(key, fallback) : fixturePrefs[key] ?? fallback
+const onUiPreferenceChange = (key: string, cb: () => void) => { if (__kernel) __kernel.onUiPreferenceChange(key, cb) }
+const uiSet = (key: string, value: any) => {
+  writes.push([key, value])
+  fixturePrefs[key] = value
+  if (__kernel) __kernel.uiSet(key, value)
+}
+const scheduleRender = () => {}
 const esc = (v: any) => String(v ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
 const entityNamePlain = (_kind: any, _id: any, name: any) => name
 const entityTermHtml = entityNamePlain
@@ -57,12 +64,37 @@ ${cut('const AIR_BASE_ACTION', '\n// ---- 头部度量收纳')}
 ${cut('let mutedAreas = ', '\nconst metricsHtml')}
 ${cut('const fleetTabsHtml = ', '\n/** 沙盘抬头')}
 ${cut('const bindFleetPanelDelegates = ', '\nconst focusFleet = ')}
+// 装配入口也用原模块：监听挂到测试的真实 EventEmitter，开图经 addListener 分发。
+let pane: any
+let lastOpenedMapArea = 0
+los33TipRegistered = true
+const loadKcwikiShips = () => {}
+const loadMasterNames = () => {}
+const initMapIntel = async () => {}
+const ensureShipStatsLode = () => {}
+const initMetricsFoldCard = () => {}
+const ResizeObserver = class { observe() {}; disconnect() {} }
+const trackMountCleanup = (cb: () => void) => __kernel.trackMountCleanup(cb)
+const onMgChange = (cb: any) => __kernel.onMgChange(cb)
+const onMourningChange = () => {}
+const onQpChange = () => {}
+const onTick = (cb: any) => __kernel.onTick(cb)
+const deferPassive = () => {}
+const scheduleFleetQuestCheck = () => {}
+const render = () => {}
+const tickTimers = () => {}
+const registerModule = (mod: any) => { moduleDef = mod }
+let moduleDef: any
+${cut('registerModule({', '\n})')}
+})
+export const mount = (el: any) => moduleDef.mount(el)
 export const reset = (bases: any[], muted: number[] = [], eventAreas: any = {}) => {
   mg.airBases = bases
   mg.eventAreas = eventAreas
   mg.decks = []
   mg.sortie = null
   mutedAreas = [...muted]
+  fixturePrefs[AIR_BASE_MUTE_KEY] = [...muted]
   writes.length = 0
   toasts.length = 0
   lastSallyCue = 0
@@ -74,5 +106,16 @@ const outfile = path.join(dir, 'mute.cjs')
 buildSync({
   stdin: { contents: HARNESS, resolveDir: ROOT, sourcefile: 'air-base-mute-fixture.ts', loader: 'ts' },
   outfile, bundle: true, platform: 'node', format: 'cjs', logLevel: 'silent',
+  external: ['@electron/remote'],
 })
-export const scene = createRequire(import.meta.url)(outfile)
+const compiled = fs.readFileSync(outfile, 'utf8')
+export const makeAirBaseScene = (kernel = null, broadcaster = null) => {
+  const module = { exports: {} }
+  const require = createRequire(import.meta.url)
+  new Function('require', 'module', 'exports', '__kernel', compiled)(
+    (id) => id === '@electron/remote' ? { require: () => broadcaster } : require(id),
+    module, module.exports, kernel,
+  )
+  return module.exports
+}
+export const scene = makeAirBaseScene()

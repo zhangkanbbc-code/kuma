@@ -183,7 +183,7 @@ test('账本 schema 幂等建立 path/ts 索引，旧库重复打开且 firstPor
     try {
       db.exec(schema)
       assert.deepEqual(db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'events' ORDER BY name")
-        .all().map(({ name }) => name), ['idx_events_path', 'idx_events_path_ts', 'idx_events_ts'])
+        .all().map(({ name }) => name), ['idx_events_actions_ts', 'idx_events_path', 'idx_events_path_ts', 'idx_events_ts'])
       assert.equal(db.prepare('PRAGMA user_version').get().user_version, 13)
       const plan = db.prepare(`EXPLAIN QUERY PLAN ${firstPortSql}`).all(1000, 2000)
       assert.match(plan.map(({ detail }) => detail).join('\n'), /idx_events_path_ts/)

@@ -41,6 +41,7 @@ const STUBS = {
     export interface LodeMeta { id: string; name: string }
   `,
   'renderer/mu.ts': `
+    export const getPopModule = () => (globalThis as any).__yuPop ?? null
     export const registerModule = (def: unknown) => { (globalThis as any).__yuModule = def }
     export const setDistractSide = (side: string) => { (globalThis as any).__setDistractSide(side) }
   `,
@@ -152,6 +153,7 @@ export const mountYu = ({
   distract = false,
   appdataPath = 'C:\\kuma',
   debugUi = false,
+  pop = null,
   invoke = () => undefined,
 } = {}) => {
   // 门与铭/锚同一道：`process.env.KUMA_DEBUG_UI === '1'`，在模块顶层求值。
@@ -166,6 +168,7 @@ export const mountYu = ({
   globalThis.__specialCaptionStyles = []
   globalThis.__fairySalvo = []
   globalThis.__yuModule = null
+  globalThis.__yuPop = pop
   globalThis.__accountNotices = []
   const querySelector = globalThis.document?.querySelector?.bind(globalThis.document)
   globalThis.document = {
@@ -216,6 +219,7 @@ export const mountYu = ({
       },
     },
     '@electron/remote': {
+      getGlobal: (key) => key === 'ROOT' ? ROOT : undefined,
       require: () => ({
         get: (key, fallback) => (key in configStore ? configStore[key] : fallback),
         set: (key, value) => {

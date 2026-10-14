@@ -298,9 +298,10 @@ test('魔改文件夹：玩家卡，紧跟缓存修复，按钮走主进程开�
   )
   const card = cardHtml(yu.pane.innerHTML, 'mod-dir')
   assert.match(card, /<b>魔改文件夹<\/b>/)
-  assert.match(card, /打开文件夹/)
+  // 2026-10-14 起这一行是「文件夹 [常驻] [白天] [夜间]」（魔改定时换装），常驻那个按钮开原来的目录
+  assert.match(card, /data-act="open-mod-dir"[^>]*>常驻</)
   yu.click({ act: 'open-mod-dir' })
-  assert.ok(yu.invoked.includes('yu:open-mod-dir'), '点了「打开文件夹」却没往主进程发')
+  assert.ok(yu.invoked.includes('yu:open-mod-dir'), '点了「常驻」却没往主进程发')
 })
 
 test('快捷键：玩家卡紧跟托盘，七行与游戏画面内生效说明都真渲染', async () => {

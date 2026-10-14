@@ -13,6 +13,8 @@ import type {
 } from '../../shared/mg-types'
 
 import type { PayLogRow } from '../../shared/pay-log'
+import type { CampaignHistory, CampaignReward, ObservedQuest } from '../../shared/seasonal-history'
+import { campaignSummaryHtml, campaignRecordsHtml, questHistoryHtml } from '../../shared/seasonal-history-html'
 
 import {
   addManualPayLog,
@@ -29,6 +31,7 @@ import {
   queryBattleSnapshot,
   queryBattleSnapshots,
   queryEventArchives,
+  querySeasonalArchives,
   queryFactoryStats,
   queryLode,
   queryMasterRaw,
@@ -110,6 +113,7 @@ interface EventArchive {
     resNet?: number[] | null
     useitems?: { id: number; gained: number; spent: number }[]
     resCoversFullWindow?: boolean
+    quests?: ObservedQuest[]
   }
 }
 
@@ -173,6 +177,7 @@ let selectedDropReport: NodeDropReport | null = null
 let dropLoadingKey = ''
 let dropLoadFailed = false
 let eventArchives: EventArchive[] = []
+let seasonalArchives: CampaignHistory[] = []
 let factoryStats: FactoryStatsReport | null = null
 let factoryKind: 'ship' | 'item' = 'ship'
 // 工厂实测的两层展开态。跟击杀簿的 expandedBosses 一个道理：状态活在渲染之外，
@@ -982,10 +987,16 @@ const archiveDropHtml = (
 }
 
 const eventViewHtml = (): string => {
+  const historyContext = { time: fmtDateTime, nameOf: (r: CampaignReward) =>
+    r.kind === 'useitem' ? useitemNames.has(r.id) ? itemName(r.id) : '未识别' : r.name === 'ship' ? entityNamePlain('ship', r.id, mg.master.ships[r.id]?.name ?? '未识别') :
+    entityNamePlain('equip', r.id, mg.master.slotitems[r.id]?.name ?? '未识别') }
+  const seasonal = `<div class="shi-view-head"><div><b>季节企划</b><span>${seasonalArchives.length} 次归档</span></div></div>
+    <div class="shi-event-list">${seasonalArchives.map(h => `<article class="shi-event-card"><header><div><b>${esc(h.name)}</b><span>${fmtDate(h.opened)} — ${fmtDate(h.closed!)}</span></div></header><div class="shi-event-items">${campaignSummaryHtml(h, historyContext)}${campaignRecordsHtml(h, historyContext, true)}</div></article>`).join('') || '<div class="shi-empty">暂无季节企划归档</div>'}</div>`
   if (!eventArchives.length) {
     return `<div class="shi-view">
       <div class="shi-view-head"><div><b>往期活动</b></div></div>
       <div class="shi-empty large">暂无已结束活动的归档</div>
+      ${seasonal}
     </div>`
   }
   const cards = eventArchives
@@ -1022,6 +1033,7 @@ const eventViewHtml = (): string => {
           opened: Number(archive.opened) || 0,
           closed: Number(archive.closed) || 0,
         })}
+        ${questHistoryHtml(stats.quests ?? [], `event:${archive.areaId}:${archive.opened}`, historyContext)}
         ${
           stats.useitems?.length
             ? `<div class="shi-event-items"><small>特殊道具积攒 / 消耗</small>${archiveItemHtml(stats.useitems)}</div>`
@@ -1032,7 +1044,8 @@ const eventViewHtml = (): string => {
     .join('')
   return `<div class="shi-view">
     <div class="shi-view-head"><div><b>往期活动</b><span>${eventArchives.length} 次归档</span></div></div>
-    <div class="shi-event-list">${cards}</div>
+    <div class="shi-view-head"><div><b>活动海域</b></div></div><div class="shi-event-list">${cards}</div>
+    ${seasonal}
   </div>`
 }
 
@@ -1739,6 +1752,7 @@ const refresh = async (requestedQueries?: readonly ReviewQuery[]) => {
       wanted.has('master') ? queryMasterRaw() : Promise.resolve(undefined),
       wanted.has('map') ? queryLode('poi-fcd-map').catch(() => null) : Promise.resolve(undefined),
       wanted.has('payLog') ? queryPayLog() : Promise.resolve(undefined),
+      wanted.has('events') ? querySeasonalArchives() : Promise.resolve(undefined),
     ])
   } catch (error) {
     if (generation !== refreshGeneration) return
@@ -1749,7 +1763,7 @@ const refresh = async (requestedQueries?: readonly ReviewQuery[]) => {
     return
   }
   if (generation !== refreshGeneration) return
-  const [materials, snapshots, nodes, dropNodes, archives, factory, summaries, changes, actions, master, fcd, payRows] = rows
+  const [materials, snapshots, nodes, dropNodes, archives, factory, summaries, changes, actions, master, fcd, payRows, seasonalRows] = rows
   timedRun('async:shi', () => {
     loadFailed = false
     if (materials) {
@@ -1781,6 +1795,7 @@ const refresh = async (requestedQueries?: readonly ReviewQuery[]) => {
       if (!activeIndex.some((node) => node.map === selectedNodeMap)) selectedNodeMap = null
     }
     if (archives) eventArchives = archives as EventArchive[]
+    if (seasonalRows) seasonalArchives = seasonalRows
     if (factory) factoryStats = factory
     if (summaries) {
       useitemSummary = summaries as UseitemSummary[]
@@ -2117,7 +2132,7 @@ registerModule({
     onMgChange((keys) => {
       if (
         keys.some((key) =>
-          ['materials', 'useitems', 'sortie', 'eventAreas', 'master', 'kdocks', 'slotitems', 'ships', 'record', 'payitems'].includes(key),
+          ['materials', 'useitems', 'quests', 'sortie', 'eventAreas', 'master', 'kdocks', 'slotitems', 'ships', 'record', 'payitems'].includes(key),
         )
       ) {
         // 一次 refresh 最多有 12 个账本查询槽。出击中 materials/ships

@@ -10,7 +10,8 @@
 //   已全部做完领完），或本地镜像尚未同步到清零，同步到的那一刻自然退场。
 // - 注册表按**精确日文名**对主数据解析 id，绝不硬编码 id；解析不到就整条
 //   跳过（比照 kuma-quest-rules 的实体解析纪律）。
-// - 企划的截止日期与兑换目录只在游戏内公告，这里不猜——展示层如实标注。
+// - 兑换目录来源：游戏内兑换菜单，2026-10-14；2026 南瓜目录有效至
+//   2027-01-01 00:00 JST。企划截止日期仍以游戏内公告为准。
 import { questAnnualMonth, questPeriodFromCode } from './quest-period'
 
 import type { QuestPeriodKind } from './quest-period'
@@ -80,6 +81,99 @@ export interface CampaignQuest {
   period: CampaignQuestPeriod
 }
 
+export interface SeasonalExchangeReward {
+  kind: 'useitem' | 'slotitem'
+  id: number
+  count: number
+}
+
+export interface SeasonalExchangeRecipe {
+  key: string
+  jpName: string
+  exchangeType?: number
+  cost: number
+  limit: number | null
+  choices: SeasonalExchangeReward[][]
+}
+
+export interface SeasonalExchange {
+  season: number
+  startsAt: number
+  expiresAt: number
+  recipes: SeasonalExchangeRecipe[]
+}
+
+type SeasonalExchangeRecipeSpec = Omit<SeasonalExchangeRecipe, 'choices'> & {
+  choices: { kind: SeasonalExchangeReward['kind']; jpName: string; count: number }[][]
+}
+
+// 按企划、年份追加目录；奖励只存精确日文名，运行时对主数据解析。
+// 来源：游戏内兑换菜单，2026-10-14。
+export const SEASONAL_EXCHANGES: {
+  campaignKey: string
+  season: number
+  startsAt: number
+  expiresAt: number
+  recipes: SeasonalExchangeRecipeSpec[]
+}[] = [{
+  campaignKey: 'pumpkin',
+  season: 2026,
+  // 样本最早领奖为 10-14 21:41 JST；取当天 00:00，覆盖维护结束后的全部记录。
+  // 这是账本统计下界，不作为维护结束时刻的断言。
+  startsAt: Date.parse('2026-10-14T00:00:00+09:00'),
+  expiresAt: Date.parse('2027-01-01T00:00:00+09:00'),
+  recipes: [
+    {
+      key: 'yokan', jpName: '南瓜羊羹', exchangeType: 110, cost: 3, limit: null,
+      choices: [[
+        { kind: 'useitem', jpName: '改修資材', count: 4 },
+        { kind: 'useitem', jpName: '開発資材', count: 6 },
+      ]],
+    },
+    {
+      key: 'party', jpName: 'Halloween Party 2026', cost: 14, limit: 1,
+      choices: [
+        [{ kind: 'useitem', jpName: '改装設計図', count: 4 }],
+        [
+          { kind: 'slotitem', jpName: '二式大艇', count: 1 },
+          { kind: 'slotitem', jpName: '二式陸上偵察機(熟練)', count: 2 },
+        ],
+        [{ kind: 'slotitem', jpName: '熟練甲板要員+航空整備員', count: 1 }],
+      ],
+    },
+  ],
+}]
+
+const seasonalExchangeOf = (
+  key: string,
+  now: number | undefined,
+  useitemIdByName: Map<string, number>,
+  slotitemIdByName: Map<string, number>,
+): SeasonalExchange | undefined => {
+  if (now == null) return undefined
+  const catalog = SEASONAL_EXCHANGES.find((c) => c.campaignKey === key && now >= c.startsAt && now < c.expiresAt)
+  if (!catalog) return undefined
+  const recipes: SeasonalExchangeRecipe[] = []
+  for (const recipe of catalog.recipes) {
+    const choices: SeasonalExchangeReward[][] = []
+    let complete = true
+    for (const choice of recipe.choices) {
+      const rewards: SeasonalExchangeReward[] = []
+      for (const reward of choice) {
+        const id = (reward.kind === 'useitem' ? useitemIdByName : slotitemIdByName).get(reward.jpName)
+        if (id == null) {
+          complete = false
+          break
+        }
+        rewards.push({ kind: reward.kind, id, count: reward.count })
+      }
+      choices.push(rewards)
+    }
+    if (complete) recipes.push({ ...recipe, choices })
+  }
+  return recipes.length ? { season: catalog.season, startsAt: catalog.startsAt, expiresAt: catalog.expiresAt, recipes } : undefined
+}
+
 export interface SeasonalCampaign {
   key: string
   itemId: number
@@ -88,16 +182,21 @@ export interface SeasonalCampaign {
   seasonNote: string
   stock: number // 道具随企划结束清零，持有>0 本身即进行中的证据
   quests: CampaignQuest[]
+  exchange?: SeasonalExchange
 }
 
 // 返回的每一条都是进行中的企划：任一信号（任务点名 / 持有>0）成立才会发出。
 export const detectSeasonalCampaigns = (input: {
   useitemMst: SeasonalUseitemMst[]
+  slotitemMst?: { id: number; name: string }[]
+  now?: number
   useitems: Record<number, number>
   quests: SeasonalQuestSource[]
   catalogOf?: (no: number) => SeasonalCatalogEntry | null
+  recordedKeys?: string[] // 永久账本里尚未结账的企划；花光/领完后仍可查看本季记录
 }): SeasonalCampaign[] => {
   const idByName = new Map(input.useitemMst.map((u) => [u.name, u.id]))
+  const slotitemIdByName = new Map((input.slotitemMst ?? []).map((s) => [s.name, s.id]))
   const out: SeasonalCampaign[] = []
   for (const spec of SEASONAL_ITEMS) {
     const itemId = idByName.get(spec.jpName)
@@ -113,7 +212,8 @@ export const detectSeasonalCampaigns = (input: {
       if (!needles.some((needle) => hay.includes(needle))) continue
       quests.push({ no: quest.no, period: campaignQuestPeriod(catalog?.code, catalog?.resetNote) })
     }
-    if (stock <= 0 && quests.length === 0) continue
+    if (stock <= 0 && quests.length === 0 && !input.recordedKeys?.includes(spec.key)) continue
+    const exchange = seasonalExchangeOf(spec.key, input.now, idByName, slotitemIdByName)
     out.push({
       key: spec.key,
       itemId,
@@ -122,6 +222,7 @@ export const detectSeasonalCampaigns = (input: {
       seasonNote: spec.seasonNote,
       stock,
       quests,
+      ...(exchange ? { exchange } : {}),
     })
   }
   return out

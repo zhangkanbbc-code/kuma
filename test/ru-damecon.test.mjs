@@ -21,7 +21,7 @@ test('编队损管芯片按整支联合编成计舰、下一枚分类、列位�
   assert.match(html, /class="mchip metric damecon"/)
   assert.match(html, /损管 <b>3<\/b> · 要员 <b style="color:var\(--damecon-crew\)">2<\/b> · 女神 <b style="color:var\(--damecon-goddess\)">1<\/b>/)
   assert.match(html, /&lt;甲&gt; · 第 1 格 · 応急修理要員\n乙 · 第 2 格 · 応急修理女神\n丙 · 增设 · 応急修理要員/)
-  assert.ok(html.indexOf('data-mkey="soku"') < html.indexOf('data-mkey="damecon"'))
+  assert.ok(html.indexOf('data-mkey="soku"') >= 0 && html.indexOf('data-mkey="soku"') < html.indexOf('data-mkey="damecon"'))
   assert.ok(html.indexOf('data-mkey="damecon"') < html.indexOf('data-mkey="lv"'))
   assert.equal(renderMetrics(2), html)
   assert.ok(metricFoldOrder.includes('damecon'))

@@ -25,6 +25,7 @@ const fixture = (initial = { levelExp: { 2: 100 }, 'ships.firstOwned': { 1: 10 }
   const values = structuredClone(initial)
   const reads = [], writes = []
   const kernel = {
+    onUiPreferenceChange: () => {},
     mg: { ships: {}, master: { ships: {}, upgrades: {} } },
     uiGet: (key, fallback) => { reads.push(key); return values[key] ?? fallback },
     uiSet: (key, value) => { values[key] = JSON.parse(JSON.stringify(value)); writes.push([key, values[key]]) },
@@ -89,6 +90,7 @@ test('预读失败不锁死加载状态，原来的按需入口可以重试', ()
   ]) {
     let calls = 0
     const api = load(name, {
+      onUiPreferenceChange: () => {},
       mg: { ships: {}, master: { ships: {}, upgrades: {} } },
       uiGet: () => { if (++calls === 1) throw new Error('temporary failure'); return { 2: 100 } },
       uiSet: () => assert.fail('must not write'),

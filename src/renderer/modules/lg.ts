@@ -48,7 +48,7 @@ import {
 import { navigate } from '../link'
 import { entityNamePlain } from '../localization'
 import { ensureMapCellLetters, mapPlaceText } from '../map-cell-letter'
-import { activateModule, registerModule } from '../mu'
+import { activateModule, getPopModule, registerModule } from '../mu'
 import { observeOwnedShips } from '../ship-first-owned'
 
 import type { EntityRef } from '../link'
@@ -441,7 +441,7 @@ let nextKey = 1
 const makeKey = () => `n${nextKey++}`
 // 旧版把 14 日历史塞在 config.json 的 ui.lg.log 里，历史已改由账本承担；
 // 清一次空数组，免得配置文件永远背着那份陈账。已经空了就别每次启动都写一遍盘。
-if ((uiGet<unknown[]>(LOG_KEY, []) ?? []).length) uiSet(LOG_KEY, [])
+if (!getPopModule() && (uiGet<unknown[]>(LOG_KEY, []) ?? []).length) uiSet(LOG_KEY, [])
 
 // 未读只统计本次开机产生的：跨重启保留未读，等于把「陈旧通知」换个形式弹回来。
 const unreadCount = () =>
@@ -607,6 +607,7 @@ const evictOverflowToasts = (box: HTMLElement) => {
 }
 
 const showToast = (def: EventDef, title: string, detail: string, ref?: EntityRef) => {
+  if (getPopModule()) return
   const box = ensureToastBox()
   // 同类合并（2026-08-17 用户点名「一次处理多了会瞬间占满那一条空间」）：
   // 同类型且非锁定的新通知折进已在显示的那张卡——标题计数 ×N、正文换最新
@@ -1093,6 +1094,7 @@ const notify = (
   ref?: EntityRef,
   presentation: NotifyPresentation = {},
 ) => {
+  if (getPopModule()) return
   const def = EVENTS.find((e) => e.id === eventId)
   if (!def) return
   const displayDef: EventDef =
@@ -2074,6 +2076,7 @@ registerModule({
   title: '通知',
   order: 8.5,
   mount(el) {
+    if (getPopModule()) return
     pane = el
     ensureMapCellLetters()
     new ResizeObserver(() => {

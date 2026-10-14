@@ -4,10 +4,31 @@
 // 纯函数不接触数据库，便于行为测试直接导入。
 export const API_TOKEN_PLACEHOLDER = '<redacted>'
 
+// v6 入账生成的紧凑、平面字符串对象可直接验明占位；不能仅找占位子串：
+// 重复键、转义键或嵌在业务参数里的假占位，都可能掩住真正的凭据。
+// 含转义/数组/其它 JSON 形态仍走原解析分支，保留原来的序列化结果。
+const flatField = /"([A-Za-z_][A-Za-z_0-9]*)":"([^"\\\x00-\x1f]*)"([,}])/y
+const alreadyRedacted = (body: string): boolean => {
+  if (body[0] !== '{' || !body.includes('"api_token":"<redacted>"')) return false
+  const keys = new Set<string>()
+  let offset = 1
+  while (offset < body.length) {
+    flatField.lastIndex = offset
+    const field = flatField.exec(body)
+    if (!field || keys.has(field[1])) return false
+    keys.add(field[1])
+    if (field[1] === 'api_token' && field[2] !== API_TOKEN_PLACEHOLDER) return false
+    offset = flatField.lastIndex
+    if (field[3] === '}') return offset === body.length && keys.has('api_token')
+  }
+  return false
+}
+
 // post_body 的正常形态是广播器产出的 JSON 串（querystring.parse 后 stringify）；
 // 表单串分支是兜底——格式意外不该成为凭据放行的理由。
 export const redactPostBody = (postBody: string | null): string | null => {
-  if (!postBody || !postBody.includes('api_token')) return postBody
+  if (!postBody || (!postBody.includes('api_token') && !postBody.includes('\\'))) return postBody
+  if (alreadyRedacted(postBody)) return postBody
   try {
     const post = JSON.parse(postBody)
     if (post && typeof post === 'object' && post.api_token !== undefined) {

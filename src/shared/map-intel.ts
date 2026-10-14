@@ -8,6 +8,7 @@ import {
   isEndedLimitedWindow,
 } from './limited-window'
 import { correctLegacyDropForm } from './map-drop-corrections'
+import { fmtJstDate } from './jst-day'
 
 import type { LimitedEvidence, LimitedWindow } from './limited-window'
 
@@ -1063,7 +1064,7 @@ const buildDropIndex = (today: string) => {
  * 哪些海域·哪个难度确认掉这条船。空数组表示目录里没有它——
  * **不等于确认不掉**，只是这份离线目录没收录，调用方必须原样说清楚。
  */
-export const confirmedDropSitesOf = (mstId: number, today = localDate()): ConfirmedDropSite[] => {
+export const confirmedDropSitesOf = (mstId: number, today = fmtJstDate(Date.now())): ConfirmedDropSite[] => {
   if (dropIndex?.today !== today) buildDropIndex(today)
   return dropIndex!.byShip.get(mstId) ?? []
 }
@@ -1074,7 +1075,7 @@ export const confirmedDropSitesOf = (mstId: number, today = localDate()): Confir
  *
  * 只给「解释为什么捞不到」用——**不许**并进可捞计数，也不许拿去催人出击。
  */
-export const endedDropSitesOf = (mstId: number, today = localDate()): EndedDropSite[] => {
+export const endedDropSitesOf = (mstId: number, today = fmtJstDate(Date.now())): EndedDropSite[] => {
   if (dropIndex?.today !== today) buildDropIndex(today)
   return dropIndex!.endedByShip.get(mstId) ?? []
 }
@@ -1084,18 +1085,10 @@ export const mapIntelDifficulties = (map: string): EventDifficulty[] => {
   return layers ? EVENT_DIFFICULTIES.filter((difficulty) => layers[difficulty]) : []
 }
 
-const localDate = () => {
-  const now = new Date()
-  const yyyy = `${now.getFullYear()}`.padStart(4, '0')
-  const mm = `${now.getMonth() + 1}`.padStart(2, '0')
-  const dd = `${now.getDate()}`.padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
-}
-
 export const mapIntelNode = (
   map: string,
   node: string,
-  today = localDate(),
+  today = fmtJstDate(Date.now()),
   difficulty?: EventDifficulty,
 ): MapIntelNode | null => {
   const value = mapIntelMap(map, difficulty)?.nodes[node]
@@ -1135,7 +1128,7 @@ export interface NodeDropCatalog {
 export const nodeDropCatalog = (
   map: string,
   node: string,
-  today = localDate(),
+  today = fmtJstDate(Date.now()),
   difficulty?: EventDifficulty,
 ): NodeDropCatalog | null => {
   const pageDrops = mapIntelEntry(map)?.drops

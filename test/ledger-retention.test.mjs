@@ -146,7 +146,7 @@ test('两条清理路径都只按计划执行，没有绕开计划自己拼一�
   // ⚠️ 只看这两个方法的方法体：账本里别处也有 DELETE（撤销手动补记的一笔氪金、
   // 删一条任务进度、一次性迁移修数据），那些是**针对某一行的定点操作**，
   // 与「按时间批量清」不是一回事，不归这条护栏管。
-  for (const marker of ['private prune = () => {', 'clearLedgerMonth = (month: string): number => {']) {
+  for (const marker of ['private prune = () => {', 'clearLedgerMonth = async (month: string): Promise<number> => {']) {
     const at = ledgerSrc.indexOf(marker)
     assert.ok(at > 0, `找不到 ${marker}`)
     const body = ledgerSrc.slice(at, ledgerSrc.indexOf('\n  }\n', at))

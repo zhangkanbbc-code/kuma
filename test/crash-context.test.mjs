@@ -10,6 +10,7 @@ import test from 'node:test'
 import { transformSync } from 'esbuild'
 import context from '../dist/shared/crash-context.js'
 import envNames from '../dist/shared/env-names.js'
+import redaction from '../dist/shared/redact-detail.js'
 import { textErrors } from '../scripts/lib/evidence-text-audit.mjs'
 
 const { createMemoryTrail, createLastApiMemo, formatMemoryTrail, formatLastApis, formatLastBreadcrumb, formatCrashDumps } = context
@@ -199,6 +200,7 @@ test('崩溃事件实际行为：原行后追加现场、3 秒后列转储、定
       if (id === 'fs') return { mkdirSync() {}, statSync: () => ({ size: 0 }), appendFileSync: (_file, block) => records.push(block) }
       if (id === './env') return { APPDATA_PATH: 'fixture', KUMA_VERSION: 'fixture' }
       if (id === '../shared/crash-context') return context
+      if (id === '../shared/redact-detail') return redaction
       if (id === './crash-dumps') return { summarizeCrashDumps: ts => { since.push(ts); return { count: 1, latest: { name: 'sample.dmp', size: Math.round(2.3 * MB), mtime: clock } } } }
       if (id === './mg') return { lastApiPaths: () => [{ path: '/kcsapi/api_req_sortie/battleresult', ts: 79_000 }] }
       if (id === './perf-log') return {
@@ -226,6 +228,11 @@ test('崩溃事件实际行为：原行后追加现场、3 秒后列转储、定
   assert.equal(unrefs, 2)
   timers[1].callback()
   assert.match(records.at(-1), /crash-dumps · GPU\/crashed/)
+  for (const suffix of ['?api_token=query-secret&x=1', '#api_token=hash-secret']) {
+    app.emit('render-process-gone', {}, { getURL: () => `https://user:pass@game.example/kcs2/index.php${suffix}` }, { reason: 'crashed' })
+    assert.match(records.at(-2), /\nhttps:\/\/game.example\/kcs2\/index.php\n/)
+    assert.doesNotMatch(records.at(-2), /query-secret|hash-secret|api_token|user:pass/)
+  }
 })
 
 // 初始化顺序与同步调用位置是源码结构契约；Electron 入口无法在 Node 中直接导入，
@@ -238,7 +245,11 @@ test('源码接线：目录与安装顺序、同步心跳，以及路径备忘�
   assert.ok(installed < main.indexOf("app.on('ready'"))
   assert.ok(installed < main.indexOf('new BrowserWindow('))
   const dumps = read('../src/main/crash-dumps.ts')
-  assert.ok(dumps.indexOf("app.setPath('crashDumps'") < dumps.indexOf('crashReporter.start('))
+  // 体检 10-14：两处都要找得到，删掉 setPath 时 -1 < x 不许空过
+  const setPathAt = dumps.indexOf("app.setPath('crashDumps'")
+  const reporterAt = dumps.indexOf('crashReporter.start(')
+  assert.ok(setPathAt >= 0 && reporterAt >= 0, 'crash-dumps.ts 里 setPath 或 crashReporter.start 不见了')
+  assert.ok(setPathAt < reporterAt)
   const renderer = read('../src/renderer/perf-guard.ts')
   assert.match(renderer, /ipcRenderer\.on\('kuma:perf-ping', \(\) => \{\s*try \{\s*ipcRenderer\.send\('kuma:perf-alive'\)/)
   const mg = read('../src/main/mg/index.ts')

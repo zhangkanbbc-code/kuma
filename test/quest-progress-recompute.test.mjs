@@ -516,7 +516,7 @@ test('ledger 构造器在临时 SQLite 真跑 v13，升版、覆盖与重跑幂�
             contents: {
               electron: 'export const ipcMain = { handle: () => {} }',
               env: `export const APPDATA_PATH = ${JSON.stringify(dir)}`,
-              config: 'export default { get: (_path, fallback) => fallback }',
+              config: 'export default { get: (_path, fallback) => fallback, on: () => {}, removeListener: () => {} }',
               lode: 'export const getLode = (id) => globalThis.__questV13Lodes[id] ?? null',
             }[moduleName],
             loader: 'js',

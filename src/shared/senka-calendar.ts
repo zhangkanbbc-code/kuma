@@ -1,3 +1,5 @@
+import { fmtJstDate, jstMonthRange } from './jst-day'
+
 export interface SenkaCalendarCell {
   day: string
   date: number
@@ -27,7 +29,7 @@ export interface SenkaCalendarModel extends SenkaCalendar {
 export const senkaDailyGains = (entries: readonly { ts: number; senka: number }[]): Record<string, number> => {
   const gains: Record<string, number> = {}
   for (const entry of entries) {
-    const day = new Date(entry.ts + 9 * 3600_000).toISOString().slice(0, 10)
+    const day = fmtJstDate(entry.ts)
     gains[day] = (gains[day] ?? 0) + entry.senka
   }
   return gains
@@ -35,8 +37,7 @@ export const senkaDailyGains = (entries: readonly { ts: number; senka: number }[
 
 /** 该自然月月末 22:00 到次月 1 日 00:00（JST），计入下个战果月。 */
 export const senkaMonthTailWindow = (month: string): { from: number; to: number } => {
-  const [year, monthNumber] = month.split('-').map(Number)
-  const to = Date.UTC(year, monthNumber, 1) - 9 * 3600_000
+  const { to } = jstMonthRange(month)
   return { from: to - 2 * 3600_000, to }
 }
 

@@ -17,6 +17,8 @@ const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8')
 // 办法是从编译产物里把 warnOnEventMapOpen 整段切出来真跑一遍，自由标识符
 // 全部当参数注入（含 lastSallyCue，这样防抖状态跟着这一份闭包走）。
 const DEPS = [
+  'uiGet',
+  'AIR_BASE_MUTE_KEY',
   'mg',
   'activeAreasNow',
   'fleetShips',
@@ -83,6 +85,8 @@ const makeScene = ({ sortie = null, untagged = 2, short = 1, red = 0 } = {}) => 
   const body = cutWarnBody()
   const make = new Function(...DEPS, `return (areaId, ts) => {${body}}`)
   const warn = make(
+    (_key, fallback) => fallback,
+    mute.AIR_BASE_MUTE_KEY,
     mg,
     () => new Set([EVENT_AREA]),
     (deck) => deck.ships ?? [],

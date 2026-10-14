@@ -4,13 +4,19 @@
 // 构建页面侧图片/登录脚本 hack 用的特权解析器：本地存在魔改或缓存文件时返回
 // kuma-cache:// URL（由主进程 kcs-resource.ts 供出），否则 undefined 走原网络请求。
 const createResourceResolver = (remote) => {
-  const { createResourceLookup } = require('./kcs-resource-path')
+  const { createResourceLookup, modPeriodOf } = require('./kcs-resource-path')
+  const { ipcRenderer } = require('electron')
+  const { modNightSettingsPayload, createModNightSettingsBridge } = require('./mod-night-settings-bridge')
   const config = remote.require('./config')
   // 路径只在 preload 初始化时读一次。放进每张图的 src setter 会变成
   // 同步 IPC（@electron/remote）——进战斗一次性加载卡面/罗盘/战斗图时，
   // 卡的是游戏 webview 自己的线程，kuma UI 还在动。
   const cacheDir = config.get('kuma.cache.path', remote.getGlobal('DEFAULT_CACHE_PATH'))
-  return createResourceLookup(cacheDir)
+  const settings = createModNightSettingsBridge({
+    initial: modNightSettingsPayload((key, fallback) => config.get(key, fallback)),
+    ipc: ipcRenderer,
+  })
+  return createResourceLookup(cacheDir, { period: () => modPeriodOf(new Date(), settings.get()) })
 }
 
 // MAIN WORLD

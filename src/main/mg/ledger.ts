@@ -14,6 +14,8 @@ import config from '../config'
 import { APPDATA_PATH } from '../env'
 import { getLode } from '../lode'
 import { upgradeBattleView } from './battle'
+import { SeasonalLedger } from './seasonal-ledger'
+import { SlotitemBodyRetention } from './slotitem-body-retention'
 import { aggregateFactoryStats } from './factory-stats'
 import { redactPostBody } from './post-body-redact'
 import {
@@ -55,6 +57,7 @@ import {
   ledgerMonthsCovered,
   planLedgerMonthClear,
   planLedgerPrune,
+  SLOTITEM_BODY_RETENTION_CONFIG,
   type LedgerMonthCount,
 } from '../../shared/ledger-retention'
 import type { FitObservationRecord } from '../../shared/fit-observation'
@@ -132,13 +135,12 @@ import {
   type SenkaEntry,
   type SenkaSummary,
 } from '../../shared/senka'
-import { KNOWN_EQUIP_SOURCE_PATHS, SENKA_RANKING_PATH } from '../../shared/senka-ranking'
+import { EQUIP_FULL_LIST_PATHS, LATE_EQUIP_SOURCE_PATHS, SENKA_RANKING_PATH } from '../../shared/senka-ranking'
 import type { PortLogMessage, RankingPage, RankingRewardEquip, RankingRewardRow, RankingRowData, RankingServer } from '../../shared/senka-ranking'
 import {
   planManualQuestSenkaBooking,
   planQuestSenkaBooking,
   questIdFromClearItemGet,
-  questSenkaBookingWindow,
 } from '../../shared/senka-quest-book'
 import type { QuestSenkaBookingReason } from '../../shared/senka-quest-book'
 
@@ -260,6 +262,14 @@ class Ledger {
       -- 2026-09-07 归因：firstPort / charge / shipDeck 原计划只走 idx_events_path，
       -- 每个候选分别扫描 4298 / 1884 / 1201 行再滤 ts；复合索引同时收窄路径与时间窗口。
       CREATE INDEX IF NOT EXISTS idx_events_path_ts ON events(path, ts);
+      -- 操作归因只读这三列；覆盖索引避免 90 天查询逐行回表碰大报文页。
+      -- id 保留同毫秒事件原来的入账顺序（idx_events_ts 的 rowid 次序）。
+      -- 谓词与 queryActionEvents 一致，保留 useitem / require_info 全量边界。
+      CREATE INDEX IF NOT EXISTS idx_events_actions_ts ON events(ts, id, path, post_body)
+        WHERE (path NOT LIKE '/kcsapi/api_get_member/%'
+          OR path IN ('/kcsapi/api_get_member/useitem', '/kcsapi/api_get_member/require_info'))
+          AND path NOT LIKE '/kcsapi/api_port/%'
+          AND path NOT LIKE '/kcsapi/api_start2/%';
       CREATE TABLE IF NOT EXISTS ranking_pages (
         event_id INTEGER PRIMARY KEY,
         server_num INTEGER,
@@ -476,6 +486,8 @@ class Ledger {
       );
       CREATE INDEX IF NOT EXISTS idx_ship_life_roster
         ON ship_life_events(roster_id, ts DESC);
+      CREATE INDEX IF NOT EXISTS idx_ship_life_remodel
+        ON ship_life_events(roster_id, ts DESC) WHERE kind = 'remodel';
       CREATE UNIQUE INDEX IF NOT EXISTS idx_ship_life_terminal
         ON ship_life_events(roster_id)
         WHERE kind IN ('scrap', 'material', 'sunk');
@@ -588,9 +600,23 @@ class Ledger {
     }
     // V15 两步同样幂等；V13 未完成时仍留 12，允许下次一起重跑。
     this.db.exec(`PRAGMA user_version = ${questProgressV13 ? 15 : 12}`)
-    this.prune()
+    this.seasonal = new SeasonalLedger(this.db, no => (getLode('quests-scn')?.data as any)?.[`${no}`]?.name ?? '')
+    this.seasonal.setMaster((this.loadSnapshot('/kcsapi/api_start2/getData')?.body as any)?.api_data ?? {})
+    this.slotitemBodyRetention = new SlotitemBodyRetention(this.db, DB_PATH,
+      () => config.get(SLOTITEM_BODY_RETENTION_CONFIG, false) === true)
+    config.on('config.set', this.onBodyRetentionConfig)
+    void this.seasonal.startBackfill().then(() => { if (!this.closed) this.prune() }).catch(error => {
+      console.warn('[kuma] mg: seasonal backfill failed', error)
+    })
     // 每天顺手清一次陈账
     this.pruneTimer = setInterval(() => this.prune(), 24 * 3600 * 1000)
+  }
+
+  readonly seasonal: SeasonalLedger
+  readonly slotitemBodyRetention: SlotitemBodyRetention
+
+  private onBodyRetentionConfig = (key: string) => {
+    if (key === SLOTITEM_BODY_RETENTION_CONFIG && !this.closed) this.prune()
   }
 
   private dropPhantomConsumableUseitemRowsV14 = () => {
@@ -735,6 +761,11 @@ class Ledger {
         )
         .run(ts, method, apiPath, snapshotOnly ? null : body, redactPostBody(postBody), secretaryMst)
       this.lastRecordedEventId = Number(result.lastInsertRowid) || null
+      if (apiPath === '/kcsapi/api_start2/getData' || apiPath === '/kcsapi/api_get_member/questlist' ||
+        apiPath === '/kcsapi/api_req_quest/clearitemget' || apiPath === '/kcsapi/api_req_member/itemuse' ||
+        apiPath === '/kcsapi/api_req_kaisou/powerup') {
+        this.seasonal.observe({ ts, path: apiPath, body: JSON.parse(body), post: JSON.parse(postBody || '{}') })
+      }
     } catch (e) {
       console.warn('[kuma] mg: ledger record failed', e)
     }
@@ -760,6 +791,19 @@ class Ledger {
     this.db.prepare(
       `SELECT COUNT(*) AS count, COALESCE(MAX(id), 0) AS maxId, MIN(ts) AS firstTs FROM events WHERE path = ?`,
     ).get(SENKA_RANKING_PATH) as { count: number; maxId: number; firstTs: number | null }
+
+  // 奖励候选只随新增道具/装备、或候选首次出现之前的来源证据变化；普通回港不失效。
+  rankingRewardStamp = (): string => {
+    const items = this.db.prepare(`SELECT COUNT(*) AS n, MAX(rowid) AS id, SUM(delta) AS total
+      FROM useitem_log WHERE cause IS NULL AND delta > 0`).get()
+    const equips = this.db.prepare(`SELECT COUNT(*) AS n, MAX(id) AS id, MAX(first_ts) AS ts
+      FROM slotitem_seen`).get() as { n: number; id: number | null; ts: number | null }
+    const paths = [...EQUIP_FULL_LIST_PATHS, ...LATE_EQUIP_SOURCE_PATHS]
+    const evidence = this.db.prepare(`SELECT COUNT(*) AS n, MAX(id) AS id FROM events
+      WHERE path IN (${paths.map(() => '?').join(',')}) AND ts <= ?`)
+      .get(...paths, equips.ts ?? 0)
+    return JSON.stringify([items, equips, evidence])
+  }
 
   querySenkaCalendarEntries = (from: number, to: number): { ts: number; senka: number }[] =>
     this.db.prepare(`SELECT ts, senka FROM senka_log WHERE ts >= ? AND ts < ? ORDER BY ts ASC`)
@@ -821,11 +865,23 @@ class Ledger {
     return rows.map(row => ({ ...row, equipped: Boolean(row.equipped) }))
   }
 
-  queryKnownEquipEventTs = (fromTs: number): number[] =>
+  latestEquipSyncBefore = (beforeTs: number): number | null =>
     (this.db.prepare(
-      `SELECT ts FROM events WHERE path IN (${KNOWN_EQUIP_SOURCE_PATHS.map(() => '?').join(',')})
+      `SELECT MAX(ts) AS ts FROM events WHERE path IN (${EQUIP_FULL_LIST_PATHS.map(() => '?').join(',')})
+       AND ts < ?`,
+    ).get(...EQUIP_FULL_LIST_PATHS, beforeTs) as { ts: number | null }).ts
+
+  queryEquipSyncTs = (fromTs = 0): number[] =>
+    (this.db.prepare(
+      `SELECT ts FROM events WHERE path IN (${EQUIP_FULL_LIST_PATHS.map(() => '?').join(',')})
        AND ts >= ? ORDER BY ts, id`,
-    ).all(...KNOWN_EQUIP_SOURCE_PATHS, fromTs) as { ts: number }[]).map(row => row.ts)
+    ).all(...EQUIP_FULL_LIST_PATHS, fromTs) as { ts: number }[]).map(row => row.ts)
+
+  queryLateEquipEventTs = (fromTs = 0): number[] =>
+    (this.db.prepare(
+      `SELECT ts FROM events WHERE path IN (${LATE_EQUIP_SOURCE_PATHS.map(() => '?').join(',')})
+       AND ts >= ? ORDER BY ts, id`,
+    ).all(...LATE_EQUIP_SOURCE_PATHS, fromTs) as { ts: number }[]).map(row => row.ts)
 
   private actionsSinceLastUseitemSync = (): UseitemCauseAction[] => {
     const endId = this.lastRecordedEventId
@@ -862,6 +918,7 @@ class Ledger {
           stmt.run(ts, c.id, c.delta, c.total, resolveUseitemCause(c, actions))
         }
       })
+      this.seasonal.reconcileUseitems(changes.map(c => c.id))
     } catch (e) {
       console.warn('[kuma] mg: useitem log failed', e)
     }
@@ -1961,7 +2018,8 @@ class Ledger {
   }
 
   /**
-   * EO 海域击破 → 一笔特别战果。同一战果月同一海域只记一次。
+   * EO 海域击破 → 一笔特别战果。同一 EO 重置周期同一海域只记一次。
+   * 一期从每月 1 日 05:00 JST 到下月同一重置点；月末 22:00 战果翻页不重置 EO。
    *
    * **分值以游戏亲发的为准。** 击破那一刻的 `battleresult` 会带 `api_get_exmap_rate`
    * （本次发放的战果值，账本 3/3 与下面那张表逐个相同），有它就直接用；
@@ -1984,12 +2042,14 @@ class Ledger {
         : EO_SENKA[mapId]
     if (!senka) return false
     try {
-      const monthStart = senkaMonthStart(ts)
+      // 两条月界差 7 小时：先平移到战果月边界算起点，再移回 EO 的 05:00 重置线。
+      const periodStart = senkaMonthStart(ts - 7 * 3600 * 1000) + 7 * 3600 * 1000
+      const periodEnd = senkaMonthStart(periodStart + 32 * 24 * 3600 * 1000) + 7 * 3600 * 1000
       const already = this.db
         .prepare(
-          `SELECT 1 FROM senka_log WHERE kind = 'eo' AND note = ? AND ts >= ? LIMIT 1`,
+          `SELECT 1 FROM senka_log WHERE kind = 'eo' AND note = ? AND ts >= ? AND ts < ? LIMIT 1`,
         )
-        .get(`${mapId}`, monthStart)
+        .get(`${mapId}`, periodStart, periodEnd)
       if (already) return false
       this.db
         .prepare(
@@ -2005,7 +2065,7 @@ class Ledger {
 
   /**
    * 任务领取 → 一笔特别战果。**入账时刻就是证据时刻**（观测到 clearitemget 那一刻），
-   * 去重按「同任务同周期 ∪ 同战果月」——判据与出处见 shared/senka-quest-book。
+   * 去重按「同任务同周期」，周期未知才退回战果月——判据与出处见 shared/senka-quest-book。
    *
    * 调用方必须先拿到证据：实时路径的证据就是手上这一条报文，补记路径的证据要从
    * events 里查（questClearEvidenceTs）。这里不接受「推断出来的已完成」——
@@ -2173,7 +2233,7 @@ class Ledger {
 
   /**
    * 补记选单要用的「这条任务本期已经有账了吗」。判据与 addManualQuestSenka 共用
-   * 同一个去重窗口——选单里标成已记的，按下去也必然被挡；反过来也一样。
+   * 同一个入账判据（含老合成行的周期归属）——选单里标成已记的，按下去也必然被挡；反过来也一样。
    * 返回值区分是哪一种账：`evidence` = 报文观测行，`manual` = 玩家自己补的。
    */
   questSenkaTaken = (
@@ -2183,9 +2243,15 @@ class Ledger {
     const out: Record<number, 'evidence' | 'manual'> = {}
     try {
       for (const quest of quests) {
-        const window = questSenkaBookingWindow(quest.kind, at, quest.annualMonth)
         const hit = this.questSenkaRows(quest.id).filter(
-          (row) => row.ts >= window.from && row.ts < window.to,
+          (row) => planManualQuestSenkaBooking({
+            // 这里只查是否占过本期，不入账；正分值让判定走到去重这一步。
+            senka: 1,
+            kind: quest.kind,
+            annualMonth: quest.annualMonth,
+            at,
+            bookedTs: [row.ts],
+          }).reason === 'already-booked',
         )
         if (!hit.length) continue
         // 同一窗口里既有观测行又有手动行时报观测行：那才是「账本自己看见的」
@@ -2279,7 +2345,7 @@ class Ledger {
    * 的原始观测，游戏在每月 1 日 05:00 JST 重置 EO 的 cleared 位，所以
    * **重置点之后观测到 cleared=1 就必属本战果月**，可以放心补一笔。
    * 防重复计算：
-   * - 与实时战斗路径共用同一道「同月同图只记一次」账本去重；
+   * - 与实时战斗路径共用同一道「同 EO 重置周期同图只记一次」账本去重；
    * - 入账时间取重置点（本期最早可能时刻）——若玩家之后填过官方校准值，
    *   这笔永远落在校准点之前，不会混进「校准后新增」被二次计入。
    * 本月没有海域页观测的击破（别的设备打的、且本机没开过海域页）自然补不了，
@@ -2480,6 +2546,23 @@ class Ledger {
       console.warn('[kuma] mg: material query failed', e)
       throw e
     }
+  }
+
+  // 高速建造材近月流水：窗口前最后余额只作基线，无基线不把首次余额算收入。
+  // 只读 ts/fastbuild，并在 SQL 汇总；IPC 固定回一条，不搬整段八资源快照。
+  queryFastbuildFlow = (sinceTs: number, untilTs: number) => {
+    const row = this.db.prepare(`WITH balances AS (
+      SELECT ts, COALESCE(fastbuild, 0) - LAG(COALESCE(fastbuild, 0)) OVER (ORDER BY ts ASC) AS delta
+      FROM material_log
+      WHERE ts = (SELECT MAX(ts) FROM material_log WHERE ts < ?)
+         OR (ts >= ? AND ts <= ?)
+    )
+    SELECT COALESCE(SUM(CASE WHEN delta > 0 THEN delta ELSE 0 END), 0) AS gained,
+           COALESCE(SUM(CASE WHEN delta < 0 THEN -delta ELSE 0 END), 0) AS spent,
+           COUNT(*) AS changes, COALESCE(MAX(ts), 0) AS lastTs
+    FROM balances WHERE ts >= ? AND ts <= ? AND delta != 0`)
+      .get(sinceTs, sinceTs, untilTs, sinceTs, untilTs)
+    return { ...(row as { gained: number; spent: number; changes: number; lastTs: number }) }
   }
 
   /**
@@ -3108,6 +3191,30 @@ class Ledger {
     }
   }
 
+  // 图鉴只要全账本判档：一次批量探测有无事件，再取改造目标，不计算完整履历统计。
+  queryRemodelHistories = (rosterIds: number[]): { rosterId: number; history: NonNullable<ShipLifeReport['remodelHistory']> }[] => {
+    if (!rosterIds.length) return []
+    const ids = [...new Set(rosterIds)]
+    const marks = ids.map(() => '?').join(',')
+    const tracked = this.db.prepare(
+      `WITH roster(rosterId) AS (VALUES ${ids.map(() => '(?)').join(',')})
+       SELECT rosterId, EXISTS(SELECT 1 FROM ship_life_events WHERE roster_id = rosterId) AS hasEvents
+       FROM roster`,
+    ).all(...ids) as { rosterId: number; hasEvents: number }[]
+    const histories = new Map(ids.map(rosterId => [rosterId, { hasEvents: false, afterMstIds: [] as number[] }]))
+    for (const row of tracked) histories.get(row.rosterId)!.hasEvents = Boolean(row.hasEvents)
+    const targets = this.db.prepare(
+      `SELECT DISTINCT roster_id AS rosterId, json_extract(detail, '$.afterMstId') AS target
+       FROM ship_life_events WHERE roster_id IN (${marks}) AND kind = 'remodel'
+         AND json_valid(detail)`,
+    ).all(...ids) as { rosterId: number; target: unknown }[]
+    for (const row of targets) {
+      const id = Number(row.target)
+      if (Number.isInteger(id) && id > 0) histories.get(row.rosterId)!.afterMstIds.push(id)
+    }
+    return ids.map(rosterId => ({ rosterId, history: histories.get(rosterId)! }))
+  }
+
   queryShipLife = (rosterId: number, limit = 80): ShipLifeReport => {
     try {
       const state = this.db
@@ -3653,6 +3760,7 @@ class Ledger {
         useitems: useitems.filter((u: any) => u.gained || u.spent),
         resCoversFullWindow: oldestMat != null && oldestMat <= opened,
         archivedAt: Date.now(),
+        quests: this.seasonal.tasks(opened, closed + 1),
       }
       this.db
         .prepare(
@@ -4798,6 +4906,9 @@ class Ledger {
   closeDatabase = () => {
     if (this.closed) return
     clearInterval(this.pruneTimer)
+    config.removeListener('config.set', this.onBodyRetentionConfig)
+    this.slotitemBodyRetention.stop()
+    this.seasonal.stop()
     this.db.exec('PRAGMA wal_checkpoint(TRUNCATE)')
     this.db.close()
     this.closed = true
@@ -4815,6 +4926,10 @@ class Ledger {
    * 或者在钥里按月清——两条都是他自己按的。
    */
   private prune = () => {
+    if (!this.seasonal?.backfillDone) return
+    void this.slotitemBodyRetention.prune().catch(error => {
+      console.warn('[kuma] mg: slotitem body prune failed', error)
+    })
     const plan = planLedgerPrune({
       retentionDays: config.get(RETENTION_CONFIG_PATH, 0),
       now: Date.now(),
@@ -4897,7 +5012,8 @@ class Ledger {
    *
    * @returns 删了几行。
    */
-  clearLedgerMonth = (month: string): number => {
+  clearLedgerMonth = async (month: string): Promise<number> => {
+    await this.seasonal.ready
     const plan = planLedgerMonthClear(month)
     if (!plan.length) return 0
     let removed = 0

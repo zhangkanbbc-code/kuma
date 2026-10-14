@@ -18,13 +18,14 @@
 // aftershipid 都为 0 的可逆改装）整条丢掉，一条谱系被劈成两家——
 // 而这份基线管的是「首见」的全局首次判定，劈开就意味着同一条谱系的两个形态
 // 各标一次 ⚓，里程碑感被稀释（口径：全局只标一次）。
-import { mg, uiGet, uiSet } from './kernel'
+import { mg, onUiPreferenceChange, uiGet, uiSet } from './kernel'
 import { buildShipRemodelChains, type RemodelChains } from '../shared/ship-remodel-chain'
 
 // 旧版铃存的是 number[]（只有 id 没有时刻）。读到就迁移成「时刻不可知」，
 // 语义正好对上：那批舰确实是记账之前就在手里的。
 const STORE_KEY = 'ships.firstOwned'
 const LEGACY_KEY = 'lg.owned'
+onUiPreferenceChange(STORE_KEY, () => { firstOwned = null })
 
 /** 时刻不可知（记账之前就有）。用 0 而不是 null，好让存储保持纯数字表。 */
 export const OWNED_BEFORE_LEDGER = 0

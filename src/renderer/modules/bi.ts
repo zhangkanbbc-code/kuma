@@ -30,6 +30,7 @@ import {
   queryMasterRaw,
   queryQp,
   uiGet,
+  onUiPreferenceChange,
   uiSet,
   updateCountdowns,
 } from '../kernel'
@@ -108,6 +109,13 @@ let plannerPrefs: PlannerPrefs = {
 // （同 yu 的音量滑条：连续报文收敛成一次写）。
 let plannerPrefsCommitted = JSON.stringify(plannerPrefs)
 let plannerPrefsTimer: ReturnType<typeof setTimeout> | null = null
+onUiPreferenceChange(PLANNER_PREFS_KEY, () => {
+  // 本窗还有待落盘的改动时保留它的基线，计时器由主进程按增删合并。
+  if (plannerPrefsTimer) return
+  plannerPrefs = uiGet<PlannerPrefs>(PLANNER_PREFS_KEY, { protectedDeckIds: [1], excludedRosterIds: [] })
+  plannerPrefsCommitted = JSON.stringify(plannerPrefs)
+  if (pane?.classList.contains('active')) deferPassive(pane, 'bi', render)
+})
 
 const savePlannerPrefs = () => {
   plannerPrefs.protectedDeckIds = [...new Set(plannerPrefs.protectedDeckIds)]

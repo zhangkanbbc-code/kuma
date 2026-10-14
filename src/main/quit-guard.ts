@@ -24,7 +24,7 @@ import { app, webContents } from 'electron'
 
 import { appendCrash, safeConsole } from './crash-log'
 import { DATA_DIR_OVERRIDDEN } from './env'
-import { parseTasklistPids } from '../shared/process-reap'
+import { classifyReapCandidates, parseTasklistPids } from '../shared/process-reap'
 
 // 「开火才写日志」是个盲区：防线跑了但认为无人存活，日志同样是空的，
 // 于是「没运行」和「运行了没杀」分不开——2026-08-20 排查第四种形态时就卡在这里
@@ -87,7 +87,10 @@ const runCriticalQuitWork = () => {
   }
 }
 
-/** 同映像进程 PID 快照（不含自己）。tasklist 同步枚举，实测 ~50ms。 */
+/**
+ * 同映像进程 PID 快照（不含自己）。tasklist 同步枚举，耗时随机器负载变化：
+ * 2026-08-20 约 50ms，2026-10-14 本机 569 个进程时已达 2.4–2.9 秒。
+ */
 const sameImagePids = (): number[] => {
   const image = path.basename(process.execPath)
   const csv = execFileSync('tasklist', ['/FI', `IMAGENAME eq ${image}`, '/FO', 'CSV', '/NH'], {
@@ -96,6 +99,47 @@ const sameImagePids = (): number[] => {
     timeout: 5000,
   })
   return parseTasklistPids(csv, process.pid)
+}
+
+/** 零信号只探测存活，不结束进程；探测失败的 PID 不作为开火依据。 */
+const isPidAlive = (pid: number): boolean => {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ESRCH') {
+      trace(`PID ${pid} 存活探测失败：${String(error)}`)
+    }
+    return false
+  }
+}
+
+/** 当前 metrics 是归属证据；历史孤儿另走映像核对。 */
+const classifySurvivors = (pids: Iterable<number>, stage: string) => {
+  const live = new Set([...pids].filter(isPidAlive))
+  if (!live.size) return { direct: [], needsImageCheck: [] }
+  let metricPids = new Set<number>()
+  try {
+    metricPids = new Set(app.getAppMetrics().map((metric) => metric.pid))
+  } catch (error) {
+    trace(`${stage}：归属 metrics 读取失败：${String(error)}`)
+  }
+  const { direct, needsImageCheck } = classifyReapCandidates(live, metricPids, live, process.pid)
+  trace(`${stage}：metrics 确认 = ${direct.join(',') || '（空）'}；待核映像 = ${needsImageCheck.join(',') || '（空）'}`)
+  return { direct, needsImageCheck }
+}
+
+/** 只有失联但仍存活的历史 PID 才走慢路；枚举失败时不猜归属。 */
+const confirmOrphanPids = (needsImageCheck: number[], stage: string): number[] => {
+  if (!needsImageCheck.length) return []
+  try {
+    const sameImage = new Set(sameImagePids())
+    trace(`${stage}：tasklist 同映像存活 = ${[...sameImage].join(',') || '（空）'}`)
+    return needsImageCheck.filter((pid) => sameImage.has(pid))
+  } catch (error) {
+    trace(`${stage}：同映像枚举失败，跳过归属未确认的 PID：${String(error)}`)
+    return []
+  }
 }
 
 /** 同步小睡。'quit' 是主进程最后一刻，没有事件循环可用，只能这么等。 */
@@ -115,14 +159,9 @@ const stillAlive = (pids: number[]): number[] => {
   let remaining = pids
   for (const wait of [250, 500]) {
     sleepSync(wait)
-    try {
-      const alive = new Set(sameImagePids())
-      remaining = remaining.filter((pid) => alive.has(pid))
-    } catch (error) {
-      // 枚举不出来就没有判据，宁可不报，也不要报一条自己都不确定的警
-      trace(`复核枚举失败：${String(error)}`)
-      return []
-    }
+    // 已消失的先用零信号排掉；仍存活的按当前归属复核，不为已退出的再跑 tasklist。
+    const { direct, needsImageCheck } = classifySurvivors(remaining, '复核')
+    remaining = [...direct, ...confirmOrphanPids(needsImageCheck, '复核')]
     if (!remaining.length) return []
   }
   return remaining
@@ -204,7 +243,8 @@ export const reapOrphanKumaProcesses = () => {
  * 4 秒兜底只在主进程卡住时触发（正常退出时定时器随主进程一起死），启动清扫要等
  * 下一次启动。所以退出前先收割全部渲染进程的 OS PID，在主进程活着的最后一刻
  * （'quit' 事件）逐个 TerminateProcess——同步执行，不依赖定时器，也不依赖能否
- * 活过父进程的外部命令。防 PID 复用误杀：只杀「收割过 ∩ 此刻仍是同映像」的。
+ * 活过父进程的外部命令。防 PID 复用误杀：只杀收割过、此刻仍存活，且当前 metrics
+ * 确认属于本应用的 PID；已经脱离 metrics 的历史孤儿仍须核对同映像。
  *
  * ⚠ 2026-08-20：上面这套写出来之后**一次都没开过火**（crash.log 自它上线起零条）。
  * 在打包产物上开 KUMA_QUIT_TRACE 实测，根因是收割源选错了：
@@ -254,7 +294,8 @@ export const installQuitGuard = (graceMs = 4000) => {
   // 就不依赖任何人当时还认不认得它。
   //
   // PID 复用不构成误杀风险：开枪名单是「本进程亲自收割过的 PID」，退出时再与
-  // 「此刻仍是同映像」取交集——交集只会缩小名单，而缩小之前那一侧本来就只有自己的
+  // 「此刻 metrics 确认，或脱离 metrics 后仍是同映像」取交集——交集只会缩小名单，
+  // 而缩小之前那一侧本来就只有自己的
   // 子进程。（单实例锁按数据目录发放，KUMA_DATA_DIR 覆盖时同映像的另一个实例可以
   // 并存，所以「同映像」并不等于「就是自己的」，靠得住的是收割集那一侧。）
   const rememberPidOf = (contents: Electron.WebContents) => {
@@ -281,34 +322,30 @@ export const installQuitGuard = (graceMs = 4000) => {
 
   /**
    * 把收割集里此刻**仍然活着**的逐个 TerminateProcess，返回真开了枪的那些。
-   * 与「此刻仍是同映像」取交集是防 PID 复用误杀：正常退干净的 PID 已不在列，
-   * 被系统发给别人的也对不上映像名。同步执行——这是主进程的最后一刻。
+   * 正常退干净的 PID 先由零信号排除；metrics 仍认得的直接收，只有失联的历史
+   * PID 才核对映像，排除被系统发给别家的 PID。同步执行——这是主进程的最后一刻。
    */
   const terminateSurvivors = (stage: string): number[] => {
     harvestRendererPids()
     trace(`${stage}：收割集 = ${[...rendererPids].join(',') || '（空）'}`)
     if (!rendererPids.size) return []
-    let survivors: number[] = []
-    try {
-      const alive = new Set(sameImagePids()) // tasklist 同步枚举，实测 ~50ms
-      trace(`${stage}：tasklist 同映像存活 = ${[...alive].join(',') || '（空）'}`)
-      survivors = [...rendererPids].filter((pid) => alive.has(pid))
-    } catch (error) {
-      // 枚举失败（非 Windows / tasklist 不可用）：退回逐个 kill，已退出的抛错吞掉。
-      // 收割集只含自己的渲染进程，误杀面有限。
-      trace(`${stage}：同映像枚举失败，退回全量 kill：${String(error)}`)
-      survivors = [...rendererPids]
-    }
-    trace(`${stage}：判定仍存活 = ${survivors.join(',') || '（空）'}`)
+    const { direct, needsImageCheck } = classifySurvivors(rendererPids, stage)
     const killed: number[] = []
-    for (const pid of survivors) {
-      try {
-        process.kill(pid)
-        killed.push(pid)
-      } catch {
-        /* 它自己先退了，正是我们想要的结果 */
+    const terminate = (pids: number[]) => {
+      for (const pid of pids) {
+        try {
+          process.kill(pid)
+          killed.push(pid)
+        } catch {
+          /* 它自己先退了，正是我们想要的结果 */
+        }
       }
     }
+    // metrics 确认后立即处理，不让慢的 tasklist 把这份当前归属证据拖旧。
+    terminate(direct)
+    const orphans = confirmOrphanPids(needsImageCheck, stage)
+    terminate(orphans)
+    trace(`${stage}：判定仍存活 = ${[...direct, ...orphans].join(',') || '（空）'}`)
     trace(`${stage}：强杀 ${killed.length} 个（PID ${killed.join(',') || '无'}）`)
     return killed
   }

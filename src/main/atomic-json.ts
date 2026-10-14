@@ -17,6 +17,8 @@ import { timeMain } from './perf-time'
 // 人要读的（config）由调用方传 pretty 保留缩进。
 export interface AtomicWriteOptions {
   pretty?: boolean
+  // 可重建的档案计数定时合并时只做原子替换；新条目和退出 flush 保持默认刷盘。
+  durable?: boolean
 }
 
 const RENAME_RETRIES = 3
@@ -41,7 +43,7 @@ export const atomicWriteJsonSync = (
       const fd = fs.openSync(temp, 'w')
       try {
         bytes = fs.writeSync(fd, json, null, 'utf8')
-        fs.fsyncSync(fd)
+        if (options.durable !== false) fs.fsyncSync(fd)
       } finally {
         fs.closeSync(fd)
       }

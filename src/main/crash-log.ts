@@ -13,6 +13,7 @@ import path from 'path'
 
 import { APPDATA_PATH, DATA_DIR_MIGRATION_ERROR, KUMA_VERSION } from './env'
 import { summarizeCrashDumps } from './crash-dumps'
+import { diagnosticUrl } from '../shared/redact-detail'
 import { formatCrashDumps, formatLastApis, formatLastBreadcrumb, formatMemoryTrail } from '../shared/crash-context'
 
 const LOG_PATH = path.join(APPDATA_PATH, 'crash.log')
@@ -181,7 +182,7 @@ export const installCrashLogging = () => {
     const crashTs = Date.now()
     const url = (() => {
       try {
-        return contents.getURL()
+        return diagnosticUrl(contents.getURL())
       } catch {
         return '(已销毁)'
       }

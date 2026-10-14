@@ -2,18 +2,19 @@ import { esc } from './kernel'
 import { fillLineGaps } from '../shared/senka-ranking'
 import type { SenkaRankingView } from '../shared/senka-ranking'
 import { senkaMonthLabel } from '../shared/senka'
+import { jstDate } from '../shared/jst-day'
 
 const ranks = [5, 20, 100, 500] as const
 const labels = { 5: '联合·5位', 20: '一群·20位', 100: '二群·100位', 500: '三群·500位' }
 
 export const senkaRankingHtml = (view: SenkaRankingView): string => {
-  const refresh = view.refreshAt == null ? null : new Date(view.refreshAt + 9 * 3600_000)
-  const time = refresh ? `${refresh.getUTCMonth() + 1}月${refresh.getUTCDate()}日 ${refresh.getUTCHours()}:00 刷新` : ''
+  const refresh = view.refreshAt == null ? null : jstDate(view.refreshAt)
+  const time = refresh ? `${refresh.getUTCMonth() + 1}月${refresh.getUTCDate()}日 JST ${refresh.getUTCHours()}:00 刷新` : ''
   const server = view.server
     ? `<span${view.serverInferred ? ' title="按当前账号的服务器补记"' : ''}>${esc(view.server.name)}</span>`
     : ''
   const heading = `<div class="sd-h">排行<i>${server}${server && time ? ' · ' : ''}${time}</i></div>`
-  const history = view.history?.length ? `<div class="sd-rank-history"><div class="sd-h" title="名次取当月最后一次看到的排行；排行15:00最后一刷，月末14:00至22:00的战果不计入">往月</div>${view.history.map(month => {
+  const history = view.history?.length ? `<div class="sd-rank-history"><div class="sd-h" title="名次取当月最后一次看到的排行；排行JST 15:00最后一刷，月末JST 14:00至22:00的战果不计入">往月</div>${view.history.map(month => {
     const [year, monthNumber] = senkaMonthLabel(month.monthStart).split('-')
     const own = month.own ? `第${month.own.rank}名 · ${month.own.senka.toLocaleString()}` : '未看到本人'
     const lines = ranks.map(rank => `${labels[rank].split('·')[0]} ${month.lines[rank]?.senka.toLocaleString() ?? '—'}`).join(' · ')

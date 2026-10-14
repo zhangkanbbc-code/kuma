@@ -136,6 +136,31 @@ export const LAUNCH_GUARD_TIMING: LaunchGuardTiming = {
   welcomeFadeSlack: 300,
 }
 
+/** 季节开幕定稿（2026-10-15）。场景的等待节奏独立于欢迎屏的就绪门。 */
+export const LAUNCH_SEASON_TIMING = {
+  sceneFade: 600,
+  fixed: {
+    plateIn: 420, ring: 800, horizon: 700, sunHalo: 1900, sunHaloAt: 300, sunRise: 1800, sunRiseAt: 120, glintIn: 500,
+    beanShadow: 220, nudge: 260, ribbonH: 460, ribbonHAt: 340, ribbonV: 320, ribbonVAt: 760,
+    bowPop: 560, bowPopAt: 1040, bowSway: 2600, bowSwayAt: 1700, petalLand: 1350,
+    teruDrop: 1000, teruAt: 80, teruSwing: 3000, teruSwingAt: 1080,
+    pkIgnite: 520, pkFlicker: 1900, pkWake: 600, pkAppear: 420, pkGlow: 900, batCross: 7200,
+    groundIn: 800, treeIn: 1000, starPop: 560, starTwinkle: 2600, bulbOn: 380, bulbTwinkle: 1800,
+    gridIn: 1000, gridDrift: 16000, routeIn: 600, routeAt: 200, routeJoin: 220,
+    lampIn: 500, lampAt: 200, lampOn: 420, lampWave: 640, lampBreathe: 2200,
+  },
+  newyear: { glint: [1300, 2600], glintAt: [1050, 1950], ringAt: 1500 },
+  setsubun: { toss: [950, 1250], leftAt: 120, rightAt: 640, spread: 160, hitAt: 1150, hitDuration: 1000, nudgeAt: 700 },
+  valentine: { rise: [7500, 11500], start: [250, 3800], sway: [1800, 2800] },
+  spring: { gust: [2400, 3400], gustAt: [0, 650], gustSway: [900, 1500], fall: [7500, 11500], fallAt: [500, 5200], sway: [1700, 2800], flutter: [2200, 4200], landAt: [450, 850, 1250] },
+  tsuyu: { rain: [650, 1000], firstAt: [0, 500], rainAt: [300, 1700], ripple: [1300, 1900], rippleAt: [350, 2400] },
+  summer: { cycle: 2800, starts: [300, 950, 1650] },
+  sanma: { current: [9000, 14000], bob: [1000, 1600], wig: [380, 520], near: 5000, far: 7600, farAt: 900, glintAt: 500 },
+  halloween: { firstAt: 420, step: 330, jitter: 60, glowAfter: 150, bat: [1500, 2000], batsAfter: 140, batStep: 90, flap: [130, 180], crossingAfter: 2600, crossingFlap: 150 },
+  xmas: { treesAt: [80, 240, 360], snow: [[13000, 17000], [9000, 12000], [6500, 8500]], sway: [2200, 3600], firstAt: 420, step: 70, starAfter: 380, alternate: 900 },
+  event: { firstAt: 450, step: 200, currentAfter: 100, waveAfter: 250, waveStep: 70, joinAfter: 120, ringAfter: 300 },
+} as const
+
 /** 三件「真就绪」。缺一不开门；顺序无所谓，谁先到都行。 */
 export const LAUNCH_WELCOME_SIGNALS = ['snapshot', 'lode', 'panes'] as const
 export type LaunchWelcomeSignal = (typeof LAUNCH_WELCOME_SIGNALS)[number]

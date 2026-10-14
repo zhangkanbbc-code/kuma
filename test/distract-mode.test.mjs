@@ -223,5 +223,9 @@ test('源码接线：四侧网格与 display: contents 都在，关闭先退出�
   assert.match(read('src/main/index.ts'), /win\.on\('close', \(e\) => \{\s*if \(exitDistractWindow\(win\)\)[^\n]*\n\s*saveBounds\(\)/)
   const main = read('src/main/distract-window.ts')
   assert.match(main, /window:distract-exit'[\s\S]*?exitDistractWindow\(win\)/)
-  assert.ok(main.indexOf('config.set(DISTRACT_PATHS.bounds') < main.indexOf('win.setBounds(prev.bounds)'))
+  // 体检 10-14：两处都要找得到，否则 -1 < x 空过
+  const saveAt = main.indexOf('config.set(DISTRACT_PATHS.bounds')
+  const restoreAt = main.indexOf('win.setBounds(prev.bounds)')
+  assert.ok(saveAt >= 0 && restoreAt >= 0, 'distract-window.ts 里存布局或还原布局那一句不见了')
+  assert.ok(saveAt < restoreAt)
 })

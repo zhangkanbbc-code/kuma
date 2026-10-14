@@ -22,7 +22,7 @@ test('退出目标按 DMM 域边界选择，删除 URL 保留协议和路径，�
   assert.deepEqual(dmmLogoutTargets([]), { cookies: [], origins: [] })
 })
 
-const mountLogout = ({ failAt, navigationFailure, noGame = false } = {}) => {
+const mountLogout = ({ failAt, navigationFailure, noGame = false, destroyedGame = false } = {}) => {
   const calls = []
   const warnings = []
   const step = async (name, data) => {
@@ -39,7 +39,8 @@ const mountLogout = ({ failAt, navigationFailure, noGame = false } = {}) => {
     clearStorageData: (options) => step('storage', options),
   }
   const game = {
-    isDestroyed: () => false, getType: () => 'webview', session: ses,
+    id: 101,
+    isDestroyed: () => destroyedGame, getType: () => 'webview', session: ses,
     loadURL: async (url) => {
       await step('navigate', url)
       if (navigationFailure) throw navigationFailure
@@ -54,6 +55,18 @@ const mountLogout = ({ failAt, navigationFailure, noGame = false } = {}) => {
       { url: 'https://game.test/', executeJavaScript: () => assert.fail('不应执行第三方 frame') },
     ] },
   }
+  const browser = {
+    id: 99, isDestroyed: () => false, getType: () => 'webview', session: ses,
+    loadURL: () => assert.fail('导航到了先打开的浏览窗'),
+    mainFrame: { framesInSubtree: [{ url: 'https://dmm.com/login', executeJavaScript: () => assert.fail('清到了浏览窗') }] },
+  }
+  const resource = read('main/kcs-resource.ts')
+  const getterStart = resource.indexOf('const gameWebContents =')
+  const getterEnd = resource.indexOf('/**', getterStart)
+  const gameWebContents = evaluate(`${resource.slice(getterStart, getterEnd).replace('export const', 'const')}\nreturn gameWebContents`, {
+    gameWebContentsId: 101,
+    require: () => ({ webContents: { fromId: id => [browser, ...(noGame ? [] : [game])].find(contents => contents.id === id) } }),
+  })
   const source = read('main/yu.ts')
   const start = source.indexOf('const reloadGameUrl =')
   const end = source.indexOf('/**', source.indexOf("ipcMain.handle('yu:logout-dmm'", start))
@@ -62,7 +75,7 @@ const mountLogout = ({ failAt, navigationFailure, noGame = false } = {}) => {
     ipcMain: { handle: (channel, fn) => handlers.set(channel, fn) },
     session: { defaultSession: ses }, dmmLogoutTargets,
     ...navigationError, console: { warn: (...args) => warnings.push(args) },
-    webContents: { getAllWebContents: () => noGame ? [] : [game] },
+    gameWebContents, webContents: { getAllWebContents: () => [browser, ...(noGame ? [] : [game])] },
     config: { get: () => 'https://dmm.com/configured-game' }, ...gameUrl,
   })
   return { run: handlers.get('yu:logout-dmm'), reload: handlers.get('yu:reload-game-url'), calls, warnings }
@@ -113,6 +126,13 @@ test('普通重新载入遇导航中断仍成功并标记 aborted', async () => 
   const fixture = mountLogout({ navigationFailure: { code: 'ERR_ABORTED', errno: -3 } })
   assert.deepEqual(await fixture.reload(), { ok: true, url: 'https://dmm.com/configured-game', aborted: true })
   assert.deepEqual(fixture.warnings, [])
+})
+
+test('登记的游戏 webview 已销毁时返回未就绪，不回退到仍活着的浏览窗', async () => {
+  const fixture = mountLogout({ destroyedGame: true })
+  assert.deepEqual(await fixture.reload(), { ok: false, url: 'https://dmm.com/configured-game' })
+  await assert.rejects(fixture.run(), /游戏页面尚未就绪/)
+  assert.ok(!fixture.calls.some(([name]) => name === 'navigate'))
 })
 
 test('登录保鲜的真实监听器忽略删除事件，仍复写新增 DMM 会话 cookie 为 180 天', async () => {

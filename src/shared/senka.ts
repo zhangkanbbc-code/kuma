@@ -9,6 +9,7 @@
 // 两者性质不同，展示时必须分开——一个是算出来的，一个是查表来的。
 
 import { questPeriodStart } from './quest-period'
+import { fmtJstDate, jstDate, jstDayStart, jstTimestamp } from './jst-day'
 
 import type { QuestPeriodKind } from './quest-period'
 
@@ -47,8 +48,8 @@ export const EO_SENKA: Record<number, number> = {
 export const senkaMonthStart = (at: number): number => {
   // 「某月最后一天 22:00 JST」= 下个月 1 日 00:00 JST 往前推 2 小时
   const endOf = (year: number, month: number) =>
-    Date.UTC(year, month + 1, 1, 0, 0, 0) - 9 * 3600 * 1000 - 2 * 3600 * 1000
-  const jst = new Date(at + 9 * 3600 * 1000)
+    jstTimestamp(year, month + 1) - 2 * 3600 * 1000
+  const jst = jstDate(at)
   const year = jst.getUTCFullYear()
   const month = jst.getUTCMonth()
   // 从近到远取第一个不晚于 at 的边界。必须先试**本月末**：
@@ -69,12 +70,19 @@ export const senkaMonthStart = (at: number): number => {
  * 以及下面判周期重置的月份都从这里取。
  */
 export const senkaMonthLabel = (monthStart: number): string =>
-  new Date(monthStart + 9 * 3600 * 1000 + 3 * 24 * 3600 * 1000).toISOString().slice(0, 7)
+  fmtJstDate(monthStart + 3 * 24 * 3600 * 1000).slice(0, 7)
 
 /** 该时刻所属战果月的**结束**边界（即下一个月界）。查历史月账目时当上界用。 */
 export const senkaMonthEnd = (at: number): number => {
   // 月界起点 + 32 天必然落进下一个战果月，取它的起点即本月终点
   return senkaMonthStart(senkaMonthStart(at) + 32 * 24 * 3600 * 1000)
+}
+
+/** 战果视图下一次必须换日/月的时刻，与本机时区无关。 */
+export const nextSenkaViewBoundary = (at: number): number => {
+  const day = 24 * 3600_000
+  const nextJstDay = jstDayStart(at) + day
+  return Math.min(nextJstDay, senkaMonthEnd(at))
 }
 
 /**
@@ -98,8 +106,8 @@ export interface SenkaCarryWindows {
 export const senkaCarryWindows = (at: number): SenkaCarryWindows => {
   const monthStart = senkaMonthStart(at)
   // monthStart（前月末 22:00 JST）落在哪个 JST 年，前月就在哪年
-  const jstYear = new Date(monthStart + 9 * 3600 * 1000).getUTCFullYear()
-  const yearStart = Date.UTC(jstYear, 0, 1) - 9 * 3600 * 1000
+  const jstYear = jstDate(monthStart).getUTCFullYear()
+  const yearStart = jstTimestamp(jstYear, 0)
   return { yearStart, prevMonthStart: senkaMonthStart(monthStart - 1), monthStart }
 }
 
@@ -188,6 +196,7 @@ export const capSenkaEntries = (entries: SenkaEntry[], cap = 300): SenkaEntry[] 
  * 游戏每月 1 日 05:00 JST 重置 EO 血条与 cleared 位。
  * 战果月起点是前月末 22:00 JST，+2h 到当月 1 日 00:00 JST，再 +5h 即重置点。
  * 重置点之后观测到 cleared=1，击破必然发生在重置之后 → 必属本战果月。
+ * 这是该战果月内的重置点；月末 22:00 至次月 1 日 05:00 的空档仍属上一期 EO。
  */
 export const eoMonthResetTs = (monthStart: number): number => monthStart + 7 * 3600 * 1000
 

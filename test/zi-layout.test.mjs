@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import test from 'node:test'
 import { ziLayoutClass } from '../src/shared/zi-layout.ts'
 import { runtimeHost } from '../scripts/lib/player-view-runtime.mjs'
+import { fastbuildFlow } from './fixtures/zi-ledger.mjs'
 
 for (const [width, expected] of [[699, 'narrow'], [700, ''], [1199, ''], [1200, 'wide']]) {
   test(`资源面板 ${width}px 判定为 ${expected || '常规态'}`, () => {
@@ -56,7 +57,6 @@ test('高速建造材未达标时，就绪度按七项中的六项达标聚合',
 })
 
 const materialRow = (ts, count) => ({ ts, values: [0, 0, 0, 0, count, 0, 0, 0] })
-const { fastbuildFlow } = runtimeHost().extract(ziSource, ['fastbuildFlow']).api
 
 test('建造材近月收支分开累计，窗口前余额只作基线，最后变动不含零差额', () => {
   assert.deepEqual(fastbuildFlow([

@@ -18,8 +18,10 @@ import { installCrashLogging, reportFatal } from './crash-log'
 import { installCrashDumps } from './crash-dumps'
 import { installThemePush, themeBackgroundColor } from './theme-push'
 import { installGameAudioPush } from './game-audio-push'
+import { installModNightPush } from './mod-night-push'
 import { installCaptionDodge } from './caption-dodge'
 import { installPopWindows } from './pop-windows'
+import { installPermissionHandlers } from './permissions'
 import { attachApplicationHotkeys, installHotkeys } from './hotkeys'
 import { ROOT } from './env'
 import { installQuitGuard, reapOrphanKumaProcesses } from './quit-guard'
@@ -562,6 +564,7 @@ ipcMain.handle('window:show', () => showMainWindow())
 installDistractWindow(() => mainWindow)
 
 app.on('ready', () => {
+  installPermissionHandlers()
   registerKcsResourceProtocol()
   registerMapArtJson()
   // 魔改目录先建出来：玩家只要把文件丢进去就行，不必自己新建、也不必找 %APPDATA%。
@@ -642,6 +645,7 @@ app.on('ready', () => {
 
   const gameWebContents = () => gameWebContentsId == null ? null : webContents.fromId(gameWebContentsId)
   installGameAudioPush({ config, gameWebContents })
+  installModNightPush({ config, gameWebContents })
   installCaptionDodge({ hostWebContents: win.webContents, gameWebContents })
 
   // ---- 试听时压住游戏声音 ----

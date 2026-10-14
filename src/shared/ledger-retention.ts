@@ -10,6 +10,9 @@
 //（通知历史）。它们与档案上限那一处的设计正好相反——档案 2026-08-23 起就是
 //「默认不限量，设了才淘汰」，而账本这边不问自取地每天删一遍。现在两边对齐：
 // **不设保留期就一行都不删**，想要自动清理是玩家自己填一个天数。
+// 2026-10-15：另提供默认关闭的装备整表正文瘦身；玩家开启后，30 天前的
+// slot_item 正文可置空，最新一份基线永远保留；行、时间与其它记录都保留。
+// questlist 不清：一次性任务重算与 V13 迁移仍需历史正文。永久表白名单不变。
 //
 // ---- 边界：哪些表**永远**不在清理范围内 ----
 // 战斗报文、精矿类（舰娘人生、道具履历、装备实测…）、活动履历一律永久。
@@ -56,12 +59,19 @@ export const LEDGER_PERMANENT_TABLES = [
   'ship_life_state',
   'ship_life_events',
   'event_archive',
+  'seasonal_exchange_log',
+  'quest_observations',
+  'seasonal_archive',
   'event_map_catalog',
   'fit_observations',
 ] as const
 
 /** 保留天数的上限（10 年）。填得再大也没有意义，且要挡住 1e18 那种输入。 */
 export const LEDGER_RETENTION_DAYS_MAX = 3650
+
+export const SLOTITEM_BODY_RETENTION_CONFIG = 'kuma.ledger.trimSlotitemBodies'
+export const SLOTITEM_BODY_PATH = '/kcsapi/api_get_member/slot_item'
+export const SLOTITEM_BODY_RETENTION_DAYS = 30
 
 /**
  * 界面/配置里读到的保留天数落成一个能用的数。

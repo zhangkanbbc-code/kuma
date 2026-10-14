@@ -10,11 +10,11 @@ export const senkaCalendarHtml = (model: SenkaCalendarModel): string => {
       <div class="sc-d">${date}</div>
       ${gain > 0 && !future ? `<div class="sc-g">+${Math.round(gain)}</div>` : ''}
       ${rank != null && !future ? `<div class="sc-r">第${rank}名${rankDelta ? ` <span class="${rankDelta > 0 ? 'up' : 'down'}">${rankDelta > 0 ? '↑' : '↓'}${Math.abs(rankDelta)}</span>` : ''}</div>` : ''}
-      ${Math.round(tail) > 0 ? `<div class="sc-t" title="22点后的战果，计入下月">↪+${Math.round(tail)}</div>` : ''}
+      ${Math.round(tail) > 0 ? `<div class="sc-t" title="JST 22点后的战果，计入下月">↪+${Math.round(tail)}</div>` : ''}
     </div>`
   }).join('')
   return `<div class="sc-nav"><button data-cal-nav="-1"${model.canPrev ? '' : ' disabled'}>‹</button><span>${esc(model.label)}</span><button data-cal-nav="1"${model.canNext ? '' : ' disabled'}>›</button></div>
-    ${Math.round(model.head) > 0 ? `<div class="sc-head">上月末22点后 +${Math.round(model.head)} 计入本月</div>` : ''}
+    ${Math.round(model.head) > 0 ? `<div class="sc-head">上月末JST 22点后 +${Math.round(model.head)} 计入本月</div>` : ''}
     <div class="sc-grid">${['一', '二', '三', '四', '五', '六', '日'].map(day => `<span class="sc-wd">${day}</span>`).join('')}${cells}</div>
     <div class="sc-total">本月 +${Math.round(model.total)}${model.latestRank != null ? ` · 第${model.latestRank}名` : ''}</div>`
 }

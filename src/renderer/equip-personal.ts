@@ -3,7 +3,7 @@
 // 所以按 slotitem 实例 id 存，不按款。展示与置顶：实例行 ★ 可点，
 // 款行聚合显示并整款置顶（收藏藏在折叠层里就没有置顶意义了）。
 // 缓存口径与 ship-personal 相同：读路径零 IPC，写路径同步落盘并更新缓存。
-import { uiGet, uiSet } from './kernel'
+import { onUiPreferenceChange, uiGet, uiSet } from './kernel'
 
 const KEY = 'equip.personal.v1'
 
@@ -12,6 +12,7 @@ interface EquipPersonalState {
 }
 
 let cache: EquipPersonalState | null = null
+onUiPreferenceChange(KEY, () => { cache = null })
 
 const equipPersonal = (): EquipPersonalState => {
   if (cache) return cache
@@ -35,6 +36,7 @@ export const isFavoriteEquipInstance = (instanceId: number) =>
   equipPersonal().favoriteInstanceIds.includes(instanceId)
 
 export const toggleFavoriteEquipInstance = (instanceId: number): boolean => {
+  cache = null
   const state = equipPersonal()
   const on = !state.favoriteInstanceIds.includes(instanceId)
   state.favoriteInstanceIds = on

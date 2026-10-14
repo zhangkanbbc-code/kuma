@@ -95,11 +95,12 @@ test('BGM UI 收货口：形状不合不调用，UI sender 可用，成功广播
   const emitted = []
   const replies = []
   const event = { sender: { id: 999, isDestroyed: () => false }, reply: (...args) => replies.push(args) }
-  new Function('ipcMain', 'captureDisplayedBgm', 'broadcaster',
+  new Function('ipcMain', 'captureDisplayedBgm', 'broadcaster', 'isKumaSender',
     transformSync(mg.slice(start, end), { loader: 'ts' }).code)(
     { on: (channel, fn) => { assert.equal(channel, 'kuma:archive-capture-bgm'); handler = fn } },
     async (...args) => { captures.push(args); return result },
     { emit: (...args) => emitted.push(args) },
+    (candidate) => candidate === event,
   )
   for (const bad of [null, 'x', [], {}, { pathname, url: 1 }, { pathname: 1, url }]) handler(event, bad)
   assert.deepEqual(captures, [])

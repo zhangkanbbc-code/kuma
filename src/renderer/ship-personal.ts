@@ -1,7 +1,7 @@
 // 舰娘图鉴/在籍列表共用的本地个人层。
 // 图鉴收藏与同改装链备注按链根保存；副舰用途备注按唯一在籍 ID 保存，
 // 因此同名同等级的两艘也不会互相覆盖。离籍后 ID 备注保留，供收容库回看。
-import { queryMasterRaw, uiGet, uiSet } from './kernel'
+import { onUiPreferenceChange, queryMasterRaw, uiGet, uiSet } from './kernel'
 import { buildShipRemodelChains } from '../shared/ship-remodel-chain'
 
 const KEY = 'ship.personal.v1'
@@ -49,6 +49,10 @@ export const shipPersonal = (): ShipPersonalState => {
 //（列表行上的 ★、备注里解析出来的 #标签）因此没法知道自己什么时候旧了。
 // 写入点只有本文件的 save 一处，所以就在这里记一个代号，派生方按它记忆。
 let revision = 0
+onUiPreferenceChange(KEY, () => {
+  cache = null
+  revision += 1
+})
 
 /** 个人层的写入代号：变了就说明收藏或备注被改过，派生缓存该重建了。 */
 export const shipPersonalRevision = () => revision
@@ -106,6 +110,7 @@ export const isFavoriteShipMst = (mstId: number): boolean => {
 }
 
 export const toggleFavoriteShipRoot = (rootId: number): boolean => {
+  cache = null
   const state = shipPersonal()
   const on = !state.favoriteRoots.includes(rootId)
   state.favoriteRoots = on
@@ -119,6 +124,7 @@ export const isFavoriteRoster = (rosterId: number) =>
   shipPersonal().favoriteRosterIds.includes(rosterId)
 
 export const toggleFavoriteRoster = (rosterId: number): boolean => {
+  cache = null
   const state = shipPersonal()
   const on = !state.favoriteRosterIds.includes(rosterId)
   state.favoriteRosterIds = on
@@ -136,6 +142,7 @@ export const shipRootNote = (rootId: number) =>
   shipPersonal().rootNotes[`${rootId}`] ?? ''
 
 export const setShipRootNote = (rootId: number, note: string) => {
+  cache = null
   const state = shipPersonal()
   const value = note.trim().slice(0, 400)
   if (value) state.rootNotes[`${rootId}`] = value
@@ -147,6 +154,7 @@ export const shipRosterNote = (rosterId: number) =>
   shipPersonal().rosterNotes[`${rosterId}`] ?? ''
 
 export const setShipRosterNote = (rosterId: number, note: string) => {
+  cache = null
   const state = shipPersonal()
   const value = note.trim().slice(0, 120)
   if (value) state.rosterNotes[`${rosterId}`] = value

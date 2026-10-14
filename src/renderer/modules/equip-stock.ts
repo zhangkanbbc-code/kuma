@@ -39,6 +39,7 @@ import {
   onMgChange,
   queryMasterRaw,
   uiGet,
+  onUiPreferenceChange,
   uiSet,
 } from '../kernel'
 import { elinkHtml, registerEntityRoute } from '../link'
@@ -1034,6 +1035,22 @@ const wire = () => {
 }
 
 const VIEW_KEY = 'equipStock.view'
+const restoreViewPrefs = () => {
+  const saved = uiGet<Partial<typeof state>>(VIEW_KEY, {})
+  if (saved.view === 'equip' || saved.view === 'furniture') state.view = saved.view
+  if (saved.furnitureScope === 'owned' || saved.furnitureScope === 'all') {
+    state.furnitureScope = saved.furnitureScope
+  }
+  if (saved.chip && EQUIP_CHIPS.includes(saved.chip)) state.chip = saved.chip
+  if (saved.smart === null || (saved.smart && SMART_FILTERS[saved.smart])) state.smart = saved.smart ?? null
+  if (saved.sortKey && SORTERS[saved.sortKey]) state.sortKey = saved.sortKey
+  if (saved.sortDir === 1 || saved.sortDir === -1) state.sortDir = saved.sortDir
+  if (typeof saved.typeFilter === 'number') state.typeFilter = saved.typeFilter
+}
+onUiPreferenceChange(VIEW_KEY, () => {
+  restoreViewPrefs()
+  if (pane?.isConnected) deferPassive(pane, 'es', render)
+})
 const saveView = () =>
   uiSet(VIEW_KEY, {
     view: state.view,
@@ -1120,16 +1137,7 @@ export const mountStockView = (element: HTMLElement) => {
   element.classList.toggle('narrow', element.clientWidth < 760)
   loadEquipTypeNames()
   ensureFurnitureMst(renderIfFurnitureView)
-  const saved = uiGet<Partial<typeof state>>(VIEW_KEY, {})
-  if (saved.view === 'equip' || saved.view === 'furniture') state.view = saved.view
-  if (saved.furnitureScope === 'owned' || saved.furnitureScope === 'all') {
-    state.furnitureScope = saved.furnitureScope
-  }
-  if (saved.chip && EQUIP_CHIPS.includes(saved.chip)) state.chip = saved.chip
-  if (saved.smart === null || (saved.smart && SMART_FILTERS[saved.smart])) state.smart = saved.smart ?? null
-  if (saved.sortKey && SORTERS[saved.sortKey]) state.sortKey = saved.sortKey
-  if (saved.sortDir === 1 || saved.sortDir === -1) state.sortDir = saved.sortDir
-  if (typeof saved.typeFilter === 'number') state.typeFilter = saved.typeFilter
+  restoreViewPrefs()
   // 存档恢复完才轮到入口的一次性意图——反过来就是「跳转意图被存档盖掉」那个 bug
   const intent = pendingIntent
   pendingIntent = null

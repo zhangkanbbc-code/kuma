@@ -204,6 +204,11 @@ let seasonalShips: Record<string, { key?: string; zh?: string; ja?: string }[] |
 let seasonalFoldedByForm = new Map<number, Set<string>>()
 let voiceFallbackOf = new Map<number, number[]>()
 let loading: Promise<void> | null = null
+const DATA_RETRY_MS = 60_000
+let dataRetryAt = 0
+let voiceGraphLoading: Promise<any> | null = null
+let voiceGraphRetryAt = 0
+let voiceGraphError: unknown = null
 let ready = false
 let pending: VoiceEvent[] = []
 let hideTimer: ReturnType<typeof setTimeout> | null = null
@@ -297,10 +302,28 @@ export const setVoiceCaptionSize = (px: unknown) => {
 }
 setVoiceCaptionSize(config.get(VOICE_CAPTION_SIZE_PATH, VOICE_CAPTION_SIZE_DEFAULT))
 
+// 彩蛋只需要语音目录到舰娘的映射；关字幕或字幕包失败时仍可发特殊攻击信号。
+// 失败的 Promise 留到冷却结束，不能每条语音都重读主数据。
+const ensureVoiceGraph = () => {
+  if (!voiceGraphLoading || voiceGraphRetryAt && Date.now() >= voiceGraphRetryAt) {
+    voiceGraphRetryAt = 0
+    voiceGraphLoading = queryMasterRaw().then((raw) => {
+      setShipGraph(raw?.data?.api_mst_shipgraph ?? [])
+      return raw
+    }).catch((error) => {
+      voiceGraphError = error
+      voiceGraphRetryAt = Date.now() + DATA_RETRY_MS
+      console.warn('[kuma] 游戏语音目录加载失败', error)
+      return null
+    })
+  }
+  return voiceGraphLoading
+}
+
 const loadData = async () => {
   const [raw, zh, ja, npc, enemies, wikiwiki, wikiwikiAbyss, abyssVoice, seasonal, kcwikiVoice, kcwikiShips, voiceOverlay, kumaVoice, opencc] =
     await Promise.all([
-      queryMasterRaw(),
+      ensureVoiceGraph(),
       queryLode('subtitle-zh'),
       queryLode('subtitle-ja'),
       queryLode('subtitle-npc'),
@@ -317,6 +340,7 @@ const loadData = async () => {
       queryLode('kuma-voice'),
       queryLode('opencc-t2s'),
     ])
+  if (voiceGraphRetryAt) throw voiceGraphError
   installZhSimplifier(opencc)
   const regularOverlay = applyVoiceOverlay(
     (kcwikiVoice?.data ?? {}) as Record<
@@ -336,7 +360,6 @@ const loadData = async () => {
       `[kuma] 台词译文自补层跳过 ${warning.pack}/${warning.key}：上游日文原文已变化`,
     )
   }
-  setShipGraph(raw?.data?.api_mst_shipgraph ?? [])
   const rawAbyssShips = (raw?.data?.api_mst_ship ?? []).filter(
     (ship: { api_id?: unknown; api_name?: unknown; api_sortno?: unknown }) =>
       !ship?.api_sortno && Number.isInteger(Number(ship?.api_id)),
@@ -416,8 +439,10 @@ const loadData = async () => {
 }
 
 const ensureData = () => {
+  if (!captionsEnabled || Date.now() < dataRetryAt) return Promise.resolve()
   loading ??= loadData().catch((error) => {
     loading = null
+    dataRetryAt = Date.now() + DATA_RETRY_MS
     console.warn('[kuma] 游戏语音字幕资料加载失败', error)
   })
   return loading
@@ -1145,13 +1170,13 @@ const emitSpecialAttack = (cue: VoiceRequestCue | null, pathname: string, ts: nu
   }))
 }
 
-const consume = (event: VoiceEvent) => {
+const consume = (event: VoiceEvent, signalOnly = false) => {
   const pathname = typeof event.pathname === 'string' ? event.pathname : ''
   const ts = typeof event.ts === 'number' ? event.ts : Date.now()
   if (!pathname || Date.now() - ts > 15000) return
   const cue = resolveVoiceRequest(pathname)
   emitSpecialAttack(cue, pathname, ts)
-  if (!captionsEnabled) return
+  if (signalOnly || !captionsEnabled) return
   if (cue?.kind === 'ship' && isSpecialAttackVoiceSlot(cue.voiceId)) {
     const now = Date.now()
     for (const [path, time] of specialCaptionShownAt) {
@@ -1211,7 +1236,7 @@ const flushPending = () => {
   if (!ready) return
   const queued = pending
   pending = []
-  queued.forEach(consume)
+  queued.forEach((event) => consume(event))
 }
 
 export const initVoiceSubtitles = (broadcaster: VoiceBroadcaster) => {
@@ -1228,6 +1253,11 @@ export const initVoiceSubtitles = (broadcaster: VoiceBroadcaster) => {
     void document.fonts.load("900 32px 'Noto Sans CJK SC Black'").catch(() => {})
   }
   broadcaster.addListener('kancolle.voice', (event) => {
+    if (!ready) void ensureVoiceGraph().then(() => consume(event, true))
+    if (!captionsEnabled) {
+      if (ready) consume(event, true)
+      return
+    }
     if (!ready) {
       pending = [...pending.slice(-127), event]
       void ensureData().then(flushPending)
@@ -1237,9 +1267,13 @@ export const initVoiceSubtitles = (broadcaster: VoiceBroadcaster) => {
   })
   onMgChange((keys) => {
     if (!keys.includes('master')) return
+    // 新主数据需要重建目录；失败墓碑仍守冷却，不能被补丁冲掉。
+    if (!voiceGraphRetryAt || Date.now() >= voiceGraphRetryAt) voiceGraphLoading = null
+    void ensureVoiceGraph()
     loading = null
     ready = false
     void ensureData().then(flushPending)
   })
-  void ensureData().then(flushPending)
+  void ensureVoiceGraph()
+  if (captionsEnabled) void ensureData().then(flushPending)
 }

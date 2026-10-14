@@ -110,8 +110,8 @@ test('月末拆分：月末那格 ↪+N（悬停说明计入下月），开头�
     weeks: [[cell({ day: '2026-09-30', date: 30, gain: 50, tail: 8 }), null, null, null, null, null, null]],
   }))
   const d30 = cellHtml(html, '2026-09-30')
-  assert.match(d30, /<div class="sc-t" title="22点后的战果，计入下月">↪\+8<\/div>/)
-  assert.match(html, /<div class="sc-head">上月末22点后 \+3 计入本月<\/div>/)
+  assert.match(d30, /<div class="sc-t" title="JST 22点后的战果，计入下月">↪\+8<\/div>/)
+  assert.match(html, /<div class="sc-head">上月末JST 22点后 \+3 计入本月<\/div>/)
 })
 
 test('月末拆分：取整为 0 或没有时都不显示', () => {

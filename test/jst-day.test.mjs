@@ -8,10 +8,12 @@
 // 那个跟着跑测试的机器时区走，本机绿了别的机器可能红。
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { runtimeHost } from '../scripts/lib/player-view-runtime.mjs'
 
 import jstDay from '../dist/shared/jst-day.js'
 
-const { jstDayStart, fmtJstDate } = jstDay.default ?? jstDay
+const { jstDayStart, fmtJstDate, jstDate, jstDateToTs, jstTimestamp,
+  jstDayNumber, jstMonthRange, jstDayOfWeek, jstHourOf, nextJstTimeAt } = jstDay.default ?? jstDay
 
 const DAY = 86_400_000
 const HOUR = 3_600_000
@@ -71,4 +73,69 @@ test('晚场跨 JST 日界仍分两张卡——这是口径本身，不是漏网
   assert.equal(fmtJstDate(eveningStart), '2026-08-19')
   assert.equal(fmtJstDate(eveningTail), '2026-08-20')
   assert.notEqual(jstDayStart(eveningStart), jstDayStart(eveningTail))
+})
+
+test('JST 日历字段与真实时刻可往返，跨年调整保持05:00口径', () => {
+  const at = Date.parse('2026-12-31T23:59:59.999+09:00')
+  const date = jstDate(at)
+  assert.deepEqual([date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), date.getUTCHours()], [2026, 11, 31, 23])
+  assert.equal(jstDateToTs(date), at)
+  date.setUTCDate(date.getUTCDate() + 1)
+  date.setUTCHours(5, 0, 0, 0)
+  assert.equal(jstDateToTs(date), Date.parse('2027-01-01T05:00:00+09:00'))
+  assert.equal(jstTimestamp(2026, 12, 1, 5), Date.parse('2027-01-01T05:00:00+09:00'))
+})
+
+test('JST 自然月区间左闭右开，闰年二月与跨年都在00:00切', () => {
+  for (const [month, next, days] of [['2024-02', '2024-03', 29], ['2025-02', '2025-03', 28], ['2026-12', '2027-01', 31]]) {
+    const range = jstMonthRange(month)
+    assert.deepEqual(range, { from: Date.parse(`${month}-01T00:00:00+09:00`), to: Date.parse(`${next}-01T00:00:00+09:00`) })
+    assert.equal(range.to - range.from, days * DAY)
+    assert.equal(fmtJstDate(range.from).slice(0, 7), month)
+    assert.equal(fmtJstDate(range.to - 1).slice(0, 7), month)
+    assert.equal(fmtJstDate(range.to).slice(0, 7), next)
+  }
+})
+
+test('JST 日序号、星期和小时都在相应边界前进', () => {
+  const midnight = Date.parse('2024-02-29T00:00:00+09:00')
+  assert.equal(jstDayNumber(midnight), jstDayNumber(midnight - 1) + 1)
+  assert.equal(jstDayNumber(midnight + DAY - 1), jstDayNumber(midnight))
+  assert.equal(jstDayOfWeek(midnight - 1), 3)
+  assert.equal(jstDayOfWeek(midnight), 4)
+  assert.equal(jstHourOf(midnight - 1), 23)
+  assert.equal(jstHourOf(midnight), 0)
+})
+
+test('下一个 JST 整点严格越过边界，保持传入小时顺序与既有回落', () => {
+  const at = Date.parse('2026-12-31T03:00:00+09:00')
+  assert.equal(nextJstTimeAt([3, 15], at - 1), at)
+  assert.equal(nextJstTimeAt([3, 15], at), at + 12 * HOUR)
+  assert.equal(nextJstTimeAt([3, 15], at + 1), at + 12 * HOUR)
+  assert.equal(nextJstTimeAt([15, 3], at - 1), at + 12 * HOUR)
+  assert.equal(nextJstTimeAt([0], at), Date.parse('2027-01-01T00:00:00+09:00'))
+  assert.ok(Number.isNaN(nextJstTimeAt([], at)))
+})
+
+test('kernel 与 qn 真重置函数在05:00前后对齐既有任务周期，演习整点独立', () => {
+  let now = 0
+  const ClockDate = class extends Date { static now() { return now } }
+  const host = runtimeHost()
+  const kernel = host.extract('src/renderer/kernel.ts', ['nextJstTime', 'nextWeeklyReset', 'nextMonthlyReset'], { Date: ClockDate }).api
+  const qn = host.extract('src/renderer/modules/qn.ts', ['nextReset'], { Date: ClockDate }).api
+  const { questPeriodEnd } = host.load('src/shared/quest-period.ts')
+  for (const day of ['2024-02-29', '2024-03-01', '2026-06-01', '2026-12-31', '2027-01-01']) {
+    for (const hour of [0, 3, 5, 15, 22]) for (const delta of [-1, 0, 1]) {
+      now = Date.parse(`${day}T${String(hour).padStart(2, '0')}:00:00+09:00`) + delta
+      assert.equal(kernel.nextJstTime([5]), questPeriodEnd('daily', now))
+      assert.equal(kernel.nextWeeklyReset(), questPeriodEnd('weekly', now))
+      assert.equal(kernel.nextMonthlyReset(), questPeriodEnd('monthly', now))
+      for (const kind of ['daily', 'weekly', 'monthly', 'quarterly']) assert.equal(qn.nextReset(kind), questPeriodEnd(kind, now))
+      for (let month = 1; month <= 12; month++) assert.equal(qn.nextReset('annual', month), questPeriodEnd('annual', now, month))
+      for (const month of [undefined, null, 0, 13]) assert.equal(qn.nextReset('annual', month), Infinity)
+      const practice = kernel.nextJstTime([3, 15])
+      assert.ok(practice > now && practice - now <= 12 * HOUR)
+      assert.ok([3, 15].includes(jstHourOf(practice)))
+    }
+  }
 })

@@ -3,6 +3,8 @@
 import { EventEmitter } from 'events'
 import fs from 'fs'
 import path from 'path'
+import { BrowserWindow } from 'electron'
+import { mergeUiPreference, SHARED_UI_PREFERENCES, UI_PREFERENCE_CHANNEL } from '../shared/ui-preference'
 
 import { atomicWriteJsonSync } from './atomic-json'
 import { APPDATA_PATH, DEFAULT_CACHE_PATH } from './env'
@@ -114,6 +116,11 @@ class KumaConfig extends EventEmitter {
   // 序列化一个指回渲染进程的 remote 代理，形成同步往返。
   setUiJson = (key: string, serialized: string): void => this.set(`ui.${key}`, JSON.parse(serialized))
 
+  patchUiJson = (key: string, before: string, serialized: string): void => {
+    const base = JSON.parse(before)
+    this.set(`ui.${key}`, mergeUiPreference(key, base, JSON.parse(serialized), this.get(`ui.${key}`, base)))
+  }
+
   getDefault = (configPath: string, fallback?: unknown): any => {
     const value = getByPath(DEFAULTS, configPath.split('.'))
     // 对象要发深拷贝：把 DEFAULTS 子对象的引用交出去，调用方就地改字段
@@ -133,6 +140,10 @@ class KumaConfig extends EventEmitter {
     setByPath(this.data, configPath.split('.'), value)
     this.emit('config.set', configPath, value)
     this.save()
+    const uiKey = configPath.slice(3)
+    if (configPath.startsWith('ui.') && SHARED_UI_PREFERENCES.has(uiKey)) {
+      for (const win of BrowserWindow.getAllWindows()) win.webContents.send(UI_PREFERENCE_CHANNEL, uiKey)
+    }
   }
 
   save = () => {

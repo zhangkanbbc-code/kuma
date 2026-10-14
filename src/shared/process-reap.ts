@@ -28,3 +28,24 @@ export const parseTasklistPids = (csv: string, selfPid: number): number[] => {
   }
   return pids
 }
+
+/**
+ * 退出收割集按当前证据分流。metrics 仍认得的存活 PID 可直接收；
+ * 已从 metrics 消失但仍存活的历史 PID，必须再核对映像，防止 PID 被别家复用。
+ * metrics 里的其它进程不扩大收割范围，自己、无效 PID 和已退出的都不进名单。
+ */
+export const classifyReapCandidates = (
+  harvestedPids: Iterable<number>,
+  metricPids: ReadonlySet<number>,
+  livePids: ReadonlySet<number>,
+  selfPid: number,
+): { direct: number[]; needsImageCheck: number[] } => {
+  const direct: number[] = []
+  const needsImageCheck: number[] = []
+  for (const pid of new Set(harvestedPids)) {
+    if (!Number.isInteger(pid) || pid <= 0 || pid === selfPid || !livePids.has(pid)) continue
+    if (metricPids.has(pid)) direct.push(pid)
+    else needsImageCheck.push(pid)
+  }
+  return { direct, needsImageCheck }
+}

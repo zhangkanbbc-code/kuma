@@ -5,7 +5,7 @@
 //   · 海域详情的路线预测 —— 把它当成一支可选舰队，推演这套编成走这张图会怎样
 // 后者才是它真正的用处：带路条件与胜率本来只认「当前四支舰队」，
 // 想试一套编成得先去游戏里真拖完。
-import { mg, uiGet, uiSet } from './kernel'
+import { mg, onUiPreferenceChange, uiGet, uiSet } from './kernel'
 import type { Deck } from '../shared/mg-types'
 
 /** 用负数占位：tab 与 deck.id 共用一套编号，而游戏的舰队 id 从 1 起。 */
@@ -17,11 +17,13 @@ const KEY = 'ru.sandbox'
 let ships: number[] = (uiGet<number[]>(KEY, []) ?? []).filter(
   (id) => Number.isInteger(id) && id > 0,
 )
+onUiPreferenceChange(KEY, () => { ships = uiGet<number[]>(KEY, []) })
 
 /** 当前沙盘成员（rosterId）。解体/改造掉的自动掉出——存的是 rosterId，查不到就是没了。 */
 export const sandboxRosterIds = (): number[] => ships.filter((id) => mg.ships[id])
 
 export const sandboxAdd = (rosterId: number): boolean => {
+  ships = uiGet<number[]>(KEY, [])
   if (!(rosterId > 0) || ships.includes(rosterId) || sandboxRosterIds().length >= SANDBOX_CAP) {
     return false
   }
@@ -31,11 +33,13 @@ export const sandboxAdd = (rosterId: number): boolean => {
 }
 
 export const sandboxRemove = (rosterId: number) => {
+  ships = uiGet<number[]>(KEY, [])
   ships = ships.filter((id) => id !== rosterId)
   uiSet(KEY, ships)
 }
 
 export const sandboxClear = () => {
+  uiGet<number[]>(KEY, []) // 清空是显式整队操作，基线也要包含对窗刚加入的成员。
   ships = []
   uiSet(KEY, ships)
 }

@@ -5,7 +5,7 @@
 // 不被污染（截图可用）。script 只接受显式 .hack.* 覆盖——游戏脚本带版本号，
 // gadget 登录还有 script RPC，供上陈旧缓存会直接炸登录（原版血泪注释保留）。
 import { net, protocol, session } from 'electron'
-import { constants, mkdirSync, promises as fsp } from 'fs'
+import { mkdirSync } from 'fs'
 import path from 'path'
 import { pathToFileURL } from 'url'
 
@@ -23,21 +23,31 @@ import { shouldArchiveArtType } from '../shared/art-archive-plan'
 import { assetFamilyOf } from '../shared/asset-archive-plan'
 import { rememberAssetSeen } from './asset-archive'
 import { createVoiceRequestGate, resourceVersionOf } from '../shared/voice-request-gate'
+import { setGameSenderId, isGameResourceRequest } from './game-sender'
 
 // 与 preload 隔离世界共享的纯 JS 路径逻辑（主进程按绝对路径 require）
 const kcsResourcePath: {
   isStaticResource: (pathname?: string) => boolean
-  getCacheCandidatePaths: (cacheDir: string, pathname?: string) => [string, string]
+  getModRoots: (cacheDir: string, period: 'day' | 'night' | null) => string[]
+  isPathWithinRoot: (root: string, candidate: string) => boolean
   getModRootPath: (cacheDir: string) => string
+  getDayModRootPath: (cacheDir: string) => string
+  getNightModRootPath: (cacheDir: string) => string
+  modPeriodOf: (now: Date, settings: { enabled: boolean; start: string; end: string }) => 'day' | 'night' | null
+  findModFilePathAsync: (cacheDir: string, pathname: string, options: {
+    period: 'day' | 'night' | null; overrideOnly?: boolean
+  }) => Promise<string | undefined>
 } = require(path.join(ROOT, 'assets', 'preload', 'kcs-resource-path'))
 
-const { isStaticResource, getCacheCandidatePaths, getModRootPath } = kcsResourcePath
+const { isStaticResource, getModRootPath, getDayModRootPath, getNightModRootPath, modPeriodOf, findModFilePathAsync } = kcsResourcePath
+const { modNightSettingsPayload } = require(path.join(ROOT, 'assets', 'preload', 'mod-night-settings-bridge'))
 
 const SCHEME = 'kuma-cache'
 let gameWebContentsId: number | null = null
 
 export const setKcsResourceGameWebContentsId = (id: number | null) => {
   gameWebContentsId = id
+  setGameSenderId(id)
   if (id == null) broadcaster.setCurrentBgm(null)
 }
 
@@ -92,32 +102,15 @@ export const modDirPath = (): string => getModRootPath(getCacheDir())
  * 查找器那边「目录空/读不动」都算没人魔改，整段会话直接走快路径。
  * 返回值是路径本身，调用方（设置页的「打开文件夹」）拿它去开。
  */
-export const ensureModDir = (): string => {
-  const dir = modDirPath()
+export const ensureModDir = (period: 'day' | 'night' | null = null): string => {
+  const dir = period === 'night' ? getNightModRootPath(getCacheDir())
+    : period === 'day' ? getDayModRootPath(getCacheDir()) : modDirPath()
   try {
     mkdirSync(dir, { recursive: true })
   } catch (e) {
     console.warn('[kuma] kcs-resource: 魔改目录建不出来', dir, e)
   }
   return dir
-}
-
-const findHackFilePathAsync = async (
-  cacheDir: string,
-  pathname: string,
-  overrideOnly = false,
-): Promise<string | undefined> => {
-  const [hackedFilePath, originFilePath] = getCacheCandidatePaths(cacheDir, pathname)
-  const candidates = overrideOnly ? [hackedFilePath] : [hackedFilePath, originFilePath]
-  for (const candidate of candidates) {
-    try {
-      await fsp.access(candidate, constants.R_OK)
-      return candidate
-    } catch (_e) {
-      // try next candidate
-    }
-  }
-  return undefined
 }
 
 /**
@@ -181,8 +174,8 @@ const artKeyOf = (url: string): string => {
   }
 }
 
-/** 该向哪个 webContents 问「吸收」用的那些图。游戏页没就位时什么都不做。 */
-const gameWebContents = (): Electron.WebContents | null => {
+/** 该向哪个 webContents 问「吸收」用的那些图，以及游戏页导航的目标。游戏页没就位时什么都不做。 */
+export const gameWebContents = (): Electron.WebContents | null => {
   if (gameWebContentsId == null) return null
   const found = require('electron').webContents.fromId(gameWebContentsId)
   return found && !found.isDestroyed() ? found : null
@@ -273,11 +266,12 @@ export const registerKcsResourceProtocol = () => {
         const parsed = new URL(details.url)
         const { pathname } = parsed
         requestPathname = pathname
+        const gameResource = await isGameResourceRequest(details, parsed)
         // 语音与立绘两段闸门共用同一个时刻：同一次请求里取两遍 Date.now()
         // 会让「认领窗口」的两侧算在不同基准上
         const now = Date.now()
         if (
-          details.webContentsId === gameWebContentsId &&
+          details.webContentsId === gameWebContentsId && gameResource &&
           parsed.protocol !== `${SCHEME}:` &&
           /^\/kcs\/sound\/(?:kc[^/]+|titlecall)\/[^/]+\.mp3$/i.test(pathname)
         ) {
@@ -316,7 +310,7 @@ export const registerKcsResourceProtocol = () => {
           }
         }
         if (
-          details.webContentsId === gameWebContentsId &&
+          details.webContentsId === gameWebContentsId && gameResource &&
           parsed.protocol !== `${SCHEME}:`
         ) {
           const bgmPath = decodeURIComponent(pathname)
@@ -411,13 +405,18 @@ export const registerKcsResourceProtocol = () => {
           return
         }
         const overrideOnly = OVERRIDE_ONLY_RESOURCE_TYPES.has(details.resourceType)
-        const filePath = await findHackFilePathAsync(
+        const period = modPeriodOf(new Date(), modNightSettingsPayload(
+          (key: string, fallback: unknown) => config.get(key, fallback),
+        ))
+        const filePath = await findModFilePathAsync(
           getCacheDir(),
           decodeURIComponent(pathname),
-          overrideOnly,
+          { period, overrideOnly },
         )
         if (filePath) {
-          callback({ redirectURL: `${SCHEME}://resource${pathname}` })
+          // 脚本只查覆盖件的约束也带给协议，避免时段原文件遮住常驻覆盖；
+          // preload 的登录恢复不带此参数，仍可读取普通缓存脚本。
+          callback({ redirectURL: `${SCHEME}://resource${period ? `-${period}` : ''}${pathname}${overrideOnly ? '?override-only=1' : ''}` })
         } else {
           callback({})
         }
@@ -428,23 +427,25 @@ export const registerKcsResourceProtocol = () => {
   )
 
   // 供出解析后的本地文件。路径永远从请求 pathname 重新解析（绝不用页面提供的
-  // 文件路径），并钳制在缓存目录内，防止页面借这个 scheme 读任意文件。
+  // 文件路径），并钳制在当次常驻/时段魔改根内，防止页面借这个 scheme 读任意文件。
   ses.protocol.handle(SCHEME, async (request) => {
     try {
-      const { pathname } = new URL(request.url)
+      const { pathname, hostname, searchParams } = new URL(request.url)
       const decodedPathname = decodeURIComponent(pathname)
       if (!isStaticResource(decodedPathname)) {
         return new Response(null, { status: 404 })
       }
       const cacheDir = getCacheDir()
-      const filePath = await findHackFilePathAsync(cacheDir, decodedPathname)
+      const period = hostname === 'resource-night' ? 'night' : hostname === 'resource-day' ? 'day' : null
+      const filePath = await findModFilePathAsync(cacheDir, decodedPathname, {
+        period, overrideOnly: searchParams.get('override-only') === '1',
+      })
       if (!filePath) {
         return new Response(null, { status: 404 })
       }
       const resolved = path.resolve(filePath)
-      if (!resolved.startsWith(path.resolve(cacheDir) + path.sep)) {
-        console.warn('[kuma] kcs-resource: refusing to serve path outside cache dir', resolved)
-        return new Response(null, { status: 403 })
+      if (!kcsResourcePath.getModRoots(cacheDir, period).some((root) => kcsResourcePath.isPathWithinRoot(root, resolved))) {
+        return new Response(null, { status: 404 })
       }
       const fileResponse = await net.fetch(pathToFileURL(resolved).href)
       const headers = new Headers(fileResponse.headers)

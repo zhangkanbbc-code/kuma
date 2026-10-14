@@ -53,6 +53,7 @@ const MAX_ENTRIES = 5_000
 let entries = new Map<string, BgmArchiveEntry>()
 let loaded = false
 let dirty = false
+let durableDirty = false
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 
 const load = () => {
@@ -75,27 +76,34 @@ const load = () => {
   }
 }
 
-const flush = () => {
+const flush = (forceDurable = true) => {
   if (saveTimer) clearTimeout(saveTimer)
   saveTimer = null
   if (!dirty) return
-  dirty = false
+  const durable = forceDurable || durableDirty
+  // 非强制写只清掉定时器，仍留退出刷盘责任；正常退出连最后一份合并计数也要 fsync。
+  dirty = !durable
+  durableDirty = false
   try {
     fs.mkdirSync(BGM_ARCHIVE_DIR, { recursive: true })
     atomicWriteJsonSync(INDEX_FILE, {
       schemaVersion: SCHEMA_VERSION,
       updatedAt: new Date().toISOString(),
       entries: [...entries.values()],
-    })
+    }, { durable })
   } catch (error) {
     safeConsole('warn', '[kuma] BGM 档案索引落盘失败', error)
   }
 }
 
-const scheduleSave = () => {
+// 新条目/版本等事实沿用 3 秒刷盘；重复见闻计数合并 1 分钟，原子写但不强制 fsync。
+// 后来的新事实会把计数定时器提早；退出 flush 默认强制刷盘，保住最后一批计数。
+const scheduleSave = (durable = true) => {
   dirty = true
-  if (saveTimer) return
-  saveTimer = setTimeout(flush, 3_000)
+  if (saveTimer && (!durable || durableDirty)) return
+  durableDirty ||= durable
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => flush(false), durableDirty ? 3_000 : 60_000)
   saveTimer.unref?.()
 }
 
@@ -169,19 +177,23 @@ export const rememberBgmHeard = (input: {
   )
   const targets = withBlob.length ? withBlob : [entries.get(bgmArchiveKey(seed.pathname, ''))]
   let touched = false
+  let metadataChanged = false
   for (const target of targets) {
     if (!target) continue
     target.lastHeard = Math.max(target.lastHeard, seed.lastHeard)
     target.heard += 1
     // 老档案（版本参数上线之前存的）在这里补记版本，不必迁移
-    if (!target.version && seed.version) target.version = seed.version
+    if (!target.version && seed.version) {
+      target.version = seed.version
+      metadataChanged = true
+    }
     touched = true
   }
   if (!touched) {
     if (entries.size >= MAX_ENTRIES) return false
     entries.set(bgmArchiveKey(seed.pathname, ''), seed)
   }
-  scheduleSave()
+  scheduleSave(!touched || metadataChanged)
   return !bgmArchiveHasBlobFor(all, seed.pathname, seed.version)
 }
 
@@ -214,11 +226,12 @@ export const keepBgmBlob = (input: {
   const key = bgmArchiveKey(seed.pathname, sha1)
   const known = entries.get(key)
   if (known?.bytes) {
+    const metadataChanged = Boolean(seed.version && known.version !== seed.version)
     known.lastHeard = Math.max(known.lastHeard, seed.lastHeard)
     // 同样的字节换了个版本号下发：把版本跟到最新，否则 rememberBgmHeard 会
     // 永远认为「这个版本还没存下」而一直想再要一次。
     if (seed.version && known.version !== seed.version) known.version = seed.version
-    scheduleSave()
+    scheduleSave(metadataChanged)
     return null
   }
   const file = blobFileFor(seed)

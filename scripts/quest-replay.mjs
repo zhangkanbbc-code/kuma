@@ -121,6 +121,8 @@ const isComplete = (tracker, counts) =>
 const rows = db
   .prepare('SELECT ts, path, body, post_body FROM events ORDER BY ts ASC, id ASC')
   .all()
+const clearedSlotitemBodies = rows.filter(row => row.path === '/kcsapi/api_get_member/slot_item' && row.body == null).length
+if (clearedSlotitemBodies) console.log(`装备整表正文已清空 ${clearedSlotitemBodies} 条；对应时段的装备账无法完整对账。`)
 
 const realNow = Date.now
 const armedAt = new Map() // questId → 受领时刻（本窗口内看到 quest/start 才算）

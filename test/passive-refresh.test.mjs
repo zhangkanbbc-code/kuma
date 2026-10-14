@@ -677,10 +677,17 @@ test('九个模块的异步回程与 qp 回调都从统一被动提交口落地'
   )
   expect(
     zi,
-    'const refreshSenkaDetail = async () => {',
+    'const refreshSenkaDetail = async (',
     "document.addEventListener('keydown'",
-    /deferPassive\(pane, 'zi:senka', \(\) => \{/,
+    /renderSenkaDetailPassive\(\)/,
     '锱的战果详情查询回程必须连同弹窗换块一起过闸',
+  )
+  expect(
+    zi,
+    'const renderSenkaDetailPassive = () => {',
+    'const applySenkaRanking =',
+    /deferPassive\(host, 'zi:senka-detail',/,
+    '战果详情挂在 body，闸门根必须取弹窗宿主',
   )
 
   const qa = read('renderer/modules/qa.ts')
@@ -863,7 +870,9 @@ test('每把被动提交键只对应一件要做的事', () => {
       const args = readCallArguments(source, openAt)
       const line = source.slice(0, cursor).split(/\r?\n/).length
       assert.ok(args && args.length === 3, `${file}:${line} 的 deferPassive 实参无法识别`)
-      const keyMatch = args[1].match(/^(['"])([^'"]+)\1$/)
+      // 阵容钉卡可同时有多张，必须以任务 id 区分队列项；同一调用处仍只做一件事。
+      const lineupCardKey = file === 'modules/qn.ts' && args[1] === '`qn:lineup-card:${questId}`'
+      const keyMatch = lineupCardKey ? [null, null, 'qn:lineup-card:*'] : args[1].match(/^(['"])([^'"]+)\1$/)
       assert.ok(keyMatch, `${file}:${line} 的 deferPassive key 必须是字符串字面量`)
       const key = keyMatch[2]
       const run = args[2].replace(/\s+/g, ' ').trim()

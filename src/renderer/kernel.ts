@@ -1,6 +1,9 @@
 // 渲染层内核：铭状态的本地缓存与订阅、秒级 ticker、公共工具。
 // 各模块（铆装配的面板）只依赖这里，不直接碰 ipc。
 import { readEnv } from '../shared/env-names'
+import { jstDate, jstDayOfWeek as sharedJstDayOfWeek, jstHourOf as sharedJstHourOf, jstTimestamp, nextJstTimeAt } from '../shared/jst-day'
+import { SHARED_UI_PREFERENCES } from '../shared/ui-preference'
+import { subscribeUiPreference } from './ui-preference-events'
 export { fmtReturnClock, repairClockText } from '../shared/return-clock'
 import type {
   BattleSnapshot,
@@ -53,8 +56,10 @@ const kernelConfig = require('@electron/remote').require('./config')
 // ---- UI 偏好持久化 ----
 // 走主进程 config.json（%APPDATA%/kuma/），不用 localStorage：
 // 渲染层是 file:// 源，Chromium 对它的本地存储不保证跨重启留存——布局记不住就是栽在这。
+const uiSnapshots = new Map<string, string>()
 export const uiGet = <T>(key: string, fallback: T): T => {
   const serialized: string | undefined = kernelConfig.getUiJson(key)
+  if (SHARED_UI_PREFERENCES.has(key)) uiSnapshots.set(key, serialized ?? JSON.stringify(fallback))
   if (serialized === undefined) return fallback
   const value = JSON.parse(serialized)
   if (value === undefined || value === null) return fallback
@@ -63,7 +68,11 @@ export const uiGet = <T>(key: string, fallback: T): T => {
 }
 export const uiSet = (key: string, value: unknown) => {
   // 对象不跨 remote 边界；主进程解析成自己持有的副本，照旧保存并发送变更通知。
-  kernelConfig.setUiJson(key, JSON.stringify(value))
+  const serialized = JSON.stringify(value)
+  if (SHARED_UI_PREFERENCES.has(key)) {
+    kernelConfig.patchUiJson(key, uiSnapshots.get(key)!, serialized)
+    uiSnapshots.set(key, serialized)
+  } else kernelConfig.setUiJson(key, serialized)
 }
 
 // 内部详情栏多由模块 render() 整块重建。关闭时若立刻 render，CSS 来不及播放退出过渡；
@@ -259,6 +268,10 @@ export const runMountCleanup = (id: string) => {
 const removeFrom = <T>(list: T[], item: T) => {
   const at = list.indexOf(item)
   if (at >= 0) list.splice(at, 1)
+}
+
+export const onUiPreferenceChange = (key: string, cb: () => void) => {
+  trackForMountScope(subscribeUiPreference(key, cb))
 }
 
 // 慢分发归因：注册时捕获调用点（监听器全是匿名箭头，cb.name 一律为空），
@@ -560,6 +573,10 @@ export const initKernel = (): Promise<void> => {
 export const queryMaterialHistory = (sinceTs: number): Promise<MaterialRow[]> =>
   ipcRenderer.invoke('mg:material-history', sinceTs)
 
+export const queryFastbuildFlow = (sinceTs: number, untilTs: number): Promise<{
+  gained: number; spent: number; changes: number; lastTs: number
+}> => ipcRenderer.invoke('mg:fastbuild-flow', sinceTs, untilTs)
+
 /**
  * 逐日资源快照（史的「每日资源」）：每个本地自然日只回当天最后一条，外加日初基线。
  * 一年 366 行，与全量行喂进 buildDailyMaterials 的结果逐字段一致
@@ -707,7 +724,7 @@ export const queryFactoryStats = (
 export const querySenka = (at?: number): Promise<import('../shared/senka').SenkaSummary> =>
   ipcRenderer.invoke('mg:senka', at)
 
-export const querySenkaRanking = (at?: number, opts?: { history?: boolean }): Promise<import('../shared/senka-ranking').SenkaRankingView> =>
+export const querySenkaRanking = (at?: number, opts?: { history?: boolean; retry?: boolean }): Promise<import('../shared/senka-ranking').SenkaRankingView> =>
   ipcRenderer.invoke('mg:senka-ranking', at, opts)
 
 export const querySenkaCalendar = (month?: string): Promise<import('../shared/senka-calendar').SenkaCalendarModel> =>
@@ -781,6 +798,9 @@ export const queryExpeditionHistory = (
 export const queryShipLife = (rosterId: number, limit = 80): Promise<ShipLifeReport> =>
   ipcRenderer.invoke('mg:ship-life', rosterId, limit)
 
+export const queryRemodelHistories = (rosterIds: number[]): Promise<{ rosterId: number; history: NonNullable<ShipLifeReport['remodelHistory']> }[]> =>
+  ipcRenderer.invoke('mg:remodel-histories', rosterIds)
+
 export const queryShipMemorial = (mstIds: number[]): Promise<ShipMemorialReport> =>
   ipcRenderer.invoke('mg:ship-memorial', mstIds)
 
@@ -801,6 +821,11 @@ export const queryBattleSnapshot = (id: number): Promise<BattleSnapshot | null> 
 
 export const queryEventArchives = (): Promise<any[]> =>
   ipcRenderer.invoke('chron:event-archives')
+
+export const querySeasonalHistory = (): Promise<import('../shared/seasonal-history').CampaignHistory[]> =>
+  ipcRenderer.invoke('mg:seasonal-history')
+export const querySeasonalArchives = (): Promise<import('../shared/seasonal-history').CampaignHistory[]> =>
+  ipcRenderer.invoke('mg:seasonal-archives')
 
 export const queryFriendlyFleets = (
   map: number,
@@ -1256,7 +1281,7 @@ export const applyPaneHtml = (root: HTMLElement, key: string, html: string): boo
   return true
 }
 
-const paneHtmlDiffers = (root: HTMLElement, key: string, html: string): boolean =>
+export const paneHtmlDiffers = (root: HTMLElement, key: string, html: string): boolean =>
   // firstElementChild 兜底：面板被别处清空过（mu 的重试装配）就不能信记忆
   !(committedHtml.get(root)?.get(key) === html && root.firstElementChild)
 
@@ -1357,6 +1382,10 @@ const flushPassiveDeferred = () => {
 
   const now = Date.now()
   for (const [key, entry] of [...passiveDeferred.entries()]) {
+    if (entry.root.dataset.popped === 'true') {
+      passiveDeferred.delete(key)
+      continue
+    }
     // 每次补跑都重判三道闸门：一种动作结束时，另一种仍可能挡着这块面板。
     const reason = passiveDeferReason(passiveInputFor(entry.root, entry.since, now))
     if (reason !== null) continue
@@ -1499,6 +1528,7 @@ const deferWhileComposing = (root: HTMLElement, key: string, run: () => void): b
  * 玩家自己点出来的主动渲染不走这里。
  */
 export const deferPassive = (root: HTMLElement, key: string, run: () => void): void => {
+  if (root.dataset.popped === 'true') return
   if (deferWhilePressed(root, key, run)) return
   if (deferWhileComposing(root, key, run)) return
   const now = Date.now()
@@ -1619,23 +1649,12 @@ export const fmtCountdownShort = (completeTime: number, doneText = '完成') => 
 }
 
 // 下一个 JST 整点时刻（返回本地 ts）。任务重置 [5] / 演习刷新 [3,15] 共用同一口径。
-const JST_OFFSET = 9 * 3600 * 1000
 export const jstDayOfWeek = (ts = Date.now()): number =>
-  new Date(ts + JST_OFFSET).getUTCDay()
+  sharedJstDayOfWeek(ts)
 
-export const jstHourOf = (ts: number): number => new Date(ts + JST_OFFSET).getUTCHours()
+export const jstHourOf = (ts: number): number => sharedJstHourOf(ts)
 
-export const nextJstTime = (hours: number[]): number => {
-  const nowJst = Date.now() + JST_OFFSET
-  const dayStart = Math.floor(nowJst / 86400000) * 86400000
-  for (let day = 0; day < 2; day++) {
-    for (const h of hours) {
-      const t = dayStart + day * 86400000 + h * 3600000
-      if (t > nowJst) return t - JST_OFFSET
-    }
-  }
-  return dayStart + 86400000 + hours[0] * 3600000 - JST_OFFSET
-}
+export const nextJstTime = (hours: number[]): number => nextJstTimeAt(hours, Date.now())
 
 export const nextWeeklyReset = (): number => {
   let target = nextJstTime([5])
@@ -1644,14 +1663,14 @@ export const nextWeeklyReset = (): number => {
 }
 
 export const nextMonthlyReset = (): number => {
-  const nowJst = Date.now() + JST_OFFSET
-  const now = new Date(nowJst)
-  const thisMonth = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 5)
+  const ts = Date.now()
+  const now = jstDate(ts)
+  const thisMonth = jstTimestamp(now.getUTCFullYear(), now.getUTCMonth(), 1, 5)
   const target =
-    nowJst < thisMonth
+    ts < thisMonth
       ? thisMonth
-      : Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 5)
-  return target - JST_OFFSET
+      : jstTimestamp(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 5)
+  return target
 }
 
 // 长周期格式：月+周+日+时（月任/季任/活动截止这类跨日倒计时）；不足一日退化为 时+分

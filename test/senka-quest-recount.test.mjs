@@ -78,7 +78,7 @@ export const makeLedger = (db: any) => new QuestSenkaLedger(db)
 
 const bundle = (() => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-senka-quest-'))
-  for (const name of ['senka.ts', 'quest-period.ts', 'senka-quest-book.ts']) {
+  for (const name of ['senka.ts', 'quest-period.ts', 'senka-quest-book.ts', 'jst-day.ts']) {
     fs.copyFileSync(path.join(ROOT, 'src', 'shared', name), path.join(dir, name))
   }
   const entry = path.join(dir, 'quest-senka.ts')
@@ -247,9 +247,13 @@ test('撤回只认合成行指纹：kind=quest 且 ts 恰等于本月月初', (t
 
 test('撤回之后去重跟着让路：真该记的一笔补得回来', (t) => {
   const { db, ledger } = openLedger(t)
+  // 第一笔钉在月初整值上，模拟 09-01 改口径之前的老合成行（代表 9 月那一期）。
+  // 2026-10-14 起去重窗口只按周期：同期的真报文要落在 9 月那一期里（月界后两天），
+  // 而不是同样贴着 8/31 22:00——那一刻交的月任其实是 8 月那一期。
+  const LATER = MONTH + 2 * 24 * 3600 * 1000
   assert.equal(ledger.logQuestSenka(MONTH, 893, 300, MONTHLY), true)
-  assert.equal(ledger.logQuestSenka(MONTH, 893, 300, MONTHLY), false, '同任务同期只记一次')
+  assert.equal(ledger.logQuestSenka(LATER, 893, 300, MONTHLY), false, '同任务同期只记一次')
   assert.equal(ledger.clearAutoBookedQuestSenka(MONTH), 1)
-  assert.equal(ledger.logQuestSenka(MONTH, 893, 300, MONTHLY), true, '撤回后有证据的能重新记进')
+  assert.equal(ledger.logQuestSenka(LATER, 893, 300, MONTHLY), true, '撤回后有证据的能重新记进')
   assert.equal(rows(db).length, 1)
 })

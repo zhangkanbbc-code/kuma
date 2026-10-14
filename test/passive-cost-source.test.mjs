@@ -139,8 +139,8 @@ test('史按当前视图发查询，切页只把缺表交给 450ms 补查', () =
   assert.match(refresh, /new Set\(requestedQueries \?\? reviewQueriesFor\(activeView\)\)/)
   assert.equal(
     (refresh.match(/wanted\.has\('/g) ?? []).length,
-    12,
-    '12 个查询入口必须逐一受当前视图计划约束',
+    13,
+    '13 个查询入口必须逐一受当前视图计划约束',
   )
   assert.match(refresh, /for \(const query of wanted\) loadedReviewQueries\.add\(query\)/)
 

@@ -23,6 +23,8 @@ const UI_STORE_BLOCK = (() => {
 
 const store = (() => {
   const source = `
+const uiSnapshots = new Map<string, string>()
+const SHARED_UI_PREFERENCES = new Set<string>()
 let remoteValue = 'B'
 const remoteObject: Record<string, string> = {}
 Object.defineProperty(remoteObject, '2-1', {

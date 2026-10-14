@@ -6,7 +6,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { createRequire } from 'node:module'
-import { buildSync } from 'esbuild'
+import { build } from 'esbuild'
 import { fileURLToPath } from 'node:url'
 
 const source = fs.readFileSync(new URL('../../src/main/mg/ledger.ts', import.meta.url), 'utf8')
@@ -22,8 +22,15 @@ const migration = sliceBetween('  private dropPhantomConsumableUseitemRowsV14 ='
 const batch = sliceBetween('  private runBatch =', '\n  record =')
 const deltaMethods = sliceBetween('  logDelta =', '\n  queryDeltaSummary =')
 const shared = fileURLToPath(new URL('../../src/shared/material-delta-detail.ts', import.meta.url)).replaceAll('\\', '/')
+const seasonal = fileURLToPath(new URL('../../src/main/mg/seasonal-ledger.ts', import.meta.url)).replaceAll('\\', '/')
+const bodyRetention = fileURLToPath(new URL('../../src/main/mg/slotitem-body-retention.ts', import.meta.url)).replaceAll('\\', '/')
 const harness = `
 import { buildDeltaDetail, replayDeltaCategoryFixes } from ${JSON.stringify(shared)}
+import { SeasonalLedger } from ${JSON.stringify(seasonal)}
+import { SlotitemBodyRetention } from ${JSON.stringify(bodyRetention)}
+const SLOTITEM_BODY_RETENTION_CONFIG = 'kuma.ledger.trimSlotitemBodies'
+const config = { get: (_key, fallback) => fallback, on: () => {} }
+const getLode = () => null
 import fs from 'node:fs'
 import path from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
@@ -33,13 +40,15 @@ export const openLedger = (APPDATA_PATH: string, questProgressV13: any = []) => 
   return new class Ledger {
     private db: any
     private pruneTimer: any
+    private closed = false
+    private loadSnapshot = () => null
     private prune = () => {}
     private recomputeCarrierSinkProgressV13 = () => questProgressV13
 ${constructor}
 ${migration}
 ${batch}
 ${deltaMethods}
-    close = () => { clearInterval(this.pruneTimer); this.db.close() }
+    close = () => { clearInterval(this.pruneTimer); this.seasonal.stop(); this.closed = true; this.db.close() }
   }()
 }
 `
@@ -47,5 +56,9 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-phantom-ledger-harness-'
 const entry = path.join(dir, 'ledger.ts')
 const outfile = path.join(dir, 'ledger.cjs')
 fs.writeFileSync(entry, harness)
-buildSync({ entryPoints: [entry], outfile, bundle: true, platform: 'node', format: 'cjs', logLevel: 'silent' })
+await build({ entryPoints: [entry], outfile, bundle: true, platform: 'node', format: 'cjs', logLevel: 'silent',
+  plugins: [{ name: 'offline-timing', setup(b) {
+    b.onResolve({ filter: /^electron$/ }, () => ({ path: 'electron', namespace: 'offline-timing' }))
+    b.onLoad({ filter: /.*/, namespace: 'offline-timing' }, () => ({ contents: 'export const ipcMain = { handle: () => {} }', loader: 'js' }))
+  } }] })
 export const { openLedger } = createRequire(import.meta.url)(outfile)

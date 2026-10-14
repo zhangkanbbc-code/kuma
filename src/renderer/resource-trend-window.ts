@@ -18,6 +18,7 @@ import {
   queryActionEvents,
   queryMaterialHistory,
   uiGet,
+  onUiPreferenceChange,
   uiSet,
 } from './kernel'
 import {
@@ -55,6 +56,11 @@ const ACTION_MARKERS: Record<string, { label: string; glyph: string }> = {
 const root = document.querySelector<HTMLElement>('#trend-root')!
 let rangeIdx = Math.max(0, Math.min(RANGES.length - 1, uiGet<number>('zi.trendRange', 1)))
 const disabled = new Set(uiGet<string[]>('zi.trendDisabled', []))
+onUiPreferenceChange('zi.trendDisabled', () => {
+  disabled.clear()
+  for (const key of uiGet<string[]>('zi.trendDisabled', [])) disabled.add(key)
+  render()
+})
 let history: MaterialRow[] = []
 let historyWindowStart = 0
 let historyWindowEnd = 0

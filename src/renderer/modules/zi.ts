@@ -12,6 +12,7 @@ import type {
 import {
   EO_SENKA,
   questFixedSenka,
+  nextSenkaViewBoundary,
   senkaMonthLabel,
   senkaQuestPeriodStartedInMonth,
 } from '../../shared/senka'
@@ -31,7 +32,7 @@ import {
   naturalRegenCap,
   prepareMaterialHistory,
 } from '../../shared/material-history'
-import { addManualSenkaQuest, clearAutoBookedSenkaQuests, commitPaneHtml, deferPassive, esc, fmtDateTime, fmtK, fmtMonthDay, fmtTime, mg, onMgChange, queryLode, queryQp, querySenka, querySenkaQuestOptions, queryDeltaSummary, queryEventSortieCosts, queryMaterialHistory, queryMasterRaw, queryUseitemSummary, removeManualSenkaQuest, uiGet, uiSet } from '../kernel'
+import { addManualSenkaQuest, clearAutoBookedSenkaQuests, commitPaneHtml, deferPassive, esc, fmtDateTime, fmtK, fmtMonthDay, fmtTime, mg, onMgChange, paneHtmlDiffers, queryFastbuildFlow, queryLode, queryQp, querySenka, querySenkaQuestOptions, queryDeltaSummary, queryEventSortieCosts, queryMaterialHistory, queryMasterRaw, queryUseitemSummary, removeManualSenkaQuest, uiGet, uiSet, withViewStateKept } from '../kernel'
 import { mapCodeOf } from '../../shared/map-id'
 import { hasEventMaps } from '../../shared/event-area'
 import { sortieJustEnded } from '../../shared/passive-refresh'
@@ -40,6 +41,7 @@ import { elink, navigate, pinCard, registerEntityRoute } from '../link'
 import { bilingualNameHtml, entityNameHtml, entityNamePlain, entityTermHtml, entityTermTrustedHtml } from '../localization'
 import { simplifyQuestScnData } from '../kcwiki-zh'
 import { activateModule, isModuleAvailable, registerModule } from '../mu'
+import { onUiPreferenceChange } from '../kernel'
 import { timedRun } from '../perf-guard'
 import { runModuleCommand } from '../module-command'
 import { demandedUseitemIds, onUseitemDemandReady, useitemDemand } from './ji'
@@ -73,6 +75,7 @@ let breakdownRes = 0 // 收支分解当前查看的资源下标（0-3）
 let highlightTile: number | null = null // 从别处跳进来时高亮的磁贴（15 稿：对应磁贴高亮）
 let queryTimer: ReturnType<typeof setTimeout> | null = null
 let dayRolloverTimer: ReturnType<typeof setTimeout> | null = null
+let senkaRolloverTimer: ReturnType<typeof setTimeout> | null = null
 let refreshGeneration = 0
 let refreshPending = false
 let lastRefresh = 0
@@ -286,6 +289,10 @@ const HARD_CAP: Record<number, number> = { 0: 350000, 1: 350000, 2: 350000, 3: 3
 // 「游戏线程路径禁止同步 IPC」的既定纪律：读进模块变量，编辑提交时同步更新它。
 const TARGETS_KEY = 'zi.targets'
 let targetOverrides: Record<number, number> = uiGet<Record<number, number>>(TARGETS_KEY, {})
+onUiPreferenceChange(TARGETS_KEY, () => {
+  targetOverrides = uiGet<Record<number, number>>(TARGETS_KEY, {})
+  if (pane?.classList.contains('active')) renderPassiveChange()
+})
 const getTargets = (): Record<number, number> => ({ ...DEFAULT_TARGETS, ...targetOverrides })
 
 interface TargetStatus {
@@ -371,20 +378,7 @@ let itemFlow = new Map<number, { gained: number; spent: number; changes: number;
 
 // queryMaterialHistory 按时序返回窗口前最后一条余额和窗口内记录。
 // 前一条只作基线；没有基线时只累计已观测到的相邻变化，不把首次余额算作收入。
-const fastbuildFlow = (rows: MaterialRow[], startTs: number, endTs: number) => {
-  const flow = { gained: 0, spent: 0, changes: 0, lastTs: 0 }
-  for (let i = 1; i < rows.length; i++) {
-    const row = rows[i]
-    if (row.ts < startTs || row.ts > endTs) continue
-    const delta = row.values[4] - rows[i - 1].values[4]
-    if (!delta) continue
-    if (delta > 0) flow.gained += delta
-    else flow.spent -= delta
-    flow.changes++
-    flow.lastTs = row.ts
-  }
-  return flow
-}
+// 同一口径现在由 ledger.queryFastbuildFlow 在主进程汇总。
 
 // 主数据到手：战略道具名表 + 「有没有活动海图」一起更新（两者都只随主数据变）
 const applyMaster = (raw: any) => {
@@ -633,6 +627,7 @@ const senkaHtml = (): string => {
         ? `<div class="senka-cal-tag" title="大数字 = 官方校准值 + 此后新增">已按官方值校准 ${fmtMonthDay(senka.calibration.ts)} · 基准 ${senka.calibration.value.toLocaleString()}</div>`
         : ''
     }
+    ${senkaRankingFailedAt ? '<div class="sd-note2 bad">战果排行读取失败 · 不是「没有记录」 <button data-act="senka-ranking-retry">重试</button></div>' : ''}
     ${senkaRanking?.ownRank != null ? `<div class="senka-cal-tag">排行第${senkaRanking.ownRank}名</div>` : ''}
     ${rows || '<div class="l">本月暂无新增战果</div>'}
     ${
@@ -650,25 +645,63 @@ let senkaCalendarEl: HTMLElement | null = null
 let senkaCalendarMonth: string | undefined
 let senkaCalendarOpening = false
 let senkaCalendarRequest = 0
+let senkaCalendarHtmlKept = ''
+let senkaCalendarFollowToday = true
+let senkaCalendarRetryMonth: string | undefined
+let senkaCalendarFailure: { month: string | undefined; at: number } | null = null
+let senkaCalendarAttempt = ''
+let senkaCalendarLoading = false
+let senkaCalendarResult: { request: number; model?: Awaited<ReturnType<typeof querySenkaCalendar>> } | null = null
+
+const calendarFailureHtml = () => `${senkaCalendarHtmlKept}<div class="sd-note2 bad">战果日历读取失败 · 不是「没有记录」 <button data-cal-retry>重试</button></div>`
+
+const renderSenkaCalendar = () => {
+  const card = senkaCalendarEl
+  const result = senkaCalendarResult
+  if (!card || !result || result.request !== senkaCalendarRequest) return
+  senkaCalendarLoading = false
+  senkaCalendarResult = null
+  if (result.model) {
+    senkaCalendarMonth = result.model.month
+    senkaCalendarFollowToday = result.model.month === new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 7)
+    senkaCalendarFailure = null
+    senkaCalendarHtmlKept = senkaCalendarHtml(result.model)
+  }
+  commitPaneHtml(card.querySelector<HTMLElement>('.p-s')!, 'zi:senka-calendar',
+    senkaCalendarFailure ? calendarFailureHtml() : senkaCalendarHtmlKept)
+}
 
 const closeSenkaCalendar = () => {
   senkaCalendarRequest++
   senkaCalendarOpening = false
+  senkaCalendarLoading = false
   senkaCalendarEl?.remove()
   senkaCalendarEl = null
 }
 
-const refreshSenkaCalendar = async () => {
+const refreshSenkaCalendar = async (month = senkaCalendarFollowToday ? undefined : senkaCalendarMonth, retry = false) => {
+  if (pane?.dataset.popped === 'true') return
   const card = senkaCalendarEl
   if (!card) return
+  if (!retry && senkaCalendarLoading) return
+  const key = JSON.stringify([month, new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10), senka, senkaRanking?.historyKey])
+  if (!retry && senkaCalendarAttempt === key) return
+  if (!retry && senkaCalendarFailure && Date.now() - senkaCalendarFailure.at < 30_000) return
+  senkaCalendarAttempt = key
   const request = ++senkaCalendarRequest
+  senkaCalendarLoading = true
+  senkaCalendarRetryMonth = month
   try {
-    const model = await querySenkaCalendar(senkaCalendarMonth)
+    const model = await querySenkaCalendar(month)
     if (request !== senkaCalendarRequest || card !== senkaCalendarEl) return
-    senkaCalendarMonth = model.month
-    card.querySelector('.p-s')!.innerHTML = senkaCalendarHtml(model)
+    senkaCalendarResult = { request, model }
+    deferPassive(card, 'zi:senka-calendar', renderSenkaCalendar)
   } catch (error) {
+    if (request !== senkaCalendarRequest || card !== senkaCalendarEl) return
     console.warn('[kuma] 战果日历读取失败', error)
+    senkaCalendarFailure = { month, at: Date.now() }
+    senkaCalendarResult = { request }
+    deferPassive(card, 'zi:senka-calendar', renderSenkaCalendar)
   }
 }
 
@@ -678,30 +711,41 @@ const toggleSenkaCalendar = async (anchor: HTMLElement) => {
     return
   }
   senkaCalendarOpening = true
-  const request = ++senkaCalendarRequest
-  try {
-    const model = await querySenkaCalendar()
-    if (request !== senkaCalendarRequest) return
-    senkaCalendarMonth = model.month
-    senkaCalendarEl = pinCard({ title: '战果日历', body: senkaCalendarHtml(model), anchor,
-      className: 'senka-cal-card', onClose: closeSenkaCalendar })
-    senkaCalendarEl.addEventListener('click', event => {
-      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-cal-nav]')
-      if (!button || button.disabled) return
-      const [year, month] = senkaCalendarMonth!.split('-').map(Number)
-      senkaCalendarMonth = new Date(Date.UTC(year, month - 1 + Number(button.dataset.calNav), 1)).toISOString().slice(0, 7)
-      void refreshSenkaCalendar()
-    })
-  } catch (error) {
-    console.warn('[kuma] 战果日历读取失败', error)
-  } finally {
-    if (request === senkaCalendarRequest) senkaCalendarOpening = false
-  }
+  senkaCalendarMonth = undefined
+  senkaCalendarFollowToday = true
+  senkaCalendarHtmlKept = ''
+  senkaCalendarFailure = null
+  senkaCalendarAttempt = ''
+  senkaCalendarEl = pinCard({ title: '战果日历', body: '<div class="sd-note2">正在读取…</div>', anchor,
+    className: 'senka-cal-card', onClose: closeSenkaCalendar })
+  senkaCalendarEl.addEventListener('click', event => {
+    if ((event.target as HTMLElement).closest('[data-cal-retry]')) {
+      void refreshSenkaCalendar(senkaCalendarRetryMonth, true)
+      return
+    }
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-cal-nav]')
+    if (!button || button.disabled || !senkaCalendarMonth) return
+    const [year, month] = senkaCalendarMonth.split('-').map(Number)
+    const targetMonth = new Date(Date.UTC(year, month - 1 + Number(button.dataset.calNav), 1)).toISOString().slice(0, 7)
+    void refreshSenkaCalendar(targetMonth, true)
+  })
+  await refreshSenkaCalendar(undefined, true)
+  senkaCalendarOpening = false
 }
 
 let senkaDetailEl: HTMLElement | null = null
+let senkaDetailPending = false
+let senkaDetailRequest = 0
+let senkaDetailFailedAt = 0
+let senkaRankingFailedAt = 0
+let senkaHistoryFailedAt = 0
+let senkaHistoryAttempt: string | undefined
+let senkaHistoryRequest = 0
 
 const closeSenkaDetail = () => {
+  senkaDetailRequest++
+  senkaHistoryRequest++
+  senkaDetailPending = false
   senkaDetailEl?.remove()
   senkaDetailEl = null
 }
@@ -835,7 +879,7 @@ const questSenkaBlockHtml = (
     : `<div class="sd-qadd">
         ${
           options
-            ? `<select class="sd-qadd-pick"><option value="">选一条任务</option>${options}</select>
+            ? `<select class="sd-qadd-pick" data-keep="senka-quest-pick"><option value="">选一条任务</option>${options}</select>
                <button class="sd-cal-btn" data-act="senka-quest-add">记一笔</button>`
             : '<i class="sd-pend">暂无可补记的任务</i>'
         }
@@ -852,7 +896,8 @@ const questSenkaBlockHtml = (
 }
 
 const senkaDetailBodyHtml = (): string => {
-  if (!senka) return '<p class="sd-empty">战果账暂未读出</p>'
+  const failure = senkaDetailFailedAt ? '<p class="sd-note2 bad">战果账读取失败 · 不是「没有记录」 <button data-act="senka-retry">重试</button></p>' : ''
+  if (!senka) return failure || '<p class="sd-empty">战果账暂未读出</p>'
   const fmt = (value: number) => (value >= 100 ? value.toFixed(0) : value.toFixed(2))
   const carry = senka.carry
   // EO 缺口：本月已记的图 vs 全表
@@ -941,14 +986,16 @@ const senkaDetailBodyHtml = (): string => {
           : '<div class="sd-note2" title="当前总值 = 校准值 + 此后账内新增 · 战果月结束后失效">到游戏「戦績表示 → ランキング」抄下官方战果填入</div>'
       }
       <div class="sd-cal-row">
-        <input class="sd-cal-input" type="number" min="0" step="1" placeholder="排名页看到的战果值"
+        <input class="sd-cal-input" data-keep="senka-calibration" type="number" min="0" step="1" placeholder="排名页看到的战果值"
           title="统计存在「未使用 kuma 之前」的经验差值，kuma 仅能统计使用期间数据">
         <button class="sd-cal-btn" data-act="senka-calibrate">${cal ? '重新校准' : '以此为准'}</button>
         ${cal && cal.source !== 'ranking' ? '<button class="sd-cal-btn ghost" data-act="senka-cal-clear">清除校准</button>' : ''}
       </div>
     </div>`
   return `
+    ${failure}
     ${calibrationBlock}
+    ${senkaRankingFailedAt || senkaHistoryFailedAt ? `<div class="sd-note2 bad">${senkaRankingFailedAt ? '战果排行' : '往月排行'}读取失败 · 不是「没有记录」 <button data-act="senka-retry">重试</button></div>` : ''}
     ${senkaRanking ? senkaRankingHtml({
       ...senkaRanking,
       history: senkaRanking.history?.map(month => ({
@@ -1002,12 +1049,13 @@ const recountQuestSenka = async () => {
 }
 
 // 补记选单：拿不到就留空（表单里显示「暂无可补记的任务」），不拿旧的凑
+// 读取失败另挂失败态，手上已有选项保留，避免把失败误当成没有任务。
 const loadSenkaQuestOptions = async () => {
   try {
     senkaQuestOptions = await querySenkaQuestOptions()
   } catch (error) {
     console.warn('[kuma] 战果任务补记选单读取失败', error)
-    senkaQuestOptions = []
+    senkaAddError = '补记选单读取失败 · 不是「没有记录」'
   }
 }
 
@@ -1048,19 +1096,30 @@ const openSenkaDetail = () => {
   senkaAddError = ''
   senkaDelArmId = 0
   senkaDelError = ''
+  senkaHistoryAttempt = undefined
+  senkaHistoryFailedAt = 0
+  senkaDetailFailedAt = 0
   const monthLabel = senka ? senkaMonthLabel(senka.monthStart) : ''
   senkaDetailEl = document.createElement('div')
   senkaDetailEl.className = 'senka-detail-host'
   senkaDetailEl.innerHTML = `<div class="sd-back"></div>
     <div class="sd-panel">
-      <div class="sd-head"><b>战果详情</b><span>${monthLabel} 月</span><span class="sd-x" title="关闭（Esc）">✕</span></div>
+      <div class="sd-head"><b>战果详情</b><span data-senka-month>${monthLabel} 月</span><span class="sd-x" title="关闭（Esc）">✕</span></div>
       <div class="sd-body">${senkaDetailBodyHtml()}</div>
     </div>`
   document.body.appendChild(senkaDetailEl)
+  senkaDetailEl.addEventListener('focusout', () => {
+    setTimeout(() => { if (senkaDetailPending) renderSenkaDetailPassive() }, 0)
+  })
   senkaDetailEl.querySelector('.sd-back')!.addEventListener('click', closeSenkaDetail)
   senkaDetailEl.querySelector('.sd-x')!.addEventListener('click', closeSenkaDetail)
   senkaDetailEl.addEventListener('click', (e) => {
     const target = e.target as HTMLElement
+    if (target.closest('[data-act="senka-retry"]')) {
+      senkaHistoryAttempt = undefined
+      void refreshSenkaDetail(true)
+      return
+    }
     if (target.closest('[data-act="senka-calibrate"]')) {
       const input = senkaDetailEl!.querySelector<HTMLInputElement>('.sd-cal-input')
       const value = Number(input?.value)
@@ -1139,24 +1198,110 @@ const openSenkaDetail = () => {
   // 选单要现查一次：taken 是账本此刻的状态，攒着上一次打开的结果会说谎
   void (async () => {
     await loadSenkaQuestOptions()
-    await refreshSenkaDetail()
+    await refreshSenkaDetail(true)
   })()
+  scheduleSenkaRollover(Date.now())
 }
 
 // 校准写入后：重查战果（主进程组装校准段）→ 弹窗换块 + 主卡重渲
 const renderSenkaDetail = () => {
-  const body = senkaDetailEl?.querySelector('.sd-body')
-  if (body) body.innerHTML = senkaDetailBodyHtml()
+  const host = senkaDetailEl
+  const body = host?.querySelector<HTMLElement>('.sd-body')
+  if (!host || !body) return
+  const html = senkaDetailBodyHtml()
+  if (paneHtmlDiffers(body, 'zi:senka-detail', html)) {
+    // 闸门保焦点/选区；这两个表单也要保留已经失焦、尚未提交的值。
+    const values = ['.sd-cal-input', '.sd-qadd-pick'].map(selector => ({
+      selector, value: body.querySelector<HTMLInputElement | HTMLSelectElement>(selector)?.value,
+    }))
+    // sd-body 自己就是滚动容器，保位根取 host，覆盖这条滚动与内部表单。
+    withViewStateKept(host, () => commitPaneHtml(body, 'zi:senka-detail', html, () => {
+      for (const saved of values) {
+        const input = body.querySelector<HTMLInputElement | HTMLSelectElement>(saved.selector)
+        if (input && saved.value != null) input.value = saved.value
+      }
+    }))
+  }
+  const title = host.querySelector<HTMLElement>('[data-senka-month]')!
+  const monthLabel = `${senka ? senkaMonthLabel(senka.monthStart) : ''} 月`
+  if (title.textContent !== monthLabel) commitPaneHtml(title, 'zi:senka-month', monthLabel)
 }
 
-const refreshSenkaDetail = async () => {
-  senka = await querySenka()
-  senkaRanking = await querySenkaRanking(undefined, { history: true })
-  void refreshSenkaCalendar()
-  deferPassive(pane, 'zi:senka', () => {
+const renderSenkaDetailPassive = () => {
+  const host = senkaDetailEl
+  if (!host) return
+  deferPassive(host, 'zi:senka-detail', () => {
+    if (host !== senkaDetailEl) return
+    const active = document.activeElement
+    if (active && host.contains(active) && active.matches('input, select, textarea, [contenteditable="true"]')) {
+      senkaDetailPending = true
+      return
+    }
+    senkaDetailPending = false
     renderSenkaDetail()
-    render()
   })
+}
+
+const applySenkaRanking = (view: SenkaRankingView) => {
+  senkaRankingFailedAt = view.failedAt ?? 0
+  if (view.failedAt) return
+  // 旧往月在新历史到达之前留着；刚翻过月界的月份由下一次历史查询补入。
+  view.history = senkaRanking?.history?.filter(month => !senka || month.monthStart < senka.monthStart)
+  senkaRanking = view
+}
+
+const refreshSenkaHistory = async () => {
+  if (!senkaDetailEl || senkaRankingFailedAt || !senkaRanking?.historyKey) return
+  const key = senkaRanking.historyKey
+  if (senkaHistoryAttempt === key) return
+  senkaHistoryAttempt = key // 成败都落版本墓碑，同版本不跟着重画再拉。
+  const request = ++senkaHistoryRequest
+  const host = senkaDetailEl
+  try {
+    const view = await querySenkaRanking(undefined, { history: true })
+    if (request !== senkaHistoryRequest || host !== senkaDetailEl || key !== senkaRanking?.historyKey) return
+    senkaHistoryFailedAt = view.historyFailedAt ?? view.failedAt ?? 0
+    if (!senkaHistoryFailedAt) {
+      senkaRanking.history = view.history
+      senkaHistoryAttempt = view.historyKey
+    }
+  } catch (error) {
+    if (request !== senkaHistoryRequest || host !== senkaDetailEl) return
+    console.warn('[kuma] 往月排行读取失败', error)
+    senkaHistoryFailedAt = Date.now()
+  }
+  renderSenkaDetailPassive()
+}
+
+const readSenkaRanking = async (retry = false): Promise<SenkaRankingView | null> => {
+  if (!retry && senkaRankingFailedAt && Date.now() - senkaRankingFailedAt < 30_000) return null
+  try {
+    return await querySenkaRanking(undefined, retry ? { retry: true } : undefined)
+  } catch (error) {
+    console.warn('[kuma] 战果排行读取失败', error)
+    senkaRankingFailedAt = Date.now()
+    return null
+  }
+}
+
+const refreshSenkaDetail = async (retry = false) => {
+  if (!retry && senkaDetailFailedAt && Date.now() - senkaDetailFailedAt < 30_000) return
+  const request = ++senkaDetailRequest
+  try {
+    const [summary, ranking] = await Promise.all([querySenka(), readSenkaRanking(retry)])
+    if (request !== senkaDetailRequest) return
+    senka = summary
+    senkaDetailFailedAt = 0
+    if (ranking) applySenkaRanking(ranking)
+    await refreshSenkaHistory()
+  } catch (error) {
+    if (request !== senkaDetailRequest) return
+    console.warn('[kuma] 战果详情读取失败', error)
+    senkaDetailFailedAt = Date.now()
+  }
+  void refreshSenkaCalendar()
+  renderSenkaDetailPassive()
+  deferPassive(pane, 'zi', render)
 }
 
 document.addEventListener('keydown', (e) => {
@@ -1205,6 +1350,9 @@ const render = (force = false) => {
   })
   pane.querySelector<HTMLElement>('[data-act="senka-detail"]')?.addEventListener('click', () => {
     openSenkaDetail()
+  })
+  pane.querySelector<HTMLElement>('[data-act="senka-ranking-retry"]')?.addEventListener('click', () => {
+    void refreshSenkaDetail(true)
   })
   pane.querySelector<HTMLElement>('[data-act="senka-calendar"]')?.addEventListener('click', event => {
     void toggleSenkaCalendar(event.currentTarget as HTMLElement)
@@ -1297,9 +1445,16 @@ const scheduleShipsRender = () => {
 }
 
 const runPassiveRefresh = () => {
+  if (pane?.dataset.popped === 'true') {
+    refreshPending = true
+    return
+  }
+  scheduleDayRollover(Date.now())
+  scheduleSenkaRollover(Date.now())
   if (!pane?.classList.contains('active')) {
     refreshPending = true
-    void refreshSenkaCalendar()
+    if (senkaDetailEl) void refreshSenkaDetail()
+    else void refreshSenkaCalendar()
     return
   }
   refreshPending = false
@@ -1316,9 +1471,21 @@ const scheduleDayRollover = (now: number) => {
   dayRolloverTimer = setTimeout(runPassiveRefresh, Math.max(1000, nextDay.getTime() - Date.now() + 100))
 }
 
+// 战果月在 JST 月末 22:00 翻页，「今天」在 JST 00:00 翻页；不能等本机零点。
+const scheduleSenkaRollover = (now: number) => {
+  if (senkaRolloverTimer) clearTimeout(senkaRolloverTimer)
+  senkaRolloverTimer = setTimeout(runPassiveRefresh, Math.max(1000, nextSenkaViewBoundary(now) - Date.now() + 100))
+}
+
 const refresh = async () => {
+  if (pane?.dataset.popped === 'true') {
+    refreshPending = true
+    return
+  }
   const generation = ++refreshGeneration
   const now = Date.now()
+  scheduleDayRollover(now)
+  scheduleSenkaRollover(now)
   const today = new Date(now)
   today.setHours(0, 0, 0, 0)
   const todayStart = today.getTime()
@@ -1342,8 +1509,8 @@ const refresh = async () => {
       // 任务名资料库（kernel 按 id 缓存，重复 refresh 不产生新 IPC）。
       // 拿不到只影响战果行显示裸编号，不该拖垮整个账本。
       senkaQuestNames ? Promise.resolve(null) : queryLode('quests-scn').catch(() => null),
-      queryMaterialHistory(monthStart),
-      querySenkaRanking(),
+      queryFastbuildFlow(monthStart, now),
+      readSenkaRanking(),
     ])
   } catch (error) {
     if (generation !== refreshGeneration) return
@@ -1354,7 +1521,7 @@ const refresh = async () => {
     return
   }
   if (generation !== refreshGeneration) return
-  const [todayRows, rollingDayRows, dl, flow, activeRows, activeDeltaRows, activeSortieCostRows, senkaRows, questLode, monthRows, rankingRows] = rows
+  const [todayRows, rollingDayRows, dl, flow, activeRows, activeDeltaRows, activeSortieCostRows, senkaRows, questLode, buildFlow, rankingRows] = rows
   // 账外差值不在这里补：EO 与任务的补记都在主进程 mg:senka 那一次查账里按
   // 账本存着的观测完成了，渲染层只负责把补不了的那几笔照实列出来（不入账）。
   // 自检那张单子还要读钦的精确计数——取不到就不列任务（拿不到观测就不说话）。
@@ -1400,16 +1567,16 @@ const refresh = async () => {
     activityDeltas = normalizeDeltaCategories(activeDeltaRows)
     activitySortieCosts = activeSortieCostRows
     itemFlow = new Map(flow.map((r) => [r.id, r]))
-    const buildFlow = fastbuildFlow(monthRows, monthStart, now)
     if (buildFlow.changes) itemFlow.set(2, buildFlow)
     senka = senkaRows
+    senkaDetailFailedAt = 0
     // 常规刷新只更新本月字段，保留已打开详情中加载的往月。
-    if (senkaDetailEl && senkaRanking?.history) rankingRows.history = senkaRanking.history
-    senkaRanking = rankingRows
+    if (rankingRows) applySenkaRanking(rankingRows)
+    void refreshSenkaHistory()
     // 全量排行只在日历打开时查询；不放进每拍常规刷新的 Promise.all。
     void refreshSenkaCalendar()
     lastRefresh = Date.now()
-    deferPassive(pane, 'zi:senka-detail', renderSenkaDetail)
+    renderSenkaDetailPassive()
     deferPassive(pane, 'zi', render)
     scheduleDayRollover(now)
   })
@@ -1524,9 +1691,6 @@ registerModule({
           // 持续滚动时也让到安静窗之后，免得滚动中的 DOM 被替换。
           deferPassive(pane, 'zi', render)
         })
-      }
-      if (keys.includes('basic') && senkaDetailEl) {
-        void refreshSenkaDetail()
       }
       if (keys.includes('eventAreas')) {
         runPassiveRefresh()

@@ -95,7 +95,7 @@ test('活动关闭时整舰只剩活动掉点就撤走，另有常规图掉点�
   const makePlan = new Function(
     'chainOf',
     'chainInstances',
-    'fmtDate',
+    'fmtJstDate',
     'eventStillRunning',
     'confirmedDropSitesOf',
     'shipThumbHtml',

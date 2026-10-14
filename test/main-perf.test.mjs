@@ -288,6 +288,16 @@ const mountWebRequest = (threshold, { accessMs = 60, missing = false, staticReso
   h.installSink()
   let listener
   const accesses = []
+  const fsMock = { constants: { R_OK: 4 }, promises: { access: async (file) => {
+    accesses.push(file)
+    h.advance(accessMs)
+    if (missing) throw new Error('missing')
+  } } }
+  const resourcePath = { exports: {} }
+  vm.runInNewContext(readFileSync(new URL('../assets/preload/kcs-resource-path.js', import.meta.url), 'utf8'), {
+    module: resourcePath,
+    require: (id) => id === 'fs' ? fsMock : path,
+  })
   const ses = {
     webRequest: { onBeforeRequest: (_filter, callback) => { listener = callback } },
     protocol: { handle: () => {} },
@@ -302,20 +312,20 @@ const mountWebRequest = (threshold, { accessMs = 60, missing = false, staticReso
     module, exports: module.exports, URL, performance: h.performance,
     require: (id) => {
       if (id === 'electron') return { session: { defaultSession: ses } }
-      if (id === 'fs') return { constants: { R_OK: 4 }, promises: { access: async (file) => {
-        accesses.push(file)
-        h.advance(accessMs)
-        if (missing) throw new Error('missing')
-      } } }
+      if (id === 'fs') return fsMock
       if (id === 'path') return path
       if (id === 'url') return {}
       if (id === './env') return { ROOT: 'C:\\fixture', DEFAULT_CACHE_PATH: 'C:\\private-cache' }
       if (id === './config') return { get: (_key, fallback) => fallback }
       if (id === './perf-time') return h.api
       if (id === '../shared/voice-request-gate') return { createVoiceRequestGate: () => ({}) }
+      if (id === './game-sender') return { isGameResourceRequest: async () => false }
       if (id === path.join('C:\\fixture', 'assets', 'preload', 'kcs-resource-path')) return {
+        ...resourcePath.exports,
         isStaticResource: () => { h.advance(10); return staticResource },
-        getCacheCandidatePaths: () => ['C:\\private-cache\\hack.css', 'C:\\private-cache\\plain.css'],
+      }
+      if (id === path.join('C:\\fixture', 'assets', 'preload', 'mod-night-settings-bridge')) return {
+        modNightSettingsPayload: () => resourcePath.exports.MOD_NIGHT_DEFAULT,
       }
       if (unusedModules.has(id)) return {}
       throw new Error(`unexpected require: ${id}`)

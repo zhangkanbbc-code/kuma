@@ -4,6 +4,9 @@
 // - 右栏：选中海域的血条阶段 + 基地航空 + 可持久标记的活动机关清单。
 // 数据诚实度：活动倍卡/限时掉落/友军来自本地维护包；缺包只挂牌，绝不联网补猜。
 import type { MaterialRow } from '../../shared/mg-types'
+import type { CampaignHistory } from '../../shared/seasonal-history'
+import { campaignSummaryHtml, campaignRecordsHtml } from '../../shared/seasonal-history-html'
+import { querySeasonalHistory } from '../kernel'
 
 import { fleetAirPower } from '../fleet-calc'
 import { equipTypeIconHtml } from '../equip-icon'
@@ -26,6 +29,7 @@ import { entityNameHtml, entityNamePlain, entityTermHtml, localizationVersion } 
 import { simplifyQuestScnData } from '../kcwiki-zh'
 import { initMapIntel } from '../map-intel'
 import { registerModule, setModuleVisible } from '../mu'
+import { onUiPreferenceChange } from '../kernel'
 import { sallyTagColor } from '../sally-tag'
 import { sallyTagNameOf } from '../../shared/sally-names'
 import {
@@ -55,6 +59,24 @@ let areaNames: Map<number, string> = new Map()
 let eventAreas = detectEventAreas([])
 // 季节企划（南瓜/秋刀魚这类收集兑换）：活动海域撤场后铎切到这套视图
 let useitemMst: { id: number; name: string }[] = []
+let campaignHistory: CampaignHistory[] = []
+let campaignHistoryDirty = true
+let campaignHistoryPending = false
+const loadCampaignHistory = async () => {
+  if (campaignHistoryPending || !campaignHistoryDirty) return
+  campaignHistoryPending = true
+  campaignHistoryDirty = false
+  try {
+    campaignHistory = await querySeasonalHistory()
+    syncModuleVisibility()
+    if (pane?.classList.contains('active')) deferPassive(pane, 'du', render)
+  } catch (error) {
+    console.warn('[kuma] campaign history query failed', error)
+  } finally {
+    campaignHistoryPending = false
+    if (campaignHistoryDirty && pane?.classList.contains('active')) void loadCampaignHistory()
+  }
+}
 let questCatalog: Record<string, any> | null = null
 
 const state = {
@@ -64,6 +86,14 @@ const GIMMICK_PROGRESS_KEY = 'du.gimmick-progress.v1'
 let gimmickProgress = uiGet<Record<string, true>>(GIMMICK_PROGRESS_KEY, {})
 const AIR_TARGET_KEY = 'du.air-targets.v1'
 let airTargets = uiGet<Record<string, string>>(AIR_TARGET_KEY, {})
+onUiPreferenceChange(AIR_TARGET_KEY, () => {
+  airTargets = uiGet<Record<string, string>>(AIR_TARGET_KEY, {})
+  if (pane?.classList.contains('active')) deferPassive(pane, 'du', render)
+})
+onUiPreferenceChange(GIMMICK_PROGRESS_KEY, () => {
+  gimmickProgress = uiGet<Record<string, true>>(GIMMICK_PROGRESS_KEY, {})
+  if (pane?.classList.contains('active')) deferPassive(pane, 'du', render)
+})
 let equipCost: Map<number, number> = new Map()
 let aaEvasion: Map<number, AaEvasionRow> = new Map()
 // 活动陆航特効分组事实表（C1/C2/C3 各有哪些机体）。缺包不挡路：推荐照出，
@@ -128,9 +158,12 @@ const catalogEntryOf = (no: number) => {
 const seasonalCampaigns = (): SeasonalCampaign[] =>
   detectSeasonalCampaigns({
     useitemMst,
+    slotitemMst: Object.entries(mg.master.slotitems).map(([id, item]) => ({ id: Number(id), name: item.name })),
+    now: Date.now(),
     useitems: mg.useitems,
     quests: Object.values(mg.quests),
     catalogOf: catalogEntryOf,
+    recordedKeys: campaignHistory.map(h => h.key),
   })
 
 const eventMaps = (): any[] => eventAreas.eventMaps
@@ -139,6 +172,7 @@ const syncModuleVisibility = () => {
   // 活动图在场，或有进行中的季节企划（任务点名 / 持有>0），铎都该在场。
   // 收集道具随企划结束被服务器清零，不存在长期存货——清零同步到本地的
   // 那一刻两个信号都熄灭，坞位自动交还。
+  // 有永久本季记录时等三信号结账后再交还，花光道具也能继续回看。
   setModuleVisible('du', eventMaps().length > 0 || seasonalCampaigns().length > 0)
 }
 
@@ -1245,6 +1279,32 @@ const campaignQuestRow = (no: number): string => {
 }
 
 const campaignCardHtml = (campaign: SeasonalCampaign): string => {
+  const history = campaignHistory.find(h => h.key === campaign.key && (!campaign.exchange || h.opened === campaign.exchange.startsAt))
+  const historyContext = { time: fmtDateTime, nameOf: (r: import('../../shared/seasonal-history').CampaignReward) =>
+    r.kind === 'useitem' ? entityNamePlain('item', r.id, useitemMst.find(u => u.id === r.id)?.name ?? '未识别') :
+    r.name === 'ship' ? entityNamePlain('ship', r.id, mg.master.ships[r.id]?.name ?? '未识别') :
+    entityNamePlain('equip', r.id, mg.master.slotitems[r.id]?.name ?? '未识别') }
+  const exchange = campaign.exchange?.recipes.map((recipe) => {
+    const choices = recipe.choices.map((choice, index) => {
+      const rewards = choice.map((reward) => {
+        const name = reward.kind === 'useitem'
+          ? entityNamePlain('item', reward.id, useitemMst.find((u) => u.id === reward.id)!.name)
+          : entityNamePlain('equip', reward.id, mg.master.slotitems[reward.id].name)
+        return `${esc(name)} ×${reward.count}`
+      }).join(' + ')
+      return `<div>${recipe.choices.length > 1 ? `${index + 1}. ` : ''}${rewards}</div>`
+    }).join('')
+    const enough = campaign.stock >= recipe.cost
+    const claimed = recipe.limit != null && (history?.receipts.filter(r => r.recipe === recipe.key).length ?? 0) >= recipe.limit
+    const availability = claimed ? '已领' : enough
+      ? recipe.limit == null ? `够换 ${Math.floor(campaign.stock / recipe.cost)} 次` : '可以领'
+      : `还差 ${recipe.cost - campaign.stock} 个`
+    const choiceCount = '零一二三四五六七八九十'[recipe.choices.length] ?? recipe.choices.length
+    const rule = recipe.limit == null ? '不限次数' : `${choiceCount}选一 · 限 ${recipe.limit} 次`
+    return `<div><div class="cq-row"><span><b>${esc(recipe.jpName)}</b> · ${esc(campaign.zhLabel)} ×${recipe.cost}
+      <small class="gnote2">${rule}</small></span><span class="cq-chip${enough ? ' on' : ''}">${availability}</span></div>
+      <div class="gnote2">${choices}</div></div>`
+  }).join('')
   const groups = CAMPAIGN_PERIOD_ORDER
     .map((period) => ({ period, list: campaign.quests.filter((q) => q.period === period) }))
     .filter((group) => group.list.length > 0)
@@ -1259,6 +1319,8 @@ const campaignCardHtml = (campaign: SeasonalCampaign): string => {
     <div class="cq-stock">持有 <b>${campaign.stock}</b>${
       mg.useitemsTs ? `<span class="ts"> · 同步于 ${fmtTime(mg.useitemsTs)}</span>` : ''
     }</div>
+    ${exchange ? `<div class="cq-group"><span class="cq-k">兑换</span><div class="cq-list">${exchange}</div></div>` : ''}
+    ${history ? `<div class="cq-group"><span class="cq-k">本季记录</span><div class="cq-list cq-history">${campaignSummaryHtml(history, historyContext)}${campaignRecordsHtml(history, historyContext)}</div></div>` : ''}
     ${groups || '<div class="gnote2">现役任务暂无该道具相关项</div>'}
   </div>`
 }
@@ -1266,10 +1328,10 @@ const campaignCardHtml = (campaign: SeasonalCampaign): string => {
 const campaignViewHtml = (active: SeasonalCampaign[]): string =>
   `<div class="du-app">
     <div class="ehero"><span class="badge">季节企划</span><h1>收集与兑换</h1><span class="sp"></span>
-      <span class="cd">活动海域未开放</span></div>
+      </div>
     <div class="camp-body">
       ${active.map(campaignCardHtml).join('')}
-      <div class="note9"><span class="credit-mark" title="持有数与任务状态由游戏实时同步 ｜ 任务周期来自本地任务目录 ｜ 兑换选项与截止日期以游戏内公告为准">源</span></div>
+      <div class="note9"><span class="credit-mark" title="持有数与任务状态由游戏实时同步 ｜ 任务周期来自本地任务目录 ｜ 兑换目录来自游戏内菜单（2026-10-14） ｜ 截止日期以游戏内公告为准">源</span></div>
     </div>
   </div>`
 
@@ -1279,6 +1341,7 @@ const render = () => {
   if (!maps.length) {
     const campaigns = seasonalCampaigns()
     if (campaigns.length) {
+      void loadCampaignHistory()
       // 输出没变就整段不动 DOM（口径见 kernel commitPaneHtml）
       commitPaneHtml(pane, 'du', campaignViewHtml(campaigns))
       return
@@ -1380,6 +1443,7 @@ registerModule({
       render()
     })
     void (async () => {
+      void loadCampaignHistory()
       const [raw, catalog, evasion, groups, friends] = await Promise.all([
         queryMasterRaw(),
         queryLode('quests-scn'),
@@ -1438,6 +1502,8 @@ registerModule({
       // 打完一场就可能多一支友军：下一次渲染重取（旧记录在此期间照常显示）
       if (keys.includes('sortie')) invalidateFriendlyFleets()
       if (keys.some((k) => k === 'quests' || k === 'useitems')) {
+        campaignHistoryDirty = true
+        if (pane.classList.contains('active')) void loadCampaignHistory()
         // 企划的开闭信号在任务列表/道具存量里，不在主数据里——
         // 南瓜任务上线的那次 questlist 就该把铎点亮，哪怕主数据没动
         syncModuleVisibility()
@@ -1454,6 +1520,8 @@ registerModule({
     render()
   },
   onShow: () => {
+    campaignHistoryDirty = true
+    void loadCampaignHistory()
     invalidateFriendlyFleets()
     // 不可见期间攒下的资源变动在这里补一次，否则 render 里的「起算点没变就不重查」
     // 会一直拿着过期的净变化

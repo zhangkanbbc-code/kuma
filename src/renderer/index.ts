@@ -3,6 +3,7 @@ import { installThemeBoot } from './theme-boot'
 installThemeBoot()
 const POP_MODULE = popModuleOf(location.search)
 import { popModuleOf, popWindowTitle } from '../shared/pop-module'
+import { diagnosticUrl } from '../shared/redact-detail'
 
 // 镇（渲染层壳）：游戏区 + 工作区（铆装配的模块面板）。
 // webview 参数与 UA 清洗移植自 poi views/kan-game-wrapper.tsx
@@ -48,6 +49,8 @@ import {
   type LaunchStage,
   type LaunchWelcomeHandle,
 } from './launch-glow'
+import { readWelcomeScene } from '../shared/launch-welcome-scene'
+import { installWelcomeSceneMemory } from './launch-welcome-memory'
 import {
   LAUNCH_BADGE_TIMING,
   LAUNCH_BATTLE_TIMING,
@@ -78,7 +81,7 @@ import { initVoiceSubtitles } from './voice-subtitle'
 import { initFairySalvo, refreshFairySalvo } from './fairy-salvo'
 import { FAIRY_SALVO_CONFIG_KEY, FAIRY_SALVO_DEFAULT, FAIRY_MIRROR_UI_KEY, salvoGunsOf } from '../shared/fairy-salvo'
 import { slotItemImageUrl } from './kcs-image'
-import { onMgChange, uiGet, uiSet } from './kernel'
+import { onMgChange, queryLode, queryMasterRaw, uiGet, uiSet } from './kernel'
 import { prepareLevelExp } from './level-exp'
 import { prepareFirstOwned } from './ship-first-owned'
 // 模块导入即注册（Tab 顺序由各自 order 决定）
@@ -242,7 +245,7 @@ const showLoadError = (code: number, description: string, url: string) => {
   if (POP_MODULE) return
   overlayTitle.textContent = '游戏页面加载失败'
   overlayDetail.textContent =
-    `${description} (${code})\n${url}\n\n` +
+    `${description} (${code})\n${diagnosticUrl(url)}\n\n` +
     `代理配置：设置 · 代理 · 配置后重试`
   overlayDetail.style.whiteSpace = 'pre-wrap'
   overlay.classList.add('visible')
@@ -581,7 +584,7 @@ if (!POP_MODULE) try {
   // 同一个开关也管顶栏浮层的打开入场（一个实验开关管整个动画家族）
   setOverlayEntranceEnabled(ceremonyOn)
   glow = armLaunchGlow(ceremonyOn)
-  welcome = armLaunchWelcome(ceremonyOn)
+  welcome = armLaunchWelcome(ceremonyOn, ceremonyOn ? readWelcomeScene(config, Date.now()) : { key: 'base' })
 } catch (error) {
   recordCrash('startup:launch-glow-arm', error)
   glow?.cancel()
@@ -850,6 +853,19 @@ void (async () => {
   initUiZoom() // 先恢复界面缩放，避免装配后再抖一次
   initInputClear()
   const snapshotReady = initKernel()
+  if (!POP_MODULE) installWelcomeSceneMemory({
+    config,
+    subscribe: onMgChange,
+    report: (error) => recordCrash('startup:welcome-scene-memory', error),
+    input: async () => {
+      await snapshotReady
+      // 没有主数据不是「活动结束」；在下一份快照到达之前保留上次的缓存。
+      const [raw, lifecycle] = await Promise.all([queryMasterRaw(), queryLode('event-lifecycle')])
+      if (!raw?.data) return null
+      return { master: raw.data, lifecycle: lifecycle?.data, now: Date.now(),
+        useitems: mg.useitems, quests: Object.values(mg.quests), mapGauges: mg.mapGauges }
+    },
+  }, config.get(LAUNCH_GLOW_CONFIG_KEY, LAUNCH_GLOW_DEFAULT))
   const lodeReady = initLocalization()
   // 欢迎屏那三件「真就绪」里的头两件。**失败也当到齐**：那一屏是缓冲不是守卫，
   // 为了一件永远不会来的事把玩家钉在欢迎屏上，比少等一步糟得多

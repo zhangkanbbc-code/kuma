@@ -15,6 +15,7 @@ import type { Quest } from '../../shared/mg-types'
 import { questCategoryLetterFromObserved, questPeriodFromObserved } from '../../shared/quest-observed'
 import { expandFleetGoal, QP_BLOCK_TEXT, QP_RANK_NAME, qpTaskGroups } from '../../shared/qp-types'
 import { decksOnExpedition } from '../../shared/expedition-state'
+import { jstDate, jstDateToTs } from '../../shared/jst-day'
 
 import {
   esc,
@@ -42,6 +43,7 @@ import {
   trackMountCleanup,
   updateCountdowns,
   uiGet,
+  onUiPreferenceChange,
   uiSet,
 } from '../kernel'
 import { hideFilterMenu, showFilterMenu } from '../filter-menu'
@@ -166,6 +168,10 @@ let entityIndexVersion = 0
 let qp: QpState | null = null // 精确计数（铭引擎镜像）
 let fleetCheck: QpFleetCheck = {} // 编成条件实时判定：questId → 哪几支舰队满足
 let lineups = readLineups(uiGet<unknown>(LINEUP_UI_KEY, {}))
+onUiPreferenceChange(LINEUP_UI_KEY, () => {
+  lineups = readLineups(uiGet<unknown>(LINEUP_UI_KEY, {}))
+  if (pane?.classList.contains('active')) deferPassive(pane, 'qn', render)
+})
 // 上一次读取编成判定失败了没有。留着是为了**不清空** fleetCheck：手上那份继续
 // 显示，只在上面如实说它可能过时。清空等于把正看着的检查区打回加载态，
 // 而下一次编队变动多半就又好了。
@@ -420,13 +426,11 @@ const annualMonthOf = (text: string): number | null => {
 
 // ---- 重置倒计时（JST 05:00 口径）----
 
-const JST = 9 * 3600 * 1000
-
 const nextReset = (
   kind: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'annual',
   annualMonth?: number | null,
 ): number => {
-  const now = new Date(Date.now() + JST)
+  const now = jstDate(Date.now())
   const next = new Date(now)
   next.setUTCHours(5, 0, 0, 0)
   if (kind === 'daily') {
@@ -450,7 +454,7 @@ const nextReset = (
     next.setUTCMonth(resetMonth, 1)
     if (next <= now) next.setUTCFullYear(next.getUTCFullYear() + 1)
   }
-  return next.getTime() - JST
+  return jstDateToTs(next)
 }
 
 // ---- 报酬关键词 → 图标 ----
@@ -1994,7 +1998,7 @@ const rewardSectionsHtml = (row: QRow): string => {
 const sameDayResetHtml = (row: QRow): string => {
   if (!qp?.trackers[row.id]?.sameDay) return ''
   const reset = nextReset('daily')
-  return `<div class="annual-reset" title="须在同一天内完成；每日 05:00 JST 清零本地计数，任务本身的更新周期不变">当日内完成 · 05:00 重置 ·
+  return `<div class="annual-reset" title="须在同一天内完成；每日 05:00 JST 清零本地计数，任务本身的更新周期不变">当日内完成 · JST 05:00 重置 ·
     距下次重置 <b data-same-day-reset data-cdl="${reset}">${fmtDurationLong(reset)}</b></div>`
 }
 
@@ -2267,7 +2271,9 @@ const refreshLineupCard = (questId: number) => {
 }
 
 const refreshLineupCards = () => {
-  for (const questId of lineupCards.keys()) refreshLineupCard(questId)
+  for (const [questId, { card }] of lineupCards) {
+    deferPassive(card, `qn:lineup-card:${questId}`, () => refreshLineupCard(questId))
+  }
 }
 
 const openLineupCard = (questId: number, anchor: HTMLElement) => {

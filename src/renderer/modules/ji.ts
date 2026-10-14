@@ -6,7 +6,7 @@ import { akashiImproveItem } from '../../shared/akashi-improve'
 import { canDeferCatalogRow, canDeferCatalogRows } from '../../shared/catalog-row-layout'
 import { remodelCycles, remodelStagesFor, REMODEL_STAGE_COPY, type RemodelHistory, type RemodelStage } from '../../shared/remodel-stage'
 import { remodelEdgeCost } from '../../shared/remodel-edge-cost'
-import { queryShipLife } from '../kernel'
+import { queryRemodelHistories } from '../kernel'
 // 鉴 (Ji) · 图鉴与在籍列表：舰娘 / 列表 / 装备 / 深海 / 海域 / 道具。
 // 时效纪律：主数据来自 api_start2 快照，页脚标注快照时间；
 // 掉落/台词/加成等第三方口径未接入前只挂牌注明来源，绝不硬造。
@@ -200,6 +200,7 @@ import { bgmPreviewHtml } from '../bgm-preview'
 import { archivedMapBgmOf } from '../../shared/event-map-bgm'
 import { eventLifecycleOf } from '../../shared/event-lifecycle'
 import { applyScrollProfile, captureScrollProfile, combinedEscortState, commitPaneHtml, deferPassive, esc, exitWithMotion, fmtDate, fmtDateTime, fmtTime, forgetCommittedHtml, jstDayOfWeek, lodeCredit, lodeCreditMark, lodeCreditShort, masterShipName, mg, nextJstTime, onFilterInput, onMgChange, ownedHangarExpansionOf, queryLode, queryMasterRaw, queryShipMemorial, trackMountCleanup, uiGet, uiSet, withViewStateKept } from '../kernel'
+import { fmtJstDate } from '../../shared/jst-day'
 import type { ScrollProfile } from '../kernel'
 import { createNavHistory } from '../nav-history'
 import { searchFold } from '../search-fold'
@@ -245,6 +246,7 @@ import {
   setStockViewOpener,
 } from './equip-stock'
 import { questByCode, questVerdicts, questsAwarding, questsAwardingMaterial, questsInvolvingMap, questsMentioning } from './qn'
+import { onUiPreferenceChange } from '../kernel'
 import type { LibQuest } from './qn'
 import { QUEST_AVAILABILITY_LABEL } from '../../shared/quest-availability'
 import type { QuestAvailability, QuestVerdict } from '../../shared/quest-availability'
@@ -689,6 +691,10 @@ const EMPTY_MAP_CHRONICLE: MapChronicleReport = {
 // 挪不动它——那样裁掉的会是 1-1、1-2 这些编号最小的常规图，不是最久没碰的那批。
 const ROUTE_TARGET_KEY = 'ji.routeTarget'
 let routeTargets = uiGet<Record<string, string>>(ROUTE_TARGET_KEY, {})
+onUiPreferenceChange(ROUTE_TARGET_KEY, () => {
+  routeTargets = uiGet<Record<string, string>>(ROUTE_TARGET_KEY, {})
+  scheduleRender()
+})
 const setRouteTarget = (code: string, letter: string) => {
   // 先删后插：碰过的键回到插入序末尾，容量裁剪才裁得掉真正最久没动的那批（同 du 的目标点）
   delete routeTargets[code]
@@ -1126,6 +1132,14 @@ const clearShipDimensions = () => {
 const collapsedShipClasses = new Set<number>(
   uiGet<number[]>('ji.collapsedShipClasses', []).filter((id) => Number.isInteger(id) && id > 0),
 )
+onUiPreferenceChange('ji.collapsedShipClasses', () => {
+  collapsedShipClasses.clear()
+  for (const id of uiGet<number[]>('ji.collapsedShipClasses', [])) collapsedShipClasses.add(id)
+  scheduleRender()
+})
+for (const key of ['ship.personal.v1', 'equip.personal.v1', 'improve-favorites.v1', 'ru.sandbox']) {
+  onUiPreferenceChange(key, scheduleRender)
+}
 const equipState = {
   once: false,
   search: '',
@@ -1821,9 +1835,9 @@ const eventStillRunning = (): boolean => {
 const huntPlanHtml = (): string => {
   const missing = [...chainOf.keys()].filter((id) => chainInstances(id).length === 0)
   if (!missing.length) return ''
-  const today = fmtDate(Date.now())
+  const today = fmtJstDate(Date.now())
   const daysBetween = (until: string): number =>
-    Math.ceil((Date.parse(`${until}T00:00:00`) - Date.parse(`${today}T00:00:00`)) / 86400000)
+    Math.ceil((Date.parse(`${until}T00:00:00+09:00`) - Date.parse(`${today}T00:00:00+09:00`)) / 86400000)
 
   const eventOpen = eventStillRunning()
   const catchable = missing.flatMap((id) => {
@@ -6000,15 +6014,7 @@ const equipCatalogHtml = () => {
     .map(([typeName, items]) => {
       const rowsHtml = items
         .sort((a, b) => a.api_id - b.api_id)
-        .map((e) => {
-          const count = equipInstancesOf(e.api_id).length
-          const once = equipHeldOnce(e.api_id)
-          const on = e.api_id === equipState.selected && equipState.open
-          return `<div class="row${count ? '' : once ? ' ghost once' : ' ghost'}${on ? ' on' : ''}" data-equip="${e.api_id}" style="--rc:${count ? 'var(--rarity-2)' : once ? 'var(--ghost-once-soft)' : 'var(--disabled-soft)'}">
-            <div class="face eqface">${equipTypeIconHtml(Array.isArray(e.api_type) ? e.api_type[3] : 0, { className: 'lg', title: entityNamePlain('equip', e.api_id, e.api_name) })}</div>
-            <div class="nm"><b>${entityNameHtml('equip', e.api_id, e.api_name, { compact: true })}</b><span>${'★'.repeat(Math.min(e.api_rare ?? 0, 5))}${count ? ` · 持有 ×${count}` : once ? ' · 曾持有' : ' · 未持有'}</span></div>
-          </div>`
-        })
+        .map(equipBookRowHtml)
         .join('')
       // 分组按名字归并，取组内第一件的类别 id——路由要的是数字，给名字它会 NaN 直接返回
       const groupCat = Array.isArray(items[0]?.api_type) ? items[0].api_type[2] : 0
@@ -6024,6 +6030,19 @@ const equipCatalogHtml = () => {
     ${chipsRow}
     <div class="ship-list" id="ji-equip-list">${rows || '<div style="padding:20px;color:var(--dim)">暂无匹配项</div>'}</div>
     ${equipCollectionFootHtml()}`
+}
+
+const equipBookRowHtml = (e: any): string => {
+  const instances = equipInstancesOf(e.api_id)
+  const count = instances.length
+  const once = equipHeldOnce(e.api_id)
+  const on = e.api_id === equipState.selected && equipState.open
+  const equippedIds = equippedInstIds()
+  const equipped = instances.filter(([id]) => equippedIds.has(+id)).length
+  return `<div class="row${count ? '' : once ? ' ghost once' : ' ghost'}${on ? ' on' : ''}" data-equip="${e.api_id}" style="--rc:${count ? 'var(--rarity-2)' : once ? 'var(--ghost-once-soft)' : 'var(--disabled-soft)'}">
+    <div class="face eqface">${equipTypeIconHtml(Array.isArray(e.api_type) ? e.api_type[3] : 0, { className: 'lg', title: entityNamePlain('equip', e.api_id, e.api_name) })}</div>
+    <div class="nm"><b>${entityNameHtml('equip', e.api_id, e.api_name, { compact: true })}</b><span>${'★'.repeat(Math.min(e.api_rare ?? 0, 5))}${count ? ` · 持有 ×${count}${equipped ? ` · 装备中 ${equipped}` : ''}` : once ? ' · 曾持有' : ' · 未持有'}</span></div>
+  </div>`
 }
 
 /**
@@ -9633,7 +9652,7 @@ const localDropPoolHtml = (
   // 「你在这里捞到过」是永真的历史事实；窗口收了之后要变的是呈现——
   // 那几条折进「往期」并写明窗口已结束，不再混在面向当下的清单里。
   // 判据是纯函数 localDropEraOf（可脱 DOM 测），窗口从第一方台账取。
-  const today = fmtDate(Date.now())
+  const today = fmtJstDate(Date.now())
   // 点位字母只在这一层反查（`cell` 是罗盘 api_no，字母归展示侧）。表在这张图上
   // 缺就照实写 `#编号`——不猜一个字母出来。逐点计数由装配期给好，这里零扫描。
   const route: Record<string, [string | null, string]> | undefined =
@@ -9643,7 +9662,7 @@ const localDropPoolHtml = (
     drop,
     era: localDropEraOf(
       limitedWindowsOf(code, drop.mstId).map((one) => one.window),
-      fmtDate(drop.lastTs),
+      fmtJstDate(drop.lastTs),
       today,
     ),
   }))
@@ -10588,26 +10607,34 @@ const needIdentity = (need: Pick<UpgradeNeedChip, 'kind' | 'id' | 'name'>) =>
 
 const remodelHistories = new Map<number, RemodelHistory>()
 let remodelHistoryGeneration = 0
+let remodelHistorySignature = ''
 let remodelConvertibleGroups: number[][] | null = null
 const convertibleGroups = (): number[][] => remodelConvertibleGroups ??= remodelCycles(
   Object.entries(mg.master.upgrades).flatMap(([to, rows]) => rows.map(row => [row.currentShipId, Number(to)] as [number, number])),
 )
 const convertibleTargets = (): Set<number> => new Set(convertibleGroups().flat())
 const refreshRemodelHistories = async () => {
-  const generation = ++remodelHistoryGeneration
   remodelConvertibleGroups = null
   const targets = convertibleTargets()
   const roster = Object.values(mg.ships).filter(ship => targets.has(ship.shipId) || targets.has(Number(friendlyShips.get(ship.shipId)?.api_aftershipid)))
-  // 原生变化后立刻撤下旧判档，查询失败或尚未返回时显示两档，不能借用另一艘的历史。
-  remodelHistories.clear()
-  buildRemodelNeeds()
-  const results = await Promise.allSettled(roster.map(ship => queryShipLife(ship.id, 1)))
+  const signature = roster.map(ship => `${ship.id}:${ship.shipId}`).sort().join(',')
+  if (signature === remodelHistorySignature) {
+    buildRemodelNeeds()
+    return
+  }
+  remodelHistorySignature = signature
+  const generation = ++remodelHistoryGeneration
+  // 原生变化后仍不能借用另一艘的历史；查询中的旧表保留，结果到齐后一次替换，避免清空闪动。
+  let results: Awaited<ReturnType<typeof queryRemodelHistories>>
+  try {
+    results = await queryRemodelHistories(roster.map(ship => ship.id))
+  } catch (error) {
+    if (generation === remodelHistoryGeneration) remodelHistorySignature = ''
+    throw error
+  }
   if (generation !== remodelHistoryGeneration) return
-  results.forEach((result, index) => {
-    if (result.status === 'fulfilled') {
-      if (result.value.remodelHistory) remodelHistories.set(roster[index].id, result.value.remodelHistory)
-    } else console.warn('[kuma] 改装经历读取失败', roster[index].id, result.reason)
-  })
+  remodelHistories.clear()
+  for (const result of results) remodelHistories.set(result.rosterId, result.history)
   buildRemodelNeeds()
 }
 

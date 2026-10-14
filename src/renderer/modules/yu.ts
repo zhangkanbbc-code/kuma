@@ -24,6 +24,7 @@ import {
   VOICE_CAPTION_SPECIAL_PATH,
 } from '../../shared/voice-caption-special'
 import { setOverlayEntranceEnabled } from '../launch-glow'
+import { setWelcomeSceneMemoryEnabled } from '../launch-welcome-memory'
 import { setFairySalvoEnabled } from '../fairy-salvo'
 import { FAIRY_SALVO_CONFIG_KEY, FAIRY_SALVO_DEFAULT, FAIRY_MIRROR_UI_KEY } from '../../shared/fairy-salvo'
 import { mg } from '../kernel'
@@ -104,6 +105,7 @@ import type { VoiceAbsentEntry } from '../../shared/voice-probe-plan'
 import {
   clampLedgerRetentionDays,
   LEDGER_RETENTION_DAYS_MAX,
+  SLOTITEM_BODY_RETENTION_CONFIG,
 } from '../../shared/ledger-retention'
 import type { LedgerMonthCount } from '../../shared/ledger-retention'
 import {
@@ -131,7 +133,7 @@ import {
   readPushSettings,
 } from '../../shared/push-config'
 import type { PushConfigField, PushProvider } from '../../shared/push-config'
-import { registerModule } from '../mu'
+import { getPopModule, registerModule } from '../mu'
 import {
   setBuildSpoilerEnabled,
   notifyAccountChanged,
@@ -145,6 +147,9 @@ import type { LodeMeta } from '../kernel'
 const { ipcRenderer } = require('electron')
 const remote = require('@electron/remote')
 const config = remote.require('./config')
+const { MOD_NIGHT_DEFAULT, modPeriodOf } = require(
+  require('path').join(remote.getGlobal('ROOT'), 'assets', 'preload', 'kcs-resource-path'),
+)
 
 /**
  * 调试/开发态。**门与铭、锚两个诊断模块同一道**（mu.ts 里那句一模一样），
@@ -960,6 +965,9 @@ const retentionCardHtml = (): string => {
         <input class="yin w60" type="number" data-ledger-retention value="${days || ''}"
           min="0" max="${LEDGER_RETENTION_DAYS_MAX}" step="1" placeholder="不限">
         <span class="note9">天 · 留空或 0 = 永久保留（默认）；填了就每天清掉更早的事件、资源、战斗与通知记录</span></div>
+      ${toggleHtml(SLOTITEM_BODY_RETENTION_CONFIG, '精简旧装备清单',
+        '只清 30 天前的装备清单 · 最新清单与时间保留 · 获得、改修、掉落等记录不变',
+        config.get(SLOTITEM_BODY_RETENTION_CONFIG, false) === true)}
       ${ledgerBlock}
       ${voiceBlock}`
 }
@@ -1317,8 +1325,18 @@ const cacheRepairCardHtml = (): string => `<div class="h"><b>缓存修复</b><sp
 // 魔改目录由主进程启动时建出来（kcs-resource 的 ensureModDir），这张卡只是把它打开——
 // 玩家不必自己新建、也不必去找 %APPDATA%。路径不写在卡上：它跟着缓存路径走，
 // 而按钮已经把人直接送到那儿了。
-const modDirCardHtml = (): string => `<div class="h"><b>魔改文件夹</b><span class="aux">立绘、语音等游戏素材的本地替换；文件按游戏资源路径摆放</span></div>
-  <div class="yline"><span class="ybtn" data-act="open-mod-dir">打开文件夹</span></div>`
+const modDirCardHtml = (): string => {
+  const enabled = config.get('kuma.mod.night.enabled', MOD_NIGHT_DEFAULT.enabled)
+  const start = config.get('kuma.mod.night.start', MOD_NIGHT_DEFAULT.start)
+  const end = config.get('kuma.mod.night.end', MOD_NIGHT_DEFAULT.end)
+  const period = modPeriodOf(new Date(), { enabled, start, end })
+  return `<div class="h"><b>魔改文件夹</b><span class="aux">立绘、语音等游戏素材的本地替换；文件按游戏资源路径摆放</span></div>
+  <div class="yline"><span>文件夹</span><span class="ybtn" data-act="open-mod-dir">常驻</span><span class="ybtn" data-act="open-mod-day-dir">白天</span><span class="ybtn" data-act="open-mod-night-dir">夜间</span></div>
+  <div class="ynote">常驻全天生效；开启定时换装后，白天和夜间文件夹各在自己的时段优先</div>
+  <div class="yline"><span>定时换装</span><span class="ysw${enabled ? ' on' : ''}" data-act="toggle-mod-night"><i></i></span>${enabled ? `<span class="dim">当前${period === 'night' ? '夜间' : '白天'}</span>` : ''}</div>
+  <div class="yline"><span>夜间开始</span><input class="yin" type="time" data-mod-night="start" value="${esc(start)}"><span>结束</span><input class="yin" type="time" data-mod-night="end" value="${esc(end)}"></div>
+  <div class="ynote">切换后刷新游戏页才全部换上</div>`
+}
 
 const voiceArchiveCardHtml = (): string => `<div class="h"><b>语音档案</b><span class="aux">游戏已播放语音自动归档</span></div>
   <div class="ynote">游戏已播放语音自动归档 · 用于图鉴台词页
@@ -1497,7 +1515,7 @@ const sectionTabsHtml = (): string =>
   ).join('')}</div>`
 
 // 监听随渲染进程存在，钥未打开时也记住；切换分类、保存状态或重新装配都不清除提醒。
-ipcRenderer.on('yu:account-changed', () => {
+if (!getPopModule()) ipcRenderer.on('yu:account-changed', () => {
   accountChanged = true
   render()
   notifyAccountChanged()
@@ -1520,6 +1538,7 @@ registerModule({
   title: '设置',
   order: 8.8,
   mount(el) {
+    if (getPopModule()) return
     pane = el
     window.addEventListener('kuma-distract-changed', render)
     trackMountCleanup(() => window.removeEventListener('kuma-distract-changed', render))
@@ -1669,6 +1688,14 @@ registerModule({
       )
     })
     el.addEventListener('change', (e) => {
+      const modNightInput = (e.target as HTMLElement).closest<HTMLInputElement>('input[data-mod-night]')
+      if (modNightInput) {
+        if (/^([01]\d|2[0-3]):[0-5]\d$/.test(modNightInput.value)) {
+          config.set(`kuma.mod.night.${modNightInput.dataset.modNight}`, modNightInput.value)
+        }
+        render()
+        return
+      }
       const themeInput = (e.target as HTMLElement).closest<HTMLInputElement>('input[data-theme-base]')
       if (themeInput) {
         cancelThemeBasePreview()
@@ -1984,11 +2011,16 @@ registerModule({
           })
         return
       }
-      if (act === 'open-mod-dir') {
+      if (act === 'toggle-mod-night') {
+        config.set('kuma.mod.night.enabled', !config.get('kuma.mod.night.enabled', MOD_NIGHT_DEFAULT.enabled))
+        render()
+        return
+      }
+      if (act === 'open-mod-dir' || act === 'open-mod-day-dir' || act === 'open-mod-night-dir') {
         // 目录由主进程那头保证存在（handler 里先 ensure 一次），这里只负责报失败：
         // 开得起来就什么都不弹；开不起来时要是静静地什么也不发生，比弹一句原因更让人无从下手
         void ipcRenderer
-          .invoke('yu:open-mod-dir')
+          .invoke(`yu:${act}`)
           .then((result: { ok: boolean; path: string; message: string } | null) => {
             if (result && !result.ok) {
               alert(`打不开魔改文件夹：${result.message || '未知原因'}\n路径：${result.path}`)
@@ -2256,6 +2288,7 @@ registerModule({
           // 也一并收掉，开着的话下次点开浮层就有。开机那一场当然只能下次启动才见得到
           // （说明里写的就是这件事），但没道理为了它把浮层这半段也一起吊到重启。
           setOverlayEntranceEnabled(next)
+          setWelcomeSceneMemoryEnabled(next)
         } else if (key === PUSH_CONFIG_PATHS.enabled) {
           // 铃那边只拿它显示「总开关开没开」这行小字；发不发仍由主进程说了算
           setPushEnabled(next)

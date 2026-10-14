@@ -73,7 +73,7 @@ export const makeLedger = (db: any) => new EoLedger(db)
 
 const bundle = (() => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-eo-senka-'))
-  for (const name of ['senka.ts', 'quest-period.ts']) {
+  for (const name of ['senka.ts', 'quest-period.ts', 'jst-day.ts']) {
     fs.copyFileSync(path.join(ROOT, 'src', 'shared', name), path.join(dir, name))
   }
   const entry = path.join(dir, 'eo.ts')

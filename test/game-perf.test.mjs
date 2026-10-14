@@ -6,6 +6,7 @@ import path from 'node:path'
 import { mountTiming } from './helpers/main-perf.mjs'
 import { transformSync } from 'esbuild'
 import crashContext from '../dist/shared/crash-context.js'
+import redaction from '../dist/shared/redact-detail.js'
 
 const compiled = readFileSync(new URL('../dist/main/perf-log.js', import.meta.url), 'utf8')
 const mountPerf = (threshold, gcUnsupported = false, windowOf = () => null) => {
@@ -31,6 +32,7 @@ const mountPerf = (threshold, gcUnsupported = false, windowOf = () => null) => {
       if (id === './crash-log') return { createRollingLog: () => ({ append: (...args) => entries.push(args) }) }
       if (id === './perf-time') return timing.api
       if (id === '../shared/crash-context') return crashContext
+      if (id === '../shared/redact-detail') return redaction
       if (id === '../shared/env-names') return { readEnv: (key) => { assert.equal(key, 'KUMA_PERF_LONGTASK_MS'); return threshold } }
       if (id === 'perf_hooks') return { monitorEventLoopDelay: (options) => {
         assert.equal(options.resolution, 10)

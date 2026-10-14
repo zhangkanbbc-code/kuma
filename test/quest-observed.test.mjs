@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import test from 'node:test'
 import { transformSync } from 'esbuild'
 import observed from '../dist/shared/quest-observed.js'
+import jstDay from '../dist/shared/jst-day.js'
 
 const { questPeriodFromObserved, questCategoryLetterFromObserved } = observed
 const unknown = { kind: null, label: null, cls: null, annualMonth: null }
@@ -56,14 +57,15 @@ const code = [
   'const simplifyJp = simplifyTaskEntityText',
   categorySource.replace(/^export /gm, ''),
   slice(qn, 'const catOf', '// ---- 重置倒计时'),
-  slice(qn, 'const JST =', '// ---- 报酬关键词'),
+  slice(qn, 'const nextReset =', '// ---- 报酬关键词'),
   slice(qn, 'const periodOfRow =', '// 游戏只下发'),
   slice(qn, 'const questTextCache', '/**\n * 追踪器解出的条件行'),
   slice(qn, 'const annualResetHtml =', 'const questChainNode ='),
   'return { catOf, catColor, periodOfRow, questAnnualMonth, annualResetHtml, questText, invalidateQuestTextCache, categoryOf, CATEGORY_FILTERS, TASK_CATEGORIES }',
 ].join('\n')
 const runtime = new Function('questPeriodFromObserved', 'questCategoryLetterFromObserved', 'fmtDurationLong',
-  transformSync(code, { loader: 'ts' }).code)(questPeriodFromObserved, questCategoryLetterFromObserved, () => '倒计时')
+  'jstDate', 'jstDateToTs', transformSync(code, { loader: 'ts' }).code)(questPeriodFromObserved,
+  questCategoryLetterFromObserved, () => '倒计时', jstDay.jstDate, jstDay.jstDateToTs)
 const row = (overrides = {}) => ({
   id: 900001, code: '?', name: '', desc: '', memo: '', memo2: '',
   observed: { category: 1, type: 5, labelType: 106, title: '', detail: '' },

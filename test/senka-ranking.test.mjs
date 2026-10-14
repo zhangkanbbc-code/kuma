@@ -219,7 +219,7 @@ test('曲线补点：两个真实点之间缺的日子按日期线性插值并�
 // ---- 往月记录与疑似排行奖励（2026-09-29 维护者要的：「都做 正好马上就要发奖励了」）----
 // 往月：每个战果月一行——当月最后一次看到的本人名次/战果，以及第 5/20/100/500 名最后看到的值。
 // 排行每天 15:00 最后一刷（统计截至 14:00），月末 14:00～22:00 的战果不在排行里，所以叫「最后看到」。
-const { senkaMonthHistory, rankingRewardCandidates, newPortLogMessages } = rankingModule
+const { senkaMonthHistory, rankingRewardCandidates, newPortLogMessages, LATE_EQUIP_SOURCE_PATHS, EQUIP_FULL_LIST_PATHS } = rankingModule
 const AUG = Date.parse('2026-07-31T22:00+09:00'), SEP_START = Date.parse('2026-08-31T22:00+09:00')
 const monthStartOf = (ts) => (ts >= SEP_START ? SEP_START : AUG)
 
@@ -282,24 +282,35 @@ test('疑似排行奖励（道具）：交界后整个下一个战果月里来�
   })
 })
 
-// 来路不明的新装备：第一次出现在整表报文（require_info / slot_item）里、当时没装在任何舰上
-//（捞到或建出来的舰自带的装备是装着的）、出现前 10 分钟内没有已知会给装备的操作（开发、建造领舰、
-// 任务领奖、战斗结算、使用道具、改装、改修等）。启用记录那一刻已有的装备记为 baseline，不算。
-test('疑似排行奖励（装备）：只认整表里第一次出现、未装备、前 10 分钟没有已知来源的新装备，同款同星合并', () => {
+// 来路不明的新装备（2026-10-14 改口径，起因是 GPT 网页版对 beta.28 的边界推演，维护者裁决采纳并加一条）：
+// 第一次出现在整表报文（require_info / slot_item）里、当时没装在任何舰上（捞到或建出来的舰自带的装备是装着的），
+// 且「上一次整表同步」到「这次首次出现」之间没有会晚到的装备来源。
+// - 原口径是「出现前固定 10 分钟」：打完一战没回港就关游戏，掉落舰的装备要到下次登录的 require_info 才进表，
+//   隔了 10 分钟以上就被误列；反过来 12:00 领奖、12:01 已整表同步过，12:05 才出现的奖励又被 12:00 连带排除。
+// - 晚到的来源 = 装备要等下一次整表才进表的操作：战斗结算（掉落舰自带）、任务领奖、使用道具、活动奖励选择、改造。
+//   开发、建造领舰、改修与改修恢复的装备在回应里当场入表（slotitem-mutation），不会以「整表首见」出现，不再拿来排除。
+// - 账本实测（10-01～10-14）：整表首见 91 件，每批前 3～73 秒都有战斗结算或任务领奖，新旧口径都列出 0 件。
+// - 找不到上一次整表同步（刚启用记录）就不列。启用记录那一刻已有的装备记为 baseline，不算。
+const SYNC = '/kcsapi/api_get_member/slot_item'
+const LOGIN = '/kcsapi/api_get_member/require_info'
+test('疑似排行奖励（装备）：上次整表同步之后没有晚到来源的整表首见新装备才列，同款同星合并', () => {
   const equips = [
-    { id: 9001, mstId: 22, level: 5, firstTs: jst('2026-10-20T20:00'), source: '/kcsapi/api_get_member/require_info', equipped: false },
-    { id: 9002, mstId: 22, level: 5, firstTs: jst('2026-10-20T20:00'), source: '/kcsapi/api_get_member/require_info', equipped: false },
-    { id: 9003, mstId: 110, level: 0, firstTs: jst('2026-10-20T20:01'), source: '/kcsapi/api_get_member/slot_item', equipped: false },
-    { id: 9004, mstId: 2, level: 0, firstTs: jst('2026-10-20T21:00'), source: '/kcsapi/api_req_kousyou/createitem', equipped: false }, // 开发
-    { id: 9005, mstId: 3, level: 0, firstTs: jst('2026-10-21T08:00'), source: '/kcsapi/api_get_member/slot_item', equipped: true }, // 新舰自带
-    { id: 9006, mstId: 4, level: 0, firstTs: jst('2026-10-21T09:00'), source: '/kcsapi/api_get_member/slot_item', equipped: false }, // 前面有任务领奖
+    // 上一次整表 10-20 19:00，之后没有晚到来源：两件同款同星合并
+    { id: 9001, mstId: 22, level: 5, firstTs: jst('2026-10-20T20:00'), source: LOGIN, equipped: false },
+    { id: 9002, mstId: 22, level: 5, firstTs: jst('2026-10-20T20:00'), source: LOGIN, equipped: false },
+    // 上一次整表就是 20:00 那次登录，之后也没有晚到来源
+    { id: 9003, mstId: 110, level: 0, firstTs: jst('2026-10-20T20:01'), source: SYNC, equipped: false },
+    { id: 9004, mstId: 2, level: 0, firstTs: jst('2026-10-20T21:00'), source: '/kcsapi/api_req_kousyou/createitem', equipped: false }, // 当场入表的不算
+    { id: 9005, mstId: 3, level: 0, firstTs: jst('2026-10-21T08:00'), source: SYNC, equipped: true }, // 新舰自带
+    { id: 9006, mstId: 4, level: 0, firstTs: jst('2026-10-21T09:00'), source: SYNC, equipped: false }, // 08:30 整表之后 08:55 有任务领奖
     { id: 1, mstId: 1, level: 0, firstTs: jst('2026-10-01T00:00'), source: 'baseline', equipped: false },
   ]
-  const knownEquipEventTs = [jst('2026-10-21T08:55')]
+  const equipSyncTs = [jst('2026-10-20T19:00'), jst('2026-10-20T20:00'), jst('2026-10-20T20:01'), jst('2026-10-21T08:00'), jst('2026-10-21T08:30'), jst('2026-10-21T09:00')]
+  const knownEquipEventTs = [jst('2026-10-20T18:59'), jst('2026-10-21T08:55')]
   const equipNames = { 22: '零式艦戦22型(251空)', 110: '一式陸攻(野中隊)' }
   const out = rankingRewardCandidates([], {
     boundaries: [SEP_START, SEP_END], monthStartOf: monthStartOf3, nameOf: String,
-    equips, knownEquipEventTs, equipNameOf: (id) => equipNames[id] ?? `装备${id}`,
+    equips, equipSyncTs, knownEquipEventTs, equipNameOf: (id) => equipNames[id] ?? `装备${id}`,
   })
   assert.deepEqual(JSON.parse(JSON.stringify(out)), {
     [SEP_START]: [
@@ -307,6 +318,55 @@ test('疑似排行奖励（装备）：只认整表里第一次出现、未装�
       { kind: 'equip', itemId: 110, name: '一式陸攻(野中隊)', level: 0, count: 1, ts: jst('2026-10-20T20:01') },
     ],
   })
+})
+
+test('疑似排行奖励（装备）：窗口是「上次整表 → 首次出现」，不是固定 10 分钟', () => {
+  const equips = [
+    // 12:00 战斗结算后没回港，12:11 才整表：掉落舰的装备，不列（旧口径隔了 11 分钟会误列）
+    { id: 9101, mstId: 101, level: 0, firstTs: jst('2026-10-22T12:11'), source: LOGIN, equipped: false },
+    // 13:00 任务领奖、13:01 已整表同步过，13:05 才出现：领奖已被 13:01 那次吸收，列（旧口径会连带排除）
+    { id: 9102, mstId: 102, level: 0, firstTs: jst('2026-10-22T13:05'), source: SYNC, equipped: false },
+    // 14:00 开发（当场入表），14:03 整表才出现的另一件：开发不算晚到来源，列（旧口径会排除）
+    { id: 9103, mstId: 103, level: 0, firstTs: jst('2026-10-22T14:03'), source: SYNC, equipped: false },
+    // 整份同步时刻里最早的一次：找不到上一次整表，不列
+    { id: 9104, mstId: 104, level: 0, firstTs: jst('2026-10-22T11:50'), source: SYNC, equipped: false },
+  ]
+  const equipSyncTs = [jst('2026-10-22T11:50'), jst('2026-10-22T12:11'), jst('2026-10-22T13:01'), jst('2026-10-22T13:05'), jst('2026-10-22T14:03')]
+  const knownEquipEventTs = [jst('2026-10-22T12:00'), jst('2026-10-22T13:00')]
+  const out = rankingRewardCandidates([], {
+    boundaries: [SEP_START, SEP_END], monthStartOf: monthStartOf3, nameOf: String,
+    equips, equipSyncTs, knownEquipEventTs, equipNameOf: (id) => `装备${id}`,
+  })
+  assert.deepEqual(JSON.parse(JSON.stringify(out)), {
+    [SEP_START]: [
+      { kind: 'equip', itemId: 102, name: '装备102', level: 0, count: 1, ts: jst('2026-10-22T13:05') },
+      { kind: 'equip', itemId: 103, name: '装备103', level: 0, count: 1, ts: jst('2026-10-22T14:03') },
+    ],
+  })
+})
+
+test('疑似排行奖励（装备）：窗口可以跨过战果月交界往前找', () => {
+  // 9-30 21:00 整表、21:30 战斗结算后关游戏，交界 22:00 之后 10-01 08:00 登录才出现：仍是掉落，不列
+  const equips = [{ id: 9201, mstId: 201, level: 0, firstTs: jst('2026-10-01T08:00'), source: LOGIN, equipped: false }]
+  const out = rankingRewardCandidates([], {
+    boundaries: [SEP_START, SEP_END], monthStartOf: monthStartOf3, nameOf: String,
+    equips, equipSyncTs: [jst('2026-09-30T21:00'), jst('2026-10-01T08:00')],
+    knownEquipEventTs: [jst('2026-09-30T21:30')], equipNameOf: (id) => `装备${id}`,
+  })
+  assert.deepEqual(out, {})
+})
+
+test('晚到的装备来源只收要等下一次整表才进表的操作；当场入表的开发、建造、改修不收', () => {
+  assert.deepEqual([...LATE_EQUIP_SOURCE_PATHS].sort(), [
+    '/kcsapi/api_req_combined_battle/battleresult',
+    '/kcsapi/api_req_kaisou/remodeling',
+    '/kcsapi/api_req_member/get_event_selected_reward',
+    '/kcsapi/api_req_member/itemuse',
+    '/kcsapi/api_req_member/payitemuse',
+    '/kcsapi/api_req_quest/clearitemget',
+    '/kcsapi/api_req_sortie/battleresult',
+  ])
+  assert.deepEqual([...EQUIP_FULL_LIST_PATHS].sort(), [LOGIN, SYNC])
 })
 
 // 母港报文 api_log 只存最新一份快照，会被下一次回港覆盖；新版起把「这一次比上一次多出来的消息」逐条留历史，

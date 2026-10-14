@@ -108,6 +108,9 @@ const UI_STORE_BLOCK = (() => {
 
 const store = (() => {
   const source = `
+const uiSnapshots = new Map<string, string>()
+const SHARED_UI_PREFERENCES = new Set<string>()
+const onUiPreferenceChange = () => {}
 export let saved: any = null
 let remoteValue = 'B'
 const remoteObject: Record<string, string> = {}

@@ -154,6 +154,11 @@ fs.copyFileSync(
   fileURLToPath(new URL('../src/renderer/launch-glow.ts', import.meta.url)),
   path.join(tempDir, 'launch-glow.ts'),
 )
+// 欢迎屏新增季节层依赖；装配用例仍不挂欢迎屏，只补齐真实导入图。
+fs.copyFileSync(
+  fileURLToPath(new URL('../src/renderer/launch-welcome-scene.ts', import.meta.url)),
+  path.join(tempDir, 'launch-welcome-scene.ts'),
+)
 fs.copyFileSync(
   fileURLToPath(new URL('../src/shared/launch-glow.ts', import.meta.url)),
   path.join(sharedDir, 'launch-glow.ts'),

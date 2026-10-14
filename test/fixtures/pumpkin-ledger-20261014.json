@@ -1,0 +1,197 @@
+{
+ "note": "2026-10-14 维护者账本里南瓜（useitem 96）相关的真实报文：领任务得南瓜 3 次、兑换南瓜羊羹 1 次。请求里的登录令牌已删除；ts 为毫秒。",
+ "events": [
+  {
+   "ts": 1791981664919,
+   "path": "/kcsapi/api_req_quest/clearitemget",
+   "post": {
+    "api_verno": "1",
+    "api_quest_id": "984",
+    "api_select_no": "3"
+   },
+   "body": {
+    "api_result": 1,
+    "api_result_msg": "成功",
+    "api_data": {
+     "api_material": [
+      370,
+      370,
+      0,
+      0
+     ],
+     "api_bounus_count": 2,
+     "api_bounus": [
+      {
+       "api_type": 13,
+       "api_count": 1,
+       "api_item": {
+        "api_id": 57,
+        "api_name": "勲章"
+       }
+      },
+      {
+       "api_type": 13,
+       "api_count": 1,
+       "api_item": {
+        "api_id": 96,
+        "api_name": "南瓜"
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "ts": 1791986600177,
+   "path": "/kcsapi/api_req_quest/clearitemget",
+   "post": {
+    "api_verno": "1",
+    "api_quest_id": "359",
+    "api_select_no": "3",
+    "api_select_no2": "1"
+   },
+   "body": {
+    "api_result": 1,
+    "api_result_msg": "成功",
+    "api_data": {
+     "api_material": [
+      500,
+      500,
+      0,
+      0
+     ],
+     "api_bounus_count": 2,
+     "api_bounus": [
+      {
+       "api_type": 13,
+       "api_count": 1,
+       "api_item": {
+        "api_id": 57,
+        "api_name": "勲章"
+       }
+      },
+      {
+       "api_type": 13,
+       "api_count": 1,
+       "api_item": {
+        "api_id": 96,
+        "api_name": "南瓜"
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "ts": 1791986758751,
+   "path": "/kcsapi/api_req_quest/clearitemget",
+   "post": {
+    "api_verno": "1",
+    "api_quest_id": "1119",
+    "api_select_no": "2",
+    "api_select_no2": "3"
+   },
+   "body": {
+    "api_result": 1,
+    "api_result_msg": "成功",
+    "api_data": {
+     "api_material": [
+      0,
+      0,
+      880,
+      0
+     ],
+     "api_bounus_count": 2,
+     "api_bounus": [
+      {
+       "api_type": 13,
+       "api_count": 1,
+       "api_item": {
+        "api_id": 96,
+        "api_name": ""
+       }
+      },
+      {
+       "api_type": 13,
+       "api_count": 2,
+       "api_item": {
+        "api_id": 96,
+        "api_name": "南瓜"
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "ts": 1791986812101,
+   "path": "/kcsapi/api_req_member/itemuse",
+   "post": {
+    "api_verno": "1",
+    "api_useitem_id": "96",
+    "api_force_flag": "0",
+    "api_exchange_type": "110"
+   },
+   "body": {
+    "api_result": 1,
+    "api_result_msg": "成功",
+    "api_data": {
+     "api_caution_flag": 0,
+     "api_flag": 2,
+     "api_material": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      6,
+      4
+     ],
+     "api_getitem": [
+      null
+     ]
+    }
+   }
+  }
+ ],
+ "useitemLog": [
+  {
+   "ts": 1791981670364,
+   "item_id": 96,
+   "delta": 1,
+   "total": 1,
+   "cause": "/kcsapi/api_req_quest/clearitemget"
+  },
+  {
+   "ts": 1791986604376,
+   "item_id": 96,
+   "delta": 1,
+   "total": 2,
+   "cause": "/kcsapi/api_req_quest/clearitemget"
+  },
+  {
+   "ts": 1791986765552,
+   "item_id": 96,
+   "delta": 3,
+   "total": 5,
+   "cause": "/kcsapi/api_req_quest/clearitemget"
+  },
+  {
+   "ts": 1791986812492,
+   "item_id": 96,
+   "delta": -3,
+   "total": 2,
+   "cause": "/kcsapi/api_req_member/itemuse"
+  }
+ ],
+ "materialDelta": [
+  {
+   "ts": 1791986812737,
+   "category": "使用道具",
+   "devmat": 6,
+   "screw": 4,
+   "detail": "{\"kind\":\"itemUse\",\"item\":96,\"paid\":false}"
+  }
+ ]
+}

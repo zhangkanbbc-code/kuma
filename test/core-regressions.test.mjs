@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import ts from 'typescript'
 
 test('搜索框必须可定位：重画后焦点靠 id 或非空 data-* 找回', () => {
   // 重画后焦点靠 focusSelector 找回，没有定位键＝每敲一字丢一次焦点。
@@ -6016,7 +6017,7 @@ test('quit guard kills harvested renderer pids at the very last moment of a norm
   // 2026-08-19 用户实锤第三种残留：主进程正常退出、卡死的游戏渲染进程成孤儿——
   // 旧防线（主进程卡住才 taskkill 的 4 秒兜底 + 下次启动清扫）都罩不住。
   // 修法：退出前收割渲染 PID，'quit' 事件（主进程最后一刻）同步强杀，
-  // 只杀「收割过 ∩ 此刻仍是同映像」的，防 PID 复用误杀。
+  // 只杀收割过、仍存活且当前 metrics 确认或经同映像核对的 PID，防 PID 复用误杀。
   //
   // ⚠ 2026-08-20 第四种形态：上面那套写完之后**一枪没开过**。在打包产物上开
   // KUMA_QUIT_TRACE 实测：关窗退出时 before-quit 才触发，窗口与 webview guest 的
@@ -6032,7 +6033,9 @@ test('quit guard kills harvested renderer pids at the very last moment of a norm
   // Chromium 自己那本子进程账（webContents 销毁后它还认得一阵子）也当一个源
   assert.match(guard, /app\.getAppMetrics\(\)/)
   assert.match(guard, /app\.on\('quit', \(\) => \{/)
-  assert.match(guard, /\[\.\.\.rendererPids\]\.filter\(\(pid\) => alive\.has\(pid\)\)/)
+  // 2026-10-14：分流行为由 process-reap.test.mjs 跑真实处理器验证；这里只守接入口，
+  // 不再钉「每次全量 tasklist 再取交集」的旧写法，以免把退出超时的根因锁回来。
+  assert.match(guard, /classifySurvivors\(rendererPids, stage\)/)
   // 开火不等于打死：值得报警的是「杀了还没死」，正常退出不刷日志
   assert.match(guard, /仍有 \$\{stubborn\.length\} 个没死/)
   // 4 秒兜底走的是 taskkill 自杀整树，'quit' 不会触发——那条路上也得自己开枪
@@ -6771,6 +6774,29 @@ test('引用的 CSS 变量必须真有定义，别靠裸 hex 兜底', () => {
     for (const m of src.matchAll(/(--[a-z0-9-]+)\s*:/gi)) defined.add(m[1])
     for (const m of src.matchAll(/setProperty\(\s*['"`](--[a-z0-9-]+)/gi)) defined.add(m[1])
   }
+  // 季节层通过 Css 声明对象统一写 setProperty；伪元素的 a/b 槽位也由同一工厂展开。
+  // 从实际的对象键与 pairedParticle 调用读定义，不豁免引用、不列变量允许名单。
+  const sceneSource = fs.readFileSync(new URL('launch-welcome-scene.ts', dir), 'utf8')
+  const sceneAst = ts.createSourceFile('launch-welcome-scene.ts', sceneSource, ts.ScriptTarget.Latest, true)
+  const visitScene = (node) => {
+    if (ts.isPropertyAssignment(node)) {
+      if (ts.isStringLiteral(node.name) && node.name.text.startsWith('--')) defined.add(node.name.text)
+      if (ts.isComputedPropertyName(node.name)) {
+        const slot = /^`--\$\{slot\}-([a-z0-9-]+)`$/.exec(node.name.expression.getText(sceneAst))
+        if (slot) for (const side of ['a', 'b']) defined.add(`--${side}-${slot[1]}`)
+      }
+    }
+    if (ts.isCallExpression(node) && node.expression.getText(sceneAst) === 'pairedParticle') {
+      const css = node.arguments[3]
+      assert.ok(css && ts.isObjectLiteralExpression(css), '粒子的 CSS 定义必须仍是可检查的声明对象')
+      for (const property of css.properties) {
+        assert.ok(ts.isPropertyAssignment(property) && ts.isIdentifier(property.name))
+        for (const side of ['a', 'b']) defined.add(`--${side}-${property.name.text}`)
+      }
+    }
+    ts.forEachChild(node, visitScene)
+  }
+  visitScene(sceneAst)
   const missing = new Set()
   for (const src of sources) {
     for (const m of src.matchAll(/var\(\s*(--[a-z0-9-]+)/gi)) if (!defined.has(m[1])) missing.add(m[1])
@@ -9951,10 +9977,10 @@ test('战果账：只记增量、同月同图只记一次、说清记账起点',
   assert.ok(fn.includes('if (previous == null) return false'), '第一次该只记基线')
   assert.ok(fn.includes('if (delta <= 0) return false'), '经验倒退不该记负数')
 
-  // EO 每个战果月只算一次
-  const eoAt = ledger.indexOf('logEoClear = ')
-  const eo = ledger.slice(eoAt, ledger.indexOf('\n  }', eoAt))
-  assert.ok(eo.includes('senkaMonthStart(ts)'), 'EO 去重没有按战果月')
+  // EO 去重：2026-10-14 起按「EO 重置周期」（每月 1 日 05:00 JST）而不是战果月，
+  // 月末 22:00 后与重置后各打一次都要入账。口径由 test/eo-senka-reset-period.test.mjs
+  // 在临时库上按行为钉住（真 SQL、真判据），这里不再对源码文本下断言。
+  assert.ok(ledger.includes('  logEoClear = '), 'ledger.ts 里没有 logEoClear 了')
 
   // 游戏不下发战果，这是换算——必须说明它是怎么换算的。
   // 2026-08-26 文案清扫：「游戏不下发战果数值」那句自证与「这之前的补不回来」那句
@@ -10214,7 +10240,7 @@ test('体检回归（2026-08 第二轮）：性能与健壮性专项不许回潮
   // 以前每张图 config.get（同步 IPC）+ 两次 accessSync；MyCache 不存在时仍空跑，
   // 进战斗只卡游戏画面、kuma大破闪烁还在动。
   const resourceHack = read('../assets/preload/resource-hack.js')
-  assert.match(resourceHack, /const cacheDir = config\.get\([\s\S]*?return createResourceLookup\(cacheDir\)/)
+  assert.match(resourceHack, /const cacheDir = config\.get\([\s\S]*?return createResourceLookup\(cacheDir, \{ period: \(\) => modPeriodOf\(new Date\(\), settings\.get\(\)\) \}\)/)
   assert.doesNotMatch(resourceHack, /findHackFilePath\(/)
   assert.match(resourceHack, /resolveHackedResource\(el\.src, true\)/)
   assert.match(resourceHack, /resolveHackedResource\(absoluteUrl, true\)/)

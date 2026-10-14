@@ -10,6 +10,7 @@ import { URL } from 'url'
 
 import { ROOT } from './env'
 import type { KcsBgmCue } from '../shared/kcs-bgm'
+import { isGameApiSender } from './game-sender'
 
 type RequestOrigin = string | undefined
 type PathName = string | undefined
@@ -155,12 +156,13 @@ const isAllowedMethod = (method: unknown): method is string =>
 const isGamePath = (pathname: unknown): pathname is string =>
   typeof pathname === 'string' && pathname.startsWith('/kcs')
 
-ipcMain.on('kuma:game-api', (event, kind: unknown, payload: any) => {
+ipcMain.on('kuma:game-api', async (event, kind: unknown, payload: any) => {
   try {
     if (event.sender.getType() !== 'webview') return
     if (!payload || typeof payload !== 'object') return
     const { method, pathname, responseURL } = payload
     if (typeof responseURL !== 'string') return
+    if (!isGamePath(pathname) || !await isGameApiSender(event, responseURL, pathname)) return
     const requestInfo: RequestInfo = [undefined, pathname, responseURL]
     if (kind === 'response') {
       if (!isAllowedMethod(method) || !isGamePath(pathname)) return

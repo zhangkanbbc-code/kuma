@@ -1,3 +1,5 @@
+import { fmtJstDate } from './jst-day'
+
 // 游戏排行路径中的混淆名由游戏决定，改版可能会变；只读取玩家已打开的页。
 export const SENKA_RANKING_PATH = '/kcsapi/api_req_ranking/mxltvkpyuklh'
 export const SENKA_RANK_FACTORS = [8931, 1201, 1156, 5061, 4569, 4732, 3779, 4568, 5695, 4619, 4912, 5669, 6586] as const
@@ -7,9 +9,9 @@ export const EQUIP_FULL_LIST_PATHS = [
   '/kcsapi/api_get_member/slot_item',
 ] as const
 
-export const KNOWN_EQUIP_SOURCE_PATHS = [
-  '/kcsapi/api_req_kousyou/createitem',
-  '/kcsapi/api_req_kousyou/getship',
+// 只收要等下一次整表同步才进表的装备来源；开发、建造领舰、改修与改修恢复
+// 的装备在回应里由 slotitem-mutation 当场入表，不会以整表首见出现，不能用来排除。
+export const LATE_EQUIP_SOURCE_PATHS = [
   '/kcsapi/api_req_quest/clearitemget',
   '/kcsapi/api_req_sortie/battleresult',
   '/kcsapi/api_req_combined_battle/battleresult',
@@ -17,9 +19,6 @@ export const KNOWN_EQUIP_SOURCE_PATHS = [
   '/kcsapi/api_req_member/payitemuse',
   '/kcsapi/api_req_member/get_event_selected_reward',
   '/kcsapi/api_req_kaisou/remodeling',
-  '/kcsapi/api_req_kousyou/remodel_slot',
-  // 另加改修恢复：本地装备变更处理会从 api_after_slot 写入恢复后的实例，来源可解释。
-  '/kcsapi/api_req_kousyou/remodel_slot_recover',
 ] as const
 
 const HOUR = 3600_000
@@ -123,7 +122,7 @@ export const fillLineGaps = (
       const to = Date.parse(`${point.day}T00:00:00+09:00`)
       for (let ts = from + dayMs; ts < to; ts += dayMs) {
         filled.push({
-          day: new Date(ts + 9 * HOUR).toISOString().slice(0, 10),
+          day: fmtJstDate(ts),
           senka: Math.round(previous.senka + (point.senka - previous.senka) * (ts - from) / (to - from)),
           estimated: true,
         })
@@ -135,6 +134,10 @@ export const fillLineGaps = (
 }
 
 export interface SenkaRankingView {
+  /** 历史输入的版本；常规查询只带版本，不解析往月。 */
+  historyKey?: string
+  failedAt?: number
+  historyFailedAt?: number
   refreshAt: number | null
   rows: (RankingRow & { own: boolean })[]
   lines: SenkaLines
@@ -146,6 +149,11 @@ export interface SenkaRankingView {
   serverInferred: boolean
   history?: (SenkaMonthHistory & { rewards: RankingRewardCandidate[] })[]
 }
+
+export const failedSenkaRanking = (failedAt: number): SenkaRankingView => ({
+  failedAt, refreshAt: null, rows: [], lines: { 5: [], 20: [], 100: [], 500: [] },
+  undecoded: 0, ownCalibration: null, ownRank: null, server: null, serverInferred: false,
+})
 
 /** 不晚于观测时刻的 03:00 / 15:00 JST 刷新。 */
 export const rankingRefreshAt = (ts: number): number =>
@@ -193,7 +201,7 @@ export const senkaLineSeries = (
 ): SenkaLines => {
   const days = { 5: new Map<string, number>(), 20: new Map<string, number>(), 100: new Map<string, number>(), 500: new Map<string, number>() }
   for (const snapshot of [...snapshots].sort((a, b) => a.ts - b.ts)) {
-    const day = new Date(rankingRefreshAt(snapshot.ts) + 9 * HOUR).toISOString().slice(0, 10)
+    const day = fmtJstDate(rankingRefreshAt(snapshot.ts))
     for (const row of snapshot.rows) {
       if (RANKS.includes(row.rank as LineRank)) days[row.rank as LineRank].set(day, row.senka)
     }
@@ -224,7 +232,7 @@ export const ownRankByDay = (
   const days = new Map<string, { rank: number; senka: number }>()
   for (const { page, decoded } of decodedRankingPages(pages, nickname, ownHintAt)) {
     if (!decoded?.own) continue
-    const day = new Date(rankingRefreshAt(page.ts) + 9 * HOUR).toISOString().slice(0, 10)
+    const day = fmtJstDate(rankingRefreshAt(page.ts))
     days.set(day, decoded.own)
   }
   return [...days].map(([day, own]) => ({ day, ...own }))
@@ -263,15 +271,29 @@ export const senkaMonthHistory = (
 
 export const rankingRewardCandidates = (
   rows: readonly RankingRewardRow[],
-  { boundaries, monthStartOf, nameOf, equips = [], knownEquipEventTs = [], equipNameOf = String }: {
+  { boundaries, monthStartOf, nameOf, equips = [], equipSyncTs = [], knownEquipEventTs = [], equipNameOf = String }: {
     boundaries: readonly number[]
     monthStartOf: (ts: number) => number
     nameOf: (itemId: number) => string
     equips?: readonly RankingRewardEquip[]
+    equipSyncTs?: readonly number[]
     knownEquipEventTs?: readonly number[]
     equipNameOf?: (mstId: number) => string
   },
 ): Record<number, RankingRewardCandidate[]> => {
+  const syncTs = [...equipSyncTs].sort((a, b) => a - b)
+  const sourceTs = [...knownEquipEventTs].sort((a, b) => a - b)
+  // 同步取严格早于首次出现的最后一笔；来源事件则包含首次出现时刻。
+  const lastTimestamp = (timestamps: readonly number[], before: number, inclusive = false): number | undefined => {
+    let left = 0
+    let right = timestamps.length
+    while (left < right) {
+      const mid = Math.floor((left + right) / 2)
+      if (timestamps[mid] < before || (inclusive && timestamps[mid] === before)) left = mid + 1
+      else right = mid
+    }
+    return timestamps[left - 1]
+  }
   const months: Record<number, RankingRewardCandidate[]> = {}
   for (const [index, boundary] of boundaries.entries()) {
     // 次月中下旬也可能发奖；每个交界直到下一交界的候选仍归上一个战果月。
@@ -290,8 +312,11 @@ export const rankingRewardCandidates = (
     const equipment = new Map<string, RankingRewardCandidate>()
     for (const row of equips) {
       if (row.firstTs < boundary || row.firstTs >= end || row.equipped ||
-        !EQUIP_FULL_LIST_PATHS.some(path => path === row.source) ||
-        knownEquipEventTs.some(ts => ts >= row.firstTs - 10 * 60_000 && ts <= row.firstTs)) continue
+        !EQUIP_FULL_LIST_PATHS.some(path => path === row.source)) continue
+      const prev = lastTimestamp(syncTs, row.firstTs)
+      if (prev == null) continue
+      const latestSource = lastTimestamp(sourceTs, row.firstTs, true)
+      if (latestSource != null && latestSource > prev) continue
       const key = `${row.mstId}:${row.level}`
       const equip = equipment.get(key)
       if (equip) {

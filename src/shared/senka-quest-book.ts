@@ -25,14 +25,16 @@
 //    同周期的后续月份即便看到「已完成」也不再计。落地就是去重窗口从
 //    「同任务同战果月」放大到「同任务同**周期**」。
 //
-// 去重窗口取**周期 ∪ 战果月**：两头都要盖住。只取周期会漏掉老账里那些
-// ts 被钉在月初整值上的合成行（月初 22:00 早于当月任务重置的 05:00，
-// 根本不落在周期区间里）；只取战果月就是出事的旧口径。取并集则两种都框得住，
-// 且方向永远是「宁可不记，不可重记」。
+// 去重窗口取**任务周期**；周期定位不到时才退回战果月（2026-10-14 体检第 4 条）。
+// 原先为框住 ts 钉在战果月起点整值上的老合成行，取「周期 ∪ 战果月」，
+// 却把月末 22:00 后交的上一期也框进下一期，挡住正常入账与手动补记，违反第三条。
+// 老合成行改为单独认：ts 正好是战果月起点，且不晚于 2026-08-31 22:00 JST，
+// 才按那个战果月 1 日 05:00 开始的周期比较。09-01 之后才有的手动补记也可能
+// 正好落在月界上，必须用这个截止点区分，不能把它误认成下一期的老合成行。
 //
 // 判定是纯算术，不碰数据库也不碰 electron——单测直接 import 跑（senka-quest-evidence）。
 
-import { senkaMonthEnd, senkaMonthStart } from './senka'
+import { eoMonthResetTs, senkaMonthEnd, senkaMonthStart } from './senka'
 import { questPeriodEnd, questPeriodStart } from './quest-period'
 
 import type { QuestPeriodKind } from './quest-period'
@@ -61,9 +63,8 @@ export const questIdFromClearItemGet = (postBody: string | null | undefined): nu
 }
 
 /**
- * 去重窗口 = 该证据所属**周期** ∪ 所属**战果月**（左闭右开）。
- * 周期定位不到（年任重置月未知、或不是常设编码）就只剩战果月那一段——
- * 定位不到就不放大窗口，但也绝不缩小。
+ * 去重窗口 = 该证据所属**任务周期**（左闭右开）。
+ * 周期定位不到（年任重置月未知、或不是常设编码）才退回所属战果月。
  */
 export const questSenkaBookingWindow = (
   kind: QuestPeriodKind | null,
@@ -76,7 +77,14 @@ export const questSenkaBookingWindow = (
   const periodFrom = questPeriodStart(kind, evidenceTs, annualMonth)
   const periodTo = questPeriodEnd(kind, evidenceTs, annualMonth)
   if (periodFrom == null || periodTo == null) return { from, to }
-  return { from: Math.min(from, periodFrom), to: Math.max(to, periodTo) }
+  return { from: periodFrom, to: periodTo }
+}
+
+/** 老合成行只调整去重时的周期归属，账本时刻与战果月归属仍保留原值。 */
+const questSenkaBookedInWindow = (ts: number, window: { from: number; to: number }): boolean => {
+  const legacyLastTs = Date.UTC(2026, 7, 31, 13) // 2026-08-31 22:00 JST
+  const bookingTs = ts <= legacyLastTs && ts === senkaMonthStart(ts) ? eoMonthResetTs(ts) : ts
+  return bookingTs >= window.from && bookingTs < window.to
 }
 
 /** 不入账时说清是哪一种「不」——展示层要照实说，不许一律显示成「补记中」。 */
@@ -110,7 +118,7 @@ export const planQuestSenkaBooking = (input: QuestSenkaBookingInput): QuestSenka
   if (!(input.senka > 0)) return { book: false, ts: null, reason: 'no-senka', window: null }
   if (input.evidenceTs == null) return { book: false, ts: null, reason: 'no-evidence', window: null }
   const window = questSenkaBookingWindow(input.kind, input.evidenceTs, input.annualMonth)
-  const taken = input.bookedTs.some((ts) => ts >= window.from && ts < window.to)
+  const taken = input.bookedTs.some((ts) => questSenkaBookedInWindow(ts, window))
   return taken
     ? { book: false, ts: null, reason: 'already-booked', window }
     : { book: true, ts: input.evidenceTs, reason: 'booked', window }
@@ -162,7 +170,7 @@ export const manualQuestSenkaTs = (
 export const planManualQuestSenkaBooking = (input: ManualQuestSenkaInput): QuestSenkaBookingPlan => {
   if (!(input.senka > 0)) return { book: false, ts: null, reason: 'no-senka', window: null }
   const window = questSenkaBookingWindow(input.kind, input.at, input.annualMonth)
-  const taken = input.bookedTs.some((ts) => ts >= window.from && ts < window.to)
+  const taken = input.bookedTs.some((ts) => questSenkaBookedInWindow(ts, window))
   return taken
     ? { book: false, ts: null, reason: 'already-booked', window }
     : {
