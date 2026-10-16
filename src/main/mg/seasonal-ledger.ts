@@ -41,7 +41,9 @@ export class SeasonalLedger {
         item_id INTEGER NOT NULL, name TEXT NOT NULL, closed INTEGER, stats TEXT,
         PRIMARY KEY(campaign, opened)
       );
+      CREATE TABLE IF NOT EXISTS seasonal_backfill_state (id INTEGER PRIMARY KEY, event_id INTEGER NOT NULL);
     `)
+    this.cursor = db.prepare('SELECT event_id FROM seasonal_backfill_state WHERE id = 1').get()?.event_id ?? 0
   }
 
   setMaster(raw: RawMaster) { this.master = raw }
@@ -166,6 +168,10 @@ export class SeasonalLedger {
       for (const row of rows) {
         this.observe({ ts: row.ts, path: row.path, body: JSON.parse(row.body), post: JSON.parse(row.post_body || '{}') })
       }
+      // 仅回填推进下界；实时 observe 仍靠业务键幂等，不能越过尚未处理的历史。
+      // 与本批投影一起提交；events 行删除或正文置空后也不依赖游标所在行仍存在。
+      if (rows.length) this.db.prepare(`INSERT INTO seasonal_backfill_state (id, event_id) VALUES (1, ?)
+        ON CONFLICT(id) DO UPDATE SET event_id = excluded.event_id`).run(rows[rows.length - 1].id)
       this.db.exec('COMMIT')
     } catch (error) { this.db.exec('ROLLBACK'); throw error }
     if (rows.length) this.cursor = rows[rows.length - 1].id

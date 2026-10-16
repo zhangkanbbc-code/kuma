@@ -1922,7 +1922,7 @@ const parseQuestsScn = async () => {
   }
   if (equipNames.size < 500) throw new Error(`装备名表只有 ${equipNames.size} 条（基线 500）`)
 
-  const { quests, stats } = parseKcwikiQuestPages(
+  const { quests, unnumbered, stats } = parseKcwikiQuestPages(
     QUEST_PAGE_TITLES.map((title) => pages.get(title).text),
     equipNames,
   )
@@ -1932,7 +1932,7 @@ const parseQuestsScn = async () => {
   }
   console.log(
     `[lodes]   任务库:${stats.quests} 条 / 模板 ${stats.templates} 次（分类节重复 ${stats.duplicates}）` +
-      ` / 未定号跳过 ${stats.withoutId} / 装备名表 ${equipNames.size}`,
+      ` / 未定号 ${stats.withoutId} / 装备名表 ${equipNames.size}`,
   )
   console.log(`[lodes]   定号表命中 ${stats.maintainerHits.length}（${stats.maintainerHits.map(({ code, id }) => `${code}→${id}`).join('、')}）`)
   console.log(`[lodes]   定号表冲突 ${stats.conflicts}（${stats.conflictRows.map(({ id, kept, skipped }) => `${id}：${kept} vs ${skipped}`).join('、')}）`)
@@ -1944,7 +1944,7 @@ const parseQuestsScn = async () => {
     .filter(Boolean)
     .sort()
     .pop()
-  return lodeBuild(quests, latest ?? null)
+  return { ...lodeBuild(quests, latest ?? null), unnumbered }
 }
 
 const parseKcwikiLocalization = async () => fetchLocalization(root)
@@ -2328,6 +2328,7 @@ for (const src of selectedSources) {
         note: src.note,
       },
       data,
+      ...(buildResult?.unnumbered ? { unnumbered: buildResult.unnumbered } : {}),
     }
     const output = path.join(OUT_DIR, `${src.id}.json`)
     if (src.id === 'map-intel' && existsSync(output)) {

@@ -23,15 +23,14 @@ export const questPeriodFromObserved = (type: number, labelType: number): {
   return { kind: null, label: null, cls: null, annualMonth: null }
 }
 
+// 与上方 EO 原文及账本实测对应；认领与任务列表分类共用这张表。
+export const QUEST_CATEGORY_LETTERS: Readonly<Record<number, 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G'>> = {
+  1: 'A', 2: 'B', 3: 'C', 4: 'D', 5: 'E', 6: 'F', 7: 'G',
+  8: 'B', 9: 'B', 10: 'B', 11: 'F',
+}
+
 export const questCategoryLetterFromObserved = (
   category: number,
 ): 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | null => {
-  if (category === 1) return 'A'
-  if (category === 2 || category === 8 || category === 9 || category === 10) return 'B'
-  if (category === 3) return 'C'
-  if (category === 4) return 'D'
-  if (category === 5) return 'E'
-  if (category === 6 || category === 11) return 'F'
-  if (category === 7) return 'G'
-  return null
+  return QUEST_CATEGORY_LETTERS[category] ?? null
 }

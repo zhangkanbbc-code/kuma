@@ -24,6 +24,12 @@ export const MAINTAINER_QUEST_NO_CORRECTIONS = [
   { code: 'Cs8', id: 313, asCode: 'Cs1', basis: '游戏任务列表编号（2026-09-11 核）；「任务」页 313 编号为 Cs1、F40 前置亦引用 Cs1，「最新任务」页写作 Cs8 与之不一致，码按「任务」页保留，内容取「最新任务」页新行' },
   { code: 'B217', id: 1052, basis: '游戏任务列表编号（2026-09-15 核）' },
   { code: 'F143', id: 1170, basis: '游戏任务列表编号（2026-09-15 核）' },
+  { code: '2610Cw1', id: 359, basis: '游戏任务列表编号（2026-10-16 核）' },
+  { code: '2610B1', id: 984, basis: '游戏任务列表编号（2026-10-16 核）' },
+  { code: '2610Bw1', id: 985, basis: '游戏任务列表编号（2026-10-16 核）' },
+  { code: '2610B2', id: 986, basis: '游戏任务列表编号（2026-10-16 核）' },
+  { code: '2610B3', id: 1038, basis: '游戏任务列表编号（2026-10-16 核）' },
+  { code: '2610Fm1', id: 1119, basis: '游戏任务列表编号（2026-10-16 核）' },
 ]
 
 /** action=raw 取这两张页；顺序即合并顺序，后者覆盖前者的同号条目。 */
@@ -162,10 +168,11 @@ const substituteLinkTargets = (value) => {
  * @param {string[]} pages 每张页的 wikitext（顺序＝合并顺序，后者覆盖前者）
  *   维护者定号行总是写入，之后拒绝同号异码注释行；普通跨页改码仅记信息。
  * @param {Map<number,string>} equipNames 装备 mstId → 中文名
- * @returns {{ quests: Record<string, object>, stats: object }}
+ * @returns {{ quests: Record<string, object>, unnumbered: Record<string, object>, stats: object }}
  */
 export const parseKcwikiQuestPages = (pages, equipNames) => {
   const quests = {}
+  const unnumbered = {}
   let templates = 0
   let withoutId = 0
   let duplicates = 0
@@ -177,14 +184,16 @@ export const parseKcwikiQuestPages = (pages, equipNames) => {
   const finalizedIds = new Set()
   const lastWrittenPage = new Map()
   for (const [pageIndex, page] of pages.entries()) {
-    const text = `${page}`.replace(HTML_TAG, ' ')
-    for (const span of templateSpans(text, '任务表')) {
+    for (const rawSpan of templateSpans(`${page}`, '任务表')) {
+      const span = rawSpan.replace(HTML_TAG, ' ')
       templates++
       // api_id 藏在模板内的第一个 HTML 注释里（`| 编号 =A1|<!--101-->|`）。
-      // kcQuests 也是取「第一个注释」，注释为空的整条跳过——那是还没定号的任务。
+      // kcQuests 也是取「第一个注释」，原来注释为空的整条跳过——那是还没定号的任务。
       // 现在先读 code 与中文名：维护者定号优先于注释，未定号也保留可核对的行明细。
       const args = splitArguments(span)
       const quest = { code: '', desc: '', memo: '', memo2: '', name: '', pre: [] }
+      // 标题取原始行，只 trim；不走 HTML、wiki 标记或中文文本转换。
+      const titleJa = splitArguments(rawSpan).find(arg => arg.name === '日文任务名字')?.value.trim() ?? ''
       for (const { name, value } of args) {
         if (name === '编号') quest.code = value.replace(/<!--[\s\S]*?-->/g, '').replace(/\s+/g, '')
         if (name === '中文任务名字') quest.name = applyWtFilters(value)
@@ -192,10 +201,10 @@ export const parseKcwikiQuestPages = (pages, equipNames) => {
       const correction = MAINTAINER_QUEST_NO_CORRECTIONS.find(({ code }) => code === quest.code)
       const comment = span.match(/<!--([\s\S]*?)-->/)
       const id = correction ? String(correction.id) : comment?.[1]?.trim() ?? ''
-      if (!/^\d+$/.test(id)) {
+      const numbered = /^\d+$/.test(id)
+      if (!numbered) {
         withoutId++
         withoutIdRows.push({ code: quest.code, name: quest.name })
-        continue
       }
       if (correction) maintainerHits.push({ code: quest.code, id: correction.id })
       quest.code = correction?.asCode ?? quest.code
@@ -218,6 +227,10 @@ export const parseKcwikiQuestPages = (pages, equipNames) => {
         }
         if (name === '备注') quest.memo2 = applyWtFilters(value)
       }
+      if (!numbered) {
+        unnumbered[quest.code] = { ...quest, memo: `奖励:${quest.memo}`, titleJa }
+        continue
+      }
       if (quests[id]) {
         duplicates++
         if (lastWrittenPage.get(id) !== pageIndex && quests[id].code !== quest.code) {
@@ -233,7 +246,7 @@ export const parseKcwikiQuestPages = (pages, equipNames) => {
       if (correction?.asCode !== undefined) finalizedIds.add(id)
     }
   }
-  return { quests, stats: {
+  return { quests, unnumbered, stats: {
     templates, withoutId, withoutIdRows, duplicates, maintainerHits,
     conflicts: conflictRows.length, conflictRows, crossPageCodeChanges, quests: Object.keys(quests).length,
   } }

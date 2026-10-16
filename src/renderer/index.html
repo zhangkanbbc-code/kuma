@@ -2631,14 +2631,18 @@
 
     /* 季节层只挂在第零幕：铭牌上的装饰位于包裹层，不能塞进 overflow:hidden 的盒子。
        CSS 不持有时长；动画串与伪元素的动画变量均由 shared 参数表写入。
-       运动包装合并后以 animation-composition 叠加；关键帧只写 opacity / transform。 */
+       多段运动由 HTML 包裹层逐层 replace，关键帧只写 opacity / transform。 */
     #kuma-welcome .kw-plate { position: relative; z-index: 2; line-height: 0; }
     #kuma-welcome .ks-scene { position: absolute; left: 0; top: 0; overflow: hidden; pointer-events: none; transform-origin: 0 0; }
     #kuma-welcome .ks-scene > div { position: absolute; }
     #kuma-welcome .ks-deco { position: absolute; left: 0; top: 0; pointer-events: none; transform-origin: 0 0; }
     #kuma-welcome .ks-deco > div { position: absolute; }
     #kuma-welcome .ks-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-    #kuma-welcome .ks-symbol { transform-box: fill-box; transform-origin: center; }
+    #kuma-welcome .ks-symbol { position: absolute; left: 0; top: 0; transform-origin: center; }
+    #kuma-welcome .ks-art { position: absolute; inset: 0; }
+    #kuma-welcome .ks-motion { position: absolute; left: 0; top: 0; width: 100%; height: 100%; transform-origin: center; }
+    #kuma-welcome .ks-ground { position: absolute; inset: 0; }
+    #kuma-welcome .ks-bean-flight { left: 0; top: 0; }
     #kuma-welcome .ks-heart { fill: var(--heart); }
     #kuma-welcome .ks-bat { fill: var(--bat); }
     #kuma-welcome .ks-star use { fill: var(--star); }
@@ -2647,9 +2651,10 @@
     #kuma-welcome .ks-sun-clip > div { position: absolute; border-radius: 50%; }
     #kuma-welcome .ks-sun { background: radial-gradient(circle at 50% 40%, var(--sun-core) 0%, var(--sun-mid) 46%, var(--sun-edge) 100%); }
     #kuma-welcome .ks-sun-halo { background: radial-gradient(circle, var(--sun-halo) 0%, transparent 64%); }
-    #kuma-welcome .ks-sun-glint { height: 2px; border-radius: 1px; background: var(--glint); opacity: .75; }
+    #kuma-welcome .ks-sun-glint-in { height: 2px; }
+    #kuma-welcome .ks-sun-glint { width: 100%; height: 100%; border-radius: 1px; background: var(--glint); opacity: .75; }
     #kuma-welcome .ks-ring { inset: -1px; border: 1px solid var(--gold); border-radius: 5px; }
-    #kuma-welcome .ks-bean { left: 0; top: 0; width: 13px; height: 10.5px; margin: -5.25px 0 0 -6.5px; border-radius: 50%; background: radial-gradient(circle at 34% 30%, var(--bean-hi), var(--bean-lo) 78%); }
+    #kuma-welcome .ks-bean { position: absolute; left: 0; top: 0; width: 13px; height: 10.5px; margin: -5.25px 0 0 -6.5px; border-radius: 50%; background: radial-gradient(circle at 34% 30%, var(--bean-hi), var(--bean-lo) 78%); }
     #kuma-welcome .ks-bean-hit { transform: rotate(var(--rot)); }
     #kuma-welcome .ks-bean-shadow { width: 13px; height: 4px; border-radius: 50%; background: var(--bean-sh); }
     #kuma-welcome .ks-ribbon-h { left: 0; right: 0; height: 5px; background: linear-gradient(to bottom, var(--rib), var(--rib-dark)); transform-origin: 100% 50%; }
@@ -2661,21 +2666,22 @@
     #kuma-welcome .ks-teru-string { position: absolute; left: 50%; top: 0; width: 1px; margin-left: -.5px; background: var(--teru-edge); opacity: .8; }
     #kuma-welcome .ks-teru-doll { top: auto; bottom: 0; height: 74px; }
     #kuma-welcome .ks-pair { left: 0; top: 0; }
-    #kuma-welcome .ks-pair::before, #kuma-welcome .ks-pair::after { position: absolute; left: 0; top: 0; animation: var(--motion, none); animation-composition: var(--composition, replace); }
+    #kuma-welcome .ks-pair::before, #kuma-welcome .ks-pair::after { position: absolute; left: 0; top: 0; animation: var(--motion, none); }
     #kuma-welcome .ks-pair::before {
-      content: ''; --x0: var(--a-x0); --y0: var(--a-y0); --x1: var(--a-x1); --y1: var(--a-y1); --sw: var(--a-sw);
-      --motion: var(--a-motion, none); --composition: var(--a-composition, replace); --size: var(--a-size); --op: var(--a-op); --still: var(--a-still, none);
+      content: ''; --x0: var(--a-x0);
+      --motion: var(--a-motion, none); --size: var(--a-size); --op: var(--a-op);
       --left: var(--a-left); --top: var(--a-top); --width: var(--a-width); --dx: var(--a-dx); animation-direction: var(--a-direction, normal);
     }
     #kuma-welcome .ks-pair::after {
-      content: ''; --x0: var(--b-x0); --y0: var(--b-y0); --x1: var(--b-x1); --y1: var(--b-y1); --sw: var(--b-sw);
-      --motion: var(--b-motion, none); --composition: var(--b-composition, replace); --size: var(--b-size, 0px); --op: var(--b-op); --still: var(--b-still, none);
+      content: ''; --x0: var(--b-x0);
+      --motion: var(--b-motion, none); --size: var(--b-size, 0px); --op: var(--b-op);
       --left: var(--b-left); --top: var(--b-top); --width: var(--b-width); --dx: var(--b-dx); animation-direction: var(--b-direction, normal);
     }
     #kuma-welcome .ks-rain::before, #kuma-welcome .ks-rain::after { width: 1.5px; height: var(--size); background: linear-gradient(to bottom, transparent, var(--rain)); opacity: var(--op); }
-    #kuma-welcome .ks-snow::before, #kuma-welcome .ks-snow::after {
+    #kuma-welcome .ks-snow {
+      position: absolute; left: 0; top: 0;
       width: var(--size); height: var(--size); margin-left: calc(var(--size) * -.5); border-radius: 50%;
-      background: radial-gradient(circle, var(--snow) 0%, var(--snow) 38%, transparent 72%); opacity: var(--op); transform: var(--still);
+      background: radial-gradient(circle, var(--snow) 0%, var(--snow) 38%, transparent 72%); opacity: var(--op);
     }
     #kuma-welcome .ks-firework, #kuma-welcome .ks-fw-gravity { width: 0; height: 0; }
     #kuma-welcome .ks-firework > div, #kuma-welcome .ks-fw-gravity > div { position: absolute; left: 0; top: 0; }
@@ -2689,23 +2695,20 @@
     #kuma-welcome .ks-fw-sparks::after { --angle: var(--b-angle); --radius: var(--b-radius); --c: var(--b-c); }
     #kuma-welcome .ks-fw-reflection { position: absolute; inset: auto; width: 100px; height: 60px; opacity: .4; }
     #kuma-welcome .ks-current::before, #kuma-welcome .ks-current::after { left: var(--left); top: var(--top); width: var(--width); height: 1px; background: linear-gradient(90deg, transparent, var(--current), transparent); }
-    #kuma-welcome .ks-pumpkin-halo { border-radius: 50%; background: radial-gradient(circle, var(--pk-halo) 0%, transparent 58%); }
-    #kuma-welcome .ks-pumpkin-glow { border-radius: 50%; background: radial-gradient(ellipse at center, var(--pk-halo) 0%, transparent 66%); opacity: .5; }
+    #kuma-welcome .ks-pumpkin-light { border-radius: 50%; background: radial-gradient(circle, var(--pk-halo) 0%, transparent 58%); }
+    #kuma-welcome .ks-pumpkin-glow { border-radius: 50%; background: radial-gradient(ellipse at center, var(--pk-halo) 0%, transparent 66%); opacity: .5; --fade-to: .5; }
     #kuma-welcome .ks-snowbank { fill: var(--ground); stroke: var(--tree-snow); stroke-width: 1.2; stroke-opacity: .3; }
     #kuma-welcome .ks-wire { stroke: var(--wire); stroke-width: 1.2; }
     #kuma-welcome .ks-star { position: absolute; width: 26px; height: 26px; }
-    #kuma-welcome .ks-star::before { content: ''; position: absolute; left: 50%; top: 50%; width: 70px; height: 70px; margin: -35px 0 0 -35px; border-radius: 50%; background: radial-gradient(circle, var(--star) 0%, transparent 62%); opacity: .45; }
-    #kuma-welcome .ks-bulbs { inset: 0; }
-    #kuma-welcome .ks-bulbs::before, #kuma-welcome .ks-bulbs::after {
-      content: ''; position: absolute; width: 7px; height: 10px; border-radius: 3px 3px 4px 4px;
-      background: radial-gradient(circle at 50% 35%, var(--welcome-white) 0%, var(--c) 58%); animation: var(--motion, none);
+    #kuma-welcome .ks-star-light::before { content: ''; position: absolute; left: 50%; top: 50%; width: 70px; height: 70px; margin: -35px 0 0 -35px; border-radius: 50%; background: radial-gradient(circle, var(--star) 0%, transparent 62%); opacity: .45; }
+    #kuma-welcome .ks-bulb-on { position: absolute; width: 7px; height: 10px; }
+    #kuma-welcome .ks-bulb {
+      width: 100%; height: 100%; border-radius: 3px 3px 4px 4px;
+      background: radial-gradient(circle at 50% 35%, var(--welcome-white) 0%, var(--c) 58%);
       box-shadow: 0 0 12px 5px color-mix(in srgb, var(--c) 50%, transparent);
     }
-    #kuma-welcome .ks-bulbs::before { left: var(--a-x); top: var(--a-y); --c: var(--a-c); --motion: var(--a-motion, none); }
-    #kuma-welcome .ks-bulbs::after { left: var(--b-x); top: var(--b-y); --c: var(--b-c); --motion: var(--b-motion, none); }
-    #kuma-welcome .ks-bulbs:not([style*="--b-x"])::after { content: none; }
     #kuma-welcome .ks-grid {
-      left: 0; top: 0; width: 1680px; height: 100%; opacity: .55;
+      left: 0; top: 0; width: 1680px; height: 100%; opacity: .55; --fade-to: .55;
       background-image: linear-gradient(to right, var(--line-soft) 1px, transparent 1px), linear-gradient(to bottom, var(--line-soft) 1px, transparent 1px);
       background-size: 80px 80px; mask-image: radial-gradient(ellipse 60% 70% at 47.6% 50%, var(--welcome-mask) 20%, transparent 80%);
     }
@@ -2714,10 +2717,12 @@
     #kuma-welcome .ks-route { top: -.5px; height: 1px; background: var(--line); }
     #kuma-welcome .ks-route-done { background: var(--gold); transform-origin: 0 50%; }
     #kuma-welcome .ks-lamp { width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--bg0); }
-    #kuma-welcome .ks-lamp:not(.ks-lamp-empty)::before {
+    #kuma-welcome .ks-lamp-current-light { position: absolute; inset: -1.5px; }
+    #kuma-welcome .ks-lamp-done::before, #kuma-welcome .ks-lamp-current-light::before {
       content: ''; position: absolute; inset: -1.5px; border-radius: 50%; background: var(--c); animation: var(--lamp-motion, none);
       box-shadow: 0 0 12px 5px color-mix(in srgb, var(--c) 50%, transparent);
     }
+    #kuma-welcome .ks-lamp-current-light::before { inset: 0; }
 
 
     /* 定稿的分段缓动取样：不在关键帧里声明 animation-timing-function。 */
@@ -2825,7 +2830,7 @@
       94.000% { opacity: 1.0000; transform: translateY(-6.935px) rotate(calc(6.165deg + var(--rot))); }
       96.000% { opacity: 1.0000; transform: translateY(-5.582px) rotate(calc(4.961deg + var(--rot))); }
       98.000% { opacity: 1.0000; transform: translateY(-3.474px) rotate(calc(3.088deg + var(--rot))); }
-      100% { transform: translateY(0.000px) rotate(calc(0.000deg + var(--rot))); }
+      100% { opacity: 1; transform: translateY(0.000px) rotate(calc(0.000deg + var(--rot))); }
     }
     @keyframes kuma-season-petal-land {
       0.000% { opacity: 0.0000; transform: translate(calc(var(--land-x) + calc(var(--lx) * 1.000000 + calc(var(--lx) * -.35) * 0.000000)), calc(-9px + calc(-190px * 1.000000 + -60px * 0.000000))) rotate(calc(calc(var(--rf) + 220deg) * 1.000000 + calc(var(--rf) + 90deg) * 0.000000)); }
@@ -2879,7 +2884,7 @@
       94.130% { opacity: 1.0000; transform: translate(calc(var(--land-x) + calc(calc(var(--lx) * -.35) * 0.019145 + 0px * 0.980855)), calc(-9px + calc(-60px * 0.019145 + 0px * 0.980855))) rotate(calc(calc(var(--rf) + 90deg) * 0.019145 + var(--rf) * 0.980855)); }
       96.087% { opacity: 1.0000; transform: translate(calc(var(--land-x) + calc(calc(var(--lx) * -.35) * 0.008359 + 0px * 0.991641)), calc(-9px + calc(-60px * 0.008359 + 0px * 0.991641))) rotate(calc(calc(var(--rf) + 90deg) * 0.008359 + var(--rf) * 0.991641)); }
       98.043% { opacity: 1.0000; transform: translate(calc(var(--land-x) + calc(calc(var(--lx) * -.35) * 0.002053 + 0px * 0.997947)), calc(-9px + calc(-60px * 0.002053 + 0px * 0.997947))) rotate(calc(calc(var(--rf) + 90deg) * 0.002053 + var(--rf) * 0.997947)); }
-      100% { transform: translate(calc(var(--land-x) + 0px), calc(-9px + 0px)) rotate(var(--rf)); }
+      100% { opacity: 1; transform: translate(calc(var(--land-x) + 0px), calc(-9px + 0px)) rotate(var(--rf)); }
     }
     @keyframes kuma-season-fw-trail {
       0.000% { transform: translateY(calc(var(--rise) * 1.000000 + 0px * 0.000000)); }
@@ -2990,48 +2995,48 @@
       100% { transform: rotate(var(--angle)) translateX(var(--radius)); }
     }
 
-    @keyframes kuma-season-fade { from { opacity: 0; } }
+    @keyframes kuma-season-fade { 0% { opacity: 0; } 100% { opacity: var(--fade-to, 1); } }
     @keyframes kuma-season-twinkle { 0%, 100% { opacity: .8; } 50% { opacity: .15; } }
-    @keyframes kuma-season-fall { from { transform: translate(var(--x0), var(--y0)); } to { transform: translate(var(--x1), var(--y1)); } }
+    @keyframes kuma-season-fall { 0% { transform: translate(var(--x0), var(--y0)); } 100% { transform: translate(var(--x1), var(--y1)); } }
     @keyframes kuma-season-sway { 0%, 100% { transform: translateX(calc(var(--sw) * -1)); } 50% { transform: translateX(var(--sw)); } }
-    @keyframes kuma-season-sun-rise { from { transform: translateY(var(--rise)); } }
+    @keyframes kuma-season-sun-rise { 0% { transform: translateY(var(--rise)); } 100% { transform: translateY(0); } }
     @keyframes kuma-season-bean-x { 0% { transform: translateX(var(--x0)); } 78% { transform: translateX(var(--x1)); } 100% { transform: translateX(var(--x2)); } }
-    @keyframes kuma-season-bean-spin { from { transform: rotate(calc(var(--rot) + var(--spin))); } to { transform: rotate(var(--rot)); } }
+    @keyframes kuma-season-bean-spin { 0% { transform: rotate(calc(var(--rot) + var(--spin))); } 100% { transform: rotate(var(--rot)); } }
     @keyframes kuma-season-nudge { 0% { transform: translateY(0); } 35% { transform: translateY(2px); } 100% { transform: translateY(0); } }
-    @keyframes kuma-season-rise { from { transform: translate(var(--x), var(--y0)); } to { transform: translate(var(--x), var(--y1)); } }
+    @keyframes kuma-season-rise { 0% { transform: translate(var(--x), var(--y0)); } 100% { transform: translate(var(--x), var(--y1)); } }
     @keyframes kuma-season-rise-o { 0% { opacity: 0; } 12%, 75% { opacity: var(--op); } 100% { opacity: 0; } }
-    @keyframes kuma-season-grow-x { from { transform: scaleX(0); } }
-    @keyframes kuma-season-grow-y { from { transform: scaleY(0); } }
-    @keyframes kuma-season-bow-pop { from { transform: translate(var(--bx), var(--by)) scale(0) rotate(-28deg); } to { transform: translate(var(--bx), var(--by)); } }
+    @keyframes kuma-season-grow-x { 0% { transform: scaleX(0); } 100% { transform: scaleX(1); } }
+    @keyframes kuma-season-grow-y { 0% { transform: scaleY(0); } 100% { transform: scaleY(1); } }
+    @keyframes kuma-season-bow-pop { 0% { transform: translate(var(--bx), var(--by)) scale(0) rotate(-28deg); } 100% { transform: translate(var(--bx), var(--by)); } }
     @keyframes kuma-season-bow-sway { 0%, 100% { transform: rotate(0deg); } 30% { transform: rotate(3deg); } 70% { transform: rotate(-2deg); } }
     @keyframes kuma-season-flutter { 0% { transform: rotate(var(--r0)) rotateY(0deg); } 50% { transform: rotate(calc(var(--r0) + 180deg)) rotateY(170deg); } 100% { transform: rotate(calc(var(--r0) + 360deg)) rotateY(360deg); } }
-    @keyframes kuma-season-rain { from { transform: translate(var(--x0), -130px) rotate(14deg); } to { transform: translate(calc(var(--x0) - 270px), 990px) rotate(14deg); } }
+    @keyframes kuma-season-rain { 0% { transform: translate(var(--x0), -130px) rotate(14deg); } 100% { transform: translate(calc(var(--x0) - 270px), 990px) rotate(14deg); } }
     @keyframes kuma-season-ripple { 0% { transform: scale(.06); opacity: 0; } 6% { opacity: .85; } 100% { transform: scale(1); opacity: 0; } }
-    @keyframes kuma-season-teru-drop { from { transform: translateY(var(--from)); } }
+    @keyframes kuma-season-teru-drop { 0% { transform: translateY(var(--from)); } 100% { transform: translateY(0); } }
     @keyframes kuma-season-teru-swing { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(4.5deg); } 75% { transform: rotate(-4.5deg); } }
     @keyframes kuma-season-fw-trail-o { 0% { opacity: 0; } 2%, 23% { opacity: .9; } 26%, 100% { opacity: 0; } }
     @keyframes kuma-season-fw-flash { 0%, 24% { transform: scale(.2); opacity: 0; } 26% { transform: scale(.6); opacity: .8; } 38%, 100% { transform: scale(1.3); opacity: 0; } }
     @keyframes kuma-season-fw-gravity { 0%, 25% { transform: translateY(0); } 85%, 100% { transform: translateY(30px); } }
     @keyframes kuma-season-fw-spark-o { 0%, 25% { opacity: 0; } 26% { opacity: 1; } 55% { opacity: .85; } 80%, 100% { opacity: 0; } }
     @keyframes kuma-season-fw-reflection { 0%, 25% { opacity: 0; } 31% { opacity: .6; } 60% { opacity: .3; } 85%, 100% { opacity: 0; } }
-    @keyframes kuma-season-drift { to { transform: translateX(var(--dx)); } }
-    @keyframes kuma-season-swim { from { transform: translate(var(--sx0), var(--fish-y)); } to { transform: translate(var(--sx1), var(--fish-y)); } }
-    @keyframes kuma-season-bob { from { transform: translateY(-4px); } to { transform: translateY(4px); } }
-    @keyframes kuma-season-wig { from { transform: rotate(-1.3deg); } to { transform: rotate(1.3deg); } }
+    @keyframes kuma-season-drift { 0% { transform: translateX(0); } 100% { transform: translateX(var(--dx)); } }
+    @keyframes kuma-season-swim { 0% { transform: translate(var(--sx0), var(--fish-y)); } 100% { transform: translate(var(--sx1), var(--fish-y)); } }
+    @keyframes kuma-season-bob { 0% { transform: translateY(-4px); } 100% { transform: translateY(4px); } }
+    @keyframes kuma-season-wig { 0% { transform: rotate(-1.3deg); } 100% { transform: rotate(1.3deg); } }
     @keyframes kuma-season-glint { 0% { opacity: 0; } 3% { opacity: calc(var(--op) * .9); } 8%, 100% { opacity: 0; } }
-    @keyframes kuma-season-pk-wake { from { opacity: .4; } }
-    @keyframes kuma-season-pk-appear { from { opacity: 0; } to { opacity: .4; } }
+    @keyframes kuma-season-pk-wake { 0% { opacity: .4; } 100% { opacity: 1; } }
+    @keyframes kuma-season-pk-appear { 0% { opacity: 0; } 100% { opacity: 1; } }
     @keyframes kuma-season-pk-ignite { 0% { opacity: 0; } 18% { opacity: .9; } 30% { opacity: .15; } 46% { opacity: 1; } 60% { opacity: .5; } 100% { opacity: 1; } }
     @keyframes kuma-season-pk-flicker { 0%, 100% { opacity: 1; } 23% { opacity: .8; } 41% { opacity: .96; } 57% { opacity: .76; } 79% { opacity: .93; } }
     @keyframes kuma-season-bat-fly { 0% { transform: translate(var(--x0), var(--y0)) scale(.35); opacity: 0; } 12% { opacity: 1; } 38% { transform: translate(var(--x1), var(--y1)) scale(.7); } 70% { transform: translate(var(--x2), var(--y2)) scale(.95); } 88% { opacity: 1; } 100% { transform: translate(var(--x3), var(--y3)) scale(1.1); opacity: 0; } }
     @keyframes kuma-season-bat-cross { 0% { transform: translate(-90px, var(--cy)); opacity: 1; } 14% { transform: translate(380px, calc(var(--cy) - 40px)); } 28% { transform: translate(800px, calc(var(--cy) + 10px)); } 42% { transform: translate(1220px, calc(var(--cy) - 30px)); } 56% { transform: translate(1700px, var(--cy)); opacity: 1; } 57%, 100% { transform: translate(1700px, var(--cy)); opacity: 0; } }
-    @keyframes kuma-season-flap { from { transform: scaleY(1); } to { transform: scaleY(.32); } }
-    @keyframes kuma-season-tree-in { from { opacity: 0; transform: translate(var(--tree-x), calc(var(--tree-y) + 16px)); } to { opacity: 1; transform: translate(var(--tree-x), var(--tree-y)); } }
-    @keyframes kuma-season-star-pop { from { transform: scale(0) rotate(-50deg); opacity: 0; } }
+    @keyframes kuma-season-flap { 0% { transform: scaleY(1); } 100% { transform: scaleY(.32); } }
+    @keyframes kuma-season-tree-in { 0% { opacity: 0; transform: translate(var(--tree-x), calc(var(--tree-y) + 16px)); } 100% { opacity: 1; transform: translate(var(--tree-x), var(--tree-y)); } }
+    @keyframes kuma-season-star-pop { 0% { transform: scale(0) rotate(-50deg); opacity: 0; } 100% { transform: scale(1) rotate(0deg); opacity: 1; } }
     @keyframes kuma-season-star-twinkle { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
     @keyframes kuma-season-bulb-on { 0% { opacity: 0; } 30% { opacity: 1; } 50% { opacity: .3; } 100% { opacity: 1; } }
     @keyframes kuma-season-bulb-twinkle { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
-    @keyframes kuma-season-grid-drift { from { transform: translateX(0); } to { transform: translateX(-80px); } }
+    @keyframes kuma-season-grid-drift { 0% { transform: translateX(0); } 100% { transform: translateX(-80px); } }
     @keyframes kuma-season-lamp-on { 0% { opacity: 0; } 30% { opacity: 1; } 50% { opacity: .3; } 100% { opacity: 1; } }
     @keyframes kuma-season-lamp-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
     @keyframes kuma-season-lamp-wave { 0%, 100% { transform: scale(1); } 35% { transform: scale(1.7); } }

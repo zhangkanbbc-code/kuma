@@ -243,6 +243,11 @@ export const buildFleetRuleContext = (
       if (key && !ctypes.has(key)) ctypes.set(key, ctype)
     }
   }
+  // 2610Bw2 原文把「丁型海防舰」与具名舰混列；它没有同名级名舰。
+  // 维护者以 api_start2 核对：第四号、第三〇号、第二十二号及其改均为 ctype 104。
+  if ((masterRaw?.api_mst_ship ?? []).some((ship: any) => ship.api_ctype === 104)) {
+    ctypes.set(foldToken('丁型海防舰'), 104)
+  }
   // 国籍 → 成员：编号段判定与装备加成、图鉴筛选共用 shared/ship-nationality 那一份
   const shipsByNationality = new Map<number, number[]>()
   for (const ship of masterRaw?.api_mst_ship ?? []) {
@@ -460,7 +465,7 @@ const EXTRA_SLOT = /其他|其它|另外|另1|另一|再[携带带編编]|追加
  */
 const CHOOSE_AMONG = new RegExp([
   String.raw`${NUM}\s*[选選]\s*${NUM}`,
-  String.raw`[之其]?中\s*(?:的)?\s*(?:至少|任意|任选|任選)?\s*${NUM}\s*(?:[艘只隻名个個位]|以上)`,
+  String.raw`[之其]?中\s*(?:的)?\s*(?:合计|合計|共计|共計|总计|總計)?\s*(?:至少|任意|任选|任選)?\s*${NUM}\s*(?:[艘只隻名个個位]|以上)`,
   String.raw`[之其]中\s*(?:的)?\s*(?:至少|任意|任选|任選)?\s*${NUM}(?![-0-9])`,
   '任选', '任選', '任意一[艘只隻名]', '其中之一', '中的一[个個艘只隻]', '选[其一]',
   String.raw`凑\s*${NUM}`, '中至少', '任意的?[一二三四]',
@@ -471,7 +476,7 @@ const chooseAmount = (folded: string): number | null => {
   const pick = folded.match(new RegExp(String.raw`${NUM}\s*[选選]\s*${NUM}`))
   if (pick) return parseCount(pick[2])
   const among = folded.match(new RegExp(
-    String.raw`[之其]?中\s*(?:的)?\s*(?:至少|任意|任选|任選)?\s*${NUM}\s*(?:[艘只隻名个個位]|以上)`,
+    String.raw`[之其]?中\s*(?:的)?\s*(?:合计|合計|共计|共計|总计|總計)?\s*(?:至少|任意|任选|任選)?\s*${NUM}\s*(?:[艘只隻名个個位]|以上)`,
   ))
   if (among) return parseCount(among[1])
   const heap = folded.match(new RegExp(String.raw`凑\s*${NUM}`))
@@ -703,6 +708,8 @@ const matchNationRun = (
   const tail = folded.slice(at).replace(/^[\s（(][^）)]{0,8}[）)]/, (match) => ' '.repeat(match.length))
   const suffix = tail.match(NATION_SUFFIX)
   if (!suffix) return null
+  // 「名单中3艘以上的美国舰队」的国籍是队伍称呼，不是名单之外的另一组候选。
+  if (/^[队隊]/.test(tail.slice(suffix[0].length))) return null
   const ships = ctx.nationalityShips(natIds)
   return ships.length ? { end: at + (folded.length - at - tail.length) + suffix[0].length, ships } : null
 }
@@ -735,7 +742,8 @@ const scanEntities = (
       // **空格不算分隔符**——外文舰名自带它（Ark Royal、Samuel B.Roberts、Gambier Bay），
       // 把空格挡在外面这些舰就永远认不出来（Cy1/B185 实测各漏一艘，凑数集因此偏小、门变严）。
       // 索引那把钥匙（foldToken）本来就把空格去掉了，两边对得上。
-      if (/[、/+,。「」『』【】（）()0-9]/.test(raw)) continue
+      // 伊201、伊400 等舰名里的数字交给舰名索引核对，不能在查表前排除。
+      if (/[、/+,。「」『』【】（）()]/.test(raw)) continue
       if (FREE_TOKENS.includes(raw)) { consumed = len; break }
       // 队名**先于舰名**匹配：正文写「第三十二驱逐队」时，成员来自注册表那一份，
       // 不靠 memo2 替游戏正文补名单。同样走最长匹配，队名比舰名长，天然占先。
@@ -750,6 +758,13 @@ const scanEntities = (
           squad: true,
           squadApprox: squadHit.approx,
         })
+        consumed = len
+        break
+      }
+      // 非级名舰命名的舰型也作为一个具名候选原子，不能退成泛称「海防舰」。
+      const namedClass = /(?:型|级)(?:海防舰)?$/.test(raw) ? ctx.ctypeOf(raw) : null
+      if (namedClass) {
+        hits.push({ start: i, end: i + len, ships: [], stypes: [], ctypes: [namedClass], noise: false })
         consumed = len
         break
       }
@@ -937,8 +952,15 @@ const readClause = (clause: string, ctx: FleetRuleContext, squad: SquadResolve):
   // 按编成信号过滤会把这句整个跳过，只留下前一句的「配以「高波改」」——
   // 三选一就成了「必须带高波改」（实测被拦 36 队）。
   const namedHits = hits.filter((hit) => !hit.noise && (hit.ships.length || hit.ctypes?.length))
-  const chosen = namedHits.length ? chooseAmount(folded) : null
-  if (namedHits.length && CHOOSE_AMONG.test(folded)) {
+  const namedTail = namedHits.length ? folded.slice(namedHits[namedHits.length - 1].end) : ''
+  const specified = namedHits.length ? folded.slice(0, namedHits[0].start).match(new RegExp(
+    String.raw`(?:包含|含有|编入)\s*${NUM}\s*${UNIT}\s*(?:以上)?\s*(?:的)?指定舰娘\s*[（(「『【]*\s*$`,
+  )) : null
+  // 「名单为旗舰以及N艘伴随舰以上」与「名单中N+1艘作为旗舰和伴随舰」是同一道门。
+  const companions = namedTail.match(new RegExp(String.raw`^[」』】”\s]*(?:为|作(?:为)?)旗舰(?:以及|及|和|与)\s*${NUM}\s*${UNIT}\s*(?:伴随舰|僚舰)(?:以上)?`)) ??
+    namedTail.match(new RegExp(String.raw`^[」』】”\s]*中的(?:一|1)艘为旗舰\s*并配备其中\s*${NUM}\s*${UNIT}(?:以上)?为僚舰`))
+  const chosen = companions ? parseCount(companions[1]) + 1 : specified ? parseCount(specified[1]) : namedHits.length ? chooseAmount(folded) : null
+  if (namedHits.length && (CHOOSE_AMONG.test(folded) || companions || specified)) {
     // 数不出来就整条弃用——宁可不装门，也不猜一个可能偏严的 N
     if (chosen == null || chosen > namedHits.length) {
       return { atoms: [], blocked: true, blockedByOr: false, unread: false }
@@ -962,7 +984,7 @@ const readClause = (clause: string, ctx: FleetRuleContext, squad: SquadResolve):
         stypes: [],
         amount: chosen,
         counted: true,
-        flagship: false,
+        flagship: Boolean(companions) || /其(?:中)?(?:的)?(?:一|1)(?:[艘只隻名])?(?:为|作(?:为)?)旗舰|作(?:为)?旗舰(?:和|及|与)(?:伴随(?:舰)?|僚舰)/.test(namedTail),
         extraSlot: false,
         chosen: true,
         nation: false,
@@ -1258,6 +1280,8 @@ const shipsOfAtom = (atom: Atom, ctx: FleetRuleContext): number[] =>
 
 const readText = (raw: string, ctx: FleetRuleContext, squad: SquadResolve): TextRead => {
   const text = unwrapWikiLinks(`${raw ?? ''}`.normalize('NFKC'))
+    // 「同一名单一艘旗舰，另外 N 艘僚舰」的指代不能被逗号切成两个独立名单。
+    .replace(new RegExp(String.raw`(中的(?:一|1)艘为旗舰)[，,](?=\s*并配备其中\s*${NUM}\s*${UNIT}(?:以上)?为僚舰)`, 'g'), '$1 ')
   let collected: Atom[] = []
   let blocked = false
   let blockedByOr = false

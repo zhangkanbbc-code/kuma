@@ -62,6 +62,7 @@ export const LEDGER_PERMANENT_TABLES = [
   'seasonal_exchange_log',
   'quest_observations',
   'seasonal_archive',
+  'seasonal_backfill_state',
   'event_map_catalog',
   'fit_observations',
 ] as const

@@ -937,7 +937,7 @@ export interface LodeMeta {
 }
 const lodeCache = new Map<string, { meta: LodeMeta; data: any } | null>()
 const lodeRequests = new Map<string, Promise<{ meta: LodeMeta; data: any } | null>>()
-export const queryLode = async (id: string): Promise<{ meta: LodeMeta; data: any } | null> => {
+export const queryLode = async (id: string): Promise<{ meta: LodeMeta; data: any; unnumbered?: import('../shared/quest-claims').QuestScnPack['unnumbered'] } | null> => {
   if (lodeCache.has(id)) return lodeCache.get(id) ?? null
   const pending = lodeRequests.get(id)
   if (pending) return pending

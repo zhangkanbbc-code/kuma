@@ -1,0 +1,272 @@
+{
+  "api_result": 1,
+  "api_result_msg": "成功",
+  "api_data": {
+    "api_mst_shipgraph": [
+      {
+        "api_battle_d": [
+          150,
+          245
+        ],
+        "api_battle_n": [
+          135,
+          181
+        ],
+        "api_boko_d": [
+          10,
+          242
+        ],
+        "api_boko_n": [
+          98,
+          179
+        ],
+        "api_ensyue_n": [
+          112,
+          0
+        ],
+        "api_ensyuf_d": [
+          128,
+          177
+        ],
+        "api_ensyuf_n": [
+          115,
+          150
+        ],
+        "api_filename": "erhlwuihpcnw",
+        "api_id": 966,
+        "api_kaisyu_d": [
+          82,
+          23
+        ],
+        "api_kaisyu_n": [
+          40,
+          14
+        ],
+        "api_kaizo_d": [
+          29,
+          61
+        ],
+        "api_kaizo_n": [
+          100,
+          64
+        ],
+        "api_map_d": [
+          128,
+          229
+        ],
+        "api_map_n": [
+          118,
+          159
+        ],
+        "api_pa": [
+          0,
+          0
+        ],
+        "api_pab": [
+          0,
+          0
+        ],
+        "api_sortno": 566,
+        "api_version": [
+          "51",
+          "1",
+          "718"
+        ],
+        "api_weda": [
+          226,
+          -15
+        ],
+        "api_wedb": [
+          121,
+          197
+        ]
+      },
+      {
+        "api_battle_d": [
+          43,
+          31
+        ],
+        "api_battle_n": [
+          109,
+          40
+        ],
+        "api_boko_d": [
+          124,
+          37
+        ],
+        "api_boko_n": [
+          187,
+          36
+        ],
+        "api_ensyue_n": [
+          193,
+          0
+        ],
+        "api_ensyuf_d": [
+          -4,
+          -48
+        ],
+        "api_ensyuf_n": [
+          193,
+          27
+        ],
+        "api_filename": "snohitatusbk",
+        "api_id": 1,
+        "api_kaisyu_d": [
+          42,
+          10
+        ],
+        "api_kaisyu_n": [
+          42,
+          10
+        ],
+        "api_kaizo_d": [
+          43,
+          -48
+        ],
+        "api_kaizo_n": [
+          105,
+          -46
+        ],
+        "api_map_d": [
+          -19,
+          22
+        ],
+        "api_map_n": [
+          43,
+          36
+        ],
+        "api_pa": [
+          0,
+          0
+        ],
+        "api_pab": [
+          0,
+          0
+        ],
+        "api_sortno": 31,
+        "api_version": [
+          "54",
+          "19",
+          "718"
+        ],
+        "api_weda": [
+          168,
+          162
+        ],
+        "api_wedb": [
+          217,
+          229
+        ]
+      }
+    ],
+    "api_mst_ship": [
+      {
+        "api_afterbull": 800,
+        "api_afterfuel": 1100,
+        "api_afterlv": 40,
+        "api_aftershipid": "735",
+        "api_backs": 6,
+        "api_broken": [
+          9,
+          16,
+          43,
+          10
+        ],
+        "api_buildtime": 330,
+        "api_bull_max": 70,
+        "api_ctype": 69,
+        "api_fuel_max": 65,
+        "api_getmes": "Lexington級航空母艦Name ship、USS Lexingtonです。Lady <br>Lex とも呼ばれているわ。太平洋艦隊に配属され、日本空母<br>機動部隊と対峙したわ。Admiral、私の事もよろしく頼むわね。",
+        "api_houg": [
+          30,
+          46
+        ],
+        "api_id": 966,
+        "api_leng": 2,
+        "api_luck": [
+          15,
+          70
+        ],
+        "api_maxeq": [
+          27,
+          19,
+          19,
+          15,
+          0
+        ],
+        "api_name": "Lexington",
+        "api_powup": [
+          2,
+          0,
+          4,
+          5
+        ],
+        "api_raig": [
+          0,
+          0
+        ],
+        "api_slot_num": 4,
+        "api_soku": 10,
+        "api_sort_id": 32101,
+        "api_sortno": 566,
+        "api_souk": [
+          40,
+          64
+        ],
+        "api_stype": 11,
+        "api_taik": [
+          84,
+          94
+        ],
+        "api_tyku": [
+          36,
+          72
+        ],
+        "api_voicef": 1,
+        "api_yomi": "レキシントン"
+      }
+    ],
+    "api_mst_slotitem": [
+      {
+        "api_atap": 0,
+        "api_bakk": 0,
+        "api_baku": 0,
+        "api_broken": [
+          0,
+          1,
+          1,
+          0
+        ],
+        "api_houg": 1,
+        "api_houk": 0,
+        "api_houm": 0,
+        "api_id": 1,
+        "api_leng": 1,
+        "api_luck": 0,
+        "api_name": "12cm単装砲",
+        "api_raig": 0,
+        "api_raik": 0,
+        "api_raim": 0,
+        "api_rare": 0,
+        "api_sakb": 0,
+        "api_saku": 0,
+        "api_soku": 0,
+        "api_sortno": 1,
+        "api_souk": 0,
+        "api_taik": 0,
+        "api_tais": 0,
+        "api_tyku": 1,
+        "api_type": [
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        "api_usebull": "0",
+        "api_version": 2
+      }
+    ]
+  }
+}

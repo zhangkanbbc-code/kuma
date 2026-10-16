@@ -325,7 +325,8 @@ test('独立 renderer 与直读资料包的装配边界都安装或复用简化�
   assert.match(battleReplay, /queryLode\('opencc-t2s'\)/)
   assert.match(battleReplay, /installZhSimplifier\(opencc\)/)
   assert.match(battleReplay, /await Promise\.all\(\[[\s\S]*initLocalization\(\)/)
-  assert.match(questModule, /data:\s*simplifyQuestScnData\(scnLode\.data\)/)
+  // 任务库先以原日文标题认领，再简化合并后的中文字段；原包不就地转换。
+  assert.match(questModule, /const data = simplifyQuestScnData\(resolved\.data\)/)
   assert.match(eventModule, /simplifyQuestScnData\(\(catalog as any\)\.data\)/)
   assert.match(resourceModule, /simplifyQuestScnData\(questLode\.data\)/)
   assert.match(expeditionModule, /simplifyKcwikiExpeditionData\(localizationPack\.data\)/)

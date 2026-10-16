@@ -32,7 +32,7 @@ import { buildKumaQuestRules } from './kuma-quest-rules'
 import { buildFleetRuleContext, deriveFleetRule } from './quest-fleet-rules'
 import { buildMissionRuleContext, deriveMissionRule } from './quest-mission-rules'
 import { derivePracticeRule } from './quest-practice-rules'
-import { buildScrapRuleContext, deriveScrapRule } from './quest-scrap-rules'
+import { buildScrapRuleContext, deriveScrapPreparation, deriveScrapRule } from './quest-scrap-rules'
 import { buildSortieRuleContext, deriveSortieRule } from './quest-sortie-rules'
 import { applyQuestSourceConflicts } from './quest-source-conflicts'
 import { QUEST_TEXT_NOTES } from './quest-text-notes'
@@ -45,6 +45,8 @@ import {
 import { USEITEM_MATERIAL_INDEX } from '../../shared/useitem-stock'
 import { sortieEligibleDecks } from '../../shared/quest-fleet-eligibility'
 import { isEnemyReallySunk } from '../../shared/enemy-sunk'
+import { resolveQuestClaims } from '../../shared/quest-claims'
+import type { QuestClaim, QuestScnPack } from '../../shared/quest-claims'
 
 import type { QuestPeriodKind } from '../../shared/quest-period'
 import type { QuestGoalNameIndex } from '../../shared/quest-goal-name'
@@ -84,7 +86,7 @@ export interface QuestApiContext {
 // 名字与真模块保持一致（ledger / store / getLode），引擎正文因此一个字都不用改。
 
 export interface QuestEngineHost {
-  getLode: (id: string) => { meta?: unknown; data?: unknown } | null
+  getLode: (id: string) => (QuestScnPack & { meta?: unknown }) | null
   ledger: Pick<
     (typeof import('./ledger'))['default'],
     'loadSnapshot' | 'loadQuestProgress' | 'saveQuestProgress' | 'deleteQuestProgress'
@@ -221,10 +223,25 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
   let progress: Record<number, number[]> = {}
   let progressUpdated: Record<number, number> = {}
   let progressLoaded = false
+  // 账本 domain 已保存 questlist 的标题/类别；重启回灌后由 reconcile 重推，
+  // 不另存认领映射，也不向任务包或维护者定号表回写。
+  let claimed: QuestClaim[] = []
+  let lastMasterRaw: any = null
+
+  const currentQuestCatalog = () => resolveQuestClaims(
+    getLode('quests-scn'), Object.values(store.getState().player.quests),
+  )
 
   const initQuestCounter = (masterOverride: any = null, notifyRenderers = false) => {
     trackers.clear()
-    const scn = getLode('quests-scn')
+    const catalog = currentQuestCatalog()
+    for (const claim of catalog.claims) {
+      if (!claimed.some(previous => previous.no === claim.no && previous.code === claim.code && previous.title === claim.title)) {
+        console.log(`[kuma] qp: 任务认领 ${claim.no} ↔ ${claim.code} ↔ ${claim.title}`)
+      }
+    }
+    claimed = catalog.claims
+    const scn = { ...getLode('quests-scn'), data: catalog.data }
     const kcwikiPack = getLode('kcwiki-quest-req')
     const poiPack = getLode('poi-quest-goal')
     const expeditionPack = getLode('kcwiki-expedition')
@@ -233,7 +250,8 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
     // 各自整条待裁——不补一个 0 号边冒充，见 quest-map-nodes。
     const fcdPack = getLode('poi-fcd-map')
     const snapshot = ledger.loadSnapshot('/kcsapi/api_start2/getData')
-    const masterRaw = masterOverride ?? (snapshot ? (snapshot.body as any)?.api_data ?? snapshot.body : null)
+    const masterRaw = masterOverride ?? (snapshot ? (snapshot.body as any)?.api_data ?? snapshot.body : lastMasterRaw)
+    lastMasterRaw = masterRaw
     if (masterRaw) rebuildMasterIndex(masterRaw)
     const kcwikiContext = buildKcwikiRuleContext(masterRaw)
     const poiContext = buildPoiQuestContext(masterRaw, expeditionPack?.data)
@@ -366,6 +384,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
           const memo2 = `${raw?.memo2 ?? ''}`
           const derived = deriveScrapRule(desc, memo2, scrapContext, questId)
           if (!derived?.tasks.length) continue
+          const prepared = deriveScrapPreparation(desc, memo2, scrapContext)
           // 废弃类**也带编成门**，但它在这一类里是「完成条件」不是「计数条件」：
           // 游戏的廃棄计数与编成无关（destroyitem2 那条分支不查 fleetGoal，EO 同口径），
           // 而 F136「以早波作第一舰队旗舰，为他配备3艘以上第三十二驱逐队」这类
@@ -380,8 +399,9 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
             tasks: derived.tasks,
             source: 'kuma',
             fleetGoal: fleet?.fleetGoal,
+            ...(prepared?.stockGoals.length ? { stockGoals: prepared.stockGoals } : {}),
             approx: derived.approx,
-            partial: false,
+            partial: prepared?.partial ?? false,
             period: periodByQuest.get(questId)?.period ?? null,
             sameDay: sameDayOf(questId),
             annualMonth: periodByQuest.get(questId)?.annualMonth ?? null,
@@ -667,6 +687,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
   // 状态快照在计数引擎模块初始化之后才回灌；对外提供一次显式复核，
   // 让离线启动也能修掉“旧精确数与较新的游戏状态矛盾”的记录。
   const reconcileQuestProgress = () => {
+    if (JSON.stringify(currentQuestCatalog().claims) !== JSON.stringify(claimed)) initQuestCounter(null, true)
     resetExpiredProgress()
     repairContradictedCompleteProgress()
   }
@@ -841,6 +862,7 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
     }
     if (goal.kind === 'useitem') {
       // 单一出处：见 shared/useitem-stock（铃的推定通道同一份，改这边别忘那边）
+      if (goal.id === 44) return player.basic?.furnitureCoins ?? null
       const index = USEITEM_MATERIAL_INDEX[goal.id]
       return index !== undefined
         ? player.materials?.[index] ?? null
@@ -1023,6 +1045,8 @@ export const createQuestEngine = (host: QuestEngineHost): QuestEngine => {
     }
 
     if (apiPath === '/kcsapi/api_get_member/questlist') {
+      // store 已把本帧标题/类别归约进状态；只在认领映射变化时重装同一条规则链。
+      if (JSON.stringify(currentQuestCatalog().claims) !== JSON.stringify(claimed)) initQuestCounter()
       resetExpiredProgress()
       const tabId = parseInt(`${post.api_tab_id ?? -1}`, 10)
       if (tabId === 0 || tabId === 9) repairContradictedCompleteProgress()

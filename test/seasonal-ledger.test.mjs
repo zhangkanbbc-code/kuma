@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import test from 'node:test'
 import { DatabaseSync } from 'node:sqlite'
 import ledgerModule from '../dist/main/mg/seasonal-ledger.js'
 import campaign from '../dist/shared/seasonal-campaign.js'
 import html from '../dist/shared/seasonal-history-html.js'
 import retention from '../dist/shared/ledger-retention.js'
+import bodyRetention from '../dist/main/mg/slotitem-body-retention.js'
 
 const { SeasonalLedger } = ledgerModule
 const fixture = JSON.parse(fs.readFileSync(new URL('./fixtures/pumpkin-ledger-20261014.json', import.meta.url)))
@@ -14,17 +17,22 @@ const master = {
   api_mst_useitem: [{ api_id: 96, api_name: '南瓜' }, { api_id: 58, api_name: '改装設計図' }, { api_id: 57, api_name: '勲章' }, { api_id: 68, api_name: '秋刀魚' }],
   api_mst_slotitem: [{ api_id: 138, api_name: '二式大艇' }, { api_id: 312, api_name: '二式陸上偵察機(熟練)' }, { api_id: 478, api_name: '熟練甲板要員+航空整備員' }],
 }
-const make = t => {
-  const db = new DatabaseSync(':memory:')
-  db.exec(`CREATE TABLE events(id INTEGER PRIMARY KEY, ts INTEGER, path TEXT, body TEXT, post_body TEXT);
-    CREATE INDEX idx_events_path ON events(path);
-    CREATE TABLE useitem_log(ts INTEGER, item_id INTEGER, delta INTEGER, total INTEGER, cause TEXT);
-    CREATE TABLE event_archive(area_id INTEGER PRIMARY KEY, opened INTEGER, closed INTEGER, stats TEXT);
-    CREATE TABLE material_log(ts INTEGER); CREATE TABLE material_delta(ts INTEGER); CREATE TABLE battle_snapshots(ts INTEGER); CREATE TABLE notify_log(ts INTEGER);`)
+const open = (file = ':memory:') => {
+  const db = new DatabaseSync(file)
+  db.exec(`CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, path TEXT, body TEXT, post_body TEXT);
+    CREATE INDEX IF NOT EXISTS idx_events_path ON events(path);
+    CREATE TABLE IF NOT EXISTS useitem_log(ts INTEGER, item_id INTEGER, delta INTEGER, total INTEGER, cause TEXT);
+    CREATE TABLE IF NOT EXISTS event_archive(area_id INTEGER PRIMARY KEY, opened INTEGER, closed INTEGER, stats TEXT);
+    CREATE TABLE IF NOT EXISTS material_log(ts INTEGER); CREATE TABLE IF NOT EXISTS material_delta(ts INTEGER);
+    CREATE TABLE IF NOT EXISTS battle_snapshots(ts INTEGER); CREATE TABLE IF NOT EXISTS notify_log(ts INTEGER);`)
   const book = new SeasonalLedger(db, no => `中文任务 ${no}`)
   book.setMaster(master)
-  t.after(() => db.close())
   return { db, book }
+}
+const make = (t, file) => {
+  const result = open(file)
+  t.after(() => result.db.close())
+  return result
 }
 const put = (db, event) => db.prepare('INSERT INTO events(ts,path,body,post_body) VALUES (?,?,?,?)').run(event.ts, event.path, JSON.stringify(event.body), JSON.stringify(event.post ?? {}))
 const log = (db, ts, delta, cause, id = 96) => db.prepare('INSERT INTO useitem_log VALUES (?,?,?,?,?)').run(ts, id, delta, 0, cause)
@@ -35,6 +43,117 @@ const seed = db => {
 const list = (ts, no, title = '【期間限定任務】南瓜任務', detail = '') => ({ ts, path: '/kcsapi/api_get_member/questlist', post: { api_tab_id: '0' }, body: { api_data: { api_list: [{ api_no: no, api_title: title, api_detail: detail }] } } })
 const ctx = { nameOf: r => ({ 'useitem:58': '改装设计图', 'slotitem:138': '二式大艇' }[`${r.kind}:${r.id}`] ?? '未识别'), time: ts => `时刻${ts}` }
 const finish = (book, over = {}) => book.settle({ now: catalog.expiresAt + 1000, stock: {}, stockTs: catalog.expiresAt + 1, quests: [], questsTs: catalog.expiresAt + 1, ...over })
+const projection = db => ['quest_observations', 'seasonal_exchange_log', 'seasonal_archive', 'event_archive']
+  .map(table => db.prepare(`SELECT * FROM ${table} ORDER BY 1, 2`).all().map(row => {
+    // 实时报文可先于历史被观测，seen_times 的插入顺序不影响其时刻集合。
+    return row.seen_times == null ? row : { ...row, seen_times: JSON.stringify(JSON.parse(row.seen_times).sort((a, b) => a - b)) }
+  }))
+
+test('回填一半关闭磁盘账本，重启只读后半；批间实时观测四类报文与一次回填结果相同', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-seasonal-resume-'))
+  let resumedDb
+  t.after(() => { resumedDb?.close(); fs.rmSync(dir, { recursive: true, force: true }) })
+  const file = path.join(dir, 'ledger.sqlite')
+  const events = [
+    ...Array.from({ length: 24 }, (_, i) => list(catalog.startsAt + 1000 + i, 1119)),
+    ...fixture.events,
+    { ts: fixture.events.at(-1).ts + 1000, path: '/kcsapi/api_req_kaisou/powerup',
+      post: { api_id: '42', api_useitem_id: '96', api_useitem_count: '2' }, body: { api_data: { api_ship: { api_ship_id: 100 } } } },
+  ]
+  const baseline = make(t)
+  for (const event of events) put(baseline.db, event)
+  await baseline.book.startBackfill()
+  const first = open(file)
+  try {
+    for (const event of events.slice(0, 24)) put(first.db, event)
+    assert.equal(first.book.backfillBatch(), false)
+    // 模拟 setImmediate 两批之间到来的实时写入；不能用新 id 跳过尚未回填的旧行。
+    for (const event of events.slice(24)) { put(first.db, event); first.book.observe(event) }
+    first.book.observe(events[23])
+    first.book.stop()
+  } finally { first.db.close() }
+  const restarted = open(file)
+  resumedDb = restarted.db
+  const observed = []
+  const observe = restarted.book.observe.bind(restarted.book)
+  restarted.book.observe = event => { observed.push(event.ts); observe(event) }
+  await restarted.book.startBackfill()
+  assert.deepEqual(observed, events.slice(10).map(event => event.ts), '不能重新解析已提交的前十条，也不能跳过实时写入之前的旧行')
+  assert.deepEqual(projection(restarted.db), projection(baseline.db))
+  assert.deepEqual(restarted.book.current({}, events.at(-1).ts), baseline.book.current({}, events.at(-1).ts))
+  const completed = new SeasonalLedger(restarted.db)
+  completed.setMaster(master)
+  completed.observe = () => assert.fail('已完成的历史不应再次 observe')
+  await completed.startBackfill()
+})
+
+test('进度写入失败时整批投影回滚；同一实例重试不跳过失败批次', async t => {
+  const { db, book } = make(t)
+  for (let i = 0; i < 20; i++) put(db, list(catalog.startsAt + i, 1119))
+  assert.equal(book.backfillBatch(), false)
+  const before = projection(db)
+  db.exec(`CREATE TRIGGER fail_progress BEFORE UPDATE ON seasonal_backfill_state
+    BEGIN SELECT RAISE(ABORT, 'progress write failed'); END;`)
+  assert.throws(() => book.backfillBatch(), /progress write failed/)
+  assert.deepEqual(projection(db), before)
+  assert.equal(db.prepare('SELECT event_id FROM seasonal_backfill_state WHERE id = 1').get().event_id, 10)
+  db.exec('DROP TRIGGER fail_progress')
+  await book.startBackfill()
+  assert.equal(db.prepare('SELECT event_id FROM seasonal_backfill_state WHERE id = 1').get().event_id, 20)
+  assert.equal(JSON.parse(db.prepare('SELECT seen_times FROM quest_observations').get().seen_times).length, 20)
+})
+
+test('批次中途解析失败时投影和进度都回滚，修复后重启不漏记', async t => {
+  const { db, book } = make(t)
+  for (let i = 0; i < 20; i++) put(db, list(catalog.startsAt + i, 1119))
+  book.backfillBatch()
+  const before = projection(db)
+  const body = db.prepare('SELECT body FROM events WHERE id = 12').get().body
+  db.exec("UPDATE events SET body = '{' WHERE id = 12")
+  assert.throws(() => book.backfillBatch(), SyntaxError)
+  assert.deepEqual(projection(db), before)
+  assert.equal(db.prepare('SELECT event_id FROM seasonal_backfill_state WHERE id = 1').get().event_id, 10)
+  db.prepare('UPDATE events SET body = ? WHERE id = 12').run(body)
+  const restarted = new SeasonalLedger(db)
+  await restarted.startBackfill()
+  assert.equal(JSON.parse(db.prepare('SELECT seen_times FROM quest_observations').get().seen_times).length, 20)
+})
+
+test('prune 删除游标所在行与中间行、装备正文瘦身后，仍按 id 下界续填并保留新报文', async t => {
+  const { db, book } = make(t)
+  const ts = catalog.startsAt
+  for (let i = 0; i < 10; i++) put(db, list(ts + i, 1119))
+  book.backfillBatch()
+  const kept = list(ts + 50 * 86_400_000, 1119)
+  put(db, list(ts + 10, 1119))
+  const slot = { ts: ts + 11, path: retention.SLOTITEM_BODY_PATH, body: { api_data: [] } }
+  put(db, slot)
+  put(db, kept)
+  put(db, { ...slot, ts: kept.ts })
+  assert.equal(bodyRetention.clearSlotitemBodyBatch(db, kept.ts).changes, 1)
+  assert.equal(db.prepare('SELECT body FROM events WHERE id = 12').get().body, null)
+  for (const step of retention.planLedgerPrune({ retentionDays: 7, now: ts + 40 * 86_400_000 })) {
+    db.prepare(`DELETE FROM ${step.table} WHERE ts >= ? AND ts < ?`).run(step.from, step.to)
+  }
+  assert.equal(db.prepare('SELECT id FROM events WHERE id = 10').get(), undefined)
+  const restarted = new SeasonalLedger(db)
+  const observed = []
+  const observe = restarted.observe.bind(restarted)
+  restarted.observe = event => { observed.push(event.ts); observe(event) }
+  await restarted.startBackfill()
+  assert.deepEqual(observed, [kept.ts])
+  assert.equal(db.prepare('SELECT event_id FROM seasonal_backfill_state WHERE id = 1').get().event_id, 13)
+  const before = projection(db)
+  db.exec('DELETE FROM events')
+  const fresh = list(kept.ts + 1, 1119)
+  assert.equal(Number(put(db, fresh).lastInsertRowid), 15, '与生产库一样，清空后 AUTOINCREMENT 不复用旧 id')
+  const next = new SeasonalLedger(db)
+  await next.startBackfill()
+  assert.equal(next.backfillDone, true)
+  assert.equal(db.prepare('SELECT event_id FROM seasonal_backfill_state WHERE id = 1').get().event_id, 15)
+  assert.equal(projection(db)[0].length, before[0].length)
+  assert.equal(JSON.parse(db.prepare('SELECT seen_times FROM quest_observations WHERE last_seen = ?').get(fresh.ts).seen_times).length, 2)
+})
 
 test('旧questlist正文置空后重启回填：永久任务观测逐字段不变，领奖正文仍在', async t => {
   const { db, book } = make(t)
@@ -114,6 +233,8 @@ test('建表回填可重入；重复实时报文不重复记；清掉全部滚�
   const { db, book } = make(t)
   seed(db)
   await book.startBackfill()
+  // 主动丢掉进度，继续验证真正的重复回填仍幂等，而不是只走续填的空批。
+  db.exec('DELETE FROM seasonal_backfill_state')
   const second = new SeasonalLedger(db)
   second.setMaster(master)
   await second.startBackfill()
@@ -125,7 +246,7 @@ test('建表回填可重入；重复实时报文不重复记；清掉全部滚�
   finish(second)
   const h = second.archives()[0]
   assert.deepEqual([h.gained, h.spent, h.receipts.length, h.quests.length], [5, 3, 1, 3])
-  for (const table of ['seasonal_exchange_log', 'quest_observations', 'seasonal_archive']) assert.ok(retention.LEDGER_PERMANENT_TABLES.includes(table))
+  for (const table of ['seasonal_exchange_log', 'quest_observations', 'seasonal_archive', 'seasonal_backfill_state']) assert.ok(retention.LEDGER_PERMANENT_TABLES.includes(table))
 })
 
 test('结束须到期、零库存与新完整任务全集；未接受任务仍挡住结账；结账后迟到事实可更新', async t => {

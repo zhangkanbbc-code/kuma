@@ -26,6 +26,7 @@ export interface LodeMeta {
 interface LodePack {
   meta: LodeMeta
   data: unknown
+  unnumbered?: import('../shared/quest-claims').QuestScnPack['unnumbered']
 }
 
 interface CachedPack {

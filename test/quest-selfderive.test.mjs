@@ -62,6 +62,8 @@ const fleetCtx = fleet.buildFleetRuleContext(fleetMaster, fleetLocalization)
 const histCtx = fleet.buildFleetRuleContext(histFleetMaster, histFleetLocalization)
 const kcwiki = (await bundleModule('src/main/mg/kcwiki-quest-rules.ts', 'kcwiki-quest-rules')).module
 const questPack = readLode('quests-scn')
+// 季节页已移出的旧任务保留原文夹具，继续验证当年的评价、点位与资源门行为。
+const retiredQuests = JSON.parse(fs.readFileSync(new URL('./fixtures/quests-scn-retired-20261016.json', import.meta.url), 'utf8')).data
 const fcdPack = readLode('poi-fcd-map')
 const fcd = fcdPack?.data ?? null
 // 带点位的那一半要靠 poi-fcd 算边号；没有包时只有纯海域那一半解得出来
@@ -482,7 +484,7 @@ test('全库跑一遍：结构不变式处处成立，覆盖面不塌方', {
 
 // ---- 演习类：从中文正文推导 ----
 
-const questRow = (questId) => questPack?.data?.[questId] ?? {}
+const questRow = (questId) => retiredQuests[questId] ?? questPack?.data?.[questId] ?? {}
 const drill = (questId) => {
   const row = questRow(questId)
   return practice.derivePracticeRule(

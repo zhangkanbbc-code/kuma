@@ -1317,14 +1317,15 @@ const validateWikiwikiExpeditions = (data: unknown): string | null => {
   return null
 }
 
-const validateScnQuests = (data: unknown): string | null => {
+const validateScnQuests = (data: unknown, unnumbered = false): string | null => {
   if (!isRecord(data)) return 'quests-scn 必须是对象'
   const entries = Object.entries(data)
   if (entries.length > 5_000) return 'quests-scn 条目过多'
   for (const [id, raw] of entries) {
     if (
-      !SAFE_NUMERIC_ID.test(id) ||
+      !(unnumbered ? isString(id, 100) : SAFE_NUMERIC_ID.test(id)) ||
       !isRecord(raw) ||
+      (unnumbered && (raw.code !== id || !isString(raw.titleJa, 1_000))) ||
       !isText(raw.code, 100) ||
       !isString(raw.name, 1_000) ||
       !isString(raw.desc, 10_000) ||
@@ -2719,6 +2720,7 @@ export interface ValidatedLodePack {
     [key: string]: unknown
   }
   data: unknown
+  unnumbered?: import('../shared/quest-claims').QuestScnPack['unnumbered']
 }
 
 export const validateLodePack = (
@@ -2755,5 +2757,10 @@ export const validateLodePack = (
   if (boundedError) return { ok: false, error: boundedError }
   const error = validator(value.data)
   if (error) return { ok: false, error }
+  if (meta.id === 'quests-scn' && value.unnumbered !== undefined) {
+    const unnumberedError = validateBoundedJson(value.unnumbered, 'quests-scn.unnumbered') ||
+      validateScnQuests(value.unnumbered, true)
+    if (unnumberedError) return { ok: false, error: unnumberedError }
+  }
   return { ok: true, pack: value as unknown as ValidatedLodePack }
 }

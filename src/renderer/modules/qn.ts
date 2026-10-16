@@ -13,6 +13,8 @@ import type { EntityNameIndex, ShipNameEntry, ShipClassEntry } from '../task-ent
 // 本地事件流计数，与服务器进度可能有出入，游戏自报粗档并列展示作对照。
 import type { Quest } from '../../shared/mg-types'
 import { questCategoryLetterFromObserved, questPeriodFromObserved } from '../../shared/quest-observed'
+import { resolveQuestClaims } from '../../shared/quest-claims'
+import type { QuestScnPack } from '../../shared/quest-claims'
 import { expandFleetGoal, QP_BLOCK_TEXT, QP_RANK_NAME, qpTaskGroups } from '../../shared/qp-types'
 import { decksOnExpedition } from '../../shared/expedition-state'
 import { jstDate, jstDateToTs } from '../../shared/jst-day'
@@ -147,7 +149,8 @@ export interface LibQuest {
 
 let pane: HTMLElement
 const { ipcRenderer: qnIpc } = require('electron')
-let scnLode: { meta: LodeMeta; data: any } | null = null
+let scnLode: (QuestScnPack & { meta: LodeMeta }) | null = null
+let wwByCode = new Map<string, WwQuestPre>()
 let lib: Map<number, LibQuest> = new Map()
 let libByCode: Map<string, LibQuest> = new Map()
 let useitemNames: Map<number, string> = new Map() // 奖励道具关联用
@@ -594,6 +597,37 @@ const isObservedActive = (row: QRow): boolean => isQuestActive(row.id, row.obser
 let rowsCache: { key: string; rows: QRow[]; categoryCounts: Map<string, number> } | null = null
 const rowsCacheKey = () =>
   `${mg.questsTs ?? 0}|${mg.questsFullTs ?? 0}|${mg.questActiveTs ?? 0}|${lib.size}|${Object.keys(mg.quests).length}`
+
+// 初始化及 questlist 变化共用同一路径；先按原日文标题认领，再简化中文显示字段。
+const rebuildQuestLibrary = () => {
+  const resolved = resolveQuestClaims(scnLode, Object.values(mg.quests))
+  const data = simplifyQuestScnData(resolved.data)
+  lib = new Map()
+  libByCode = new Map()
+  rowsCache = null
+  invalidateQuestTextCache()
+  for (const [idStr, raw] of Object.entries<any>(data)) {
+    const entry: LibQuest = {
+      id: parseInt(idStr, 10), code: raw.code ?? '?', name: raw.name ?? '',
+      desc: raw.desc ?? '', memo: raw.memo ?? '', memo2: raw.memo2 ?? '',
+      pre: Array.isArray(raw.pre) ? raw.pre : [],
+    }
+    lib.set(entry.id, entry)
+    libByCode.set(entry.code, entry)
+  }
+  // 第二遍：知道全部库内码之后才能做合并（悬空判定需要全集）。
+  const knownCodes = new Set(libByCode.keys())
+  for (const entry of lib.values()) {
+    const merged = mergeQuestPre(
+      entry.pre,
+      wwByCode.get(entry.code),
+      knownCodes,
+      QUEST_PRE_ARBITRATION.get(entry.code),
+    )
+    entry.pre = merged.pre
+    entry.preInfo = merged
+  }
+}
 
 const buildRowsUncached = (): QRow[] => {
   const rows: QRow[] = []
@@ -3055,50 +3089,19 @@ registerModule({
       qp = await queryQp()
       quickCountEpoch += 1
       scnLode = await queryLode('quests-scn')
-      if (scnLode?.data) {
-        scnLode = { ...scnLode, data: simplifyQuestScnData(scnLode.data) }
-      }
       // wikiwiki 前提链（抓取时已 EO 公证对齐）：补 scn 缺口、修悬空码、标冲突
       const wwLode = await queryLode('wikiwiki-quests')
-      const wwByCode = new Map<string, WwQuestPre>(
+      wwByCode = new Map<string, WwQuestPre>(
         wwLode?.data && typeof wwLode.data === 'object'
           ? Object.entries<any>(wwLode.data).map(([code, raw]) => [code, raw as WwQuestPre])
           : [],
       )
-      lib = new Map()
-      libByCode = new Map()
-      invalidateQuestTextCache()
-      if (scnLode?.data) {
-        for (const [idStr, raw] of Object.entries<any>(scnLode.data)) {
-          const entry: LibQuest = {
-            id: parseInt(idStr, 10),
-            code: raw.code ?? '?',
-            name: raw.name ?? '',
-            desc: raw.desc ?? '',
-            memo: raw.memo ?? '',
-            memo2: raw.memo2 ?? '',
-            pre: Array.isArray(raw.pre) ? raw.pre : [],
-          }
-          lib.set(entry.id, entry)
-          libByCode.set(entry.code, entry)
-        }
-        // 第二遍：知道全部库内码之后才能做合并（悬空判定需要全集）
-        const knownCodes = new Set(libByCode.keys())
-        for (const entry of lib.values()) {
-          const merged = mergeQuestPre(
-            entry.pre,
-            wwByCode.get(entry.code),
-            knownCodes,
-            QUEST_PRE_ARBITRATION.get(entry.code),
-          )
-          entry.pre = merged.pre
-          entry.preInfo = merged
-        }
-      }
+      rebuildQuestLibrary()
       await refreshFleetCheck()
       deferPassive(pane, 'qn', render)
     })()
     onMgChange((keys) => {
+      if (keys.includes('quests')) rebuildQuestLibrary()
       // 主数据换了（首次落地、或活动开幕的新 start2）→ 九张反查索引整体重建。
       // 只在 mount 建一次的话，首次运行拿不到 master-raw 就整会话空着，
       // 活动新海域也永远认不出来。

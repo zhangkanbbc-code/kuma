@@ -45,7 +45,9 @@ test('随包两份来源分别覆盖 27 条标记和 42 条正文，取并集 48
   assert.equal(text.length, 42)
   assert.equal(new Set([...flagged, ...text]).size, 48)
   assert.equal(text.filter((id) => !flagged.includes(id)).length, 21)
-  for (const code of Object.keys(textOnlySamples)) {
+  // 2606Cw1 已从季节页移出；本次 2610Cw1 补回一条当日要求，总数不变。
+  const currentCodes = [...Object.keys(textOnlySamples).filter((code) => code !== '2606Cw1'), '2610Cw1']
+  for (const code of currentCodes) {
     assert.ok(text.some((id) => quests[id].code === code), code)
     assert.ok(!flagged.some((id) => quests[id].code === code), code)
   }

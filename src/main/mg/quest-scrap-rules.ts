@@ -38,7 +38,7 @@
 // 那是游戏原文的转录，不是谁的编码）。本文件下方的仲裁台账逐条写了依据。
 
 import { foldCjkVariants } from '../../shared/cjk-fold'
-import type { QpTask } from '../../shared/qp-types'
+import type { QpStockGoal, QpTask } from '../../shared/qp-types'
 
 // ---- 名称归一 ----
 //
@@ -81,7 +81,8 @@ export const normalizeEquipName = (raw: string): string => {
   text = dropQualifierBrackets(text)
   text = text.replace(/[★☆]\s*\+?\s*(?:\d+|max)?/gi, '')
   text = text.replace(STRIP_CHARS, '')
-  return foldCjkVariants(text).toLowerCase()
+  // 1131 的类别词及 2610F1 的整件装备名均把「爆雷」写作「暴雷」。
+  return foldCjkVariants(text).replace(/暴雷/g, '爆雷').toLowerCase()
 }
 
 // ---- 索引 ----
@@ -89,6 +90,8 @@ export const normalizeEquipName = (raw: string): string => {
 export interface ScrapRuleContext {
   /** 归一名 → 装备 mstId */
   equipByName: ReadonlyMap<string, number>
+  /** 准备项同样查主数据；装备、道具与资源分别落入既有持有条件。 */
+  stockByName: ReadonlyMap<string, QpStockGoal>
   /** 归一名 → 装备类别 id（api_type[2]）集合；多值表示这个名字指一族 */
   typeByName: ReadonlyMap<string, number[]>
   /** 归一名 → 「这是道具/资源，不是装备」；出现在废弃句里静默跳过 */
@@ -199,7 +202,20 @@ export const buildScrapRuleContext = (
     return null
   }
 
-  return { equipByName, typeByName, nonEquip, keyOfTypes }
+  const stockByName = new Map<string, QpStockGoal>()
+  for (const [name, id] of equipByName) stockByName.set(name, { kind: 'equip', id, label: name, count: 1 })
+  for (const item of masterRaw?.api_mst_useitem ?? []) {
+    for (const name of [item.api_name, itemZh[item.api_id]?.zh]) {
+      if (!name) continue
+      const key = normalizeEquipName(name)
+      if (!stockByName.has(key)) stockByName.set(key, { kind: 'useitem', id: item.api_id, label: name, count: 1 })
+    }
+  }
+  for (const [id, name] of ['燃料', '弹药', '钢材', '铝土'].entries()) {
+    stockByName.set(normalizeEquipName(name), { kind: 'material', id, label: name, count: 1 })
+  }
+  stockByName.set(normalizeEquipName('开发资材'), { kind: 'material', id: 6, label: '开发资材', count: 1 })
+  return { equipByName, stockByName, typeByName, nonEquip, keyOfTypes }
 }
 
 // ---- 正文解析 ----
@@ -612,4 +628,53 @@ export const deriveScrapRule = (
   if (!fromDesc) return fromMemo
   if (!fromMemo) return fromDesc
   return fromMemo.tasks.length >= fromDesc.tasks.length ? fromMemo : fromDesc
+}
+
+/** 「准备『A』『B』各N件」复用清单的动词归属与分配；读不全的部分保留 partial。 */
+export const deriveScrapPreparation = (
+  desc: string,
+  memo2: string,
+  ctx: ScrapRuleContext,
+): { stockGoals: QpStockGoal[]; partial: boolean } | null => {
+  const parse = (raw: string) => {
+    // 原口径（本次扩充前）：
+    // 这里只接明确的分配式准备清单，其它工厂写法仍由既有规则处理。
+    // 现在增加逐项「名称 N 个」准备清单；仍只接显式准备动词。
+    const distributed = new RegExp(String.raw`(?:准备|準備|备好|備好)(?:好)?\s*(?:[「『【“"][^」』】”"]+[」』】”"]\s*[、,，]?\s*){2,}各\s*${COUNT}`)
+    if (!distributed.test(raw) && !/(?:准备|準備|备好|備好)(?:好)?\s*[「『【“"][^」』】”"]+[」』】”"]\s*\d+\s*个/.test(raw)) return null
+    const stockGoals: QpStockGoal[] = []
+    let partial = false
+    const pending: string[] = []
+    // 千分位不是列举分隔符；消耗说明不是另一份准备清单。
+    const text = raw.normalize('NFKC').replace(/(\d),(?=\d{3}(?:\D|$))/g, '$1')
+      .replace(/[（(](?:任务|任務)(?:达成|達成|完成)[^）)]*[）)]/g, '')
+      .replace(/[（(](?:准备|準備)的[^）)]*(?:消耗|消失)[^）)]*[）)]/g, '')
+      .replace(/枚/g, '个')
+    for (const sentence of text.split(/[。．！!？?\n]/)) {
+      if (ADVICE_SENTENCE.test(sentence)) continue
+      for (const segment of segmentsOf(sentence, 'none')) {
+        if (segment.verb !== 'prepare') continue
+        const clean = segment.text.replace(/^好/, '')
+        if (!clean.trim()) continue
+        const { names, alt } = namesIn(clean)
+        if (alt) partial = true
+        pending.push(...names)
+        const count = countIn(clean)
+        if (!count) continue
+        const selected = count.distributed ? pending.splice(0) : pending.splice(-1)
+        for (const name of selected) {
+          const goal = ctx.stockByName.get(normalizeEquipName(name))
+          if (goal && !alt) stockGoals.push({ ...goal, label: name, count: count.count })
+          else partial = true
+        }
+      }
+    }
+    return { stockGoals, partial: partial || pending.length > 0 || !stockGoals.length }
+  }
+  const fromDesc = parse(desc)
+  const fromMemo = parse(memo2)
+  if (!fromDesc) return fromMemo
+  if (!fromMemo) return fromDesc
+  if (fromDesc.partial !== fromMemo.partial) return fromDesc.partial ? fromMemo : fromDesc
+  return fromMemo.stockGoals.length > fromDesc.stockGoals.length ? fromMemo : fromDesc
 }

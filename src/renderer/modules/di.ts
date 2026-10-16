@@ -1606,7 +1606,7 @@ const outcomeBannerHtml = (s: SortieView): string => {
   }
   if (b.kind === 'airbattle') {
     return `<div class="verdict v-green"><span class="ic">☑</span><span class="tx">
-      <b>航空战预测 ${esc(predictedRank)}${p.sure ? '' : '（预估）'} · 敌方损失 ${p.eGauge}% · 我方损失 ${p.fGauge}%</b>
+      <b>航空战预测 ${esc(predictedRank)}${p.sure ? '' : '（预估）'} · 我方损失 ${p.fGauge}% · 敌方损失 ${p.eGauge}%</b>
     </span><span class="act">预测 ${esc(predictedRank)}</span></div>`
   }
   const sunkInfo = `${b.practice ? '击破判定' : '击沉'} ${p.eSunk}/${p.eCount}`
@@ -1646,7 +1646,7 @@ const outcomeBannerHtml = (s: SortieView): string => {
   })()
   return `<div class="verdict v-green"><span class="ic">☑</span><span class="tx">
     <b>${esc(battleForecastLead(b))}预测 ${esc(predictedRank)}${p.sure ? '' : '（预估）'}${engagement ? ` · ${esc(engagement)}` : ''} · ${sunkInfo} · ${remainTxt}</b>
-    <span>敌方损失 ${p.eGauge}% · 我方损失 ${p.fGauge}%${nightHint}</span>
+    <span>我方损失 ${p.fGauge}% · 敌方损失 ${p.eGauge}%${nightHint}</span>
   </span><span class="act">预测 ${esc(predictedRank)}</span></div>`
 }
 
@@ -2331,7 +2331,7 @@ const resultStripHtml = (b: BattleView): string => {
   const primaryMetric = damageOnly
     ? `<span class="rchip">我方损失 <b>${p.fGauge}%</b></span>`
     : aviationOnly
-      ? `<span class="rchip">损害比 <b>敌 ${p.eGauge}% / 我 ${p.fGauge}%</b></span>`
+      ? `<span class="rchip">损害比 <b>我 ${p.fGauge}% / 敌 ${p.eGauge}%</b></span>`
       : `<span class="rchip">${sunkLabel} <b>${p.eSunk}/${p.eCount}</b></span>`
   const rankSource = '判定来源：游戏结算'
   // 「主力/护卫」前缀只在联合舰队才有意义——单舰队全队就是全队，

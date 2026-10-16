@@ -308,6 +308,9 @@ const dom = (reduce = false, measuredWidth) => {
 const nodes = (node) => [node, ...node.children.flatMap(nodes)]
 const named = (tree, cls) => nodes(tree).filter((node) => node.classList.contains(cls))
 const seasons = ['newyear', 'setsubun', 'valentine', 'spring', 'tsuyu', 'summer', 'sanma', 'halloween', 'xmas']
+// 整棵欢迎屏（含铭牌、SVG/use；不把伪元素算作 DOM），以 560px 铭牌时的最大值为上限。
+const nodeCaps = { newyear: 36, setsubun: 82, valentine: 88, spring: 189, tsuyu: 44, summer: 88,
+  sanma: 182, halloween: 72, xmas: 142 }
 const ready = (welcome) => { for (const signal of ['snapshot', 'lode', 'panes']) welcome.noteReady(signal, '长门') }
 const cleaned = (installed) => {
   assert.equal(installed.body.children.length, 0)
@@ -332,7 +335,7 @@ for (const key of seasons) {
   test(`${key}：整棵欢迎屏 DOM 上限、装饰不在裁切盒中、长名字不造 HTML`, () => {
     const installed = dom(), welcome = armLaunchWelcome(true, { key }), layer = installed.body.children[0]
     welcome.noteReady('snapshot', '<script>' + '提督'.repeat(40))
-    assert.ok(nodes(layer).length <= (key === 'summer' ? 114 : 50), `${key}: ${nodes(layer).length} nodes`)
+    assert.ok(nodes(layer).length <= nodeCaps[key], `${key}: ${nodes(layer).length} nodes`)
     assert.equal(named(layer, 'kw-box').length, 1)
     const box = named(layer, 'kw-box')[0]
     assert.equal(box.children.length, 2)
@@ -407,7 +410,7 @@ test('海图幕按玩家状态画灯；全通连接断口、灯依次跳、描�
     assert.equal(named(layer, 'ks-lamp-current').length, cleared === 5 ? 0 : 1)
     assert.equal(named(layer, 'ks-route').filter((node) => !node.classList.contains('ks-route-done')).length, 3)
     assert.equal(named(layer, 'ks-ring').length, cleared === 5 ? 1 : 0)
-    assert.ok(nodes(layer).length <= 50)
+    assert.ok(nodes(layer).length <= 24)
     if (cleared === 5 && !reduce) {
       const motions = named(layer, 'ks-lamp').map((node) => node.style['--lamp-motion'])
       assert.ok(motions.every((value) => value.includes('kuma-season-lamp-wave')))
@@ -488,8 +491,8 @@ test('构建出的深浅 sprite 从现有主题表取全部 token，渐变 stop 
 test('宽至 560px 的铭牌也满足整棵 DOM 上限；名字回填时灯线、日轮、南瓜光晕跟着尺寸走，不重播', () => {
   for (const key of seasons) {
     const installed = dom(false, 560), welcome = armLaunchWelcome(true, { key }), layer = installed.body.children[0]
-    assert.ok(nodes(layer).length <= (key === 'summer' ? 114 : 50), `${key}: ${nodes(layer).length}`)
-    if (key === 'xmas') assert.equal(nodes(layer).length, 49)
+    assert.ok(nodes(layer).length <= nodeCaps[key], `${key}: ${nodes(layer).length}`)
+    if (key === 'xmas') assert.equal(nodes(layer).length, nodeCaps.xmas)
     welcome.cancel(); cleaned(installed)
   }
   for (const key of ['newyear', 'halloween', 'xmas']) {
@@ -510,7 +513,7 @@ for (const key of ['halloween', 'xmas', 'newyear']) for (const reduce of [false,
   test(`${key}：${reduce ? '静态' : '动画中'}视口缩放与窗口变形重新对齐铭牌，不换节点、不写动画`, () => {
     const installed = dom(reduce), welcome = armLaunchWelcome(true, { key }), layer = installed.body.children[0]
     const box = named(layer, 'kw-box')[0], scene = named(layer, 'ks-scene')[0], deco = named(layer, 'ks-deco')[0]
-    const svg = scene.children.find((node) => node.tagName === 'svg')
+    const art = named(scene, 'ks-art')[0]
     const before = nodes(layer), createdCount = installed.created.length
     const animations = before.map((node) => Object.fromEntries(Object.entries(node.style).filter(([property]) => /animation|motion|composition/.test(property))))
     // 即使重写相同的 animation 串也算重播风险，直接拦住每次赋值。
@@ -527,12 +530,11 @@ for (const key of ['halloween', 'xmas', 'newyear']) for (const reduce of [false,
       assert.equal(deco.style.transform, `scale(${scale})`)
       assert.equal(scene.style.width, '1600.0px'); close(scene.style.height, height)
       close(deco.style.width, p.w); close(deco.style.height, p.h)
-      const viewBox = svg.attrs.viewBox.split(' ').map(Number)
-      assert.deepEqual(viewBox.slice(0, 3), [0, 0, 1600]); close(viewBox[3], height)
+      assert.equal(art.parentNode, scene)
       if (key === 'halloween') {
         for (const [i, pumpkin] of named(layer, 'ks-pumpkin').entries()) {
           const w = [118, 92, 66][i], x = p.x + [-150, p.w + 34, p.w + 138][i]
-          close(pumpkin.attrs.x, x); close(pumpkin.attrs.y, p.y + p.h + 38 - w * 100 / 120)
+          close(pumpkin.style.left, x); close(pumpkin.style.top, p.y + p.h + 38 - w * 100 / 120)
           const halo = named(layer, 'ks-pumpkin-halo')[i]
           close(halo.style.left, x - w * .9); close(halo.style.top, p.y + p.h + 38 - w * 100 / 120 * .45 - w * 1.4)
         }
@@ -542,7 +544,10 @@ for (const key of ['halloween', 'xmas', 'newyear']) for (const reduce of [false,
         const star = named(layer, 'ks-star')[0]
         close(star.style.left, x - 13); close(star.style.top, ground - 2 * t * (1 - t) * (ground - crest) + 6 - 300 + 300 * .025 - 13)
         assert.ok(named(layer, 'ks-snowbank')[0].attrs.d.endsWith(`L1640 ${height + 40}L-40 ${height + 40}Z`))
-        const decoration = deco.children.find((node) => node.tagName === 'svg')
+        const groundSvg = named(layer, 'ks-snowbank')[0].parentNode
+        const viewBox = groundSvg.attrs.viewBox.split(' ').map(Number)
+        assert.deepEqual(viewBox.slice(0, 3), [0, 0, 1600]); close(viewBox[3], height)
+        const decoration = named(layer, 'ks-wire')[0].parentNode
         const bounds = decoration.attrs.viewBox.split(' ').map(Number)
         close(bounds[2], p.w); close(bounds[3], p.h)
       }

@@ -1460,6 +1460,7 @@ const detectQuests = () => {
 const stockGoalCurrent = (goal: QpStockGoal): number | null => {
   if (goal.kind === 'material') return mg.materials?.[goal.id] ?? null
   if (goal.kind === 'useitem') {
+    if (goal.id === 44) return mg.basic?.furnitureCoins ?? null
     // 单一出处（shared/useitem-stock）：三处各抄一份 {1:5,2:4,3:6,4:7} 的话，
     // 将来扩 31-34 资源类 useitem 时改漏一处，铃的推定通道就和主进程静默分家
     return USEITEM_MATERIAL_INDEX[goal.id] != null

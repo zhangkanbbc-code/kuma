@@ -28,6 +28,7 @@ const { installArtArchive } = require('./art-archive')
 const { installAssetArchive } = require('./asset-archive')
 const { installBgmArchive } = require('./bgm-archive')
 const { installXhrHack } = require('./xhr-hack')
+const { createShipgraphCoordinateReader } = require('./shipgraph-coordinates')
 const { installCaptionDodge } = require('./caption-dodge')
 
 // 这个 bridge 对（不可信的）游戏页面上任何脚本都可达，交给广播器前必须校验输入。
@@ -136,6 +137,7 @@ contextBridge.exposeInMainWorld('kumaPreloadBridge', {
     ipcRenderer.send('kuma:game-api', 'error', { pathname, responseURL, status })
   },
   resolveHackedResource: createResourceResolver(remote),
+  getShipgraphCoordinates: createShipgraphCoordinateReader(remote),
   isNetworkAlertDisabled: () => config.get('kuma.disablenetworkalert', false),
   getHomepageHost: () => {
     // normalizeGameUrl 已经把「配置里那条认不出」归到默认上，所以这里拿到的
