@@ -45,7 +45,7 @@ test('南瓜企划带上今年的兑换目录，名字解析成主数据 id', ()
         choices: [[{ kind: 'useitem', id: 4, count: 4 }, { kind: 'useitem', id: 3, count: 6 }]],
       },
       {
-        key: 'party', jpName: 'Halloween Party 2026', cost: 14, limit: 1,
+        key: 'party', jpName: 'Halloween Party 2026', exchangeType: 101, cost: 14, limit: 1,
         choices: [
           [{ kind: 'useitem', id: 58, count: 4 }],
           [{ kind: 'slotitem', id: 138, count: 1 }, { kind: 'slotitem', id: 312, count: 2 }],

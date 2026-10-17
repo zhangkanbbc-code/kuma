@@ -600,7 +600,7 @@ class Ledger {
     }
     // V15 两步同样幂等；V13 未完成时仍留 12，允许下次一起重跑。
     this.db.exec(`PRAGMA user_version = ${questProgressV13 ? 15 : 12}`)
-    this.seasonal = new SeasonalLedger(this.db, no => (getLode('quests-scn')?.data as any)?.[`${no}`]?.name ?? '')
+    this.seasonal = new SeasonalLedger(this.db, no => (getLode('quests-scn')?.data as any)?.[`${no}`]?.name ?? '', getLode)
     this.seasonal.setMaster((this.loadSnapshot('/kcsapi/api_start2/getData')?.body as any)?.api_data ?? {})
     this.slotitemBodyRetention = new SlotitemBodyRetention(this.db, DB_PATH,
       () => config.get(SLOTITEM_BODY_RETENTION_CONFIG, false) === true)

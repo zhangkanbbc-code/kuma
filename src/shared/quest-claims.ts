@@ -21,10 +21,10 @@ export interface QuestClaim {
   title: string
 }
 
-/** 只由游戏观测重推，不修改原包或定号表；标题仅 trim，先判唯一再判类别。 */
+/** 只由游戏观测重推，不修改原包或定号表；标题仅 trim，先判唯一，有类别时再校验类别。 */
 export const resolveQuestClaims = (
   pack: QuestScnPack | null,
-  observed: Iterable<{ no: number; title: string; category: number }>,
+  observed: Iterable<{ no: number; title: string; category?: number }>,
 ): { data: Record<string, QuestScnEntry>; claims: QuestClaim[] } => {
   const data = { ...(pack?.data as Record<string, QuestScnEntry> ?? {}) }
   const claims: QuestClaim[] = []
@@ -36,8 +36,11 @@ export const resolveQuestClaims = (
     const matches = candidates.filter(entry => entry.titleJa.trim() === title)
     if (matches.length !== 1) continue
     const entry = matches[0]
-    const category = questCategoryLetterFromObserved(quest.category)
-    if (!category || questCodeFamily(entry.code) !== category) continue
+    // 旧账本只留标题；缺类别仍须逐字且唯一，不从编号或说明猜类别。
+    if (quest.category != null) {
+      const category = questCategoryLetterFromObserved(quest.category)
+      if (!category || questCodeFamily(entry.code) !== category) continue
+    }
     const { titleJa: _titleJa, ...numbered } = entry
     data[quest.no] = numbered
     claims.push({ no: quest.no, code: entry.code, title })

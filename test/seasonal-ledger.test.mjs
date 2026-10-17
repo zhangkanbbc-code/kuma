@@ -288,6 +288,125 @@ test('任务按季独立：每日压缩首末时刻，窗口内领奖才完成�
   assert.equal(book.tasks(summer + 1200, summer + 1800).length, 0, '首末见到之间没有观测，不能推成整个时段都出现过')
 })
 
+test('Party 类型101：观测即记成本14和本季记录，同步扣14后不重复计数', async t => {
+  const { db, book } = make(t)
+  await book.startBackfill()
+  const ts = catalog.startsAt + 10000
+  const event = { ts, path: '/kcsapi/api_req_member/itemuse', post: { api_useitem_id: '96', api_exchange_type: '101' }, body: { api_data: { api_getitem: [
+    { api_slotitem: { api_slotitem_id: 138, api_count: 1 } },
+    { api_slotitem: { api_slotitem_id: 312, api_count: 2 } },
+  ] } } }
+  book.observe(event)
+  assert.deepEqual({ ...db.prepare('SELECT recipe, exchange_type, cost FROM seasonal_exchange_log').get() }, { recipe: 'party', exchange_type: 101, cost: 14 })
+  const before = book.current({}, ts)[0]
+  assert.deepEqual(before.uses, [{ recipe: 'party', count: 14, times: 1 }])
+  assert.equal(before.spent, 14)
+  assert.equal(before.party.length, 1)
+  assert.deepEqual(before.receipts[0].rewards, [{ kind: 'slotitem', id: 138, count: 1 }, { kind: 'slotitem', id: 312, count: 2 }])
+  const partyCtx = { ...ctx, nameOf: r => master.api_mst_slotitem.find(s => s.api_id === r.id)?.api_name ?? ctx.nameOf(r) }
+  const records = html.campaignRecordsHtml(before, partyCtx)
+  assert.match(records, /Party Gift · 花 14 个/)
+  assert.doesNotMatch(records, /未识别/)
+  log(db, ts + 1000, -14, event.path)
+  book.reconcileUseitems([96])
+  const after = book.current({}, ts + 1000)[0]
+  assert.deepEqual(after, before)
+  assert.deepEqual(after.otherUses, [])
+  assert.match(html.campaignSummaryHtml(after, partyCtx), /去向 Party Gift 1 次/)
+  assert.equal(db.prepare('SELECT count(*) n FROM seasonal_exchange_log').get().n, 1)
+})
+
+for (const deducted of [13, 15]) {
+  test(`Party 类型101实际扣${deducted}：成本14，差额按区间记其他来源或去向`, async t => {
+    const { db, book } = make(t)
+    await book.startBackfill()
+    const ts = catalog.startsAt + 10000
+    const event = { ts, path: '/kcsapi/api_req_member/itemuse', post: { api_useitem_id: '96', api_exchange_type: '101' }, body: { api_data: { api_getitem: [{ api_useitem: { api_id: 58, api_count: 4 } }] } } }
+    book.observe(event)
+    log(db, ts + 1000, -deducted, event.path)
+    book.reconcileUseitems([96])
+    const h = book.current({}, ts + 1000)[0]
+    const other = Math.max(0, deducted - 14)
+    assert.deepEqual(h.uses, [{ recipe: 'party', count: 14, times: 1 }, ...(other ? [{ recipe: 'other', count: other, times: 1 }] : [])])
+    assert.deepEqual(h.otherUses, other ? [{ ts: ts + 1000, count: other, cause: event.path }] : [])
+    assert.deepEqual(h.sources, deducted < 14 ? [{ no: null, title: '其他', count: 14 - deducted, times: 1 }] : [])
+    assert.deepEqual([h.gained, h.spent, h.gained - h.spent], [Math.max(0, 14 - deducted), 14 + other, -deducted])
+    assert.equal(h.party.length, 1)
+    assert.equal(h.receipts.length, 1)
+    assert.equal(db.prepare('SELECT cost FROM seasonal_exchange_log').get().cost, 14)
+  })
+}
+
+const pumpkinClaim = (ts, count) => ({ ts, path: '/kcsapi/api_req_quest/clearitemget', post: { api_quest_id: '984' },
+  body: { api_data: { api_bounus: [{ api_type: 13, api_item: { api_id: 96, api_count: count } }] } } })
+
+for (const [exchangeType, recipe, cost] of [[110, 'yokan', 3], [101, 'party', 14]]) {
+  for (const cause of [null, '/kcsapi/api_req_member/itemuse', '/kcsapi/api_req_quest/clearitemget']) {
+    test(`${recipe}成本${cost}与领奖1同区间，同步净扣${cost - 1}，归因${cause}不重复计数`, async t => {
+      const { db, book } = make(t)
+      await book.startBackfill()
+      const ts = catalog.startsAt + 10000
+      book.observe({ ts, path: '/kcsapi/api_req_member/itemuse', post: { api_useitem_id: '96', api_exchange_type: `${exchangeType}` }, body: { api_data: {} } })
+      book.observe(pumpkinClaim(ts + 100, 1))
+      log(db, ts + 1000, 1 - cost, cause)
+      book.reconcileUseitems([96])
+      const h = book.current({}, ts + 1000)[0]
+      assert.deepEqual(h.uses, [{ recipe, count: cost, times: 1 }])
+      assert.deepEqual(h.otherUses, [])
+      assert.deepEqual(h.sources.map(s => [s.no, s.count]), [[984, 1]])
+      assert.deepEqual([h.gained, h.spent], [1, cost])
+      assert.deepEqual(book.current({}, ts + 1000)[0], h, '重复查询不改变分配')
+    })
+  }
+}
+
+test('每区间单独还原领奖：奖励2同步+3只补其他来源1，后续领奖不吞掉前区间来源', async t => {
+  const { db, book } = make(t)
+  await book.startBackfill()
+  const ts = catalog.startsAt + 10000
+  book.observe(pumpkinClaim(ts, 2))
+  log(db, ts + 1000, 3, '/kcsapi/api_req_quest/clearitemget')
+  const h = book.current({}, ts + 1000)[0]
+  assert.deepEqual([h.gained, h.spent], [3, 0])
+  assert.deepEqual(h.sources.find(s => s.no == null), { no: null, title: '其他', count: 1, times: 1 })
+  book.observe(pumpkinClaim(ts + 2000, 4))
+  const pending = book.current({}, ts + 2000)[0]
+  assert.deepEqual([pending.gained, pending.spent], [7, 0])
+  assert.deepEqual(pending.sources.find(s => s.no == null), h.sources.find(s => s.no == null))
+  log(db, ts + 3000, 4, '/kcsapi/api_req_quest/clearitemget')
+  assert.deepEqual(book.current({}, ts + 3000)[0], pending)
+})
+
+test('无领奖、无兑换的负差额仍计其他去向', async t => {
+  const { db, book } = make(t)
+  await book.startBackfill()
+  const ts = catalog.startsAt + 10000
+  book.observe(list(ts, 984))
+  log(db, ts + 1000, -2, null)
+  const h = book.current({}, ts + 1000)[0]
+  assert.deepEqual([h.gained, h.spent], [0, 2])
+  assert.deepEqual(h.uses, [{ recipe: 'other', count: 2, times: 1 }])
+  assert.deepEqual(h.receipts, [])
+})
+
+test('未知类型仍仅由唯一兑换承接还原领奖后的余款，多条未知不均摊', async t => {
+  for (const times of [1, 2]) {
+    const { db, book } = make(t)
+    await book.startBackfill()
+    const ts = catalog.startsAt + 10000
+    for (let i = 0; i < times; i++) book.observe({ ts: ts + i, path: '/kcsapi/api_req_member/itemuse',
+      post: { api_useitem_id: '96', api_exchange_type: '999' }, body: { api_data: { api_getitem: [{ api_useitem: { api_id: 58, api_count: 4 } }] } } })
+    book.observe(pumpkinClaim(ts + 100, 1))
+    log(db, ts + 1000, -13, '/kcsapi/api_req_member/itemuse')
+    book.reconcileUseitems([96])
+    const h = book.current({}, ts + 1000)[0]
+    assert.deepEqual([h.gained, h.spent], [1, 14])
+    assert.equal(h.party.length, times === 1 ? 1 : 0)
+    assert.deepEqual(h.uses, [{ recipe: times === 1 ? 'party' : 'other', count: 14, times: 1 }])
+    assert.deepEqual(h.receipts.map(r => r.cost), times === 1 ? [14] : [null, null])
+  }
+})
+
 test('Party 未知类型：实际扣14且奖励命中才记已领；混合与无法解析回应如实保留', async t => {
   const { db, book } = make(t)
   await book.startBackfill()
@@ -300,7 +419,7 @@ test('Party 未知类型：实际扣14且奖励命中才记已领；混合与无
   assert.equal(h.party.length, 1)
   assert.equal(h.party[0].exchangeType, 999, '不得把合成类型号填入目录')
   assert.match(html.campaignSummaryHtml(h, ctx), /已领：改装设计图 ×4/)
-  assert.equal(catalog.recipes.find(r => r.key === 'party').exchangeType, undefined)
+  assert.equal(catalog.recipes.find(r => r.key === 'party').exchangeType, 101)
   assert.equal(db.prepare('SELECT cost FROM seasonal_exchange_log').get().cost, 14, '实际扣款要固化，不能只留在渲染结果')
   assert.deepEqual(book.parseRewards({ api_material: [1], api_getitem: [{ api_slotitem: { api_slotitem_id: 138 } }, { api_type: 456, api_id: 12345, api_count: 2 }, null] }), [
     { kind: 'material', id: 1, count: 1 }, { kind: 'slotitem', id: 138, count: 1 }, { kind: 'unknown', id: 12345, count: 2 },

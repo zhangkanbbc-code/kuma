@@ -1,10 +1,13 @@
 // 独立于 Electron 的永久账本投影。与实时报文共用同一套回填/统计实现。
 import { detectSeasonalCampaigns, SEASONAL_EXCHANGES, SEASONAL_ITEMS } from '../../shared/seasonal-campaign'
 import { sumCampaignRewards } from '../../shared/seasonal-history'
-import type { CampaignHistory, CampaignReceipt, CampaignReward, ObservedQuest } from '../../shared/seasonal-history'
+import type { CampaignHistory, CampaignReceipt, CampaignReward, CampaignTaskUse, ObservedQuest } from '../../shared/seasonal-history'
+import { resolveQuestClaims } from '../../shared/quest-claims'
+import { buildScrapRuleContext, deriveScrapPreparation } from './quest-scrap-rules'
 
 type Db = { exec(sql: string): void; prepare(sql: string): any }
 type RawMaster = { api_mst_useitem?: any[]; api_mst_slotitem?: any[] }
+type QuestClaimRow = { quest_no: number; first_seen: number; rewards: string }
 const QUEST_LIST = '/kcsapi/api_get_member/questlist'
 const CLAIM = '/kcsapi/api_req_quest/clearitemget'
 const EXCHANGE = '/kcsapi/api_req_member/itemuse'
@@ -15,10 +18,11 @@ export class SeasonalLedger {
   private master: RawMaster = {}
   private cursor = 0
   private stopped = false
+  private preparationWarnings = new Set<string>()
   backfillDone = false
   ready: Promise<void> = Promise.resolve()
 
-  constructor(private db: Db, private questTitle: (no: number) => string = () => '') {
+  constructor(private db: Db, private questTitle: (no: number) => string = () => '', private getLode: (id: string) => any = () => null) {
     db.exec(`
       CREATE TABLE IF NOT EXISTS seasonal_exchange_log (
         event_key TEXT PRIMARY KEY, ts INTEGER NOT NULL, campaign TEXT NOT NULL,
@@ -241,11 +245,38 @@ export class SeasonalLedger {
     }
   }
 
+  private taskUses(claims: QuestClaimRow[], itemId: number): CampaignTaskUse[] {
+    const pack = this.getLode('quests-scn')
+    const context = buildScrapRuleContext(this.master, this.getLode('kcwiki-localization')?.data)
+    const uses: CampaignTaskUse[] = []
+    for (const claim of claims) {
+      const seen = this.db.prepare(`SELECT title FROM quest_observations WHERE quest_no = ? AND kind = 'seen'
+        AND first_seen <= ? ORDER BY last_seen DESC, first_seen DESC LIMIT 1`).get(claim.quest_no, claim.first_seen)
+      const entry = resolveQuestClaims(pack, seen ? [{ no: claim.quest_no, title: seen.title }] : []).data[claim.quest_no]
+      if (!entry) continue
+      // 准备条件不等于消耗；只接正文明确说明准备物会消耗/消失的任务。
+      if (!/(?:准备|準備)的[^。！!\n）)不]*(?:将被消耗|將被消耗|会被消耗|會被消耗|会消失|會消失)/.test(`${entry.desc}\n${entry.memo2}`)) continue
+      const prepared = context && deriveScrapPreparation(entry.desc, entry.memo2, context)
+      if (!prepared || prepared.partial) {
+        if (!this.preparationWarnings.has(entry.code)) {
+          console.warn(`[kuma] mg: 季节任务消耗未解析 ${claim.quest_no} ${entry.code}`)
+          this.preparationWarnings.add(entry.code)
+        }
+        continue
+      }
+      const count = prepared.stockGoals.filter(g => g.kind === 'useitem' && g.id === itemId).reduce((n, g) => n + g.count, 0)
+      if (count > 0) uses.push({ ts: claim.first_seen, no: claim.quest_no, code: entry.code, title: entry.name, count })
+    }
+    return uses
+  }
+
   history(key: string, opened: number, stock: number | null = null): CampaignHistory {
     const win = this.db.prepare('SELECT * FROM seasonal_archive WHERE campaign = ? AND opened = ?').get(key, opened)
     const to = win.expires_at ?? win.closed ?? Infinity
     const quests = this.tasks(opened, to, key)
-    const claims = this.db.prepare(`SELECT * FROM quest_observations WHERE kind = 'claim' AND first_seen >= ? AND first_seen < ? ORDER BY first_seen`).all(opened, to)
+    const claims: QuestClaimRow[] = this.db.prepare(`SELECT * FROM quest_observations WHERE kind = 'claim' AND first_seen >= ? AND first_seen < ? ORDER BY first_seen`).all(opened, to)
+    // 已结账的旧回顾保持原口径；开放企划每次由永久领奖事实重推，不依赖回填进度。
+    const taskUses: CampaignTaskUse[] = win.closed == null ? this.taskUses(claims, win.item_id) : JSON.parse(win.stats).taskUses ?? []
     const sources: CampaignHistory['sources'] = []
     for (const row of claims) {
       const count = (JSON.parse(row.rewards) as CampaignReward[]).filter(r => r.kind === 'useitem' && r.id === win.item_id).reduce((n, r) => n + r.count, 0)
@@ -260,21 +291,29 @@ export class SeasonalLedger {
     const otherUses: CampaignHistory['otherUses'] = []
     // 对道具账实际扣款逐笔配对。多次兑换后一次同步时只分配已知成本；未知档不均摊猜。
     const allocated = new Set<CampaignReceipt>()
+    let otherGained = 0
+    let otherGainTimes = 0
     let previousSync = opened - 1
     for (const log of logs) {
-      if (log.delta >= 0) { previousSync = log.ts; continue }
+      const taskCost = taskUses.filter(u => u.ts > previousSync && u.ts <= log.ts).reduce((n, u) => n + u.count, 0)
+      const reward = claims.filter(c => c.first_seen > previousSync && c.first_seen <= log.ts)
+        .flatMap(c => JSON.parse(c.rewards) as CampaignReward[])
+        .filter(r => r.kind === 'useitem' && r.id === win.item_id).reduce((n, r) => n + r.count, 0)
       const candidates = receipts.filter(r => !allocated.has(r) && r.ts > previousSync && r.ts <= log.ts &&
-        (log.cause === (r.recipe === 'powerup' ? POWERUP : EXCHANGE) || (log.cause == null && r.cost != null)))
-      let remaining = -log.delta
+        (r.cost != null || log.cause === (r.recipe === 'powerup' ? POWERUP : EXCHANGE)))
+      // 领奖不同步库存：同一窗口先还原奖励与任务成本，再按兑换成本拆分净差额。
+      let remaining = reward - log.delta - taskCost
       for (const r of candidates.filter(r => r.cost != null)) {
-        if (r.cost! <= remaining) { remaining -= r.cost!; allocated.add(r) }
+        remaining -= r.cost!
+        allocated.add(r)
       }
       const unknown = candidates.filter(r => r.cost == null)
       if (unknown.length === 1 && remaining > 0) { unknown[0].cost = remaining; allocated.add(unknown[0]); remaining = 0 }
       if (remaining > 0) otherUses.push({ ts: log.ts, count: remaining, cause: log.cause })
+      if (remaining < 0) { otherGained -= remaining; otherGainTimes++ }
       previousSync = log.ts
     }
-    // Party 的 exchange_type 未知；必须有一次实际兑换、实际扣款且奖励完整命中目录。
+    // Party 的 exchange_type 101 已知；其它未知类型仍须有实际兑换、实际扣款且奖励完整命中目录。
     const catalog = SEASONAL_EXCHANGES.find(c => c.campaignKey === key && c.startsAt === opened)
     const exchange = detectSeasonalCampaigns({ useitemMst: this.items(), slotitemMst: this.equips(), now: opened,
       useitems: { [win.item_id]: 1 }, quests: [] }).find(c => c.key === key)?.exchange
@@ -296,15 +335,18 @@ export class SeasonalLedger {
       if (use) { use.count += r.cost; use.times++ }
       else uses.push({ recipe: r.recipe, count: r.cost, times: 1 })
     }
+    for (const row of taskUses) {
+      const use = uses.find(u => u.recipe === 'quest' && u.no === row.no)
+      if (use) { use.count += row.count; use.times++ }
+      else uses.push({ recipe: 'quest', no: row.no, code: row.code, title: row.title, count: row.count, times: 1 })
+    }
     if (otherUses.length) uses.push({ recipe: 'other', count: otherUses.reduce((n, r) => n + r.count, 0), times: otherUses.length })
     const taskGained = sources.reduce((n, s) => n + s.count, 0)
-    const gains = logs.filter(l => l.delta > 0)
-    const otherGained = Math.max(0, gains.reduce((n, l) => n + l.delta, 0) - taskGained)
     if (otherGained > 0) sources.push({ no: null, title: '其他', count: otherGained,
-      times: gains.filter(l => l.cause !== CLAIM).length || gains.length })
+      times: otherGainTimes })
     return { key, itemId: win.item_id, name: win.name, opened, closed: win.closed, expiresAt: catalog?.expiresAt ?? win.expires_at,
       gained: taskGained + otherGained, spent: uses.reduce((n, u) => n + u.count, 0), stock,
-      sources, uses, receipts, otherUses, rewards: sumCampaignRewards(receipts.filter(r => r.recipe !== 'powerup').flatMap(r => r.rewards)),
+      sources, uses, ...(taskUses.length ? { taskUses } : {}), receipts, otherUses, rewards: sumCampaignRewards(receipts.filter(r => r.recipe !== 'powerup').flatMap(r => r.rewards)),
       party: receipts.filter(r => r.recipe === 'party'), quests }
   }
 

@@ -15,6 +15,14 @@ export interface CampaignReceipt {
   target?: { rosterId: number; mstId?: number }
 }
 
+export interface CampaignTaskUse {
+  ts: number
+  no: number
+  code: string
+  title: string
+  count: number
+}
+
 export interface ObservedQuest {
   no: number
   title: string
@@ -34,7 +42,8 @@ export interface CampaignHistory {
   spent: number
   stock: number | null
   sources: { no: number | null; title: string; count: number; times: number }[]
-  uses: { recipe: string; count: number; times: number }[]
+  uses: { recipe: string; count: number; times: number; no?: number; code?: string; title?: string }[]
+  taskUses?: CampaignTaskUse[]
   receipts: CampaignReceipt[]
   otherUses: { ts: number; count: number; cause: string | null }[]
   rewards: CampaignReward[]

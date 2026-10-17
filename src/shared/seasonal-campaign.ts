@@ -131,7 +131,8 @@ export const SEASONAL_EXCHANGES: {
       ]],
     },
     {
-      key: 'party', jpName: 'Halloween Party 2026', cost: 14, limit: 1,
+      // exchange_type 依据：维护者账本 2026-10-17 实录。
+      key: 'party', jpName: 'Halloween Party 2026', exchangeType: 101, cost: 14, limit: 1,
       choices: [
         [{ kind: 'useitem', jpName: '改装設計図', count: 4 }],
         [
