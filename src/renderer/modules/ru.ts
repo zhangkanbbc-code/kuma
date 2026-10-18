@@ -27,6 +27,7 @@ import {
   REPAIR_SHIP_STYPE,
   berthCoverage,
   berthEstimateHp,
+  berthPerHpMs,
   berthHalt,
   berthShipState,
   berthWarmupRatio,
@@ -70,6 +71,7 @@ import {
   queryLode,
   queryMasterRaw,
   repairDuration,
+  repairDurationSeconds,
   trackMountCleanup,
   uiGet,
   onUiPreferenceChange,
@@ -173,6 +175,7 @@ const dockOf = (shipId: number) => mg.ndocks.find((d) => d.shipId === shipId)
 const repairQuoteHtml = (ship: PlayerShip): string => {
   if (ship.nowhp >= ship.maxhp || dockOf(ship.id) || ship.ndockTime <= 0) return ''
   return `<div class="sd-foot repair-quote">预计修理 <b>${repairDuration(ship.ndockTime)}</b>
+    · 每 1 HP <b>${repairDurationSeconds(berthPerHpMs(ship)!)}</b>
     · ${entityTermHtml('material', 0, '燃料')} ${ship.ndockItem[0]}
     · ${entityTermHtml('material', 2, '钢材')} ${ship.ndockItem[1]}
     <span>尚未入渠</span></div>`
@@ -2648,12 +2651,14 @@ const berthFleetHtml = (deck: Deck, flag: PlayerShip, now: number): string => {
           ? berthEstimateHp(ship, elapsed!)
           : 0
       const name = masterShipName(ship.shipId)
+      const perHpMs = inRange && state === 'repairing' ? berthPerHpMs(ship) : null
       return `<div class="bt-ship${inRange ? '' : ' out'}" data-berth-pos="${index + 1}">
         <span class="bt-no">${index + 1}</span>
         <span class="bt-name">${entityTermHtml('ship', ship.shipId, entityNamePlain('ship', ship.shipId, name))}</span>
         ${berthHpHtml(ship, docked)}
         ${inRange ? `<span class="bt-tag s-${state}">${BERTH_STATE_LABEL[state]}</span>` : '<span class="bt-tag out">范围外</span>'}
         <span class="bt-gain">${gain > 0 ? `<b>+${gain}</b><em>预估</em>` : ''}</span>
+        ${perHpMs !== null ? `<span class="bt-per-hp">每 1 HP ${repairDurationSeconds(perHpMs)}</span>` : ''}
       </div>`
     })
     .join('')

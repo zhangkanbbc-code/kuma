@@ -3,6 +3,7 @@
 // 与鉴的关系：图鉴 = 收藏轴，列表 = 在籍轴；窄容器把表格重排成多行卡片，
 // 详情仍是同一套单独界面（2026-08-11 用户拍板，下接式预览与侧栏都被否掉）。
 import type { PlayerShip, ShipLifeReport } from '../../shared/mg-types'
+import { berthPerHpMs } from '../../shared/berth-repair'
 
 import {
   esc,
@@ -23,6 +24,7 @@ import {
   queryMasterRaw,
   queryShipLife,
   repairDuration,
+  repairDurationSeconds,
   repairClockText,
   updateCountdowns,
 } from '../kernel'
@@ -873,6 +875,7 @@ const previewHtml = (row: Row) => {
     ${
       ship.nowhp < ship.maxhp && !row.dock && ship.ndockTime > 0
         ? `<div class="pv-line repair-quote"><span class="pv-pill">预计修理 <b>${repairDuration(ship.ndockTime)}</b></span>
+          <span class="pv-pill">每 1 HP <b>${repairDurationSeconds(berthPerHpMs(ship)!)}</b></span>
           <span class="pv-pill">${entityTermHtml('material', 0, '燃料')} <b>${ship.ndockItem[0]}</b></span>
           <span class="pv-pill">${entityTermHtml('material', 2, '钢材')} <b>${ship.ndockItem[1]}</b></span></div>`
         : ''

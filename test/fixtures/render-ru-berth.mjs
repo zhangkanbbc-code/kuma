@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url'
 
 import assert from 'node:assert/strict'
 import { buildSync } from 'esbuild'
+import { DURATIONS } from './render-repair-quote.mjs'
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url))
 const ru = fs
@@ -65,6 +66,7 @@ import {
   REPAIR_SHIP_STYPE,
   berthCoverage,
   berthEstimateHp,
+  berthPerHpMs,
   berthHalt,
   berthShipState,
   berthWarmupRatio,
@@ -125,6 +127,7 @@ const fatigueReadyTs = (_rosterId: number, _target: number) => null
 const fleetFatigueEta = (_ships: any[], _target: number) => ({ ts: null, unknown: 0 })
 
 ${DOCK_OF}
+${DURATIONS}
 ${HP_CLASS}
 ${FLEET_SHIPS}
 ${BERTH}

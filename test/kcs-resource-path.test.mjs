@@ -128,7 +128,7 @@ test('图片默认只认魔改覆盖，普通缓存文件留给脚本恢复', ()
     assert.equal(lookup(url, true), `kuma-cache://resource${pathname}`)
     fs.writeFileSync(hackPath, 'hack')
     const lookup2 = createResourceLookup(dir)
-    assert.equal(lookup2(url), `kuma-cache://resource${pathname}`)
+    assert.equal(lookup2(url), `kuma-cache://resource${pathname}?override-only=1`)
   })
 })
 

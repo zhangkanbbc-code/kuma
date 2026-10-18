@@ -3754,8 +3754,11 @@
     .fleet-skin .bt-tag.out { color: var(--dim); }
     .fleet-skin .bt-gain { text-align: right; font: 11px var(--mono); color: var(--ok); }
     .fleet-skin .bt-gain em { font-style: normal; font-size: 9px; color: var(--dim); margin-left: 3px; }
+    .fleet-skin .bt-per-hp { grid-column: 2 / -1; font: 10.5px var(--mono); color: var(--sub); word-break: keep-all; }
     .fleet-skin.narrow .bt-ship { grid-template-columns: 16px minmax(60px, 1fr) 40px 56px; }
     .fleet-skin.narrow .bt-ship .hpc { display: none; }
+    .fleet-skin.narrow .bt-ship:not(.provision) .hpc { display: flex; grid-column: 3 / -1; grid-row: 2; }
+    .fleet-skin.narrow .bt-per-hp { grid-column: 2; grid-row: 2; }
     .fleet-skin.narrow .bt-ship.provision { grid-template-columns: 16px minmax(60px, 1fr) 46px 40px 56px; gap: 4px; }
     .fleet-skin .sd-gap { color: var(--warn); }
     .fleet-skin .sd-ok { color: var(--ok); }

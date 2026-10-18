@@ -180,6 +180,14 @@ export const berthHalt = (
   return ratio <= 0.5 ? 'flagHurt' : null
 }
 
+/** 每点 HP 所需毫秒（查证 ⑥）；满血或入渠工时未知时不猜。 */
+export const berthPerHpMs = (
+  ship: { nowhp: number; maxhp: number; ndockTime: number },
+): number | null => {
+  const missing = ship.maxhp - ship.nowhp
+  return missing <= 0 || ship.ndockTime <= 0 ? null : ship.ndockTime / missing
+}
+
 /**
  * 从锚点起算到现在，这艘舰**估计**攒了多少点 HP。
  *
@@ -196,11 +204,11 @@ export const berthEstimateHp = (
   elapsedMs: number,
 ): number => {
   const missing = ship.maxhp - ship.nowhp
-  if (missing <= 0 || ship.ndockTime <= 0) return 0
+  const perHpMs = berthPerHpMs(ship)
+  if (perHpMs === null) return 0
   if (elapsedMs < BERTH_WARMUP_MS) return 0
   // 截到整分钟：与 kcmemo 的 floor(秒/60)*60 同义
   const wholeMinutesMs = Math.floor(elapsedMs / 60_000) * 60_000
-  const perHpMs = ship.ndockTime / missing
   if (!Number.isFinite(perHpMs) || perHpMs <= 0) return 0
   return Math.min(missing, Math.max(1, Math.floor(wholeMinutesMs / perHpMs)))
 }

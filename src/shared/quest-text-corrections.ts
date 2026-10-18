@@ -92,14 +92,6 @@ export interface QuestTextCorrection {
 
 export const QUEST_TEXT_CORRECTIONS: readonly QuestTextCorrection[] = Object.freeze([
   {
-    questId: 985,
-    field: 'memo2',
-    label: '【期间限定任务】特务护卫战队，拔锚！',
-    from: '期间限定周常任务 以包含【对马、稻木、大泊、迅鲸、长鲸、朝日、村雨、卷波、早波、滨波、㭴】中3名舰娘的舰队，出击1-2、1-5、2-2、2-3击破Boss，各取得1次S?胜。',
-    to: '期间限定周常任务 以包含【对马、鹈来、稻木、大泊、迅鲸、长鲸、朝日、村雨、卷波、早波、滨波、㭴】中3名舰娘的舰队，出击1-2、1-5、2-2、2-3击破Boss，各取得1次S?胜。',
-    basis: '任务包中文正文逐字列有「对马」「鹈来」「稻木」，备注名单在对马与稻木之间漏列鹈来；仅补齐备注舰名，不改变正文及任务要求。· 维护者裁决 2026-10-16',
-  },
-  {
     questId: 384,
     field: 'desc',
     label: '【期间限定任务】与提督共度秋祭演习！',

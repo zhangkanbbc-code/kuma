@@ -307,10 +307,10 @@ test('随包台账：已终了那一档都带 limitedOnly 与凭据，且没顺�
     const status = one.window.status ?? 'active_confirmed'
     tally[status] = (tally[status] ?? 0) + 1
   }
-  // 这一改只**新增**已终了，不许把原有的 active_confirmed 改写成别的
-  assert.equal(tally.active_confirmed, 134, '原有的「还在掉」条目数变了——这一改本该只新增')
+  // 2026-10-18 Halloween 新开 13 条、重开 5 条，其余既有状态不动。
+  assert.equal(tally.active_confirmed, 152, '开放条目应为原有 134 + 13 新开 + 5 重开')
   assert.equal(tally.end_pending, 10, '原有的 end_pending 条目数变了')
-  assert.ok(tally.ended_undated >= 34, `已终了只有 ${tally.ended_undated} 条`)
+  assert.equal(tally.ended_undated, 29, '已终了应为原有 34 - 5 重开')
 
   for (const { map, node: nd, one } of rows) {
     const status = one.window.status ?? 'active_confirmed'

@@ -24,8 +24,8 @@ const withDir = (t) => {
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }))
   return dir
 }
-const write = (dir, root = 'KanColle', filename = 'erhlwuihpcnw', bytes = fixture, tree = 'kcs') => {
-  const file = path.join(dir, root, tree, 'resources', 'swf', 'ships', `${filename}.config.ini`)
+const write = (dir, root = 'KanColle', filename = 'erhlwuihpcnw', bytes = fixture, tree = 'kcs', format = 'ini') => {
+  const file = path.join(dir, root, tree, 'resources', 'swf', 'ships', `${filename}.config.${format}`)
   fs.mkdirSync(path.dirname(file), { recursive: true })
   fs.writeFileSync(file, bytes)
   return file
@@ -79,7 +79,7 @@ test('根优先与回落：白天、夜间、关闭定时；同名文件整份�
   }
 })
 
-test('先找到的空坐标文件也不从常驻根补字段；只认 config.ini', (t) => {
+test('先找到的空坐标文件也不从常驻根补字段；无效 json 不生效、不认 hack 坐标后缀', (t) => {
   const dir = withDir(t)
   write(dir)
   const file = write(dir, 'KanColle-白天', 'erhlwuihpcnw', '[info]\nship_name=忽略')
@@ -88,7 +88,9 @@ test('先找到的空坐标文件也不从常驻根补字段；只认 config.ini
   assert.deepEqual(readShipgraphCoordinates(dir, ['erhlwuihpcnw'], { period: 'day' }).erhlwuihpcnw, {})
   fs.unlinkSync(file)
   fs.unlinkSync(path.join(dir, 'KanColle', 'kcs/resources/swf/ships/erhlwuihpcnw.config.ini'))
-  assert.deepEqual(plain(readShipgraphCoordinates(dir, ['erhlwuihpcnw'], { period: 'day' })), {})
+  const warnings = []
+  assert.deepEqual(plain(readShipgraphCoordinates(dir, ['erhlwuihpcnw'], { period: 'day', warn: message => warnings.push(message) })), {})
+  assert.equal(warnings.length, 1)
 })
 
 test('隔离世界读取器：现用配置、时段和磁盘；每次 start2 都重新读取', (t) => {
@@ -148,7 +150,7 @@ test('文件大小上限：超限文件拒绝，异常交给 XHR 原样放行', 
 })
 
 const countCoordinateFs = (read) => {
-  const methods = ['readdirSync', 'realpathSync', 'openSync', 'fstatSync', 'readSync', 'closeSync']
+  const methods = ['readdirSync', 'realpathSync', 'statSync', 'openSync', 'fstatSync', 'readSync', 'closeSync']
   const originals = Object.fromEntries(methods.map(method => [method, fs[method]]))
   const calls = Object.fromEntries(methods.map(method => [method, []]))
   for (const method of methods) fs[method] = (...args) => {
@@ -160,7 +162,7 @@ const countCoordinateFs = (read) => {
   }
 }
 
-test('无坐标文件：目录缺失或只有图片/JSON，1 与 1600 个文件名的文件系统调用次数相同', (t) => {
+test('无坐标文件：目录缺失或只有图片/无关 JSON，1 与 1600 个文件名的文件系统调用次数相同', (t) => {
   const dir = withDir(t)
   const filenames = Array.from({ length: 1600 }, (_, index) => `ship${index}`)
   for (const populated of [false, true]) {
@@ -170,7 +172,7 @@ test('无坐标文件：目录缺失或只有图片/JSON，1 与 1600 个文件�
           const directory = path.join(dir, root, tree, 'resources', 'swf', 'ships')
           fs.mkdirSync(directory, { recursive: true })
           fs.writeFileSync(path.join(directory, 'ship0.hack.png'), 'image')
-          fs.writeFileSync(path.join(directory, 'ship0.config.json'), '{}')
+          fs.writeFileSync(path.join(directory, 'ship0.json'), '{}')
         }
       }
     }
@@ -181,7 +183,7 @@ test('无坐标文件：目录缺失或只有图片/JSON，1 与 1600 个文件�
         assert.deepEqual(plain(result), {})
         assert.equal(calls.readdirSync.length, period ? 4 : 2)
         assert.equal(new Set(calls.readdirSync).size, calls.readdirSync.length, '每个目录只列一次')
-        for (const method of ['realpathSync', 'openSync', 'fstatSync', 'readSync', 'closeSync']) assert.equal(calls[method].length, 0, method)
+        for (const method of ['realpathSync', 'statSync', 'openSync', 'fstatSync', 'readSync', 'closeSync']) assert.equal(calls[method].length, 0, method)
         counts.push(Object.fromEntries(Object.entries(calls).map(([method, paths]) => [method, paths.length])))
       }
       assert.deepEqual(counts[0], counts[1])
@@ -219,6 +221,179 @@ test('文件名主体和扩展名按小写比对，读取实际大小写的文�
   assert.equal(calls.realpathSync.length, 2)
   assert.equal(calls.openSync.length, 1)
   assert.match(calls.openSync[0], /UPPER\.CONFIG\.INI$/)
+})
+
+const jsonCoordinates = (graph, ship = { api_name: '不改名字', api_getmes: false, api_sinfo: false }) =>
+  JSON.stringify({ api_mst_ship: ship, api_mst_shipgraph: graph })
+
+for (const period of ['day', 'night']) {
+  test(`坐标后缀 ${period}：根、目录、后缀逐层优先，关闭后只用常驻无后缀`, (t) => {
+    const dir = withDir(t)
+    const active = period === 'day' ? 'KanColle-白天' : 'KanColle-夜间'
+    const base = write(dir)
+    write(dir, 'KanColle', `erhlwuihpcnw.${period}`, '[graph]\nmap_n_left=1\nmap_n_top=2')
+    write(dir, 'KanColle', 'erhlwuihpcnw.nigth', '[graph]\nweda_left=99\nweda_top=99')
+    const read = () => readShipgraphCoordinates(dir, ['erhlwuihpcnw'], { period }).erhlwuihpcnw
+    assert.deepEqual(read(), { api_map_n: [1, 2] })
+    assert.deepEqual(readShipgraphCoordinates(dir, ['erhlwuihpcnw']).erhlwuihpcnw, expected)
+    write(dir, active, 'erhlwuihpcnw', '[graph]\nboko_d_left=3\nboko_d_top=4')
+    assert.deepEqual(read(), { api_boko_d: [3, 4] }, '时段根的无后缀优先于常驻后缀')
+    write(dir, active, `erhlwuihpcnw.${period}`, '[graph]\nweda_left=5\nweda_top=6', 'kcs2')
+    assert.deepEqual(read(), { api_boko_d: [3, 4] }, 'kcs 优先级保留，后缀只在各 ships 内优先')
+    write(dir, active, `erhlwuihpcnw.${period}`, '[graph]\nboko_n_left=7\nboko_n_top=8')
+    assert.deepEqual(read(), { api_boko_n: [7, 8] }, '同目录后缀整份采用')
+    fs.unlinkSync(base)
+    assert.deepEqual(plain(readShipgraphCoordinates(dir, ['erhlwuihpcnw'])), {}, '关闭时不认后缀和时段根')
+    write(dir, 'KanColle', 'typo-only.nigth')
+    assert.deepEqual(plain(readShipgraphCoordinates(dir, ['typo-only'], { period })), {}, 'nigth 不是支持的后缀')
+  })
+}
+
+test('json 单独存在：只用 shipgraph 的 15 个显示坐标，文字及其它字段全部忽略', (t) => {
+  const dir = withDir(t)
+  const graph = { ...expected, api_name: [1, 2], api_getmes: [1, 2], api_filename: [1, 2], api_unknown: [1, 2] }
+  write(dir, 'KanColle', 'json-only', jsonCoordinates(graph), 'kcs', 'json')
+  const { result, calls } = countCoordinateFs(() => readShipgraphCoordinates(dir, ['json-only']))
+  assert.deepEqual(result['json-only'], expected)
+  assert.equal(calls.statSync.length, 0, '单文件不为修改时间 stat')
+  assert.equal(calls.openSync.length, 1)
+})
+
+for (const [label, encode] of [
+  ['UTF-8', text => Buffer.from(text)],
+  ['UTF-8 BOM', text => Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(text)])],
+  ['UTF-16LE BOM', text => Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(text, 'utf16le')])],
+  ['UTF-16LE 无 BOM', text => Buffer.from(text, 'utf16le')],
+]) {
+  test(`json 编码与 ini 一致：${label}`, (t) => {
+    const dir = withDir(t)
+    write(dir, 'KanColle', 'encoded', encode(jsonCoordinates(expected)), 'kcs', 'json')
+    assert.deepEqual(readShipgraphCoordinates(dir, ['encoded']).encoded, expected)
+  })
+}
+
+for (const invalid of [null, false, '1,2', [], [1], [1, 2, 3], ['1', 2], [null, 2], { 0: 1, 1: 2 }]) {
+  test(`json 坐标只接受两个有限数的数组：${JSON.stringify(invalid)}`, (t) => {
+    const dir = withDir(t), warnings = []
+    write(dir, 'KanColle', 'invalid', jsonCoordinates({ api_boko_n: invalid, api_map_n: [-2.5, 30] }), 'kcs', 'json')
+    assert.deepEqual(readShipgraphCoordinates(dir, ['invalid'], { warn: message => warnings.push(message) }).invalid, { api_map_n: [-2.5, 30] })
+    assert.equal(warnings.length, 1, '与 ini 一样只丢弃坏坐标对')
+  })
+}
+
+for (const [label, iniTime, jsonTime, wanted] of [
+  ['ini 较新', 200, 100, { api_boko_n: [1, 2] }],
+  ['json 较新', 100, 200, { api_map_n: [3, 4] }],
+  ['同时间 json 优先', 200, 200, { api_map_n: [3, 4] }],
+]) {
+  test(`同名 ini/json：${label}，整份采用不补字段`, (t) => {
+    const dir = withDir(t)
+    const ini = write(dir, 'KanColle', 'paired', '[graph]\nboko_n_left=1\nboko_n_top=2')
+    const json = write(dir, 'KanColle', 'paired', jsonCoordinates({ api_map_n: [3, 4] }), 'kcs', 'json')
+    fs.utimesSync(ini, iniTime, iniTime)
+    fs.utimesSync(json, jsonTime, jsonTime)
+    const { result, calls } = countCoordinateFs(() => readShipgraphCoordinates(dir, ['paired']))
+    assert.deepEqual(result.paired, wanted)
+    assert.deepEqual(new Set(calls.statSync), new Set([fs.realpathSync(ini), fs.realpathSync(json)]))
+    assert.equal(calls.openSync.length, 1, '选中有效文件即停止，不读另一个')
+    assert.match(calls.openSync[0], iniTime > jsonTime ? /\.ini$/ : /\.json$/)
+  })
+}
+
+for (const invalid of ['{', '{}', '{"api_mst_shipgraph":[]}', '{"api_mst_shipgraph":{"api_boko_n":[1e309,2]}}']) {
+  test(`较新的坏 json 回落同名 ini：${invalid}`, (t) => {
+    const dir = withDir(t), warnings = []
+    const ini = write(dir, 'KanColle', 'fallback')
+    const json = write(dir, 'KanColle', 'fallback', invalid, 'kcs', 'json')
+    fs.utimesSync(ini, 100, 100)
+    fs.utimesSync(json, 200, 200)
+    assert.deepEqual(readShipgraphCoordinates(dir, ['fallback'], { warn: message => warnings.push(message) }).fallback, expected)
+    assert.equal(warnings.length, 0, '有效回落无需报整名无效')
+  })
+}
+
+test('较新的坏 ini 回落 json；两份都坏时这一名不生效且只记一行日志', (t) => {
+  const dir = withDir(t), warnings = []
+  const ini = write(dir, 'KanColle', 'fallback', '[graph]\nboko_n_left=bad\nboko_n_top=2')
+  const json = write(dir, 'KanColle', 'fallback', jsonCoordinates(expected), 'kcs', 'json')
+  fs.utimesSync(ini, 200, 200)
+  fs.utimesSync(json, 100, 100)
+  const read = () => readShipgraphCoordinates(dir, ['fallback'], { warn: message => warnings.push(message) })
+  assert.deepEqual(read().fallback, expected)
+  fs.writeFileSync(json, '{')
+  assert.deepEqual(plain(read()), {})
+  assert.equal(warnings.length, 1)
+  assert.match(warnings[0], /fallback/)
+})
+
+test('后缀 ini 优先于无后缀 json；后缀双文件均无效则回落无后缀整份配置', (t) => {
+  const dir = withDir(t), warnings = []
+  write(dir, 'KanColle', 'ship', jsonCoordinates(expected), 'kcs', 'json')
+  const ini = write(dir, 'KanColle', 'ship.night', '[graph]\nweda_left=1\nweda_top=2')
+  const json = write(dir, 'KanColle', 'ship.night', '{', 'kcs', 'json')
+  fs.utimesSync(ini, 100, 100)
+  fs.utimesSync(json, 200, 200)
+  const read = () => readShipgraphCoordinates(dir, ['ship'], { period: 'night', warn: message => warnings.push(message) }).ship
+  assert.deepEqual(read(), { api_weda: [1, 2] })
+  fs.writeFileSync(ini, '[graph]\nweda_left=bad\nweda_top=2')
+  assert.deepEqual(read(), expected)
+  assert.equal(warnings.length, 1)
+})
+
+test('json 大小上限与 ini 一致；双文件中较新超限文件回落另一份', (t) => {
+  const dir = withDir(t)
+  const json = write(dir, 'KanColle', 'large', Buffer.alloc(MAX_COORDINATE_BYTES + 1), 'kcs', 'json')
+  assert.throws(() => readShipgraphCoordinates(dir, ['large']), /size limit/)
+  const ini = write(dir, 'KanColle', 'large')
+  fs.utimesSync(ini, 100, 100)
+  fs.utimesSync(json, 200, 200)
+  assert.deepEqual(readShipgraphCoordinates(dir, ['large']).large, expected)
+  fs.writeFileSync(json, jsonCoordinates(expected))
+  fs.writeFileSync(ini, Buffer.alloc(MAX_COORDINATE_BYTES + 1))
+  fs.utimesSync(ini, 300, 300)
+  fs.utimesSync(json, 200, 200)
+  assert.deepEqual(readShipgraphCoordinates(dir, ['large']).large, expected)
+})
+
+test('json 与时段后缀同样钳制真实路径，根外目录不读、不 stat', (t) => {
+  const dir = withDir(t)
+  const outside = path.join(dir, 'outside')
+  fs.mkdirSync(outside)
+  for (const suffix of ['', '.night']) {
+    fs.writeFileSync(path.join(outside, `escape${suffix}.config.json`), jsonCoordinates(expected))
+    fs.writeFileSync(path.join(outside, `escape${suffix}.config.ini`), fixture)
+  }
+  const ships = path.dirname(write(dir, 'KanColle', 'placeholder'))
+  fs.rmSync(ships, { recursive: true })
+  fs.symlinkSync(outside, ships, process.platform === 'win32' ? 'junction' : 'dir')
+  const { result, calls } = countCoordinateFs(() => readShipgraphCoordinates(dir, ['escape'], { period: 'night' }))
+  assert.deepEqual(plain(result), {})
+  assert.equal(calls.openSync.length, 0)
+  assert.equal(calls.statSync.length, 0)
+})
+
+test('双格式与时段后缀不增加目录枚举，只 stat 实际请求且并存的同名一对', (t) => {
+  const dir = withDir(t)
+  const ini = write(dir, 'KanColle', 'pair.night')
+  const json = write(dir, 'KanColle', 'pair.night', jsonCoordinates(expected), 'kcs', 'json')
+  write(dir, 'KanColle', 'single', jsonCoordinates(expected), 'kcs2', 'json')
+  for (const stem of ['pair', 'pair.day', 'pair.nigth', 'unrequested.night']) {
+    write(dir, 'KanColle', stem)
+    write(dir, 'KanColle', stem, jsonCoordinates(expected), 'kcs', 'json')
+  }
+  const counts = []
+  for (const size of [0, 1600]) {
+    const filenames = ['pair', 'single', ...Array.from({ length: size }, (_, i) => `missing${i}`)]
+    const { result, calls } = countCoordinateFs(() => readShipgraphCoordinates(dir, filenames, { period: 'night' }))
+    assert.deepEqual(plain(result), { pair: expected, single: expected })
+    assert.equal(calls.readdirSync.length, 4)
+    assert.equal(new Set(calls.readdirSync).size, 4)
+    assert.deepEqual(new Set(calls.statSync), new Set([fs.realpathSync(ini), fs.realpathSync(json)]))
+    assert.equal(calls.statSync.length, 2)
+    assert.equal(calls.openSync.length, 2)
+    counts.push(Object.fromEntries(Object.entries(calls).map(([method, files]) => [method, files.length])))
+  }
+  assert.deepEqual(counts[0], counts[1])
 })
 
 // 原生 XHR 的事件按注册顺序派发，on* 属性也占据赋值时的位置。
@@ -432,4 +607,43 @@ test('真实磁盘读取接到主世界钩子：下次 start2 重新读文件，
   assert.equal(f.xhr.responseText, 'svdata=' + start2)
   assert.equal(f.responses.length, 3)
   for (const response of f.responses) assert.equal(response[4], 'svdata=' + start2)
+})
+
+test('cispmgxqaedk 玩家双文件样本端到端：磁盘到 start2 只替换 15 个显示坐标，原请求与上报不变', (t) => {
+  const dir = withDir(t)
+  const iniBytes = fs.readFileSync(new URL('./fixtures/cispmgxqaedk.config.ini', import.meta.url))
+  const jsonBytes = fs.readFileSync(new URL('./fixtures/cispmgxqaedk.config.json', import.meta.url))
+  const sampleExpected = Object.fromEntries(names.map((name, index) => [`api_${name}`, [
+    [205, 227], [245, 227], [0, 0], [0, 0], [199, 119], [251, 134], [151, 161], [214, 149],
+    [229, 184], [267, 188], [271, 179], [303, 173], [229, 184], [267, 188], [179, -41],
+  ][index]]))
+  assert.equal(iniBytes.toString().replace(/\r\n/g, '').includes('\n'), false, '原始 ini 保留 CRLF')
+  assert.deepEqual(parseShipgraphCoordinates(iniBytes), sampleExpected)
+  assert.deepEqual(JSON.parse(jsonBytes).api_mst_shipgraph, sampleExpected)
+  const raw = start2.replace('erhlwuihpcnw', 'cispmgxqaedk')
+  const wanted = JSON.parse(raw)
+  Object.assign(wanted.api_data.api_mst_shipgraph[0], sampleExpected)
+  for (const period of [null, 'day', 'night']) {
+    const stem = `cispmgxqaedk${period ? `.${period}` : ''}`
+    const ini = write(dir, 'KanColle', stem, iniBytes)
+    const json = write(dir, 'KanColle', stem, jsonBytes, 'kcs', 'json')
+    fs.utimesSync(ini, 100, 100)
+    fs.utimesSync(json, 100, 100)
+    const f = mount(filenames => readShipgraphCoordinates(dir, filenames, { period }))
+    f.xhr.open('POST', '/kcsapi/api_start2/getData', true)
+    f.xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded')
+    f.xhr.send('api_token=fixture&api_verno=1')
+    f.xhr.finish('svdata=' + raw)
+    assert.deepEqual(JSON.parse(f.xhr.response.slice(7)), wanted)
+    assert.equal(f.xhr.response, f.xhr.responseText)
+    assert.deepEqual(f.calls, [
+      ['open', 'POST', '/kcsapi/api_start2/getData', true],
+      ['setRequestHeader', 'Content-Type', 'application/x-www-form-urlencoded'],
+      ['send', 'api_token=fixture&api_verno=1'],
+    ])
+    assert.equal(f.reads(), 1)
+    assert.equal(f.responses.length, 1)
+    assert.equal(f.responses[0][4], 'svdata=' + raw)
+    assert.equal(f.warnings.length, 0)
+  }
 })

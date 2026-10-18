@@ -56,7 +56,7 @@ const getCacheCandidatePaths = (cacheDir, pathname = '') => {
   return getModCandidatePaths(getModRootPath(cacheDir), pathname)
 }
 
-const getModCandidatePaths = (root, pathname) => {
+const getModCandidatePaths = (root, pathname, { period = null, overrideOnly = false } = {}) => {
   // URL 的首个 / 是资源树路径；解码后的分隔符也必须按磁盘路径钳到当次魔改根。
   // 盘符、UNC 与 NUL 不是资源路径，不能交给文件系统解释。
   if (typeof pathname !== 'string' || /[:\0]/.test(pathname) || /[\\/]{2}/.test(pathname)) return []
@@ -67,7 +67,15 @@ const getModCandidatePaths = (root, pathname) => {
   if (ext) {
     sp.push(ext)
   }
-  const candidates = [sp.join('.'), originFilePath]
+  const candidates = []
+  // 根的先后不变；各根内先试当前时段后缀，再试常规覆盖，最后按需试原文件。
+  if (period === 'day' || period === 'night') {
+    const timed = [...sp]
+    timed.splice(ext ? -2 : -1, 0, period)
+    candidates.push(timed.join('.'))
+  }
+  candidates.push(sp.join('.'))
+  if (!overrideOnly) candidates.push(originFilePath)
   return candidates.every((candidate) => isPathWithinRoot(root, candidate)) ? candidates : []
 }
 
@@ -79,9 +87,7 @@ const isPathWithinRoot = (root, candidate) => {
 const findModFilePathAsync = async (cacheDir, pathname, { period = null, overrideOnly = false } = {}) => {
   const roots = getModRoots(cacheDir, period)
   for (const root of roots) {
-    const [hackedFilePath, originFilePath] = getModCandidatePaths(root, pathname)
-    if (!hackedFilePath) continue
-    const candidates = overrideOnly ? [hackedFilePath] : [hackedFilePath, originFilePath]
+    const candidates = getModCandidatePaths(root, pathname, { period, overrideOnly })
     for (const candidate of candidates) {
       try {
         await fs.promises.access(candidate, fs.constants.R_OK)
@@ -145,24 +151,19 @@ const createResourceLookup = (cacheDir, { period = () => null } = {}) => {
       let found = false
       for (const root of roots) {
         if (!hasTree(root)) continue
-        const [hackedFilePath, originFilePath] = getModCandidatePaths(root, decoded)
-        if (!hackedFilePath) continue
-        try {
-          fs.accessSync(hackedFilePath, fs.constants.R_OK)
-          found = true
-        } catch (_e) {
-          if (includeOrigin) {
-            try {
-              fs.accessSync(originFilePath, fs.constants.R_OK)
-              found = true
-            } catch (_e2) {
-              /* 普通缓存也没有 */
-            }
+        for (const candidate of getModCandidatePaths(root, decoded, { period: currentPeriod, overrideOnly: !includeOrigin })) {
+          try {
+            fs.accessSync(candidate, fs.constants.R_OK)
+            found = true
+            break
+          } catch (_e) {
+            // try next candidate
           }
         }
         if (found) break
       }
-      const result = found ? `kuma-cache://resource${currentPeriod ? `-${currentPeriod}` : ''}${pathname}` : ''
+      // 协议重新解析时也必须只读覆盖件，避免时段根里的原文件抢在常驻覆盖之前。
+      const result = found ? `kuma-cache://resource${currentPeriod ? `-${currentPeriod}` : ''}${pathname}${includeOrigin ? '' : '?override-only=1'}` : ''
       memo.set(key, result)
       return result || undefined
     } catch (_e) {

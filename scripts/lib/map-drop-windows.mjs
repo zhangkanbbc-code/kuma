@@ -72,6 +72,26 @@ export const limitedDiffFingerprint = (row) =>
  * 对不上就是有人拿着单票动了包——那正是这张表要拦的事，而它不会有任何报错表现。
  */
 export const PENDING_LIMITED_WINDOW_CLAIMS = Object.freeze([
+  ...[
+    [484, '浜波'],
+    [528, '早波'],
+  ].map(([id, ship]) => Object.freeze({
+    map: '1-1',
+    node: 'C',
+    id,
+    ship,
+    claim: 'Halloween 2026-10-14 起的限定期窗口开催中（台账现记 ended_undated）',
+    claimedAt: '2026-10-18',
+    sources: ['kanlog'],
+    ledger: 'ended_undated',
+    why:
+      '艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，' +
+      '2026-10-18 以普通访客身份人工核阅：1-1 标有【H\'ween】2026/10/14～批次，' +
+      `${ship}列在 C（Boss）点的開催中名单里。` +
+      '舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）' +
+      '「万圣节期间限定掉落」表未列 1-1，wikiwiki 总表亦尚未收录本批，第二票缺席。' +
+      '单票不重开：原 Halloween 2025-09-26 窗口与 ended_undated 状态保持不变，等第二票。',
+  })),
   Object.freeze({
     map: '2-4',
     node: 'P',

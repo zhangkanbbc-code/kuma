@@ -86,13 +86,13 @@ test('真实图片解析器读配置一次；本机到点、改设置、关闭�
   const lookup = module.exports.createResourceResolver(remote)
   assert.deepEqual(reads, ['kuma.cache.path', 'kuma.mod.night.enabled', 'kuma.mod.night.start', 'kuma.mod.night.end'])
   const url = `https://fixture${pathname}`
-  assert.equal(lookup(url), `kuma-cache://resource-day${pathname}`)
+  assert.equal(lookup(url), `kuma-cache://resource-day${pathname}?override-only=1`)
   hour = 18
-  assert.equal(lookup(url), `kuma-cache://resource-night${pathname}`)
+  assert.equal(lookup(url), `kuma-cache://resource-night${pathname}?override-only=1`)
   ipc.emit(MOD_NIGHT_SETTINGS_CHANNEL, {}, { enabled: true, start: '20:00', end: '06:00' })
-  assert.equal(lookup(url), `kuma-cache://resource-day${pathname}`)
+  assert.equal(lookup(url), `kuma-cache://resource-day${pathname}?override-only=1`)
   ipc.emit(MOD_NIGHT_SETTINGS_CHANNEL, {}, MOD_NIGHT_DEFAULT)
-  for (let i = 0; i < 1000; i++) assert.equal(lookup(url), `kuma-cache://resource${pathname}`)
+  for (let i = 0; i < 1000; i++) assert.equal(lookup(url), `kuma-cache://resource${pathname}?override-only=1`)
   assert.equal(reads.length, 4)
 })
 

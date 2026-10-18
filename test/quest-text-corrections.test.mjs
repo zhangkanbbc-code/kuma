@@ -37,7 +37,6 @@ const readLode = (id) => {
 
 /** 用户拍板的定稿，照抄。改这些定稿等于改玩家看到的字，别顺手动。 */
 const FINAL = {
-  985: '期间限定周常任务 以包含【对马、鹈来、稻木、大泊、迅鲸、长鲸、朝日、村雨、卷波、早波、滨波、㭴】中3名舰娘的舰队，出击1-2、1-5、2-2、2-3击破Boss，各取得1次S?胜。',
   385: '期间限定周常任务 以包含【阿尔及利亚、秃鹫、莫加多尔、贝阿恩、日枝丸、平安丸、大泊、陆奥、南达科他、胜利】中3名舰娘的舰队，在单日内取得4次演习S胜。',
   635: '废弃5件装备',
   609: '解体2艘舰船',
@@ -47,7 +46,7 @@ const FINAL = {
 /** 按操作回数计的那一族：正文写「次」本来就是对的，一个都不许被改。 */
 const BY_ROUND = ['604', '610', '611', '612', '613', '617']
 
-test('六条校正的最终呈现就是用户定稿的那几个字', () => {
+test('五条校正的最终呈现就是用户定稿的那几个字', () => {
   const pack = readLode('quests-scn')
   if (!pack) return // 裸环境无包：跳过，全量对账由 test:lodes 兜底
   const fixed = applyQuestTextCorrectionsToPack({ ...pack, data: { ...pack.data, 384: retiredQuests[384], 385: retiredQuests[385] } })
@@ -60,6 +59,20 @@ test('六条校正的最终呈现就是用户定稿的那几个字', () => {
   )
   // 主判据单独再钉一次：这一条是本单的由头
   assert.equal(fixed.data['635'].memo2, '废弃5件装备')
+})
+
+test('985 的 memo2 由上游直接给出并含鹈来，加载期不再校正', () => {
+  const pack = readLode('quests-scn')
+  if (!pack) return
+  assert.equal(
+    pack.data['985'].memo2,
+    '期间限定周常任务 以包含【对马、鹈来、稻木、大泊、迅鲸、长鲸、朝日、村雨、卷波、早波、滨波、㭴】中3名舰娘的舰队，出击1-2、1-5、2-2、2-3击破Boss，各取得1次S?胜。',
+  )
+  assert.ok(!QUEST_TEXT_CORRECTIONS.some((fix) => fix.questId === 985))
+  const { data, report } = applyQuestTextCorrections(pack.data)
+  assert.equal(data['985'], pack.data['985'], '985 应沿用上游条目')
+  assert.ok(!report.applied.includes(985))
+  assert.ok(!report.skipped.some((skip) => skip.questId === 985))
 })
 
 test('按回的那一族一个字没动——写「次」本来就是对的', () => {
@@ -180,13 +193,14 @@ test('两个装载口都叠了校正——只叠一边会让显示与判定悄�
   if (!pack) return
   assert.equal(pack.data['635'].memo2, '废弃5件装备', '离线装载口也应看到校正后的文本')
   assert.equal(pack.data['609'].memo2, '解体2艘舰船')
+  assert.equal(pack.data['985'].memo2, readLode('quests-scn').data['985'].memo2, '985 离线加载后仍是上游原文')
 })
 
 test('每条校正都写了证据，且实测与推定分得清', () => {
   assert.ok(QUEST_TEXT_CORRECTIONS.length >= 3)
   for (const fix of QUEST_TEXT_CORRECTIONS) {
     assert.ok(fix.basis && fix.basis.length > 30, `${fix.questId} 的 basis 太短，证据要写清`)
-    const date = fix.questId === 985 ? /维护者裁决 2026-10-16/ : fix.questId === 384 ? /维护者裁决 2026-09-21/ : fix.questId === 385 ? /维护者裁决 2026-09-15/ : /2026-08-27/
+    const date = fix.questId === 384 ? /维护者裁决 2026-09-21/ : fix.questId === 385 ? /维护者裁决 2026-09-15/ : /2026-08-27/
     assert.match(fix.basis, date, `${fix.questId} 的 basis 应带裁定日期`)
     assert.notEqual(fix.from, fix.to, `${fix.questId} 的校正前后不该相同`)
   }

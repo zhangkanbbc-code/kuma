@@ -1630,6 +1630,15 @@ export const repairDuration = (milliseconds: number): string => {
   return `${minutes}分`
 }
 
+// 每点 HP 工时：向上取整到秒；小时内保留分秒，小时起保留小时与两位分秒。
+export const repairDurationSeconds = (milliseconds: number): string => {
+  const seconds = Math.max(0, Math.ceil(milliseconds / 1000))
+  const pad = (n: number) => `${n}`.padStart(2, '0')
+  if (seconds >= 3600) return `${Math.floor(seconds / 3600)}小时${pad(Math.floor((seconds % 3600) / 60))}分${pad(seconds % 60)}秒`
+  if (seconds >= 60) return `${Math.floor(seconds / 60)}分${seconds % 60}秒`
+  return `${seconds}秒`
+}
+
 // H:MM:SS 倒计时；到点返回「完成」
 export const fmtCountdown = (completeTime: number) => {
   const remain = completeTime - Date.now()

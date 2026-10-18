@@ -96,6 +96,41 @@ const protocolFixture = (cacheDir, overrides = {}) => {
   return { api, handler, beforeRequest, fetched, remembered }
 }
 
+test('图片查找到协议供文件：时段根仅有原文件时，仍采用常驻时段覆盖；允许原文件时沿用根优先', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-protocol-suffix-'))
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }))
+  const pathname = '/kcs2/img/ship.png'
+  const put = (root, suffix) => {
+    const file = path.join(dir, root, pathname.replace('.png', `${suffix}.png`))
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, file)
+    return file
+  }
+  const base = put('KanColle', '.hack')
+  const day = put('KanColle', '.day.hack')
+  const night = put('KanColle', '.night.hack')
+  const dayOrigin = put('KanColle-白天', '')
+  const nightOrigin = put('KanColle-夜间', '')
+  const h = protocolFixture(dir)
+  for (const period of [null, 'day', 'night']) {
+    for (const includeOrigin of [false, true]) {
+      const expected = period === null ? base : includeOrigin
+        ? period === 'day' ? dayOrigin : nightOrigin : period === 'day' ? day : night
+      const accesses = [], original = fs.accessSync
+      fs.accessSync = (...args) => { accesses.push(args[0]); return original(...args) }
+      let url
+      try {
+        url = resourcePath.createResourceLookup(dir, { period: () => period })(`https://fixture${pathname}`, includeOrigin)
+      } finally { fs.accessSync = original }
+      assert.equal(accesses.at(-1), expected)
+      const response = await h.handler({ url })
+      assert.equal(response.status, 200)
+      assert.equal(await response.text(), expected)
+      assert.equal(h.fetched.at(-1), pathToFileURL(expected).href)
+    }
+  }
+})
+
 const attacks = [
   ['..%2f', '/kcs2/..%2f..%2fsecret.png'],
   ['..%5c', '/kcs2/..%5c..%5csecret.png'],

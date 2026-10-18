@@ -567,6 +567,95 @@ test('本机确认层的收窗折叠接在两处，且只在这一层挂「窗�
 // ---- 真包 ----
 
 const realPack = new URL('../assets/lodes/map-drop-windows.json', import.meta.url)
+test('2026 万圣节两票条目在对应点开放，既有开放窗口不随批次改写', () => {
+  const pack = JSON.parse(fs.readFileSync(realPack, 'utf8'))
+  const data = pack.data
+  assert.ok(applyMapIntelCatalog({ schemaVersion: 1, maps: {} }))
+  assert.ok(applyMapDrops(JSON.parse(fs.readFileSync(new URL('../assets/lodes/map-drops.json', import.meta.url), 'utf8')).data))
+  assert.ok(applyMapDropWindows(data))
+  const batch = [
+    ['1-2', 'E', [415, 540, 635]],
+    ['1-3', 'J', [634, 635, 993, 637, 943, 452, 540, 638]],
+    ['1-4', 'L', [415, 452, 922, 898, 934, 535, 921]],
+  ]
+  for (const [map, node, ids] of batch) {
+    for (const id of ids) {
+      const entries = data.maps[map][node].filter(one => one.id === id)
+      assert.equal(entries.length, 1, `${map}/${node}#${id} 必须只有一条当前窗口`)
+      const entry = entries[0]
+      assert.deepEqual(entry.window, {
+        from: '2026-10-14', until: null, lastConfirmedAt: '2026-10-18',
+        status: 'active_confirmed', statusChangedAt: '2026-10-18', label: 'Halloween',
+      })
+      assert.equal(entry.limitedOnly, true)
+      assert.deepEqual(entry.votes, ['kcwiki', 'kanlog'])
+      assert.equal(entry.evidence.kind, 'community')
+      assert.equal(entry.evidence.recordedAt, '2026-10-18')
+      assert.ok(entry.evidence.note.includes('188858（2026-10-17T04:37Z）'))
+      assert.ok(entry.evidence.note.includes('2026-10-18 23:00'))
+      assert.ok(entry.evidence.note.includes('人工核阅'))
+      const shown = mapIntelNode(map, node, '2026-10-18').ships.find(ship => ship.id === id)
+      assert.ok(shown, `${map}/${node}#${id} 未显示在当前掉落池`)
+      assert.equal(isActiveLimitedWindow(shown.limited, '2026-10-18'), true)
+      assert.equal(limitedWindowText(shown.limited), '【Halloween】2026/10/14–暂无截止日期')
+    }
+  }
+  for (const [map, node, id, from, label] of [
+    ['1-3', 'J', 943, '2025-09-26', 'Halloween'],
+    ['1-3', 'J', 452, '2024-11-08', '秋刀魚祭り'],
+    ['1-3', 'J', 540, '2024-12-26', '年の瀬'],
+    ['1-3', 'J', 638, '2025-01-28', '節分'],
+    ['1-4', 'L', 921, '2024-12-03', 'Xmas'],
+  ]) {
+    const note = data.maps[map][node].find(one => one.id === id).evidence.note
+    assert.ok(note.includes(`旧批次「${label}」自 ${from} 起`))
+    assert.ok(note.includes('ended_undated（2026-08-28 判定）'))
+  }
+  for (const [map, node, id, from, label] of [
+    ['1-2', 'E', 634, '2026-04-24', '13周年記念'],
+    ['1-3', 'J', 953, '2025-12-18', 'Xmas'],
+    ['1-4', 'L', 636, '2024-10-18', 'Fleet Halloween!'],
+    ['1-5', 'J', 637, '2025-01-28', '節分'],
+    ['1-5', 'J', 638, '2026-04-24', '13周年記念'],
+    ['1-5', 'J', 898, '2025-01-28', '節分'],
+    ['1-5', 'J', 882, '2024-11-08', '秋刀魚祭り'],
+  ]) {
+    const entry = data.maps[map][node].find(one => one.id === id)
+    assert.deepEqual(entry.window, {
+      from, until: null, lastConfirmedAt: '2026-06-26',
+      status: 'active_confirmed', statusChangedAt: '2026-06-26', label,
+    }, `${map}/${node}#${id} 的既有窗口被本批改写`)
+  }
+  assert.equal(pack.meta.version, '2026.10.18')
+  assert.equal(data.revision, '2026.10.18')
+  assert.equal(data.compiledAt, '2026-10-18')
+  assert.equal(data.checkedAt, '2026-06-26', '局部补录不刷新全台账核对日')
+  assert.ok(data.voters.kcwiki.includes('与 wikiwiki 编辑群独立'))
+})
+
+test('1-1/C 浜波、早波仅登记单票待裁，旧 Halloween 状态与呈现不变', () => {
+  const data = JSON.parse(fs.readFileSync(realPack, 'utf8')).data
+  assert.ok(applyMapIntelCatalog({ schemaVersion: 1, maps: {} }))
+  assert.ok(applyMapDrops(JSON.parse(fs.readFileSync(new URL('../assets/lodes/map-drops.json', import.meta.url), 'utf8')).data))
+  assert.ok(applyMapDropWindows(data))
+  for (const id of [484, 528]) {
+    const entry = data.maps['1-1'].C.find(one => one.id === id)
+    assert.deepEqual(entry.window, {
+      from: '2025-09-26', until: null, lastConfirmedAt: '2025-09-26',
+      status: 'ended_undated', statusChangedAt: '2026-08-28', label: 'Halloween',
+    })
+    assert.deepEqual(entry.votes, ['wikiwiki'])
+    assert.equal(entry.evidence.recordedAt, '2026-08-28')
+    assert.equal(limitedWindowPhase(entry.window, '2026-10-18'), 'ended')
+    assert.equal(mapIntelNode('1-1', 'C', '2026-10-18').ships.some(ship => ship.id === id), false)
+    const claims = PENDING_LIMITED_WINDOW_CLAIMS.filter(one => one.map === '1-1' && one.node === 'C' && one.id === id)
+    assert.equal(claims.length, 1)
+    assert.equal(claims[0].ledger, 'ended_undated')
+    assert.equal(claims[0].claimedAt, '2026-10-18')
+    assert.deepEqual(claims[0].sources, ['kanlog'])
+  }
+})
+
 test('随包台账：每条有凭据，没写截止日的一条都不会被判成已收窗', {
   skip: fs.existsSync(realPack) ? false : '缺 map-drop-windows 台账',
 }, () => {

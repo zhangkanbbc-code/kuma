@@ -120,7 +120,7 @@ test('页面侧查找：到点切换不用重载页面，命中地址带上当�
   let period = 'day'
   const lookup = kcsPath.createResourceLookup(cacheDir, { period: () => period })
   const url = (id) => `https://w01.example/kcs2/resources/ship/full/${id}.png?version=3`
-  const cached = (host, id) => `kuma-cache://${host}/kcs2/resources/ship/full/${id}.png`
+  const cached = (host, id) => `kuma-cache://${host}/kcs2/resources/ship/full/${id}.png?override-only=1`
   assert.equal(lookup(url('0131_1')), cached('resource-day', '0131_1'))
   assert.equal(lookup(url('0080_1')), cached('resource-day', '0080_1'))
   assert.equal(lookup(url('0186_1')), undefined)
@@ -141,7 +141,7 @@ test('页面侧查找：常驻文件夹是空的、只有时段文件夹有东�
   fs.mkdirSync(path.join(cacheDir, 'KanColle'), { recursive: true })
   put('KanColle-夜间', '/kcs2/resources/ship/full/0186_1.hack.png')
   const lookup = kcsPath.createResourceLookup(cacheDir, { period: () => 'night' })
-  assert.equal(lookup('https://w01.example/kcs2/resources/ship/full/0186_1.png'), 'kuma-cache://resource-night/kcs2/resources/ship/full/0186_1.png')
+  assert.equal(lookup('https://w01.example/kcs2/resources/ship/full/0186_1.png'), 'kuma-cache://resource-night/kcs2/resources/ship/full/0186_1.png?override-only=1')
 })
 
 test('页面侧查找：不传时段时行为与原来一致', () => {
@@ -149,6 +149,6 @@ test('页面侧查找：不传时段时行为与原来一致', () => {
   put('KanColle', '/kcs2/resources/ship/full/0080_1.hack.png')
   put('KanColle-夜间', '/kcs2/resources/ship/full/0186_1.hack.png')
   const lookup = kcsPath.createResourceLookup(cacheDir)
-  assert.equal(lookup('https://w01.example/kcs2/resources/ship/full/0080_1.png'), 'kuma-cache://resource/kcs2/resources/ship/full/0080_1.png')
+  assert.equal(lookup('https://w01.example/kcs2/resources/ship/full/0080_1.png'), 'kuma-cache://resource/kcs2/resources/ship/full/0080_1.png?override-only=1')
   assert.equal(lookup('https://w01.example/kcs2/resources/ship/full/0186_1.png'), undefined)
 })

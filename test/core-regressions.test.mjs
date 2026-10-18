@@ -8543,10 +8543,20 @@ test('掉落换源：丢失的原有条目 0 条，限定期换到第一方台�
     //    丢了的表现是「限时标全没了」，而且形状没变、一条报错都不会有。
     //    改钉过的号在这里也要按改钉后的号比：窗口必须**跟着新号走**，
     //    既不许丢（那就是「宗谷只在限定期掉」这句话悄悄消失），也不许留在旧号上。
-    const wasLimited = was.limited.map((line) => {
+    const [map, , node] = key.split('|')
+    // 2026-10-18 已裁定的 Halloween 新开／重开 18 格按新台账更新指纹；
+    // 其余格仍逐项对迁移基线，不能拿整份现包自行背书。
+    const halloween = (windows.maps[map]?.[node] ?? []).filter(
+      (one) => one.window.from === '2026-10-14' && one.window.label === 'Halloween',
+    )
+    const updatedIds = new Set(halloween.map((one) => one.id))
+    const wasLimited = was.limited.filter((line) => !updatedIds.has(Number(line.split('/')[0]))).map((line) => {
       const [id, ...rest] = line.split('/')
       return [correctLegacyDropForm(Number(id)), ...rest].join('/')
     })
+    wasLimited.push(...halloween.map((one) => [
+      one.id, one.window.from, one.window.until ?? '', one.limitedOnly ? 'only' : '', one.history?.length ?? 0,
+    ].join('/')))
     assert.deepEqual(now.limited, wasLimited.sort(), `${key} 的限定期被叠加弄丢或改了`)
     // ③ 空掉落标记从现包票取，值必须与底座一致
     assert.equal(now.emptyDrop, was.emptyDrop, `${key} 的空掉落标记被改动了`)
@@ -8602,8 +8612,8 @@ test('掉落换源：丢失的原有条目 0 条，限定期换到第一方台�
     }
   }
   // 迁移基线 144；2026-08-28 补进 34 条「已终了」（上游用删除线逐条标出来的那批）
-  assert.equal(ledgerEntries, 178, `限定期台账 ${ledgerEntries} 条（144 迁移基线 + 34 已终了）`)
-  assert.equal(onlyCount, 126, `limitedOnly ${onlyCount} 条（92 迁移基线 + 34 已终了）`)
+  assert.equal(ledgerEntries, 191, `限定期台账 ${ledgerEntries} 条（144 迁移基线 + 34 已终了 + 13 Halloween 新开）`)
+  assert.equal(onlyCount, 139, `limitedOnly ${onlyCount} 条（92 迁移基线 + 34 已终了 + 13 Halloween 新开）`)
   assert.equal(historyCount, 2, `带往期窗口 ${historyCount} 条（迁移基线 2）`)
 })
 
@@ -8653,7 +8663,7 @@ test('玩家那份产物没有底座：37 图掉落/编成/限定期照样全量
       rawLimited += raw.ships.filter((ship) => ship.limited).length
       comps += raw.enemyComps.length
       // mapIntelNode 是「现在去哪捞」那一路：不再持续的限定专属条目由它隐去
-      const node = mapIntelNode(code, name, '2026-08-22')
+      const node = mapIntelNode(code, name, '2026-10-18')
       shownShips += node.ships.length
       shownLimited += node.ships.filter((ship) => ship.limited).length
     }
@@ -8661,14 +8671,15 @@ test('玩家那份产物没有底座：37 图掉落/编成/限定期照样全量
   // 与「有底座」那条迁移对照同一组数字：换掉底座不许改变常规图这三域的任何一格
   assert.equal(mapIntelEntries().length, 37, '玩家档只装出了这么几张图')
   assert.equal(nodes, 300)
-  assert.equal(rawShips, 10_851)
+  assert.equal(rawShips, 10_864)
   assert.equal(comps, 1_312)
-  assert.equal(rawLimited, 178)
+  assert.equal(rawLimited, 191)
   // 隐去的是两批：那 10 条「上游不再列出、日子不明」的，加 2026-08-28 补进的
-  // 34 条「上游指名说它终了」的——两批都只在限定期掉，都不该再摆给玩家当
-  // 「现在去这儿捞」。数据里一条没删（上面 178 还在），隐的只是呈现。
-  assert.equal(rawShips - shownShips, 44)
-  assert.equal(shownLimited, 134)
+  // 34 条「上游指名说它终了」的，扣除 2026-10-18 两票重开的 5 条——其余
+  // 都只在限定期掉，都不该再摆给玩家当「现在去这儿捞」。数据里一条没删
+  // （上面 191 还在，含 13 条 Halloween 新开），隐的只是呈现。
+  assert.equal(rawShips - shownShips, 39)
+  assert.equal(shownLimited, 152)
   // 抽三张 1-1 以外的图逐项点一遍——只测 1-1 正是这个病躲过去的原因
   for (const code of ['1-5', '3-2', '7-3']) {
     const entry = mapIntelEntries().find(([key]) => key === code)?.[1]

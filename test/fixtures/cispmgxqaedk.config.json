@@ -1,0 +1,24 @@
+{
+  "api_mst_ship": {
+    "api_name": false,
+    "api_getmes": false,
+    "api_sinfo": false
+  },
+  "api_mst_shipgraph": {
+    "api_boko_n": [205, 227],
+    "api_boko_d": [245, 227],
+    "api_kaisyu_n": [0, 0],
+    "api_kaisyu_d": [0, 0],
+    "api_kaizo_n": [199, 119],
+    "api_kaizo_d": [251, 134],
+    "api_map_n": [151, 161],
+    "api_map_d": [214, 149],
+    "api_ensyuf_n": [229, 184],
+    "api_ensyuf_d": [267, 188],
+    "api_ensyue_n": [271, 179],
+    "api_ensyue_d": [303, 173],
+    "api_battle_n": [229, 184],
+    "api_battle_d": [267, 188],
+    "api_weda": [179, -41]
+  }
+}

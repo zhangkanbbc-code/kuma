@@ -21,7 +21,7 @@ buildSync({
       'export { buildFleetRuleContext, deriveFleetRule } from "./src/main/mg/quest-fleet-rules"',
       'export { evaluateFleetGoal } from "./src/main/mg/kcwiki-quest-rules"',
       'export { buildScrapRuleContext, deriveScrapPreparation } from "./src/main/mg/quest-scrap-rules"',
-      'export { applyQuestTextCorrectionsToPack } from "./src/shared/quest-text-corrections"',
+      'export { QUEST_TEXT_CORRECTIONS, applyQuestTextCorrectionsToPack } from "./src/shared/quest-text-corrections"',
     ].join('\n'), resolveDir: root,
   }, outfile: output, bundle: true, platform: 'node', format: 'cjs', logLevel: 'silent',
 })
@@ -29,6 +29,14 @@ const runtime = createRequire(import.meta.url)(output)
 test.after(() => { mock.timers.reset(); fs.rmSync(temp, { recursive: true, force: true }) })
 const pack = (id) => runtime.applyQuestTextCorrectionsToPack(JSON.parse(fs.readFileSync(path.join(root, 'assets', 'lodes', `${id}.json`), 'utf8')))
 const lodes = Object.fromEntries(['quests-scn', 'kcwiki-localization', 'kcwiki-quest-req', 'poi-quest-goal', 'kcwiki-expedition', 'poi-fcd-map'].map((id) => [id, pack(id)]))
+
+test('985 的鹈来名单直接来自上游包，万圣节加载不依赖校正', () => {
+  const upstream = JSON.parse(fs.readFileSync(path.join(root, 'assets', 'lodes', 'quests-scn.json'), 'utf8'))
+  assert.match(upstream.data['985'].memo2, /对马、鹈来、稻木/)
+  assert.deepEqual(lodes['quests-scn'].data['985'], upstream.data['985'])
+  assert.ok(!runtime.QUEST_TEXT_CORRECTIONS.some((fix) => fix.questId === 985))
+})
+
 const master = { ...halloweenMaster, api_mst_mapinfo: sortieMaster.api_mst_mapinfo }
 const quiet = (fn) => {
   const log = console.log, warn = console.warn
