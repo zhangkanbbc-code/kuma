@@ -12,6 +12,8 @@
 //
 // `*` 是任意 useitem；± 是同一动作既可能消费原道具、又可能产出兑换结果。
 // 奖励与购买类一律只解释增加，不能再把紧随其后的返港全量负差值硬归给战果。
+import { POWERUP_LIMITED_FEED_COSTS, powerupUseitemCost } from './powerup-useitem'
+
 export type UseitemCauseSign = '+' | '-' | '±'
 export type UseitemCauseItems = '*' | readonly number[]
 
@@ -30,7 +32,7 @@ export interface UseitemCauseAction {
   ts: number
   path: string
   // events 表读出时是 JSON 串；渲染层/测试也可能已经解析成对象。
-  // 归因表当前只需 path，但把两种真实形态都纳入契约，迁移与实时不会分叉。
+  // 归因按 path 与限定给餌类型筛选；两种真实形态均纳入契约，迁移与实时不会分叉。
   postBody?: string | Record<string, unknown> | null
 }
 
@@ -54,6 +56,9 @@ export const USEITEM_CAUSE_RULES: Readonly<Record<string, UseitemCauseRule>> = {
   '/kcsapi/api_dmm_payment/paycheck': { sign: '+', items: '*' },
   '/kcsapi/api_req_member/payitemuse': { sign: '+', items: '*' },
   '/kcsapi/api_req_member/itemuse': { sign: '±', items: '*' },
+  '/kcsapi/api_req_kaisou/powerup': {
+    sign: '-', items: [...POWERUP_LIMITED_FEED_COSTS.values()].map(cost => cost.itemId),
+  },
   '/kcsapi/api_req_kaisou/remodeling': {
     sign: '-',
     items: [58, 65, 75, 77, 78, 100],
@@ -86,6 +91,10 @@ export const resolveUseitemCause = (
   for (const action of actionsSinceLastSync) {
     const rule = USEITEM_CAUSE_RULES[action.path]
     if (!rule || !signMatches(rule, delta) || !itemMatches(rule.items, itemId)) continue
+    if (action.path === '/kcsapi/api_req_kaisou/powerup') {
+      const post = typeof action.postBody === 'string' ? JSON.parse(action.postBody) : action.postBody
+      if (powerupUseitemCost(post?.api_limited_feed_type)?.itemId !== itemId) continue
+    }
     if (!best || action.ts >= best.ts) best = action
   }
   return best?.path ?? null

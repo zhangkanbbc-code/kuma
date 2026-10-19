@@ -58,7 +58,8 @@ test('回填一半关闭磁盘账本，重启只读后半；批间实时观测�
     ...Array.from({ length: 24 }, (_, i) => list(catalog.startsAt + 1000 + i, 1119)),
     ...fixture.events,
     { ts: fixture.events.at(-1).ts + 1000, path: '/kcsapi/api_req_kaisou/powerup',
-      post: { api_id: '42', api_useitem_id: '96', api_useitem_count: '2' }, body: { api_data: { api_ship: { api_ship_id: 100 } } } },
+      post: { api_verno: '1', api_id: '4460', api_id_items: '11563,11562,11561', api_slot_dest_flag: '1', api_limited_feed_type: '1' },
+      body: { api_result: 1, api_data: { api_powerup_flag: 1, api_ship: { api_ship_id: 916 }, api_deck: [] } } },
   ]
   const baseline = make(t)
   for (const event of events) put(baseline.db, event)
@@ -428,16 +429,18 @@ test('Party 未知类型：实际扣14且奖励命中才记已领；混合与无
   assert.equal(html.campaignRewardsHtml(book.parseRewards({ api_getitem: [{ api_id: 12345 }] }), ctx), '未识别')
 })
 
-test('未知消耗进其他；只有报文明示才记改修对象；失败和取消不记兑换', async t => {
+test('未知消耗进其他；限定给餌类型命中才记改修对象；失败和取消不记兑换', async t => {
   const { db, book } = make(t)
   seed(db)
   await book.startBackfill()
   log(db, fixture.events.at(-1).ts + 10000, -2, null)
   assert.deepEqual(book.current({}, fixture.events.at(-1).ts)[0].otherUses.map(u => u.count), [2])
-  const e = { ts: fixture.events.at(-1).ts + 20000, path: '/kcsapi/api_req_kaisou/powerup', post: { api_id: '42', api_useitem_id: '96', api_useitem_count: '2' }, body: { api_data: { api_ship: { api_ship_id: 100 } } } }
+  const e = { ts: fixture.events.at(-1).ts + 20000, path: '/kcsapi/api_req_kaisou/powerup',
+    post: { api_verno: '1', api_id: '4460', api_id_items: '11563,11562,11561', api_slot_dest_flag: '1', api_limited_feed_type: '1' },
+    body: { api_result: 1, api_data: { api_powerup_flag: 1, api_ship: { api_ship_id: 916 }, api_deck: [] } } }
   book.observe(e)
-  log(db, e.ts + 100, -2, e.path)
-  assert.deepEqual(book.current({}, e.ts)[0].receipts.at(-1).target, { rosterId: 42, mstId: 100 })
+  log(db, e.ts + 100, -1, e.path)
+  assert.deepEqual(book.current({}, e.ts)[0].receipts.at(-1).target, { rosterId: 4460, mstId: 916 })
   const canceled = structuredClone(fixture.events.at(-1)); canceled.ts = e.ts + 1000; canceled.body.api_data.api_caution_flag = 1
   book.observe(canceled)
   canceled.body.api_result = 0; canceled.body.api_data.api_caution_flag = 0

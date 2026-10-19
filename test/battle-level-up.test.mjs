@@ -30,9 +30,9 @@ const levelUpSortie = (at, patch = {}) => ({
 test('战果经验：主队跨一级、护卫队跨两级，未跨级舰不记', () => {
   resetStore({
     ships: [
-      { id: 101, lv: 10 },
-      { id: 102, lv: 20 },
-      { id: 201, lv: 30 },
+      { id: 101, lv: 10, expTotal: 800, expNext: 200 },
+      { id: 102, lv: 20, expTotal: 1700, expNext: 600 },
+      { id: 201, lv: 30, expTotal: 2600, expNext: 200 },
     ],
     battleShips: [
       { rosterId: 102, fleet: 'main', position: 1 },
@@ -45,12 +45,12 @@ test('战果经验：主队跨一级、护卫队跨两级，未跨级舰不记',
     api_win_rank: 'S',
     api_get_ship_exp: [-1, 300, 400],
     api_get_exp_lvup: [
-      [1_100, 1_150, 1_300],
-      [2_100, 2_300],
+      [800, 1_000, 1_300],
+      [1_700, 2_300],
     ],
     api_get_ship_exp_combined: [500],
     api_get_exp_lvup_combined: [
-      [3_100, 3_150, 3_250, 3_500],
+      [2_600, 2_800, 3_000, 3_500],
     ],
   }, TS)
 
@@ -58,6 +58,12 @@ test('战果经验：主队跨一级、护卫队跨两级，未跨级舰不记',
   assert.equal(playerShips()[101].lv, 11)
   assert.equal(playerShips()[102].lv, 20)
   assert.equal(playerShips()[201].lv, 32)
+  assert.equal(playerShips()[101].expTotal, 1100)
+  assert.equal(playerShips()[101].expNext, 200)
+  assert.equal(playerShips()[102].expTotal, 2100)
+  assert.equal(playerShips()[102].expNext, 200)
+  assert.equal(playerShips()[201].expTotal, 3100)
+  assert.equal(playerShips()[201].expNext, 400)
   assert.deepEqual(sortie().levelUps, [
     { rosterId: 101, from: 10, to: 11, at: TS },
     { rosterId: 201, from: 30, to: 32, at: TS },
@@ -73,15 +79,17 @@ test('战果经验：同一出击两次升级累计为一条，起始等级不�
   feedBattleResult({
     api_win_rank: 'S',
     api_get_ship_exp: [100],
-    api_get_exp_lvup: [[100, 150, 300]],
+    api_get_exp_lvup: [[0, 100, 300]],
   }, TS)
   feedBattleResult({
     api_win_rank: 'S',
     api_get_ship_exp: [200],
-    api_get_exp_lvup: [[300, 450, 700]],
+    api_get_exp_lvup: [[100, 300, 700]],
   }, TS + 1_000)
 
   assert.equal(playerShips()[102].lv, 3)
+  assert.equal(playerShips()[102].expTotal, 300)
+  assert.equal(playerShips()[102].expNext, 400)
   assert.deepEqual(sortie().levelUps, [
     { rosterId: 102, from: 1, to: 3, at: TS + 1_000 },
   ])
@@ -95,7 +103,7 @@ test('出击升级：返港连同 endedAt 留在内存，新出击清空', () =>
   feedBattleResult({
     api_win_rank: 'S',
     api_get_ship_exp: [100],
-    api_get_exp_lvup: [[100, 150, 300]],
+    api_get_exp_lvup: [[0, 100, 300]],
   }, TS)
 
   finishSortie(TS + 20_000)

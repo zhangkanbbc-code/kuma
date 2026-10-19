@@ -11,6 +11,7 @@ import {
 import { mergeAirBases, replaceAirBases, retireAirBasesOfArea, retireClosedAreas } from './air-bases'
 import { newSunkEntries } from '../../shared/sortie-mourning'
 import { ANCHORAGE_REPAIR_STEEL_PER_HP } from '../../shared/anchorage-repair'
+import { powerupUseitemCost } from '../../shared/powerup-useitem'
 import { newEscapeEntries } from '../../shared/sortie-escape'
 import { auditSortieHp } from '../../shared/sortie-hp-audit'
 import { recordAbyssVoiceSightings } from '../abyss-voice-sightings'
@@ -1071,30 +1072,34 @@ const onBattleResult = (body: any, _post: Record<string, string>, ts: number): S
     gains: unknown,
     lvups: unknown,
   ) => {
-    if (!Array.isArray(gains)) return
+    const expGains = Array.isArray(gains) ? gains : []
     const ships = sortie.battle!.fShips
       .filter((ship) => ship.fleet === fleet)
       .sort((left, right) => left.position - right.position)
-    const gainOffset = gains.length > 0 && Number(gains[0]) < 0 ? 1 : 0
+    const gainOffset = expGains.length > 0 && Number(expGains[0]) < 0 ? 1 : 0
     const rows = Array.isArray(lvups) ? lvups : []
     for (const [index, ship] of ships.entries()) {
-      const gain = gains[index + gainOffset]
-      if (typeof gain === 'number' && gain >= 0) ship.expGained = gain
+      const gain = expGains[index + gainOffset]
+      const validGain = typeof gain === 'number' && Number.isFinite(gain) && gain >= 0
+      if (validGain) ship.expGained = gain
       const row = rows[index]
       if (Array.isArray(row)) {
-        if (typeof row[0] === 'number') ship.expTotalAfter = row[0]
         const nextTotal = row.at(-1)
-        if (typeof nextTotal === 'number') ship.expNextTotal = nextTotal
+        const totalAfter = typeof row[0] === 'number' && validGain ? row[0] + gain : null
+        if (totalAfter != null) {
+          ship.expTotalAfter = totalAfter
+          if (typeof nextTotal === 'number') ship.expNextTotal = nextTotal
+        }
         const roster = ship.rosterId == null ? null : state.player.ships[ship.rosterId]
         if (roster && typeof row[0] === 'number') {
           const from = roster.lv
           const gainedLevels = Math.max(0, row.length - 2)
-          roster.expTotal = row[0]
-          roster.expNext =
-            typeof nextTotal === 'number' && nextTotal >= row[0]
-              ? nextTotal - row[0]
-              : 0
-          // api_get_exp_lvup 为 [结算后累计, 下一等级阈值]；
+          if (totalAfter != null) {
+            roster.expTotal = totalAfter
+            roster.expNext =
+              typeof nextTotal === 'number' ? Math.max(0, nextTotal - totalAfter) : 0
+          }
+          // api_get_exp_lvup 为 [结算前累计, 下一等级阈值, (再下一级阈值…)]；
           // 每跨一级会在中间多插入一个阈值，故长度超出 2 的部分就是实际升级数。
           roster.lv += gainedLevels
           if (gainedLevels > 0) {
@@ -2337,14 +2342,18 @@ const reducers: Record<string, Reducer> = {
       ? body.api_ship_id.map(Number).filter((id: number) => id > 0)
       : []
     const expRows = Array.isArray(body.api_get_exp_lvup) ? body.api_get_exp_lvup : []
+    const expGains = Array.isArray(body.api_get_ship_exp) ? body.api_get_ship_exp : []
     for (const [index, rosterId] of rosterIds.entries()) {
       const ship = state.player.ships[rosterId]
       const row = expRows[index]
       if (!ship || !Array.isArray(row) || typeof row[0] !== 'number') continue
       const nextTotal = row.at(-1)
-      ship.expTotal = row[0]
-      ship.expNext =
-        typeof nextTotal === 'number' && nextTotal >= row[0] ? nextTotal - row[0] : 0
+      const gain = expGains[index]
+      if (typeof gain === 'number' && Number.isFinite(gain) && gain >= 0) {
+        ship.expTotal = row[0] + gain
+        ship.expNext =
+          typeof nextTotal === 'number' ? Math.max(0, nextTotal - ship.expTotal) : 0
+      }
       ship.lv += Math.max(0, row.length - 2)
       sections.add('ships')
     }
@@ -2507,7 +2516,7 @@ const reducers: Record<string, Reducer> = {
   },
 
   // 近代化改修：api_id_items 是被作为素材消耗的在籍 id；响应同时给目标舰与最新编队。
-  '/kcsapi/api_req_kaisou/powerup': (body, post) => {
+  '/kcsapi/api_req_kaisou/powerup': (body, post, ts) => {
     const materialIds = `${post.api_id_items ?? ''}`
       .split(',')
       .map((id) => parseInt(id, 10))
@@ -2519,6 +2528,8 @@ const reducers: Record<string, Reducer> = {
     if (Array.isArray(body.api_deck)) applyDeckUpdates(body.api_deck, false)
     const sections: Section[] = materialIds.length || body.api_ship ? ['ships', 'decks'] : []
     if (removeSlotitems(destroyedEquipment)) sections.push('slotitems')
+    const cost = powerupUseitemCost(post.api_limited_feed_type)
+    if (cost && incrementUseitem(cost.itemId, -cost.cost, ts)) sections.push('useitems')
     return sections
   },
 

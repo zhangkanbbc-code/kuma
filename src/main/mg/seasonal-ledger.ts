@@ -4,6 +4,7 @@ import { sumCampaignRewards } from '../../shared/seasonal-history'
 import type { CampaignHistory, CampaignReceipt, CampaignReward, CampaignTaskUse, ObservedQuest } from '../../shared/seasonal-history'
 import { resolveQuestClaims } from '../../shared/quest-claims'
 import { buildScrapRuleContext, deriveScrapPreparation } from './quest-scrap-rules'
+import { powerupUseitemCost } from '../../shared/powerup-useitem'
 
 type Db = { exec(sql: string): void; prepare(sql: string): any }
 type RawMaster = { api_mst_useitem?: any[]; api_mst_slotitem?: any[] }
@@ -17,6 +18,8 @@ const DAY = 86_400_000
 export class SeasonalLedger {
   private master: RawMaster = {}
   private cursor = 0
+  private powerupCursor = 0
+  private powerupBackfillDone = false
   private stopped = false
   private preparationWarnings = new Set<string>()
   backfillDone = false
@@ -46,8 +49,14 @@ export class SeasonalLedger {
         PRIMARY KEY(campaign, opened)
       );
       CREATE TABLE IF NOT EXISTS seasonal_backfill_state (id INTEGER PRIMARY KEY, event_id INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS seasonal_powerup_backfill_state (
+        id INTEGER PRIMARY KEY, event_id INTEGER NOT NULL, completed INTEGER NOT NULL
+      );
     `)
     this.cursor = db.prepare('SELECT event_id FROM seasonal_backfill_state WHERE id = 1').get()?.event_id ?? 0
+    const powerupState = db.prepare('SELECT * FROM seasonal_powerup_backfill_state WHERE id = 1').get()
+    this.powerupCursor = powerupState?.event_id ?? 0
+    this.powerupBackfillDone = powerupState?.completed === 1
   }
 
   setMaster(raw: RawMaster) { this.master = raw }
@@ -150,20 +159,48 @@ export class SeasonalLedger {
         .run(`${path}:${ts}:${itemId}`, ts, spec.key, itemId, recipe?.key ?? 'unknown', exchangeType,
           recipe?.cost ?? null, JSON.stringify(this.parseRewards(data)))
     }
-    // 没有南瓜加运样本：只认报文明示的消耗道具/个数，不从舰娘运变化猜消耗。
-    if (path === POWERUP && Number(post.api_useitem_id) > 0 && Number(post.api_useitem_count) > 0) {
-      const itemId = Number(post.api_useitem_id)
-      const spec = SEASONAL_ITEMS.find(s => this.items().find(u => u.id === itemId)?.name === s.jpName)
-      if (!spec) return
-      this.window(spec.key, itemId, ts)
-      this.db.prepare(`INSERT INTO seasonal_exchange_log VALUES (?, ?, ?, ?, 'powerup', NULL, ?, '[]', ?)
-        ON CONFLICT(event_key) DO NOTHING`).run(`${path}:${ts}:${itemId}`, ts, spec.key, itemId, Number(post.api_useitem_count),
-          JSON.stringify({ rosterId: Number(post.api_id), ...(data.api_ship?.api_ship_id ? { mstId: Number(data.api_ship.api_ship_id) } : {}) }))
-    }
+    // 维护者账本 2026-10-19 已取得限定给餌实样；消耗依据与百科合证，见共用表。
+    if (path === POWERUP) this.observePowerup(event)
+  }
+
+  private observePowerup(event: { ts: number; body: any; post: any }) {
+    if (event.body?.api_result !== 1) return
+    const { ts, post } = event
+    const data = event.body.api_data
+    const cost = powerupUseitemCost(post.api_limited_feed_type)
+    if (!cost) return
+    const itemId = cost.itemId
+    const spec = SEASONAL_ITEMS.find(s => this.items().find(u => u.id === itemId)?.name === s.jpName)
+    if (!spec) return
+    this.window(spec.key, itemId, ts)
+    this.db.prepare(`INSERT INTO seasonal_exchange_log VALUES (?, ?, ?, ?, 'powerup', NULL, ?, '[]', ?)
+      ON CONFLICT(event_key) DO NOTHING`).run(`${POWERUP}:${ts}:${itemId}`, ts, spec.key, itemId, cost.cost,
+        JSON.stringify({ rosterId: Number(post.api_id), ...(data.api_ship?.api_ship_id ? { mstId: Number(data.api_ship.api_ship_id) } : {}) }))
+  }
+
+  // 一次性补回旧游标已越过的改修；仅扫该路径，不重放其他历史，也不改库存。
+  // 独立进度与收据同批提交，保留原 seasonal_backfill_state 的续填下界。
+  private backfillPowerupsBatch(limit: number): number {
+    const rows = this.db.prepare(`SELECT id, ts, body, post_body FROM events
+      WHERE path = ? AND id > ? AND id <= ? AND body IS NOT NULL ORDER BY id LIMIT ?`)
+      .all(POWERUP, this.powerupCursor, this.cursor, limit)
+    const cursor = rows.length ? rows[rows.length - 1].id : this.powerupCursor
+    const done = rows.length < limit
+    this.db.exec('BEGIN')
+    try {
+      for (const row of rows) this.observePowerup({ ts: row.ts, body: JSON.parse(row.body), post: JSON.parse(row.post_body || '{}') })
+      this.db.prepare(`INSERT INTO seasonal_powerup_backfill_state VALUES (1, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET event_id = excluded.event_id, completed = excluded.completed`).run(cursor, done ? 1 : 0)
+      this.db.exec('COMMIT')
+    } catch (error) { this.db.exec('ROLLBACK'); throw error }
+    this.powerupCursor = cursor
+    this.powerupBackfillDone = done
+    return rows.length
   }
 
   // 按 id 分页，单批上限 10 条；事务只包本批，下一批 setImmediate 让出主线程。
   backfillBatch(limit = 10): boolean {
+    if (!this.powerupBackfillDone && this.backfillPowerupsBatch(limit) > 0) return false
     const rows = this.db.prepare(`SELECT id, ts, path, body, post_body FROM events
       WHERE id > ? AND path IN (?, ?, ?, ?) AND body IS NOT NULL ORDER BY id LIMIT ?`)
       .all(this.cursor, QUEST_LIST, CLAIM, EXCHANGE, POWERUP, limit)

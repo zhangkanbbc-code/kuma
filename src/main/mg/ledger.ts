@@ -600,6 +600,7 @@ class Ledger {
     }
     // V15 两步同样幂等；V13 未完成时仍留 12，允许下次一起重跑。
     this.db.exec(`PRAGMA user_version = ${questProgressV13 ? 15 : 12}`)
+    this.repairShipLifeExpLevels()
     this.seasonal = new SeasonalLedger(this.db, no => (getLode('quests-scn')?.data as any)?.[`${no}`]?.name ?? '', getLode)
     this.seasonal.setMaster((this.loadSnapshot('/kcsapi/api_start2/getData')?.body as any)?.api_data ?? {})
     this.slotitemBodyRetention = new SlotitemBodyRetention(this.db, DB_PATH,
@@ -707,6 +708,39 @@ class Ledger {
         if (detail) update.run(JSON.stringify(detail), row.ts)
       }
     })
+  }
+
+  // 2026-10-20：旧结算曾只更新等级，经验推迟到回港才记，导致起始等级偏高。
+  // 独立标记避免随 V13 的重试重复扫描；修正与标记在同一事务内提交。
+  private repairShipLifeExpLevels = () => {
+    this.db.exec('CREATE TABLE IF NOT EXISTS ship_life_level_repair_state (id INTEGER PRIMARY KEY)')
+    if (this.db.prepare('SELECT id FROM ship_life_level_repair_state WHERE id = 1').get()) return 0
+    let changed = 0
+    this.runBatch(2, () => {
+      // 先筛出带等级的事件再取前驱，装备/战斗等事件不能打断等级链。
+      // MATERIALIZED 固定本轮候选；同一毫秒内以事件 id 确定先后。
+      changed = Number(this.db.prepare(`
+        WITH levels AS (
+          SELECT id, ts, roster_id,
+            CASE WHEN kind = 'exp' THEN json_extract(detail, '$.levelAfter')
+                 ELSE json_extract(detail, '$.level') END AS level
+          FROM ship_life_events
+          WHERE (kind = 'exp' AND json_type(detail, '$.levelAfter') IN ('integer', 'real'))
+             OR (kind IN ('join', 'remodel', 'marriage') AND json_type(detail, '$.level') IN ('integer', 'real'))
+        ), prior AS MATERIALIZED (
+          SELECT id, LAG(level) OVER (PARTITION BY roster_id ORDER BY ts, id) AS level
+          FROM levels
+        )
+        UPDATE ship_life_events AS event
+        SET detail = json_set(event.detail, '$.levelBefore', prior.level)
+        FROM prior
+        WHERE event.id = prior.id AND event.kind = 'exp'
+          AND json_type(event.detail, '$.levelBefore') IN ('integer', 'real')
+          AND json_extract(event.detail, '$.levelBefore') > prior.level
+      `).run().changes)
+      this.db.prepare('INSERT INTO ship_life_level_repair_state (id) VALUES (1)').run()
+    })
+    return changed
   }
 
   // 批量写包进一个事务：WAL 下每条自动提交各付一次同步开销，
