@@ -1349,7 +1349,8 @@ const readText = (raw: string, ctx: FleetRuleContext, squad: SquadResolve): Text
       // 浦风丁改、谷风丁改四艘编成」按字面读就成了「四艘谷风丁改」）。
       // 队名组与国籍组一样，数量是**这一组自己的**（「第三十二驱逐队3艘以上」的 3
       // 说的是这一队要凑三艘），不是「跟在一串舰名后面的总数」那种要归一成 1 的情形。
-      amount: named && !atom.chosen && !atom.nation && !atom.squad ? 1 : atom.amount,
+      // 舰级同样是集合，显式数量也必须保留，不能按单艘具名舰归一为 1。
+      amount: atom.ships.length && !atom.ctypes.length && !atom.chosen && !atom.nation && !atom.squad ? 1 : atom.amount,
     }
     if (atom.ctypes.length) group.ctypes = atom.ctypes
     // 具名舰/舰级组一律**不占去重名额**（B149 那条纪律的一般化）：EO 的条件是彼此独立的
@@ -1402,6 +1403,29 @@ export interface DerivedFleetRule {
   notes: string[]
 }
 
+/** 舰级各自带数量的二选一保留为完整分支，不能并成允许混搭的候选池。 */
+const countedClassAlternatives = (raw: string, ctx: FleetRuleContext): { common: string; branches: string[] } | null => {
+  const text = foldCjkVariants(unwrapWikiLinks(`${raw ?? ''}`.normalize('NFKC'))).toLowerCase()
+  const hits = scanEntities(text, ctx, NO_SQUAD).filter((hit) => !hit.noise)
+  const count = String.raw`${NUM}\s*${UNIT}(?:以上)?`
+  for (let index = 1; index < hits.length; index += 1) {
+    const left = hits[index - 1], right = hits[index]
+    if (!left.ctypes?.length || !right.ctypes?.length) continue
+    const clause = text.slice(0, left.start).split(CLAUSE_SPLIT).at(-1)! + text.slice(left.start).split(CLAUSE_SPLIT)[0]
+    if (!COMPOSITION.test(clause) || ADVICE.test(clause) || EXCLUSION.test(clause)) continue
+    const between = text.slice(left.end, right.start)
+    const choice = between.match(new RegExp(String.raw`^(\s*${count}\s*)(?:或者|或)\s*$`))
+    const tail = text.slice(right.end).match(new RegExp(String.raw`^\s*${count}`))
+    if (!choice || !tail) continue
+    const end = right.end + tail[0].length
+    return {
+      common: text.slice(0, left.start) + text.slice(end),
+      branches: [text.slice(left.start, left.end) + choice[1], text.slice(right.start, end)],
+    }
+  }
+  return null
+}
+
 /**
  * 从中文任务正文推导编成条件门。
  *
@@ -1419,6 +1443,25 @@ export const deriveFleetRule = (
   const ruling = FLEET_ARBITRATED[questId]
   if (ruling?.drop) {
     return { approx: true, notes: [ruling.why] }
+  }
+  // 正文明确给出舰级二选一时，每条完整编成分别解析；共用 kcwiki 层的 anyOf 门。
+  // 其它尚未支持的组间「或」仍走下面的弃门机制，不能只落半边要求。
+  const alternatives = countedClassAlternatives(desc, ctx)
+  if (alternatives) {
+    const base = deriveFleetRule(questId, code, alternatives.common, '', ctx)
+    const branches = alternatives.branches.map((text) => deriveFleetRule(questId, code, `编成含有${text}`, '', ctx))
+    if (!base?.fleetGoal?.anyOf && branches.every((branch) => branch?.fleetGoal && !branch.approx)) {
+      const goals = branches.map((branch) => branch!.fleetGoal!)
+      return {
+        fleetGoal: {
+          ...base?.fleetGoal,
+          groups: base?.fleetGoal?.groups ?? [],
+          anyOf: goals,
+        },
+        approx: base?.approx ?? false,
+        notes: [...(base?.notes ?? []), ...branches.flatMap((branch) => branch!.notes)],
+      }
+    }
   }
   // ---- 哪一侧说了算，按**接注册表之前**的读法定 ----
   //

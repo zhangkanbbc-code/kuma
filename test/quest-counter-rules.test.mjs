@@ -394,7 +394,8 @@ test('quest counter reports the audited synthetic-master coverage split', () => 
     // 2026-10-16 季节页移出旧任务；本次六条在此合成主数据下仅演习可推导。
     assert.deepEqual(split, { kcwiki: 148, poi: 25, text: 15, kuma: 59 })
     // 2026-09-15 新增 B217/F143；合成主数据不含北上改三，覆盖数不变，目录增至 650。
-    assert.match(state.packCredit, /精确计数覆盖 247 \/ 648 条/)
+    // 2026-10-21 六条定号使目录增至 654，合成主数据下可计数覆盖仍为 247。
+    assert.match(state.packCredit, /精确计数覆盖 247 \/ 654 条/)
     assert.match(state.packCredit, / · 规则更新 \d{4}-\d{2}-\d{2}$/)
     assert.doesNotMatch(state.packCredit, /EO|KCWiki|poi/, '发布侧署名不该回潮')
     return

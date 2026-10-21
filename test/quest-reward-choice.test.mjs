@@ -284,6 +284,31 @@ test('自报几项就该摆出几项：全库没有哪一组比自报的少', sk
   assert.deepEqual(short, [])
 })
 
+test('全库选一组：原文项不含同组已认出的同一实体名', skip, () => {
+  const ctx = context()
+  const entityAliases = new Map([
+    ...ctx.equips.map((entity) => [`equip:${entity.id}`, entity.aliases]),
+    ...ctx.useitems.map((entity) => [`useitem:${entity.id}`, entity.aliases]),
+  ])
+  const bad = []
+  for (const quest of Object.values(quests)) {
+    splitQuestReward(quest.memo ?? '').groups.forEach((group, index) => {
+      const items = parseQuestRewardItems(group.text, group.declared, ctx)
+      const recognized = items.filter((item) => item.kind !== 'raw')
+      for (const raw of items.filter((item) => item.kind === 'raw')) {
+        const name = normalize(raw.name)
+        for (const item of recognized) {
+          const names = entityAliases.get(`${item.kind}:${item.id}`) ?? [normalize(item.name)]
+          if (names.some((alias) => alias.length >= 2 && name.includes(alias))) {
+            bad.push(`${quest.code} 第${index + 1}组 ${chip(raw)} 含 ${chip(item)}`)
+          }
+        }
+      }
+    })
+  }
+  assert.deepEqual(bad, [])
+})
+
 test('没有选一的普通任务，奖励区还是老样子（对照）', skip, () => {
   const ctx = context()
   assert.deepEqual(sections('B32', ctx), {
@@ -294,8 +319,8 @@ test('没有选一的普通任务，奖励区还是老样子（对照）', skip,
     fixed: [],
     groups: [
       ['equip:328:35.6cm連装砲改×1', 'useitem:75:新型砲熕兵装資材×2', 'useitem:3:開発資材×30'],
-      // 同一件装备的两个不同改修档，第二项对不上就照原文摆着——不许无声吞掉
-      ['equip:328:35.6cm連装砲改×2', 'raw「35.6cm连装炮改★+6×1」', 'useitem:58:改装設計図×1'],
+      // 同一件装备两处各带数量，分别识别为选项，各自保留数量与改修星级
+      ['equip:328:35.6cm連装砲改×2', 'equip:328:35.6cm連装砲改★+6×1', 'useitem:58:改装設計図×1'],
     ],
   })
 })

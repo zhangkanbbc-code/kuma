@@ -10,9 +10,10 @@ import html from '../dist/shared/seasonal-history-html.js'
 import preparation from '../dist/main/mg/quest-scrap-rules.js'
 import claimsModule from '../dist/shared/quest-claims.js'
 import { unnumberedMaster } from './fixtures/quest-unnumbered-master.mjs'
+import { halloweenClaimPack } from './fixtures/quest-halloween-claims.mjs'
 
 const { SeasonalLedger } = ledgerModule
-const pack = JSON.parse(fs.readFileSync(new URL('../assets/lodes/quests-scn.json', import.meta.url)))
+const pack = halloweenClaimPack(JSON.parse(fs.readFileSync(new URL('../assets/lodes/quests-scn.json', import.meta.url))))
 const localization = JSON.parse(fs.readFileSync(new URL('../assets/lodes/kcwiki-localization.json', import.meta.url)))
 const fixture = JSON.parse(fs.readFileSync(new URL('./fixtures/pumpkin-ledger-20261014.json', import.meta.url)))
 const entry = pack.unnumbered['2610F1']

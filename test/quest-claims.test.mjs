@@ -10,6 +10,7 @@ import { runtimeHost } from '../scripts/lib/player-view-runtime.mjs'
 import { MAINTAINER_QUEST_NO_CORRECTIONS, parseKcwikiQuestPages } from '../scripts/lib/kcwiki-quests-scn.mjs'
 import { unnumberedMaster } from './fixtures/quest-unnumbered-master.mjs'
 import { sortieMaster } from './fixtures/quest-sortie-master.mjs'
+import { halloweenClaimPack } from './fixtures/quest-halloween-claims.mjs'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-quest-claims-'))
@@ -152,15 +153,16 @@ test('恢复领域状态后 reconcile 立即认领；标题或类别改变即撤
 })
 
 test('全库：六条新认领只增加对应编号，既有每个追踪器、编成门和准备条件逐字段不变', () => {
-  const before = world(lodes['quests-scn']).engine.state().trackers
-  const live = world(lodes['quests-scn'])
+  const source = halloweenClaimPack(lodes['quests-scn'])
+  const before = world(source).engine.state().trackers
+  const live = world(source)
   const codes = ['2610Bw2', '2610Bm1', '2610Bm2', '2610B4', '2610F1', 'B218']
-  const rows = codes.map((code, index) => rawQuest(9000 + index, lodes['quests-scn'].unnumbered[code].titleJa, code === '2610F1' ? 11 : 10))
+  const rows = codes.map((code, index) => rawQuest(9000 + index, source.unnumbered[code].titleJa, code === '2610F1' ? 11 : 10))
   live.receive(rows)
   const after = live.engine.state().trackers
-  for (const id of Object.keys(lodes['quests-scn'].data)) assert.deepEqual(after[id], before[id], id)
+  for (const id of Object.keys(source.data)) assert.deepEqual(after[id], before[id], id)
   for (const [id, tracker] of Object.entries(before)) assert.deepEqual(after[id], tracker, id)
-  const numbered = structuredClone(lodes['quests-scn'])
+  const numbered = structuredClone(source)
   for (const [index, code] of codes.entries()) {
     const { titleJa: _titleJa, ...entry } = numbered.unnumbered[code]
     numbered.data[9000 + index] = entry

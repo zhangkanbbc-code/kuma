@@ -40,10 +40,10 @@ export const PLAYER_VIEW_WHITELIST = [
   },
   {
     "domain": "任务前置链",
-    "reason": "wikiwiki-quests 补缺、悬空修补及冲突信息仍属用户层；2026-09-06 B211、F48 裁决后为 1169 格；本次 B216 按 wikiwiki、kobayangame、zekamashi 三家正面主张裁为 B207（待实测），kcwiki/tsunkit 空栏为未登记，不作无前置主张。B216 的 pre/0、source 差异 2 格消失，既有仲裁分支标记两 wiki 集合不同使 conflict 新增 1 格，净减 1 格至 1168；wwPre/0 及其余格键与两侧值不变。",
-    "decidedAt": "2026-09-06",
-    "cells": 1168,
-    "fingerprint": "1abae3a2c7b3e9b4cea827a4bfb3920d3b7729035684f96f637219e9d6019421"
+    "reason": "wikiwiki-quests 补缺、悬空修补及冲突信息仍属用户层；2026-09-06 B211、F48 裁决后为 1169 格；本次 B216 按 wikiwiki、kobayangame、zekamashi 三家正面主张裁为 B207（待实测），kcwiki/tsunkit 空栏为未登记，不作无前置主张。B216 的 pre/0、source 差异 2 格消失，既有仲裁分支标记两 wiki 集合不同使 conflict 新增 1 格，净减 1 格至 1168；wwPre/0 及其余格键与两侧值不变。2026-10-21 B205 定号进入目录后，两侧前置均为 C77，仅新增用户层 wiki 补充信息 B205/wwPre/0（玩家空、开发机 C77）及 B205/wwUncertain（玩家 false、开发机 true）两格差异，1168→1170；改前包在两侧内存装配复现旧指纹，既有格键与两侧值完全不变。",
+    "decidedAt": "2026-10-21",
+    "cells": 1170,
+    "fingerprint": "e6190eb88814b950e8cd75809978a5e6a6ac6360fee74ffc7a8bde53fffcd0c5"
   },
   {
     "domain": "图鉴台词卷",

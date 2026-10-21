@@ -1189,6 +1189,57 @@ test('出击：仲裁表只裁它写明的那几条，依据是日文原文', {
 
 // ---- 编成条件 · 第一档：纯舰种数量 ----
 
+test('通用舰级二选一：保留基干与各分支数量，混搭不算；生产计数必须过门', () => {
+  const desc = '以「爱宕」「高雄」为基干，僚舰含有秋月型2艘以上或吹雪型2艘以上的舰队，出击！'
+  const master = { ...fleetMaster, api_mst_mapinfo: sortieMaster.api_mst_mapinfo }
+  const make = () => {
+    const state = { player: {
+      quests: { 9900: { no: 9900, state: 2, type: 1, progressFlag: 0 } },
+      questActiveIds: [9900], questActiveTs: Date.now(), questsTs: Date.now(),
+      ships: {}, decks: [], slotitems: {}, materials: [], useitems: {},
+    }, sortie: { deckId: 1, practice: false, mapArea: 4, mapNo: 5, currentCell: 1, nodes: [{ cell: 1, eventId: 5 }] } }
+    const lodes = {
+      'quests-scn': { data: { 9900: { code: 'B999', desc, memo2: '4-5各S胜两次' } } },
+      'kcwiki-localization': { data: fleetLocalization },
+    }
+    const engine = engineBundle.module.createQuestEngine({
+      getLode: id => lodes[id] ?? null,
+      ledger: { loadSnapshot: () => undefined, loadQuestProgress: () => ({}), saveQuestProgress: () => {}, deleteQuestProgress: () => {} },
+      store: { getState: () => state }, send: () => {},
+    })
+    quiet(() => engine.init(master))
+    return { engine, state }
+  }
+  for (const [ids, expected] of [
+    [[67, 66, 421, 422], true], [[67, 66, 201, 202], true],
+    [[67, 421, 422], false], [[67, 66, 421, 201], false],
+  ]) {
+    const { engine, state } = make()
+    const tracker = engine.state().trackers[9900]
+    assert.equal(tracker.approx, false)
+    assert.deepEqual(tracker.tasks.map(({ map, rank, count }) => [map, rank, count]), [[[4, 5], 6, 2]])
+    assert.equal(tracker.fleetGoal.anyOf.length, 2)
+    const view = ids.map(id => {
+      const ship = master.api_mst_ship.find(ship => ship.api_id === id)
+      return { mstId: id, stype: ship.api_stype, ctype: ship.api_ctype, soku: 10, lv: 99 }
+    })
+    assert.equal(kcwiki.evaluateFleetGoal(tracker.fleetGoal, view, 1).ok, expected)
+    state.player.ships = Object.fromEntries(ids.map((shipId, i) => [i + 1, { id: i + 1, shipId, lv: 99 }]))
+    state.player.decks = [{ id: 1, ships: ids.map((_, i) => i + 1) }]
+    for (const [rank, count] of [['A', 0], ['S', expected ? 1 : 0], ['S', expected ? 2 : 0]]) {
+      quiet(() => engine.onApi('/kcsapi/api_req_sortie/battleresult', { api_win_rank: rank }, {}))
+      assert.equal(engine.state().progress[9900]?.[0] ?? 0, count)
+    }
+  }
+  // 数量不必相同；日文/繁体舰名与中文数字仍复用现有索引及数量解析。
+  const rule = fleet.deriveFleetRule(9901, 'B998', '以愛宕为基干，僚舰含有秋月型二艘以上或者吹雪级三艘以上的舰队', '', fleetCtx)
+  assert.deepEqual(rule.fleetGoal.anyOf.map(goal => goal.groups[0].amount), [2, 3])
+  assert.deepEqual(rule.fleetGoal.groups.map(group => group.ships), [[67]])
+  for (const text of ['建议包含秋月型2艘或吹雪型3艘的舰队', '秋月型2艘或吹雪型3艘', '编成不可包含秋月型2艘或吹雪型3艘的舰队']) {
+    assert.equal(fleet.deriveFleetRule(9902, 'B997', text, '', fleetCtx)?.fleetGoal, undefined, text)
+  }
+})
+
 const fleetOf = (desc, memo2 = '', questId = 0, code = '') =>
   fleet.deriveFleetRule(questId, code, desc, memo2, fleetCtx)
 /** 判定走线上那道门本身，不比编码形状 */

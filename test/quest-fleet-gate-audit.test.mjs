@@ -70,10 +70,10 @@ test('真实全库编成门可疑清单必须精确等于已核清单，新增�
   // 2026-09-17 B138 / Bq13 的同任务不同编成 or 由 kcwiki 层接住，不再整条丢门。
   // 2026-10-16 季节页移出六道旧门、加入四道万圣节门；仅更新审计快照，不修门。
   // 万圣节编成门补严：359 新增一道门，1038 已满足四艘及旗舰，不再列为可疑。
-  // 还要假设六条未定号被认领：五道出击编成门及一个工厂追踪器，不能只审已定号。
-  assert.equal(result.summary.total, 405)
-  assert.deepEqual(result.summary.sources, { kcwiki: 261, kuma: 144 })
-  assert.equal(result.unnumbered.length, 6)
+  // 2026-10-21 五条万圣节已定号，剩 B218 假设认领；B205 新增一道自研编成门。
+  assert.equal(result.summary.total, 406)
+  assert.deepEqual(result.summary.sources, { kcwiki: 261, kuma: 145 })
+  assert.equal(result.unnumbered.length, 1)
   assert.deepEqual(result.missing, [])
   assert.deepEqual(result.suspicious.map((row) => row.code).sort(), Object.keys(REVIEWED).sort())
   for (const code of ['C57', 'B194', 'B204', 'F138']) {

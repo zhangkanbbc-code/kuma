@@ -124,7 +124,7 @@ test('kcwiki 任务页:跨页改码只记信息,同页改码和跨页同码不�
   assert.equal(quests['314'].code, 'Cs2')
 })
 
-test('kcwiki 任务页:维护者十三条定号只记录公开游戏编号与核对日期', () => {
+test('kcwiki 任务页:维护者十九条定号只记录公开游戏编号与核对日期', () => {
   assert.deepEqual(MAINTAINER_QUEST_NO_CORRECTIONS, [
     { code: '2609Cw1', id: 384, basis: '游戏任务列表编号（2026-09-11 核）' },
     { code: '2609Cw2', id: 385, basis: '游戏任务列表编号（2026-09-11 核）' },
@@ -139,6 +139,12 @@ test('kcwiki 任务页:维护者十三条定号只记录公开游戏编号与核
     { code: '2610B2', id: 986, basis: '游戏任务列表编号（2026-10-16 核）' },
     { code: '2610B3', id: 1038, basis: '游戏任务列表编号（2026-10-16 核）' },
     { code: '2610Fm1', id: 1119, basis: '游戏任务列表编号（2026-10-16 核）' },
+    { code: 'B205', id: 1019, basis: '游戏任务列表编号（2026-10-21 核）；「任务」页编号注释误作 1018，与 By15 同号' },
+    { code: '2610Bw2', id: 1039, basis: '游戏任务列表编号（2026-10-21 核）' },
+    { code: '2610Bm1', id: 987, basis: '游戏任务列表编号（2026-10-21 核）' },
+    { code: '2610Bm2', id: 1040, basis: '游戏任务列表编号（2026-10-21 核）' },
+    { code: '2610B4', id: 1002, basis: '游戏任务列表编号（2026-10-21 核）' },
+    { code: '2610F1', id: 1171, basis: '游戏任务列表编号（2026-10-21 核）' },
   ])
 })
 
@@ -159,9 +165,15 @@ test('kcwiki 任务页:定号表优先于错号或空注释,归一码并替换�
 {{任务表|编号=2610B2|<!---->|中文任务名字=USS Trick or Treat}}
 {{任务表|编号=2610B3|<!---->|中文任务名字=Halloween再来一份}}
 {{任务表|编号=2610Fm1|<!---->|中文任务名字=Halloween的南瓜}}
+{{任务表|编号=B205|<!--1018-->|中文任务名字=精锐第二小队}}
+{{任务表|编号=2610Bw2|<!---->|中文任务名字=海上护卫队}}
+{{任务表|编号=2610Bm1|<!---->|中文任务名字=西方南瓜祭}}
+{{任务表|编号=2610Bm2|<!---->|中文任务名字=狼群夜袭}}
+{{任务表|编号=2610B4|<!---->|中文任务名字=北方作战}}
+{{任务表|编号=2610F1|<!---->|中文任务名字=反潜装备整理}}
 `], equipNames)
-  assert.deepEqual(Object.keys(quests), ['313', '359', '384', '385', '984', '985', '986', '1038', '1050', '1051', '1052', '1119', '1170'])
-  assert.deepEqual(Object.values(quests).map(({ code }) => code), ['Cs1', '2610Cw1', '2609Cw1', '2609Cw2', '2610B1', '2610Bw1', '2610B2', '2610B3', 'By17', 'By18', 'B217', '2610Fm1', 'F143'])
+  assert.deepEqual(Object.keys(quests), ['313', '359', '384', '385', '984', '985', '986', '987', '1002', '1019', '1038', '1039', '1040', '1050', '1051', '1052', '1119', '1170', '1171'])
+  assert.deepEqual(Object.values(quests).map(({ code }) => code), ['Cs1', '2610Cw1', '2609Cw1', '2609Cw2', '2610B1', '2610Bw1', '2610B2', '2610Bm1', '2610B4', 'B205', '2610B3', '2610Bw2', '2610Bm2', 'By17', 'By18', 'B217', '2610Fm1', 'F143', '2610F1'])
   assert.equal(quests['313'].memo, '奖励:工厂资源×1')
   assert.equal(quests['384'].name, '与提督的秋祭演习')
   assert.equal(stats.withoutId, 0)
@@ -174,7 +186,7 @@ test('kcwiki 任务页:定号表优先于错号或空注释,归一码并替换�
   }
 })
 
-test('kcwiki 万圣节定号替换并挡住同号旧码，未核编号的七条保留在未定号区', () => {
+test('kcwiki 定号替换并挡住同号旧码，未核编号的两条保留在未定号区', () => {
   for (const { code, id } of MAINTAINER_QUEST_NO_CORRECTIONS.slice(7)) {
     const old = `{{任务表|编号=往年旧码|<!--${id}-->|中文任务名字=往年任务}}`
     const current = `{{任务表|编号=${code}|<!---->|中文任务名字=本年任务}}`
@@ -185,14 +197,27 @@ test('kcwiki 万圣节定号替换并挡住同号旧码，未核编号的七条�
       assert.equal(quests[id].name, '本年任务')
     }
   }
-  const codes = ['SF1', '2610Bw2', '2610Bm1', '2610Bm2', '2610B4', '2610F1', 'B218']
+  const codes = ['SF1', 'B218']
   const { quests, unnumbered, stats } = parseKcwikiQuestPages([
     codes.map((code) => `{{任务表|编号=${code}|<!---->}}`).join('\n'),
   ], equipNames)
   assert.deepEqual(quests, {})
-  assert.equal(stats.withoutId, 7)
+  assert.equal(stats.withoutId, 2)
   assert.deepEqual(Object.keys(unnumbered), codes)
   assert.deepEqual(stats.withoutIdRows.map(({ code }) => code), codes)
+})
+
+test('B205 错注 1018 在同页任一顺序都归 1019，By15 的 1018 原样保留', () => {
+  const b205 = '{{任务表|编号=B205|<!--1018-->|中文任务名字=精锐第二小队}}'
+  const by15 = '{{任务表|编号=By15|<!--1018-->|中文任务名字=前往铁底海峡}}'
+  for (const rows of [[b205, by15], [by15, b205]]) {
+    const { quests, stats } = parseKcwikiQuestPages([rows.join('\n')], equipNames)
+    assert.equal(quests[1019].code, 'B205')
+    assert.equal(quests[1019].name, '精锐第二小队')
+    assert.equal(quests[1018].code, 'By15')
+    assert.equal(quests[1018].name, '前往铁底海峡')
+    assert.equal(stats.duplicates, 0)
+  }
 })
 
 test('kcwiki 任务页:定号后的条目挡住后续同号异码注释行,同码仍可更新', () => {
@@ -265,11 +290,14 @@ test('quests-scn 真包:换源后的锚定事实', { skip: !existsSync(packFile)
   for (const { code, id } of MAINTAINER_QUEST_NO_CORRECTIONS.filter(({ code }) => code.startsWith('2610'))) {
     assert.equal(data[id]?.code, code)
   }
-  for (const code of ['SF1', '2610Bw2', '2610Bm1', '2610Bm2', '2610B4', '2610F1', 'B218']) {
+  assert.equal(data[1019]?.code, 'B205')
+  assert.equal(data[1018]?.code, 'By15')
+  assert.equal(Object.keys(data).length, 654)
+  for (const code of ['SF1', 'B218']) {
     assert.ok(!Object.values(data).some((quest) => quest.code === code), `${code} 不应进入定号区`)
     assert.equal(pack.unnumbered[code]?.code, code)
     assert.ok(pack.unnumbered[code]?.titleJa.trim(), `${code} 带日文标题`)
     assert.deepEqual(Object.keys(pack.unnumbered[code]).sort(), ['code', 'desc', 'memo', 'memo2', 'name', 'pre', 'titleJa'])
   }
-  assert.equal(Object.keys(pack.unnumbered).length, 7)
+  assert.deepEqual(Object.keys(pack.unnumbered), ['SF1', 'B218'])
 })

@@ -11,6 +11,7 @@ import { runFleetGateAudit } from '../scripts/quest-fleet-gate-audit.mjs'
 import { unnumberedMaster } from './fixtures/quest-unnumbered-master.mjs'
 import { halloweenMaster } from './fixtures/quest-halloween-master.mjs'
 import { sortieMaster } from './fixtures/quest-sortie-master.mjs'
+import { halloweenClaimPack, halloweenFixedIds as fixedIds, halloweenTitles as titles } from './fixtures/quest-halloween-claims.mjs'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-unnumbered-test-'))
@@ -38,6 +39,7 @@ const cases = [
   { code: 'B218', pass: ['天霧改二', '狭霧改二'] },
 ]
 const codes = [...cases.map(sample => sample.code), '2610F1']
+const claimPack = halloweenClaimPack(lodes['quests-scn'])
 const idOfCode = code => 9000 + codes.indexOf(code)
 const shipOf = name => {
   const ship = master.api_mst_ship.find(ship => ship.api_name === name)
@@ -53,10 +55,10 @@ const quiet = fn => {
   console.log = console.warn = () => {}
   try { return fn() } finally { console.log = log; console.warn = warn }
 }
-const world = (scn = lodes['quests-scn']) => {
+const world = (scn = claimPack, numbered = false) => {
   const quests = Object.fromEntries(codes.map(code => {
-    const no = idOfCode(code)
-    return [no, { no, title: scn.unnumbered[code].titleJa, category: code === '2610F1' ? 11 : 10, state: 2, type: 4, progressFlag: 0 }]
+    const no = numbered && fixedIds[code] ? fixedIds[code] : idOfCode(code)
+    return [no, { no, title: titles[code] ?? scn.unnumbered[code].titleJa, category: code === '2610F1' ? 11 : 10, state: 2, type: 4, progressFlag: 0 }]
   }))
   const player = { quests, questActiveIds: Object.keys(quests).map(Number), questActiveTs: Date.now(), questsTs: Date.now(), decks: [], ships: {}, slotitems: {}, materials: [], useitems: {} }
   const state = { player, sortie: null }
@@ -178,7 +180,7 @@ test('2610F1：三个指定装备按实际废弃数量计数，三项准备不�
   assert.equal(notifications.length, 0)
   stocked(2, 5, 30); api.detectQuestComplete()
   assert.equal(notifications.length, 1)
-  const unsupported = structuredClone(lodes['quests-scn'])
+  const unsupported = structuredClone(claimPack)
   unsupported.unnumbered['2610F1'].desc = unsupported.unnumbered['2610F1'].desc.replace('「南瓜」', '「未收录的准备道具」')
   const partialTracker = world(unsupported).engine.state().trackers[id]
   assert.equal(partialTracker.partial, true)
@@ -192,10 +194,19 @@ test('2610F1：三个指定装备按实际废弃数量计数，三项准备不�
 })
 
 test('未定号也进入全库审计：完整夹具五道门齐全，缺舰夹具必须暴露缺门', async () => {
-  const complete = await runFleetGateAudit({ master, lodes })
+  const claimLodes = { ...lodes, 'quests-scn': claimPack }
+  const complete = await runFleetGateAudit({ master, lodes: claimLodes })
   assert.deepEqual(complete.missing, [])
   assert.equal(complete.unnumbered.length, 6)
   for (const sample of cases) assert.ok(complete.rows.some(row => row.code === sample.code), sample.code)
-  const incomplete = await runFleetGateAudit({ master: { ...halloweenMaster, api_mst_mapinfo: sortieMaster.api_mst_mapinfo }, lodes })
+  const incomplete = await runFleetGateAudit({ master: { ...halloweenMaster, api_mst_mapinfo: sortieMaster.api_mst_mapinfo }, lodes: claimLodes })
   assert.ok(incomplete.missing.some(row => row.code === 'B218' && row.reason === '未读出编成门'))
+})
+
+test('五条万圣节定号前按标题认领与定号后按编号的追踪器逐字段相同', () => {
+  const before = world().engine.state().trackers
+  const after = world(lodes['quests-scn'], true).engine.state().trackers
+  for (const [code, id] of Object.entries(fixedIds)) {
+    assert.deepEqual({ ...before[idOfCode(code)], questId: id }, after[id], code)
+  }
 })

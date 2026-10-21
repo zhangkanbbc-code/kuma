@@ -287,8 +287,9 @@ test('全库前后对拍：新增别名来自异常词条；原有整词命中�
   // 2026-09-11 任务库新增四条：整词命中增加 33、部分命中增加 2，未命中数不变。
   // 2026-09-15 B217/F143 增加 18 处整词、2 处部分命中，未命中数不变。
   // 2026-10-16 季节页刷新并补入六条万圣节定号，保持逐出现位置的实体判定对拍。
-  assert.deepEqual(before.summary, { total: 2122, matched: 1841, unmatched: 226, partial: 55 })
-  assert.deepEqual(after.summary, { total: 2122, matched: 1870, unmatched: 206, partial: 46 })
+  // 2026-10-21 B205 与五条万圣节迁入定号区，增加 47 处实体出现位置。
+  assert.deepEqual(before.summary, { total: 2169, matched: 1884, unmatched: 229, partial: 56 })
+  assert.deepEqual(after.summary, { total: 2169, matched: 1913, unmatched: 209, partial: 47 })
 })
 
 test('任务舰种新增的七处审计覆盖：六处整词；改装特务空母只标部分命中', () => {
@@ -317,6 +318,7 @@ const quotedShortTerms = [
   ['紫云', 'equip', 118, '紫雲', 1],
   ['勋章', 'item', 57, '勲章', 4],
   ['烈风', 'equip', 22, '試製烈風 後期型', 2],
+  ['南瓜', 'item', 96, '南瓜', 1],
 ]
 const quotePairs = [['「', '」'], ['『', '』'], ['"', '"'], ['“', '”']]
 const shortOptions = { allowQuotedSingle: true }
@@ -380,7 +382,7 @@ test('舰娘一字引号规则保持：四种整词引号命中，无引号与�
   }
 })
 
-test('全库短名规则前后对拍：仅新增八个两字词条 35 处，已有命中实体与部分命中不变', () => {
+test('全库短名规则前后对拍：仅新增九个两字词条 36 处，已有命中实体与部分命中不变', () => {
   // 还原本单之前正文装备／道具的门槛，不改索引别名与其它领域的匹配行为。
   const beforeIndexes = { ...indexes }
   for (const key of ['equipNameIndex', 'itemNameIndex']) {
@@ -389,8 +391,8 @@ test('全库短名规则前后对拍：仅新增八个两字词条 35 处，已�
   const beforeRuntime = { ...runtime, taskEntityRawMarks: (_indexes, ...args) => runtime.taskEntityRawMarks(beforeIndexes, ...args) }
   const before = auditQuestEntities(quests, indexes, beforeRuntime)
   const after = auditQuestEntities(quests, indexes, runtime)
-  assert.deepEqual(before.summary, { total: 2122, matched: 1835, unmatched: 241, partial: 46 })
-  assert.deepEqual(after.summary, { total: 2122, matched: 1870, unmatched: 206, partial: 46 })
+  assert.deepEqual(before.summary, { total: 2169, matched: 1877, unmatched: 245, partial: 47 })
+  assert.deepEqual(after.summary, { total: 2169, matched: 1913, unmatched: 209, partial: 47 })
   const added = []
   for (let i = 0; i < before.occurrences.length; i += 1) {
     const old = before.occurrences[i]
@@ -407,7 +409,7 @@ test('全库短名规则前后对拍：仅新增八个两字词条 35 处，已�
     added.push(current)
   }
   for (const [term, , , , count] of quotedShortTerms) assert.equal(added.filter((row) => row.term === term).length, count, term)
-  assert.equal(added.length, 35)
+  assert.equal(added.length, 36)
   for (const quest of Object.values(quests)) {
     for (const field of ['desc', 'memo2', 'memo']) {
       const { text } = runtime.cleanQuestText(quest[field] ?? '')
@@ -460,8 +462,8 @@ test('烈风别名前后全库对拍：仅 F15 desc、F47 memo2 两处新增命�
   }
   const before = auditQuestEntities(quests, beforeIndexes, runtime)
   const after = auditQuestEntities(quests, indexes, runtime)
-  assert.deepEqual(before.summary, { total: 2122, matched: 1868, unmatched: 208, partial: 46 })
-  assert.deepEqual(after.summary, { total: 2122, matched: 1870, unmatched: 206, partial: 46 })
+  assert.deepEqual(before.summary, { total: 2169, matched: 1911, unmatched: 211, partial: 47 })
+  assert.deepEqual(after.summary, { total: 2169, matched: 1913, unmatched: 209, partial: 47 })
   assert.equal(after.occurrences.length, before.occurrences.length)
   const added = []
   for (let i = 0; i < before.occurrences.length; i += 1) {

@@ -279,22 +279,34 @@ export const parseQuestRewardItems = (
         }
       })
       .sort((a, b) => a.start - b.start || b.alias.length - a.alias.length)
+    // 同一实体至少两处各自紧跟 ×N，且互不重叠，就是独立选项：C77 的
+    // 「35.6cm连装炮改×2」「35.6cm连装炮改★+6×1」各带自己的数量与星级。
+    // 重叠别名不能凑成两处；各处候选仍统一交给下面的区间调度挑选。
+    const quantified = matches.filter((match) => match.amount != null)
+    const separateAmounts = quantified.some((left) => quantified.some((right) => left.end <= right.start))
+    // 只有一处带数量或都不带时，仍合成一项，沿用第一处占位：
     // 同一件东西可能两个名字连写（A83「战斗粮食（特别饭团）「战斗粮食(特制饭团)」×2」），
     // 数量挂在其中一处：取带数量的那处；处处都不带才是 ×1。
     // 但**占位**要按第一处算：把落点挪到后面那处，前面那半就成了没人认领的字，
     // 短名字会从里面再抠出一项来——A83 的二选一会列出三项（战斗粮食 + 特别饭团版），
     // Bq5 的三选一会列出四项（12.7cm连装炮 + C型改二），都是这么来的。
-    const hit = matches.find((match) => match.amount != null) ?? matches[0]
-    candidates.push({
-      kind: entity.kind,
-      id: entity.id,
-      name: entity.rawName,
-      stock: entity.stock,
-      amount: Math.max(1, hit.amount ?? 1),
-      star: hit.star ?? undefined,
-      start: matches[0].start,
-      length: matches[0].end - matches[0].start,
-    })
+    const hits = separateAmounts
+      ? quantified
+      : [matches.find((match) => match.amount != null) ?? matches[0]]
+    for (const hit of hits) {
+      const position = separateAmounts
+        ? { start: hit.start, length: hit.end - hit.start }
+        : { start: matches[0].start, length: matches[0].end - matches[0].start }
+      candidates.push({
+        kind: entity.kind,
+        id: entity.id,
+        name: entity.rawName,
+        stock: entity.stock,
+        amount: Math.max(1, hit.amount ?? 1),
+        star: hit.star ?? undefined,
+        ...position,
+      })
+    }
   }
   const materialDefs: [number, string][] = [
     [0, '燃料'],
@@ -350,8 +362,8 @@ export const parseQuestRewardItems = (
   // 也不让一个选项从面板上无声消失
   if (declared === 0 || declared > accepted.length) {
     // 把已识别的「名称×数量」段抹成空白（等长替换保住索引），剩下的就是没对上的原文。
-    // 只抹代表位置：同一件东西写两遍**可能是两项**（C77 的「35.6cm连装炮改×2」与
-    // 「35.6cm连装炮改★+6×1」是两个不同选项），第二处照原文列出来才不算吞了人家
+    // 只抹已接受候选的占位：各自带数量的重复实体已各有候选（如 C77 第 2 组），
+    // 合成一项时仍只抹第一处；其他未认领的原文继续照列，不许无声吞掉。
     const masked = accepted.reduce((text, item) => {
       const tail = text
         .slice(item.start + item.length)
