@@ -28,12 +28,12 @@ const friendly = () => {
 
 test.afterEach(() => setSelectedLogStage(null))
 
-test('37→12 默认显示整场 -25，点住 30→21 的阶段显示 -9，血量链保留', () => {
+test('37→12 默认显示夜战段 -9（与虚条同宽），点住 30→21 的阶段显示 -9，血量链保留', () => {
   const { ship, battle } = friendly()
   const followed = renderBrow(battle, 0, ship)
-  assert.equal(lossOf(followed), '25')
-  assert.match(followed, /title="37→30→21→12">12\/37<\/span><span class="hp-loss st9">-25<\/span><span class="st9"[^>]*>中破<\/span>/)
-  // 数字是整场累计 25，虚条仍只画夜战段掉的 9。
+  assert.equal(lossOf(followed), '9')
+  assert.match(followed, /title="37→30→21→12">12\/37<\/span><span class="hp-loss st9">-9<\/span><span class="st9"[^>]*>中破<\/span>/)
+  // 数字与虚条同一截：都是夜战段掉的 9，不是整场累计 25。
   const ghost = Number(/class="dl" style="width:([\d.]+)%"/.exec(followed)[1])
   assert.ok(Math.abs(ghost - 9 / 37 * 100) < 0.01)
   setSelectedLogStage(1)
@@ -42,6 +42,30 @@ test('37→12 默认显示整场 -25，点住 30→21 的阶段显示 -9，血�
   assert.match(pinned, /title="37→30→21→12">21\/37<\/span>/)
   setSelectedLogStage(null)
   assert.equal(renderBrow(battle, 0, ship), followed)
+})
+
+const ghostLost = (html, hpMax) => Math.round(Number(/class="dl" style="width:([\d.]+)%"/.exec(html)[1]) * hpMax / 100)
+
+test('不点流水时扣血数与虚条同一截：昼夜战只计夜战段，只有昼战计昼战合计，夜战没挨打不显示', () => {
+  const cases = [
+    ['昼 7+5、夜 13', [hit(1, 0, 7, 0, 'air'), hit(1, 1, 5), hit(1, 2, 13, 0, 'night')], 12, '13'],
+    ['只有昼战 7+5', [hit(1, 0, 7, 0, 'air'), hit(1, 1, 5)], 25, '12'],
+    ['昼 7+5、夜战只有敌方挨打', [hit(1, 0, 7, 0, 'air'), hit(1, 1, 5), hit(0, 2, 10, 0, 'night')], 25, null],
+  ]
+  for (const [label, attacks, hpEnd, lost] of cases) {
+    const ship = { ...shipOf(0, '我方'), hpStart: 37, hpMax: 37, hpEnd }
+    const battle = battleOf({ hasNight: true, fShips: [ship], attacks })
+    const html = renderBrow(battle, 0, ship)
+    assert.equal(lossOf(html), lost, label)
+    assert.equal(ghostLost(html, 37), Number(lost ?? 0), `${label}：虚条同宽`)
+  }
+  // 点住时照旧只计那一阶段
+  const ship = { ...shipOf(0, '我方'), hpStart: 37, hpMax: 37, hpEnd: 12 }
+  const battle = battleOf({ hasNight: true, fShips: [ship], attacks: cases[0][1] })
+  for (const [stage, lost] of [[0, '7'], [1, '5'], [2, '13']]) {
+    setSelectedLogStage(stage)
+    assert.equal(lossOf(renderBrow(battle, 0, ship)), lost, `阶段 ${stage}`)
+  }
 })
 
 test('演习敌舰 1/39 显示 -38，扣血数在击破标签之前', () => {
@@ -117,7 +141,7 @@ test('扣血元素沿用 nums/st9 的字号和颜色，只按逐行档位隐藏�
   const css = fs.readFileSync(new URL('../src/renderer/assets/battle-replay.css', import.meta.url), 'utf8')
     .replace(/\/\*[^]*?\*\//g, '')
   const { ship, battle } = friendly()
-  assert.match(renderBrow(battle, 0, ship), /<span class="hp-loss st9">-25<\/span>/)
+  assert.match(renderBrow(battle, 0, ship), /<span class="hp-loss st9">-9<\/span>/)
   const compact = [...css.matchAll(/@container \(max-width: 470px\) \{([^]*?)\n\}/g)]
     .map(match => match[1]).join('\n')
   assert.match(compact, /\.mod-di \.brow \.nm > \.ship-thumb \{ width: 22px; \}/, '沿用编队舰绘的容器窄档')
@@ -211,7 +235,7 @@ const liveRow = (battle, side, ship) => {
   return { nums, row }
 }
 
-test('同一行就地切阶段，扣血与血量/状态在第二拍一起更新，回到跟随恢复整场', t => {
+test('同一行就地切阶段，扣血与血量/状态在第二拍一起更新，回到跟随恢复本段', t => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
   const { ship, battle } = friendly()
   const { nums, row } = liveRow(battle, 0, ship)
@@ -220,8 +244,8 @@ test('同一行就地切阶段，扣血与血量/状态在第二拍一起更新�
     querySelector: () => null,
   }
   const followed = nums.innerHTML
-  assert.equal(lossOf(followed), '25')
-  for (const [stage, lost, hp] of [[1, '9', 21], [0, '7', 30], [3, null, 12], [null, '25', 12]]) {
+  assert.equal(lossOf(followed), '9')
+  for (const [stage, lost, hp] of [[1, '9', 21], [0, '7', 30], [3, null, 12], [null, '9', 12]]) {
     const previous = nums.innerHTML
     applyLogStage(pane, battle, stage)
     if (stage !== null) assert.equal(nums.innerHTML, previous, '旧虚条第一拍时数字不提前跳')

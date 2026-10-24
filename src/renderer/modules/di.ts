@@ -1934,6 +1934,7 @@ interface ShipStageView {
   practice: boolean
   hp: number
   before: number
+  /** 与虚条同一截的扣血：跟随最新是本段累计，点住流水是那一阶段 */
   hpLost: number
   hpMax: number
   sunkVisual: boolean
@@ -1980,7 +1981,7 @@ const shipStageView = (
     practice: b.practice,
     hp,
     before,
-    hpLost: Math.max(0, (stage == null ? ship.hpStart : before) - hp),
+    hpLost: Math.max(0, before - hp),
     hpMax: ship.hpMax,
     sunkVisual: sunkNow && !b.practice, // 演习击破不划线不涂沉
     state,
