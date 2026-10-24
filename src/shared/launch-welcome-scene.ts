@@ -76,6 +76,7 @@ export interface WelcomeSceneInput {
   }
   useitems: Record<number, number>
   quests: { no: number; title?: string; detail?: string }[]
+  recordedCampaignKeys?: string[] // 本季尚未结账的企划；道具花光、任务领完后仍参与选幕。
   mapGauges: Record<number, Pick<MapGauge, 'cleared' | 'selectedRank'>>
   lifecycle: unknown
   now: number
@@ -88,6 +89,7 @@ export const selectWelcomeScene = (input: WelcomeSceneInput): WelcomeScene => {
     useitemMst: (input.master.api_mst_useitem ?? []).map((item) => ({ id: item.api_id, name: item.api_name })),
     useitems: input.useitems,
     quests: input.quests,
+    recordedKeys: input.recordedCampaignKeys,
   })
   for (const [key, items] of CAMPAIGN_SCENES) {
     if (campaigns.some((campaign) => items.includes(campaign.key))) return { key }

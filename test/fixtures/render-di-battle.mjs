@@ -113,6 +113,11 @@ const SHIP_ROWS = sliceBetween(
   '// 一侧的舰列表',
   '编队一行 browHtml（含 shipStageView / hpBarHtml）',
 )
+const HP_STAGE_UPDATE = sliceBetween(
+  'interface HpBarTarget {',
+  'export const handleBattleReplayDetailClick =',
+  '就地更新血条与数字 applySelectedLogStage',
+)
 
 // 空壳海图的判据**引真的那一份**，不补桩：桩一写成 `Boolean(entry?.spots)`
 // 就把被修掉的那个 bug 在测试里复活了，护栏会对着旧行为绿。
@@ -294,6 +299,9 @@ let selectedLogStage: number | null = null
 const setSelectedLogStage = (stage: number | null) => {
   selectedLogStage = stage
 }
+const renderedBattles = new WeakMap<object, BattleView>()
+const window = { matchMedia: () => ({ matches: false }) }
+const setShipThumbTier = () => {}
 // 阶段折叠集合住在 logHtml 外面，切片够不着——空集 = 默认全展开，正是要钉的默认态。
 // 用例要试折叠就自己往里塞 stage.order。
 const collapsedLogStages = new Set<number>()
@@ -312,6 +320,7 @@ const isActiveBranchSpot = (..._a: any[]) => false
 ${HP_CLASS}
 ${DAMAGE_STATE}
 ${SHIP_ROWS}
+${HP_STAGE_UPDATE}
 ${DROP_CHIP}
 ${AIRLINE}
 ${RESULT_STRIP}
@@ -329,7 +338,10 @@ export {
   changeFleet,
   setFcdMap,
   setSelectedLogStage,
+  applySelectedLogStage,
+  renderedBattles,
   browHtml,
+  hpNumsHtml,
   battleDropChipHtml,
   airlineHtml,
   resultStripHtml,
@@ -375,11 +387,18 @@ export const changeFleet = (keys, patch) => loaded.changeFleet(keys, patch)
 export const renderLog = (battle, expanded = true) => loaded.logHtml(battle, expanded)
 /** 编队里的一行（血条那一格与灰化那几个类都在里面）。 */
 export const renderBrow = (battle, side, ship) => loaded.browHtml(battle, side, ship)
+export const renderHpNums = (view) => loaded.hpNumsHtml(view)
 /**
  * 把流水聚焦拨到某一阶段；`null` 回到跟随最新。
  * 模块级变量是**跨用例共享**的，用完记得拨回 null。
  */
 export const setSelectedLogStage = (stage) => loaded.setSelectedLogStage(stage)
+/** 跑真实就地更新与两拍动画；pane 只补编队行所需的 DOM。 */
+export const applyLogStage = (pane, battle, stage) => {
+  loaded.renderedBattles.set(pane, battle)
+  loaded.setSelectedLogStage(stage)
+  loaded.applySelectedLogStage(pane)
+}
 export const renderResultStrip = (battle) => loaded.resultStripHtml(battle)
 export const renderAirline = (battle, sortie = { active: false, practice: false }) =>
   loaded.airlineHtml(battle, sortie)

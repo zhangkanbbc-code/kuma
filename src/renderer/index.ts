@@ -81,7 +81,7 @@ import { initVoiceSubtitles } from './voice-subtitle'
 import { initFairySalvo, refreshFairySalvo } from './fairy-salvo'
 import { FAIRY_SALVO_CONFIG_KEY, FAIRY_SALVO_DEFAULT, FAIRY_MIRROR_UI_KEY, salvoGunsOf } from '../shared/fairy-salvo'
 import { slotItemImageUrl } from './kcs-image'
-import { onMgChange, queryLode, queryMasterRaw, uiGet, uiSet } from './kernel'
+import { onMgChange, queryLode, queryMasterRaw, querySeasonalHistory, uiGet, uiSet } from './kernel'
 import { prepareLevelExp } from './level-exp'
 import { prepareFirstOwned } from './ship-first-owned'
 // 模块导入即注册（Tab 顺序由各自 order 决定）
@@ -860,9 +860,14 @@ void (async () => {
     input: async () => {
       await snapshotReady
       // 没有主数据不是「活动结束」；在下一份快照到达之前保留上次的缓存。
-      const [raw, lifecycle] = await Promise.all([queryMasterRaw(), queryLode('event-lifecycle')])
+      const [raw, lifecycle, campaignHistory] = await Promise.all([queryMasterRaw(), queryLode('event-lifecycle'),
+        querySeasonalHistory().catch((error) => {
+          recordCrash('startup:welcome-scene-memory', error)
+          return []
+        })])
       if (!raw?.data) return null
       return { master: raw.data, lifecycle: lifecycle?.data, now: Date.now(),
+        recordedCampaignKeys: campaignHistory.map(h => h.key),
         useitems: mg.useitems, quests: Object.values(mg.quests), mapGauges: mg.mapGauges }
     },
   }, config.get(LAUNCH_GLOW_CONFIG_KEY, LAUNCH_GLOW_DEFAULT))

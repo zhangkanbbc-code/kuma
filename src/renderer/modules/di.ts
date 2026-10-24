@@ -1934,6 +1934,7 @@ interface ShipStageView {
   practice: boolean
   hp: number
   before: number
+  hpLost: number
   hpMax: number
   sunkVisual: boolean
   state: [string, string] | null
@@ -1979,6 +1980,7 @@ const shipStageView = (
     practice: b.practice,
     hp,
     before,
+    hpLost: Math.max(0, (stage == null ? ship.hpStart : before) - hp),
     hpMax: ship.hpMax,
     sunkVisual: sunkNow && !b.practice, // 演习击破不划线不涂沉
     state,
@@ -2006,7 +2008,16 @@ const hpNumsHtml = (view: ShipStageView): string => {
   const approx = view.mismatch
     ? '<span class="hp-approx" title="中间阶段的数值为预估">≈</span>'
     : ''
-  return `${approx}<span${tip}>${view.hp}/${view.hpMax}</span>${
+  const hpText = `${view.hp}/${view.hpMax}`
+  const lostText = `-${view.hpLost}`
+  // 按实测的等宽字符预算逐行让位；状态标签与两处间距已计入这两档阈值。
+  const chars = hpText.length + lostText.length + (view.mismatch ? 1 : 0)
+  const lossClass = chars > (view.state ? 11 : 15)
+    ? ' hp-loss-hidden'
+    : chars > (view.state ? 8 : 12) ? ' hp-loss-wide' : ''
+  return `${approx}<span${tip}>${hpText}</span>${
+    view.hpLost > 0 ? `<span class="hp-loss st9${lossClass}">${lostText}</span>` : ''
+  }${
     view.state ? `<span class="st9" style="color:${view.state[1]}">${view.state[0]}</span>` : ''
   }`
 }

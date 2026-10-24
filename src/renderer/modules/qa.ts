@@ -136,9 +136,9 @@ interface Row {
   // advanced = 目标是否「进阶改造」（临近改造视图的分组置顶，口径见 practice-leveling.ts）
   kai:
     | { state: 'final' }
-    | { state: 'ready'; next: string; blueprint?: string }
-    | { state: 'near'; next: string; gap: number; expGap: number | null; finalGoal: boolean; advanced: boolean }
-    | { state: 'flip'; next: string; gap: number; expGap: number | null; finalGoal: boolean; advanced: boolean }
+    | { state: 'ready'; next: string; nextId: number; blueprint?: string }
+    | { state: 'near'; next: string; nextId: number; gap: number; expGap: number | null; finalGoal: boolean; advanced: boolean }
+    | { state: 'flip'; next: string; nextId: number; gap: number; expGap: number | null; finalGoal: boolean; advanced: boolean }
   modMax: boolean[] // [火,雷,空,甲] 近代化是否吃满
   oasw: OpeningAswOutlook | null
 }
@@ -248,17 +248,24 @@ const buildRows = (): Row[] => {
               next: entityNamePlain('ship', master.afterShipId, masterShipName(master.afterShipId)),
               gap: master.afterLv - ship.lv,
               expGap: expGapTo(master.afterLv),
+              nextId: master.afterShipId,
               finalGoal: isFinalRemodelTarget(master.afterShipId, afterOf),
               advanced: isAdvancedRemodelTarget(master.afterShipId, master.afterLv, stageOf, afterOf),
             }
           : { state: 'final' }
     } else {
       if (ship.lv >= nextRemodel.level) {
-        kai = { state: 'ready', next: nextRemodel.name, blueprint: kcwikiByMst.get(ship.shipId)?.改造?.图纸 }
+        kai = {
+          state: 'ready',
+          next: nextRemodel.name,
+          nextId: nextRemodel.shipId,
+          blueprint: kcwikiByMst.get(ship.shipId)?.改造?.图纸,
+        }
       } else {
         kai = {
           state: 'near',
           next: nextRemodel.name,
+          nextId: nextRemodel.shipId,
           gap: nextRemodel.level - ship.lv,
           expGap: expGapTo(nextRemodel.level),
           finalGoal: isFinalRemodelTarget(nextRemodel.shipId, afterOf),
@@ -847,7 +854,7 @@ const previewHtml = (row: Row) => {
         ? `条件已满足 ✓${row.kai.blueprint ? `<br>${esc(row.kai.blueprint)}` : ''}`
         : `${row.kai.state === 'flip' ? '双向转换 · ' : ''}距转换等级 ${row.kai.gap} 级${row.kai.expGap != null ? ` · 总${row.kai.expGap.toLocaleString()}` : ''}`
     chainHtml = `<span class="pv-node on">${entityNameHtml('ship', ship.shipId, name, { compact: true })}</span><span class="pv-arr">${req}</span>
-      <span class="pv-node"${row.kai.state === 'ready' ? ' style="border-color:var(--ok);color:var(--remodel-ready-ink)"' : ''}>${esc(row.kai.next)}</span>`
+      <span class="pv-node el" data-etype="mstShip" data-eid="${row.kai.nextId}"${row.kai.state === 'ready' ? ' style="border-color:var(--ok);color:var(--remodel-ready-ink)"' : ''}>${esc(row.kai.next)}</span>`
   }
   return `
     ${shipThumbHtml(ship.shipId, name, { className: 'preview' })}

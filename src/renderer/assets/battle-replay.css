@@ -392,6 +392,9 @@
 .mod-di .hpx .bar > span { transition: width var(--motion-view) var(--motion-ease); }
 .mod-di .hpx .nums { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 8.5px; color: var(--dim); margin-top: 1px; }
 .mod-di .hpx .nums .st9 { font-size: 8.5px; }
+/* 按每行字符预算分档，只让放不下的扣血数让位，血量和状态照旧。 */
+.mod-di .hpx .hp-loss.hp-loss-hidden,
+.mod-di .di-app.narrow .hpx .hp-loss.hp-loss-wide { display: none; }
 .mod-di .rm.g { background: linear-gradient(90deg, var(--meter-ok-start), var(--ok)); }
 .mod-di .rm.y { background: linear-gradient(90deg, var(--meter-gold-start), var(--gold)); }
 .mod-di .rm.o { background: linear-gradient(90deg, var(--meter-warn-start), var(--warn)); }
