@@ -53,6 +53,8 @@ export const LEDGER_PERMANENT_TABLES = [
   'useitem_log',
   'senka_log',
   'senka_state',
+  'incentive_receipts',
+  'incentive_backfill_state',
   'quest_progress',
   'pay_log',
   'expedition_history',

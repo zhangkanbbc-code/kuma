@@ -40,7 +40,7 @@ import {
   type AbyssSeenCache,
   type AbyssSeenEntry,
 } from '../../shared/abyss-seen'
-import { fitObservationStars } from '../../shared/fit-observation'
+import { fitObservationOtherEquips, fitObservationStars } from '../../shared/fit-observation'
 import { previewSampleClause } from '../../shared/enemy-preview'
 import {
   groupFriendlySightings,
@@ -135,8 +135,8 @@ import {
   type SenkaEntry,
   type SenkaSummary,
 } from '../../shared/senka'
-import { EQUIP_FULL_LIST_PATHS, LATE_EQUIP_SOURCE_PATHS, SENKA_RANKING_PATH } from '../../shared/senka-ranking'
-import type { PortLogMessage, RankingPage, RankingRewardEquip, RankingRewardRow, RankingRowData, RankingServer } from '../../shared/senka-ranking'
+import { EQUIP_FULL_LIST_PATHS, incentiveItems, LATE_EQUIP_SOURCE_PATHS, SENKA_RANKING_PATH } from '../../shared/senka-ranking'
+import type { IncentiveReceipt, PortLogMessage, RankingPage, RankingRewardEquip, RankingRewardRow, RankingRowData, RankingServer } from '../../shared/senka-ranking'
 import {
   planManualQuestSenkaBooking,
   planQuestSenkaBooking,
@@ -294,6 +294,18 @@ class Ledger {
         equipped INTEGER NOT NULL
       );
       CREATE INDEX IF NOT EXISTS idx_slotitem_seen_ts ON slotitem_seen(first_ts);
+      CREATE TABLE IF NOT EXISTS incentive_receipts (
+        event_id INTEGER NOT NULL,
+        item_index INTEGER NOT NULL,
+        ts INTEGER NOT NULL,
+        api_mode INTEGER NOT NULL,
+        api_type INTEGER NOT NULL,
+        api_mst_id INTEGER NOT NULL,
+        api_slotitem_level INTEGER NOT NULL DEFAULT 0,
+        api_getmes TEXT NOT NULL,
+        PRIMARY KEY (event_id, item_index)
+      );
+      CREATE TABLE IF NOT EXISTS incentive_backfill_state (id INTEGER PRIMARY KEY);
       CREATE TABLE IF NOT EXISTS material_log (
         ts INTEGER NOT NULL,
         fuel INTEGER, ammo INTEGER, steel INTEGER, bauxite INTEGER,
@@ -548,6 +560,8 @@ class Ledger {
     // 后加的列：老库建表时没有，CREATE TABLE IF NOT EXISTS 不会补，得显式 ALTER。
     // 已存在时 sqlite 会报错，吞掉即可（没有 IF NOT EXISTS 语法）。
     for (const [table, col, type] of [
+      // 维护者裁决 2026-10-30：只保存观察当时的其它装备，旧行 NULL 不重算扣减。
+      ['fit_observations', 'other_equips', 'TEXT'],
       ['encounters', 'sunk_mask', 'INTEGER'],
       ['sortie_samples', 'supply_baseline', "TEXT NOT NULL DEFAULT '[]'"],
       ['sortie_samples', 'fuel_cost', 'INTEGER'],
@@ -601,6 +615,7 @@ class Ledger {
     // V15 两步同样幂等；V13 未完成时仍留 12，允许下次一起重跑。
     this.db.exec(`PRAGMA user_version = ${questProgressV13 ? 15 : 12}`)
     this.repairShipLifeExpLevels()
+    this.backfillIncentives()
     this.seasonal = new SeasonalLedger(this.db, no => (getLode('quests-scn')?.data as any)?.[`${no}`]?.name ?? '', getLode)
     this.seasonal.setMaster((this.loadSnapshot('/kcsapi/api_start2/getData')?.body as any)?.api_data ?? {})
     this.slotitemBodyRetention = new SlotitemBodyRetention(this.db, DB_PATH,
@@ -743,6 +758,30 @@ class Ledger {
     return changed
   }
 
+  private recordIncentives = (eventId: number, ts: number, data: any) => {
+    const items = incentiveItems(data)
+    if (!items.length) return
+    const insert = this.db.prepare(`INSERT INTO incentive_receipts
+      (event_id, item_index, ts, api_mode, api_type, api_mst_id, api_slotitem_level, api_getmes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(event_id, item_index) DO NOTHING`)
+    items.forEach((item, index) => insert.run(eventId, index, ts, item.api_mode, item.api_type,
+      item.api_mst_id, item.api_slotitem_level, item.api_getmes))
+  }
+
+  // 维护者裁决 2026-10-30：仅首次建表后补齐领取记录，条目与完成标记同批提交。
+  private backfillIncentives = () => {
+    if (this.db.prepare('SELECT id FROM incentive_backfill_state WHERE id = 1').get()) return
+    this.runBatch(2, () => {
+      const rows = this.db.prepare(`SELECT id, ts, body FROM events
+        WHERE path = '/kcsapi/api_req_member/get_incentive' AND body IS NOT NULL ORDER BY id`).all()
+      for (const row of rows) this.recordIncentives(row.id, row.ts, JSON.parse(row.body).api_data)
+      this.db.prepare('INSERT INTO incentive_backfill_state (id) VALUES (1)').run()
+    })
+  }
+
+  queryIncentiveReceipts = (): IncentiveReceipt[] => this.db.prepare(`SELECT ts, api_mode, api_type,
+    api_mst_id, api_slotitem_level, api_getmes FROM incentive_receipts ORDER BY ts, event_id, item_index`).all()
+
   // 批量写包进一个事务：WAL 下每条自动提交各付一次同步开销，
   // 一次 port 后 ship-life 可能几十条 upsert，逐条提交把写盘次数放大一个量级。
   // 单条批不值一次 BEGIN/COMMIT，直接跑。
@@ -795,6 +834,9 @@ class Ledger {
         )
         .run(ts, method, apiPath, snapshotOnly ? null : body, redactPostBody(postBody), secretaryMst)
       this.lastRecordedEventId = Number(result.lastInsertRowid) || null
+      if (apiPath === '/kcsapi/api_req_member/get_incentive') {
+        this.runBatch(2, () => this.recordIncentives(Number(result.lastInsertRowid), ts, JSON.parse(body).api_data))
+      }
       if (apiPath === '/kcsapi/api_start2/getData' || apiPath === '/kcsapi/api_get_member/questlist' ||
         apiPath === '/kcsapi/api_req_quest/clearitemget' || apiPath === '/kcsapi/api_req_member/itemuse' ||
         apiPath === '/kcsapi/api_req_kaisou/powerup') {
@@ -836,7 +878,8 @@ class Ledger {
     const evidence = this.db.prepare(`SELECT COUNT(*) AS n, MAX(id) AS id FROM events
       WHERE path IN (${paths.map(() => '?').join(',')}) AND ts <= ?`)
       .get(...paths, equips.ts ?? 0)
-    return JSON.stringify([items, equips, evidence])
+    const receipts = this.db.prepare(`SELECT COUNT(*) AS n, MAX(event_id) AS id FROM incentive_receipts`).get()
+    return JSON.stringify([items, equips, evidence, receipts])
   }
 
   querySenkaCalendarEntries = (from: number, to: number): { ts: number; senka: number }[] =>
@@ -2785,11 +2828,12 @@ class Ledger {
       this.runBatch(clean.length, () => {
         const stmt = this.db.prepare(
           `INSERT INTO fit_observations
-             (equip_mst, form_id, stars, count, stats, sole, first_seen, last_seen)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             (equip_mst, form_id, stars, count, stats, sole, first_seen, last_seen, other_equips)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(equip_mst, form_id, stars, count) DO UPDATE SET
              stats = excluded.stats,
              sole = excluded.sole,
+             other_equips = excluded.other_equips,
              last_seen = excluded.last_seen`,
         )
         for (const row of clean) {
@@ -2803,6 +2847,7 @@ class Ledger {
             row.sole ? 1 : 0,
             row.seenAt,
             row.seenAt,
+            row.otherEquips == null ? null : JSON.stringify(fitObservationOtherEquips(row.otherEquips)),
           )
           saved += 1
         }
@@ -2823,6 +2868,9 @@ class Ledger {
     if (row.stars.some((star) => !Number.isInteger(star) || star < 0 || star > 10)) return false
     if (!row.stats || typeof row.stats !== 'object') return false
     if (Object.values(row.stats).some((value) => !Number.isFinite(Number(value)))) return false
+    if (row.otherEquips != null && (!Array.isArray(row.otherEquips) || row.otherEquips.some((one) =>
+      !one || !Number.isInteger(one.mstId) || one.mstId <= 0 ||
+      !Number.isInteger(one.star) || one.star < 0 || one.star > 10))) return false
     // 时刻是毫秒（~1.7e12）；不接受未来的时刻，也不接受游戏上线前的
     if (!Number.isFinite(row.seenAt)) return false
     return row.seenAt >= Date.UTC(2013, 0, 1) && row.seenAt <= Date.now() + 86400_000
@@ -2830,21 +2878,25 @@ class Ledger {
 
   // 读失败**必须抛**（query-failure 那条纪律）：返回空列表会被渲染成
   // 「你从没测过这件」，那是把故障说成事实。
-  queryFitObservations = (equipMstId: number): FitObservationRecord[] => {
-    if (!Number.isInteger(equipMstId) || equipMstId <= 0) return []
+  // 不传装备时，一次取回全部 sole = 1，供其它装备的精确键补值。
+  queryFitObservations = (equipMstId?: number): FitObservationRecord[] => {
+    if (equipMstId !== undefined && (!Number.isInteger(equipMstId) || equipMstId <= 0)) return []
     try {
       const rows = this.db
         .prepare(
-          `SELECT form_id formId, stars, count, stats, sole, first_seen firstSeen, last_seen lastSeen
-             FROM fit_observations WHERE equip_mst = ?
+          `SELECT equip_mst equipMstId, form_id formId, stars, count, stats, sole,
+                  other_equips otherEquips, first_seen firstSeen, last_seen lastSeen
+             FROM fit_observations WHERE (? IS NULL AND sole = 1) OR equip_mst = ?
             ORDER BY last_seen DESC`,
         )
-        .all(equipMstId) as unknown as {
+        .all(equipMstId ?? null, equipMstId ?? null) as unknown as {
+        equipMstId: number
         formId: number
         stars: string
         count: number
         stats: string
         sole: number
+        otherEquips: string | null
         firstSeen: number
         lastSeen: number
       }[]
@@ -2857,13 +2909,14 @@ class Ledger {
         // 解析失败就让它抛到外面去，整段如实报读取失败。
         const stats: Record<string, number> = JSON.parse(row.stats) ?? {}
         return {
-          key: `${equipMstId}|${row.formId}|★${stars.join('.')}|x${row.count}`,
-          equipMstId,
+          key: `${row.equipMstId}|${row.formId}|★${stars.join('.')}|x${row.count}`,
+          equipMstId: row.equipMstId,
           formId: row.formId,
           stars,
           count: row.count,
           stats,
           sole: !!row.sole,
+          otherEquips: row.otherEquips == null ? null : JSON.parse(row.otherEquips),
           seenAt: row.lastSeen,
           firstSeenAt: row.firstSeen,
         }

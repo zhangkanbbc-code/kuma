@@ -727,6 +727,9 @@ export const querySenka = (at?: number): Promise<import('../shared/senka').Senka
 export const querySenkaRanking = (at?: number, opts?: { history?: boolean; retry?: boolean }): Promise<import('../shared/senka-ranking').SenkaRankingView> =>
   ipcRenderer.invoke('mg:senka-ranking', at, opts)
 
+export const querySenkaRewards = (): Promise<import('../shared/senka-ranking').SenkaRankingRewards> =>
+  ipcRenderer.invoke('mg:senka-ranking', undefined, { rewards: true })
+
 export const querySenkaCalendar = (month?: string): Promise<import('../shared/senka-calendar').SenkaCalendarModel> =>
   ipcRenderer.invoke('mg:senka-calendar', month)
 

@@ -21,6 +21,146 @@
 
 import type { FitExpected, FitObserved, FitStatKey, FitStats } from './fit-bonus'
 
+/** 观察时其它装备的事实快照；不保存任何依赖当下资料的扣减结论。 */
+export interface FitObservationEquip {
+  mstId: number
+  star: number
+}
+
+export const fitObservationOtherEquips = (items: readonly FitObservationEquip[]): FitObservationEquip[] =>
+  items.map(({ mstId, star }) => ({ mstId, star })).sort((a, b) => a.mstId - b.mstId || a.star - b.star)
+
+/** 仅为加成表没有条目的装备补处置；表中装备由预期行逐件说明。 */
+export type FitDeductionDisposition =
+  | { equipId: number; kind: 'observed'; stats: FitStats }
+  | { equipId: number; kind: 'zero' }
+  | { equipId: number; kind: 'missing' }
+
+export interface FitObservationDeduction {
+  stats: FitStats
+  clean: boolean
+  blocked: number[]
+  details: { equipId: number; source: 'table' | 'observed' | 'zero'; stats: FitStats }[]
+  changed: boolean
+  soleCandidate: boolean
+}
+
+// 只算面板七项；命中、射程等不进这份扣减账。
+const PANEL_KEYS: readonly FitStatKey[] = ['fire', 'torpedo', 'aa', 'armor', 'evasion', 'asw', 'los']
+
+/** 维护者裁决 2026-10-30：先扣加成表，无条目时才用同键的直读实测补值。不得落盘。 */
+export const deductFitObservation = (
+  total: FitStats,
+  expected: FitExpected,
+  dispositions: readonly FitDeductionDisposition[],
+  tableEquipIds: readonly number[] = [],
+): FitObservationDeduction => {
+  const details: FitObservationDeduction['details'] = []
+  const blocked = new Set<number>()
+  const supplemented = new Set(dispositions.filter((one) => one.kind === 'observed').map((one) => one.equipId))
+  for (const id of expected.uncovered) if (!supplemented.has(id)) blocked.add(id)
+  for (const line of expected.lines) {
+    if (line.state !== 'counted') blocked.add(line.equipId)
+    let detail = details.find((one) => one.equipId === line.equipId && one.source === 'table')
+    if (!detail) {
+      detail = { equipId: line.equipId, source: 'table', stats: {} }
+      details.push(detail)
+    }
+    if (line.state === 'counted') {
+      for (const key of PANEL_KEYS) {
+        if (line.stats[key]) detail.stats[key] = (detail.stats[key] ?? 0) + line.stats[key]!
+      }
+    }
+  }
+  for (const equipId of new Set(tableEquipIds)) {
+    if (!details.some((one) => one.equipId === equipId)) details.push({ equipId, source: 'table', stats: {} })
+  }
+  const deducted = { ...expected.stats }
+  for (const one of dispositions) {
+    if (one.kind === 'missing') {
+      blocked.add(one.equipId)
+      continue
+    }
+    const stats = one.kind === 'observed' ? one.stats : {}
+    details.push({ equipId: one.equipId, source: one.kind, stats: { ...stats } })
+    for (const key of PANEL_KEYS) if (stats[key]) deducted[key] = (deducted[key] ?? 0) + stats[key]!
+  }
+  const stats: FitStats = {}
+  for (const key of PANEL_KEYS) {
+    const value = (total[key] ?? 0) - (deducted[key] ?? 0)
+    if (value) stats[key] = value
+  }
+  // 没加载加成包时 complete 也为假；不能把空预期当成已扣干净。
+  const clean = !blocked.size && (expected.complete || expected.uncovered.length > 0)
+  const changed = PANEL_KEYS.some((key) => !!deducted[key])
+  return {
+    stats,
+    clean,
+    blocked: [...blocked].sort((a, b) => a - b),
+    details: details.sort((a, b) => a.equipId - b.equipId),
+    changed,
+    // 非零补值即取消直读资格，即使恰与另一件的负加成抵消。
+    soleCandidate: clean && !changed && !details.some((one) => PANEL_KEYS.some((key) => !!one.stats[key])),
+  }
+}
+
+/** 精确匹配同装备、同舰形态、同★多重集、同件数；表中已有条目时不补。 */
+export const fitObservationDispositions = (
+  formId: number,
+  items: readonly FitObservationEquip[],
+  soleByKey: ReadonlyMap<string, FitObservationRecord>,
+  hasEntry: (id: number) => boolean,
+  uncovered: (id: number) => boolean,
+): FitDeductionDisposition[] => {
+  const starsById = new Map<number, number[]>()
+  for (const item of items) {
+    if (hasEntry(item.mstId)) continue
+    const stars = starsById.get(item.mstId) ?? []
+    stars.push(item.star)
+    starsById.set(item.mstId, stars)
+  }
+  return [...starsById].map(([equipId, stars]) => {
+    const record = soleByKey.get(fitObservationKey(equipId, formId, stars))
+    if (record?.sole && record.count === stars.length) return { equipId, kind: 'observed', stats: record.stats }
+    return { equipId, kind: uncovered(equipId) ? 'missing' : 'zero' }
+  })
+}
+
+/** 显示态共用口径；混★与没有配装快照的旧记录沿用原样。 */
+export const fitObservationPresentation = (
+  total: FitStats,
+  sole: boolean,
+  mixed: boolean,
+  deduction: FitObservationDeduction | undefined,
+  nameOf: (id: number) => string,
+  statsText: (stats: FitStats) => string,
+): { stats: FitStats; label: string; title: string } => {
+  if (mixed) return { stats: total, label: '混★ · 不可直读', title: '多件改修等级不同 · 无法归入单一星级档 · 暂不直读' }
+  if (deduction && !deduction.clean) return {
+    stats: total,
+    label: '整条配装合计',
+    title: `${deduction.blocked.map(nameOf).join('、') || '其它装备'}没有完整加成资料，扣不干净`,
+  }
+  const zeroNames = deduction?.details.filter((one) => one.source === 'zero').map((one) => nameOf(one.equipId)) ?? []
+  const zeroText = zeroNames.length ? `${zeroNames.join('、')} 加成表无记录，按无加成计` : ''
+  if (deduction?.changed) return {
+    stats: deduction.stats,
+    label: '扣除其它装备后',
+    title: [
+      `合计 ${statsText(total) || '各项皆 0'}`,
+      ...deduction.details.filter((one) => one.source !== 'zero' && PANEL_KEYS.some((key) => !!one.stats[key])).map((one) =>
+        `扣除 ${nameOf(one.equipId)}：${statsText(one.stats) || '各项皆 0'}（${one.source === 'table' ? '加成表' : '实测'}）`),
+      zeroText,
+    ].filter(Boolean).join('；'),
+  }
+  const direct = deduction ? deduction.soleCandidate : sole
+  return {
+    stats: total,
+    label: direct ? '只有这一件' : '整条配装合计',
+    title: [direct ? '差值就是这一件（含改修★）的加成' : '', zeroText].filter(Boolean).join('；'),
+  }
+}
+
 /**
  * 这一次观察与**当下那张预期表**比对的结论。
  *
@@ -83,8 +223,10 @@ export interface FitObservationSample {
   stars: readonly number[]
   /** 面板反推的七项差值（火力/雷装/对空/装甲 + 过了标定闸门的 回避/对潜/索敌） */
   stats: FitStats
-  /** 这艘舰上再没有第二件有加成记录的装备 —— 直读的**候选**（还要不混★才算数） */
+  /** 其它装备按加成表与实测补值扣减皆为零 —— 直读的**候选**（还要不混★才算数） */
   soleCandidate: boolean
+  otherEquips?: FitObservationEquip[]
+  deduction?: FitObservationDeduction
   /** 与预期表比对的结论（`fitObservationVerdict`）。不填 = 没比过，按 `unknown` 算 */
   verdict?: FitObservationVerdict
 }
@@ -129,15 +271,17 @@ const dumpStats = (stats: FitStats | null | undefined): string =>
     .join(',')
 
 export interface FitObservationRow {
-  /** 合并键：同 ★、同件数、同读数、同证据强度、同比对结论的几艘并成一行 */
+  /** 合并键：同 ★、同件数、同读数、同扣减状态与明细、同证据强度、同比对结论才并行 */
   key: string
-  ships: { rosterId: number; formId: number; name: string; lv: number }[]
+  ships: { rosterId: number; formId: number; name: string; lv: number; otherEquips?: FitObservationEquip[] }[]
   count: number
   /** 排好序的★多重集 —— 显示的★必须是这个，不许是 max 或平均 */
   stars: number[]
   starLabel: string
   mixedStar: boolean
+  /** 原始合计；比对、折叠与落盘仍用它，只有格子显示用扣减结果。 */
   stats: FitStats
+  deduction?: FitObservationDeduction
   /** 可以直读成「这一件的加成」：候选成立**且**不混★ */
   sole: boolean
   /** 各项皆 0 —— 折叠段的成员 */
@@ -170,13 +314,14 @@ export const groupFitObservations = (
     const stars = fitObservationStars(sample.stars)
     const mixedStar = fitObservationMixedStar(stars)
     // 混★ 取消直读资格：差值归不到单一星级档上
-    const sole = sample.soleCandidate && !mixedStar
+    const deduction = mixedStar ? undefined : sample.deduction
+    const sole = (deduction ? deduction.soleCandidate : sample.soleCandidate) && !mixedStar
     const statsText = dumpStats(sample.stats)
     // 比对结论**进合并键**：读数一样但一艘对得上、一艘对不上，那是两条信息。
     // 并成一行等于把「这一艘和资料不符」这件事藏进另一艘的行里
     //（同 ① 那条「★ 进键」的道理：并的前提是两艘说的是同一件事）。
     const verdict = sample.verdict ?? 'unknown'
-    const key = `★${stars.join('.')}|x${stars.length}|${statsText}|${sole ? 'sole' : 'sum'}|${verdict}`
+    const key = `★${stars.join('.')}|x${stars.length}|${statsText}|${sole ? 'sole' : 'sum'}|${verdict}|${deduction ? JSON.stringify(deduction) : ''}`
     const row = byKey.get(key)
     if (row) {
       row.ships.push({
@@ -184,19 +329,21 @@ export const groupFitObservations = (
         formId: sample.formId,
         name: sample.name,
         lv: sample.lv,
+        otherEquips: sample.otherEquips,
       })
       continue
     }
     byKey.set(key, {
       key,
       ships: [
-        { rosterId: sample.rosterId, formId: sample.formId, name: sample.name, lv: sample.lv },
+        { rosterId: sample.rosterId, formId: sample.formId, name: sample.name, lv: sample.lv, otherEquips: sample.otherEquips },
       ],
       count: stars.length,
       stars,
       starLabel: fitObservationStarLabel(stars),
       mixedStar,
       stats: { ...sample.stats },
+      deduction,
       sole,
       allZero: !statsText,
       verdict,
@@ -237,6 +384,8 @@ export interface FitObservationRecord {
   count: number
   stats: FitStats
   sole: boolean
+  /** NULL/缺省 = 尚未记录配装的旧行；[] = 当时确实没有其它装备。扣减结果不许落盘。 */
+  otherEquips?: FitObservationEquip[] | null
   /** 最近一次观察到它的时刻（毫秒） */
   seenAt: number
   /** 头一次观察到它的时刻（毫秒）。落盘后才有；写入方不填 */
@@ -258,6 +407,7 @@ export const fitObservationRecordsOf = (
       count: row.count,
       stats: { ...row.stats },
       sole: row.sole,
+      ...(ship.otherEquips ? { otherEquips: fitObservationOtherEquips(ship.otherEquips) } : {}),
       seenAt,
     })),
   )

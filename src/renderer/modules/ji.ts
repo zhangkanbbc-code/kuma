@@ -41,6 +41,7 @@ import type {
   FitLoadoutItem,
   FitRule,
   FitShipView,
+  FitStats,
   FitWhoSet,
 } from '../../shared/fit-bonus'
 import { applyFitBonusCorrections } from '../../shared/fit-bonus-corrections'
@@ -68,12 +69,18 @@ import {
 import type { AbyssSeenMap } from '../../shared/abyss-seen'
 import { mapSpecialBonusHtml } from '../map-bonus'
 import {
+  deductFitObservation,
+  fitObservationDispositions,
+  fitObservationMixedStar,
+  fitObservationOtherEquips,
+  fitObservationPresentation,
   fitObservationRecordsOf,
   fitObservationStarLabel,
   fitObservationVerdict,
   groupFitObservations,
 } from '../../shared/fit-observation'
 import type {
+  FitObservationEquip,
   FitObservationRecord,
   FitObservationRow,
   FitObservationSample,
@@ -4809,8 +4816,9 @@ const fitDisplayMarksHtml = (line: FitDisplayLine): string => {
  * 装着这件装备的自家舰里，能给出实测观察值的那几艘。
  *
  * 聚合口径（重要）：面板反推出来的是**整条配装**的合计，不是「这一件」单独的贡献。
- * 只有当这艘舰上再没有第二件在包里有命中规则的装备时，这个合计才可以归到这一件头上
- *（`sole`）。其余情况如实标成「整条配装合计」，绝不按件数摊平——摊出来的数
+ * 维护者裁决 2026-10-30：先扣其它装备的表内预期，无条目时用同键直读实测补值；
+ * 扣减全零才可直接归到这一件头上（`sole`），扣不干净仍标「整条配装合计」。
+ * 绝不按件数摊平——摊出来的数
  * 既不属于这件装备，也不属于那艘舰。同一件装备在多艘舰上的观察值不一致时**逐艘并列**，
  * 不取平均：不一致本身就是要看见的信息（多半是某一边的条件没算对）。
  */
@@ -4837,14 +4845,22 @@ const equipObservedRows = (equipMstId: number): FitObservationRow[] => {
     const view = fitShipView(row.ship.shipId)
     if (!view) continue
     const loadout = fitLoadoutOf(row.ship)
-    // 别的装备在这艘舰上一条命中规则都没有（也没有待定行、没有包外装备）
+    // 去掉本件后对其它装备一起求值；保留待定行与包外装备，不能把未知当作零。
     const others = expectedFitBonus(
       data,
       view,
       loadout.filter((item) => item.mstId !== equipMstId),
       fitGroupState,
     )
-    const soleCandidate = !others.lines.length && !others.uncovered.length
+    const otherEquips = fitObservationOtherEquips(loadout.filter((item) => item.mstId !== equipMstId)
+      .map((item) => ({ mstId: item.mstId, star: item.star ?? 0 })))
+    const deduction = fitObservationMixedStar(row.stars) ? undefined : deductFitObservation(
+      row.observed!.stats,
+      others,
+      fitObsDispositions(row.ship.shipId, otherEquips),
+      otherEquips.filter((item) => !!data?.equips[`${item.mstId}`]).map((item) => item.mstId),
+    )
+    const soleCandidate = deduction ? deduction.soleCandidate : !others.lines.length && !others.uncovered.length
     if (!row.observed!.any && !soleCandidate) continue
     // 与预期比对：跑**整条配装**的预期（不是上面那份去掉本件的），因为面板差值本来
     // 就是整条配装的合计。口径与舰娘卷那一格同一份（`bonusPanelHtml`）：预期层按
@@ -4858,6 +4874,8 @@ const equipObservedRows = (equipMstId: number): FitObservationRow[] => {
       stars: row.stars,
       stats: row.observed!.stats,
       soleCandidate,
+      otherEquips,
+      deduction,
       verdict: fitObservationVerdict(whole, row.observed!, FIT_PANEL_KEYS),
     })
   }
@@ -4886,12 +4904,57 @@ interface FitObsCache {
   loading: boolean
 }
 const fitObsCache = new Map<number, FitObsCache>()
+const fitObsSoleCache: FitObsCache = { rows: null, ts: 0, failed: false, loading: false }
+let fitObsSoleByKey = new Map<string, FitObservationRecord>()
 /** 上一次发出去的载荷签名（不含时刻）——一样就不再发 */
 const fitObsSent = new Map<number, string>()
 
 /** 一条观察的身份：(舰形态, ★多重集, 件数)。装备已经在外层键上了。 */
 const fitObsIdentity = (formId: number, stars: readonly number[], count: number): string =>
   `${formId}|${stars.join('.')}|x${count}`
+
+const ensureFitSoleObservations = () => {
+  const state = fitObsSoleCache
+  if (state.loading || (state.ts && Date.now() - state.ts < FIT_OBS_TTL_MS)) return
+  state.loading = true
+  void jiIpc.invoke('mg:fit-observations-sole')
+    .then((rows: FitObservationRecord[]) => {
+      state.rows = Array.isArray(rows) ? rows : []
+      fitObsSoleByKey = new Map(state.rows.filter((one) => one.sole).map((one) => [one.key, one]))
+      state.failed = false
+    })
+    .catch((error: unknown) => {
+      console.warn('[kuma] 实测补值读取失败', error)
+      state.rows = null
+      fitObsSoleByKey = new Map()
+      state.failed = true
+    })
+    .finally(() => {
+      state.ts = Date.now() // 失败同样留墓碑，TTL 后再重试
+      state.loading = false
+      scheduleRender()
+    })
+}
+
+const fitObsDispositions = (formId: number, items: readonly FitObservationEquip[]) => {
+  const data = fitLode?.data as FitBonusData | undefined
+  return fitObservationDispositions(formId, items, fitObsSoleByKey,
+    (id) => !!data?.equips[`${id}`], (id) => !data || fitPackUncovered(data, id))
+}
+
+const fitObsPresentation = (stats: FitStats, sole: boolean, stars: readonly number[], deduction?: FitObservationRow['deduction']) =>
+  fitObservationPresentation(stats, sole, fitObservationMixedStar(stars), deduction, cfEquipName, fitStatsText)
+
+const fitObsHistoryDeduction = (one: FitObservationRecord) => {
+  if (one.otherEquips == null || fitObservationMixedStar(one.stars)) return undefined
+  const view = fitShipView(one.formId)
+  if (!view) return undefined
+  const data = fitLode?.data as FitBonusData | undefined
+  const loadout = one.otherEquips.map((item) => ({ ...item, type2: mg.master.slotitems[item.mstId]?.type2 }))
+  const others = expectedFitBonus(data, view, loadout, fitGroupState)
+  return deductFitObservation(one.stats, others, fitObsDispositions(one.formId, one.otherEquips),
+    one.otherEquips.filter((item) => !!data?.equips[`${item.mstId}`]).map((item) => item.mstId))
+}
 
 const ensureFitObservations = (equipMstId: number) => {
   if (!(equipMstId > 0)) return
@@ -4937,7 +5000,7 @@ const persistFitObservations = (equipMstId: number, rows: readonly FitObservatio
           .filter(([, value]) => value)
           .sort(([left], [right]) => (left < right ? -1 : 1))
           .map(([key, value]) => `${key}${value}`)
-          .join(','),
+          .join(',') + `|${JSON.stringify(one.otherEquips ?? null)}`,
     )
     .sort()
     .join(';')
@@ -4975,22 +5038,17 @@ const fitObsHistoryHtml = (equipMstId: number, live: Set<string>): string => {
   const items = rows
     .slice(0, 12)
     .map((one) => {
-      const cells = FIT_PANEL_KEYS.filter((key) => one.stats[key])
-        .map(
-          (key) =>
-            `<span class="bn-cell ${one.stats[key]! > 0 ? 'up' : 'dn'}">${FIT_STAT_LABEL[key]} <b>${
-              one.stats[key]! > 0 ? '+' : ''
-            }${one.stats[key]}</b></span>`,
-        )
-        .join('')
-      const aux = [one.count > 1 ? `${one.count} 件` : '', one.sole ? '只有这一件' : '整条配装合计']
+      const presentation = fitObsPresentation(one.stats, one.sole, one.otherEquips == null ? [] : one.stars, fitObsHistoryDeduction(one))
+      const cells = fitObsCellsHtml(presentation.stats)
+      const hasLoadout = one.otherEquips != null
+      const aux = [one.count > 1 ? `${one.count} 件` : '', hasLoadout ? esc(fmtDate(one.seenAt)) : presentation.label]
         .filter(Boolean)
         .join(' · ')
-      return `<div class="fb-obs">
+      return `<div class="fb-obs" title="${esc(presentation.title)}">
         <span class="fb-obs-n">${elink('mstShip', one.formId, masterShipName(one.formId))}
           <span class="aux">${esc(fitObsWhenText(one.stars))}曾测得${aux ? ` · ${aux}` : ''}</span></span>
         <span class="fb-obs-v">${cells || '<i>各项皆 0</i>'}</span>
-        <span class="fb-obs-k">${esc(fmtDate(one.seenAt))}</span>
+        <span class="fb-obs-k" title="${esc(presentation.title)}">${hasLoadout ? presentation.label : esc(fmtDate(one.seenAt))}</span>
       </div>`
     })
     .join('')
@@ -5010,17 +5068,18 @@ const fitObsShipsHtml = (row: FitObservationRow): string => {
   return `${names}${rest > 0 ? ` <span class="aux">等 ${row.ships.length} 艘</span>` : ''}`
 }
 
-const fitObsCellsHtml = (row: FitObservationRow): string =>
-  FIT_PANEL_KEYS.filter((key) => row.stats[key])
+const fitObsCellsHtml = (stats: FitStats): string =>
+  FIT_PANEL_KEYS.filter((key) => stats[key])
     .map(
       (key) =>
-        `<span class="bn-cell ${row.stats[key]! > 0 ? 'up' : 'dn'}">${FIT_STAT_LABEL[key]} <b>${
-          row.stats[key]! > 0 ? '+' : ''
-        }${row.stats[key]}</b></span>`,
+        `<span class="bn-cell ${stats[key]! > 0 ? 'up' : 'dn'}">${FIT_STAT_LABEL[key]} <b>${
+          stats[key]! > 0 ? '+' : ''
+        }${stats[key]}</b></span>`,
     )
     .join('')
 
 const fitObsRowHtml = (row: FitObservationRow): string => {
+  const presentation = fitObsPresentation(row.stats, row.sole, row.stars, row.deduction)
   const lv = row.ships[0]?.lv ?? 0
   const aux = [
     row.ships.length === 1 ? `Lv${lv}` : '',
@@ -5033,18 +5092,13 @@ const fitObsRowHtml = (row: FitObservationRow): string => {
     <span class="fb-obs-n">${fitObsShipsHtml(row)}${
       aux.length ? ` <span class="aux">${aux.join(' · ')}</span>` : ''
     }</span>
-    <span class="fb-obs-v">${fitObsCellsHtml(row) || '<i>各项皆 0</i>'}</span>
-    <span class="fb-obs-k${row.sole ? ' sole' : ''}"${
-      row.sole
-        ? ' title="差值就是这一件（含改修★）的加成"'
-        : row.mixedStar
-          ? ' title="多件改修等级不同 · 无法归入单一星级档 · 暂不直读"'
-          : ''
-    }>${row.sole ? '只有这一件' : row.mixedStar ? '混★ · 不可直读' : '整条配装合计'}</span>
+    <span class="fb-obs-v">${fitObsCellsHtml(presentation.stats) || '<i>各项皆 0</i>'}</span>
+    <span class="fb-obs-k${row.sole ? ' sole' : ''}" title="${esc(presentation.title)}">${presentation.label}</span>
   </div>`
 }
 
 const equipObservedHtml = (equipMstId: number): string => {
+  ensureFitSoleObservations()
   const rows = equipObservedRows(equipMstId)
   // 落盘搭在这次已经算完的结果上（不新开 tick），读数没变就一个 IPC 都不发
   persistFitObservations(equipMstId, rows)

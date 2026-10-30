@@ -1,4 +1,5 @@
 import { fmtJstDate } from './jst-day'
+import { senkaMonthStart, senkaMonthEnd, senkaMonthLabel } from './senka'
 
 // 游戏排行路径中的混淆名由游戏决定，改版可能会变；只读取玩家已打开的页。
 export const SENKA_RANKING_PATH = '/kcsapi/api_req_ranking/mxltvkpyuklh'
@@ -83,6 +84,71 @@ export interface RankingRewardEquip {
   equipped: boolean
 }
 
+export interface IncentiveItem {
+  api_mode: number
+  api_type: number
+  api_mst_id: number
+  api_slotitem_level: number
+  api_getmes: string
+}
+
+export interface IncentiveReceipt extends IncentiveItem {
+  ts: number
+}
+
+export interface RankingRewardReceipt {
+  ts: number
+  month: number
+  rankFrom: number
+  rankTo: number
+  type: number
+  itemId: number
+  level: number
+  name: string
+}
+
+/** 维护者裁决 2026-10-30：所有领取条目永久留存，缺省改修等级记 0。 */
+export const incentiveItems = (data: any): IncentiveItem[] =>
+  data?.api_count === 0 || !Array.isArray(data?.api_item) ? [] : data.api_item.map((item: any) => ({
+    api_mode: item.api_mode, api_type: item.api_type, api_mst_id: item.api_mst_id,
+    api_slotitem_level: item.api_slotitem_level ?? 0, api_getmes: item.api_getmes,
+  }))
+
+const incentiveMonths = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二']
+
+export const rankingRewardMonth = (ts: number, month: number): number => {
+  const latest = senkaMonthStart(senkaMonthStart(ts) - 1)
+  let candidate = latest
+  for (let i = 0; i < 3; i++, candidate = senkaMonthStart(candidate - 1)) {
+    if (senkaMonthEnd(candidate) <= ts && Number(senkaMonthLabel(candidate).slice(5)) === month) return candidate
+  }
+  return latest
+}
+
+export const rankingRewardReceipts = (
+  receipts: readonly IncentiveReceipt[],
+  equipNameOf: (id: number) => string,
+): Record<number, RankingRewardReceipt[]> => {
+  const months: Record<number, RankingRewardReceipt[]> = {}
+  for (const receipt of receipts) {
+    const [header, ...rest] = receipt.api_getmes.split(/<br\s*\/?>/i)
+    const match = /^([一二三四五六七八九十]+)月作戦\s+.+\((\d+)[～〜~](\d+)位\)$/.exec(header.trim())
+    if (!match) continue
+    const month = incentiveMonths.indexOf(match[1]) + 1
+    if (!month) continue
+    const monthStart = rankingRewardMonth(receipt.ts, month)
+    const reward: RankingRewardReceipt = {
+      ts: receipt.ts, month, rankFrom: Number(match[2]), rankTo: Number(match[3]),
+      type: receipt.api_type, itemId: receipt.api_mst_id, level: receipt.api_slotitem_level,
+      // 仅 type 2 已有装备实证；其余类型直接用领取文字，不猜主数据含义。
+      name: receipt.api_type === 2 ? equipNameOf(receipt.api_mst_id) : rest.join('<br>').trim().replace(/を獲得しました！$/, '').trim(),
+    }
+    const rewards = months[monthStart] ??= []
+    rewards.push(reward)
+  }
+  return months
+}
+
 export interface PortLogMessage {
   type: number
   message: string
@@ -133,6 +199,17 @@ export const fillLineGaps = (
   return filled
 }
 
+export interface SenkaRewardMonth {
+  monthStart: number
+  rewards: RankingRewardCandidate[]
+  rewardReceipts?: RankingRewardReceipt[]
+}
+
+export interface SenkaRankingRewards {
+  months: SenkaRewardMonth[]
+  failedAt?: number
+}
+
 export interface SenkaRankingView {
   /** 历史输入的版本；常规查询只带版本，不解析往月。 */
   historyKey?: string
@@ -147,7 +224,7 @@ export interface SenkaRankingView {
   ownRank: number | null
   server: RankingServer | null
   serverInferred: boolean
-  history?: (SenkaMonthHistory & { rewards: RankingRewardCandidate[] })[]
+  history?: (SenkaMonthHistory & SenkaRewardMonth)[]
 }
 
 export const failedSenkaRanking = (failedAt: number): SenkaRankingView => ({

@@ -27,7 +27,7 @@ import {
 } from '../../shared/material-delta-detail'
 import { questFixedSenka, senkaMonthEnd, senkaMonthStart } from '../../shared/senka'
 import type { SenkaQuestOption } from '../../shared/senka'
-import { assembleSenkaRanking, failedSenkaRanking, newPortLogMessages, ownRankByDay, rankingRewardCandidates, senkaMonthHistory, SENKA_RANKING_PATH } from '../../shared/senka-ranking'
+import { assembleSenkaRanking, failedSenkaRanking, newPortLogMessages, ownRankByDay, rankingRewardCandidates, rankingRewardReceipts, senkaMonthHistory, SENKA_RANKING_PATH } from '../../shared/senka-ranking'
 import { buildSenkaCalendar, senkaDailyGains, senkaMonthTailWindow } from '../../shared/senka-calendar'
 import { fmtJstDate, jstMonthRange } from '../../shared/jst-day'
 import type { PortLogMessage, RankingServer, SenkaRankingView } from '../../shared/senka-ranking'
@@ -1265,6 +1265,8 @@ ipcMain.handle('mg:fit-observations', (_event, equipMstId: unknown) =>
     : [],
 )
 
+ipcMain.handle('mg:fit-observations-sole', () => ledger.queryFitObservations())
+
 // 写入走单向 send：渲染层是在装备卷渲染时顺手落盘的，不能让它等一次 IPC 往返。
 // 逐行校验在 ledger.recordFitObservations 里（账不接受说不出来源的数）。
 ipcMain.on('mg:fit-observation-record', (_event, rows: unknown) => {
@@ -1378,19 +1380,9 @@ ipcMain.handle('mg:senka-calendar', (_event, month?: string) => {
   canPrev: selected > firstMonth, canNext: selected < currentMonth }
 })
 
-ipcMain.handle('mg:senka-ranking', (_event, at?: number, opts?: { history?: boolean; retry?: boolean }) => {
+ipcMain.handle('mg:senka-ranking', (_event, at?: number, opts?: { history?: boolean; rewards?: boolean; retry?: boolean }) => {
   const when = typeof at === 'number' ? at : Date.now()
-  if (opts?.retry) rankingFailure = null
-  const view = querySenkaRanking(when, true)
-  // 常规刷新不带 history，避免每拍全量解析历史排行页；只在详情请求时计算往月和奖励候选。
-  if (opts?.history !== true || view.failedAt) return view
-  try {
-    const history = senkaMonthHistory(ledger.queryRankingPages(), {
-      nickname: store.getState().player.basic?.nickname ?? '',
-      ownHintAt: rankingOwnHintAt(),
-      monthStartOf: senkaMonthStart,
-      before: senkaMonthStart(when),
-    })
+  const rewardMonths = () => {
     const boundaries: number[] = []
     const earliest = ledger.earliestEventTs()
     if (earliest != null) {
@@ -1411,15 +1403,49 @@ ipcMain.handle('mg:senka-ranking', (_event, at?: number, opts?: { history?: bool
       knownEquipEventTs: ledger.queryLateEquipEventTs(equipEventFrom),
       equipNameOf: id => store.getState().master.slotitems[id]?.name ?? `装备${id}`,
     })
-    const months = new Map(history.map(month => [month.monthStart, month]))
-    for (const key of Object.keys(rewards)) {
+    const receipts = rankingRewardReceipts(ledger.queryIncentiveReceipts(),
+      id => store.getState().master.slotitems[id]?.name ?? `装备${id}`)
+    return [...new Set([...Object.keys(rewards), ...Object.keys(receipts)])].map(key => {
       const monthStart = Number(key)
+      return { monthStart,
+        rewards: receipts[monthStart]?.length ? [] : rewards[monthStart] ?? [],
+        rewardReceipts: receipts[monthStart] ?? [],
+      }
+    }).sort((a, b) => b.monthStart - a.monthStart)
+  }
+  // 维护者裁决 2026-10-30：卡片只读奖励，不能连带解析历史排行页。
+  if (opts?.rewards) {
+    try {
+      return { months: rewardMonths() }
+    } catch (error) {
+      console.warn('[kuma] 往期奖励读取失败', error)
+      return { months: [], failedAt: Date.now() }
+    }
+  }
+  if (opts?.retry) rankingFailure = null
+  const view = querySenkaRanking(when, true)
+  // 常规刷新不带 history，避免每拍全量解析历史排行页；只在详情请求时计算往月和奖励候选。
+  if (opts?.history !== true || view.failedAt) return view
+  try {
+    const history = senkaMonthHistory(ledger.queryRankingPages(), {
+      nickname: store.getState().player.basic?.nickname ?? '',
+      ownHintAt: rankingOwnHintAt(),
+      monthStartOf: senkaMonthStart,
+      before: senkaMonthStart(when),
+    })
+    const rewards = rewardMonths()
+    const months = new Map(history.map(month => [month.monthStart, month]))
+    for (const { monthStart } of rewards) {
       if (!months.has(monthStart)) {
         months.set(monthStart, { monthStart, own: null, lines: { 5: null, 20: null, 100: null, 500: null }, undecoded: 0 })
       }
     }
+    const byMonth = new Map(rewards.map(month => [month.monthStart, month]))
     view.history = [...months.values()].sort((a, b) => b.monthStart - a.monthStart)
-      .map(month => ({ ...month, rewards: rewards[month.monthStart] ?? [] }))
+      .map(month => ({ ...month,
+        rewards: byMonth.get(month.monthStart)?.rewards ?? [],
+        rewardReceipts: byMonth.get(month.monthStart)?.rewardReceipts ?? [],
+      }))
     return view
   } catch (error) {
     console.warn('[kuma] 往月排行读取失败', error)

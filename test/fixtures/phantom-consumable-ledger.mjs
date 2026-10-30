@@ -22,10 +22,12 @@ const migration = sliceBetween('  private dropPhantomConsumableUseitemRowsV14 ='
 const batch = sliceBetween('  private runBatch =', '\n  record =')
 const deltaMethods = sliceBetween('  logDelta =', '\n  queryDeltaSummary =')
 const shared = fileURLToPath(new URL('../../src/shared/material-delta-detail.ts', import.meta.url)).replaceAll('\\', '/')
+const ranking = fileURLToPath(new URL('../../src/shared/senka-ranking.ts', import.meta.url)).replaceAll('\\', '/')
 const seasonal = fileURLToPath(new URL('../../src/main/mg/seasonal-ledger.ts', import.meta.url)).replaceAll('\\', '/')
 const bodyRetention = fileURLToPath(new URL('../../src/main/mg/slotitem-body-retention.ts', import.meta.url)).replaceAll('\\', '/')
 const harness = `
 import { buildDeltaDetail, replayDeltaCategoryFixes } from ${JSON.stringify(shared)}
+import { incentiveItems } from ${JSON.stringify(ranking)}
 import { SeasonalLedger } from ${JSON.stringify(seasonal)}
 import { SlotitemBodyRetention } from ${JSON.stringify(bodyRetention)}
 const SLOTITEM_BODY_RETENTION_CONFIG = 'kuma.ledger.trimSlotitemBodies'

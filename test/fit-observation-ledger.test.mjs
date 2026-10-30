@@ -13,8 +13,9 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { createRequire } from 'node:module'
+import { transformSync } from 'esbuild'
 
-import { fitObservationRecordsOf } from '../src/shared/fit-observation.ts'
+import { fitObservationOtherEquips, fitObservationRecordsOf, fitObservationStars } from '../src/shared/fit-observation.ts'
 
 const require = createRequire(import.meta.url)
 const source = fs.readFileSync(new URL('../src/main/mg/ledger.ts', import.meta.url), 'utf8')
@@ -42,6 +43,7 @@ const openDb = (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kuma-fit-obs-'))
   const db = new DatabaseSync(path.join(dir, 'test.sqlite'))
   db.exec(createTableSql())
+  db.exec(fitOtherEquipsMigration())
   t.after(() => {
     db.close()
     fs.rmSync(dir, { recursive: true, force: true })
@@ -50,7 +52,7 @@ const openDb = (t) => {
 }
 
 // 绑定顺序与 ledger.recordFitObservations 一致
-const put = (db, sql, { equip = 342, form = 599, stars = [0], stats = {}, sole = 1, ts }) =>
+const put = (db, sql, { equip = 342, form = 599, stars = [0], stats = {}, sole = 1, ts, otherEquips = null }) =>
   db
     .prepare(sql)
     .run(
@@ -62,7 +64,30 @@ const put = (db, sql, { equip = 342, form = 599, stars = [0], stats = {}, sole =
       sole,
       ts,
       ts,
+      otherEquips == null ? null : JSON.stringify(otherEquips),
     )
+
+// 维护者裁决 2026-10-30：新增绑定列，既有 SQL 行为测试仍执行生产 upsert。
+const fitOtherEquipsMigration = () => {
+  const match = source.match(/\['fit_observations', 'other_equips', '([^']+)'\]/)
+  assert.ok(match, '缺少其它装备快照的迁移')
+  return `ALTER TABLE fit_observations ADD COLUMN other_equips ${match[1]}`
+}
+
+test('旧表启动补列，旧行保留且新列为 NULL；快照可随读数更新', (t) => {
+  const db = openDb(t)
+  db.exec('ALTER TABLE fit_observations DROP COLUMN other_equips')
+  db.prepare(`INSERT INTO fit_observations VALUES (342, 599, '2', 1, '{"fire":3}', 1, 1000, 1000)`).run()
+  db.exec(fitOtherEquipsMigration())
+  const old = db.prepare('SELECT * FROM fit_observations').get()
+  assert.equal(old.stats, '{"fire":3}')
+  assert.equal(old.other_equips, null)
+  const otherEquips = [{ mstId: 544, star: 1 }]
+  put(db, upsertSql(), { stars: [2], ts: 2000, otherEquips })
+  const updated = db.prepare('SELECT * FROM fit_observations').get()
+  assert.deepEqual(JSON.parse(updated.other_equips), otherEquips)
+  assert.equal(updated.first_seen, 1000)
+})
 
 test('升星是新增一条，旧星级那一条原样留着', (t) => {
   const db = openDb(t)
@@ -150,4 +175,36 @@ test('显示行拆回落盘记录：一行并了几艘就出几条，键逐条�
   // 读数是拷贝，不是同一个对象——落盘记录不该跟着显示行一起被改
   records[0].stats.fire = 99
   assert.equal(records[1].stats.fire, 3)
+})
+
+// 执行生产读写方法，确认取数是全部 sole 行，且快照往返不落盘派生结果。
+const ledgerMethods = source.slice(source.indexOf('  recordFitObservations = '), source.indexOf('  // 只允许删手动补记的行'))
+const ledgerHarness = (db) => {
+  const code = transformSync(`return new (class {
+    constructor() { this.db = db }
+    runBatch(_count, callback) { callback() }
+    ${ledgerMethods}
+  })()`, { loader: 'ts' }).code
+  return new Function('db', 'fitObservationStars', 'fitObservationOtherEquips', code)(db, fitObservationStars, fitObservationOtherEquips)
+}
+
+test('生产读写：全部 sole 一次读取，按装备读历史仍完整；NULL 与空配装可区分', (t) => {
+  const db = openDb(t)
+  const ledger = ledgerHarness(db)
+  const base = { formId: 550, stars: [0], count: 1, stats: { fire: 4 }, sole: true, seenAt: Date.now() }
+  assert.equal(ledger.recordFitObservations([
+    { ...base, equipMstId: 544, otherEquips: [{ mstId: 543, star: 2 }, { mstId: 52, star: 0 }] },
+    { ...base, equipMstId: 543, sole: false, otherEquips: [] },
+    { ...base, equipMstId: 52 },
+  ]), 3)
+  const sole = ledger.queryFitObservations()
+  assert.deepEqual(sole.map((one) => one.equipMstId).sort((a, b) => a - b), [52, 544])
+  assert.deepEqual(sole.find((one) => one.equipMstId === 544).otherEquips, [{ mstId: 52, star: 0 }, { mstId: 543, star: 2 }])
+  assert.equal(sole.find((one) => one.equipMstId === 52).otherEquips, null)
+  const history = ledger.queryFitObservations(543)
+  assert.equal(history.length, 1)
+  assert.equal(history[0].sole, false)
+  assert.deepEqual(history[0].otherEquips, [])
+  const columns = db.prepare('PRAGMA table_info(fit_observations)').all().map((one) => one.name)
+  assert.deepEqual(columns, ['equip_mst', 'form_id', 'stars', 'count', 'stats', 'sole', 'first_seen', 'last_seen', 'other_equips'])
 })

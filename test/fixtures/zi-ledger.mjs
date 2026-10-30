@@ -22,6 +22,7 @@ export const makeLedger = db => evaluate(`class TestLedger {
 
 export const openMaterialDb = () => {
   const db = new DatabaseSync(':memory:')
+  db.exec(cut(source, 'CREATE TABLE IF NOT EXISTS incentive_receipts (', 'CREATE TABLE IF NOT EXISTS material_log ('))
   db.exec(cut(source, 'CREATE TABLE IF NOT EXISTS material_log (', '-- 战果账：'))
   return db
 }

@@ -1,11 +1,27 @@
 import { esc } from './kernel'
+import { elink } from './link'
 import { fillLineGaps } from '../shared/senka-ranking'
-import type { SenkaRankingView } from '../shared/senka-ranking'
+import type { SenkaRankingView, SenkaRewardMonth } from '../shared/senka-ranking'
 import { senkaMonthLabel } from '../shared/senka'
 import { jstDate } from '../shared/jst-day'
 
 const ranks = [5, 20, 100, 500] as const
 const labels = { 5: '联合·5位', 20: '一群·20位', 100: '二群·100位', 500: '三群·500位' }
+
+export const senkaRankingRewardHtml = (month: SenkaRewardMonth, card = false): string => {
+  const [year, monthNumber] = senkaMonthLabel(month.monthStart).split('-')
+  const prefix = card ? `${year}年${Number(monthNumber)}月 · ` : ''
+  const receipts = month.rewardReceipts ?? []
+  if (receipts.length) {
+    const tiers = [...new Map(receipts.map(item => {
+      const label = ranks.includes(item.rankTo as typeof ranks[number]) ? labels[item.rankTo as typeof ranks[number]].split('·')[0] : ''
+      const range = `${item.rankFrom}～${item.rankTo}位`
+      return [range, label ? `${label}（${range}）` : range]
+    })).values()].join('、')
+    return `<div class="sd-rank-rewards">${card ? prefix : '排行奖励 · '}${tiers}：${receipts.map(item => `${item.type === 2 ? elink('mstEquip', item.itemId, item.name) : esc(item.name)}${item.type === 2 && item.level > 0 ? `★+${item.level}` : ''}`).join('、')}</div>`
+  }
+  return month.rewards.length ? `<div class="sd-rank-rewards" title="战果月交界后到下一次交界之间来路不明的道具与新装备，尚未与游戏报文核对">${card ? `${prefix}疑似` : '疑似排行奖励'}：${month.rewards.map(item => `${item.kind === 'equip' ? elink('mstEquip', item.itemId, item.name) : esc(item.name)}${item.kind === 'equip' && (item.level ?? 0) > 0 ? `★+${item.level}` : ''}×${item.count}`).join('、')}</div>` : ''
+}
 
 export const senkaRankingHtml = (view: SenkaRankingView): string => {
   const refresh = view.refreshAt == null ? null : jstDate(view.refreshAt)
@@ -18,7 +34,7 @@ export const senkaRankingHtml = (view: SenkaRankingView): string => {
     const [year, monthNumber] = senkaMonthLabel(month.monthStart).split('-')
     const own = month.own ? `第${month.own.rank}名 · ${month.own.senka.toLocaleString()}` : '未看到本人'
     const lines = ranks.map(rank => `${labels[rank].split('·')[0]} ${month.lines[rank]?.senka.toLocaleString() ?? '—'}`).join(' · ')
-    const rewards = month.rewards.length ? `<div class="sd-rank-rewards" title="战果月交界后到下一次交界之间来路不明的道具与新装备，尚未与游戏报文核对">疑似排行奖励：${month.rewards.map(item => `${esc(item.name)}${item.kind === 'equip' && (item.level ?? 0) > 0 ? `★+${item.level}` : ''}×${item.count}`).join('、')}</div>` : ''
+    const rewards = senkaRankingRewardHtml(month)
     return `<div class="sd-rank-month"><div>${year}年${Number(monthNumber)}月 · ${own}</div><div class="sd-rank-history-lines">${lines}</div>${rewards}</div>`
   }).join('')}</div>` : ''
   const series = ranks.map(rank => ({ rank, line: fillLineGaps(view.lines[rank]) }))

@@ -1,6 +1,6 @@
 // 战果详情弹窗的「排行」一节（2026-09-25 维护者裁决）：最近一次排行刷新里翻到过的各页，
 // 名次 / 提督名 / 战果，本人那一行高亮；下面一张按日曲线，四条线是第 5/20/100/500 名
-// （维护者叫法：联合 / 一群 / 二群 / 三群）。视图文件只依赖 kernel 的 esc，这里桩成同一实现后整份编译。
+// （维护者叫法：联合 / 一群 / 二群 / 三群）。宿主 esc 与链接边界桩好后整份编译。
 import assert from 'node:assert/strict'
 import os from 'node:os'
 import path from 'node:path'
@@ -9,6 +9,7 @@ import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 import { build } from 'esbuild'
+import { plainHtml } from '../scripts/lib/player-view-runtime.mjs'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const view = await (async () => {
@@ -21,6 +22,11 @@ const view = await (async () => {
       name: 'stub-kernel',
       setup(build) {
         build.onResolve({ filter: /(^|\/)kernel$/ }, () => ({ path: 'kernel', namespace: 'stub' }))
+        build.onResolve({ filter: /^\.\/link$/ }, () => ({ path: 'link', namespace: 'link-stub' }))
+        build.onLoad({ filter: /.*/, namespace: 'link-stub' }, () => ({
+          contents: `import { esc } from 'kernel'; export const elink = (type, id, name) => '<span data-etype="' + esc(type) + '" data-eid="' + esc(id) + '">' + esc(name) + '</span>'`,
+          loader: 'js',
+        }))
         build.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({
           contents: "export const esc = (s) => `${s ?? ''}`.replace(/[&<>\"']/g, (c) => `&#${c.charCodeAt(0)};`)",
           loader: 'js',
@@ -163,5 +169,5 @@ test('往月：疑似排行奖励里的装备写改修星，道具照旧', () =>
       ],
     }],
   }))
-  assert.match(html, /疑似排行奖励：零式艦戦22型\(251空\)★\+5×1、一式陸攻\(野中隊\)×2、勋章×1/)
+  assert.match(plainHtml(html), /疑似排行奖励：零式艦戦22型\(251空\)★\+5×1、一式陸攻\(野中隊\)×2、勋章×1/)
 })

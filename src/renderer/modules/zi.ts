@@ -18,9 +18,9 @@ import {
 } from '../../shared/senka'
 import type { SenkaEntry, SenkaQuestOption, SenkaSummary } from '../../shared/senka'
 import type { SenkaRankingView } from '../../shared/senka-ranking'
-import { senkaRankingHtml } from '../senka-ranking-view'
+import { senkaRankingHtml, senkaRankingRewardHtml } from '../senka-ranking-view'
 import { senkaCalendarHtml } from '../senka-calendar-view'
-import { querySenkaCalendar, querySenkaRanking } from '../kernel'
+import { querySenkaCalendar, querySenkaRanking, querySenkaRewards } from '../kernel'
 import { questCountsObservedFull } from '../../shared/senka-quest-book'
 import { qpTaskGroups } from '../../shared/qp-types'
 import type { QpState } from '../../shared/qp-types'
@@ -528,6 +528,9 @@ const readinessCardHtml = (eventMaps: boolean, bodyHtml: () => string): string =
 
 let senka: SenkaSummary | null = null
 let senkaRanking: SenkaRankingView | null = null
+let senkaRewardsHtml = ''
+let senkaRewardsAttempt: string | undefined
+let senkaRewardsRequest = 0
 // 钦的精确计数镜像。自检那张提示单只认它——「计数本周期数满了」是 kuma
 // 自家的观测，与「看着已完成」那条推断链没有关系（判据见 computeQuestMisses）。
 // queryQp 返回的是主进程状态的**同一个对象**，实时 patch 原地改，握着引用即可。
@@ -635,7 +638,31 @@ const senkaHtml = (): string => {
         ? `<div class="senka-more" data-act="senka-more">${senkaOpen ? '收起' : `展开全部 ${senka.entries.length} 笔`}</div>`
         : ''
     }
+    ${senkaRewardsHtml}
   </div>`
+}
+
+const refreshSenkaRewards = async () => {
+  if (senkaRankingFailedAt || !senkaRanking?.historyKey) return
+  const key = senkaRanking.historyKey
+  if (senkaRewardsAttempt === key) return
+  senkaRewardsAttempt = key // 成败都落版本墓碑，同版本不跟着重画再拉。
+  const request = ++senkaRewardsRequest
+  try {
+    const view = await querySenkaRewards()
+    if (request !== senkaRewardsRequest || key !== senkaRanking?.historyKey) return
+    if (!view.failedAt) {
+      const rows = view.months.sort((a, b) => b.monthStart - a.monthStart)
+        .map(month => senkaRankingRewardHtml(month, true)).filter(Boolean)
+      senkaRewardsHtml = rows.length
+        ? `<details class="senka-rewards" data-keep="senka-rewards"><summary class="senka-more">往期奖励（${rows.length}）</summary>${rows.join('')}</details>` : ''
+    } else senkaRewardsHtml = ''
+  } catch (error) {
+    if (request !== senkaRewardsRequest || key !== senkaRanking?.historyKey) return
+    console.warn('[kuma] 往期奖励读取失败', error)
+    senkaRewardsHtml = ''
+  }
+  deferPassive(pane, 'zi', render)
 }
 
 // ---- 战果详情弹窗（2026-08-17 用户要的）----
@@ -1310,6 +1337,7 @@ document.addEventListener('keydown', (e) => {
 
 const render = (force = false) => {
   if (!pane || (!force && !pane.classList.contains('active'))) return
+  void refreshSenkaRewards()
   const cues = materialCues()
   // 输出没变就整段不动 DOM（口径见 kernel commitPaneHtml）
   const html = `<div class="zi-app">
