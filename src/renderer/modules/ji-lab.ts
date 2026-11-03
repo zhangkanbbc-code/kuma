@@ -414,7 +414,7 @@ const barrageHtml = () => {
   const aux = `素对空 ${shipView.baseAntiAir}（不含装备）· 运 ${shipView.luck}${
     outcome.weightedAntiAir === null ? '' : ` · 加重对空 ${outcome.weightedAntiAir}`
   }`
-  const head = `<div class="lab-card"><div class="h" title="开幕航空战发动，发动则这艘舰本次空袭完全免伤">
+  const head = `<div class="lab-card"><div class="h" title="开幕航空战发动，发动则这位舰娘本次空袭完全免伤">
       <b>对空喷进弹幕</b>
       <span class="aux">${aux}</span></div>`
   // 三个值同生同死（见 aa-rocket-barrage），一并判掉：只判 rate 的话下面两处得写
@@ -619,12 +619,12 @@ const shipEntries = (): SuggestEntry[] => {
 
 const SHIP_FIELD: SuggestField = {
   entries: shipEntries,
-  previewNote: `等级最高的 ${SUGGEST_PREVIEW} 艘，输入舰名以查找其他`,
+  previewNote: `等级最高的 ${SUGGEST_PREVIEW} 位，输入舰名以查找其他`,
   emptyText: '暂无匹配的持有舰娘',
 }
 const EQUIP_FIELD: SuggestField = {
   entries: equipEntries,
-  previewNote: `这艘舰能装的前 ${SUGGEST_PREVIEW} 件，输入装备名以查找其他`,
+  previewNote: `这位舰娘能装的前 ${SUGGEST_PREVIEW} 件，输入装备名以查找其他`,
   emptyText: '暂无匹配的可装备项',
 }
 /** 这个输入框归哪一份候选管；两个都不是就不是联想框（★ 选择器等） */
@@ -657,7 +657,7 @@ const labHtml = (): string => {
       <span class="x" data-lab-ship-clear title="清空舰娘与虚拟槽">✕</span>
       <span class="lab-ship-meta">${elinkHtml('ship', ship.id, entityNameHtml('ship', ship.shipId, masterShipName(ship.shipId), { compact: true }))}
         <span class="mono">Lv${ship.lv} · 火${stats.firepower} 雷${stats.torpedo} 空${stats.antiAir} 潜${stats.asw} 索${stats.los} 运${ship.lucky}</span>
-        <button data-lab-reset title="装回这艘舰当前的真实配装">还原实装</button></span>
+        <button data-lab-reset title="装回这位舰娘当前的真实配装">还原实装</button></span>
     </div>
     <div class="lab-slots">${slotPickerHtml()}</div>
     ${missingEquipNoteHtml()}

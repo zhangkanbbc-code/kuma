@@ -97,8 +97,8 @@ test('归约后钢材流水落紧急泊地修理类目，detail 取本包末条�
     detail: { kind: 'anchorageRepair', map: 35, cell: 7, repairer: 450, ships: 2, healed: 14, steel: 14 * ANCHORAGE_REPAIR_STEEL_PER_HP, estimated: true },
   })
   const resolvers = { mapName: () => '3-5', cellLetter: () => 'G', shipByMst: mst => mst === 450 ? '秋津洲改' : null }
-  assert.equal(describeDeltaDetail(result.detail, resolvers), '紧急泊地修理 · 3-5 G 点 · 秋津洲改 · 2 艘 +14（钢材估算）')
-  assert.equal(describeDeltaDetail(result.detail, { ...resolvers, cellLetter: () => null }), '紧急泊地修理 · 3-5 · 秋津洲改 · 2 艘 +14（钢材估算）')
+  assert.equal(describeDeltaDetail(result.detail, resolvers), '紧急泊地修理 · 3-5 G 点 · 秋津洲改 · 2 位 +14（钢材估算）')
+  assert.equal(describeDeltaDetail(result.detail, { ...resolvers, cellLetter: () => null }), '紧急泊地修理 · 3-5 · 秋津洲改 · 2 位 +14（钢材估算）')
 })
 
 test('泊地修理报文立即覆盖被修舰耐久与士气', () => {
@@ -187,7 +187,7 @@ test('节点卡上多一行：修了几艘、一共回了多少', () => {
   const html = renderNavCard(
     sortieOf({ currentCell: 12, nodes: [NON_BATTLE_NODE], anchorageRepairs: [repairAt(12)] }),
   )
-  assert.match(html, /泊地修理 · 2 艘 \+14/)
+  assert.match(html, /泊地修理 · 2 位 \+14/)
   // 逐舰的前后耐久留在悬停里，不占正文
   assert.match(html, /朝潮改二丁 20→27/)
   // 玩家看得见的位置不放机制解释
@@ -211,7 +211,7 @@ test('回复量算不出时只说修过，不报一个编出来的 +0', () => {
     }),
   )
   assert.match(html, /泊地修理/)
-  assert.ok(!html.includes('艘'))
+  assert.ok(!html.includes('位'))
   assert.ok(!html.includes('+0'))
 })
 

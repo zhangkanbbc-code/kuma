@@ -620,7 +620,7 @@ const expRunsHtml = (deck: Deck, need: number, ship: PlayerShip): string => {
     primary.practice && tc && tc.bonusPct > 0
       ? `练巡 ${TC_PLACEMENT_LABEL[tc.placement] ?? tc.placement} Lv${tc.level} → +${tc.bonusPct}%`
       : '',
-    isFlagship ? '本舰在旗舰位 ×1.5' : '',
+    isFlagship ? '该舰娘在旗舰位 ×1.5' : '',
   ].filter(Boolean)
   // 数据行在前，方法论压成末尾一行「口径」——玩家每次要看的是场次和点位，
   // 换算方法看一遍就够（2026-08-19 用户点的调整：方法论每次都占一屏是冗余）
@@ -1349,9 +1349,9 @@ const sallyFlagHtml = (ships: PlayerShip[]): string => {
     ? `\n攻略表：${guide}`
     : ''
   const willTag = verdict.untagged
-    ? `\n${verdict.untagged} 艘无札 · 出击后永久打札`
+    ? `\n${verdict.untagged} 位无札 · 出击后永久打札`
     : ''
-  const tail = verdict.untagged ? ` · ${verdict.untagged} 艘将被打札` : ''
+  const tail = verdict.untagged ? ` · ${verdict.untagged} 位将被打札` : ''
 
   if (verdict.kind === 'checking') {
     return `<span class="ab-flag warn" data-sally-jump="1" title="${esc(
@@ -1371,12 +1371,12 @@ const sallyFlagHtml = (ships: PlayerShip[]): string => {
   // 措辞用户 2026-08-11 点名要显化成整句;「期间限定」在直译黑名单里,
   // 按面板一贯口径写「限时活动海域」
   return `<span class="ab-flag warn" data-sally-jump="1" title="${esc(
-    `${verdict.all ? '全队无札' : `${verdict.untagged} 艘无札`}` +
+    `${verdict.all ? '全队无札' : `${verdict.untagged} 位无札`}` +
       ` · 出击活动图后永久打札${roster}`,
   )}">${
     verdict.all
       ? '全队未打札 · 出击限时活动海域后永久打札'
-      : `${verdict.untagged} 艘未打札 · 出击限时活动海域后永久打札`
+      : `${verdict.untagged} 位未打札 · 出击限时活动海域后永久打札`
   }</span>`
 }
 
@@ -1652,7 +1652,7 @@ const warnOnEventMapOpen = (areaId: number, ts: number): void => {
       const verdict = currentSallyVerdict(scopeShips(deck))
       const untagged = verdict.kind === 'none' ? 0 : verdict.untagged
       if (untagged) {
-        parts.push(`${inCombined(deck) ? '联合舰队' : `第${deck.id}舰队`} ${untagged} 艘未锁定`)
+        parts.push(`${inCombined(deck) ? '联合舰队' : `第${deck.id}舰队`} ${untagged} 位未锁定`)
       }
     }
   }
@@ -2397,7 +2397,7 @@ const metricsHtml = (deck: Deck) => {
         `通用口径同队为 S ${tpGeneral.s} / A ${tpGeneral.a}（本图不适用）\n` +
         `B 胜及以下不结算`
       : `运输量（TP）：S 胜 ${tp.s} / A 胜 ${tp.a} · A 胜 = S 胜 ×0.7 向下取整 · B 胜及以下不结算`) +
-    (tp.excludedShips ? `\n⚠ ${tp.excludedShips} 艘舰娘大破 · 到达扬陆点时大破的舰娘及其装备一律不计` : '')
+    (tp.excludedShips ? `\n⚠ ${tp.excludedShips} 位舰娘大破 · 到达扬陆点时大破的舰娘及其装备一律不计` : '')
 
   // 芯片顺序 = 摆出来的顺序；**收纳顺序**另有一份（FLEET_METRIC_FOLD_ORDER），
   // 两者不是一回事：临战最常看的制空/索敌33 摆在最前，也最后才收。
@@ -2522,7 +2522,7 @@ const sandboxPickerHtml = (): string => {
     .map((ship) => {
       const name = masterShipName(ship.shipId)
       const full = picked.size >= SANDBOX_CAP
-      return `<button class="sand-cand${full ? ' full' : ''}" data-sandbox-add="${ship.id}"${full ? ' disabled title="编成已满 · 移除一艘后可添加"' : ''}>
+      return `<button class="sand-cand${full ? ' full' : ''}" data-sandbox-add="${ship.id}"${full ? ' disabled title="编成已满 · 移除一位后可添加"' : ''}>
         ${shipThumbHtml(ship.shipId, name, {
           className: 'table',
           damaged: shipArtDamaged(ship.nowhp, ship.maxhp), // 与编成表同一档：同一艘舰两处不能一破一好
@@ -2667,7 +2667,7 @@ const berthFleetHtml = (deck: Deck, flag: PlayerShip, now: number): string => {
     <div class="bt-head">
       <b>${entityTermHtml('fleet', deck.id, fleetLabel(deck).canonical)}</b>
       <span class="bt-flag">${entityTermHtml('ship', flag.shipId, entityNamePlain('ship', flag.shipId, masterShipName(flag.shipId)))}</span>
-      <span class="bt-cover">覆盖 ${Math.min(cover, ships.length)} 艘</span>
+      <span class="bt-cover">覆盖 ${Math.min(cover, ships.length)} 位</span>
       <span class="bt-time">${timing}</span>
     </div>
     <div class="bt-ships">${rows}</div>
@@ -2962,7 +2962,7 @@ const fleetDivisionHtml = (deck: Deck, role: string): string => {
   return `<div class="fleet-division">
     <div class="fleet-division-head"><b>${esc(role)}</b><span>${entityTermHtml('fleet', deck.id, canonical)}${
       custom ? `「${entityTermHtml('fleet', deck.id, custom)}」` : ''
-    } · ${ships.length} 艘</span></div>
+    } · ${ships.length} 位</span></div>
     ${ships.map((ship, index) => shipRow(deck, ship, index === 0)).join('')}
   </div>`
 }
@@ -3315,15 +3315,15 @@ registerEntityRoute('fleet', {
       lines: [
         escort
           ? escort === 'sortie'
-            ? `${ships.length} 艘随联合舰队出击中`
-            : `${ships.length} 艘已编入联合舰队`
+            ? `${ships.length} 位随联合舰队出击中`
+            : `${ships.length} 位已编入联合舰队`
           : onSortie
-            ? `${ships.length} 艘出击中`
+            ? `${ships.length} 位出击中`
           : onExpedition
             ? deck.mission[2] <= Date.now()
               ? `${expeditionLabel(deck.mission[1], mg.master.missions)} 即将返港`
               : `${expeditionLabel(deck.mission[1], mg.master.missions)} 执行中 · ${fmtCountdownShort(deck.mission[2])} 后返港`
-            : `${ships.length} 艘待命`,
+            : `${ships.length} 位待命`,
         `闪光 ${ships.filter((ship) => ship.cond >= 50).length}/${ships.length}`,
       ],
       primary: '编队展示',

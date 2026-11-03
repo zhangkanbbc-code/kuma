@@ -317,7 +317,7 @@ test('札提醒：非联合第3舰队正在海上时不进 warnings，只报仍�
     fleets: [{ id: 3 }, { id: 4 }],
     sortie: { active: true, practice: false, deckId: 3 },
   })
-  assert.deepEqual(sallyWarningParts(), ['第4舰队 1 艘未锁定'])
+  assert.deepEqual(sallyWarningParts(), ['第4舰队 1 位未锁定'])
 })
 
 test('札提醒：联合出击的一二队都不进 warnings，只报仍在港的第3舰队', () => {
@@ -326,5 +326,5 @@ test('札提醒：联合出击的一二队都不进 warnings，只报仍在港�
     combinedFlag: 1,
     sortie: SORTIE,
   })
-  assert.deepEqual(sallyWarningParts(), ['第3舰队 1 艘未锁定'])
+  assert.deepEqual(sallyWarningParts(), ['第3舰队 1 位未锁定'])
 })

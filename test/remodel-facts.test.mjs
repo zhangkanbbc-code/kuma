@@ -158,8 +158,8 @@ test('运行时按roster：到过往复、未到过初次、无事件/无实例�
     const both = rt.needChipsHtml(null, 506, 501, roster)
     assert.deepEqual(both.stages.map(g => g.stage), ['first', 'convert'])
     assert.match(both.html, /初次.*60.*往复.*40/s)
-    assert.match(both.html, /这艘舰第一次改装为此形态时的消耗。/)
-    assert.match(both.html, /这艘舰曾改装为此形态，再次换装时的消耗。/)
+    assert.match(both.html, /这位舰娘第一次改装为此形态时的消耗。/)
+    assert.match(both.html, /这位舰娘曾改装为此形态，再次换装时的消耗。/)
   }
 })
 

@@ -913,7 +913,7 @@ const dropPoolCardHtml = (s: SortieView): string => {
   )
   return `<div class="scard keep" style="--hc:var(--gold)">
     <div class="h"><b>当前点掉落</b><span class="r">${esc(letter)} 点 · ${
-      confirmed ? `已确认 ${cataloged.size} 艘` : '本地资料待更新'
+      confirmed ? `已确认 ${cataloged.size} 位` : '本地资料待更新'
     }</span></div>
     <div class="nav-sec">本地实测</div>
     ${myDropsHtml(s, cataloged, mapKey, letter)}
@@ -1889,7 +1889,7 @@ const battleEquipmentHtml = (b: BattleView, side: 0 | 1, ship: BattleShipView): 
     hasPlanes && airStages.length
       ? `<div class="bship-note">舰队航空阶段合计 参战 ${total} · 损失 ${lost}</div>`
       : ''
-  return `${rows || '<div class="bship-empty">该舰暂无装备</div>'}${airNote}`
+  return `${rows || `<div class="bship-empty">${side === 0 ? '该舰娘' : '该舰'}暂无装备</div>`}${airNote}`
 }
 
 /**
@@ -4005,7 +4005,7 @@ const anchorageRepairLinesHtml = (s: SortieView): string =>
       const detail = entry.ships
         .map((one) => `${entityNamePlain('ship', one.mstId, one.name)} ${one.before}→${one.after}`)
         .join('\n')
-      const text = entry.ships.length ? `泊地修理 · ${entry.ships.length} 艘 +${healed}` : '泊地修理'
+      const text = entry.ships.length ? `泊地修理 · ${entry.ships.length} 位 +${healed}` : '泊地修理'
       return `<div class="l" style="margin-top:3px;color:var(--ok)"${
         detail ? ` title="${esc(detail)}"` : ''
       }>${esc(text)}</div>`
@@ -4437,7 +4437,7 @@ const levelingGroupHtml = (title: string, rows: LevelingRow[]): string => {
   if (!rows.length) return ''
   const more =
     rows.length > LEVELING_ROWS_CAP
-      ? `<div class="lvl-more">另有 ${rows.length - LEVELING_ROWS_CAP} 艘</div>`
+      ? `<div class="lvl-more">另有 ${rows.length - LEVELING_ROWS_CAP} 位</div>`
       : ''
   // 进阶分组置顶（2026-08-18 用户拍板）：排序已保证 收藏→进阶→初段，这里只在
   // 可见区间内标出「初段」分界——低级链尾船整组沉到线下，不筛掉、不藏内容

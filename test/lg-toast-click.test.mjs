@@ -23,7 +23,7 @@ test('强化成功弹卡:点卡面只关闭,不跳转', () => {
   assert.equal(lg.toasts().length, 0, '点了强化成功卡面却没关掉')
 })
 
-test('强化成功弹卡:只有「→ 查看这艘舰」跳转,且只关闭一次', () => {
+test('强化成功弹卡:只有「→ 查看这位舰娘」跳转,且只关闭一次', () => {
   const lg = mountLgToast()
   lg.mg.master.ships[601] = { name: '叢雲' }
   lg.showPowerup({ ts: 1, rosterId: 3813, mstId: 601, stats: [] })

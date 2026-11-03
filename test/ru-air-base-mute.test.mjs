@@ -128,7 +128,7 @@ test('活动区静默仍弹札段落，防抖继续生效', () => {
   scene.warnOnEventMapOpen(62, 10000)
   scene.warnOnEventMapOpen(62, 11000)
   assert.equal(scene.toasts.length, 1)
-  assert.equal(scene.toasts[0][1], '第1舰队 2 艘未锁定 · 出击后永久打札')
+  assert.equal(scene.toasts[0][1], '第1舰队 2 位未锁定 · 出击后永久打札')
   scene.warnOnEventMapOpen(62, 19000)
   assert.equal(scene.toasts.length, 2)
 })

@@ -447,8 +447,8 @@ const strategicHtml = () => {
       const gap = demand.queueNeed - count
       need =
         gap > 0
-          ? `<span class="si-q bad" title="${demand.queueShips} 艘舰娘的下一步改造合计需要 ${demand.queueNeed}">队列需 ${demand.queueNeed} · 缺 ${gap}</span>`
-          : `<span class="si-q ok" title="${demand.queueShips} 艘舰娘的下一步改造合计需要 ${demand.queueNeed}">队列需 ${demand.queueNeed} ✓</span>`
+          ? `<span class="si-q bad" title="${demand.queueShips} 位舰娘的下一步改造合计需要 ${demand.queueNeed}">队列需 ${demand.queueNeed} · 缺 ${gap}</span>`
+          : `<span class="si-q ok" title="${demand.queueShips} 位舰娘的下一步改造合计需要 ${demand.queueNeed}">队列需 ${demand.queueNeed} ✓</span>`
     }
 
     // 近 30 日收支：账本里真有变动才显示，没有就不占位

@@ -464,7 +464,7 @@ const SIM_ACTIONS: [string, string, () => void][] = [
   ],
   [
     'wedding-anon',
-    '婚舰 · 认不出是哪一艘',
+    '婚舰 · 认不出是哪一位',
     // 降级路径：post/body 都没给出可用的 api_id 时，仍然庆祝，只是不指名。
     () => debugEmitMarriage({ ts: Date.now(), rosterId: null, mstId: null, level: null }),
   ],

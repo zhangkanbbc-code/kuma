@@ -351,7 +351,7 @@ test('二号舰超过六艘折起来，折叠控件在舰名那一段里', () =>
   const html = improveCardHtml(setup)
   assert.match(
     html,
-    /<div class="ak-imp"><div class="ak-row"><span class="who"><details class="improve-helper-more">[\s\S]*等 8 艘/,
+    /<div class="ak-imp"><div class="ak-row"><span class="who"><details class="improve-helper-more">[\s\S]*等 8 位/,
     '折叠控件没落在 who 段里',
   )
   // 前缀传空时不许在舰名前留出那一格缩进

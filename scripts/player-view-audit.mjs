@@ -201,7 +201,7 @@ async function consume(packs, raw) {
     for (const notice of notices) (signs[domain] ??= new Set()).add(plainHtml(notice))
     if (!ship.api_sortno) out[domain][`${ship.api_id}/tabs`] = book.abyssDetailTabs(ship)
     else {
-      const state = { ...jiState, wikiEntry: kcwikiByMst.get(ship.api_id), shipState: { selectedForm: ship.api_id }, ...shared('ship-class-name'), growthGapNote: '', equipTypeIconHtml: () => '' }
+      const state = { ...jiState, wikiEntry: kcwikiByMst.get(ship.api_id), shipState: { selectedForm: ship.api_id }, ...shared('ship-class-name'), ...shared('initial-equipment'), growthGapNote: '', equipTypeIconHtml: () => '' }
       render('舰娘档案', `${ship.api_id}/身份`, inlineProductionFunction(source, '// kcwiki 收录则整行 kcwiki;', state))
       if (!state.wikiEntry) render('舰娘档案', `${ship.api_id}/初期装备`, inlineProductionFunction(source, '// kcwiki 没收这一形态时,初期装备', state))
       else out['舰娘档案'][`${ship.api_id}/初期装备`] = state.wikiEntry.装备?.初期装备

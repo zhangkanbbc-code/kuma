@@ -83,7 +83,7 @@ test('不带施設只覆盖到 2 号舰，3 号往后标「范围外」', () => 
   assert.equal(rows[1][2], 's-repairing') // 2 号位在覆盖内
   assert.equal(rows[2][2], 'out') // 3 号位出界
   assert.equal(rows[3][2], 'out')
-  assert.match(html, /覆盖 2 艘/)
+  assert.match(html, /覆盖 2 位/)
 })
 
 test('每多一个艦艇修理施設就多点亮一位', () => {
@@ -99,12 +99,12 @@ test('每多一个艦艇修理施設就多点亮一位', () => {
   // 2 个施設 → 覆盖 4 艘：1..4 在内，5 出界
   assert.equal(rows[3][2], 's-repairing')
   assert.equal(rows[4][2], 'out')
-  assert.match(html, /覆盖 4 艘/)
+  assert.match(html, /覆盖 4 位/)
 })
 
 test('覆盖数不会报得比队里的人还多', () => {
   reset({ fleets: [akashiFleet({ facilities: 4, since: ago(30), followers: [HURT_A_BIT] })] })
-  assert.match(renderBerth(), /覆盖 2 艘/, '队里只有 2 个人，就不该说覆盖 6 艘')
+  assert.match(renderBerth(), /覆盖 2 位/, '队里只有 2 个人，就不该说覆盖 6 位')
 })
 
 // ---- ③ 逐舰短标 ----
@@ -481,7 +481,7 @@ test('同一队明石旗舰 + 野埼 2 号位时，工作舰卡与给粮舰卡�
   })
   const html = renderBerth()
   assert.equal((html.match(/class="bt-fleet/g) ?? []).length, 2)
-  assert.match(html, /覆盖 2 艘/)
+  assert.match(html, /覆盖 2 位/)
   assert.match(html, /2 号位/)
 })
 

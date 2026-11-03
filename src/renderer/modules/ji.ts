@@ -445,8 +445,8 @@ const equipObtainHtml = (mstId: number, jpName: string): string => {
         return `<span class="ob-ship${owned ? ' owned' : ''}">${elink('mstShip', shipId, masterShipName(shipId))}</span>`
       })
       .join('')
-    blocks.push(`<div class="ob-grp"><div class="ob-h">舰娘初期携带<span>${initialShips.length} 艘</span></div>
-      <div class="ob-ships">${rows}${initialShips.length > 8 ? `<span class="ob-more">另有 ${initialShips.length - 8} 艘</span>` : ''}</div></div>`)
+    blocks.push(`<div class="ob-grp"><div class="ob-h">舰娘初期携带<span>${initialShips.length} 位</span></div>
+      <div class="ob-ships">${rows}${initialShips.length > 8 ? `<span class="ob-more">另有 ${initialShips.length - 8} 位</span>` : ''}</div></div>`)
   }
 
   if (!blocks.length) {
@@ -532,6 +532,7 @@ import { isEventMapArea, mapAreaOf, mapCodeOf, mapIdOf } from '../../shared/map-
 import { detectEventAreas, eventContextStillOpen } from '../../shared/event-area'
 import { branchTallyByLetter, pathWalkedBound } from '../../shared/route-stats'
 import { improveEntryTier, improvePackCoverageMax, improvePackUncovered, initialEquipShips, upgradeSourcesOf } from '../../shared/equip-sources'
+import { normalizeInitialEquipment } from '../../shared/initial-equipment'
 import { isShipFamilyOwned } from '../ship-ownership'
 import type { EquipUpgradeRow, KcwikiShipRow } from '../../shared/equip-sources'
 import { devReferenceRecipe, factoryLookup, recipeText } from '../../shared/factory-lookup'
@@ -1410,7 +1411,7 @@ const shipHistFleetSectionHtml = (rootId: number): string => {
       const mates = entry.members
         .map((member) => {
           if (member.ref.form === 'absent') {
-            return `<span class="miss" title="${esc('游戏尚未实装该舰')}">${esc(member.ref.name)}</span>`
+            return `<span class="miss" title="${esc('游戏尚未实装该舰娘')}">${esc(member.ref.name)}</span>`
           }
           const id = member.ref.id
           const flag = member.role === 'flagship' ? '<i class="hf-flag">⚑</i>' : ''
@@ -1856,7 +1857,7 @@ const huntPlanHtml = (): string => {
     return [{ id, sites, until, days: until ? daysBetween(until) : null }]
   })
   if (!catchable.length) {
-    return `<div class="hunt-none">缺少 ${missing.length} 艘 · 暂无掉落点资料</div>`
+    return `<div class="hunt-none">缺少 ${missing.length} 位 · 暂无掉落点资料</div>`
   }
 
   const rowOf = (entry: (typeof catchable)[number]) => {
@@ -1920,13 +1921,13 @@ const huntPlanHtml = (): string => {
   const eventName = inEvent[0]?.sites.find((s) => s.event?.status === 'active')?.event?.name ?? ''
 
   return `<details class="hunt-plan" data-keep="hunt-plan">
-    <summary>还缺 <b>${missing.length}</b> 艘 · 目录里能查到掉点的 <button class="hunt-pick${
+    <summary>还缺 <b>${missing.length}</b> 位 · 目录里能查到掉点的 <button class="hunt-pick${
       shipState.huntFilter === 'catchable' ? ' on' : ''
-    }" data-hunt-filter="catchable" title="只看这批">${catchable.length}</button> 艘${
+    }" data-hunt-filter="catchable" title="只看这批">${catchable.length}</button> 位${
       inEvent.length
-        ? ` · <button class="hunt-pick urgent${shipState.huntFilter === 'event' ? ' on' : ''}" data-hunt-filter="event" title="只看当前活动图能捞的">${inEvent.length} 艘在当前活动图</button>`
+        ? ` · <button class="hunt-pick urgent${shipState.huntFilter === 'event' ? ' on' : ''}" data-hunt-filter="event" title="只看当前活动图能捞的">${inEvent.length} 位在当前活动图</button>`
         : ''
-    }${soon.length ? ` · <b class="urgent">${soon.length} 艘 · 距限定结束不足 ${HUNT_SOON_DAYS} 天</b>` : ''}</summary>
+    }${soon.length ? ` · <b class="urgent">${soon.length} 位 · 距限定结束不足 ${HUNT_SOON_DAYS} 天</b>` : ''}</summary>
     <div class="hunt-body">
       ${
         inEvent.length
@@ -1943,7 +1944,7 @@ const huntPlanHtml = (): string => {
         shownStanding.length
           ? `<div class="hunt-h">常驻确认可捞</div>${shownStanding.map(rowOf).join('')}${
               standing.length > shownStanding.length
-                ? `<div class="hunt-more">另有 ${standing.length - shownStanding.length} 艘未列出</div>`
+                ? `<div class="hunt-more">另有 ${standing.length - shownStanding.length} 位未列出</div>`
                 : ''
             }`
           : ''
@@ -2610,7 +2611,7 @@ function shipDetailPanelHtml(enter = false): string {
         ? voicePanelHtml(shipState.selectedForm)
         : shipState.dtab === 'p-bonus'
           ? `${shipFitHtml(shipState.selectedForm)}
-             <div class="sec" style="margin-top:14px"><div class="sec-h">这一艘的实测加成<span class="aux">实测 vs 预期</span></div>
+             <div class="sec" style="margin-top:14px"><div class="sec-h">这位舰娘的实测加成<span class="aux">实测 vs 预期</span></div>
              ${bonusPanelHtml(shipState.selectedForm)}</div>`
           : shipState.dtab === 'p-drop'
             ? // 先答「去哪捞」（离线目录），再答「你捞到过哪」（本地遭遇志），
@@ -2751,8 +2752,8 @@ const shipDrawerHtml = () => {
         <span class="ro-stage">${entityNameHtml('ship', entry.shipId, stageName, { compact: true })}</span>
         <span class="ro-lv">Lv ${entry.lv}</span>
         ${chips.join('')}
-        <span class="ro-go" data-roster-go="${entry.id}" title="在舰娘列表中定位这一艘">前往列表 →</span>
-        <label class="ro-note"><span>这一艘的备注 · ID ${entry.id}</span>
+        <span class="ro-go" data-roster-go="${entry.id}" title="在舰娘列表中定位这位舰娘">前往列表 →</span>
+        <label class="ro-note"><span>这位舰娘的备注 · ID ${entry.id}</span>
           <input data-roster-note="${entry.id}" maxlength="120" value="${esc(personalNote)}"
             placeholder="例如：对陆、二号机、保留特殊改装……">
           ${
@@ -2928,7 +2929,7 @@ const shipDrawerHtml = () => {
           const heldParts = parts.map((part) =>
             part === '已可先制对潜' ? '现装备下已可先制' : part,
           )
-          return `\n持有 Lv ${liveInstance.lv} 那艘：${heldParts.join(' · ')}`
+          return `\n持有 Lv ${liveInstance.lv} 那位：${heldParts.join(' · ')}`
         })()
         return statRowLayered(
           label,
@@ -2972,7 +2973,7 @@ const shipDrawerHtml = () => {
         </div>
         ${(() => {
           const slots = wikiEntry.装备?.初期装备
-          const load = wikiEntry.装备?.搭载 ?? []
+          const load = (wikiEntry.装备?.搭载 ?? []).map((n: number) => n < 0 ? null : n)
           if (!Array.isArray(slots)) return ''
           // 这一页按**形态**展示，而格納庫増設的上限是**实例**级的（记在舰娘自己的
           // onslotMax 上）。所以只在「你自己有一艘这个形态、且那一格扩过」时才补小字，
@@ -2991,13 +2992,16 @@ const shipDrawerHtml = () => {
             )}">+${owned.extra}</i>`
           })
           const rows = slots
-            .map((id: number, i: number) => {
+            .map((entry: unknown, i: number) => {
+              const equip = normalizeInitialEquipment(entry)
+              if (!equip) return ''
+              const { id, star } = equip
               if (id === -1)
                 return `<div class="slot"><span class="ico empty">－</span><span class="nm" style="color:var(--dim)">空槽${load[i] != null ? `<i>搭载 ${load[i]}</i>${hangarMarks[i]}` : ''}</span></div>`
               const eq = friendlyEquips.get(id)
               if (!eq) return ''
               return `<div class="slot">${equipTypeIconHtml(Array.isArray(eq.api_type) ? eq.api_type[3] : 0, { className: 'sm', title: entityNamePlain('equip', eq.api_id, eq.api_name) })}
-                <span class="nm">${elink('mstEquip', id, eq.api_name)}<i>初始装备${load[i] != null ? ` · 搭载 ${load[i]}` : ''}</i>${hangarMarks[i]}</span></div>`
+                <span class="nm">${elink('mstEquip', id, eq.api_name)}${star > 0 ? `★+${star}` : ''}<i>初始装备${load[i] != null ? ` · 搭载 ${load[i]}` : ''}</i>${hangarMarks[i]}</span></div>`
             })
             .join('')
           return `<div class="sec"><div class="sec-h">装备槽<span class="aux">${slots.length} 槽 · 初始装备${
@@ -3035,13 +3039,16 @@ const shipDrawerHtml = () => {
             return growthGapNote || '<div class="gap-note" title="属性来源：游戏基础数据及本地同步值">社区资料未收录这一形态</div>'
           }
           const slotRows = profileSlots
-            .map((id: number) => {
+            .map((entry: unknown) => {
+              const equip = normalizeInitialEquipment(entry)
+              if (!equip) return ''
+              const { id, star } = equip
               if (id === -1)
                 return `<div class="slot"><span class="ico empty">－</span><span class="nm" style="color:var(--dim)">空槽</span></div>`
               const eq = friendlyEquips.get(id)
               if (!eq) return ''
               return `<div class="slot">${equipTypeIconHtml(Array.isArray(eq.api_type) ? eq.api_type[3] : 0, { className: 'sm', title: entityNamePlain('equip', eq.api_id, eq.api_name) })}
-                <span class="nm">${elink('mstEquip', id, eq.api_name)}<i>初始装备</i></span></div>`
+                <span class="nm">${elink('mstEquip', id, eq.api_name)}${star > 0 ? `★+${star}` : ''}<i>初始装备</i></span></div>`
             })
             .join('')
           return `${growthGapNote}</div><div class="sec"><div class="sec-h">装备槽<span class="aux">${profileSlots.length} 槽 · 初始装备</span></div>
@@ -3057,7 +3064,7 @@ const shipDrawerHtml = () => {
     </div>
     <div class="sec">
       <div class="sec-h">当前持有<span class="aux">按改装链汇总</span></div>
-      ${roster || '<div style="font-size:11px;color:var(--dim)">尚未持有这艘舰娘及其其他改装形态</div>'}
+      ${roster || '<div style="font-size:11px;color:var(--dim)">尚未持有这位舰娘及其其他改装形态</div>'}
     </div>
     ${shipMemorialHtml(chain)}
     ${relatedQuestsHtml(
@@ -5065,7 +5072,7 @@ const fitObsShipsHtml = (row: FitObservationRow): string => {
     .map((one) => elink('mstShip', one.formId, one.name))
     .join('、')
   const rest = row.ships.length - head.length
-  return `${names}${rest > 0 ? ` <span class="aux">等 ${row.ships.length} 艘</span>` : ''}`
+  return `${names}${rest > 0 ? ` <span class="aux">等 ${row.ships.length} 位</span>` : ''}`
 }
 
 const fitObsCellsHtml = (stats: FitStats): string =>
@@ -5134,11 +5141,11 @@ const equipObservedHtml = (equipMstId: number): string => {
   const list = shown.map(fitObsRowHtml).join('')
   const agreedFold = agreed.length
     ? `<details class="fb-obs-zero" data-keep="fb-obs-fit:${equipMstId}">
-        <summary>${shipsIn(agreed)} 艘与预期相符</summary>${agreed.map(fitObsRowHtml).join('')}</details>`
+        <summary>${shipsIn(agreed)} 位与预期相符</summary>${agreed.map(fitObsRowHtml).join('')}</details>`
     : ''
   const folded = zero.length
     ? `<details class="fb-obs-zero" data-keep="fb-obs-zero:${equipMstId}">
-        <summary>另 ${shipsIn(zero)} 艘各项皆 0</summary>${zero.map(fitObsRowHtml).join('')}</details>`
+        <summary>另 ${shipsIn(zero)} 位各项皆 0</summary>${zero.map(fitObsRowHtml).join('')}</details>`
     : ''
   return `<div class="fb-track"><div class="fb-track-h">本地实测</div>${list}${agreedFold}${folded}${history}
   </div>`
@@ -5209,7 +5216,7 @@ const shipFitHtml = (mstId: number): string => {
     // 空态常驻只说空态本身；读数前提收进悬停。
     return `<div style="font-size:11.5px;color:var(--dim);line-height:1.8"
       title="以本地装备后面板为准">
-      加成表暂无本舰条目</div>`
+      加成表暂无该舰娘条目</div>`
   }
   const rows = hits
     .slice(0, 40)
@@ -5230,7 +5237,7 @@ const shipFitHtml = (mstId: number): string => {
     .join('')
   return `<div class="sf-list">${rows}</div>
     <div class="q-foot">
-      共 <b>${hits.length}</b> 件装备对本舰有加成${hits.length > 40 ? '（显示前 40）' : ''}
+      共 <b>${hits.length}</b> 件装备对该舰娘有加成${hits.length > 40 ? '（显示前 40）' : ''}
       ${fitLode ? lodeCreditMark(fitLode.meta, '匹配范围：当前形态 / 舰级 / 舰种 / 全部舰船') : ''}
     </div>`
 }
@@ -5249,7 +5256,7 @@ const bonusPanelHtml = (mstId: number): string => {
     [...s.slot, s.slotEx].filter((id) => id > 0).length
   const sorted = [...insts].sort((a, b) => equipCountOf(b) - equipCountOf(a) || b.lv - a.lv)
   if (!equipCountOf(sorted[0])) {
-    return `<div style="font-size:11.5px;color:var(--dim);line-height:1.8">当前持有 ${insts.length} 艘 · 均无装备</div>`
+    return `<div style="font-size:11.5px;color:var(--dim);line-height:1.8">当前持有 ${insts.length} 位 · 均无装备</div>`
   }
   const data = fitLode?.data as FitBonusData | undefined
   const view = fitShipView(mstId)
@@ -5509,7 +5516,7 @@ const cgPanelHtml = (mstId: number): string => {
     // 缺格不写抱怨文案，也不摆一个点不出东西的按钮。
     // 档案里若留着旧版，那就是这一页现在唯一看得到的图——照样摆出来（零网络）。
     return `<div style="font-size:11.5px;color:var(--dim);line-height:1.8">
-      在游戏中打开本舰图鉴页
+      在游戏中打开该舰娘图鉴页
     </div>
     ${
       costumes.html || archived
@@ -5540,7 +5547,7 @@ const cgPanelHtml = (mstId: number): string => {
   // 与深海/装备两处同款：格子全 404 被摘掉后，靠这两个标记把「一张都取不到」
   // 说出来（wireCgImages 的 settle 按属性找），否则只剩一片空网格
   return `<div class="cg-grid" data-cg-grid>${cells}${costumes.html}${archived}</div>
-    <div class="af-empty ship-cg-empty" data-cg-empty hidden>图片读取失败 · 在游戏中打开本舰图鉴页</div>
+    <div class="af-empty ship-cg-empty" data-cg-empty hidden>图片读取失败 · 在游戏中打开该舰娘图鉴页</div>
     ${
       missingBig.length
         ? (() => {
@@ -5714,7 +5721,7 @@ const improvementHelperListHtml = (
   if (ids.length <= previewCount) return `${lead}${all}`
   const preview = ids.slice(0, previewCount).map(linkOf).join('、')
   return `<details class="improve-helper-more">
-    <summary>${lead}${preview} 等 ${ids.length} 艘</summary>
+    <summary>${lead}${preview} 等 ${ids.length} 位</summary>
     <div><span>全部候选</span>${all}</div>
   </details>`
 }
@@ -5821,7 +5828,7 @@ const todayImprovementRows = (): TodayImprovementRow[] => {
         ? '无需指定二号舰'
         : helperReady && second
           ? `${elink('ship', second.id, masterShipName(second.shipId))} ✓`
-          : `${elink('mstShip', candidateIds[0], masterShipName(candidateIds[0]))}${candidateIds.length > 1 ? ` 等 ${candidateIds.length} 艘` : ''}`
+          : `${elink('mstShip', candidateIds[0], masterShipName(candidateIds[0]))}${candidateIds.length > 1 ? ` 等 ${candidateIds.length} 位` : ''}`
       const stage = best.stage
       // 括号里是确保化那一侧，不是范围（wikiwiki 改修表原表头：必要資材(通常/確実)）
       const costs = `${improvementMaterialLink(6, '开发')} ${improveCostCell(stage.devmats, stage.devmats_sli)} · ${improvementMaterialLink(7, '改修')} ${improveCostCell(stage.screws, stage.screws_sli)}`
@@ -6413,7 +6420,7 @@ const equipDrawerHtml = () => {
           const shown = row.holders.slice(0, 12).join('、')
           const holders = row.holders.length > 12
             ? `<details class="equip-holder-more">
-                <summary>${shown} 等 ${row.holders.length} 艘</summary>
+                <summary>${shown} 等 ${row.holders.length} 位</summary>
                 <div><span>全部装备舰</span>${row.holders.join('、')}</div>
               </details>`
             : `<span class="equip-holder-list">${shown}</span>`
@@ -7090,7 +7097,7 @@ const factoryOwnHtml = (mstId: number, kind: 'ship' | 'item'): string => {
   if (!(mstId > 0)) return ''
   ensureFactoryStats()
   const verb = kind === 'ship' ? '建造' : '开发'
-  const unit = kind === 'ship' ? '艘' : '件'
+  const unit = kind === 'ship' ? '位' : '件'
   if (factoryStatsFailed) {
     return `<div class="sec"><div class="sec-h">${verb}实测<span class="aux">本地账本</span></div>
       <div class="q-foot">工厂记录读取失败</div></div>`
@@ -7101,7 +7108,7 @@ const factoryOwnHtml = (mstId: number, kind: 'ship' | 'item'): string => {
   if (!found.totalAttempts) return ''
   if (!found.hits) {
     return `<div class="sec"><div class="sec-h">${verb}实测<span class="aux">本地账本</span></div>
-      <div class="q-foot">近 90 日本地${verb} ${found.totalAttempts} 次 · 暂无该舰记录</div>
+      <div class="q-foot">近 90 日本地${verb} ${found.totalAttempts} 次 · ${kind === 'ship' ? '暂无该舰娘记录' : '暂无该装备记录'}</div>
     </div>`
   }
   const rows = found.recipes
@@ -7492,7 +7499,7 @@ const shipDropHtml = (mstId: number): string => {
   if (!sites.length) {
     return `<div class="sec"><div class="sec-h">掉落海域<span class="aux">本地遭遇志</span></div>
       <div style="font-size:11.5px;color:var(--dim);line-height:1.8">
-        暂无本舰掉落记录</div></div>`
+        暂无该舰娘掉落记录</div></div>`
   }
   const letterOf = (map: number, cell: number): string => {
     const code = mapCodeOf(map)
@@ -10400,13 +10407,13 @@ const equipMatrixHtml = (shipMstId: number): string => {
         .join('')}${ex.extras.length > 12 ? `<span class="em-k">…等 ${ex.extras.length} 件</span>` : ''}</div>`
     : ''
   const exExcluded = ex.excludedTypes.length
-    ? `<div class="em-ex excluded"><span class="em-k">该舰不适用的通用类别</span>${ex.excludedTypes
+    ? `<div class="em-ex excluded"><span class="em-k">该舰娘不适用的通用类别</span>${ex.excludedTypes
         .map((id) => `<span class="em-chip">${entityNameHtml('equipType', id, equipTypes.get(id) ?? `分类${id}`, { compact: true })}</span>`)
         .join('')}</div>`
     : ''
   const hasOverride = !!mst?.api_mst_equip_ship?.[`${shipMstId}`]
   return `<div class="sec"><div class="sec-h">可装备范围<span class="aux">${types.length} 类可装${
-    hasOverride ? ' · 这艘舰娘有专属限制' : ' · 按舰种默认'
+    hasOverride ? ' · 这位舰娘有专属限制' : ' · 按舰种默认'
   }</span></div>
     <div class="em-grid">${chips}</div>
     ${exChips}
@@ -11075,10 +11082,10 @@ const itemQueueHtml = (itemId: number) => {
   }
   rows.sort((a, b) => a.rank - b.rank || a.short - b.short)
   const aux = progressShips
-    ? `${progressShips} 艘当前舰娘的下一步改造需要它`
+    ? `${progressShips} 位当前舰娘的下一步改造需要它`
     : '当前舰娘的改造需求'
   const switchFoot = switchShips
-    ? ` · 另有 ${switchShips} 艘的可逆形态切换会用到（共 ${switchNeed}，不计入缺口）`
+    ? ` · 另有 ${switchShips} 位的可逆形态切换会用到（共 ${switchNeed}，不计入缺口）`
     : ''
   return `<div class="sec"><div class="sec-h">需求队列<span class="aux">${aux}</span></div>
     ${rows.map((r) => r.html).join('')}
@@ -12926,9 +12933,9 @@ registerEntityRoute('shipClass', {
       title: shipClassLabel(ctype),
       typeLabel: '舰级',
       lines: [
-        `姊妹舰 ${roots.length} 艘 · 已持有 ${owned}`,
+        `姊妹舰 ${roots.length} 位 · 已持有 ${owned}`,
         roots.slice(0, 8).map((root) => entityNamePlain('ship', root.api_id, root.api_name)).join('、') +
-          (roots.length > 8 ? ` 等 ${roots.length} 艘` : ''),
+          (roots.length > 8 ? ` 等 ${roots.length} 位` : ''),
       ],
       primary: '舰娘图鉴',
     }
@@ -12960,7 +12967,7 @@ registerEntityRoute('shipTypeCatalog', {
     return {
       title: name,
       typeLabel: '舰种',
-      lines: [`图鉴收录 ${roots.length} 艘 · 已持有 ${roots.filter((root) => chainInstances(root.api_id).length > 0).length}`],
+      lines: [`图鉴收录 ${roots.length} 位 · 已持有 ${roots.filter((root) => chainInstances(root.api_id).length > 0).length}`],
       primary: '舰娘图鉴',
     }
   },
@@ -13004,7 +13011,7 @@ registerEntityRoute('shipTypeGroup', {
     return {
       title: questGroup?.label ?? chip ?? types.map(stypeLabelOf).join('/'),
       typeLabel: questGroup ? '任务舰种' : '舰种组',
-      lines: [`图鉴收录 ${roots.length} 艘 · 已持有 ${roots.filter((root) => chainInstances(root.api_id).length > 0).length}`],
+      lines: [`图鉴收录 ${roots.length} 位 · 已持有 ${roots.filter((root) => chainInstances(root.api_id).length > 0).length}`],
       primary: '舰娘图鉴',
     }
   },
@@ -13039,11 +13046,11 @@ registerEntityRoute('shipNationality', {
       title: `${nationality.label}舰娘`,
       typeLabel: '国籍',
       lines: [
-        `图鉴收录 ${roots.length} 艘 · 已持有 ${owned}`,
+        `图鉴收录 ${roots.length} 位 · 已持有 ${owned}`,
         roots
           .slice(0, 8)
           .map((root) => entityNamePlain('ship', root.api_id, root.api_name))
-          .join('、') + (roots.length > 8 ? ` 等 ${roots.length} 艘` : ''),
+          .join('、') + (roots.length > 8 ? ` 等 ${roots.length} 位` : ''),
       ],
       primary: '舰娘图鉴',
     }
@@ -13077,7 +13084,7 @@ registerEntityRoute('histFleet', {
     const lines = [
       `${HIST_FLEET_KIND_LABEL[entry.kind]}${entry.period ? ` · ${entry.period.label}` : ''} · 成员 ${entry.members.length} 名`,
       histFleetTip(entry),
-      roots.length ? `图鉴收录 ${roots.length} 艘 · 已持有 ${owned}` : '',
+      roots.length ? `图鉴收录 ${roots.length} 位 · 已持有 ${owned}` : '',
     ]
     // note 只在核过文献时才摆出来——未核的史实注记不进产品面
     if (entry.noteStatus === 'verified' && entry.note) lines.push(entry.note)

@@ -548,12 +548,12 @@ const repairSummaryHtml = (list: Row[]): string => {
   const known = typeof buckets === 'number'
   const enough = known && buckets >= list.length
   return `<div class="qa-repair-sum">
-    <span class="rs-k">待修 <b>${list.length}</b> 艘${taiha ? ` · 其中大破 <b class="bad">${taiha}</b>` : ''}</span>
+    <span class="rs-k">待修 <b>${list.length}</b> 位${taiha ? ` · 其中大破 <b class="bad">${taiha}</b>` : ''}</span>
     <span class="rs-k">${
       plan
         ? `全员就绪 <b>${repairDuration(plan.remainMs)}</b><i title="${esc(
-            `${plan.slotCount} 渠并行估算${plan.queued ? ` · ${plan.queued} 艘排队等空渠` : ''}`,
-          )}">${plan.slotCount} 渠并行${plan.queued ? ` · ${plan.queued} 艘排队` : ''}</i>`
+            `${plan.slotCount} 渠并行估算${plan.queued ? ` · ${plan.queued} 位排队等空渠` : ''}`,
+          )}">${plan.slotCount} 渠并行${plan.queued ? ` · ${plan.queued} 位排队` : ''}</i>`
         : '暂无可用入渠位'
     }</span>
     <span class="rs-k">合计 <b>${fuel.toLocaleString()}</b> 燃 <b>${steel.toLocaleString()}</b> 钢</span>
@@ -895,7 +895,7 @@ const previewHtml = (row: Row) => {
       <span class="s">改修★合计 <b>${row.starSum}</b></span>
     </div>
     ${bonusLineHtml(ship)}
-    <label class="pv-personal"><span>本舰备注 · ID ${ship.id}</span>
+    <label class="pv-personal"><span>该舰娘备注 · ID ${ship.id}</span>
       <input id="qa-roster-note" maxlength="120" value="${esc(shipRosterNote(ship.id))}"
         placeholder="与图鉴共用 · 写 #标签 可进筛选"></label>
     ${(() => {
@@ -909,7 +909,7 @@ const previewHtml = (row: Row) => {
         .join('')}</div>`
     })()}
     <div class="pv-acts">
-      <span class="pv-act" data-act="filter-same">筛选同名 ${chainCount} 艘</span>
+      <span class="pv-act" data-act="filter-same">筛选同名 ${chainCount} 位</span>
       <span class="pv-act" data-act="compare">${state.compare.includes(ship.id) ? '移出对比' : '加入对比'}</span>
     </div>`
 }
@@ -1322,7 +1322,7 @@ const render = () => {
                   ),
                 ),
               )}</b>
-                <span>共 ${rows.length} 艘装备中</span>
+                <span>共 ${rows.length} 位装备中</span>
                 <span class="x9" data-act="clear-eqfilter" title="取消此筛选">✕</span></div>`
             : ''
         }
@@ -1633,7 +1633,7 @@ registerEntityRoute('ship', {
       ? [
           ...(deck
             ? [{
-                label: `编队 · 定位第${deck.id}舰队中的这艘舰娘`,
+                label: `编队 · 定位第${deck.id}舰队中的这位舰娘`,
                 mod: 'ru',
                 run: () => navigate({ type: 'fleetShip', id: ship.id }),
               }]

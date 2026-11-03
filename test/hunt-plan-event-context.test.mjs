@@ -140,5 +140,5 @@ test('活动关闭时整舰只剩活动掉点就撤走，另有常规图掉点�
   assert.ok(html.includes('测试舰102'), '另有常规图掉点的舰被误撤了')
   assert.ok(!html.includes('测试舰103'), '没有当前掉点的舰仍在单子里')
   assert.ok(html.includes('1-1 B') && !html.includes('E-1'), '混合条目没有按过滤后的常规掉点渲染')
-  assert.match(html, /data-hunt-filter="catchable"[^>]*>1<\/button> 艘/, 'catchable 计数没有跟着收敛')
+  assert.match(html, /data-hunt-filter="catchable"[^>]*>1<\/button> 位/, 'catchable 计数没有跟着收敛')
 })

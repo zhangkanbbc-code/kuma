@@ -235,7 +235,7 @@ test('图鉴三级路由真执行：任务组优先，顶栏组照旧，任意�
     const peek = fixture.route.peek({ id })
     assert.equal(peek.title, title)
     assert.equal(peek.typeLabel, typeLabel)
-    assert.match(peek.lines[0], new RegExp(`图鉴收录 ${selected.length} 艘`))
+    assert.match(peek.lines[0], new RegExp(`图鉴收录 ${selected.length} 位`))
   }
   assert.deepEqual(fixture.counts(), [5, 5])
   fixture.clear()

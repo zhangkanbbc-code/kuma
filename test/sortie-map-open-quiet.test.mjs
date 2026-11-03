@@ -109,7 +109,7 @@ test('母港里打开活动图：札与陆航照常各出一段', () => {
   warn(EVENT_AREA, 1_000_000)
   assert.equal(toasts.length, 1, '母港态该弹，这是这条提醒本来的用处')
   assert.equal(toasts[0].title, '活动海域 · 出击后永久打札')
-  assert.match(toasts[0].detail, /第1舰队 2 艘未锁定 · 出击后永久打札/)
+  assert.match(toasts[0].detail, /第1舰队 2 位未锁定 · 出击后永久打札/)
   assert.match(toasts[0].detail, /基地航空 1 队未补给/)
 })
 

@@ -704,7 +704,7 @@ const showPowerupResultToast = (result: PowerupResultCue) => {
       <b>强化成功 · ${esc(shipName)}</b>
       <span class="powerup-caption">近代化改修 · 实际提升</span>
       <span class="powerup-grid">${stats}</span>
-      <span class="act">→ 查看这艘舰</span>
+      <span class="act">→ 查看这位舰娘</span>
     </span>
     <span class="x" title="关闭">✕</span>
     <span class="ttl"></span>`
@@ -1518,7 +1518,7 @@ const detectNewShips = () => {
     })
     notify(
       'newShip',
-      `新舰入库：${names.slice(0, 3).join('、')}${fresh.length > 3 ? ` 等 ${fresh.length} 艘` : ''}`,
+      `新舰入库：${names.slice(0, 3).join('、')}${fresh.length > 3 ? ` 等 ${fresh.length} 位` : ''}`,
       '新舰锁定确认',
       { type: 'mstShip', id: fresh[0] }, // 多舰时落到第一艘
     )
@@ -1754,7 +1754,7 @@ const detectAnchorageRepair = () => {
     const ships = entries.map((ship) => `${entityNamePlain('ship', ship.mstId, ship.name)} ${ship.before}→${ship.after}`).join('、')
     notify(
       'anchorageRepair',
-      `泊地修理 · ${repairer}${entries.length ? ` · ${entries.length} 艘 +${healed}` : ''}`,
+      `泊地修理 · ${repairer}${entries.length ? ` · ${entries.length} 位 +${healed}` : ''}`,
       `${mapPlaceText(mapIdOf(s.mapArea, s.mapNo), repair.cell)}${ships ? ` · ${ships}` : ''}`,
     )
   }

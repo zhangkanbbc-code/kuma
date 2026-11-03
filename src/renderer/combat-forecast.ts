@@ -22,6 +22,8 @@ import type {
 } from '../shared/mg-types'
 import { enemyCompIds } from '../shared/map-intel'
 import { genericLoadoutByStype } from '../shared/practice-loadout'
+import { normalizeInitialEquipment } from '../shared/initial-equipment'
+import type { InitialEquipment } from '../shared/initial-equipment'
 import { eventBonusFor } from '../shared/event-bonus-apply'
 import { eventBonusPackPageOf } from '../shared/event-bonus-nationality'
 import { wavesForCell } from '../shared/land-base-attack'
@@ -58,7 +60,7 @@ const friendlyEquipment = (ship: PlayerShip): ForecastEquipment[] => {
       armor: master.souk,
       level: instance.level,
       proficiency: instance.alv,
-      planeCount: index < ship.onslot.length ? ship.onslot[index] ?? 0 : 0,
+      planeCount: Math.max(0, ship.onslot[index] ?? 0),
       preventsTDisadvantage:
         master.type2 === 9 && master.name.includes('彩雲'),
     }]
@@ -208,7 +210,7 @@ const enemyEquipment = (
       armor: master.souk,
       level: 0,
       proficiency: 0,
-      planeCount: counts[index] ?? 0,
+      planeCount: Math.max(0, counts[index] ?? 0),
       preventsTDisadvantage: false,
     }]
   })
@@ -270,7 +272,7 @@ export const forecastEnemyFleet = (
 // B+ 64–91%（对手双空母 84 机在模型里是 0 机，制空判定整个颠倒）。初期装备是
 // 每个玩家至少拥有的下界，实战配置通常更强，所以它撑的是区间的乐观边，
 // 文案里要说清。送经验的空装编成是唯一的裸装例外，不进区间、单独提示。
-let stockEquipByMst = new Map<number, { equip: number[]; onslot: number[] }>()
+let stockEquipByMst = new Map<number, { equip: (InitialEquipment | null)[]; onslot: number[] }>()
 let stockEquipRequested = false
 const ensureStockEquip = () => {
   if (stockEquipRequested) return
@@ -284,13 +286,13 @@ const ensureStockEquip = () => {
     })
     .then((lode) => {
       if (!lode?.data) return
-      const map = new Map<number, { equip: number[]; onslot: number[] }>()
+      const map = new Map<number, { equip: (InitialEquipment | null)[]; onslot: number[] }>()
       for (const entry of Object.values<any>(lode.data)) {
         const id = Number(entry?.ID)
         const gear = entry?.装备
         if (!Number.isFinite(id) || id <= 0 || !gear) continue
         const equip = Array.isArray(gear.初期装备)
-          ? gear.初期装备.map(Number).filter((n: number) => Number.isFinite(n) && n > 0)
+          ? gear.初期装备.map(normalizeInitialEquipment)
           : []
         const onslot = Array.isArray(gear.搭载)
           ? gear.搭载.map((n: unknown) => Math.max(0, Number(n) || 0))
@@ -304,6 +306,7 @@ const ensureStockEquip = () => {
 const forecastEquipFromMaster = (
   equipMstId: number,
   planeCount: number,
+  star = 0,
 ): ForecastEquipment | null => {
   const master = mg.master.slotitems[equipMstId]
   if (!master) return null
@@ -320,9 +323,10 @@ const forecastEquipFromMaster = (
     accuracy: master.houm,
     evasion: master.houk,
     armor: master.souk,
-    level: 0, // 改修与熟练度未知，按 0——装备本体已经是主要的失真来源
+    // 改修与熟练度未知时按 0——装备本体已经是主要的失真来源；初期装备自带星级时照录。
+    level: star,
     proficiency: 0,
-    planeCount,
+    planeCount: Math.max(0, planeCount),
     preventsTDisadvantage: master.type2 === 9 && master.name.includes('彩雲'),
   }
 }
@@ -335,8 +339,9 @@ const forecastEquipFromMaster = (
 const stockEquipmentFor = (mstId: number): ForecastEquipment[] => {
   const stock = stockEquipByMst.get(mstId)
   if (stock) {
-    const fromStock = stock.equip.flatMap((equipMstId, index) => {
-      const built = forecastEquipFromMaster(equipMstId, stock.onslot[index] ?? 0)
+    const fromStock = stock.equip.flatMap((equip, index) => {
+      if (!equip || equip.id <= 0) return []
+      const built = forecastEquipFromMaster(equip.id, stock.onslot[index] ?? 0, equip.star)
       return built ? [built] : []
     })
     if (fromStock.length) return fromStock

@@ -20,7 +20,7 @@ const resolvers = {
 }
 
 const examples = [
-  [{ kind: 'supply', ships: [1, 2, 3], onslot: true }, '补给 3 艘：甲、乙、丙，含舰载机'],
+  [{ kind: 'supply', ships: [1, 2, 3], onslot: true }, '补给 3 位：甲、乙、丙，含舰载机'],
   [{ kind: 'dock', ship: 1, mst: 101, ndock: 1, highspeed: true }, '入渠 甲 · 高速修复'],
   [{ kind: 'build', recipe: [30, 30, 30, 30, 1], highspeed: true, large: true, kdock: 1 }, '建造 30/30/30/30 · 大型建造 · 高速建造'],
   [{ kind: 'craft', recipe: [10, 10, 10, 10], multiple: true, results: [10, 11, -1] }, '开发 10/10/10/10 ×3 → 小口径主炮、中口径主炮、失败'],
@@ -45,10 +45,10 @@ for (const [detail, expected] of examples) {
 
 test('补给按 mode 分燃弹，六艘边界不省略，超过六艘只列前六个', () => {
   const supply = { kind: 'supply', ships: [1], onslot: false }
-  assert.equal(describeDeltaDetail({ ...supply, mode: 1 }, resolvers), '补给燃料 1 艘：甲')
-  assert.equal(describeDeltaDetail({ ...supply, mode: 2 }, resolvers), '补给弹药 1 艘：甲')
-  assert.equal(describeDeltaDetail({ ...supply, mode: 3, ships: [1, 2, 3, 4, 5, 6] }, resolvers), '补给 6 艘：甲、乙、丙、丁、戊、己')
-  assert.equal(describeDeltaDetail({ ...supply, ships: [1, 2, 3, 4, 5, 6, 7], onslot: true }, resolvers), '补给 7 艘：甲、乙、丙、丁、戊、己等 7 艘，含舰载机')
+  assert.equal(describeDeltaDetail({ ...supply, mode: 1 }, resolvers), '补给燃料 1 位：甲')
+  assert.equal(describeDeltaDetail({ ...supply, mode: 2 }, resolvers), '补给弹药 1 位：甲')
+  assert.equal(describeDeltaDetail({ ...supply, mode: 3, ships: [1, 2, 3, 4, 5, 6] }, resolvers), '补给 6 位：甲、乙、丙、丁、戊、己')
+  assert.equal(describeDeltaDetail({ ...supply, ships: [1, 2, 3, 4, 5, 6, 7], onslot: true }, resolvers), '补给 7 位：甲、乙、丙、丁、戊、己等 7 位，含舰载机')
 })
 
 test('离籍舰回查 detail 图鉴 id；在籍舰优先；改造保留两端历史形态', () => {
@@ -60,7 +60,7 @@ test('离籍舰回查 detail 图鉴 id；在籍舰优先；改造保留两端历
 test('解析不到只回落对应编号，不推测舰名、装备名、任务名、远征名或道具名', () => {
   const unknown = Object.fromEntries(Object.keys(resolvers).map(key => [key, () => null]))
   const cases = [
-    [{ kind: 'supply', ships: [123], onslot: false }, '补给 1 艘：#123'],
+    [{ kind: 'supply', ships: [123], onslot: false }, '补给 1 位：#123'],
     [{ kind: 'dock', ship: 123, mst: 456, ndock: 1, highspeed: false }, '入渠 #456'],
     [{ kind: 'dock', ship: 123, mst: 0, ndock: 1, highspeed: false }, '入渠 #123'],
     [{ kind: 'craft', recipe: [10, 10, 10, 10], multiple: false, results: [123] }, '开发 10/10/10/10 → #123'],
@@ -261,7 +261,7 @@ test('弹窗打开一次查询，分类默认收起，筛资源和展开不重�
   assert.equal((host.body.innerHTML.match(/class="zd-row"/g) ?? []).length, 300)
   assert.match(host.body.innerHTML, /展开全部 301 笔/)
   assert.match(host.body.innerHTML, /09-07 12:34/)
-  assert.match(host.body.innerHTML, /补给 1 艘：&lt;甲&gt;/)
+  assert.match(host.body.innerHTML, /补给 1 位：&lt;甲&gt;/)
   host.click({ act: 'more', category: '补给' })
   assert.equal((host.body.innerHTML.match(/class="zd-row"/g) ?? []).length, 301)
   host.click({ act: 'resource', resource: '1' })

@@ -69,7 +69,7 @@ test('跨模块目标的显式 mod 清单完整，动态标签同样钉住宿主
     ['map', "'有关任务'", 'qn'],
     ['useitem', "'相关任务'", 'qn'],
     ['useitem', "'资源统计'", 'zi'],
-    ['ship', '`编队 · 定位第${deck.id}舰队中的这艘舰娘`', 'ru'],
+    ['ship', '`编队 · 定位第${deck.id}舰队中的这位舰娘`', 'ru'],
     ['quest', "`奖励道具 · ${entityNamePlain('item', item[0], item[1])}`", 'ji'],
     ['quest', '`涉及海域 · ${mapCodeOf(map)}`', 'ji'],
     ['fleet', '`远征规划 · ${expeditionLabel(missionId, mg.master.missions)} 执行中`', 'bi'],

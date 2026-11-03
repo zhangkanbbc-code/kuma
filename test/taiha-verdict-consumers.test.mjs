@@ -43,7 +43,7 @@ test('泊地修理当包发一条：主数据修理舰名、合计与逐舰前�
   const notices = detectRepair([anchorageAt()])
   assert.equal(notices.length, 1)
   assert.equal(notices[0].event, 'anchorageRepair')
-  assert.equal(notices[0].title, '泊地修理 · 秋津洲改 · 2 艘 +14')
+  assert.equal(notices[0].title, '泊地修理 · 秋津洲改 · 2 位 +14')
   assert.equal(notices[0].detail, '5-5 O 点 · 朝潮改二丁 20→27、霞改二 50→57')
 })
 

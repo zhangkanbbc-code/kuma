@@ -225,7 +225,7 @@ test('候选二号舰多时折叠态只报头一个 + 还有几艘，全部候�
     ],
   })
   const folded = foldedOf(多候选.html)
-  assert.match(folded, /<span class="ti-helper">[\s\S]*白露改二[\s\S]*等 3 艘<\/span>/)
+  assert.match(folded, /<span class="ti-helper">[\s\S]*白露改二[\s\S]*等 3 位<\/span>/)
   assert.doesNotMatch(folded, /満潮改二/, '折叠态把全部候选都摊开了')
   const more = expandedOf(多候选.html)
   assert.match(more, /二号舰[\s\S]*白露改二[\s\S]*満潮改二[\s\S]*時雨改二/, '展开层没给全部候选')

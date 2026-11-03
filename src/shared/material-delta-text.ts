@@ -22,7 +22,7 @@ export const describeDeltaDetail = (detail: DeltaDetail | null, r: DeltaDetailRe
   switch (detail.kind) {
     case 'anchorageRepair': {
       const letter = r.cellLetter(detail.map, detail.cell)
-      return `紧急泊地修理 · ${map(detail.map)}${letter ? ` ${letter} 点` : ''} · ${mstShip(detail.repairer)} · ${detail.ships} 艘 +${detail.healed}（钢材估算）`
+      return `紧急泊地修理 · ${map(detail.map)}${letter ? ` ${letter} 点` : ''} · ${mstShip(detail.repairer)} · ${detail.ships} 位 +${detail.healed}（钢材估算）`
     }
     case 'offshoreSupply': {
       const letter = r.cellLetter(detail.map, detail.cell)
@@ -31,7 +31,7 @@ export const describeDeltaDetail = (detail: DeltaDetail | null, r: DeltaDetailRe
     case 'supply': {
       const count = detail.ships.length
       const names = detail.ships.slice(0, 6).map(id => ship(id)).join('、')
-      return `${detail.mode === 1 ? '补给燃料' : detail.mode === 2 ? '补给弹药' : '补给'} ${count} 艘：${names}${count > 6 ? `等 ${count} 艘` : ''}${detail.onslot ? '，含舰载机' : ''}`
+      return `${detail.mode === 1 ? '补给燃料' : detail.mode === 2 ? '补给弹药' : '补给'} ${count} 位：${names}${count > 6 ? `等 ${count} 位` : ''}${detail.onslot ? '，含舰载机' : ''}`
     }
     case 'dock': return `入渠 ${ship(detail.ship, detail.mst)}${detail.highspeed ? ' · 高速修复' : ''}`
     case 'build': return `建造 ${detail.recipe.slice(0, 4).join('/')}${detail.large ? ' · 大型建造' : ''}${detail.highspeed ? ' · 高速建造' : ''}`

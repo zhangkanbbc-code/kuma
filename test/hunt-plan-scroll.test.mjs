@@ -111,13 +111,13 @@ test('捞船单子仍挂在 .ship-list 外面 —— 所以高度必须自己管
 // ---- 条目完整性：容器会滚了，清单就不许再靠截断来「装下」----
 
 test('抬头的三个数各自照旧：还缺 / 能查到掉点 / 在当前活动图', () => {
-  assert.match(huntSource, /还缺 <b>\$\{missing\.length\}<\/b> 艘/, '「还缺 N 艘」的数不是缺口总数了')
+  assert.match(huntSource, /还缺 <b>\$\{missing\.length\}<\/b> 位/, '「还缺 N 位」的数不是缺口总数了')
   assert.match(
     huntSource,
     /data-hunt-filter="catchable"[^>]*>\$\{catchable\.length\}<\/button>/,
-    '「目录里能查到掉点的 N 艘」的数不是可捞总数了',
+    '「目录里能查到掉点的 N 位」的数不是可捞总数了',
   )
-  assert.match(huntSource, /\$\{inEvent\.length\} 艘在当前活动图/, '「N 艘在当前活动图」的数不是本期活动组的条数了')
+  assert.match(huntSource, /\$\{inEvent\.length\} 位在当前活动图/, '「N 位在当前活动图」的数不是本期活动组的条数了')
 })
 
 test('各组逐条列全，只有常驻组按 HUNT_STANDING_CAP 截并明说还剩多少', () => {
@@ -137,5 +137,5 @@ test('各组逐条列全，只有常驻组按 HUNT_STANDING_CAP 截并明说还�
   }
   // 常驻组是唯一的例外，且截了要说清还剩多少（二十多张图那种，列全没信息量）
   assert.match(huntSource, /standing\.slice\(0, HUNT_STANDING_CAP\)/, '常驻组的上限没了')
-  assert.match(huntSource, /另有 \$\{standing\.length - shownStanding\.length\} 艘未列出/, '常驻组截了却没说还剩多少')
+  assert.match(huntSource, /另有 \$\{standing\.length - shownStanding\.length\} 位未列出/, '常驻组截了却没说还剩多少')
 })

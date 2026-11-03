@@ -3016,7 +3016,7 @@ test('fleet view collapses combined fleets and keeps all land-base areas as a fi
   // 大破由裁决框独家点名;芯片保留 warn 警示底,口径解释留在悬停 title 里
   assert.doesNotMatch(fleet, /⚠大破\$\{/)
   assert.match(fleet, /mchip\$\{tp\.excludedShips \? ' warn' : ''\}/)
-  assert.match(fleet, /艘舰娘大破 · 到达扬陆点时大破的舰娘及其装备一律不计/)
+  assert.match(fleet, /位舰娘大破 · 到达扬陆点时大破的舰娘及其装备一律不计/)
   assert.match(fleet, /keys\.some\(\(k\) => \[[\s\S]*'airBases'[\s\S]*'eventAreas'/)
   assert.match(airBases, /const refreshedAreas = new Set\(incoming\.map/)
   assert.match(airBases, /existing\.filter\(\(squad\) => !refreshedAreas\.has\(squad\.areaId\)\)/)
@@ -3304,7 +3304,7 @@ test('ship collection notes remain instance-safe and the roster caches only deri
   // 「持有」段的排布机制自述已删；这里改钉备注本身指名到哪一艘——
   // 这正是本 test 名字里的 instance-safe，比原来那句排布说明更贴本意。
   assert.match(catalog, /当前持有<span class="aux">按改装链汇总<\/span>/)
-  assert.match(catalog, /这一艘的备注 · ID \$\{entry\.id\}/)
+  assert.match(catalog, /这位舰娘的备注 · ID \$\{entry\.id\}/)
   assert.match(catalog, /data-roster-note=/)
   assert.match(catalog, /data-ship-favorite=/)
   assert.match(catalog, /shipRosterNote\(entry\.rosterId\)/)
@@ -6108,7 +6108,7 @@ test('battle-count estimates read the current fleet: TC bonus reapplied, flagshi
   // 不计入」那半句删了（族 7 UI 自我解说 / 族 3）。两件事照钉不误：加成逐条列出来，
   // 且乘的只有练巡与旗舰位这两项——MVP 不进 factorOf 就是「不计入」的硬证据。
   assert.match(fleet, /练巡 \$\{TC_PLACEMENT_LABEL\[tc\.placement\] \?\? tc\.placement\} Lv\$\{tc\.level\} → \+\$\{tc\.bonusPct\}%/)
-  assert.match(fleet, /isFlagship \? '本舰在旗舰位 ×1\.5' : ''/)
+  assert.match(fleet, /isFlagship \? '该舰娘在旗舰位 ×1\.5' : ''/)
   assert.doesNotMatch(fleet, /const factorOf = [\s\S]{0,200}mvp/i, 'MVP ×2 不许混进场次换算')
   // 2026-08-19 追加：活动图桶整体不参与（活动结束点位就消失），
   // 提示里放社区常用练级点静态参考（不硬造数字）。2026-08-20 第二批文案清扫把
@@ -6534,8 +6534,8 @@ test('札只报事实，不替玩家判「能不能进」', () => {
   // 「（丙难度实测照打，不因为不查札就不打）」这句括注 2026-08-26 按族 3 删了。
   // 「无关」这件事改钉结构：无札艘数的挂牌尾巴与 willTag 都不看 verdict.kind，
   // 查札/不查札/未知三支都照挂——比钉那句括注硬。
-  assert.match(fleet, /const tail = verdict\.untagged \? ` · \$\{verdict\.untagged\} 艘将被打札` : ''/)
-  assert.match(fleet, /const willTag = verdict\.untagged\s*\n\s*\? `\\n\$\{verdict\.untagged\} 艘无札 · 出击后永久打札`/)
+  assert.match(fleet, /const tail = verdict\.untagged \? ` · \$\{verdict\.untagged\} 位将被打札` : ''/)
+  assert.match(fleet, /const willTag = verdict\.untagged\s*\n\s*\? `\\n\$\{verdict\.untagged\} 位无札 · 出击后永久打札`/)
   assert.match(fleet, /永久打札/)
 
   // 按札分组的名单铎里已经有了，锐不重复列，只给跳转
@@ -8722,7 +8722,7 @@ test('捞船清单：分组按「会不会消失」而不是「有没有日期�
   assert.ok(!fn.includes('活动已结束 · 对应掉落当前不可获取'), '活动已结束的旧分组回潮了')
   assert.ok(!fn.includes('限定期已结束 · 对应掉落当前不可获取'), '限定期已结束的旧分组回潮了')
   // 截断要说出来
-  assert.ok(fn.includes('另有 ${standing.length - shownStanding.length} 艘未列出'), '常驻组截断没写明')
+  assert.ok(fn.includes('另有 ${standing.length - shownStanding.length} 位未列出'), '常驻组截断没写明')
 })
 
 test('改修预算：分档单价乘次数，通常/确保双单价不混成范围', async () => {
@@ -10097,7 +10097,7 @@ test('入渠排程按渠位并行，不是把工时一路相加', async () => {
   // 「包含在修的」这件事本来就由上面那条 freeAt 断言真正守着；悬停这一侧改钉
   // 缩写后的口径还在（并行估算 + 排队艘数），不许连排队都不说。
   assert.ok(qa.includes('渠并行估算'), '没说明「全员就绪」是按渠位并行估算的')
-  assert.ok(qa.includes('艘排队等空渠'), '没说明有几艘在排队等空渠')
+  assert.ok(qa.includes('位排队等空渠'), '没说明有几位在排队等空渠')
 })
 
 test('账本不落 api_token 明文：入账前替换占位，存量 v6 一次性抹除', () => {
@@ -10516,7 +10516,7 @@ test('可逆改装的形态切换不算「下一步改造」缺口', () => {
   //（每枚芯片的悬停已写「N 艘舰娘的下一步改造合计需要 M」）。判据不在那句话里——
   // 锱不自己数队列，它读的就是上面那道判定过的聚合，改钉这条接线。
   assert.match(resources, /const demand = useitemDemand\(hit\.id\)/)
-  assert.match(resources, /demand\.queueShips\} 艘舰娘的下一步改造合计需要 \$\{demand\.queueNeed\}/)
+  assert.match(resources, /demand\.queueShips\} 位舰娘的下一步改造合计需要 \$\{demand\.queueNeed\}/)
   assert.doesNotMatch(resources, /queueNeed = /, '锱又自己算了一遍队列需求')
 })
 
@@ -13266,7 +13266,7 @@ test('第三批：严谨说明只在折叠/悬停里，停更与新鲜度只在�
   // ---- ① 单短标注与当下状态照旧常驻（这一改最容易被顺手连坐）----
   // 2026-08-26 文案清扫撤了行内 <b> 强调（族 9），空态本身照旧常驻
   assert.match(catalog, /加成表尚未收录当前装备/) // 空态
-  assert.match(catalog, /加成表暂无本舰条目/) // 空态
+  assert.match(catalog, /加成表暂无该舰娘条目/) // 空态
   assert.match(battle, /记录已过期/) // 状态词
   assert.match(event, /<span class="mst lk">未同步<\/span>/) // 状态词
   assert.match(quests, /部分条件无法核对 · 计数为预估/) // 估算标注（本来就在悬停里）

@@ -9,6 +9,9 @@
 // 能不能开发/改修，wikiwiki 的装备总页也没有），所以界面上如实说「不收录」
 // 并给 wiki 链接，不拿「没列出」冒充「没有这条途径」。
 
+import { normalizeInitialEquipment } from './initial-equipment'
+import type { InitialEquipmentEntry } from './initial-equipment'
+
 export interface EquipUpgradeRow {
   eq_id?: number
   improvement?:
@@ -125,7 +128,7 @@ export const improvePackUncovered = (
 
 export interface KcwikiShipRow {
   ID?: number
-  装备?: { 初期装备?: number[] | null } | null
+  装备?: { 初期装备?: InitialEquipmentEntry[] | null } | null
 }
 
 /**
@@ -143,8 +146,8 @@ export const initialEquipShips = (
   for (const row of rows) {
     const shipId = Number(row?.ID)
     if (!(shipId > 0)) continue
-    for (const equipId of row.装备?.初期装备 ?? []) {
-      if (Number(equipId) === targetId) out.add(shipId)
+    for (const entry of row.装备?.初期装备 ?? []) {
+      if (normalizeInitialEquipment(entry)?.id === targetId) out.add(shipId)
     }
   }
   return [...out].sort((a, b) => a - b)

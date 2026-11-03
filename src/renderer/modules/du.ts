@@ -482,7 +482,7 @@ const sallyCardHtml = (areaId: number): string => {
       return `<div class="trow" data-tag="${tag}">
         ${chip}
         <span class="who">${fleet ? elink('histFleet', fleet.id, '图鉴 · 同队成员') : ''}</span>
-        <span class="n">已锁定 ${ships.length} 艘</span><span class="lk">${expanded ? '收起 ↑' : '查看 →'}</span>
+        <span class="n">已锁定 ${ships.length} 位</span><span class="lk">${expanded ? '收起 ↑' : '查看 →'}</span>
       </div>${names}`
     })
     .join('')
@@ -490,7 +490,7 @@ const sallyCardHtml = (areaId: number): string => {
     <div class="h"><b>锁船标签（札）</b><span class="aux">返港后更新</span></div>
     ${rows}
     <div class="trow tfree"><span class="tchip" style="background:var(--bg3);color:var(--sub)">未锁定</span>
-      <span class="who"></span><span class="n">${free} 艘</span></div>
+      <span class="who"></span><span class="n">${free} 位</span></div>
   </div>`
 }
 
@@ -891,7 +891,7 @@ const ownedSpecialHtml = (
   const RESERVE_CAP = 40
   const shown = reserve.slice(0, RESERVE_CAP)
   const reserveHtml = reserve.length
-    ? `<details class="op-more" data-keep="op-reserve"><summary>仓库另有 ${reserve.length} 艘${
+    ? `<details class="op-more" data-keep="op-reserve"><summary>仓库另有 ${reserve.length} 位${
         reserve.length > RESERVE_CAP ? `（按等级列前 ${RESERVE_CAP}）` : ''
       }</summary>
         <div class="op-list">${shown.map((rosterId) => {

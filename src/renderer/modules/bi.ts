@@ -552,7 +552,7 @@ const checkShips = (e: Exped, ships: PlayerShip[]): { rows: CheckRow[]; fails: n
     rows.push({
       mark: okTotal && okShips ? 'ok' : 'no',
       text: `运输桶${w.drumShips ? ` 携带舰 ≥ <em>${w.drumShips}</em>` : ''}${w.drumTotal ? ` 合计 ≥ <em>${w.drumTotal}</em>` : ''}`,
-      cur: `已装载 <b>${total}</b>（${carriers} 艘舰娘）· 库存 ${stock} ${elink('mstEquip', DRUM_MST, '装备图鉴 →')}`,
+      cur: `已装载 <b>${total}</b>（${carriers} 位舰娘）· 库存 ${stock} ${elink('mstEquip', DRUM_MST, '装备图鉴 →')}`,
     })
   }
   // 大成功只作说明、不计入汇总；条件达成时打勾，并显示闪光实况。
@@ -1045,7 +1045,7 @@ const plannerPrefsHtml = (): string => {
     <div><b>保护舰队</b>${protectedChips}<span>被保护舰队的舰娘不会进入自动方案</span></div>
     ${
       excluded.length
-        ? `<details><summary>已排除 ${excluded.length} 艘舰娘</summary><div class="pl-excluded-list">${excluded.join('')}</div></details>`
+        ? `<details><summary>已排除 ${excluded.length} 位舰娘</summary><div class="pl-excluded-list">${excluded.join('')}</div></details>`
         : '<span>暂无手动排除的舰娘</span>'
     }
   </div>`
@@ -1076,7 +1076,7 @@ const planCardHtml = (e: Exped): string => {
         <span class="pl-meta">${esc(type)} · Lv ${p.ship.lv} · ${esc(p.where)}</span>
         <span class="pl-role">${esc(p.role)}</span>
         <span class="pl-kira ${p.kira ? 'on' : ''}">${p.kira ? '✦闪光' : `士气 ${p.ship.cond}`}</span>
-        <button class="pl-exclude" data-exclude-ship="${p.ship.id}" title="以后自动方案不再使用这艘舰娘">排除</button>
+        <button class="pl-exclude" data-exclude-ship="${p.ship.id}" title="以后自动方案不再使用这位舰娘">排除</button>
       </div>`
     })
     .join('')
@@ -1172,7 +1172,7 @@ const deckSupplyState = (deck: Deck): DeckSupplyState => {
     return {
       kind: 'wait',
       label: '?',
-      title: `无法完整检查补给：${unknown}/${ships.length} 艘舰娘缺少游戏数据`,
+      title: `无法完整检查补给：${unknown}/${ships.length} 位舰娘缺少游戏数据`,
     }
   }
   return { kind: 'ok', label: '✓', title: `补给充足：${ships.length} 舰` }

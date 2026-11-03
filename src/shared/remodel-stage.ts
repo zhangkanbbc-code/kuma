@@ -43,6 +43,6 @@ export const remodelStagesFor = (
 }
 
 export const REMODEL_STAGE_COPY: Record<RemodelStage, { label: string; tip: string }> = {
-  first: { label: '初次', tip: '这艘舰第一次改装为此形态时的消耗。' },
-  convert: { label: '往复', tip: '这艘舰曾改装为此形态，再次换装时的消耗。' },
+  first: { label: '初次', tip: '这位舰娘第一次改装为此形态时的消耗。' },
+  convert: { label: '往复', tip: '这位舰娘曾改装为此形态，再次换装时的消耗。' },
 }
