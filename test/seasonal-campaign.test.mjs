@@ -13,6 +13,23 @@ const USEITEM_MST = [
   { id: 96, name: '南瓜' },
 ]
 
+test('南瓜 2026 结束时刻按兑换目录时段匹配，与奖励解析和兑换期限分开', () => {
+  const detect = (now) => detectSeasonalCampaigns({
+    useitemMst: USEITEM_MST, useitems: { 96: 7, 68: 3 }, quests: [], now,
+  })
+  const endsAt = Date.parse('2026-11-11T13:00:00+09:00')
+  for (const at of ['2026-10-20T00:00:00+09:00', '2026-11-11T13:00:00+09:00', '2026-12-31T23:59:59+09:00']) {
+    const active = detect(Date.parse(at))
+    const pumpkin = active.find(c => c.key === 'pumpkin')
+    assert.equal(pumpkin.endsAt, endsAt)
+    assert.equal(pumpkin.exchange, undefined, '缺奖励主数据时仍能确定本季结束时刻')
+    assert.equal(active.find(c => c.key === 'sanma').endsAt, undefined)
+  }
+  for (const now of [undefined, Date.parse('2026-10-13T23:59:59+09:00'), Date.parse('2027-01-01T00:00:00+09:00'), Date.parse('2027-10-20T00:00:00+09:00')]) {
+    assert.equal(detect(now).find(c => c.key === 'pumpkin').endsAt, undefined)
+  }
+})
+
 test('a campaign turns active only when a live quest names its item', () => {
   // 南瓜任务上线（游戏原文点名），此刻持有还是 0——看板必须已经亮起来
   const detected = detectSeasonalCampaigns({

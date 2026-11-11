@@ -145,14 +145,24 @@ export const SEASONAL_EXCHANGES: {
   ],
 }]
 
+// 按企划、年份登记作战结束时刻；兑换期限仍由兑换目录单独管理。
+// 来源：运营官方推文 https://x.com/KanColle_STAFF/status/2117869806686962024，
+// 2026-11-04 14:41 JST：11/11 13:00 进入维护即南瓜祭结束。
+export const SEASONAL_CAMPAIGN_ENDS: {
+  campaignKey: string
+  season: number
+  endsAt: number
+}[] = [{
+  campaignKey: 'pumpkin',
+  season: 2026,
+  endsAt: Date.parse('2026-11-11T13:00:00+09:00'),
+}]
+
 const seasonalExchangeOf = (
-  key: string,
-  now: number | undefined,
+  catalog: (typeof SEASONAL_EXCHANGES)[number] | undefined,
   useitemIdByName: Map<string, number>,
   slotitemIdByName: Map<string, number>,
 ): SeasonalExchange | undefined => {
-  if (now == null) return undefined
-  const catalog = SEASONAL_EXCHANGES.find((c) => c.campaignKey === key && now >= c.startsAt && now < c.expiresAt)
   if (!catalog) return undefined
   const recipes: SeasonalExchangeRecipe[] = []
   for (const recipe of catalog.recipes) {
@@ -184,6 +194,7 @@ export interface SeasonalCampaign {
   stock: number // 道具随企划结束清零，持有>0 本身即进行中的证据
   quests: CampaignQuest[]
   exchange?: SeasonalExchange
+  endsAt?: number
 }
 
 // 返回的每一条都是进行中的企划：任一信号（任务点名 / 持有>0）成立才会发出。
@@ -214,7 +225,11 @@ export const detectSeasonalCampaigns = (input: {
       quests.push({ no: quest.no, period: campaignQuestPeriod(catalog?.code, catalog?.resetNote) })
     }
     if (stock <= 0 && quests.length === 0 && !input.recordedKeys?.includes(spec.key)) continue
-    const exchange = seasonalExchangeOf(spec.key, input.now, idByName, slotitemIdByName)
+    const catalog = input.now == null ? undefined : SEASONAL_EXCHANGES.find(
+      (c) => c.campaignKey === spec.key && input.now! >= c.startsAt && input.now! < c.expiresAt,
+    )
+    const exchange = seasonalExchangeOf(catalog, idByName, slotitemIdByName)
+    const endsAt = SEASONAL_CAMPAIGN_ENDS.find(c => c.campaignKey === spec.key && c.season === catalog?.season)?.endsAt
     out.push({
       key: spec.key,
       itemId,
@@ -224,6 +239,7 @@ export const detectSeasonalCampaigns = (input: {
       stock,
       quests,
       ...(exchange ? { exchange } : {}),
+      ...(endsAt != null ? { endsAt } : {}),
     })
   }
   return out

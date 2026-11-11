@@ -1579,7 +1579,7 @@ export const updateCountdowns = (root: HTMLElement) => {
     )
   })
   root.querySelectorAll<HTMLElement>('[data-cdl]').forEach((el) => {
-    el.textContent = fmtDurationLong(parseInt(el.dataset.cdl!, 10))
+    el.textContent = fmtDurationLong(parseInt(el.dataset.cdl!, 10), el.dataset.cdlDone)
   })
 }
 
@@ -1686,9 +1686,9 @@ export const nextMonthlyReset = (): number => {
 }
 
 // 长周期格式：月+周+日+时（月任/季任/活动截止这类跨日倒计时）；不足一日退化为 时+分
-export const fmtDurationLong = (completeTime: number) => {
+export const fmtDurationLong = (completeTime: number, done = '已重置') => {
   let s = Math.floor((completeTime - Date.now()) / 1000)
-  if (s <= 0) return '已重置'
+  if (s <= 0) return done
   const DAY = 86400
   const months = Math.floor(s / (30 * DAY))
   s %= 30 * DAY

@@ -307,8 +307,9 @@ test('随包台账：已终了那一档都带 limitedOnly 与凭据，且没顺�
     const status = one.window.status ?? 'active_confirmed'
     tally[status] = (tally[status] ?? 0) + 1
   }
-  // 2026-10-18 Halloween 新开 13 条、重开 5 条，其余既有状态不动。
-  assert.equal(tally.active_confirmed, 152, '开放条目应为原有 134 + 13 新开 + 5 重开')
+  // 2026-11-11 官方确认樫限定继续：仅这一条撤回结束日，其余 17 条保持结束。
+  assert.equal(tally.active_confirmed, 135, '原有 134 + 樫 1 条恢复开放')
+  assert.equal(tally.ended_confirmed, 17, '原有 18 - 樫 1 条撤回结束日')
   assert.equal(tally.end_pending, 10, '原有的 end_pending 条目数变了')
   assert.equal(tally.ended_undated, 29, '已终了应为原有 34 - 5 重开')
 

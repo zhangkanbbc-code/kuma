@@ -567,7 +567,7 @@ test('本机确认层的收窗折叠接在两处，且只在这一层挂「窗�
 // ---- 真包 ----
 
 const realPack = new URL('../assets/lodes/map-drop-windows.json', import.meta.url)
-test('2026 万圣节两票条目在对应点开放，既有开放窗口不随批次改写', () => {
+test('2026 万圣节除樫外 17 条保留结束日、开窗凭据与重开历史', () => {
   const pack = JSON.parse(fs.readFileSync(realPack, 'utf8'))
   const data = pack.data
   assert.ok(applyMapIntelCatalog({ schemaVersion: 1, maps: {} }))
@@ -578,28 +578,39 @@ test('2026 万圣节两票条目在对应点开放，既有开放窗口不随批
     ['1-3', 'J', [634, 635, 993, 637, 943, 452, 540, 638]],
     ['1-4', 'L', [415, 452, 922, 898, 934, 535, 921]],
   ]
+  let endedCount = 0
   for (const [map, node, ids] of batch) {
     for (const id of ids) {
+      if (id === 993) continue // 维护者裁决 2026-11-11：樫限定继续，单独验收。
+      endedCount += 1
       const entries = data.maps[map][node].filter(one => one.id === id)
       assert.equal(entries.length, 1, `${map}/${node}#${id} 必须只有一条当前窗口`)
       const entry = entries[0]
       assert.deepEqual(entry.window, {
-        from: '2026-10-14', until: null, lastConfirmedAt: '2026-10-18',
-        status: 'active_confirmed', statusChangedAt: '2026-10-18', label: 'Halloween',
+        from: '2026-10-14', until: '2026-11-11', lastConfirmedAt: '2026-10-18',
+        status: 'ended_confirmed', statusChangedAt: '2026-11-04', label: 'Halloween',
       })
       assert.equal(entry.limitedOnly, true)
       assert.deepEqual(entry.votes, ['kcwiki', 'kanlog'])
-      assert.equal(entry.evidence.kind, 'community')
-      assert.equal(entry.evidence.recordedAt, '2026-10-18')
+      assert.equal(entry.evidence.kind, 'official')
+      assert.equal(entry.evidence.recordedAt, '2026-11-04')
+      assert.ok(entry.evidence.note.startsWith('结束：'))
+      assert.ok(entry.evidence.note.includes('https://x.com/KanColle_STAFF/status/2117869806686962024'))
+      assert.ok(entry.evidence.note.includes('2026-11-04 14:41 JST'))
+      assert.ok(entry.evidence.note.includes('维护开始即作战结束，限定掉落随作战结束；开窗：'))
       assert.ok(entry.evidence.note.includes('188858（2026-10-17T04:37Z）'))
       assert.ok(entry.evidence.note.includes('2026-10-18 23:00'))
       assert.ok(entry.evidence.note.includes('人工核阅'))
       const shown = mapIntelNode(map, node, '2026-10-18').ships.find(ship => ship.id === id)
       assert.ok(shown, `${map}/${node}#${id} 未显示在当前掉落池`)
       assert.equal(isActiveLimitedWindow(shown.limited, '2026-10-18'), true)
-      assert.equal(limitedWindowText(shown.limited), '【Halloween】2026/10/14–暂无截止日期')
+      assert.equal(limitedWindowText(shown.limited), '【Halloween】2026/10/14–2026/11/11')
+      assert.equal(limitedWindowPhase(entry.window, '2026-11-11'), 'open_dated')
+      assert.equal(limitedWindowPhase(entry.window, '2026-11-12'), 'closed')
+      assert.equal(mapIntelNode(map, node, '2026-11-12').ships.some(ship => ship.id === id), false)
     }
   }
+  assert.equal(endedCount, 17)
   for (const [map, node, id, from, label] of [
     ['1-3', 'J', 943, '2025-09-26', 'Halloween'],
     ['1-3', 'J', 452, '2024-11-08', '秋刀魚祭り'],
@@ -626,11 +637,45 @@ test('2026 万圣节两票条目在对应点开放，既有开放窗口不随批
       status: 'active_confirmed', statusChangedAt: '2026-06-26', label,
     }, `${map}/${node}#${id} 的既有窗口被本批改写`)
   }
-  assert.equal(pack.meta.version, '2026.10.18')
-  assert.equal(data.revision, '2026.10.18')
-  assert.equal(data.compiledAt, '2026-10-18')
+  assert.equal(pack.meta.version, '2026.11.11')
+  assert.equal(data.revision, '2026.11.11')
+  assert.equal(data.compiledAt, '2026-11-11')
   assert.equal(data.checkedAt, '2026-06-26', '局部补录不刷新全台账核对日')
   assert.ok(data.voters.kcwiki.includes('与 wikiwiki 编辑群独立'))
+})
+
+test('2026-11-11 樫限定继续：撤回结束日，保留原开窗凭据及点位待印证边界', () => {
+  const data = JSON.parse(fs.readFileSync(realPack, 'utf8')).data
+  const entry = data.maps['1-3'].J.find(one => one.id === 993)
+  assert.deepEqual(entry.window, {
+    from: '2026-10-14', until: null, lastConfirmedAt: '2026-11-11',
+    status: 'active_confirmed', statusChangedAt: '2026-11-11', label: 'Halloween',
+  })
+  assert.equal(entry.limitedOnly, true)
+  assert.deepEqual(entry.votes, ['kcwiki', 'kanlog'])
+  assert.equal(entry.evidence.kind, 'official')
+  assert.equal(entry.evidence.recordedAt, '2026-11-11')
+  const note = entry.evidence.note
+  assert.ok(note.startsWith('继续：'))
+  for (const status of ['2120446329080230091', '2120453991759004073']) {
+    assert.ok(note.includes('https://x.com/KanColle_STAFF/status/' + status))
+  }
+  assert.equal((note.match(/2026-11-11/g) ?? []).length, 3)
+  assert.ok(note.includes('樫的装扮与限定邂逅保持至下次维护'))
+  assert.ok(note.includes('「樫」も限定継続中'))
+  assert.ok(note.includes('11-04 按「随作战结束」记的结束日 2026-11-11 已撤回'))
+  assert.ok(note.includes('结束日等下次维护公告'))
+  assert.ok(note.includes('官方未点名海域与点位，本条沿用开窗批次 1-3/J，点位是否不变待社区资料印证'))
+  assert.doesNotMatch(note, /结束：|2117869806686962024/)
+  assert.equal(note.split('；开窗：')[1], "舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。")
+  assert.equal(limitedWindowPhase(entry.window, '2026-11-12'), 'open_undated')
+  assert.equal(limitedWindowText(entry.window), '【Halloween】2026/10/14–暂无截止日期')
+  assert.ok(applyMapIntelCatalog({ schemaVersion: 1, maps: {} }))
+  assert.ok(applyMapDrops(JSON.parse(fs.readFileSync(new URL('../assets/lodes/map-drops.json', import.meta.url), 'utf8')).data))
+  assert.ok(applyMapDropWindows(data))
+  const shown = mapIntelNode('1-3', 'J', '2026-11-12').ships.find(ship => ship.id === 993)
+  assert.ok(shown, '樫继续出现在当前掉落池')
+  assert.equal(limitedWindowPhase(shown.limited, '2026-11-12'), 'open_undated')
 })
 
 test('1-1/C 浜波、早波仅登记单票待裁，旧 Halloween 状态与呈现不变', () => {

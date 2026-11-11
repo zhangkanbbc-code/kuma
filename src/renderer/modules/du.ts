@@ -11,7 +11,7 @@ import { querySeasonalHistory } from '../kernel'
 import { fleetAirPower } from '../fleet-calc'
 import { equipTypeIconHtml } from '../equip-icon'
 import { MATERIAL_ICON_BY_INDEX, materialIconHtml, shipThumbHtml } from '../entity-art'
-import { commitPaneHtml, deferPassive, esc, fleetLabel, fmtDate, fmtDateTime, fmtK, fmtTime, forgetCommittedHtml, lodeCredit, mg, onMgChange, queryFriendlyFleets, queryLode, queryMasterRaw, queryMaterialWindow, uiGet, uiSet } from '../kernel'
+import { commitPaneHtml, deferPassive, esc, fleetLabel, fmtDate, fmtDateTime, fmtDurationLong, fmtK, fmtTime, forgetCommittedHtml, lodeCredit, mg, onMgChange, queryFriendlyFleets, queryLode, queryMasterRaw, queryMaterialWindow, uiGet, uiSet } from '../kernel'
 import type { LodeMeta } from '../kernel'
 import { cachedEventBonusLode, eventKeyOf, loadEventBonusLode } from '../combat-forecast'
 import { airBaseCustomName } from '../../shared/air-base-name'
@@ -1318,7 +1318,8 @@ const campaignCardHtml = (campaign: SeasonalCampaign): string => {
       <span class="aux">历届时节：${esc(campaign.seasonNote)}</span></div>
     <div class="cq-stock">持有 <b>${campaign.stock}</b>${
       mg.useitemsTs ? `<span class="ts"> · 同步于 ${fmtTime(mg.useitemsTs)}</span>` : ''
-    }</div>
+    }</div>${campaign.endsAt == null ? '' : `
+    <div class="gnote2">结束 ${fmtDateTime(campaign.endsAt)} · <span data-cdl="${campaign.endsAt}" data-cdl-done="已结束">${fmtDurationLong(campaign.endsAt, '已结束')}</span></div>`}
     ${exchange ? `<div class="cq-group"><span class="cq-k">兑换</span><div class="cq-list">${exchange}</div></div>` : ''}
     ${history ? `<div class="cq-group"><span class="cq-k">本季记录</span><div class="cq-list cq-history">${campaignSummaryHtml(history, historyContext)}${campaignRecordsHtml(history, historyContext)}</div></div>` : ''}
     ${groups || '<div class="gnote2">现役任务暂无该道具相关项</div>'}
@@ -1331,7 +1332,7 @@ const campaignViewHtml = (active: SeasonalCampaign[]): string =>
       </div>
     <div class="camp-body">
       ${active.map(campaignCardHtml).join('')}
-      <div class="note9"><span class="credit-mark" title="持有数与任务状态由游戏实时同步 ｜ 任务周期来自本地任务目录 ｜ 兑换目录来自游戏内菜单（2026-10-14） ｜ 截止日期以游戏内公告为准">源</span></div>
+      <div class="note9"><span class="credit-mark" title="持有数与任务状态由游戏实时同步 ｜ 任务周期来自本地任务目录 ｜ 兑换目录来自游戏内菜单（2026-10-14） ｜ 南瓜结束时间来自运营公告（2026-11-04）">源</span></div>
     </div>
   </div>`
 

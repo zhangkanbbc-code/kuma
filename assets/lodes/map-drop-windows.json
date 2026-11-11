@@ -2,24 +2,26 @@
  "meta": {
   "id": "map-drop-windows",
   "name": "常规海域限定期台账（第一方）",
-  "version": "2026.10.18",
+  "version": "2026.11.11",
   "source": "kuma 限定期台账（第一方维护）",
-  "fetchedAt": "2026-08-27T18:25:51.638Z",
+  "fetchedAt": "2026-11-04T07:03:00.230Z",
   "upstreamUpdatedAt": null,
   "license": "第一方台账：记的是运营行为事实（哪张图哪个点从哪天起掉哪条船），随源码分发",
   "note": "常规海域限定掉落开放时段 · 未注明结束日时长期开放",
   "maintainerNote": [
    "限定期窗口的唯一出处（2026-08-22 批次 4）。这一格穷举过的社区机读源只有一家给，而那家的许可不允许随包分发——所以事实自己记一份台账，抓取脚本降为维护者侧对照工具（scripts/refresh-map-intel-limited.mjs，eo-quests 地位，不再写随包数据）。每条带 evidence（凭什么 + 录入日期）与印证票；votes 里的 ledger 是游戏报文核对（维护者核 2026-09-06），按图归不按点。舰号一律是改钉后的形态号，与 map-drops 同键。until 为 null 是如实记录不是资料缺失：常规图的限定掉落多是追加后一直开着的，调用方不许据此制造「快关门」的紧迫感。待裁项（limited-vs-plain 等）逐条挂 conflict，脚本不代拍；裁完的把 conflict 撤下，裁语与两票出处写进 evidence.note（2026-08-23 那 7 条 limited-vs-plain 即按此收案），痕迹另留在 assets/review/map-drops-conflicts.json 的 verdict 里。",
    "2026-08-28 批次：补上「已终了的常规图限定邂逅」。此前上游对照只读页面顶上那张「海域別リスト」——那张表里只有还开着的，一条限定终了之后就从表里消失，于是只看得见「不再列出」（缺席），永远看不见「它说自己终了了」（断言）。终了是在逐批次小节里**用删除线逐条标出来的**，而删除线只活在原始字节里，取文本的层一律会把它抹平。parseLimitedBatches（scripts/map-intel.mjs）改成在去标签之前判 <del>，据此补进 34 条 ended_undated/ended_confirmed。这一档与 end_pending 的分别是断言 vs 缺席：end_pending 只是上游不再列出，不许对玩家说「已终了」。另有 5 条同页自相矛盾（小节划了删除线、海域別名单又还列着），一律挂 conflict 不动 status。",
-   "2026-10-18 万圣节批次：依舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）与艦ログ limited 页面（更新日時 10/18 23:00，普通访客人工核阅）两票，补录 2026-10-14 起的 Halloween：新开 13 条、重开 5 条；wikiwiki 总表核对日仍为 2026-09-10，尚未收录。本批无游戏报文一手印证；1-1/C 浜波、早波仅艦ログ一票，登记单票待裁而不改台账状态。未逐条重核整份台账，checkedAt 与本单之外条目的核对日保持原值。"
+   "2026-10-18 万圣节批次：依舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）与艦ログ limited 页面（更新日時 10/18 23:00，普通访客人工核阅）两票，补录 2026-10-14 起的 Halloween：新开 13 条、重开 5 条；wikiwiki 总表核对日仍为 2026-09-10，尚未收录。本批无游戏报文一手印证；1-1/C 浜波、早波仅艦ログ一票，登记单票待裁而不改台账状态。未逐条重核整份台账，checkedAt 与本单之外条目的核对日保持原值。",
+   "2026-11-04 万圣节结束批次：依据运营官方推文 https://x.com/KanColle_STAFF/status/2117869806686962024（2026-11-04 14:41 JST）及维护者裁决 2026-11-04，11/11 13:00 JST 维护开始即作战结束；舰娘百科「季节性/2026年万圣节」将本批列为万圣节期间限定掉落，随作战结束。18 条 Halloween 窗口补记 until=2026-11-11、ended_confirmed 与 official 结束凭据，原开窗凭据全文及 5 条重开历史保留，votes 不变。其余条目及 1-1/C 浜波、早波单票待裁登记不动；未重核整份台账，checkedAt 与 lastConfirmedAt 保持原值。",
+   "2026-11-11 樫限定继续订正：依据运营官方推文 https://x.com/KanColle_STAFF/status/2120446329080230091（2026-11-11，03）及 https://x.com/KanColle_STAFF/status/2120453991759004073（2026-11-11，22）与维护者裁决 2026-11-11，仅撤回 1-3/J 舰 993 樫在 11-04 按「随作战结束」记的结束日 2026-11-11，恢复 until=null、active_confirmed，statusChangedAt、lastConfirmedAt 与凭据录入日记 2026-11-11，结束日等下次维护公告。官方未点名海域与点位，沿用开窗批次的 1-3/J，点位是否不变待社区资料印证；原开窗凭据全文与 votes 保留，from、label 不动。其余 17 条 Halloween 窗口及所有其它条目、单票待裁登记不动；本次新一批限定邂逅未有点位资料，不录入；未重核整份台账，checkedAt 不动。"
   ]
  },
  "data": {
   "schemaVersion": 1,
-  "compiledAt": "2026-10-18",
+  "compiledAt": "2026-11-11",
   "checkedAt": "2026-06-26",
   "source": "kuma 限定期台账（第一方维护）",
-  "revision": "2026.10.18",
+  "revision": "2026.11.11",
   "voters": {
    "wikiwiki": "艦これ攻略 Wiki 的期间限定掉落总表——起讫日期与批次标签的整理来源，只作参考",
    "ledger": "游戏报文核对（维护者核 2026-09-06） encounters.drop_mst——第一方一手，印证窗口确实开过，按图归不按点",
@@ -293,16 +295,16 @@
       "limitedOnly": true,
       "window": {
        "from": "2026-10-14",
-       "until": null,
+       "until": "2026-11-11",
        "lastConfirmedAt": "2026-10-18",
-       "status": "active_confirmed",
-       "statusChangedAt": "2026-10-18",
+       "status": "ended_confirmed",
+       "statusChangedAt": "2026-11-04",
        "label": "Halloween"
       },
       "evidence": {
-       "kind": "community",
-       "note": "舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
-       "recordedAt": "2026-10-18"
+       "kind": "official",
+       "note": "结束：官方推文 https://x.com/KanColle_STAFF/status/2117869806686962024（2026-11-04 14:41 JST）：全服11/11 13:00～19:00维护，进入维护即南瓜祭结束。维护者裁决2026-11-04：维护开始即作战结束，限定掉落随作战结束；开窗：舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
+       "recordedAt": "2026-11-04"
       },
       "votes": [
        "kcwiki",
@@ -334,16 +336,16 @@
       "limitedOnly": true,
       "window": {
        "from": "2026-10-14",
-       "until": null,
+       "until": "2026-11-11",
        "lastConfirmedAt": "2026-10-18",
-       "status": "active_confirmed",
-       "statusChangedAt": "2026-10-18",
+       "status": "ended_confirmed",
+       "statusChangedAt": "2026-11-04",
        "label": "Halloween"
       },
       "evidence": {
-       "kind": "community",
-       "note": "舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
-       "recordedAt": "2026-10-18"
+       "kind": "official",
+       "note": "结束：官方推文 https://x.com/KanColle_STAFF/status/2117869806686962024（2026-11-04 14:41 JST）：全服11/11 13:00～19:00维护，进入维护即南瓜祭结束。维护者裁决2026-11-04：维护开始即作战结束，限定掉落随作战结束；开窗：舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
+       "recordedAt": "2026-11-04"
       },
       "votes": [
        "kcwiki",
@@ -374,16 +376,16 @@
       "limitedOnly": true,
       "window": {
        "from": "2026-10-14",
-       "until": null,
+       "until": "2026-11-11",
        "lastConfirmedAt": "2026-10-18",
-       "status": "active_confirmed",
-       "statusChangedAt": "2026-10-18",
+       "status": "ended_confirmed",
+       "statusChangedAt": "2026-11-04",
        "label": "Halloween"
       },
       "evidence": {
-       "kind": "community",
-       "note": "舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
-       "recordedAt": "2026-10-18"
+       "kind": "official",
+       "note": "结束：官方推文 https://x.com/KanColle_STAFF/status/2117869806686962024（2026-11-04 14:41 JST）：全服11/11 13:00～19:00维护，进入维护即南瓜祭结束。维护者裁决2026-11-04：维护开始即作战结束，限定掉落随作战结束；开窗：舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
+       "recordedAt": "2026-11-04"
       },
       "votes": [
        "kcwiki",
@@ -458,16 +460,16 @@
       "limitedOnly": true,
       "window": {
        "from": "2026-10-14",
-       "until": null,
+       "until": "2026-11-11",
        "lastConfirmedAt": "2026-10-18",
-       "status": "active_confirmed",
-       "statusChangedAt": "2026-10-18",
+       "status": "ended_confirmed",
+       "statusChangedAt": "2026-11-04",
        "label": "Halloween"
       },
       "evidence": {
-       "kind": "community",
-       "note": "舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。 重开前历史：旧批次「秋刀魚祭り」自 2024-11-08 起，原状态 ended_undated（2026-08-28 判定），未公布结束日；同点同舰保留一条，当前窗口改记本批。",
-       "recordedAt": "2026-10-18"
+       "kind": "official",
+       "note": "结束：官方推文 https://x.com/KanColle_STAFF/status/2117869806686962024（2026-11-04 14:41 JST）：全服11/11 13:00～19:00维护，进入维护即南瓜祭结束。维护者裁决2026-11-04：维护开始即作战结束，限定掉落随作战结束；开窗：舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。 重开前历史：旧批次「秋刀魚祭り」自 2024-11-08 起，原状态 ended_undated（2026-08-28 判定），未公布结束日；同点同舰保留一条，当前窗口改记本批。",
+       "recordedAt": "2026-11-04"
       },
       "votes": [
        "kcwiki",
@@ -498,16 +500,16 @@
       "limitedOnly": true,
       "window": {
        "from": "2026-10-14",
-       "until": null,
+       "until": "2026-11-11",
        "lastConfirmedAt": "2026-10-18",
-       "status": "active_confirmed",
-       "statusChangedAt": "2026-10-18",
+       "status": "ended_confirmed",
+       "statusChangedAt": "2026-11-04",
        "label": "Halloween"
       },
       "evidence": {
-       "kind": "community",
-       "note": "舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。 重开前历史：旧批次「年の瀬」自 2024-12-26 起，原状态 ended_undated（2026-08-28 判定），未公布结束日；同点同舰保留一条，当前窗口改记本批。",
-       "recordedAt": "2026-10-18"
+       "kind": "official",
+       "note": "结束：官方推文 https://x.com/KanColle_STAFF/status/2117869806686962024（2026-11-04 14:41 JST）：全服11/11 13:00～19:00维护，进入维护即南瓜祭结束。维护者裁决2026-11-04：维护开始即作战结束，限定掉落随作战结束；开窗：舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。 重开前历史：旧批次「年の瀬」自 2024-12-26 起，原状态 ended_undated（2026-08-28 判定），未公布结束日；同点同舰保留一条，当前窗口改记本批。",
+       "recordedAt": "2026-11-04"
       },
       "votes": [
        "kcwiki",
@@ -539,16 +541,16 @@
       "limitedOnly": true,
       "window": {
        "from": "2026-10-14",
-       "until": null,
+       "until": "2026-11-11",
        "lastConfirmedAt": "2026-10-18",
-       "status": "active_confirmed",
-       "statusChangedAt": "2026-10-18",
+       "status": "ended_confirmed",
+       "statusChangedAt": "2026-11-04",
        "label": "Halloween"
       },
       "evidence": {
-       "kind": "community",
-       "note": "舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
-       "recordedAt": "2026-10-18"
+       "kind": "official",
+       "note": "结束：官方推文 https://x.com/KanColle_STAFF/status/2117869806686962024（2026-11-04 14:41 JST）：全服11/11 13:00～19:00维护，进入维护即南瓜祭结束。维护者裁决2026-11-04：维护开始即作战结束，限定掉落随作战结束；开窗：舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
+       "recordedAt": "2026-11-04"
       },
       "votes": [
        "kcwiki",
@@ -560,16 +562,16 @@
       "limitedOnly": true,
       "window": {
        "from": "2026-10-14",
-       "until": null,
+       "until": "2026-11-11",
        "lastConfirmedAt": "2026-10-18",
-       "status": "active_confirmed",
-       "statusChangedAt": "2026-10-18",
+       "status": "ended_confirmed",
+       "statusChangedAt": "2026-11-04",
        "label": "Halloween"
       },
       "evidence": {
-       "kind": "community",
-       "note": "舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
-       "recordedAt": "2026-10-18"
+       "kind": "official",
+       "note": "结束：官方推文 https://x.com/KanColle_STAFF/status/2117869806686962024（2026-11-04 14:41 JST）：全服11/11 13:00～19:00维护，进入维护即南瓜祭结束。维护者裁决2026-11-04：维护开始即作战结束，限定掉落随作战结束；开窗：舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
+       "recordedAt": "2026-11-04"
       },
       "votes": [
        "kcwiki",
@@ -581,16 +583,16 @@
       "limitedOnly": true,
       "window": {
        "from": "2026-10-14",
-       "until": null,
+       "until": "2026-11-11",
        "lastConfirmedAt": "2026-10-18",
-       "status": "active_confirmed",
-       "statusChangedAt": "2026-10-18",
+       "status": "ended_confirmed",
+       "statusChangedAt": "2026-11-04",
        "label": "Halloween"
       },
       "evidence": {
-       "kind": "community",
-       "note": "舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
-       "recordedAt": "2026-10-18"
+       "kind": "official",
+       "note": "结束：官方推文 https://x.com/KanColle_STAFF/status/2117869806686962024（2026-11-04 14:41 JST）：全服11/11 13:00～19:00维护，进入维护即南瓜祭结束。维护者裁决2026-11-04：维护开始即作战结束，限定掉落随作战结束；开窗：舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
+       "recordedAt": "2026-11-04"
       },
       "votes": [
        "kcwiki",
@@ -602,16 +604,16 @@
       "limitedOnly": true,
       "window": {
        "from": "2026-10-14",
-       "until": null,
+       "until": "2026-11-11",
        "lastConfirmedAt": "2026-10-18",
-       "status": "active_confirmed",
-       "statusChangedAt": "2026-10-18",
+       "status": "ended_confirmed",
+       "statusChangedAt": "2026-11-04",
        "label": "Halloween"
       },
       "evidence": {
-       "kind": "community",
-       "note": "舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。 重开前历史：旧批次「節分」自 2025-01-28 起，原状态 ended_undated（2026-08-28 判定），未公布结束日；同点同舰保留一条，当前窗口改记本批。",
-       "recordedAt": "2026-10-18"
+       "kind": "official",
+       "note": "结束：官方推文 https://x.com/KanColle_STAFF/status/2117869806686962024（2026-11-04 14:41 JST）：全服11/11 13:00～19:00维护，进入维护即南瓜祭结束。维护者裁决2026-11-04：维护开始即作战结束，限定掉落随作战结束；开窗：舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。 重开前历史：旧批次「節分」自 2025-01-28 起，原状态 ended_undated（2026-08-28 判定），未公布结束日；同点同舰保留一条，当前窗口改记本批。",
+       "recordedAt": "2026-11-04"
       },
       "votes": [
        "kcwiki",
@@ -623,16 +625,16 @@
       "limitedOnly": true,
       "window": {
        "from": "2026-10-14",
-       "until": null,
+       "until": "2026-11-11",
        "lastConfirmedAt": "2026-10-18",
-       "status": "active_confirmed",
-       "statusChangedAt": "2026-10-18",
+       "status": "ended_confirmed",
+       "statusChangedAt": "2026-11-04",
        "label": "Halloween"
       },
       "evidence": {
-       "kind": "community",
-       "note": "舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。 重开前历史：旧批次「Halloween」自 2025-09-26 起，原状态 ended_undated（2026-08-28 判定），未公布结束日；同点同舰保留一条，当前窗口改记本批。",
-       "recordedAt": "2026-10-18"
+       "kind": "official",
+       "note": "结束：官方推文 https://x.com/KanColle_STAFF/status/2117869806686962024（2026-11-04 14:41 JST）：全服11/11 13:00～19:00维护，进入维护即南瓜祭结束。维护者裁决2026-11-04：维护开始即作战结束，限定掉落随作战结束；开窗：舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。 重开前历史：旧批次「Halloween」自 2025-09-26 起，原状态 ended_undated（2026-08-28 判定），未公布结束日；同点同舰保留一条，当前窗口改记本批。",
+       "recordedAt": "2026-11-04"
       },
       "votes": [
        "kcwiki",
@@ -686,15 +688,15 @@
       "window": {
        "from": "2026-10-14",
        "until": null,
-       "lastConfirmedAt": "2026-10-18",
+       "lastConfirmedAt": "2026-11-11",
        "status": "active_confirmed",
-       "statusChangedAt": "2026-10-18",
+       "statusChangedAt": "2026-11-11",
        "label": "Halloween"
       },
       "evidence": {
-       "kind": "community",
-       "note": "舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
-       "recordedAt": "2026-10-18"
+       "kind": "official",
+       "note": "继续：官方 https://x.com/KanColle_STAFF/status/2120446329080230091（2026-11-11，03）：樫的装扮与限定邂逅保持至下次维护；https://x.com/KanColle_STAFF/status/2120453991759004073（2026-11-11，22）：「樫」も限定継続中。11-04 按「随作战结束」记的结束日 2026-11-11 已撤回，结束日等下次维护公告；官方未点名海域与点位，本条沿用开窗批次 1-3/J，点位是否不变待社区资料印证；开窗：舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
+       "recordedAt": "2026-11-11"
       },
       "votes": [
        "kcwiki",
@@ -750,16 +752,16 @@
       "limitedOnly": true,
       "window": {
        "from": "2026-10-14",
-       "until": null,
+       "until": "2026-11-11",
        "lastConfirmedAt": "2026-10-18",
-       "status": "active_confirmed",
-       "statusChangedAt": "2026-10-18",
+       "status": "ended_confirmed",
+       "statusChangedAt": "2026-11-04",
        "label": "Halloween"
       },
       "evidence": {
-       "kind": "community",
-       "note": "舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
-       "recordedAt": "2026-10-18"
+       "kind": "official",
+       "note": "结束：官方推文 https://x.com/KanColle_STAFF/status/2117869806686962024（2026-11-04 14:41 JST）：全服11/11 13:00～19:00维护，进入维护即南瓜祭结束。维护者裁决2026-11-04：维护开始即作战结束，限定掉落随作战结束；开窗：舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
+       "recordedAt": "2026-11-04"
       },
       "votes": [
        "kcwiki",
@@ -791,16 +793,16 @@
       "limitedOnly": true,
       "window": {
        "from": "2026-10-14",
-       "until": null,
+       "until": "2026-11-11",
        "lastConfirmedAt": "2026-10-18",
-       "status": "active_confirmed",
-       "statusChangedAt": "2026-10-18",
+       "status": "ended_confirmed",
+       "statusChangedAt": "2026-11-04",
        "label": "Halloween"
       },
       "evidence": {
-       "kind": "community",
-       "note": "舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
-       "recordedAt": "2026-10-18"
+       "kind": "official",
+       "note": "结束：官方推文 https://x.com/KanColle_STAFF/status/2117869806686962024（2026-11-04 14:41 JST）：全服11/11 13:00～19:00维护，进入维护即南瓜祭结束。维护者裁决2026-11-04：维护开始即作战结束，限定掉落随作战结束；开窗：舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
+       "recordedAt": "2026-11-04"
       },
       "votes": [
        "kcwiki",
@@ -834,16 +836,16 @@
       "limitedOnly": true,
       "window": {
        "from": "2026-10-14",
-       "until": null,
+       "until": "2026-11-11",
        "lastConfirmedAt": "2026-10-18",
-       "status": "active_confirmed",
-       "statusChangedAt": "2026-10-18",
+       "status": "ended_confirmed",
+       "statusChangedAt": "2026-11-04",
        "label": "Halloween"
       },
       "evidence": {
-       "kind": "community",
-       "note": "舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
-       "recordedAt": "2026-10-18"
+       "kind": "official",
+       "note": "结束：官方推文 https://x.com/KanColle_STAFF/status/2117869806686962024（2026-11-04 14:41 JST）：全服11/11 13:00～19:00维护，进入维护即南瓜祭结束。维护者裁决2026-11-04：维护开始即作战结束，限定掉落随作战结束；开窗：舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
+       "recordedAt": "2026-11-04"
       },
       "votes": [
        "kcwiki",
@@ -897,16 +899,16 @@
       "limitedOnly": true,
       "window": {
        "from": "2026-10-14",
-       "until": null,
+       "until": "2026-11-11",
        "lastConfirmedAt": "2026-10-18",
-       "status": "active_confirmed",
-       "statusChangedAt": "2026-10-18",
+       "status": "ended_confirmed",
+       "statusChangedAt": "2026-11-04",
        "label": "Halloween"
       },
       "evidence": {
-       "kind": "community",
-       "note": "舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
-       "recordedAt": "2026-10-18"
+       "kind": "official",
+       "note": "结束：官方推文 https://x.com/KanColle_STAFF/status/2117869806686962024（2026-11-04 14:41 JST）：全服11/11 13:00～19:00维护，进入维护即南瓜祭结束。维护者裁决2026-11-04：维护开始即作战结束，限定掉落随作战结束；开窗：舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
+       "recordedAt": "2026-11-04"
       },
       "votes": [
        "kcwiki",
@@ -939,16 +941,16 @@
       "limitedOnly": true,
       "window": {
        "from": "2026-10-14",
-       "until": null,
+       "until": "2026-11-11",
        "lastConfirmedAt": "2026-10-18",
-       "status": "active_confirmed",
-       "statusChangedAt": "2026-10-18",
+       "status": "ended_confirmed",
+       "statusChangedAt": "2026-11-04",
        "label": "Halloween"
       },
       "evidence": {
-       "kind": "community",
-       "note": "舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。 重开前历史：旧批次「Xmas」自 2024-12-03 起，原状态 ended_undated（2026-08-28 判定），未公布结束日；同点同舰保留一条，当前窗口改记本批。",
-       "recordedAt": "2026-10-18"
+       "kind": "official",
+       "note": "结束：官方推文 https://x.com/KanColle_STAFF/status/2117869806686962024（2026-11-04 14:41 JST）：全服11/11 13:00～19:00维护，进入维护即南瓜祭结束。维护者裁决2026-11-04：维护开始即作战结束，限定掉落随作战结束；开窗：舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。 重开前历史：旧批次「Xmas」自 2024-12-03 起，原状态 ended_undated（2026-08-28 判定），未公布结束日；同点同舰保留一条，当前窗口改记本批。",
+       "recordedAt": "2026-11-04"
       },
       "votes": [
        "kcwiki",
@@ -960,16 +962,16 @@
       "limitedOnly": true,
       "window": {
        "from": "2026-10-14",
-       "until": null,
+       "until": "2026-11-11",
        "lastConfirmedAt": "2026-10-18",
-       "status": "active_confirmed",
-       "statusChangedAt": "2026-10-18",
+       "status": "ended_confirmed",
+       "statusChangedAt": "2026-11-04",
        "label": "Halloween"
       },
       "evidence": {
-       "kind": "community",
-       "note": "舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
-       "recordedAt": "2026-10-18"
+       "kind": "official",
+       "note": "结束：官方推文 https://x.com/KanColle_STAFF/status/2117869806686962024（2026-11-04 14:41 JST）：全服11/11 13:00～19:00维护，进入维护即南瓜祭结束。维护者裁决2026-11-04：维护开始即作战结束，限定掉落随作战结束；开窗：舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
+       "recordedAt": "2026-11-04"
       },
       "votes": [
        "kcwiki",
@@ -981,16 +983,16 @@
       "limitedOnly": true,
       "window": {
        "from": "2026-10-14",
-       "until": null,
+       "until": "2026-11-11",
        "lastConfirmedAt": "2026-10-18",
-       "status": "active_confirmed",
-       "statusChangedAt": "2026-10-18",
+       "status": "ended_confirmed",
+       "statusChangedAt": "2026-11-04",
        "label": "Halloween"
       },
       "evidence": {
-       "kind": "community",
-       "note": "舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
-       "recordedAt": "2026-10-18"
+       "kind": "official",
+       "note": "结束：官方推文 https://x.com/KanColle_STAFF/status/2117869806686962024（2026-11-04 14:41 JST）：全服11/11 13:00～19:00维护，进入维护即南瓜祭结束。维护者裁决2026-11-04：维护开始即作战结束，限定掉落随作战结束；开窗：舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）「万圣节期间限定掉落」表；艦ログ https://kanlog.info/limited/ 页面更新日時 2026-10-18 23:00，2026-10-18 以普通访客身份人工核阅，对应 Boss 点名单列有【H'ween】2026/10/14～批次及本舰。两站逐格对上，社区参考两票；wikiwiki 总表核对日仍为 2026-09-10，尚未收录本批。",
+       "recordedAt": "2026-11-04"
       },
       "votes": [
        "kcwiki",
