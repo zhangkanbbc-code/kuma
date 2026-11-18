@@ -152,10 +152,14 @@ export const SEASONAL_CAMPAIGN_ENDS: {
   campaignKey: string
   season: number
   endsAt: number
+  remainingUsableUntilMaintenance?: boolean
 }[] = [{
   campaignKey: 'pumpkin',
   season: 2026,
   endsAt: Date.parse('2026-11-11T13:00:00+09:00'),
+  // 运营公告 01（2026-11-11）：剩余南瓜在下次维护开始时消失。
+  // https://x.com/KanColle_STAFF/status/2120445361861058757
+  remainingUsableUntilMaintenance: true,
 }]
 
 const seasonalExchangeOf = (
@@ -195,6 +199,7 @@ export interface SeasonalCampaign {
   quests: CampaignQuest[]
   exchange?: SeasonalExchange
   endsAt?: number
+  remainingUsableUntilMaintenance?: boolean
 }
 
 // 返回的每一条都是进行中的企划：任一信号（任务点名 / 持有>0）成立才会发出。
@@ -229,7 +234,7 @@ export const detectSeasonalCampaigns = (input: {
       (c) => c.campaignKey === spec.key && input.now! >= c.startsAt && input.now! < c.expiresAt,
     )
     const exchange = seasonalExchangeOf(catalog, idByName, slotitemIdByName)
-    const endsAt = SEASONAL_CAMPAIGN_ENDS.find(c => c.campaignKey === spec.key && c.season === catalog?.season)?.endsAt
+    const ending = SEASONAL_CAMPAIGN_ENDS.find(c => c.campaignKey === spec.key && c.season === catalog?.season)
     out.push({
       key: spec.key,
       itemId,
@@ -239,7 +244,8 @@ export const detectSeasonalCampaigns = (input: {
       stock,
       quests,
       ...(exchange ? { exchange } : {}),
-      ...(endsAt != null ? { endsAt } : {}),
+      ...(ending ? { endsAt: ending.endsAt } : {}),
+      ...(ending?.remainingUsableUntilMaintenance ? { remainingUsableUntilMaintenance: true } : {}),
     })
   }
   return out

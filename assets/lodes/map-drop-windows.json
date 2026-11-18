@@ -2,7 +2,7 @@
  "meta": {
   "id": "map-drop-windows",
   "name": "常规海域限定期台账（第一方）",
-  "version": "2026.11.11",
+  "version": "2026.11.18",
   "source": "kuma 限定期台账（第一方维护）",
   "fetchedAt": "2026-11-04T07:03:00.230Z",
   "upstreamUpdatedAt": null,
@@ -13,15 +13,16 @@
    "2026-08-28 批次：补上「已终了的常规图限定邂逅」。此前上游对照只读页面顶上那张「海域別リスト」——那张表里只有还开着的，一条限定终了之后就从表里消失，于是只看得见「不再列出」（缺席），永远看不见「它说自己终了了」（断言）。终了是在逐批次小节里**用删除线逐条标出来的**，而删除线只活在原始字节里，取文本的层一律会把它抹平。parseLimitedBatches（scripts/map-intel.mjs）改成在去标签之前判 <del>，据此补进 34 条 ended_undated/ended_confirmed。这一档与 end_pending 的分别是断言 vs 缺席：end_pending 只是上游不再列出，不许对玩家说「已终了」。另有 5 条同页自相矛盾（小节划了删除线、海域別名单又还列着），一律挂 conflict 不动 status。",
    "2026-10-18 万圣节批次：依舰娘百科（kcwiki）「季节性/2026年万圣节」修订 188858（2026-10-17T04:37Z）与艦ログ limited 页面（更新日時 10/18 23:00，普通访客人工核阅）两票，补录 2026-10-14 起的 Halloween：新开 13 条、重开 5 条；wikiwiki 总表核对日仍为 2026-09-10，尚未收录。本批无游戏报文一手印证；1-1/C 浜波、早波仅艦ログ一票，登记单票待裁而不改台账状态。未逐条重核整份台账，checkedAt 与本单之外条目的核对日保持原值。",
    "2026-11-04 万圣节结束批次：依据运营官方推文 https://x.com/KanColle_STAFF/status/2117869806686962024（2026-11-04 14:41 JST）及维护者裁决 2026-11-04，11/11 13:00 JST 维护开始即作战结束；舰娘百科「季节性/2026年万圣节」将本批列为万圣节期间限定掉落，随作战结束。18 条 Halloween 窗口补记 until=2026-11-11、ended_confirmed 与 official 结束凭据，原开窗凭据全文及 5 条重开历史保留，votes 不变。其余条目及 1-1/C 浜波、早波单票待裁登记不动；未重核整份台账，checkedAt 与 lastConfirmedAt 保持原值。",
-   "2026-11-11 樫限定继续订正：依据运营官方推文 https://x.com/KanColle_STAFF/status/2120446329080230091（2026-11-11，03）及 https://x.com/KanColle_STAFF/status/2120453991759004073（2026-11-11，22）与维护者裁决 2026-11-11，仅撤回 1-3/J 舰 993 樫在 11-04 按「随作战结束」记的结束日 2026-11-11，恢复 until=null、active_confirmed，statusChangedAt、lastConfirmedAt 与凭据录入日记 2026-11-11，结束日等下次维护公告。官方未点名海域与点位，沿用开窗批次的 1-3/J，点位是否不变待社区资料印证；原开窗凭据全文与 votes 保留，from、label 不动。其余 17 条 Halloween 窗口及所有其它条目、单票待裁登记不动；本次新一批限定邂逅未有点位资料，不录入；未重核整份台账，checkedAt 不动。"
+   "2026-11-11 樫限定继续订正：依据运营官方推文 https://x.com/KanColle_STAFF/status/2120446329080230091（2026-11-11，03）及 https://x.com/KanColle_STAFF/status/2120453991759004073（2026-11-11，22）与维护者裁决 2026-11-11，仅撤回 1-3/J 舰 993 樫在 11-04 按「随作战结束」记的结束日 2026-11-11，恢复 until=null、active_confirmed，statusChangedAt、lastConfirmedAt 与凭据录入日记 2026-11-11，结束日等下次维护公告。官方未点名海域与点位，沿用开窗批次的 1-3/J，点位是否不变待社区资料印证；原开窗凭据全文与 votes 保留，from、label 不动。其余 17 条 Halloween 窗口及所有其它条目、单票待裁登记不动；本次新一批限定邂逅未有点位资料，不录入；未重核整份台账，checkedAt 不动。",
+   "2026-11-18 鎮守府海域限定邂逅补录：据运营公告 22（2026-11-11）及 wikiwiki「期間限定ドロップイベント」的「秋津洲、秋霜など」点位表。维护者裁决 2026-11-18：艦ログ本批引自 wikiwiki，按 wikiwiki 单票开窗。新开 9 条：1-2/E 天霧、秋津洲，1-4/L 夕暮、夕雲、高波、秋霜、Ranger，1-5/J 松風、秋霜。原条目重开 2 条：1-2/E Salmon、1-5/J 熊野丸，凭据保留旧批次、起始日、结束状态与原终了凭据全文。维护者裁决 2026-11-18：这两条及 1-4/L 秋霜在 map-drops 均仅有 kcwiki 单票，kcwiki 常规海域页注明主要数据来自日 wiki，wikiwiki 常规海域页未列这三处，仅本批限定表列出，三处均记 limitedOnly；两条重开沿用原限定专属判定。1-3/J 樫、17 条已收窗 Halloween 与其余条目均保持原值，未重核全表，checkedAt 与 voters 不动。"
   ]
  },
  "data": {
   "schemaVersion": 1,
-  "compiledAt": "2026-11-11",
+  "compiledAt": "2026-11-18",
   "checkedAt": "2026-06-26",
   "source": "kuma 限定期台账（第一方维护）",
-  "revision": "2026.11.11",
+  "revision": "2026.11.18",
   "voters": {
    "wikiwiki": "艦これ攻略 Wiki 的期间限定掉落总表——起讫日期与批次标签的整理来源，只作参考",
    "ledger": "游戏报文核对（维护者核 2026-09-06） encounters.drop_mst——第一方一手，印证窗口确实开过，按图归不按点",
@@ -312,6 +313,46 @@
       ]
      },
      {
+      "id": 445,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-11-11",
+       "until": null,
+       "lastConfirmedAt": "2026-11-18",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-11-18",
+       "label": "秋津洲、秋霜など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki（wikiwiki）「期間限定ドロップイベント」（Last-modified: 2026-11-18 (水) 03:05:06）「秋津洲、秋霜など (2026/11/11～継続中)」节的「ドロップが確認された海域」表列 1-2/E（ボス）：天霧、秋津洲、Salmon。运营公告 22 https://x.com/KanColle_STAFF/status/2120453991759004073（2026-11-11）确认鎮守府海域限定邂逅更新，官方未点名海域与点位，具体点位据 wikiwiki。维护者裁决 2026-11-18：艦ログ本批引自 wikiwiki，不作独立第二票，按 wikiwiki 一票开窗。",
+       "recordedAt": "2026-11-18"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 479,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-11-11",
+       "until": null,
+       "lastConfirmedAt": "2026-11-18",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-11-18",
+       "label": "秋津洲、秋霜など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki（wikiwiki）「期間限定ドロップイベント」（Last-modified: 2026-11-18 (水) 03:05:06）「秋津洲、秋霜など (2026/11/11～継続中)」节的「ドロップが確認された海域」表列 1-2/E（ボス）：天霧、秋津洲、Salmon。运营公告 22 https://x.com/KanColle_STAFF/status/2120453991759004073（2026-11-11）确认鎮守府海域限定邂逅更新，官方未点名海域与点位，具体点位据 wikiwiki。维护者裁决 2026-11-18：艦ログ本批引自 wikiwiki，不作独立第二票，按 wikiwiki 一票开窗。",
+       "recordedAt": "2026-11-18"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
       "id": 524,
       "limitedOnly": true,
       "window": {
@@ -396,17 +437,17 @@
       "id": 891,
       "limitedOnly": true,
       "window": {
-       "from": "2024-12-26",
+       "from": "2026-11-11",
        "until": null,
-       "lastConfirmedAt": "2024-12-26",
-       "status": "ended_undated",
-       "statusChangedAt": "2026-08-28",
-       "label": "年の瀬"
+       "lastConfirmedAt": "2026-11-18",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-11-18",
+       "label": "秋津洲、秋霜など"
       },
       "evidence": {
        "kind": "community",
-       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「年の瀬」2024-12-26 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-2 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。维护者核 2026-09-06：暂无独立印证。",
-       "recordedAt": "2026-08-28"
+       "note": "wikiwiki「期間限定ドロップイベント」更新于 2026-11-18 (水) 03:05:06「秋津洲、秋霜など (2026/11/11～継続中)」列 1-2/E（ボス）：天霧、秋津洲、Salmon。公告22（2026-11-11）https://x.com/KanColle_STAFF/status/2120453991759004073 未点名海域与点位。维护者裁决 2026-11-18：点位据 wikiwiki，艦ログ转引不另计票。旧窗 ended_undated（2026-08-28 判定），原凭据：艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「年の瀬」2024-12-26 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-2 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。维护者核 2026-09-06：暂无独立印证。",
+       "recordedAt": "2026-11-18"
       },
       "votes": [
        "wikiwiki"
@@ -708,6 +749,26 @@
    "1-4": {
     "L": [
      {
+      "id": 133,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-11-11",
+       "until": null,
+       "lastConfirmedAt": "2026-11-18",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-11-18",
+       "label": "秋津洲、秋霜など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki（wikiwiki）「期間限定ドロップイベント」（Last-modified: 2026-11-18 (水) 03:05:06）「秋津洲、秋霜など (2026/11/11～継続中)」节的「ドロップが確認された海域」表列 1-4/L（ボス）：夕暮、夕雲、高波、秋霜、Ranger。运营公告 22 https://x.com/KanColle_STAFF/status/2120453991759004073（2026-11-11）确认鎮守府海域限定邂逅更新，官方未点名海域与点位，具体点位据 wikiwiki。维护者裁决 2026-11-18：艦ログ本批引自 wikiwiki，不作独立第二票，按 wikiwiki 一票开窗。",
+       "recordedAt": "2026-11-18"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
       "id": 140,
       "limitedOnly": true,
       "window": {
@@ -766,6 +827,26 @@
       "votes": [
        "kcwiki",
        "kanlog"
+      ]
+     },
+     {
+      "id": 424,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-11-11",
+       "until": null,
+       "lastConfirmedAt": "2026-11-18",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-11-18",
+       "label": "秋津洲、秋霜など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki（wikiwiki）「期間限定ドロップイベント」（Last-modified: 2026-11-18 (水) 03:05:06）「秋津洲、秋霜など (2026/11/11～継続中)」节的「ドロップが確認された海域」表列 1-4/L（ボス）：夕暮、夕雲、高波、秋霜、Ranger。运营公告 22 https://x.com/KanColle_STAFF/status/2120453991759004073（2026-11-11）确认鎮守府海域限定邂逅更新，官方未点名海域与点位，具体点位据 wikiwiki。维护者裁决 2026-11-18：艦ログ本批引自 wikiwiki，不作独立第二票，按 wikiwiki 一票开窗。",
+       "recordedAt": "2026-11-18"
+      },
+      "votes": [
+       "wikiwiki"
       ]
      },
      {
@@ -850,6 +931,46 @@
       "votes": [
        "kcwiki",
        "kanlog"
+      ]
+     },
+     {
+      "id": 625,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-11-11",
+       "until": null,
+       "lastConfirmedAt": "2026-11-18",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-11-18",
+       "label": "秋津洲、秋霜など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki（wikiwiki）「期間限定ドロップイベント」（Last-modified: 2026-11-18 (水) 03:05:06）「秋津洲、秋霜など (2026/11/11～継続中)」节的「ドロップが確認された海域」表列 1-4/L（ボス）：夕暮、夕雲、高波、秋霜、Ranger。运营公告 22 https://x.com/KanColle_STAFF/status/2120453991759004073（2026-11-11）确认鎮守府海域限定邂逅更新，官方未点名海域与点位，具体点位据 wikiwiki。维护者裁决 2026-11-18：艦ログ本批引自 wikiwiki，不作独立第二票，按 wikiwiki 一票开窗。map-drops 在该点仅有 kcwiki 单票；kcwiki 常规海域页注明主要数据来自日 wiki，wikiwiki 常规海域页未列本舰，仅本批限定表列出。依维护者裁决 2026-11-18，记限定专属。",
+       "recordedAt": "2026-11-18"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 633,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-11-11",
+       "until": null,
+       "lastConfirmedAt": "2026-11-18",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-11-18",
+       "label": "秋津洲、秋霜など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki（wikiwiki）「期間限定ドロップイベント」（Last-modified: 2026-11-18 (水) 03:05:06）「秋津洲、秋霜など (2026/11/11～継続中)」节的「ドロップが確認された海域」表列 1-4/L（ボス）：夕暮、夕雲、高波、秋霜、Ranger。运营公告 22 https://x.com/KanColle_STAFF/status/2120453991759004073（2026-11-11）确认鎮守府海域限定邂逅更新，官方未点名海域与点位，具体点位据 wikiwiki。维护者裁决 2026-11-18：艦ログ本批引自 wikiwiki，不作独立第二票，按 wikiwiki 一票开窗。",
+       "recordedAt": "2026-11-18"
+      },
+      "votes": [
+       "wikiwiki"
       ]
      },
      {
@@ -979,6 +1100,26 @@
       ]
      },
      {
+      "id": 931,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-11-11",
+       "until": null,
+       "lastConfirmedAt": "2026-11-18",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-11-18",
+       "label": "秋津洲、秋霜など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki（wikiwiki）「期間限定ドロップイベント」（Last-modified: 2026-11-18 (水) 03:05:06）「秋津洲、秋霜など (2026/11/11～継続中)」节的「ドロップが確認された海域」表列 1-4/L（ボス）：夕暮、夕雲、高波、秋霜、Ranger。运营公告 22 https://x.com/KanColle_STAFF/status/2120453991759004073（2026-11-11）确认鎮守府海域限定邂逅更新，官方未点名海域与点位，具体点位据 wikiwiki。维护者裁决 2026-11-18：艦ログ本批引自 wikiwiki，不作独立第二票，按 wikiwiki 一票开窗。",
+       "recordedAt": "2026-11-18"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
       "id": 934,
       "limitedOnly": true,
       "window": {
@@ -1017,6 +1158,46 @@
        "kind": "community",
        "note": "起讫日期与批次标签取社区资料整理（参考来源集中署名，见 NOTICE）；维护者核 2026-09-06：暂无独立印证。",
        "recordedAt": "2026-08-22"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 474,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-11-11",
+       "until": null,
+       "lastConfirmedAt": "2026-11-18",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-11-18",
+       "label": "秋津洲、秋霜など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki（wikiwiki）「期間限定ドロップイベント」（Last-modified: 2026-11-18 (水) 03:05:06）「秋津洲、秋霜など (2026/11/11～継続中)」节的「ドロップが確認された海域」表列 1-5/J（ボス）：松風、秋霜、熊野丸。运营公告 22 https://x.com/KanColle_STAFF/status/2120453991759004073（2026-11-11）确认鎮守府海域限定邂逅更新，官方未点名海域与点位，具体点位据 wikiwiki。维护者裁决 2026-11-18：艦ログ本批引自 wikiwiki，不作独立第二票，按 wikiwiki 一票开窗。",
+       "recordedAt": "2026-11-18"
+      },
+      "votes": [
+       "wikiwiki"
+      ]
+     },
+     {
+      "id": 625,
+      "limitedOnly": true,
+      "window": {
+       "from": "2026-11-11",
+       "until": null,
+       "lastConfirmedAt": "2026-11-18",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-11-18",
+       "label": "秋津洲、秋霜など"
+      },
+      "evidence": {
+       "kind": "community",
+       "note": "艦これ攻略 Wiki（wikiwiki）「期間限定ドロップイベント」（Last-modified: 2026-11-18 (水) 03:05:06）「秋津洲、秋霜など (2026/11/11～継続中)」节的「ドロップが確認された海域」表列 1-5/J（ボス）：松風、秋霜、熊野丸。运营公告 22 https://x.com/KanColle_STAFF/status/2120453991759004073（2026-11-11）确认鎮守府海域限定邂逅更新，官方未点名海域与点位，具体点位据 wikiwiki。维护者裁决 2026-11-18：艦ログ本批引自 wikiwiki，不作独立第二票，按 wikiwiki 一票开窗。",
+       "recordedAt": "2026-11-18"
       },
       "votes": [
        "wikiwiki"
@@ -1123,17 +1304,17 @@
       "id": 943,
       "limitedOnly": true,
       "window": {
-       "from": "2024-11-08",
+       "from": "2026-11-11",
        "until": null,
-       "lastConfirmedAt": "2024-11-08",
-       "status": "ended_undated",
-       "statusChangedAt": "2026-08-28",
-       "label": "秋刀魚祭り"
+       "lastConfirmedAt": "2026-11-18",
+       "status": "active_confirmed",
+       "statusChangedAt": "2026-11-18",
+       "label": "秋津洲、秋霜など"
       },
       "evidence": {
        "kind": "community",
-       "note": "艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「秋刀魚祭り」2024-11-08 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-5 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。维护者核 2026-09-06：暂无独立印证。",
-       "recordedAt": "2026-08-28"
+       "note": "wikiwiki「期間限定ドロップイベント」更新于 2026-11-18 (水) 03:05:06「秋津洲、秋霜など (2026/11/11～継続中)」列 1-5/J（ボス）：松風、秋霜、熊野丸。公告22（2026-11-11）https://x.com/KanColle_STAFF/status/2120453991759004073 未点名海域与点位。维护者裁决 2026-11-18：点位据 wikiwiki，艦ログ转引不另计票。旧窗 ended_undated（2026-08-28 判定），原凭据：艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。批次「秋刀魚祭り」2024-11-08 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，1-5 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。维护者核 2026-09-06：暂无独立印证。",
+       "recordedAt": "2026-11-18"
       },
       "votes": [
        "wikiwiki"

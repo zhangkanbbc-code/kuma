@@ -124,7 +124,7 @@ test('kcwiki 任务页:跨页改码只记信息,同页改码和跨页同码不�
   assert.equal(quests['314'].code, 'Cs2')
 })
 
-test('kcwiki 任务页:维护者十九条定号只记录公开游戏编号与核对日期', () => {
+test('kcwiki 任务页:维护者二十一条定号只记录公开游戏编号与核对日期', () => {
   assert.deepEqual(MAINTAINER_QUEST_NO_CORRECTIONS, [
     { code: '2609Cw1', id: 384, basis: '游戏任务列表编号（2026-09-11 核）' },
     { code: '2609Cw2', id: 385, basis: '游戏任务列表编号（2026-09-11 核）' },
@@ -145,6 +145,8 @@ test('kcwiki 任务页:维护者十九条定号只记录公开游戏编号与核
     { code: '2610Bm2', id: 1040, basis: '游戏任务列表编号（2026-10-21 核）' },
     { code: '2610B4', id: 1002, basis: '游戏任务列表编号（2026-10-21 核）' },
     { code: '2610F1', id: 1171, basis: '游戏任务列表编号（2026-10-21 核）' },
+    { code: '2611Cw1', id: 381, basis: '游戏任务列表编号（2026-11-15 核）' },
+    { code: 'F144', id: 1172, basis: '游戏任务列表编号（2026-11-15 核）' },
   ])
 })
 
@@ -171,22 +173,25 @@ test('kcwiki 任务页:定号表优先于错号或空注释,归一码并替换�
 {{任务表|编号=2610Bm2|<!---->|中文任务名字=狼群夜袭}}
 {{任务表|编号=2610B4|<!---->|中文任务名字=北方作战}}
 {{任务表|编号=2610F1|<!---->|中文任务名字=反潜装备整理}}
+{{任务表|编号=2611Cw1|<!---->|中文任务名字=秋月型演习任务2026}}
+{{任务表|编号=F144|<!---->|中文任务名字=夜战突击装备的强化I}}
 `], equipNames)
-  assert.deepEqual(Object.keys(quests), ['313', '359', '384', '385', '984', '985', '986', '987', '1002', '1019', '1038', '1039', '1040', '1050', '1051', '1052', '1119', '1170', '1171'])
-  assert.deepEqual(Object.values(quests).map(({ code }) => code), ['Cs1', '2610Cw1', '2609Cw1', '2609Cw2', '2610B1', '2610Bw1', '2610B2', '2610Bm1', '2610B4', 'B205', '2610B3', '2610Bw2', '2610Bm2', 'By17', 'By18', 'B217', '2610Fm1', 'F143', '2610F1'])
+  assert.deepEqual(Object.keys(quests), ['313', '359', '381', '384', '385', '984', '985', '986', '987', '1002', '1019', '1038', '1039', '1040', '1050', '1051', '1052', '1119', '1170', '1171', '1172'])
+  assert.deepEqual(Object.values(quests).map(({ code }) => code), ['Cs1', '2610Cw1', '2611Cw1', '2609Cw1', '2609Cw2', '2610B1', '2610Bw1', '2610B2', '2610Bm1', '2610B4', 'B205', '2610B3', '2610Bw2', '2610Bm2', 'By17', 'By18', 'B217', '2610Fm1', 'F143', '2610F1', 'F144'])
   assert.equal(quests['313'].memo, '奖励:工厂资源×1')
   assert.equal(quests['384'].name, '与提督的秋祭演习')
   assert.equal(stats.withoutId, 0)
   assert.deepEqual(stats.withoutIdRows, [])
   assert.equal(stats.duplicates, 2)
   assert.equal(stats.conflicts, 0)
+  assert.equal(stats.maintainerHits.length, 21)
   assert.deepEqual(stats.maintainerHits, MAINTAINER_QUEST_NO_CORRECTIONS.map(({ code, id }) => ({ code, id })))
   for (const quest of Object.values(quests)) {
     assert.deepEqual(Object.keys(quest).sort(), ['code', 'desc', 'memo', 'memo2', 'name', 'pre'])
   }
 })
 
-test('kcwiki 定号替换并挡住同号旧码，未核编号的两条保留在未定号区', () => {
+test('kcwiki 定号替换并挡住同号旧码，未核编号的三条保留在未定号区', () => {
   for (const { code, id } of MAINTAINER_QUEST_NO_CORRECTIONS.slice(7)) {
     const old = `{{任务表|编号=往年旧码|<!--${id}-->|中文任务名字=往年任务}}`
     const current = `{{任务表|编号=${code}|<!---->|中文任务名字=本年任务}}`
@@ -197,14 +202,37 @@ test('kcwiki 定号替换并挡住同号旧码，未核编号的两条保留在�
       assert.equal(quests[id].name, '本年任务')
     }
   }
-  const codes = ['SF1', 'B218']
+  const codes = ['SF1', '2611Cw2', 'B218']
   const { quests, unnumbered, stats } = parseKcwikiQuestPages([
     codes.map((code) => `{{任务表|编号=${code}|<!---->}}`).join('\n'),
   ], equipNames)
   assert.deepEqual(quests, {})
-  assert.equal(stats.withoutId, 2)
+  assert.equal(stats.withoutId, 3)
   assert.deepEqual(Object.keys(unnumbered), codes)
   assert.deepEqual(stats.withoutIdRows.map(({ code }) => code), codes)
+})
+
+test('维护者裁决 2026-11-15：秋月型演习与夜战工厂定号后保留六字段，只余三条未定号', () => {
+  const rows = [
+    ['SF1', '未定号任务'],
+    ['2611Cw1', '【期間限定任務】秋月型演習任務2026'],
+    ['2611Cw2', '未解锁任务'],
+    ['F144', '【雷装強化工廠任務】夜戦突撃装備の強化【I】'],
+    ['B218', '未定号任务'],
+  ]
+  const { quests: data, unnumbered, stats } = parseKcwikiQuestPages([
+    rows.map(([code, title]) => `{{任务表|编号=${code}|<!---->|日文任务名字=${title}|中文任务名字=${code}任务|中文任务说明=任务说明|奖励=资源×1|备注=任务备注|前置任务=B1}}`).join('\n'),
+  ], equipNames)
+  assert.deepEqual(Object.keys(data), ['381', '1172'])
+  for (const [id, code] of [[381, '2611Cw1'], [1172, 'F144']]) {
+    assert.deepEqual(data[id], {
+      code, name: `${code}任务`, desc: '任务说明', memo: '奖励:资源×1', memo2: '任务备注', pre: ['B1'],
+    })
+  }
+  assert.deepEqual(stats.maintainerHits, [{ code: '2611Cw1', id: 381 }, { code: 'F144', id: 1172 }])
+  assert.equal(stats.withoutId, 3)
+  assert.deepEqual(Object.keys(unnumbered), ['SF1', '2611Cw2', 'B218'])
+  assert.deepEqual(stats.withoutIdRows.map(({ code }) => code), ['SF1', '2611Cw2', 'B218'])
 })
 
 test('B205 错注 1018 在同页任一顺序都归 1019，By15 的 1018 原样保留', () => {
@@ -251,17 +279,20 @@ test('kcwiki 任务页:asCode 保留 Cs1 引用并取新行内容,后来的旧�
   }
 })
 
-test('kcwiki 任务页:未定号明细容许空码,首个非数字注释不向后找编号', () => {
+test('kcwiki 任务页:空码归入缺编码统计,首个非数字注释不向后找编号', () => {
   const { quests, stats } = parseKcwikiQuestPages([`
 {{任务表|编号=SF1|<!---->|<!--1052-->|中文任务名字=初夏的整理整顿}}
 {{任务表|编号=|中文任务名字=利用既存装备开发对空兵装}}
 {{任务表|编号=待定|<!--未定-->|<!--1053-->|中文任务名字=待定任务}}
 `], equipNames)
   assert.deepEqual(quests, {})
-  assert.equal(stats.withoutId, 3)
+  assert.equal(stats.withoutId, 2)
+  assert.equal(stats.withoutCode, 1)
+  assert.deepEqual(stats.withoutCodeRows, [
+    { titleJa: '', name: '利用既存装备开发对空兵装', pageIndex: 0, template: 2 },
+  ])
   assert.deepEqual(stats.withoutIdRows, [
     { code: 'SF1', name: '初夏的整理整顿' },
-    { code: '', name: '利用既存装备开发对空兵装' },
     { code: '待定', name: '待定任务' },
   ])
 })
@@ -288,11 +319,15 @@ test('quests-scn 真包:换源后的锚定事实', { skip: !existsSync(packFile)
   assert.match(`${data['158']?.memo}`, /三式弹改/)
   assert.match(`${data['197']?.memo}`, /12\.7cm连装炮D型改二/)
   for (const { code, id } of MAINTAINER_QUEST_NO_CORRECTIONS.filter(({ code }) => code.startsWith('2610'))) {
-    assert.equal(data[id]?.code, code)
+    assert.equal(data[id], undefined, `${code} 已退场，定号表保留`)
   }
   assert.equal(data[1019]?.code, 'B205')
   assert.equal(data[1018]?.code, 'By15')
-  assert.equal(Object.keys(data).length, 654)
+  assert.equal(Object.keys(data).length, 644)
+  assert.equal(data[381]?.code, '2611Cw1')
+  assert.equal(data[1172]?.code, 'F144')
+  // 舰娘百科任务页 2026-11-17 修订给出 2611Cw2 的游戏编号 386。
+  assert.equal(data[386]?.code, '2611Cw2')
   for (const code of ['SF1', 'B218']) {
     assert.ok(!Object.values(data).some((quest) => quest.code === code), `${code} 不应进入定号区`)
     assert.equal(pack.unnumbered[code]?.code, code)

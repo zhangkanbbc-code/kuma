@@ -1,3 +1,5 @@
+import { historicalQuestPack } from './fixtures/quest-retired-20261115.mjs'
+import retiredPack from './fixtures/quests-scn-retired-20261115.json' with { type: 'json' }
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -27,11 +29,14 @@ buildSync({
 })
 const runtime = createRequire(import.meta.url)(output)
 test.after(() => { mock.timers.reset(); fs.rmSync(temp, { recursive: true, force: true }) })
-const pack = (id) => runtime.applyQuestTextCorrectionsToPack(JSON.parse(fs.readFileSync(path.join(root, 'assets', 'lodes', `${id}.json`), 'utf8')))
+const pack = id => {
+  const source = JSON.parse(fs.readFileSync(path.join(root, 'assets/lodes', `${id}.json`), 'utf8'))
+  return runtime.applyQuestTextCorrectionsToPack(id === 'quests-scn' ? historicalQuestPack(source) : source)
+}
 const lodes = Object.fromEntries(['quests-scn', 'kcwiki-localization', 'kcwiki-quest-req', 'poi-quest-goal', 'kcwiki-expedition', 'poi-fcd-map'].map((id) => [id, pack(id)]))
 
 test('985 的鹈来名单直接来自上游包，万圣节加载不依赖校正', () => {
-  const upstream = JSON.parse(fs.readFileSync(path.join(root, 'assets', 'lodes', 'quests-scn.json'), 'utf8'))
+  const upstream = retiredPack
   assert.match(upstream.data['985'].memo2, /对马、鹈来、稻木/)
   assert.deepEqual(lodes['quests-scn'].data['985'], upstream.data['985'])
   assert.ok(!runtime.QUEST_TEXT_CORRECTIONS.some((fix) => fix.questId === 985))

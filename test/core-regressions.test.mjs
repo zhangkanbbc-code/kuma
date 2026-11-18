@@ -8514,6 +8514,12 @@ test('掉落换源：丢失的原有条目 0 条，限定期换到第一方台�
   assert.equal(midLimited, 0, '掉落层叠完还带着限定期窗口——那一域该只有台账一个出处')
 
   assert.equal(after.size, before.size, '叠加后点位数变了')
+  // 2026-11-18 鎮守府海域新开 9 条、重开 2 条。
+  const novemberIds = {
+    '1-2||E': [479, 445, 891],
+    '1-4||L': [633, 133, 424, 625, 931],
+    '1-5||J': [474, 625, 943],
+  }
   let gained = 0
   for (const [key, was] of before) {
     const now = after.get(key)
@@ -8557,6 +8563,7 @@ test('掉落换源：丢失的原有条目 0 条，限定期换到第一方台�
     wasLimited.push(...halloween.map((one) => [
       one.id, one.window.from, one.window.until ?? '', one.limitedOnly ? 'only' : '', one.history?.length ?? 0,
     ].join('/')))
+    for (const id of novemberIds[key] ?? []) wasLimited.push(id + '/2026-11-11//only/0')
     assert.deepEqual(now.limited, wasLimited.sort(), `${key} 的限定期被叠加弄丢或改了`)
     // ③ 空掉落标记从现包票取，值必须与底座一致
     assert.equal(now.emptyDrop, was.emptyDrop, `${key} 的空掉落标记被改动了`)
@@ -8612,8 +8619,8 @@ test('掉落换源：丢失的原有条目 0 条，限定期换到第一方台�
     }
   }
   // 迁移基线 144；2026-08-28 补进 34 条「已终了」（上游用删除线逐条标出来的那批）
-  assert.equal(ledgerEntries, 191, `限定期台账 ${ledgerEntries} 条（144 迁移基线 + 34 已终了 + 13 Halloween 新开）`)
-  assert.equal(onlyCount, 139, `limitedOnly ${onlyCount} 条（92 迁移基线 + 34 已终了 + 13 Halloween 新开）`)
+  assert.equal(ledgerEntries, 200, `限定期台账 ${ledgerEntries} 条（144 迁移基线 + 34 已终了 + 13 Halloween 新开 + 9 鎮守府海域新开）`)
+  assert.equal(onlyCount, 148, `limitedOnly ${onlyCount} 条（92 迁移基线 + 34 已终了 + 13 Halloween 新开 + 9 鎮守府海域新开）`)
   assert.equal(historyCount, 2, `带往期窗口 ${historyCount} 条（迁移基线 2）`)
 })
 
@@ -8671,15 +8678,15 @@ test('玩家那份产物没有底座：37 图掉落/编成/限定期照样全量
   // 与「有底座」那条迁移对照同一组数字：换掉底座不许改变常规图这三域的任何一格
   assert.equal(mapIntelEntries().length, 37, '玩家档只装出了这么几张图')
   assert.equal(nodes, 300)
-  assert.equal(rawShips, 10_864)
+  assert.equal(rawShips, 10_872)
   assert.equal(comps, 1_312)
-  assert.equal(rawLimited, 191)
+  assert.equal(rawLimited, 200)
   // 隐去的是两批：那 10 条「上游不再列出、日子不明」的，加 2026-08-28 补进的
-  // 34 条「上游指名说它终了」的，扣除 2026-10-18 两票重开的 5 条——其余
+  // 34 条「上游指名说它终了」的，扣除 2026-10-18 重开的 5 条与 2026-11-18 重开的 2 条——其余
   // 都只在限定期掉，都不该再摆给玩家当「现在去这儿捞」。数据里一条没删
-  // （上面 191 还在，含 13 条 Halloween 新开），隐的只是呈现。
-  assert.equal(rawShips - shownShips, 39)
-  assert.equal(shownLimited, 152)
+  // （上面 200 还在，含 13 条 Halloween 新开与 9 条鎮守府海域新开），隐的只是呈现。
+  assert.equal(rawShips - shownShips, 37)
+  assert.equal(shownLimited, 163)
   // 抽三张 1-1 以外的图逐项点一遍——只测 1-1 正是这个病躲过去的原因
   for (const code of ['1-5', '3-2', '7-3']) {
     const entry = mapIntelEntries().find(([key]) => key === code)?.[1]

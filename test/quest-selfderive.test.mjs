@@ -1,3 +1,4 @@
+import retiredPack from './fixtures/quests-scn-retired-20261115.json' with { type: 'json' }
 // 任务计数自研的行为护栏。
 //
 // 纪律（shared/source-pattern-guards-miss-logic-bugs）：这里的断言全部跑真解析器对真数据，
@@ -484,7 +485,7 @@ test('全库跑一遍：结构不变式处处成立，覆盖面不塌方', {
 
 // ---- 演习类：从中文正文推导 ----
 
-const questRow = (questId) => retiredQuests[questId] ?? questPack?.data?.[questId] ?? {}
+const questRow = (questId) => retiredPack.data[questId] ?? retiredQuests[questId] ?? questPack?.data?.[questId] ?? {}
 const drill = (questId) => {
   const row = questRow(questId)
   return practice.derivePracticeRule(
@@ -1834,9 +1835,9 @@ test('编成：斜杠省写形态不许把「或」后面那一半吞掉', () =>
  * 只有 `defines`（正文界定了成员表）才该覆盖，下面四条 defines 的例外各有依据。
  */
 const HIST_FLEET_RECONCILE = [
-  { entry: 'dd-22', code: 'A49', why: 'A49 的正文只点名 皐月/文月/長月 + 「其他一艘驱逐舰」，游戏这一条不要求 水無月；成员表由同为 defines 的 A79 背书（那条四个人全列了）。注册表没错，是 A49 这一条本来就松' },
   { entry: 'sq-31-e1', code: '2606Am1', why: '一条正文两套名单；2606Am1 在 kuma-quest-rules 里按「更新后」口径手工解码，落的是 sq-31-e2 那一期。前期名单因此不在门里——这是那条手工解码自己的期别选择，不是注册表与门打架' },
   { entry: 'sq-31-e1', code: '2606Cm1', why: '2026-09-08 编成门修正：与 2606Am1 同门，人工规则按更新后八艘改造链凑五艘；前期 sq-31-e1 名单不再由正文推导的前后期并集放行' },
+  { entry: 'dd-22', code: 'A49', why: 'A49 的正文只点名 皐月/文月/長月 + 「其他一艘驱逐舰」，游戏这一条不要求 水無月；成员表由同为 defines 的 A79 背书（那条四个人全列了）。注册表没错，是 A49 这一条本来就松' },
   { entry: 'dd-02-2', code: 'B206', why: 'mentions：B206 只要 早霜改二 旗舰 + 清霜/秋霜，朝霜 不在这条的要求里' },
   { entry: 'dd-07', code: 'B165', why: 'mentions：B165 只点名了队里的曙与潮，胧与涟不在这条的要求里' },
   { entry: 'dd-11-2', code: 'B208', why: 'mentions：B208 要的是 白雪改二 + 吹雪级凑数，不是整支第十一驱逐队' },
@@ -1915,7 +1916,9 @@ test('注册表 × 编成门：不覆盖的每一条都在台账里，且台账�
       if (!covered) found.push(`${entry.id}/${ref.code}`)
     }
   }
-  const recorded = HIST_FLEET_RECONCILE.map((row) => `${row.entry}/${row.code}`)
+  // 维护者裁决 2026-11-15：2606Am1、2606Cm1 退场，历史依据保留，只审计在库引用。
+  const liveCodes = new Set(Object.values(questPack.data).map(row => row.code))
+  const recorded = HIST_FLEET_RECONCILE.filter(row => liveCodes.has(row.code)).map((row) => `${row.entry}/${row.code}`)
   assert.deepEqual(
     [...found].sort(),
     [...recorded].sort(),

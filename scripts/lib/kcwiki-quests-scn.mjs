@@ -36,6 +36,8 @@ export const MAINTAINER_QUEST_NO_CORRECTIONS = [
   { code: '2610Bm2', id: 1040, basis: '游戏任务列表编号（2026-10-21 核）' },
   { code: '2610B4', id: 1002, basis: '游戏任务列表编号（2026-10-21 核）' },
   { code: '2610F1', id: 1171, basis: '游戏任务列表编号（2026-10-21 核）' },
+  { code: '2611Cw1', id: 381, basis: '游戏任务列表编号（2026-11-15 核）' },
+  { code: 'F144', id: 1172, basis: '游戏任务列表编号（2026-11-15 核）' },
 ]
 
 /** action=raw 取这两张页；顺序即合并顺序，后者覆盖前者的同号条目。 */
@@ -186,6 +188,7 @@ export const parseKcwikiQuestPages = (pages, equipNames) => {
   const conflictRows = []
   const crossPageCodeChanges = []
   const withoutIdRows = []
+  const withoutCodeRows = []
   const maintainerIds = new Set()
   const finalizedIds = new Set()
   const lastWrittenPage = new Map()
@@ -203,6 +206,11 @@ export const parseKcwikiQuestPages = (pages, equipNames) => {
       for (const { name, value } of args) {
         if (name === '编号') quest.code = value.replace(/<!--[\s\S]*?-->/g, '').replace(/\s+/g, '')
         if (name === '中文任务名字') quest.name = applyWtFilters(value)
+      }
+      // 维护者裁决 2026-11-12：缺编码的编辑中行只记诊断，不进入任何任务字典。
+      if (!quest.code) {
+        withoutCodeRows.push({ titleJa, name: quest.name, pageIndex, template: templates })
+        continue
       }
       const correction = MAINTAINER_QUEST_NO_CORRECTIONS.find(({ code }) => code === quest.code)
       const comment = span.match(/<!--([\s\S]*?)-->/)
@@ -253,7 +261,29 @@ export const parseKcwikiQuestPages = (pages, equipNames) => {
     }
   }
   return { quests, unnumbered, stats: {
-    templates, withoutId, withoutIdRows, duplicates, maintainerHits,
+    templates, withoutCode: withoutCodeRows.length, withoutCodeRows, withoutId, withoutIdRows, duplicates, maintainerHits,
     conflicts: conflictRows.length, conflictRows, crossPageCodeChanges, quests: Object.keys(quests).length,
   } }
 }
+
+/** 写包前的编码门槛；TS 运行时不便由取包 MJS 直接导入。 */
+export const assertQuestScnCodes = (pack) => {
+  for (const [section, rows] of [['data', pack.data], ['unnumbered', pack.unnumbered ?? {}]]) {
+    for (const [key, row] of Object.entries(rows)) {
+      // 对应 src/main/lode-validation.ts validateScnQuests 的 isText(raw.code, 100)
+      // 及 unnumbered 分支 raw.code === id；额外拒绝纯空白编码。
+      if (typeof row.code !== 'string' || !row.code.trim() || row.code.length > 100 ||
+        (section === 'unnumbered' && key !== row.code)) {
+        throw new Error(`quests-scn.${section}.${key} 编码非法`)
+      }
+    }
+  }
+}
+
+export const questScnPendingLogLines = (stats) => [
+  `[lodes]   缺编码 ${stats.withoutCode}`,
+  ...stats.withoutCodeRows.map(({ titleJa, pageIndex, template }) =>
+    `[lodes]     ${titleJa || `第 ${pageIndex + 1} 页 / 模板 ${template}`}`),
+  `[lodes]   未定号 ${stats.withoutId}`,
+  ...stats.withoutIdRows.map(({ code, name }) => `[lodes]     ${code}｜${name}`),
+]

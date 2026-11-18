@@ -1,3 +1,4 @@
+import retiredPack from './fixtures/quests-scn-retired-20261115.json' with { type: 'json' }
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import test from 'node:test'
@@ -111,7 +112,7 @@ test('questRefs 的码全在任务库里（kuma码空间）', () => {
   const lode = JSON.parse(
     fs.readFileSync(new URL('../assets/lodes/quests-scn.json', import.meta.url), 'utf8'),
   )
-  const codes = new Set(Object.values(lode.data ?? lode).map((quest) => quest.code))
+  const codes = new Set(Object.values({ ...retiredPack.data, ...(lode.data ?? lode) }).map((quest) => quest.code))
   assert.ok(codes.size > 500, `任务库只读到 ${codes.size} 条码`)
   for (const entry of HIST_FLEETS) {
     assert.ok(entry.questRefs.length > 0, `${entry.id} 没有任何任务出处`)

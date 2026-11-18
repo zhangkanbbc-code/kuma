@@ -3,7 +3,7 @@ import test from 'node:test'
 
 import campaign from '../dist/shared/seasonal-campaign.js'
 
-const { SEASONAL_ITEMS, campaignQuestPeriod, detectSeasonalCampaigns } = campaign
+const { SEASONAL_ITEMS, SEASONAL_CAMPAIGN_ENDS, campaignQuestPeriod, detectSeasonalCampaigns } = campaign
 
 // 与真实 api_mst_useitem 同形的最小主数据（id 取真值，防止将来有人硬编码 id 时测试还绿）
 const USEITEM_MST = [
@@ -22,11 +22,29 @@ test('南瓜 2026 结束时刻按兑换目录时段匹配，与奖励解析和�
     const active = detect(Date.parse(at))
     const pumpkin = active.find(c => c.key === 'pumpkin')
     assert.equal(pumpkin.endsAt, endsAt)
+    assert.equal(pumpkin.remainingUsableUntilMaintenance, true)
     assert.equal(pumpkin.exchange, undefined, '缺奖励主数据时仍能确定本季结束时刻')
     assert.equal(active.find(c => c.key === 'sanma').endsAt, undefined)
+    assert.equal(active.find(c => c.key === 'sanma').remainingUsableUntilMaintenance, undefined)
   }
   for (const now of [undefined, Date.parse('2026-10-13T23:59:59+09:00'), Date.parse('2027-01-01T00:00:00+09:00'), Date.parse('2027-10-20T00:00:00+09:00')]) {
     assert.equal(detect(now).find(c => c.key === 'pumpkin').endsAt, undefined)
+    assert.equal(detect(now).find(c => c.key === 'pumpkin').remainingUsableUntilMaintenance, undefined)
+  }
+})
+
+test('登记结束时刻但未登记剩余道具期限时，不附加期限字段', () => {
+  const ending = SEASONAL_CAMPAIGN_ENDS.find(c => c.campaignKey === 'pumpkin' && c.season === 2026)
+  const original = ending.remainingUsableUntilMaintenance
+  try {
+    delete ending.remainingUsableUntilMaintenance
+    const [detected] = detectSeasonalCampaigns({
+      useitemMst: USEITEM_MST, useitems: { 96: 3 }, quests: [], now: ending.endsAt,
+    })
+    assert.equal(detected.endsAt, ending.endsAt)
+    assert.equal(Object.hasOwn(detected, 'remainingUsableUntilMaintenance'), false)
+  } finally {
+    ending.remainingUsableUntilMaintenance = original
   }
 })
 

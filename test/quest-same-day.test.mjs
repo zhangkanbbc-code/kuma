@@ -45,8 +45,9 @@ test('随包两份来源分别覆盖 27 条标记和 42 条正文，取并集 48
   assert.equal(text.length, 42)
   assert.equal(new Set([...flagged, ...text]).size, 48)
   assert.equal(text.filter((id) => !flagged.includes(id)).length, 21)
-  // 2606Cw1 已从季节页移出；本次 2610Cw1 补回一条当日要求，总数不变。
-  const currentCodes = [...Object.keys(textOnlySamples).filter((code) => code !== '2606Cw1'), '2610Cw1']
+  // 维护者裁决 2026-11-15：2606Cm1、2610Cw1 退场；2611Cw1 定号后加入正文统计。
+  // 舰娘百科任务页 2026-11-17 修订：2611Cw2 定号 386 后加入正文统计。
+  const currentCodes = [...Object.keys(textOnlySamples).filter((code) => !['2606Cw1', '2606Cm1'].includes(code)), '2611Cw1', '2611Cw2']
   for (const code of currentCodes) {
     assert.ok(text.some((id) => quests[id].code === code), code)
     assert.ok(!flagged.some((id) => quests[id].code === code), code)

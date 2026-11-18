@@ -102,7 +102,7 @@ test('兑换区在持有数之下，显示游戏原名、消耗及中文奖励�
   assert.match(html, /3\. 熟练甲板人员\+航空整备员 ×1/)
   assert.match(html, /三选一 · 限 1 次/)
   assert.match(html, /兑换目录来自游戏内菜单（2026-10-14）/)
-  assert.match(html, /南瓜结束时间来自运营公告（2026-11-04）/)
+  assert.match(html, /南瓜任务结束与剩余道具期限来自运营公告（2026-11-04、11-11）/)
   assert.doesNotMatch(html, /期间限定|在途|一格/)
 })
 

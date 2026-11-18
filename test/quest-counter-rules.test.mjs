@@ -395,7 +395,10 @@ test('quest counter reports the audited synthetic-master coverage split', () => 
     assert.deepEqual(split, { kcwiki: 148, poi: 25, text: 15, kuma: 59 })
     // 2026-09-15 新增 B217/F143；合成主数据不含北上改三，覆盖数不变，目录增至 650。
     // 2026-10-21 六条定号使目录增至 654，合成主数据下可计数覆盖仍为 247。
-    assert.match(state.packCredit, /精确计数覆盖 247 \/ 654 条/)
+    // 维护者裁决 2026-11-15：退场 13 条；此主数据仅失去 359、382 两条演习。
+    // 维护者裁决 2026-11-15：两条定号使目录增加 2，此合成主数据可解析演习增加 1。
+    // 舰娘百科任务页 2026-11-17 修订：2611Cw2 定号使目录增加 1，此合成主数据可解析演习增加 1。
+    assert.match(state.packCredit, /精确计数覆盖 247 \/ 644 条/)
     assert.match(state.packCredit, / · 规则更新 \d{4}-\d{2}-\d{2}$/)
     assert.doesNotMatch(state.packCredit, /EO|KCWiki|poi/, '发布侧署名不该回潮')
     return

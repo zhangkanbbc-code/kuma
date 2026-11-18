@@ -277,19 +277,24 @@ test('end_pending 照旧隐去、也不解释——没人说过它结束，不�
 const ledgerFile = new URL('../assets/lodes/map-drop-windows.json', import.meta.url)
 const dropsFile = new URL('../assets/lodes/map-drops.json', import.meta.url)
 
-test('随包台账：鲑鱼 1-2 E 记成已终了，且说得出是哪一批', {
+test('随包台账：Salmon 与熊野丸原位重开，凭据保留旧批次及终了原文', {
   skip: fs.existsSync(ledgerFile) ? false : '缺 map-drop-windows 台账',
 }, () => {
   const data = JSON.parse(fs.readFileSync(ledgerFile, 'utf8')).data
-  const salmon = (data.maps['1-2']?.E ?? []).find((one) => one.id === 891)
-  assert.ok(salmon, '鲑鱼 1-2 E 没进台账——缺舰清单会继续把它当常驻掉落指出去')
-  assert.equal(salmon.window.status, 'ended_undated')
-  assert.equal(salmon.window.until, null, '上游从没公布过结束日，写了日子就是编的')
-  assert.equal(salmon.window.from, '2024-12-26')
-  assert.equal(salmon.window.label, '年の瀬')
-  assert.equal(salmon.limitedOnly, true, 'limitedOnly 少了，它就不会从可捞里退出去')
-  assert.ok(salmon.evidence.note.includes('删除线'), '凭据没写清是凭什么判的终了')
-  assert.deepEqual(salmon.votes, ['wikiwiki'])
+  for (const [map, node, id, label, from] of [
+    ['1-2', 'E', 891, '年の瀬', '2024-12-26'],
+    ['1-5', 'J', 943, '秋刀魚祭り', '2024-11-08'],
+  ]) {
+    const entry = data.maps[map][node].find(one => one.id === id)
+    assert.equal(limitedWindowPhase(entry.window, '2026-11-18'), 'open_undated')
+    const note = entry.evidence.note
+    assert.ok(note.includes('旧窗 ended_undated（2026-08-28 判定）'))
+    const oldNote = '艦これ攻略 Wiki「期間限定ドロップイベント」页 2026-08-28 拉原始字节核阅：' +
+      '该条目在页面上带删除线——上游是**指名说它终了**，不是「不再列出」的疑似，所以落 ended_undated 而不是 end_pending。' +
+      `批次「${label}」${from} 起，上游从未公布结束日。同页「現在継続中の期間限定ドロップ艦」的海域別名单里，` +
+      `${map} 也不再列出它——两处一致，但同属 wikiwiki 一家，仍按一票记。维护者核 2026-09-06：暂无独立印证。`
+    assert.ok(note.includes(oldNote), `${map}/${node}#${id} 的旧终了凭据不完整`)
+  }
 })
 
 test('随包台账：已终了那一档都带 limitedOnly 与凭据，且没顺手改动别的条目', {
@@ -308,10 +313,10 @@ test('随包台账：已终了那一档都带 limitedOnly 与凭据，且没顺�
     tally[status] = (tally[status] ?? 0) + 1
   }
   // 2026-11-11 官方确认樫限定继续：仅这一条撤回结束日，其余 17 条保持结束。
-  assert.equal(tally.active_confirmed, 135, '原有 134 + 樫 1 条恢复开放')
+  assert.equal(tally.active_confirmed, 146, '原有 134 + 樫恢复开放 1 条 + 鎮守府海域新开 9 条、重开 2 条')
   assert.equal(tally.ended_confirmed, 17, '原有 18 - 樫 1 条撤回结束日')
   assert.equal(tally.end_pending, 10, '原有的 end_pending 条目数变了')
-  assert.equal(tally.ended_undated, 29, '已终了应为原有 34 - 5 重开')
+  assert.equal(tally.ended_undated, 27, '已终了应为原有 34 - Halloween 重开 5 条 - 鎮守府海域重开 2 条')
 
   for (const { map, node: nd, one } of rows) {
     const status = one.window.status ?? 'active_confirmed'

@@ -1,3 +1,4 @@
+import { historicalQuestPack } from './fixtures/quest-retired-20261115.mjs'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -27,7 +28,10 @@ buildSync({
 })
 const runtime = createRequire(import.meta.url)(output)
 test.after(() => fs.rmSync(temp, { recursive: true, force: true }))
-const load = id => runtime.applyQuestTextCorrectionsToPack(JSON.parse(fs.readFileSync(path.join(root, 'assets/lodes', `${id}.json`), 'utf8')))
+const load = id => {
+  const source = JSON.parse(fs.readFileSync(path.join(root, 'assets/lodes', `${id}.json`), 'utf8'))
+  return runtime.applyQuestTextCorrectionsToPack(id === 'quests-scn' ? historicalQuestPack(source) : source)
+}
 const lodes = Object.fromEntries(['quests-scn', 'kcwiki-localization', 'kcwiki-quest-req', 'poi-quest-goal', 'kcwiki-expedition', 'poi-fcd-map'].map(id => [id, load(id)]))
 const master = { ...unnumberedMaster, api_mst_mapinfo: sortieMaster.api_mst_mapinfo }
 const ctx = runtime.buildFleetRuleContext(master, lodes['kcwiki-localization'].data)

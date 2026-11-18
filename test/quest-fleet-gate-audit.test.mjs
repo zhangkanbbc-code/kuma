@@ -71,9 +71,13 @@ test('真实全库编成门可疑清单必须精确等于已核清单，新增�
   // 2026-10-16 季节页移出六道旧门、加入四道万圣节门；仅更新审计快照，不修门。
   // 万圣节编成门补严：359 新增一道门，1038 已满足四艘及旗舰，不再列为可疑。
   // 2026-10-21 五条万圣节已定号，剩 B218 假设认领；B205 新增一道自研编成门。
-  assert.equal(result.summary.total, 406)
-  assert.deepEqual(result.summary.sources, { kcwiki: 261, kuma: 145 })
+  // 维护者裁决 2026-11-15：九道万圣节门退场，两道新演习门假设认领后进入审计。
+  assert.equal(result.summary.total, 399)
+  assert.deepEqual(result.summary.sources, { kcwiki: 261, kuma: 138 })
+  // 舰娘百科任务页 2026-11-17 修订：2611Cw2 定号 386，移出假设认领。
   assert.equal(result.unnumbered.length, 1)
+  // F144 的旗舰装备槽要求由准备项表达；机械体检按‘旗舰’将其列为缺编成门。
+  // 维护者裁决 2026-11-15：F144 已定号，不再计入未定号缺门清单。
   assert.deepEqual(result.missing, [])
   assert.deepEqual(result.suspicious.map((row) => row.code).sort(), Object.keys(REVIEWED).sort())
   for (const code of ['C57', 'B194', 'B204', 'F138']) {

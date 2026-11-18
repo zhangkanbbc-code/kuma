@@ -637,11 +637,43 @@ test('2026 万圣节除樫外 17 条保留结束日、开窗凭据与重开历�
       status: 'active_confirmed', statusChangedAt: '2026-06-26', label,
     }, `${map}/${node}#${id} 的既有窗口被本批改写`)
   }
-  assert.equal(pack.meta.version, '2026.11.11')
-  assert.equal(data.revision, '2026.11.11')
-  assert.equal(data.compiledAt, '2026-11-11')
+  assert.equal(pack.meta.version, '2026.11.18')
+  assert.equal(data.revision, '2026.11.18')
+  assert.equal(data.compiledAt, '2026-11-18')
   assert.equal(data.checkedAt, '2026-06-26', '局部补录不刷新全台账核对日')
   assert.ok(data.voters.kcwiki.includes('与 wikiwiki 编辑群独立'))
+})
+
+test('秋津洲、秋霜など按 wikiwiki 单票在对应点开窗', () => {
+  const data = JSON.parse(fs.readFileSync(realPack, 'utf8')).data
+  assert.ok(applyMapIntelCatalog({ schemaVersion: 1, maps: {} }))
+  assert.ok(applyMapDrops(JSON.parse(fs.readFileSync(new URL('../assets/lodes/map-drops.json', import.meta.url), 'utf8')).data))
+  assert.ok(applyMapDropWindows(data))
+  const confirmedAt = '2026-11-18'
+  for (const [map, node, ids, roster] of [
+    ['1-2', 'E', [479, 445, 891], '天霧、秋津洲、Salmon'],
+    ['1-4', 'L', [633, 133, 424, 625, 931], '夕暮、夕雲、高波、秋霜、Ranger'],
+    ['1-5', 'J', [474, 625, 943], '松風、秋霜、熊野丸'],
+  ]) {
+    for (const id of ids) {
+      const entries = data.maps[map][node].filter(one => one.id === id)
+      assert.equal(entries.length, 1, `${map}/${node}#${id}`)
+      const [entry] = entries
+      assert.deepEqual(entry.window, {
+        from: '2026-11-11', until: null, lastConfirmedAt: confirmedAt,
+        status: 'active_confirmed', statusChangedAt: confirmedAt, label: '秋津洲、秋霜など',
+      })
+      assert.equal(entry.limitedOnly, true)
+      assert.deepEqual(entry.votes, ['wikiwiki'])
+      assert.equal(entry.evidence.kind, 'community')
+      assert.equal(entry.evidence.recordedAt, confirmedAt)
+      assert.ok(entry.evidence.note.includes(`${map}/${node}（ボス）：${roster}`))
+      assert.ok(entry.evidence.note.includes('https://x.com/KanColle_STAFF/status/2120453991759004073'))
+      const shown = mapIntelNode(map, node, confirmedAt).ships.find(ship => ship.id === id)
+      assert.ok(shown, `${map}/${node}#${id} 未出现在掉落池`)
+      assert.equal(limitedWindowPhase(shown.limited, confirmedAt), 'open_undated')
+    }
+  }
 })
 
 test('2026-11-11 樫限定继续：撤回结束日，保留原开窗凭据及点位待印证边界', () => {

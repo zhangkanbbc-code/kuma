@@ -1,3 +1,4 @@
+import retiredPack from './fixtures/quests-scn-retired-20261115.json' with { type: 'json' }
 // 任务正文校正台账的护栏（2026-08-27 用户裁决）。
 //
 // 病灶：`quests-scn` 的 memo2 把日文的**件数/艘数**量词一律译成了「N次」。
@@ -62,7 +63,7 @@ test('五条校正的最终呈现就是用户定稿的那几个字', () => {
 })
 
 test('985 的 memo2 由上游直接给出并含鹈来，加载期不再校正', () => {
-  const pack = readLode('quests-scn')
+  const pack = retiredPack
   if (!pack) return
   assert.equal(
     pack.data['985'].memo2,
@@ -193,7 +194,7 @@ test('两个装载口都叠了校正——只叠一边会让显示与判定悄�
   if (!pack) return
   assert.equal(pack.data['635'].memo2, '废弃5件装备', '离线装载口也应看到校正后的文本')
   assert.equal(pack.data['609'].memo2, '解体2艘舰船')
-  assert.equal(pack.data['985'].memo2, readLode('quests-scn').data['985'].memo2, '985 离线加载后仍是上游原文')
+  assert.equal(applyQuestTextCorrectionsToPack(retiredPack).data['985'], retiredPack.data['985'], '985 固定正文加载后仍是上游原文')
 })
 
 test('每条校正都写了证据，且实测与推定分得清', () => {

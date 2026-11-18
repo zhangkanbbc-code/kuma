@@ -1,3 +1,4 @@
+import retiredPack from './fixtures/quests-scn-retired-20261115.json' with { type: 'json' }
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -67,6 +68,7 @@ test('类别表：A=1，B=2/8/9/10，C=3，D=4，E=5，F=6/11，G=7', () => {
 
 const load = id => runtime.applyQuestTextCorrectionsToPack(JSON.parse(fs.readFileSync(path.join(root, 'assets/lodes', `${id}.json`), 'utf8')))
 const lodes = Object.fromEntries(['quests-scn', 'kcwiki-localization', 'kcwiki-quest-req', 'poi-quest-goal', 'kcwiki-expedition', 'poi-fcd-map'].map(id => [id, load(id)]))
+const historical = { ...lodes['quests-scn'], data: { ...lodes['quests-scn'].data, ...retiredPack.data } }
 const master = { ...unnumberedMaster, api_mst_mapinfo: sortieMaster.api_mst_mapinfo }
 const quiet = fn => {
   const log = console.log, warn = console.warn
@@ -95,7 +97,7 @@ const world = (source, quests = {}) => {
 const rawQuest = (no, title, category) => ({ api_no: no, api_title: title, api_category: category, api_state: 2, api_type: 4, api_progress_flag: 0 })
 
 test('984/2610B1：临时移除维护者定号后，规则、编成门、准备条件逐字段等价', () => {
-  const row = lodes['quests-scn'].data[984]
+  const row = historical.data[984]
   const title = '【期間限定任務】14年目実りの秋、南瓜始め！'
   const page = `{{任务表|编号=2610B1|<!---->|日文任务名字=${title}|中文任务名字=${row.name}|中文任务说明=${row.desc}|奖励=${row.memo.replace(/^奖励:/, '')}|备注=${row.memo2}|${row.pre.map((pre, index) => `前置${index || ''}=${pre}`).join('|')}}}`
   const normal = parseKcwikiQuestPages([page], new Map())
@@ -107,10 +109,10 @@ test('984/2610B1：临时移除维护者定号后，规则、编成门、准备�
   finally { MAINTAINER_QUEST_NO_CORRECTIONS.splice(index, 0, correction) }
   assert.deepEqual(parsed.quests, {})
   assert.equal(parsed.unnumbered['2610B1'].titleJa, title)
-  const source = structuredClone(lodes['quests-scn'])
+  const source = structuredClone(historical)
   delete source.data[984]
   source.unnumbered['2610B1'] = parsed.unnumbered['2610B1']
-  const expected = world(lodes['quests-scn'], { 984: observed(title, 10, 984) }).engine.state().trackers[984]
+  const expected = world(historical, { 984: observed(title, 10, 984) }).engine.state().trackers[984]
   assert.ok(expected.tasks.length)
   assert.ok(expected.fleetGoal)
   const live = world(source)
@@ -121,10 +123,10 @@ test('984/2610B1：临时移除维护者定号后，规则、编成门、准备�
 })
 
 test('1119：有准备项的工厂任务，认领与定号的完整追踪器相同', () => {
-  const source = structuredClone(lodes['quests-scn'])
+  const source = structuredClone(historical)
   source.unnumbered['2610Fm1'] = { ...source.data[1119], titleJa: '【期間限定】Halloweenの南瓜、食べりゅ?' }
   delete source.data[1119]
-  const expected = world(lodes['quests-scn'], { 1119: observed(source.unnumbered['2610Fm1'].titleJa, 11, 1119) }).engine.state().trackers[1119]
+  const expected = world(historical, { 1119: observed(source.unnumbered['2610Fm1'].titleJa, 11, 1119) }).engine.state().trackers[1119]
   assert.ok(expected.stockGoals.length)
   const live = world(source)
   live.receive([rawQuest(1119, source.unnumbered['2610Fm1'].titleJa, 11)])
@@ -132,9 +134,9 @@ test('1119：有准备项的工厂任务，认领与定号的完整追踪器相�
 })
 
 test('恢复领域状态后 reconcile 立即认领；标题或类别改变即撤销，重新下发可重推', () => {
-  const row = lodes['quests-scn'].data[984]
+  const row = historical.data[984]
   const title = '【期間限定任務】14年目実りの秋、南瓜始め！'
-  const source = structuredClone(lodes['quests-scn'])
+  const source = structuredClone(historical)
   delete source.data[984]
   source.unnumbered[row.code] = { ...row, titleJa: title }
   const live = world(source)
@@ -259,3 +261,26 @@ test('全库显示：加入未定号区不改变任何现有任务行，也不�
   assert.equal(rows(source).length, Object.keys(source.data).length)
   assert.deepEqual(rows(source), rows(legacy))
 })
+
+for (const [code, category, id, titleJa] of [
+  ['2611Cw1', 3, 381, '【期間限定任務】秋月型演習任務2026'],
+  ['2611Cw2', 3, 386, '【期間限定任務】秋刀魚祭り準備演習！'],
+  ['F144', 11, 1172, '【雷装強化工廠任務】夜戦突撃装備の強化【I】'],
+]) {
+  test(`${code}：11-15 未定号形态按游戏列表日文标题与类别认领`, () => {
+    const source = structuredClone(lodes['quests-scn'])
+    // 维护者裁决 2026-11-15 已定号的两条与舰娘百科 2026-11-17 定号的 2611Cw2 恢复为历史未定号形态，继续验证认领路径。
+    if (id) {
+      source.unnumbered[code] = { ...source.data[id], titleJa }
+      delete source.data[id]
+    }
+    const row = source.unnumbered[code]
+    assert.ok(row.titleJa)
+    const no = 9901 // 仅本测试模拟历史未定号形态下发的编号。
+    const listed = runtime.reduceQuestList({}, [], { api_list: [rawQuest(no, row.titleJa, category)], api_exec_count: 1 }, { api_tab_id: '0' })
+    const result = runtime.resolveQuestClaims(source, Object.values(listed.quests))
+    assert.equal(result.data[no].code, code)
+    assert.equal(result.claims.length, 1)
+    assert.ok(!Object.values(source.data).some(entry => entry.code === code))
+  })
+}

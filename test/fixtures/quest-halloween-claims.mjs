@@ -1,4 +1,5 @@
-// 用现行定号正文在内存还原旧的认领输入，保留按日文标题认领的行为回归。
+import retiredPack from './quests-scn-retired-20261115.json' with { type: 'json' }
+// 用固定定号正文（维护者裁决 2026-11-15）在内存还原旧的认领输入，保留按日文标题认领的行为回归。
 export const halloweenFixedIds = { '2610Bw2': 1039, '2610Bm1': 987, '2610Bm2': 1040, '2610B4': 1002, '2610F1': 1171 }
 export const halloweenTitles = {
   '2610Bw2': '【限定拡張作戦】Halloween海上護衛隊出撃！',
@@ -10,7 +11,7 @@ export const halloweenTitles = {
 export const halloweenClaimPack = pack => {
   const source = structuredClone(pack)
   for (const [code, id] of Object.entries(halloweenFixedIds)) {
-    source.unnumbered[code] = { ...source.data[id], titleJa: halloweenTitles[code] }
+    source.unnumbered[code] = { ...retiredPack.data[id], titleJa: halloweenTitles[code] }
     delete source.data[id]
   }
   return source

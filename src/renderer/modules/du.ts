@@ -11,7 +11,7 @@ import { querySeasonalHistory } from '../kernel'
 import { fleetAirPower } from '../fleet-calc'
 import { equipTypeIconHtml } from '../equip-icon'
 import { MATERIAL_ICON_BY_INDEX, materialIconHtml, shipThumbHtml } from '../entity-art'
-import { commitPaneHtml, deferPassive, esc, fleetLabel, fmtDate, fmtDateTime, fmtDurationLong, fmtK, fmtTime, forgetCommittedHtml, lodeCredit, mg, onMgChange, queryFriendlyFleets, queryLode, queryMasterRaw, queryMaterialWindow, uiGet, uiSet } from '../kernel'
+import { commitPaneHtml, deferPassive, esc, fleetLabel, fmtDate, fmtDateTime, fmtDurationLong, fmtK, fmtTime, forgetCommittedHtml, lodeCredit, mg, onMgChange, onTick, queryFriendlyFleets, queryLode, queryMasterRaw, queryMaterialWindow, uiGet, uiSet, updateCountdowns } from '../kernel'
 import type { LodeMeta } from '../kernel'
 import { cachedEventBonusLode, eventKeyOf, loadEventBonusLode } from '../combat-forecast'
 import { airBaseCustomName } from '../../shared/air-base-name'
@@ -1319,7 +1319,8 @@ const campaignCardHtml = (campaign: SeasonalCampaign): string => {
     <div class="cq-stock">持有 <b>${campaign.stock}</b>${
       mg.useitemsTs ? `<span class="ts"> · 同步于 ${fmtTime(mg.useitemsTs)}</span>` : ''
     }</div>${campaign.endsAt == null ? '' : `
-    <div class="gnote2">结束 ${fmtDateTime(campaign.endsAt)} · <span data-cdl="${campaign.endsAt}" data-cdl-done="已结束">${fmtDurationLong(campaign.endsAt, '已结束')}</span></div>`}
+    <div class="gnote2">任务结束 ${fmtDateTime(campaign.endsAt)} · <span data-cdl="${campaign.endsAt}" data-cdl-done="已结束">${fmtDurationLong(campaign.endsAt, '已结束')}</span></div>${campaign.remainingUsableUntilMaintenance && campaign.stock > 0 ? `
+    <div class="gnote2" data-campaign-stock-until="${campaign.endsAt}"${Date.now() < campaign.endsAt ? ' hidden' : ''}>剩余${esc(campaign.zhLabel)}可用至下次维护</div>` : ''}`}
     ${exchange ? `<div class="cq-group"><span class="cq-k">兑换</span><div class="cq-list">${exchange}</div></div>` : ''}
     ${history ? `<div class="cq-group"><span class="cq-k">本季记录</span><div class="cq-list cq-history">${campaignSummaryHtml(history, historyContext)}${campaignRecordsHtml(history, historyContext)}</div></div>` : ''}
     ${groups || '<div class="gnote2">现役任务暂无该道具相关项</div>'}
@@ -1332,9 +1333,16 @@ const campaignViewHtml = (active: SeasonalCampaign[]): string =>
       </div>
     <div class="camp-body">
       ${active.map(campaignCardHtml).join('')}
-      <div class="note9"><span class="credit-mark" title="持有数与任务状态由游戏实时同步 ｜ 任务周期来自本地任务目录 ｜ 兑换目录来自游戏内菜单（2026-10-14） ｜ 南瓜结束时间来自运营公告（2026-11-04）">源</span></div>
+      <div class="note9"><span class="credit-mark" title="持有数与任务状态由游戏实时同步 ｜ 任务周期来自本地任务目录 ｜ 兑换目录来自游戏内菜单（2026-10-14） ｜ 南瓜任务结束与剩余道具期限来自运营公告（2026-11-04、11-11）">源</span></div>
     </div>
   </div>`
+
+const updateCampaignCountdowns = (root: HTMLElement) => {
+  updateCountdowns(root)
+  root.querySelectorAll<HTMLElement>('[data-campaign-stock-until]').forEach((el) => {
+    el.hidden = Date.now() < Number(el.dataset.campaignStockUntil)
+  })
+}
 
 const render = () => {
   if (!pane) return
@@ -1517,6 +1525,10 @@ registerModule({
       ) {
         deferPassive(pane, 'du', render)
       }
+    })
+    // 结束时刻不会产生铭 patch；沿用秒级 ticker，仅更新文本与提示显隐。
+    onTick(() => {
+      if (pane.classList.contains('active')) updateCampaignCountdowns(pane)
     })
     render()
   },
