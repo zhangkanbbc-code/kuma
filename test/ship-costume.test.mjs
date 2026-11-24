@@ -221,16 +221,16 @@ test('立绘页真的摆了衣装段，且排在本体之后、档案旧版之�
   assert.match(section, /data-cg-path="\$\{esc\(im\.pathname\)\}"/)
 })
 
-test('取图回退链与「本机有没有」的判据是同一句话', () => {
+test('取图按版号选档案，「本机有没有」按路径盘点', () => {
   const kcs = src('renderer/kcs-image.ts')
   // 三档顺序：本地缓存 → 档案实物 → 远端
   const chain = kcs.slice(kcs.indexOf('export const shipImageUrl'), kcs.indexOf('export const noteShipArtDisplayed'))
   const cacheAt = chain.indexOf('cachedFile(pathname)')
-  const archiveAt = chain.indexOf('archivedArtUrlForPath(pathname)')
+  const archiveAt = chain.indexOf('archivedArtUrlForPath(pathname, version)')
   const remoteAt = chain.indexOf('remoteUrl(pathname)')
   assert.ok(cacheAt >= 0 && archiveAt >= 0 && remoteAt >= 0, '回退链少了一档')
   assert.ok(cacheAt < archiveAt && archiveAt < remoteAt, '回退链的顺序反了')
-  // 「缺哪些」必须问同一句话，不然屏幕上会摆一句与眼前的图矛盾的话
+  // 「缺哪些」只盘点本机有没有这个图种，旧版实物也计入。
   assert.match(kcs, /return cachedFile\(pathname\) \?\? archivedArtUrlForPath\(pathname\)/)
   assert.match(kcs, /missingShipImages[\s\S]{0,200}?!localShipImage\(mstId, type, damaged\)/)
 })

@@ -180,6 +180,7 @@ import {
   VARIANT_TEXT_DASH,
 } from '../../shared/seasonal-collect'
 import type { CollectOutcome } from '../../shared/seasonal-collect'
+import { SEASONAL_ITEMS } from '../../shared/seasonal-campaign'
 import {
   buildShipFormCodeMap,
   planVoiceCorrections,
@@ -5427,6 +5428,8 @@ const shipGraphLayoutHtml = (mstId: number): string => {
 // 图种的显示名单一出处在 renderer/kcs-image 的 `cgTypeLabel`：
 // 这里、衣装格、档案旧版卡查的是同一张表，各写一份必然出现同一张图两个叫法。
 
+type GalleryImage = { pathname: string; url: string }
+
 /**
  * 图鉴衣装的格子：本体现行图组之后、档案旧版卡之前的那一段。
  *
@@ -5441,8 +5444,8 @@ const shipGraphLayoutHtml = (mstId: number): string => {
  * 取图走与本体同一条回退链（本地缓存 → 档案实物 → 远端，受钥里那个开关管）。
  * 玩家没翻过图鉴的舰在这里就是空的：归属学不到，如实一格不摆。
  */
-const costumeCellsHtml = (mstId: number): { html: string; sets: number; paths: string[] } => {
-  const paths: string[] = []
+const costumeCellsHtml = (mstId: number): { html: string; sets: number; displayed: GalleryImage[] } => {
+  const displayed: GalleryImage[] = []
   let sets = 0
   let html = ''
   for (const graphId of shipCostumeGraphIds(mstId)) {
@@ -5453,7 +5456,7 @@ const costumeCellsHtml = (mstId: number): { html: string; sets: number; paths: s
     // 那四套是 61/61/62/61）。透传本体的版号会让入档条目的归因串到另一张图上。
     const version = shipImageVersionOf(graphId)
     for (const im of images) {
-      paths.push(im.pathname)
+      displayed.push(im)
       const caption = `${im.label} · 衣装 #${graphId}${version ? ` · 版本 ${version}` : ''}`
       html += `<figure class="cg-item${im.big ? ' big' : ''}"
           data-cg="${esc(im.url)}" data-cg-path="${esc(im.pathname)}"
@@ -5463,7 +5466,7 @@ const costumeCellsHtml = (mstId: number): { html: string; sets: number; paths: s
       </figure>`
     }
   }
-  return { html, sets, paths }
+  return { html, sets, displayed }
 }
 
 /**
@@ -5477,9 +5480,15 @@ const costumeCellsHtml = (mstId: number): { html: string; sets: number; paths: s
  * 取不出地址、或者读不出来的那几份由 `wireCgImages` 的 error 分支摘掉，不摆破图。
  * 卡上不挂 `data-cg-path`：那条身份是给「显示即入档」用的，档案里这一份已经在档案里了。
  */
-const archivedArtCellsHtml = (mstId: number, displayed: readonly string[]): string => {
+const archivedArtCellsHtml = (mstId: number, displayed: readonly GalleryImage[]): string => {
   if (!artArchiveReady()) return ''
-  const legacy = legacyArchivedArt(archivedArtEntriesOfShip(mstId), displayed)
+  const entries = archivedArtEntriesOfShip(mstId)
+  const shaByUrl = new Map(entries.map((entry) => [archivedArtUrl(entry), entry.sha1]))
+  // 这里仅对账 mstId 自己的条目；衣装和借图的路径带有各自的构图编号。
+  const version = shipImageVersionOf(mstId)
+  const legacy = legacyArchivedArt(entries, displayed.map(({ pathname, url }) => ({
+    pathname, version, sha1: shaByUrl.get(url),
+  })))
   if (!legacy.length) return ''
   return legacy
     .map((entry) => ({ entry, url: archivedArtUrl(entry) }))
@@ -5505,10 +5514,7 @@ const cgPanelHtml = (mstId: number): string => {
   const costumes = costumeCellsHtml(mstId)
   // 画廊尾巴：档案里的非现行版本。现行摆出来的那些路径（含衣装）交给它去重，
   // 档案空就是空字符串
-  const archived = archivedArtCellsHtml(mstId, [
-    ...imgs.map((im) => im.pathname),
-    ...costumes.paths,
-  ])
+  const archived = archivedArtCellsHtml(mstId, [...imgs, ...costumes.displayed])
   if (!imgs.length) {
     // 本地没有就**只出一句说明**。2026-08-22 之前这里还挂着一个「点了才请求」的
     // 社区图标源（tsunkit）作降级补位——整条退役了：发行产物的对外请求只许指向
@@ -5568,7 +5574,7 @@ const cgPanelHtml = (mstId: number): string => {
         : ''
     }
     ${shipGraphLayoutHtml(mstId)}
-    <div class="q-foot">已有 ${imgs.length + costumes.paths.length} 张${missing.length ? ` · 本机缺 ${missing.length} 张` : ''} · 单击查看大图${
+    <div class="q-foot">已有 ${imgs.length + costumes.displayed.length} 张${missing.length ? ` · 本机缺 ${missing.length} 张` : ''} · 单击查看大图${
         costumes.sets ? ` · 标「衣装 #」的是图鉴里的 ${costumes.sets} 套衣装切替` : ''
       }${
         archived
@@ -8028,7 +8034,7 @@ const abyssCgPanelHtml = (mstId: number): string => {
   const images = [...unique.values()]
   const facts = self ? abyssArtFactsHtml(self) : ''
   // 画廊尾巴：档案里的非现行版本。远古活动怪留过档就永远看得到（零网络，file://）
-  const archived = archivedArtCellsHtml(mstId, images.map((image) => image.pathname))
+  const archived = archivedArtCellsHtml(mstId, images)
   if (!images.length) {
     return `${facts}
     ${
@@ -10476,30 +10482,39 @@ const USEITEM_STOCK_SOURCE: Record<UseitemStock['source'], string> = {
 // usetype=0 是 37 项大杂烩，撑不起设计稿的五分类。
 // 所以「战略」这一档不硬编名单，而是**由改造需求反查得出**——
 // 凡出现在 remodelNeeds 里的就是战略资材，游戏更新加了新道具会自动归位。
-type ItemCat = 'all' | 'strategic' | 'consume' | 'resource' | 'other' | 'owned'
+// 维护者裁决 2026-11-25：节气道具与铎共用清单，按日文名精确解 id；若进入改造需求，优先归战略资材。
+type ItemCat = 'all' | 'owned' | 'strategic' | 'consume' | 'resource' | 'seasonal' | 'other'
 const ITEM_CATS: [ItemCat, string][] = [
   ['all', '全部'],
   ['owned', '持有中'],
   ['strategic', '战略资材'],
   ['consume', '消耗资材'],
   ['resource', '资源'],
+  ['seasonal', '节气道具'],
   ['other', '其他'],
 ]
 
-const itemCatOf = (u: any): Exclude<ItemCat, 'all' | 'owned'> => {
+const itemCatOf = (u: any, seasonalIds: ReadonlySet<number>): Exclude<ItemCat, 'all' | 'owned'> => {
   if (remodelNeeds.has(u.api_id)) return 'strategic' // 改造要用 = 战略（数据推导）
   if ([1, 2, 3].includes(u.api_usetype)) return 'consume'
   if (u.api_usetype === 6) return 'resource'
+  if (seasonalIds.has(u.api_id)) return 'seasonal'
   return 'other'
 }
 
 const itemCatalogHtml = () => {
+  const idByName = new Map([...useitemMst.values()].map(u => [u.api_name, u.api_id]))
+  const seasonalIds = new Set<number>()
+  for (const { jpName } of SEASONAL_ITEMS) {
+    const id = idByName.get(jpName)
+    if (id !== undefined) seasonalIds.add(id)
+  }
   // 库存解析一次就够：筛选、分类计数、排序、逐行渲染原先各问各的，
   // 而比较器里问一次就是一遍全表扫描——先带着库存装饰，排完再取用。
   const all = [...useitemMst.values()]
     .filter((u) => u.api_name)
-    .map((u) => ({ u, stock: useitemStock(u.api_id) }))
-  const list = all.filter(({ u, stock }) => {
+    .map((u) => ({ u, stock: useitemStock(u.api_id), cat: itemCatOf(u, seasonalIds) }))
+  const list = all.filter(({ u, stock, cat }) => {
     if (itemState.search) {
       // searchFold：与舰娘/装备/深海三卷同一口径（全半角与重音同折）
       const q = searchFold(itemState.search)
@@ -10509,7 +10524,7 @@ const itemCatalogHtml = () => {
       ) return false
     }
     if (itemState.cat === 'owned') return stock.count > 0
-    if (itemState.cat !== 'all' && itemCatOf(u) !== itemState.cat) return false
+    if (itemState.cat !== 'all' && cat !== itemState.cat) return false
     return true
   })
   const catCount = (cat: ItemCat) =>
@@ -10517,7 +10532,7 @@ const itemCatalogHtml = () => {
       ? all.length
       : cat === 'owned'
         ? all.filter(({ stock }) => stock.count > 0).length
-        : all.filter(({ u }) => itemCatOf(u) === cat).length
+        : all.filter(item => item.cat === cat).length
   const chips = ITEM_CATS.map(
     ([cat, label]) => {
       // “持有中”只是便于查看当前库存的筛选，不把当前非零道具数包装成收藏进度。

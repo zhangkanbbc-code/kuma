@@ -13,6 +13,7 @@ import bodyRetention from '../dist/main/mg/slotitem-body-retention.js'
 const { SeasonalLedger } = ledgerModule
 const fixture = JSON.parse(fs.readFileSync(new URL('./fixtures/pumpkin-ledger-20261014.json', import.meta.url)))
 const catalog = campaign.SEASONAL_EXCHANGES[0]
+const pumpkinRemovedAt = Date.parse('2026-11-24T11:00:00+09:00')
 const master = {
   api_mst_useitem: [{ api_id: 96, api_name: '南瓜' }, { api_id: 58, api_name: '改装設計図' }, { api_id: 57, api_name: '勲章' }, { api_id: 68, api_name: '秋刀魚' }],
   api_mst_slotitem: [{ api_id: 138, api_name: '二式大艇' }, { api_id: 312, api_name: '二式陸上偵察機(熟練)' }, { api_id: 478, api_name: '熟練甲板要員+航空整備員' }],
@@ -254,7 +255,7 @@ test('结束须到期、零库存与新完整任务全集；未接受任务仍�
   const { db, book } = make(t)
   seed(db)
   await book.startBackfill()
-  for (const over of [{ now: catalog.expiresAt - 1 }, { stock: { 96: 1 } }, { stockTs: catalog.expiresAt - 1 }, { questsTs: catalog.expiresAt - 1 }, { questsTs: null }, { quests: [{ no: 1, title: '南瓜任务' }] }]) {
+  for (const over of [{ now: pumpkinRemovedAt - 1 }, { stock: { 96: 1 } }, { stockTs: pumpkinRemovedAt - 1 }, { stockTs: pumpkinRemovedAt }, { questsTs: pumpkinRemovedAt }, { questsTs: null }, { quests: [{ no: 1, title: '南瓜任务' }] }]) {
     finish(book, over)
     assert.equal(book.archives().length, 0)
   }
@@ -264,6 +265,32 @@ test('结束须到期、零库存与新完整任务全集；未接受任务仍�
   finish(book)
   assert.equal(book.archives().length, 1)
   assert.equal(book.archives()[0].gained, 6)
+})
+
+test('南瓜在维护后结账：从本季移入往期，账本和回顾均记录道具消灭时刻', async t => {
+  const { db, book } = make(t)
+  seed(db)
+  await book.startBackfill()
+  const now = Date.parse('2026-11-25T00:00:00+09:00')
+  const [before] = book.current({}, now)
+  assert.deepEqual([before.opened, before.expiresAt], [catalog.startsAt, catalog.expiresAt])
+  finish(book, { now, stockTs: pumpkinRemovedAt + 1, questsTs: now })
+  assert.equal(db.prepare("SELECT closed FROM seasonal_archive WHERE campaign = 'pumpkin'").get().closed, pumpkinRemovedAt)
+  assert.deepEqual(book.current({}, now), [])
+  assert.deepEqual(book.archives().map(h => [h.name, h.closed]), [['2026 南瓜', pumpkinRemovedAt]])
+})
+
+test('同一企划未登记消灭时刻的旧季仍按自身兑换期限结账', async t => {
+  const { db, book } = make(t)
+  await book.startBackfill()
+  const opened = Date.parse('2025-10-14T00:00:00+09:00')
+  const expires = Date.parse('2025-12-01T00:00:00+09:00')
+  db.prepare('INSERT INTO seasonal_archive(campaign, opened, expires_at, item_id, name) VALUES (?, ?, ?, ?, ?)')
+    .run('pumpkin', opened, expires, 96, '2025 南瓜')
+  finish(book, { now: expires - 1 })
+  assert.equal(book.archives().length, 0)
+  finish(book, { now: expires, stockTs: expires, questsTs: expires })
+  assert.equal(book.archives()[0].closed, expires)
 })
 
 test('任务按季独立：每日压缩首末时刻，窗口内领奖才完成；夏活只补任务不改原统计', async t => {

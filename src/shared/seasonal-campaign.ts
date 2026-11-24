@@ -152,6 +152,7 @@ export const SEASONAL_CAMPAIGN_ENDS: {
   campaignKey: string
   season: number
   endsAt: number
+  itemRemovedAt?: number
   remainingUsableUntilMaintenance?: boolean
 }[] = [{
   campaignKey: 'pumpkin',
@@ -160,6 +161,11 @@ export const SEASONAL_CAMPAIGN_ENDS: {
   // 运营公告 01（2026-11-11）：剩余南瓜在下次维护开始时消失。
   // https://x.com/KanColle_STAFF/status/2120445361861058757
   remainingUsableUntilMaintenance: true,
+  // 运营公告（2026-11-23）：11/24 11:00 JST 进入维护时南瓜消灭。
+  // https://x.com/KanColle_STAFF/status/2124851363784093742
+  // 运营公告 17（2026-11-24）：确认剩余南瓜已消灭。
+  // https://x.com/KanColle_STAFF/status/2125189433733554629
+  itemRemovedAt: Date.parse('2026-11-24T11:00:00+09:00'),
 }]
 
 const seasonalExchangeOf = (

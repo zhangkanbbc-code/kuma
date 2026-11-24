@@ -50,7 +50,8 @@ export const stub: any = {
 
 // 母港态就是 sortie 为 null；出击/演习各摆各的。**读的是当下这一刻**，
 // 用例可以在「排定」和「到点」之间把它换掉——门查的是哪一刻，一试便知。
-const mg: any = { get sortie() { return stub.sortie } }
+const mg = stub
+const voiceFilenameOf = (mstId: number) => stub.filenames[mstId] ?? null
 
 const captionsEnabled = true
 const captionsFor = (_cue: VoiceRequestCue): CaptionLine[] => stub.lines
@@ -107,8 +108,12 @@ const HOURLY_CUE = { kind: 'ship', mstId: 1, voiceId: 30 }
  *
  * 省略 `atFire` 就表示这两刻状态一样（到点时还在原地）。
  */
-export const runHourly = ({ atSchedule = AT_PORT, atFire, cue = HOURLY_CUE, lines } = {}) => {
+export const runHourly = ({
+  atSchedule = AT_PORT, atFire, cue = HOURLY_CUE, lines,
+  decks = [], ships = {}, filenames = {}, beforeHour,
+} = {}) => {
   const stub = loaded.stub
+  Object.assign(stub, { decks, ships, filenames })
   stub.sortie = atSchedule
   stub.lines = lines ?? [{ speaker: '雪风', text: '一点です。', delay: 0 }]
   stub.shown = []
@@ -116,6 +121,7 @@ export const runHourly = ({ atSchedule = AT_PORT, atFire, cue = HOURLY_CUE, line
 
   loaded.displayAtPlaybackTime(cue)
   const scheduled = stub.timers.map((entry) => entry.ms)
+  beforeHour?.(stub, loaded.displayAtPlaybackTime)
   const shownBeforeHour = stub.shown.length
 
   // ——到点——

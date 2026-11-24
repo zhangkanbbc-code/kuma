@@ -29,7 +29,7 @@ let bySlot = new Map<string, ArtArchiveEntry[]>()
 /** mstId → 该形态留下过实物的图种数（逐舰进度用，免得每次都全表扫） */
 let keptTypesOf = new Map<number, Set<string>>()
 /**
- * 资源路径 → 档案里那份实物（最近见到的那一条）。
+ * 路径与带版本的路径分别指向最近见到的实物，兼顾离线兜底与现行版查找。
  *
  * 取图那条回退链要用它（kcs-image 的 `shipImageUrl`：本地缓存 → **档案实物** → 远端）。
  * 按路径而不是按槽位建第二张索引，是因为取图那一侧手上只有路径——
@@ -43,8 +43,12 @@ const slotKey = (mstId: number, type: string) => `${mstId}/${type}`
 
 const indexBlob = (entry: ArtArchiveEntry) => {
   if (!(entry.bytes > 0) || !entry.sha1) return
-  const known = byPathname.get(entry.pathname)
-  if (!known || entry.lastSeen > known.lastSeen) byPathname.set(entry.pathname, entry)
+  const keys = [entry.pathname]
+  if (entry.version) keys.push(`${entry.pathname}?version=${entry.version}`)
+  for (const key of keys) {
+    const known = byPathname.get(key)
+    if (!known || entry.lastSeen > known.lastSeen) byPathname.set(key, entry)
+  }
 }
 
 const index = (entries: ArtArchiveEntry[]) => {
@@ -158,7 +162,7 @@ export const archivedArtUrl = (entry: ArtArchiveEntry): string | null => {
 }
 
 /**
- * 这条资源路径在档案里有没有实物；有就给本地地址（`file://`，零网络）。
+ * 给出指定路径、指定版本的实物地址（`file://`，零网络）。省略版本时取最近见到的实物。
  *
  * ---- 为什么取图那条链非要看这一层不可（2026-08-31 用户实机报）----
  * 他翻完游戏图鉴，村雨改二六个图种的字节当场全进了档案（盘上真有文件），
@@ -167,14 +171,14 @@ export const archivedArtUrl = (entry: ArtArchiveEntry): string | null => {
  * 谁也没告诉取图那一侧「东西其实就在盘上」。
  *
  * 档案里那一份还比缓存牢靠：缓存超限会被整盘丢弃（共享记忆 electron-disk-cache-size），
- * 档案不会。所以它排在缓存之后、远端之前——本机已经有的字节永远优先于再取一次。
+ * 档案不会。所以它排在缓存之后、远端之前，现行版已经留住就不必再取一次。
  *
  * 索引还没到位（`ready === false`）时返回 null：那时说「档案里没有」是没根据的，
  * 交给远端那一档，等索引到位再重画（见 loadArtArchive 尾部那条广播）。
  */
-export const archivedArtUrlForPath = (pathname: string): string | null => {
+export const archivedArtUrlForPath = (pathname: string, version?: string): string | null => {
   if (!ready || !pathname) return null
-  const entry = byPathname.get(pathname)
+  const entry = byPathname.get(version ? `${pathname}?version=${version}` : pathname)
   return entry ? archivedArtUrl(entry) : null
 }
 

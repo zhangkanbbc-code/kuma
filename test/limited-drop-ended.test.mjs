@@ -312,9 +312,9 @@ test('随包台账：已终了那一档都带 limitedOnly 与凭据，且没顺�
     const status = one.window.status ?? 'active_confirmed'
     tally[status] = (tally[status] ?? 0) + 1
   }
-  // 2026-11-11 官方确认樫限定继续：仅这一条撤回结束日，其余 17 条保持结束。
-  assert.equal(tally.active_confirmed, 146, '原有 134 + 樫恢复开放 1 条 + 鎮守府海域新开 9 条、重开 2 条')
-  assert.equal(tally.ended_confirmed, 17, '原有 18 - 樫 1 条撤回结束日')
+  // 2026-11-23 维护日确定，仅樫从无截止日转为有确认结束日。
+  assert.equal(tally.active_confirmed, 145, '原有 146 条中樫已登记结束日')
+  assert.equal(tally.ended_confirmed, 18, '原有 17 条加上樫')
   assert.equal(tally.end_pending, 10, '原有的 end_pending 条目数变了')
   assert.equal(tally.ended_undated, 27, '已终了应为原有 34 - Halloween 重开 5 条 - 鎮守府海域重开 2 条')
 

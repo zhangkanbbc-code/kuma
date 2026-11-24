@@ -4183,9 +4183,7 @@ test('new ships and taiha use manually dismissed top banners with persistent fra
   assert.match(owned, /buildShipRemodelChains\(/)
   assert.match(owned, /afterId: ship\.afterShipId > 0 \? ship\.afterShipId : 0/)
   assert.doesNotMatch(owned, /const find = |const parent = new Map/, '首见基线不许再自己搓并查集')
-  // 判定搬到了 ship-first-owned：只报基线里没有的谱系形态
-  const ownedSrc = fs.readFileSync(new URL('../src/renderer/ship-first-owned.ts', import.meta.url), 'utf8')
-  assert.match(ownedSrc, /\[\.\.\.current\]\.filter\(\(id\) => known\[id\] == null\)/)
+  // 谱系新增形态的入库判定由 observation-preload 的川内改二偵用例覆盖。
   assert.doesNotMatch(notices, /const fresh = \[\.\.\.current\]\.filter\(\(id\) => !ownedBaseline/)
   // 外框光效同时只能有一种颜色。从前是写死的 if/else if（红压金），
   // 应急修理的两档绿进来之后改成表 + 优先级序列——「只一种、红最先」不变。

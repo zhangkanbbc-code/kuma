@@ -14,7 +14,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { createRequire } from 'node:module'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import shipArtPath from '../dist/shared/ship-art-path.js'
 
@@ -211,7 +211,7 @@ const ARCHIVED = [
 ]
 
 // ---- 真 kcs-image：只换掉 electron 与装备图标那两个外部依赖 ----
-const kcsImage = (() => {
+const { kcsImage, seasonalFixture } = (() => {
   const built = compile(
     'kcs-image',
     {
@@ -232,7 +232,8 @@ const kcsImage = (() => {
       // 而喂索引的入口（loadArtArchive）在 art-archive 那边
       'renderer/test-entry.ts': [
         "export * from './kcs-image'",
-        "export { loadArtArchive } from './art-archive'",
+        "export { loadArtArchive, noteArtArchived, archivedArtUrl, archivedArtEntriesOfShip } from './art-archive'",
+        "export { legacyArchivedArt } from '../shared/art-archive-plan'",
         "export { loadAssetArchive } from './asset-archive'",
         '',
       ].join('\n'),
@@ -247,11 +248,11 @@ const kcsImage = (() => {
     APPDATA_PATH: ARCHIVE_APPDATA,
     ROOT, // 让它 require 到真的 assets/preload/kcs-resource-path
   }
-  const api = loadCjs(built.outfile, built.dir, {
+  const load = (entries, send = () => {}) => loadCjs(built.outfile, built.dir, {
     electron: {
       ipcRenderer: {
-        invoke: async (channel) => (channel === 'mg:art-archive-entries' ? ARCHIVED : null),
-        send: () => {},
+        invoke: async (channel) => (channel === 'mg:art-archive-entries' ? entries : null),
+        send,
       },
     },
     '@electron/remote': { getGlobal: (key) => globals[key], require: (name) => {
@@ -260,6 +261,27 @@ const kcsImage = (() => {
       assert.fail(`unexpected remote module: ${name}`)
     } },
   })
+  const api = load(ARCHIVED)
+  const seasonalFixture = async ({ version = '100', withCurrent = false, hack = false } = {}) => {
+    // 维护者实测 2026-11-24：夕立改二换季时 full_dmg 沿用路径，版号升到 100。
+    const entries = []
+    const messages = []
+    const image = load(entries, (...args) => messages.push(args))
+    image.setGameHost('game.example')
+    image.setShipImageGraph([{ api_id: 144, api_version: [version] }])
+    const pathname = image.shipImagePath(144, 'full', true)
+    const old = { ...ARCHIVED[0], pathname, mstId: 144, type: 'full_dmg', version: '98' }
+    const current = { ...old, version: '100', sha1: 'a'.repeat(16), lastSeen: old.lastSeen - 1 }
+    entries.push(old, { ...current, bytes: 0, sha1: 'b'.repeat(16) }, { ...current, sha1: '' })
+    if (withCurrent) entries.push(current)
+    const hackFile = path.join(globals.DEFAULT_CACHE_PATH, 'KanColle', pathname.replace(/\.png$/, '.hack.png'))
+    if (hack) {
+      fs.mkdirSync(path.dirname(hackFile), { recursive: true })
+      fs.writeFileSync(hackFile, '')
+    }
+    await image.loadArtArchive()
+    return { image, get: () => image.shipImageUrl(144, 'full', true), pathname, old, current, hackFile, messages }
+  }
   api.setGameHost('203.104.209.71')
   // api_filename 是全身立绘的文件名尾巴（真值，取自本机学到的 full 路径）
   api.setShipImageGraph([
@@ -270,7 +292,7 @@ const kcsImage = (() => {
     // 衣装构图也在 api_mst_shipgraph 里（本机实测：村雨改二那四套是 61/61/62/61）
     { api_id: 5310, api_version: ['61'], api_filename: 'tjbchpbtekqm' },
   ])
-  return api
+  return { kcsImage: api, seasonalFixture }
 })()
 
 // 索引到位之后再跑断言：没到位时档案那一档一律落空（那也是启动瞬间的真实行为）
@@ -278,6 +300,49 @@ await kcsImage.loadArtArchive()
 await kcsImage.loadAssetArchive()
 
 const urlPath = (url) => (url == null ? null : new URL(url).pathname)
+
+test('现行 100 只有 v98 实物时取带版号的远端地址，v100 入档后命中本地', async () => {
+  const { image, get, pathname, current, messages } = await seasonalFixture()
+  const url = get()
+  assert.equal(url, `https://game.example${pathname}?version=100`)
+  image.noteShipArtDisplayed(pathname, url, image.shipImageVersionOf(144))
+  assert.deepEqual(messages, [['kuma:archive-capture-art', { pathname, url, version: '100' }]])
+  assert.equal(image.noteArtArchived(current), true)
+  assert.equal(get(), image.archivedArtUrl(current))
+})
+
+test('档案索引载入时按现行版本挑实物，即使旧版最近才见过', async () => {
+  const { image, get, current } = await seasonalFixture({ withCurrent: true })
+  assert.equal(get(), image.archivedArtUrl(current))
+  image.setAllowRemoteArt(false)
+  assert.equal(get(), image.archivedArtUrl(current))
+})
+
+test('关掉远端或版号未知时回退到最近实物', async () => {
+  const offline = await seasonalFixture()
+  offline.image.setAllowRemoteArt(false)
+  assert.equal(offline.get(), offline.image.archivedArtUrl(offline.old))
+  const unknown = await seasonalFixture({ version: '', withCurrent: true })
+  assert.equal(unknown.get(), unknown.image.archivedArtUrl(unknown.old))
+})
+
+test('夕立改二现行格显示 v100 时，画廊尾部保留同路径的 v98 中破', async () => {
+  const { image, pathname, current, old } = await seasonalFixture({ withCurrent: true })
+  const entries = image.archivedArtEntriesOfShip(144)
+  const tail = (shown) => image.legacyArchivedArt(entries, [{ pathname, ...shown }]).map((e) => e.sha1)
+  assert.deepEqual(tail({ version: '100' }), [old.sha1])
+  assert.deepEqual(tail({ sha1: current.sha1 }), [old.sha1])
+  assert.deepEqual(tail({ sha1: old.sha1 }), [current.sha1])
+})
+
+test('MyCache 的 .hack 覆盖优先于现行档案', async () => {
+  const { get, hackFile } = await seasonalFixture({ withCurrent: true, hack: true })
+  try {
+    assert.equal(get(), pathToFileURL(hackFile).href)
+  } finally {
+    fs.unlinkSync(hackFile)
+  }
+})
 
 // ---- 真 entity-art：kcs-image 换成可控桩，好把「取不到」这一支也演出来 ----
 //
@@ -434,7 +499,7 @@ test('衣装构图号也在 1500 以上，但它有中破图：不许被深海�
   assert.equal(kcsImage.shipImageUrl(1600, 'banner', true), kcsImage.shipImageUrl(1600, 'banner'))
 })
 
-test('取图回退链：本地缓存 → 档案实物 → 远端，本机已经有的字节永远优先', () => {
+test('取图回退链：本地缓存 → 现行档案实物 → 远端', () => {
   // 缓存目录是空的，而档案里恰好有这一条（5310 的中破图）——必须走档案那份 file://，
   // 而不是再去游戏服务器要一遍。这正是 2026-08-31 用户实机报的那处脱节：
   // 字节明明在盘上，取图这一侧却看不见。

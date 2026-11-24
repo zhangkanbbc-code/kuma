@@ -155,19 +155,23 @@ const substituteEquipRewards = (value, equipNames) => {
 
 /** `[[文件:X.jpg|link=白雪]]` → `「白雪」`（图片形式的舰娘奖励就是这么写的）。 */
 const substituteLinkTargets = (value) => {
-  let out = value
-  const links = out.match(/\[\[[^[\]]*\]\]/g) ?? []
-  for (const link of links) {
-    const body = link.slice(2, -2)
-    const bar = body.indexOf('|')
-    if (bar < 0) continue
-    for (const segment of body.slice(bar + 1).split('|')) {
-      if (!segment.includes('link=')) continue
-      out = out.split(link).join(`「${segment.replaceAll('link=', '')}」`)
-      break
+  let imageEnd = -1
+  let imageTarget = ''
+  return value.replace(/\[\[([^\[\]]*)\]\]/g, (link, body, offset) => {
+    const [page, ...options] = body.split('|')
+    const isImage = /^(?:File|文件):/i.test(page)
+    // 维护者裁决 2026-11-24：横幅已给出舰名，只略过紧跟它的同目标文字链接。
+    if (!isImage && offset === imageEnd && page === imageTarget) return ''
+
+    const segment = options.find(option => option.includes('link='))
+    if (!segment) return link
+    const target = segment.replaceAll('link=', '')
+    if (isImage) {
+      imageEnd = offset + link.length
+      imageTarget = target
     }
-  }
-  return out
+    return `「${target}」`
+  })
 }
 
 /**

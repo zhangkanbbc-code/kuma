@@ -6,11 +6,13 @@
 //
 // 三条性质是这份基线比别的来源强的原因：
 // - **只增不减**：拆解、当素材、被击沉都不会让它退出，因为「你曾经拥有过」是既成事实
-// - **按谱系**：持有初霜改二之后再捞到初霜，不算新舰
+// - **按谱系**：持有初霜改二之后再捞到初霜，不算新舰。主数据后来给已有谱系
+//   新增形态，改出来也沿用该谱系的持有记录，无需补记形态号。
 // - **首次运行不误报**：第一次建立基线时把当前持有的全部记进去，且时刻记 0
 //   （＝记账之前就有，真正的第一次无从得知）
 //
 // 时刻也要记：铃只需要「是不是新的」，首见志还要回答「什么时候」。
+// 同谱系各形态的历史记录若有出入，以其中最早的时刻为准。
 //
 // 谱系归属只认 shared/ship-remodel-chain 那一份（纪律：拿 aftershipid 手搓单值
 // 反向链一律违规）。这里原先自己搓过一个并查集，只吃 afterShipId、不看
@@ -112,7 +114,7 @@ export const observeOwnedShips = (ts = Date.now()): number[] => {
 
   const known = load()
   const first = Object.keys(known).length === 0
-  const fresh = first ? [] : [...current].filter((id) => known[id] == null)
+  const fresh = first ? [] : [...current].filter((id) => known[id] == null && firstOwnedAt(id) == null)
 
   // 新到手的舰要把整条谱系都记上：之后捞到它的其他形态不该再算新舰。
   const stamp = first ? OWNED_BEFORE_LEDGER : ts
@@ -135,9 +137,7 @@ export const observeOwnedShips = (ts = Date.now()): number[] => {
 export const firstOwnedAt = (mstId: number): number | null => {
   if (!(mstId > 0)) return null
   const known = load()
-  const direct = known[mstId]
-  if (direct != null) return direct
-  // 痕迹可能记在同谱系的其他形态上（狄风 → 狄风改）
+  // 更早的痕迹可能记在同谱系的其他形态上（狄风 → 狄风改）。
   const root = familyRootOf(mstId)
   let earliest: number | null = null
   for (const member of ensureFamilies().chainOf.get(root) ?? [mstId]) {

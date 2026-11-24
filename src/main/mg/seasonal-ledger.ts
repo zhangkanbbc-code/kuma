@@ -1,5 +1,5 @@
 // 独立于 Electron 的永久账本投影。与实时报文共用同一套回填/统计实现。
-import { detectSeasonalCampaigns, SEASONAL_EXCHANGES, SEASONAL_ITEMS } from '../../shared/seasonal-campaign'
+import { detectSeasonalCampaigns, SEASONAL_CAMPAIGN_ENDS, SEASONAL_EXCHANGES, SEASONAL_ITEMS } from '../../shared/seasonal-campaign'
 import { sumCampaignRewards } from '../../shared/seasonal-history'
 import type { CampaignHistory, CampaignReceipt, CampaignReward, CampaignTaskUse, ObservedQuest } from '../../shared/seasonal-history'
 import { resolveQuestClaims } from '../../shared/quest-claims'
@@ -394,14 +394,20 @@ export class SeasonalLedger {
     }
     const active = new Set(detectSeasonalCampaigns({ useitemMst: this.items(), useitems: {}, quests: input.quests }).map(c => c.key))
     for (const win of this.db.prepare('SELECT * FROM seasonal_archive').all()) {
-      // 未有可信截止目录的企划只积累事实，等目录给出结束下界再结账。
-      if (win.expires_at == null || input.now < win.expires_at || input.stockTs == null || input.questsTs == null ||
-        input.stockTs < win.expires_at || input.questsTs < win.expires_at || (input.stock[win.item_id] ?? 0) > 0 || active.has(win.campaign)) continue
+      // 未有可信截止目录的企划只积累事实；已有兑换期限时，若该季道具更早消灭，就按消灭时刻结账。
+      if (win.expires_at == null) continue
+      const catalog = SEASONAL_EXCHANGES.find(c => c.campaignKey === win.campaign && win.opened >= c.startsAt && win.opened < c.expiresAt)
+      const removedAt = SEASONAL_CAMPAIGN_ENDS.find(c => c.campaignKey === win.campaign && c.season === catalog?.season)?.itemRemovedAt
+      const closed = Math.min(win.expires_at, removedAt ?? win.expires_at)
+      // 消灭须由维护开始后的快照确认；普通兑换期限沿用到期当刻的快照。
+      const firstSnapshotTs = closed === removedAt ? closed + 1 : closed
+      if (input.now < closed || input.stockTs == null || input.questsTs == null ||
+        input.stockTs < firstSnapshotTs || input.questsTs < firstSnapshotTs || (input.stock[win.item_id] ?? 0) > 0 || active.has(win.campaign)) continue
       const report = this.history(win.campaign, win.opened, 0)
-      report.closed = win.expires_at
+      report.closed = closed
       if (win.stats === JSON.stringify(report)) continue
       this.db.prepare(`UPDATE seasonal_archive SET closed = ?, stats = ? WHERE campaign = ? AND opened = ?`)
-        .run(win.expires_at, JSON.stringify(report), win.campaign, win.opened)
+        .run(closed, JSON.stringify(report), win.campaign, win.opened)
     }
   }
 

@@ -177,6 +177,7 @@ test('字幕中文优先、无中文回日文：顶部与底部均调度同一�
   const api = host.extract('src/renderer/voice-subtitle.ts', ['displayAtPlaybackTime'], {
     ...host.load('src/shared/voice-scene-slots.ts'),
     captionsFor: () => [], mg: { sortie: null },
+    voiceFilenameOf: () => null,
     // 顶部与底部共用单条字幕调度；中部的完整 DOM 行为另有护栏。
     // 中部演出已替换为突入式；这里仍只验证顶部与底部的调度出口。
     specialCaptionStyle: false, showCutin: () => assert.fail('关闭视觉加强时不应走突入字幕'),

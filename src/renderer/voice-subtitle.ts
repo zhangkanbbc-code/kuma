@@ -18,7 +18,7 @@ import {
   queryMasterRaw,
 } from './kernel'
 import { canonicalAbyssalSpeakerLabel } from './abyssal-name'
-import { resolveVoiceRequest, setShipGraph, type VoiceRequestCue } from './kcs-voice'
+import { resolveVoiceRequest, setShipGraph, voiceFilenameOf, type VoiceRequestCue } from './kcs-voice'
 import { entityNamePlain, localizedEntityId } from './localization'
 import {
   buildVoiceFallbackIds,
@@ -1132,6 +1132,16 @@ const displayAtPlaybackTime = (cue: VoiceRequestCue, lines = captionsFor(cue)) =
       // 丢弃而不是顺延：游戏回港后不会补播这个整点，跟着丢才对得上耳朵听到的。
       // 下一个整点若在母港，游戏会重新预取，字幕自然跟着回来。
       if (mg.sortie?.active) return
+      // 维护者实测 2026-11-21：预取熊野报时后换成没有报时的霞改二，游戏不会再发
+      // 报时请求来替换旧计时器。整点只会播现任秘书舰的报时，此时才核对第一舰队旗舰。
+      // 同目录的形态共用音轨；编队或目录还没到位时照出，只丢弃能确认换舰的那一句。
+      const flagshipId = mg.decks.find((deck) => deck.id === 1)?.ships[0]
+      const flagshipMstId = flagshipId == null ? undefined : mg.ships[flagshipId]?.shipId
+      if (flagshipMstId != null && flagshipMstId !== cue.mstId) {
+        const flagshipDir = voiceFilenameOf(flagshipMstId)
+        const cueDir = voiceFilenameOf(cue.mstId)
+        if (flagshipDir && cueDir && flagshipDir !== cueDir) return
+      }
       scheduleLines(lines, mode)
     }, Math.max(0, +nextHour - Date.now()))
     return

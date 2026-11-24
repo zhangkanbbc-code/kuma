@@ -100,3 +100,52 @@ test('预读失败不锁死加载状态，原来的按需入口可以重试', ()
     assert.equal(calls, 2)
   }
 })
+
+// 维护者实测 2026-11-24：在籍 85 号川内改二（158）改成新增的偵形态（751）。
+const T0 = 100
+const T1 = 200
+const sendaiHistory = { 54: T0, 222: T0, 158: T0 }
+const sendaiFixture = (known = sendaiHistory) => {
+  const f = fixture({ 'ships.firstOwned': known })
+  f.kernel.mg.master.ships = {
+    54: { afterShipId: 222 },
+    222: { afterShipId: 158 },
+    158: { afterShipId: 751 },
+    751: { afterShipId: 0 },
+    445: { afterShipId: 450 },
+    450: { afterShipId: 0 },
+  }
+  f.kernel.mg.master.upgrades = {
+    751: [{ currentShipId: 158, targetShipId: 751, originalShipId: 54, stage: 3 }],
+  }
+  f.kernel.mg.ships = { 85: { shipId: 158 } }
+  return f
+}
+
+test('已有川内谱系改出新增的偵形态，沿用首次持有时刻', () => {
+  const f = sendaiFixture()
+  assert.deepEqual([...f.owned.observeOwnedShips(T0)], [])
+  f.kernel.mg.ships[85].shipId = 751
+  assert.deepEqual([...f.owned.observeOwnedShips(T1)], [])
+  assert.equal(f.owned.firstOwnedAt(751), T0)
+  assert.deepEqual(f.writes, [])
+})
+
+test('已误记的偵形态按川内整条谱系取最早时刻', () => {
+  const f = sendaiFixture({ ...sendaiHistory, 751: T1 })
+  assert.equal(f.owned.firstOwnedAt(751), T0)
+})
+
+test('首次入手秋津洲只返回在籍形态，并记录整条谱系', () => {
+  const f = sendaiFixture()
+  f.kernel.mg.ships[86] = { shipId: 445 }
+  assert.deepEqual([...f.owned.observeOwnedShips(T1)], [445])
+  assert.deepEqual(f.values['ships.firstOwned'], { ...sendaiHistory, 445: T1, 450: T1 })
+})
+
+test('首次建基线将川内整条谱系记为记账前持有', () => {
+  const f = sendaiFixture({})
+  assert.deepEqual([...f.owned.observeOwnedShips(T1)], [])
+  const before = f.owned.OWNED_BEFORE_LEDGER
+  assert.deepEqual(f.values['ships.firstOwned'], { 54: before, 222: before, 158: before, 751: before })
+})

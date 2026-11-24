@@ -197,8 +197,11 @@ export const queryMasterRaw = async () => state.raw
           }
           if (args.path === 'kcs-voice') {
             return {
-              contents:
-                'export const resolveVoiceRequest = () => null; export const setShipGraph = () => {}',
+              contents: `
+export const resolveVoiceRequest = () => null
+export const setShipGraph = () => {}
+export const voiceFilenameOf = () => null
+`,
             }
           }
           if (args.path === 'localization') {

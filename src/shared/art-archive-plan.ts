@@ -203,8 +203,8 @@ export const artArchiveHasBlobFor = (
  *（原话「都显示在图鉴里面，接着放到这个角色『原版所有皮肤图』的下面接着展示」）。
  *
  * 判据只有一条：**现行显示的那几份不重复摆**。
- *  · `displayedPathnames` 是画廊这一轮真的摆出来的那几条资源路径。kcs2 把版本键
- *    编进文件名，所以「路径相同」就等于「官方现在放的就是它」；
+ *  · 画廊给出实际展示的路径。档案地址按指纹认，其他来源按现行版号认；
+ *    两者都未知才按路径认。维护者实测 2026-11-24：换季后同一路径可对应多份实物。
  *  · 顺带把**内容相同**的那些也排掉：同一份字节早年在别的路径下也存过一次时，
  *    只按路径判会让同一张图在一页上出现两次（sha1 相同即同一份字节）。
  * 剩下的按图种归堆、堆内按留存时间从早到晚——同一图种攒过几版就顺着时间看下去。
@@ -213,19 +213,22 @@ export const artArchiveHasBlobFor = (
  */
 export const legacyArchivedArt = (
   entries: readonly ArtArchiveEntry[],
-  displayedPathnames: Iterable<string>,
+  displayedImages: Iterable<{ pathname: string; sha1?: string; version?: string }>,
 ): ArtArchiveEntry[] => {
-  const displayed = new Set<string>()
-  for (const pathname of displayedPathnames) if (pathname) displayed.add(pathname)
+  const displayed = new Map(Array.from(displayedImages, (image) => [image.pathname, image] as const))
   const currentSha1 = new Set<string>()
   for (const entry of entries) {
-    if (entry.sha1 && entry.bytes > 0 && displayed.has(entry.pathname)) currentSha1.add(entry.sha1)
+    const image = displayed.get(entry.pathname)
+    if (!image || !entry.sha1 || !(entry.bytes > 0)) continue
+    if (image.sha1 ? image.sha1 === entry.sha1 : !image.version || image.version === entry.version) {
+      currentSha1.add(entry.sha1)
+    }
   }
   const seen = new Set<string>()
   const out: ArtArchiveEntry[] = []
   for (const entry of entries) {
     if (!(entry.bytes > 0) || !entry.sha1) continue
-    if (displayed.has(entry.pathname) || currentSha1.has(entry.sha1)) continue
+    if (currentSha1.has(entry.sha1)) continue
     if (seen.has(entry.sha1)) continue
     seen.add(entry.sha1)
     out.push(entry)

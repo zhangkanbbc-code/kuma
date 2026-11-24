@@ -514,8 +514,9 @@ export const shipImagePath = (mstId: number, type: ShipImgType, damaged = false)
  * kuma的立绘页却还是空的、脚注还写着「还没落到缓存」。因为这里此前只有
  * 缓存与远端两档，而档案是第三本账——盘上明明有，取图这一侧却看不见。
  *
- * 档案排在缓存之后、远端之前：两者都是**本机已经有的字节**，谁都不必再走网络；
- * 缓存在前只是因为它是游戏刚写的那一份（最新）。而档案比缓存牢靠——
+ * MyCache（含 .hack 覆盖）优先。维护者实测 2026-11-24：换季可沿用路径只推高版本号。
+ * 档案优先取现行版，缺这一版且允许远端时才补取；版号未知或离线兜底时取最近实物。
+ * 档案比浏览器缓存牢靠——
  * 缓存超限会被 Chromium 整盘丢弃（共享记忆 electron-disk-cache-size），档案不会。
  * 于是「关掉远程取图」之后，见过的那些立绘照样看得到，这正是档案存在的意义。
  */
@@ -529,10 +530,11 @@ export const shipImageUrl = (mstId: number, type: ShipImgType, damaged = false):
   }
   const file = cachedFile(pathname)
   if (file) return pathToFileURL(file).href
-  const archived = archivedArtUrlForPath(pathname)
-  if (archived) return archived
-  const remote = remoteUrl(pathname)
   const version = shipImageVersion.get(mstId)
+  const archived = archivedArtUrlForPath(pathname, version)
+  if (archived) return archived
+  if (version && !allowRemoteArt) return archivedArtUrlForPath(pathname)
+  const remote = remoteUrl(pathname)
   return remote && version ? `${remote}?version=${encodeURIComponent(version)}` : remote
 }
 
@@ -830,7 +832,7 @@ export const SHIP_IMG_WANTED: [ShipImgType, boolean, string, boolean][] = [
 /**
  * 本机一份都没有的图种（开了远端回退时它们仍会显示，只是首次要走网络）。
  *
- * 判据与取图那条链的前两档**必须是同一句话**：缓存里有、或者档案里有，就是本机有。
+ * 这里按图种盘点：缓存或档案有任何版本的实物，就是本机有；显示现行版时另按版号选。
  * 2026-08-31 之前这里只问缓存，于是出现用户报的那一幕——六张图正从档案里显示着，
  * 脚注却还在说它们「还没落到缓存」。两本账各说各的，而错的那一本还写在屏幕上。
  */

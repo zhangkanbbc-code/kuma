@@ -589,7 +589,7 @@ test('画廊尾巴只摆非现行版本：官方现在放着的那一份不重�
     sha1: 'a'.repeat(16),
     version: '108',
   })
-  const tail = legacyArchivedArt([current, old], [PATH_FULL])
+  const tail = legacyArchivedArt([current, old], [{ pathname: PATH_FULL, version: '109' }])
   assert.deepEqual(tail.map((row) => row.sha1), ['a'.repeat(16)])
   // 画廊里那一条路径没摆出来时（本机缓存与远端都取不到），档案那一份就该顶上
   assert.deepEqual(
@@ -605,7 +605,7 @@ test('同一份字节绝不摆两次：换了路径也认得出，档案里的�
     pathname: '/kcs2/resources/ship/full/0961_5555_bbbbbbbbbbbb.png',
     sha1: 'd'.repeat(16),
   })
-  assert.deepEqual(legacyArchivedArt([shown, twin], [PATH_FULL]), [])
+  assert.deepEqual(legacyArchivedArt([shown, twin], [{ pathname: PATH_FULL }]), [])
   // 档案里同一指纹重复出现（不同图种目录下的同一张）也只摆一格
   const dup = artEntry({ type: 'full_dmg', sha1: 'e'.repeat(16) })
   assert.deepEqual(
@@ -615,8 +615,8 @@ test('同一份字节绝不摆两次：换了路径也认得出，档案里的�
 })
 
 test('没有旧版就一格都不多：空档案与只有现行那份，画廊都原样不变', () => {
-  assert.deepEqual(legacyArchivedArt([], [PATH_FULL]), [])
-  assert.deepEqual(legacyArchivedArt([artEntry()], [PATH_FULL]), [])
+  assert.deepEqual(legacyArchivedArt([], [{ pathname: PATH_FULL }]), [])
+  assert.deepEqual(legacyArchivedArt([artEntry()], [{ pathname: PATH_FULL }]), [])
   // 「见过但没留下实物」的占位长不出卡片（它没有字节，摆出来就是破图）
   assert.deepEqual(legacyArchivedArt([artEntry({ sha1: '', bytes: 0 })], []), [])
   assert.deepEqual(legacyArchivedArt([artEntry({ sha1: 'f'.repeat(16), bytes: 0 })], []), [])
@@ -664,7 +664,8 @@ test('画廊尾巴零网络：卡片只用档案那一份的 file:// 地址，�
   const at = ji.indexOf('const archivedArtCellsHtml')
   assert.ok(at > 0, '找不到画廊尾巴那段')
   const section = ji.slice(at, ji.indexOf('const cgPanelHtml = '))
-  assert.match(section, /legacyArchivedArt\(archivedArtEntriesOfShip\(mstId\), displayed\)/)
+  assert.match(section, /archivedArtEntriesOfShip\(mstId\)/)
+  assert.match(section, /legacyArchivedArt\(entries, displayed\.map/)
   assert.match(section, /archivedArtUrl\(entry\)/)
   // 一处远端地址都不许算：`archivedArtUrl` 给的是 file://，这一段不该碰游戏服务器
   assert.equal(/shipImageUrl\(|remoteUrl\(|https?:\/\//.test(section), false, '档案卡走了网络地址')
@@ -675,8 +676,8 @@ test('画廊尾巴零网络：卡片只用档案那一份的 file:// 地址，�
   assert.equal(/季节版|当季|圣诞|盛夏/.test(section), false, '档案卡主张了推不出来的季节归属')
   // 两侧都真的接上了（接不上就等于这个函数白写）。舰娘侧的现行路径 2026-08-31 起
   // 连衣装那几格一起去重——衣装也是「官方现在放着的」，漏掉它档案卡会摆重复的图。
-  assert.match(ji, /archivedArtCellsHtml\(mstId, \[\s*\.\.\.imgs\.map\(\(im\) => im\.pathname\),\s*\.\.\.costumes\.paths,\s*\]\)/)
-  assert.match(ji, /archivedArtCellsHtml\(mstId, images\.map\(\(image\) => image\.pathname\)\)/)
+  assert.match(ji, /archivedArtCellsHtml\(mstId, \[\.\.\.imgs, \.\.\.costumes\.displayed\]\)/)
+  assert.match(ji, /archivedArtCellsHtml\(mstId, images\)/)
   // 排序有讲究：本体现行 → 衣装 → 档案旧版。档案卡永远在最后一段
   assert.match(ji, /<div class="cg-grid" data-cg-grid>\$\{cells\}\$\{costumes\.html\}\$\{archived\}<\/div>/)
   assert.match(ji, /<div class="cg-grid abyss-cg-grid" data-cg-grid>\$\{cells\}\$\{archived\}<\/div>/)
