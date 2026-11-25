@@ -153,6 +153,7 @@ test('embedded trail follows its snapshot and uses recorded gauges while active 
     t,
     'battle-trail-host',
     `import { fcdTopologyUsable } from ${JSON.stringify(path.join(ROOT, 'src/shared/fcd-topology.ts'))}
+import { rankToneClass } from ${JSON.stringify(path.join(ROOT, 'src/shared/rank-tone.ts'))}
 import { bossLettersOf, reachableSpots, sortieBossTarget } from ${JSON.stringify(path.join(ROOT, 'src/shared/sortie-boss.ts'))}
 const replay = { id: 1 }
 const renderingEmbedded = true

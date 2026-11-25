@@ -13,6 +13,7 @@ import { fatigueBand } from '../fatigue'
 import { formationText, optionalFormationText } from '../../shared/enemy-formation'
 import { compFitsPreview, previewRevealsWholeFleet } from '../../shared/enemy-preview'
 import { requiredSunkForA } from '../../shared/battle-rank'
+import { rankToneClass } from '../../shared/rank-tone'
 import { fcdTopologyUsable } from '../../shared/fcd-topology'
 import { bossLettersOf, reachableSpots, sortieBossTarget } from '../../shared/sortie-boss'
 import { isBuiltInActiveBranchSpot } from '../../shared/active-branch-spots'
@@ -34,7 +35,7 @@ import {
 } from '../combat-forecast'
 import type { EventBonusContext } from '../combat-forecast'
 import { alvIconHtml } from '../alv-icon'
-import { setShipThumbTier, shipThumbHtml } from '../entity-art'
+import { setShipThumbTier, shipThumbHtml, useItemIconHtml } from '../entity-art'
 import { shipArtDamaged } from '../../shared/ship-art-path'
 import { equipTypeIconHtml } from '../equip-icon'
 import {
@@ -125,6 +126,7 @@ import type {
   BattleSnapshot,
   BattleSnapshotSummary,
   BattleView,
+  BattleReward,
   LocalDropScope,
   PracticeOpponentPreview,
   SortieForecastReport,
@@ -161,7 +163,7 @@ const ENGAGEMENT: Record<number, string> = {
   4: 'T字不利',
 }
 const rankLabel = (rank: string, prediction: BattleView['prediction']): string =>
-  rank === 'S' && prediction.perfect ? 'S（完全胜利）' : rank
+  rank === 'S' && prediction.perfect ? 'S 完全胜利' : rank
 
 // 结算横幅原本一律写「X 胜负确定」，2026-08-20 用户指出这在中文里既是废话又有歧义——
 // 评级本身已经分了阵营，A 就是胜，「负」不该跟着出现。按游戏评级归类：S/A/B 胜、
@@ -1161,7 +1163,8 @@ const trailHtml = (
                     : ''
       const done = !isCur
       const cls = ['tn', done ? 'done' : 'cur', typeCls, isBoss ? 'boss' : ''].filter(Boolean).join(' ')
-      const rank = n.rank ? `<span class="r">${esc(n.rank)}</span>` : ''
+      // 维护者裁决 2026-11-25：节点旁的评级字母随该点战果上色。
+      const rank = n.rank ? `<span class="r ${rankToneClass(n.rank)}">${esc(n.rank)}</span>` : ''
       const nodeBranches = spotBranches(mapKeyOf(s), letter)
       // 分歧点上再补一句自己的实测：拓扑说「能去哪」，账本说「实际去过哪几次」
       const tallyText = nodeBranches.length ? branchTallyText(routeTallyFor(s), letter) : ''
@@ -1323,11 +1326,41 @@ const baseDefenseMetrics = (b: BattleView) => {
   }
 }
 
+// 节点道具和舰娘共用「捞到」一行，舰娘在前；单件省略数量。
 // 掉落从副标题里的一行小字提升为独占一行的实体卡。捞到什么是出击最重要的结果之一，
 // 不该跟「基本经验 +xxx」挤在同一行小字里被一眼扫过去——尤其大破警告同屏时。
 const battleDropChipHtml = (s: SortieView, b: BattleView): string => {
-  const name = b.result?.dropShipName
-  if (!name) return ''
+  const parts: string[] = []
+  if (b.result?.dropShipName) parts.push(dropShipHtml(s, b, b.result.dropShipName))
+  for (const item of b.result?.rewards?.drops ?? []) parts.push(battleRewardHtml(item))
+  return parts.length ? `<div class="battle-drop-chip"><span class="k">捞到</span>${parts.join(' · ')}</div>` : ''
+}
+
+const battleItemName = (id: number): string =>
+  entityNamePlain('item', id, mg.master.useitemNames?.[id] ?? `道具 #${id}`)
+
+const battleRewardHtml = (reward: BattleReward): string => {
+  const { id, count } = reward
+  let label: string
+  switch (reward.kind) {
+    case 'useitem': {
+      const name = battleItemName(id)
+      label = elinkHtml('useitem', id, useItemIconHtml(id, name, { className: 'sm' }) + esc(name))
+      break
+    }
+    case 'ship':
+      label = elink('mstShip', id, mg.master.ships[id]?.name ?? `#${id}`)
+      break
+    case 'slotitem':
+      label = elink('mstEquip', id, mg.master.slotitems[id]?.name ?? `#${id}`)
+      break
+    default:
+      label = `#${id}`
+  }
+  return count > 1 ? `${label} ×${count}` : label
+}
+
+const dropShipHtml = (s: SortieView, b: BattleView, name: string): string => {
   const mstId = b.result?.dropShipMstId ?? 0
   // 演习不入遭遇志，没有首见可言；出击才判定。
   const first = s.practice
@@ -1341,12 +1374,9 @@ const battleDropChipHtml = (s: SortieView, b: BattleView): string => {
   // 呈现刻意低调：只做悬停，不占版面，不抢掉落本身的戏。台词有换行（原文里的 <br>），
   // title 用真换行摆两行。
   const getMessage = b.result?.dropShipMessage
-  return `<div class="battle-drop-chip">
-    ${shipThumbHtml(mstId, name, { className: 'drop' })}
-    <span class="k">捞到</span>
+  return `${shipThumbHtml(mstId, name, { className: 'drop' })}
     <b${getMessage ? ` title="${esc(getMessage)}"` : ''}>${mstId > 0 ? elinkHtml('mstShip', mstId, nameHtml) : nameHtml}</b>
-    ${first}${unownedShipBadgeHtml(mstId)}
-  </div>`
+    ${first}${unownedShipBadgeHtml(mstId)}`
 }
 
 // 「撤退还是进击」之外其实还有第三个选项：battleresult 报文自己提出的**退避**
@@ -1569,12 +1599,16 @@ const outcomeBannerHtml = (s: SortieView): string => {
       : '敌全灭'
   if (b.result) {
     const resultRank = rankLabel(b.result.rank, p)
+    const verdict = b.result.rank === 'S' && p.perfect
+      ? esc(resultRank)
+      : `${esc(resultRank)} ${rankOutcomeWord(b.result.rank)}`
+    // 维护者裁决 2026-11-25：结算标题中只给评级和胜败结论上色。
     const engagement = actualEngagementText(b)
     // MVP 与基本经验都搬去了下面的结果条（2026-08-20 用户口述）：这两截是度量，
     // 挂在横幅里既撑出第二行、又把舰名挤到「MVP」下一行。横幅只剩标题一行——
     // 「首次攻略！」是里程碑事件不是度量，留在这里；掉落卡照旧独占一行。
     return `<div class="verdict v-gold"><span class="ic">★</span><span class="tx">
-      <b>${esc(battleTypeLabel(b))}${engagement ? ` · ${esc(engagement)}` : ''} · ${esc(resultRank)} ${rankOutcomeWord(b.result.rank)}</b>${b.result.firstClear ? '<span>首次攻略！</span>' : ''}
+      <b>${esc(battleTypeLabel(b))}${engagement ? ` · ${esc(engagement)}` : ''} · <span class="${rankToneClass(b.result.rank)}">${verdict}</span></b>${b.result.firstClear ? '<span>首次攻略！</span>' : ''}
     </span><span class="act">✓ 结算</span>${battleDropChipHtml(s, b)}</div>`
   }
   const predictedRank = rankLabel(p.rank, p)
@@ -1601,12 +1635,12 @@ const outcomeBannerHtml = (s: SortieView): string => {
   }
   if (isDamageOnlyBattle(b)) {
     return `<div class="verdict v-green"><span class="ic">☑</span><span class="tx">
-      <b>${esc(battleForecastLead(b))}预测 ${esc(predictedRank)}${p.sure ? '' : '（预估）'} · 我方损失 ${p.fGauge}%</b>
+      <b>${esc(battleForecastLead(b))}预测 <span class="${rankToneClass(p.rank)}">${esc(predictedRank)}</span>${p.sure ? '' : '（预估）'} · 我方损失 ${p.fGauge}%</b>
     </span><span class="act">预测 ${esc(predictedRank)}</span></div>`
   }
   if (b.kind === 'airbattle') {
     return `<div class="verdict v-green"><span class="ic">☑</span><span class="tx">
-      <b>航空战预测 ${esc(predictedRank)}${p.sure ? '' : '（预估）'} · 我方损失 ${p.fGauge}% · 敌方损失 ${p.eGauge}%</b>
+      <b>航空战预测 <span class="${rankToneClass(p.rank)}">${esc(predictedRank)}</span>${p.sure ? '' : '（预估）'} · 我方损失 ${p.fGauge}% · 敌方损失 ${p.eGauge}%</b>
     </span><span class="act">预测 ${esc(predictedRank)}</span></div>`
   }
   const sunkInfo = `${b.practice ? '击破判定' : '击沉'} ${p.eSunk}/${p.eCount}`
@@ -1645,7 +1679,7 @@ const outcomeBannerHtml = (s: SortieView): string => {
     return ` · 敌护卫已残破 · 夜战预估与主力交战（主力剩余合计 HP ${mainRemain.reduce((acc, x) => acc + x.hpEnd, 0)}）`
   })()
   return `<div class="verdict v-green"><span class="ic">☑</span><span class="tx">
-    <b>${esc(battleForecastLead(b))}预测 ${esc(predictedRank)}${p.sure ? '' : '（预估）'}${engagement ? ` · ${esc(engagement)}` : ''} · ${sunkInfo} · ${remainTxt}</b>
+    <b>${esc(battleForecastLead(b))}预测 <span class="${rankToneClass(p.rank)}">${esc(predictedRank)}</span>${p.sure ? '' : '（预估）'}${engagement ? ` · ${esc(engagement)}` : ''} · ${sunkInfo} · ${remainTxt}</b>
     <span>我方损失 ${p.fGauge}% · 敌方损失 ${p.eGauge}%${nightHint}</span>
   </span><span class="act">预测 ${esc(predictedRank)}</span></div>`
 }
@@ -2265,11 +2299,12 @@ const resultStripHtml = (b: BattleView): string => {
   const damageOnly = isDamageOnlyBattle(b)
   const aviationOnly = b.kind === 'airbattle'
   const sunkLabel = b.practice ? '击破判定' : '击沉'
-  const rankTxt = b.result
-    ? p.rank !== b.result.rank
-      ? `${esc(rankLabel(p.rank, p))}→${esc(rankLabel(b.result.rank, p))}`
-      : esc(rankLabel(b.result.rank, p))
-    : `${esc(rankLabel(p.rank, p))}${p.sure ? '' : '?'}`
+  // 维护者裁决 2026-11-25：预测与判定各取自身评级色，修正时保留原有箭头。
+  const rankHtml = (rank: string, suffix = '') =>
+    `<b class="rank ${rankToneClass(rank)}">${esc(rankLabel(rank, p))}${suffix}</b>`
+  const rankChip = b.result && p.rank !== b.result.rank
+    ? `<span>${rankHtml(p.rank)}→${rankHtml(b.result.rank)}</span>`
+    : rankHtml(b.result?.rank ?? p.rank, b.result || p.sure ? '' : '?')
   const remain = b.eShips.filter((x) => x.hpStart > 0 && !battleDefeated(b, x))
   const enemyFlagship = b.eShips.find((x) => x.hpStart > 0 && !x.escaped)
   // 单舰编成没有 A 胜（打沉了就是 S），阈值本身的口径收在 shared/battle-rank
@@ -2377,12 +2412,16 @@ const resultStripHtml = (b: BattleView): string => {
   const unlocked = (b.result?.nextMapIds ?? []).map((mapId) =>
     elink('map', mapId, entityNamePlain('map', mapId, mapCodeOf(mapId))),
   )
+  const rewards = b.result?.rewards
+  const rewardChip = (label: string, content: string) =>
+    content ? `<span class="rchip">${label} <b>${content}</b></span>` : ''
+  const rewardList = (items: BattleReward[]) => items.map(battleRewardHtml).join(' · ')
   // 结算后的 MVP / 基本经验只留结果条一处（2026-08-18 用户指出上下重复）：
   // 2026-08-20 他把这唯一一处从金色横幅挪到了这里——横幅里舰名会被挤到第二行，
   // 而结果条「我方损失」右边本来就空着。芯片是 inline-flex，舰名天然紧跟「MVP」同行。
   return `<div class="result">
     <details class="rchip rank-card">
-      <summary>${b.result ? '判定' : '预测'} <b class="rank">${rankTxt}</b><span class="rank-more">条件</span></summary>
+      <summary>${b.result ? '判定' : '预测'} ${rankChip}<span class="rank-more">条件</span></summary>
       <div class="rank-detail">
         <div class="rank-detail-h"><b>战果${b.result ? '判定' : '预测'}条件</b><span>${status}</span></div>
         ${basis}
@@ -2396,6 +2435,9 @@ const resultStripHtml = (b: BattleView): string => {
     ${escapeNames.length || towNames.length ? `<span class="rchip">${
       escapeNames.length ? `可退避 <b>${escapeNames.join(' · ')}</b>` : '可退避'
     }${towNames.length ? ` <em>护卫</em> <b>${towNames.join(' · ')}</b>` : ''}</span>` : ''}
+    ${rewards ? rewardChip('击破奖励', rewardList(rewards.exmap)) : ''}
+    ${rewards ? rewardChip('攻略奖励', rewardList(rewards.event)) : ''}
+    ${rewards?.choices.map(group => rewardChip('自选', group.map(rewardList).join(' / '))).join('') ?? ''}
     ${unlocked.length ? `<span class="rchip">解锁 <b>${unlocked.join(' · ')}</b></span>` : ''}
   </div>`
 }
@@ -4064,7 +4106,7 @@ const navCardHtml = (s: SortieView): string => {
   </div>`
 }
 
-// 掉落：整轮累计，保持显示直到下次出击。
+// 掉落：整轮累计，保持显示直到下次出击。道具按点位与编号合并，列在舰娘之后。
 // 点位筛选是「这个面板此刻在看什么」，与选中阶段/展开行同类，按宿主各存一份
 // （见下方 BattlePaneViewState）——只有一份的话，史的抽屉与镝面板显示不同 sortie 时
 // 会互相把对方的筛选按「这个 startTs 不是我的」打回「全部」。
@@ -4072,16 +4114,30 @@ let dropCellFilter: number | null = null
 let dropFilterSortieStart = 0
 const dropCardHtml = (s: SortieView): string => {
   const b = s.battle
-  if (!s.drops.length && !b?.result) return ''
+  const items = s.itemDrops ?? [] // 回顾可读到旧版战斗快照
+  if (!s.drops.length && !items.length && !b?.result) return ''
   if (dropFilterSortieStart !== s.startTs) {
     dropFilterSortieStart = s.startTs
     dropCellFilter = null
   }
-  const cells = [...new Set(s.drops.map((drop) => drop.cell))].sort((a, b) => a - b)
+  const cells = [...new Set([...s.drops, ...items].map((drop) => drop.cell))].sort((a, b) => a - b)
   if (dropCellFilter != null && !cells.includes(dropCellFilter)) dropCellFilter = null
   const shownDrops = dropCellFilter == null
     ? s.drops
     : s.drops.filter((drop) => drop.cell === dropCellFilter)
+  const totals = new Map<number, number>()
+  const byCell = new Map<number, Map<number, number>>()
+  for (const { cell, id, count } of items) {
+    totals.set(id, (totals.get(id) ?? 0) + count)
+    if (dropCellFilter != null && cell !== dropCellFilter) continue
+    if (!byCell.has(cell)) byCell.set(cell, new Map())
+    const counts = byCell.get(cell)!
+    counts.set(id, (counts.get(id) ?? 0) + count)
+  }
+  const itemRows = [...byCell].flatMap(([cell, counts]) => [...counts].map(([id, count]) =>
+    `<div class="drop-r">${esc(cellLetter(s, cell))} 点：${battleRewardHtml({ kind: 'useitem', id, count })}</div>`,
+  )).join('')
+  const itemTotals = [...totals].map(([id, count]) => ` · ${esc(battleItemName(id))} ×${count}`).join('')
   const latestDrop = s.drops.at(-1)
   // 同一轮同一点位重复捞到同一艘时，「初」只属于最早的那一条。
   const firstMarked = new Set<number>()
@@ -4096,7 +4152,7 @@ const dropCardHtml = (s: SortieView): string => {
           return `<div class="drop-r">${shipThumbHtml(d.mstId, d.name, { className: 'drop' })}${esc(cellLetter(s, d.cell))} 点：<b>${elink('mstShip', d.mstId, d.name)}</b>${first}${unownedShipBadgeHtml(d.mstId)}${d === latestDrop && b?.result?.dropShipMstId === d.mstId ? '<span class="rt">最新</span>' : ''}</div>`
         })
         .join('')
-    : `<div class="drop-r" style="color:var(--dim)">${dropCellFilter == null ? '本轮暂无舰娘掉落' : `${esc(cellLetter(s, dropCellFilter))} 点暂无舰娘掉落`}</div>`
+    : itemRows ? '' : `<div class="drop-r" style="color:var(--dim)">${dropCellFilter == null ? '本轮暂无舰娘掉落' : `${esc(cellLetter(s, dropCellFilter))} 点暂无舰娘掉落`}</div>`
   const filters = cells.length > 1
     ? `<div class="drop-filters">
         <button class="drop-filter${dropCellFilter == null ? ' on' : ''}" data-act="drop-cell-filter" data-drop-cell="">全部</button>
@@ -4105,9 +4161,9 @@ const dropCardHtml = (s: SortieView): string => {
       </div>`
     : ''
   return `<div class="scard keep" style="--hc:var(--card-battle)">
-    <div class="h"><b>本轮掉落${dropCellFilter == null ? '' : ` · ${esc(cellLetter(s, dropCellFilter))} 点`}</b><span class="r">${shownDrops.length}/${s.drops.length} 舰${s.active ? '' : ' · 已归港'}</span></div>
+    <div class="h"><b>本轮掉落${dropCellFilter == null ? '' : ` · ${esc(cellLetter(s, dropCellFilter))} 点`}</b><span class="r">${shownDrops.length}/${s.drops.length} 舰${itemTotals}${s.active ? '' : ' · 已归港'}</span></div>
     ${filters}
-    <div class="drops">${rows}</div>
+    <div class="drops">${rows}${itemRows}</div>
   </div>`
 }
 

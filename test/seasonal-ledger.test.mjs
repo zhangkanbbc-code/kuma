@@ -508,3 +508,49 @@ test('秋刀鱼也落永久企划；排除罐头任务；无截止目录不误�
   assert.match(expanded, /data-keep="campaign-records:sanma:/)
   assert.match(html.campaignRecordsHtml(h, ctx, true), /来源与去向/)
 })
+
+// ---- 任务奖励选舰娘（维护者 2026-11-25 报：#866 第二组选了「明石」，本季任务里显示「未识别 ×1」） ----
+// 领奖报文里舰娘奖励是 api_type 11，编号放在 api_item.api_ship_id（真实报文形状，见下）。
+// 旧解析只认 api_id / 道具 / 装备字段，取到 0 号、落成 unknown；已经写进账本的旧行要按原报文改正。
+
+const akashiClaimData = {
+  api_material: [880, 0, 880, 0],
+  api_bounus_count: 2,
+  api_bounus: [
+    { api_type: 13, api_count: 1, api_item: { api_id: 64, api_name: '補強増設' } },
+    { api_type: 11, api_count: 1, api_item: { api_ship_id: 182, api_name: '明石', api_getmes: '工作艦、明石です。' } },
+  ],
+}
+
+test('任务奖励选了舰娘：api_type 11 记成舰娘与其编号，不落未识别', t => {
+  const { book } = make(t)
+  const rewards = book.parseRewards(akashiClaimData, true)
+  const ship = rewards.find(r => r.kind === 'ship')
+  assert.ok(ship, `没记成舰娘：${JSON.stringify(rewards)}`)
+  assert.deepEqual([ship.id, ship.count], [182, 1])
+  assert.ok(!rewards.some(r => r.kind === 'unknown'), JSON.stringify(rewards))
+  assert.ok(rewards.some(r => r.kind === 'useitem' && r.id === 64 && r.count === 1))
+})
+
+test('旧版本记成未识别的舰娘奖励：重启后按账本原报文改正，再启动不变', async t => {
+  const { db } = make(t)
+  const ts = Date.parse('2026-11-25T23:53:51+09:00')
+  put(db, { ts, path: '/kcsapi/api_req_quest/clearitemget', post: { api_quest_id: '866', api_select_no: '1', api_select_no2: '2' },
+    body: { api_result: 1, api_data: akashiClaimData } })
+  const eventId = db.prepare('SELECT MAX(id) AS id FROM events').get().id
+  // 旧解析写下的原样（从真实账本逐字抄来）
+  const stale = '[{"kind":"material","id":1,"count":880},{"kind":"material","id":3,"count":880},{"kind":"useitem","id":64,"count":1,"name":"補強増設"},{"kind":"unknown","id":0,"count":1,"name":"明石"}]'
+  db.prepare(`INSERT INTO quest_observations VALUES (?, 866, 'claim', ?, ?, '', '', '1', '2', ?, '[]')`).run(`claim:${ts}:866`, ts, ts, stale)
+  db.prepare('INSERT OR REPLACE INTO seasonal_backfill_state(id, event_id) VALUES (1, ?)').run(eventId)
+  const rewardsOf = () => JSON.parse(db.prepare('SELECT rewards FROM quest_observations WHERE observation_key = ?').get(`claim:${ts}:866`).rewards)
+  const restarted = new SeasonalLedger(db)
+  restarted.setMaster(master)
+  await restarted.startBackfill()
+  const fixed = rewardsOf()
+  assert.ok(fixed.some(r => r.kind === 'ship' && r.id === 182 && r.count === 1), JSON.stringify(fixed))
+  assert.ok(!fixed.some(r => r.kind === 'unknown'), JSON.stringify(fixed))
+  const again = new SeasonalLedger(db)
+  again.setMaster(master)
+  await again.startBackfill()
+  assert.deepEqual(rewardsOf(), fixed)
+})

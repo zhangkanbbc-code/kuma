@@ -91,6 +91,44 @@ const condHtml = (_ship: any) => ''
 const shipThumbHtml = (_id: number, _name: string, _o?: any) => '<i class="thumb"></i>'
 const shipArtDamaged = (_now: number, _max: number) => false
 const expanded = new Set<number>()
+// 编队状态着色（维护者裁决 2026-11-25）：开关与逐舰判档都在 shipRow 之外，这里给可设的桩
+export let fleetToneOn = false
+export const fleetToneById: Record<number, any> = {}
+const fleetStateToneEnabled = () => fleetToneOn
+const shipStateTone = (ship: any) => fleetToneById[ship.id] ?? null
+// 被弹动画（实验性，维护者裁决 2026-11-25）：逐舰取一次性的动画参数，shipRow 之外判开关与掉血
+export const hitById: Record<number, any> = {}
+const shipHitShake = (ship: any) => hitById[ship.id] ?? null
+// 常驻裂纹（维护者裁决 2026-11-25）：shipRow 之外按当前耐久与入渠判出的伤势档（light / medium / heavy），null 为无
+export const crackById: Record<number, string> = {}
+const shipHitCrack = (ship: any) => crackById[ship.id] ?? null
+// 随机裂纹骨架变量（重设计 2026-11-25）：shipRow 之外按舰种冻结随机几何变量
+export const fractureById: Record<number, string> = {}
+const shipHitFracture = (ship: any) => fractureById[ship.id] ?? ''
+// 缺角玻璃层与修理演出挂件（维护者裁决 2026-11-26）：shipRow 之外判定，返回 { attrs, layers, tether, wash } 或 null
+export const glassFxById: Record<number, any> = {}
+const shipGlassFx = (ship: any, _sunk: boolean) => glassFxById[ship.id] ?? null
+export const setGlassFx = (fx: Record<number, any> = {}) => {
+  for (const key of Object.keys(glassFxById)) delete glassFxById[+key]
+  Object.assign(glassFxById, fx)
+}
+export const setHitCrack = (cracks: Record<number, string> = {}) => {
+  for (const key of Object.keys(crackById)) delete crackById[+key]
+  Object.assign(crackById, cracks)
+}
+export const setHitFracture = (fractures: Record<number, string> = {}) => {
+  for (const key of Object.keys(fractureById)) delete fractureById[+key]
+  Object.assign(fractureById, fractures)
+}
+export const setHitShake = (hits: Record<number, any> = {}) => {
+  for (const key of Object.keys(hitById)) delete hitById[+key]
+  Object.assign(hitById, hits)
+}
+export const setFleetTone = (on: boolean, tones: Record<number, any> = {}) => {
+  fleetToneOn = on
+  for (const key of Object.keys(fleetToneById)) delete fleetToneById[+key]
+  Object.assign(fleetToneById, tones)
+}
 
 ${KERNEL_ESCAPE}
 
@@ -149,3 +187,18 @@ const DECK = { id: 1, name: '第一舰队', ships: [] }
 /** 渲染一行。`ship` 只写这条护栏关心的字段。 */
 export const renderRow = (ship, { deck = DECK, isFlag = false } = {}) =>
   loaded.shipRow(deck, { lv: 50, nowhp: 40, maxhp: 40, fuel: 0, bull: 0, slot: [], onslot: [], ...ship }, isFlag)
+
+/** 编队状态着色：开关与逐舰判档结果（shipStateTone 的返回值）。逐例设置，reset 不动它。 */
+export const setFleetTone = (on, tones = {}) => loaded.setFleetTone(on, tones)
+
+/** 被弹动画：逐舰的一次性动画参数（shipHitShake 的返回值）。逐例设置。 */
+export const setHitShake = (hits = {}) => loaded.setHitShake(hits)
+
+/** 常驻裂纹：逐舰的伤势档（shipHitCrack 的返回值，'light' / 'medium' / 'heavy'，null 为无）。逐例设置。 */
+export const setHitCrack = (cracks = {}) => loaded.setHitCrack(cracks)
+
+/** 随机裂纹骨架 CSS 变量（shipHitFracture 的返回值）。逐例设置。 */
+export const setHitFracture = (fractures = {}) => loaded.setHitFracture(fractures)
+
+/** 缺角玻璃层与修理演出挂件（shipGlassFx 的返回值）。逐例设置。 */
+export const setGlassFx = (fx = {}) => loaded.setGlassFx(fx)

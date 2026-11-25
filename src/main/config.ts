@@ -49,6 +49,8 @@ const DEFAULTS: Record<string, unknown> = {
     // 出击中舰娘被击沉后的哀悼视觉（界面失色 + 编队卡碎裂），到返港为止。
     // 关掉只是不画，击沉本身照样进铃的通知与记录。
     sunkEffects: true,
+    fleetStateTone: false,
+    hitShake: false,
     // 启动时先来一屏「欢迎返港」等舰C加载，随后顺次点亮各面板、最后亮起游戏画面
     //（默认关）。
     // 默认值取自 shared/launch-glow：钥的开关与镇壳的读取都引同一份，别在这里写字面量。
@@ -141,8 +143,13 @@ class KumaConfig extends EventEmitter {
     this.emit('config.set', configPath, value)
     this.save()
     const uiKey = configPath.slice(3)
-    if (configPath.startsWith('ui.') && SHARED_UI_PREFERENCES.has(uiKey)) {
-      for (const win of BrowserWindow.getAllWindows()) win.webContents.send(UI_PREFERENCE_CHANNEL, uiKey)
+    if (
+      configPath === 'kuma.fleetStateTone' ||
+      configPath === 'kuma.hitShake' ||
+      (configPath.startsWith('ui.') && SHARED_UI_PREFERENCES.has(uiKey))
+    ) {
+      const key = configPath.startsWith('ui.') ? uiKey : configPath
+      for (const win of BrowserWindow.getAllWindows()) win.webContents.send(UI_PREFERENCE_CHANNEL, key)
     }
   }
 

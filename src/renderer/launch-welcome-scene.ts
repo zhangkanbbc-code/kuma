@@ -1,6 +1,5 @@
 // 季节层只拥有自己创建的节点与场景监听；欢迎屏的四条退场路统一调用 dispose。
-// 位置、构图与 symbol 采用 2026-10-15 定稿；位移、摆动与旋转分层承载。
-// 动画只挂 HTML，且只用 replace，界面线程忙时仍由合成线程推进。
+// 位移、摆动与旋转分层承载；动画只挂 HTML 且只用 replace，界面线程忙时仍由合成线程推进。
 import { LAUNCH_SEASON_TIMING as T } from '../shared/launch-glow'
 import type { WelcomeScene, WelcomeSeason } from '../shared/launch-welcome-scene'
 
@@ -119,7 +118,7 @@ export const mountWelcomeScene = (
   style(deco, { transform: `scale(${scale})` })
   measure()
   motion(scene, ['fade', T.sceneFade, 0, 'ease'])
-  // 保持原先整张 SVG 的绘制层级：图形在光晕等 HTML 装饰之下。
+  // 保持图形在光晕等 HTML 装饰之下。
   const art = stage.html(scene, 'ks-art')
   // 装饰的取景框随名字宽度同步，节点与动画始终是同一批，不会中途换幕或重播。
   const decoArt = ['valentine', 'spring', 'xmas'].includes(selection.key) ? stage.html(deco, 'ks-art') : null
@@ -140,7 +139,21 @@ export const mountWelcomeScene = (
     const node = stage.html(scene, 'ks-horizon', { top: () => px(P.y + P.h + offset) })
     motion(node, ['fade', T.fixed.horizon, 0, 'ease'])
   }
-  // 包裹与图形保持同样尺寸/中心，多段运动沿用定稿的嵌套顺序。
+  // 铭牌正后方的同源 --bg0 柔衬，让高密度动态背景不抢铭牌读性，且不碰铭牌本体。
+  const plateHalo = () => {
+    const node = stage.html(scene, 'ks-plate-halo', {
+      left: () => px(P.cx - (P.w * .78 + 110)), top: () => px(P.cy - (P.h * .85 + 72)),
+      width: () => px(P.w * 1.56 + 220), height: () => px(P.h * 1.7 + 144),
+    })
+    motion(node, ['fade', T.fixed.washIn, 0, 'ease'])
+  }
+  const wash = (className: string, css: Css = { left: '0px', top: '0px', right: '0px', bottom: '0px' }) => {
+    const node = stage.html(scene, className, css)
+    scene.insertBefore(node, art)
+    motion(node, ['fade', T.fixed.washIn, 0, 'ease'])
+    return node
+  }
+  // 包裹与图形保持同样尺寸/中心，多段运动沿用既定嵌套顺序。
   const inner = (node: HTMLElement) => {
     const child = stage.html(node, 'ks-motion')
     for (const content of Array.from(node.children)) if (content !== child) child.appendChild(content)
@@ -155,8 +168,8 @@ export const mountWelcomeScene = (
     motion(swing, ['sway', swayDuration * 2, -R(0, swayDuration), 'ease-in-out', true])
     return swing
   }
-  // 两个独立的 CSS 伪元素共享一个不动的容器，雨滴仍各走各的轨迹与延时。
-  const pairedParticle = (kind: 'rain' | 'current', i: number, nodes: HTMLElement[], css: Css, motions: Motion[]) => {
+  // 两个独立的 CSS 伪元素共享一个不动的容器，雨滴、微粒与暖尘仍各走各的轨迹与延时。
+  const pairedParticle = (kind: 'rain' | 'mote' | 'dust', i: number, nodes: HTMLElement[], css: Css, motions: Motion[]) => {
     const slot = i % 2 ? 'b' : 'a'
     const host = i % 2 ? nodes[nodes.length - 1] : stage.html(scene, `ks-pair ks-${kind}`)
     if (!(i % 2)) nodes.push(host)
@@ -172,12 +185,17 @@ export const mountWelcomeScene = (
       horizon(70)
       const d = () => Math.max(240, Math.min(320, P.w * 1.15))
       const clip = stage.html(scene, 'ks-sun-clip', { height: () => px(P.y + P.h + 70) })
+      // 纯水平低空晨曦（无任何放射状光芒），让初日从暖色海天相接处升起。
+      const dawn = stage.html(clip, 'ks-ny-dawn', { left: '0px', right: '0px', top: () => px(P.y + P.h + 70 - 300), height: '300px' })
+      motion(dawn, ['fade', T.fixed.sunHalo, T.fixed.sunRiseAt, 'ease'])
       const halo = stage.html(clip, 'ks-sun-halo', { left: () => px(P.cx - d() * 1.35), top: () => px(P.y + P.h + 70 - d() * 1.63), width: () => px(d() * 2.7), height: () => px(d() * 2.7) })
       motion(halo, ['fade', T.fixed.sunHalo, T.fixed.sunHaloAt, 'ease'])
       const sun = stage.html(clip, 'ks-sun', { left: () => px(P.cx - d() / 2), top: () => px(P.y + P.h + 70 - d() * .78), width: () => px(d()), height: () => px(d()), '--rise': () => px(d() * .95) })
       motion(sun, ['sun-rise', T.fixed.sunRise, T.fixed.sunRiseAt, 'cubic-bezier(.16,.72,.24,1)'])
+      const seaGlow = stage.html(scene, 'ks-ny-sea-glow', { left: () => px(P.cx - d() * 1.45), top: () => px(P.y + P.h + 71), width: () => px(d() * 2.9), height: '140px' })
+      motion(seaGlow, ['fade', T.fixed.sunHalo, T.fixed.sunHaloAt, 'ease'])
       for (let row = 0; row < 8; row++) for (let i = 0; i < (row < 3 ? 2 : 1); i++) {
-        const w = R(12, 46) * (1 - row * .06), spread = R(-1, 1) * .42 * (1 - row * .07)
+        const w = R(18, 56) * (1 - row * .07), spread = R(-1, 1) * .42 * (1 - row * .07)
         const glint = stage.html(scene, 'ks-sun-glint-in', { left: () => px(P.cx + spread * d() - w / 2), top: () => px(P.y + P.h + 79 + row * 10.5), width: px(w) })
         const shine = stage.html(glint, 'ks-sun-glint')
         const at = range(T.newyear.glintAt)
@@ -187,37 +205,75 @@ export const mountWelcomeScene = (
       ring(T.newyear.ringAt)
     },
     setsubun() {
-      for (const left of [true, false]) for (let i = 0; i < 9; i++) {
+      const backdrop = stage.html(scene, 'ks-sb-backdrop')
+      scene.insertBefore(backdrop, art)
+      const spill = stage.html(scene, 'ks-sb-spill')
+      scene.insertBefore(spill, art)
+      motion(spill, ['sb-breathe', T.fixed.sbBreathe, 0, 'ease-in-out', true, 'none'])
+      if (!calm) spill.style.animationDirection = 'alternate'
+      const shoji = stage.html(scene, 'ks-sb-shoji', { height: () => px(P.y + P.h + 150) })
+      scene.insertBefore(shoji, art)
+      motion(shoji, ['fade', T.fixed.shojiIn, 0, 'ease'])
+      const eave = stage.html(scene, 'ks-sb-eave')
+      scene.insertBefore(eave, art)
+      const deck = stage.html(scene, 'ks-sb-deck', { top: () => px(P.y + P.h + 144) })
+      scene.insertBefore(deck, art)
+      motion(deck, ['fade', T.fixed.horizon, 0, 'ease'])
+      const masu = stage.glyph(art, 'masu', 62, 40, { left: '11%', top: () => px(P.y + P.h + 112) })
+      motion(masu, ['fade', T.fixed.masuIn, T.fixed.masuAt, 'ease'])
+      const dusts: HTMLElement[] = []
+      for (let i = 0; i < 8; i++) {
+        const dur = range(T.setsubun.dust)
+        pairedParticle('dust', i, dusts, {
+          left: `${R(6, 48).toFixed(1)}%`, top: `${R(18, 66).toFixed(1)}%`,
+          size: px(R(3, 5.2)), op: R(.36, .58).toFixed(2), direction: 'alternate',
+        }, [['sb-dust', dur, -R(0, T.setsubun.dust[0]), 'ease-in-out', true]])
+      }
+      // 14 粒豆：左侧 9 粒从檐边枡木盒上方抛射而出，右侧 5 粒呼应回撒。
+      for (let i = 0; i < 14; i++) {
+        const left = i < 9
         const duration = range(T.setsubun.toss), at = (left ? T.setsubun.leftAt : T.setsubun.rightAt) + R(0, T.setsubun.spread)
-        const x0 = left ? -30 : W + 30, dx = left ? R(-540, -70) : R(70, 540), roll = (left ? 1 : -1) * R(4, 24)
-        const y0 = R(30, 110), yp = R(-430, -250), yf = R(-16, 16), bounce = R(10, 22)
+        const x0 = left ? W * .125 : W + 30
+        const dx = left ? R(-450, 100) : R(60, 510), roll = (left ? 1 : -1) * R(26, 62)
+        const y0 = left ? 116 : 148, yp = R(-300, -130), yf = R(164, 246), bounce = R(24, 42)
+        const depth = (yf - 164) / 82, sc = (.84 + depth * .32).toFixed(3)
         const bean = stage.html(scene, 'ks-bean-flight', { '--x0': px(x0), '--x1': () => px(P.cx + dx), '--x2': () => px(P.cx + dx + roll),
-          '--y0': () => px(P.y + P.h + 150 + y0), '--yp': () => px(P.y + P.h + 150 + yp), '--yf': () => px(P.y + P.h + 150 + yf), '--yb': () => px(P.y + P.h + 150 + yf - bounce),
-          '--rot': `${R(0, 180)}deg`, '--spin': `${R(-560, 560)}deg`, transform: () => `translate(${px(P.cx + dx + roll)}, ${px(P.y + P.h + 150 + yf)}) rotate(var(--rot))` })
+          '--y0': () => px(P.y + P.h + y0), '--yp': () => px(P.y + P.h + yp), '--yf': () => px(P.y + P.h + yf), '--yb': () => px(P.y + P.h + yf - bounce),
+          '--rot': `${R(0, 180)}deg`, '--spin': `${R(-520, 520)}deg`, '--sc': sc,
+          transform: () => `translate(${px(P.cx + dx + roll)}, ${px(P.y + P.h + yf)}) scale(var(--sc)) rotate(var(--rot))` })
         const arc = stage.html(bean, 'ks-motion'), seed = stage.html(arc, 'ks-bean')
         motion(bean, ['bean-x', duration, at])
         motion(arc, ['bean-y', duration, at])
-        motion(seed, ['bean-spin', duration, at, 'cubic-bezier(.2,.7,.3,1)'])
-        const shadow = stage.html(scene, 'ks-bean-shadow', { left: () => px(P.cx + dx + roll - 6.5), top: () => px(P.y + P.h + 155 + yf) })
-        motion(shadow, ['fade', T.fixed.beanShadow, at + duration, 'ease'])
+        motion(seed, ['bean-spin', duration, at, 'cubic-bezier(.18,.78,.28,1)'])
+        const shadow = stage.html(scene, 'ks-bean-shadow', { left: () => px(P.cx + dx + roll - 6.5), top: () => px(P.y + P.h + yf + 4), transform: `scale(${sc})` })
+        motion(shadow, ['fade', T.fixed.beanShadow, at + Math.round(duration * .9), 'ease'])
       }
-      const hit = stage.html(deco, 'ks-bean ks-bean-hit', { left: () => px(P.w * .7), top: '-4px', '--rot': '12deg' })
+      plateHalo()
+      const hit = stage.html(deco, 'ks-bean ks-bean-hit', { left: () => px(P.w * .72), top: '-4px', '--rot': '12deg' })
       motion(hit, ['bean-drop', T.setsubun.hitDuration, T.setsubun.hitAt])
       // 沉一下的也是包裹层：.kw-box 原有的裁切与入场机制不改。
-      // 包裹只承接短促位移，不覆盖它从欢迎屏继承的淡入。
       if (!calm) {
         wrapper.style.animation = `kuma-welcome-in ${T.fixed.plateIn}ms ease both, kuma-season-nudge ${T.fixed.nudge}ms ease-out ${T.setsubun.hitAt + T.setsubun.nudgeAt}ms backwards`
       }
     },
     valentine() {
-      for (let i = 0; i < 18; i++) {
-        const s = R(13, 32), x = R(60, W - 60), duration = range(T.valentine.rise), opacity = R(.28, .55)
-        const heart = stage.glyph(art, 'heart', s, s * .92, { '--x': px(x), '--y0': px(H + 30), '--y1': px(R(-60, 160)), '--sw': px(R(10, 26)), '--op': opacity,
-          transform: `translate(${px(x)}, ${px(R(120, H - 60))})`, opacity })
-        const at = i < 8 ? -R(duration * .15, duration * .6) : range(T.valentine.start)
-        motion(heart, ['rise', duration, at, 'linear', true], ['rise-o', duration, at, 'linear', true])
-        motion(inner(heart), ['sway', range(T.valentine.sway) * 2, -R(0, T.valentine.sway[1]), 'ease-in-out', true])
-      }
+      wash('ks-val-blush')
+      const tiers = [
+        { count: 7, size: [12, 17], op: [.22, .34], sw: [8, 15] },
+        { count: 7, size: [18, 25], op: [.35, .48], sw: [14, 22] },
+        { count: 4, size: [26, 34], op: [.46, .60], sw: [18, 28] },
+      ]
+      let index = 0
+      tiers.forEach((tier, depth) => {
+        for (let i = 0; i < tier.count; i++, index++) {
+          const s = range(tier.size), x = R(60, W - 60), duration = range(T.valentine.rise[depth]), opacity = range(tier.op)
+          const heart = stage.glyph(art, 'heart', s, s * .92, { '--x': px(x), '--y0': px(H + 30), '--y1': px(R(-60, 160)), '--sw': px(range(tier.sw)), '--op': opacity,
+            transform: `translate(${px(x)}, ${px(R(120, H - 60))})`, opacity })
+          const at = index < 8 ? -R(duration * .15, duration * .6) : range(T.valentine.start)
+          motion(heart, ['rise', duration, at, 'linear', true], ['rise-o', duration, at, 'linear', true])
+          motion(inner(heart), ['sway', range(T.valentine.sway[depth]) * 2, -R(0, T.valentine.sway[depth][1]), 'ease-in-out', true])
+        }
+      })
       const horizontal = stage.html(deco, 'ks-ribbon-h', { top: '5.5px' })
       const vertical = stage.html(deco, 'ks-ribbon-v', { left: () => px(P.w - 17.5) })
       motion(horizontal, ['grow-x', T.fixed.ribbonH, T.fixed.ribbonHAt, 'cubic-bezier(.3,.7,.2,1)'])
@@ -230,27 +286,46 @@ export const mountWelcomeScene = (
       motion(bowSwing, ['bow-sway', T.fixed.bowSway, T.fixed.bowSwayAt, 'ease-in-out', true, 'none'])
     },
     spring() {
-      for (let i = 0; i < 34; i++) {
-        const gust = i < 12, y = gust ? R(120, 660) : -40, x = gust ? W + 40 : R(260, W + 260)
-        const duration = range(gust ? T.spring.gust : T.spring.fall), s = R(gust ? 15 : 12, gust ? 23 : 20)
-        const node = stage.glyph(art, 'petal', s, s * 1.04, { opacity: R(gust ? .75 : .5, gust ? .95 : .9), '--r0': `${R(0, 360)}deg` })
-        const swing = fall(node, x, y, gust ? -80 : x - R(360, 600), gust ? y + R(160, 320) : H + 40, duration,
-          gust ? range(T.spring.gustAt) : i < 22 ? -R(0, duration) : range(T.spring.fallAt), R(gust ? 8 : 14, gust ? 20 : 38), range(gust ? T.spring.gustSway : T.spring.sway), gust)
-        if (calm && gust) node.style.display = 'none'
-        if (!calm) {
-          motion(inner(swing), ['flutter', range(T.spring.flutter), 0, 'linear', true])
-        } else node.style.transform += ' rotate(var(--r0))'
+      wash('ks-spring-air')
+      for (let i = 0; i < 12; i++) {
+        const y = R(120, 660), x = W + 40, duration = range(T.spring.gust), s = R(15, 23)
+        const node = stage.glyph(art, 'petal', s, s * 1.04, { opacity: R(.74, .95), '--r0': `${R(0, 360)}deg` })
+        const swing = fall(node, x, y, -80, y + R(160, 320), duration, range(T.spring.gustAt), R(8, 20), range(T.spring.gustSway), true)
+        if (calm) node.style.display = 'none'
+        else motion(inner(swing), ['flutter', range(T.spring.flutter), 0, 'linear', true])
       }
+      // 远中近三层飘落：尺寸、速度、摆幅与不透明度耦合，建立春季花吹雪的纵深。
+      const tiers = [
+        { count: 8, size: [10, 14], op: [.38, .56], sw: [10, 20], drift: [280, 420] },
+        { count: 9, size: [14, 18], op: [.58, .78], sw: [16, 28], drift: [380, 520] },
+        { count: 5, size: [18, 23], op: [.78, .94], sw: [24, 38], drift: [460, 620] },
+      ]
+      let index = 0
+      tiers.forEach((tier, depth) => {
+        for (let i = 0; i < tier.count; i++, index++) {
+          const x = R(260, W + 260), duration = range(T.spring.fall[depth]), s = range(tier.size)
+          const node = stage.glyph(art, 'petal', s, s * 1.04, { opacity: range(tier.op), '--r0': `${R(0, 360)}deg` })
+          const swing = fall(node, x, -40, x - range(tier.drift), H + 40, duration,
+            index < 10 ? -R(0, duration) : range(T.spring.fallAt), range(tier.sw), range(T.spring.sway[depth]), false)
+          if (!calm) motion(inner(swing), ['flutter', range(T.spring.flutter), 0, 'linear', true])
+          else node.style.transform += ' rotate(var(--r0))'
+        }
+      })
+      plateHalo()
       for (const [i, fraction] of [.16, .58, .88].entries()) {
         const node = stage.glyph(decoArt!, 'petal', 16, 16.6, { '--lx': px(R(50, 110)), '--rf': `${R(-35, 35)}deg`, '--land-x': () => px(P.w * fraction - 7), transform: () => `translate(${px(P.w * fraction - 7)}, -9px) rotate(var(--rf))` })
         motion(node, ['petal-land', T.fixed.petalLand, T.spring.landAt[i]])
       }
     },
     tsuyu() {
+      wash('ks-tsuyu-mist', { left: '0px', right: '0px', top: () => px(P.y + P.h + 70), bottom: '0px' })
       const drops: HTMLElement[] = []
-      if (!calm) for (let i = 0; i < 40; i++) pairedParticle('rain', i, drops, {
-        x0: px(R(0, W + 300)), size: px(R(40, 90)), op: R(.3, .62),
-      }, [['rain', range(T.tsuyu.rain), range(i < 10 ? T.tsuyu.firstAt : T.tsuyu.rainAt), 'linear', true]])
+      if (!calm) for (let i = 0; i < 40; i++) {
+        const far = i < 16
+        pairedParticle('rain', i, drops, {
+          x0: px(R(0, W + 300)), size: px(far ? R(36, 62) : R(58, 96)), op: far ? R(.2, .38) : R(.4, .66), w: far ? '1px' : '1.6px',
+        }, [['rain', range(T.tsuyu.rain), range(i < 10 ? T.tsuyu.firstAt : T.tsuyu.rainAt), 'linear', true]])
+      }
       for (let i = 0; i < 10; i++) {
         const w = R(54, 128), x = R(110, W - 110), offset = R(130, H - 46 - P.y - P.h)
         const ripple = stage.html(scene, 'ks-ripple', { left: px(x - w / 2), top: () => px(P.y + P.h + offset - w * .13), width: px(w), height: px(w * .26) })
@@ -278,20 +353,26 @@ export const mountWelcomeScene = (
         motion(flash, ['fw-flash', T.summer.cycle, at])
         const gravity = stage.html(shell, 'ks-fw-gravity')
         motion(gravity, ['fw-gravity', T.summer.cycle, at])
-        const radius = R(120, 170)
+        const radius = R(124, 174)
         let spark: HTMLElement
         for (let i = 0; i < 38; i++) {
-          const outer = i < 26, angle = 360 / (outer ? 26 : 12) * (outer ? i : i - 26) + R(outer ? -5 : -8, outer ? 5 : 8)
+          const outer = i < 26, angle = 360 / (outer ? 26 : 12) * (outer ? i : i - 26) + R(outer ? -6 : -9, outer ? 6 : 9)
           if (!(i % 2)) spark = stage.html(gravity, 'ks-fw-sparks')
           const slot = i % 2 ? 'b' : 'a'
-          style(spark!, { [`--${slot}-angle`]: `${angle}deg`, [`--${slot}-radius`]: px(radius * R(outer ? .78 : .42, outer ? 1.06 : .56)), [`--${slot}-c`]: colors[outer ? k : (k + 1) % 3] })
+          style(spark!, {
+            [`--${slot}-angle`]: `${angle}deg`,
+            [`--${slot}-radius`]: px(radius * R(outer ? .72 : .4, outer ? 1.08 : .58)),
+            [`--${slot}-len`]: px(outer ? R(13, 19) : R(9, 13)),
+            [`--${slot}-c`]: colors[outer ? k : (k + 1) % 3],
+          })
           if (!calm) style(spark!, { '--spark-motion': `kuma-season-fw-spread ${T.summer.cycle}ms linear ${at}ms infinite backwards, kuma-season-fw-spark-o ${T.summer.cycle}ms linear ${at}ms infinite backwards` })
         }
-        // 六道水面反光用一个 SVG path，构图和每发花火仍共用原周期。
+        // 水面反光带一层同色微晕，与六道细波纹同周期同位置联动。
         const reflection = stage.html(scene, 'ks-fw-reflection')
         style(reflection, { left: px(position.x - 50), top: () => px(P.y + P.h + 117), '--c': colors[k] })
+        stage.html(reflection, 'ks-fw-water-glow')
         let d = ''
-        for (let row = 0; row < 6; row++) { const w = R(12, 42) * (1 - row * .1), x = 50 + R(-10, 10); d += `M${x - w / 2} ${row * 9 + 1}h${w}` }
+        for (let row = 0; row < 6; row++) { const w = R(14, 46) * (1 - row * .1), x = 50 + R(-10, 10); d += `M${x - w / 2} ${row * 9 + 1}h${w}` }
         stage.shape(stage.svg(reflection, 100, 60), 'path', { d, fill: 'none', stroke: 'var(--c)', 'stroke-width': 2, 'stroke-linecap': 'round' })
         motion(reflection, ['fw-reflection', T.summer.cycle, at])
         if (!calm) {
@@ -306,51 +387,153 @@ export const mountWelcomeScene = (
           listeners.push(() => shell.removeEventListener('animationiteration', reroll))
         } else { trail.style.display = 'none'; flash.style.display = 'none' }
       })
+      plateHalo()
     },
     sanma() {
-      const currents: HTMLElement[] = []
-      for (let i = 0; i < 6; i++) pairedParticle('current', i, currents, {
-        top: px(R(110, H - 70)), left: px(R(-200, W - 600)), width: px(R(400, 900)), dx: px(-R(120, 260)), direction: 'alternate',
-      }, [['drift', range(T.sanma.current), -R(0, T.sanma.current[0]), 'ease-in-out', true]])
-      for (const near of [true, false]) {
-        const size = near ? 1 : .62, duration = near ? T.sanma.near : T.sanma.far, at = near ? 0 : T.sanma.farAt
-        const placed: { x: number; y: number }[] = []
-        for (let i = 0; i < (near ? 11 : 6); i++) {
-          let x = 0, y = 0
-          for (let attempt = 0; attempt < 40; attempt++) {
-            x = R(0, 430 * size); y = R(-95, 95) * size
-            if (!placed.some((p) => Math.abs(p.x - x) < 175 * size && Math.abs(p.y - y) < 17 * size)) break
-          }
-          placed.push({ x, y })
-          const length = R(150, 190) * size, bob = range(T.sanma.bob), bobAt = -R(0, T.sanma.bob[1]), wig = range(T.sanma.wig)
-          const css: Css = { '--sx0': px(-(620 * size + 30) + x), '--sx1': px(W + 30 + x), '--fish-y': () => px((near ? P.y + P.h + 150 : P.y - 200) + y),
-            transform: () => `translate(${px(P.cx - 260 * size + x)}, var(--fish-y))`, '--op': near ? 1 : .55, opacity: near ? 1 : .55 }
-          const fish = stage.glyph(art, 'saury', length, length * 22 / 170, css)
-          const glint = stage.glyph(art, 'saury-glint', length, length * 22 / 170, css)
-          for (const node of [fish, glint]) {
-            motion(node, ['swim', duration, at, 'linear', true])
-            const float = inner(node), tail = inner(float)
-            motion(float, ['bob', bob, bobAt, 'ease-in-out', true])
-            motion(tail, ['wig', wig, 0, 'ease-in-out', true])
-            if (!calm) { float.style.animationDirection = 'alternate'; tail.style.animationDirection = 'alternate' }
-          }
-          if (!calm) {
-            glint.style.animation += `, kuma-season-glint ${duration}ms linear ${at + R(T.sanma.glintAt, duration * .7)}ms infinite backwards`
-          } else glint.style.opacity = '0'
+      const backdrop = stage.html(scene, 'ks-sm-backdrop')
+      scene.insertBefore(backdrop, art)
+      const sheen = stage.html(scene, 'ks-sm-sheen', { top: () => px(H * .215) })
+      scene.insertBefore(sheen, art)
+      motion(sheen, ['fade', T.fixed.washIn, 0, 'ease'])
+      const line = stage.html(scene, 'ks-sm-horizon', { top: () => px(H * .215) })
+      scene.insertBefore(line, art)
+      motion(line, ['fade', T.fixed.horizon, 0, 'ease'])
+      // 三盏海面集鱼灯 + 体积光束（主灯带高亮内芯光锥）
+      const lamps = [
+        { x: W * .24, main: false, beamW: 370, ang: '-13deg' },
+        { x: W * .50, main: true, beamW: 560, ang: '1deg' },
+        { x: W * .76, main: false, beamW: 360, ang: '14deg' },
+      ]
+      lamps.forEach((lamp, i) => {
+        const beam = stage.html(scene, 'ks-sm-beam', {
+          left: px(lamp.x - lamp.beamW / 2), top: () => px(H * .215), width: px(lamp.beamW), height: () => px(H * .82), '--ang': lamp.ang,
+        })
+        scene.insertBefore(beam, art)
+        motion(beam, ['sm-beam-in', T.fixed.smBeamIn, T.sanma.lampAt[i], 'cubic-bezier(.18,.7,.26,1)'])
+        const cone = stage.html(beam, 'ks-sm-beam-cone')
+        motion(cone, ['sm-beam-sway', T.sanma.beamSway[i], T.sanma.beamSwayAt[i], 'ease-in-out', true, 'none'])
+        if (!calm) cone.style.animationDirection = 'alternate'
+        if (lamp.main) {
+          const core = stage.html(beam, 'ks-sm-beam-cone ks-sm-beam-core')
+          motion(core, ['sm-beam-sway', T.sanma.beamSway[i] - T.sanma.coreSwayDelta, T.sanma.beamSwayAt[i], 'ease-in-out', true, 'none'])
+          if (!calm) core.style.animationDirection = 'alternate'
+        }
+        const bulb = stage.html(scene, `ks-sm-lamp${lamp.main ? ' ks-sm-lamp-main' : ''}`, { left: px(lamp.x), top: () => px(H * .213) })
+        scene.insertBefore(bulb, art)
+        motion(bulb, ['sm-lamp-ignite', T.fixed.smLampIgnite, T.sanma.lampAt[i], 'ease'])
+      })
+      // 海面浮光短线
+      const surfGlints = [
+        { left: '19%', top: .224, w: 92 }, { left: '43%', top: .222, w: 166 },
+        { left: '47%', top: .238, w: 100 }, { left: '72%', top: .226, w: 84 },
+      ]
+      surfGlints.forEach((g, i) => {
+        const el = stage.html(scene, 'ks-sm-surf-glint', { left: g.left, top: () => px(H * g.top), width: px(g.w) })
+        scene.insertBefore(el, art)
+        motion(el, ['sm-surf-glint', T.sanma.surfGlint[i], T.sanma.surfGlintAt[i], 'ease-in-out', true])
+        if (!calm) el.style.animationDirection = 'alternate'
+      })
+      // 水下声呐探鱼圈（透视压扁）
+      const sonar = stage.html(scene, 'ks-sm-sonar', { top: () => px(H * .74) })
+      scene.insertBefore(sonar, art)
+      for (const at of T.sanma.sonarAt) {
+        const ringEl = stage.html(sonar, 'ks-sm-sonar-ring')
+        motion(ringEl, ['sm-sonar', T.fixed.smSonarPing, at, 'cubic-bezier(.16,.66,.3,1)', true])
+      }
+      // 上浮微光浮游颗粒（成对伪元素承载，10 粒仅占 5 节点）
+      const motes: HTMLElement[] = []
+      for (let i = 0; i < 10; i++) {
+        pairedParticle('mote', i, motes, {
+          left: `${R(20, 80).toFixed(1)}%`, top: `${R(36, 86).toFixed(1)}%`,
+          size: px(R(3, 5.2)), op: R(.28, .56).toFixed(2), dx: px(R(-22, 22)),
+        }, [['sm-mote', range(T.sanma.mote), -R(0, T.sanma.moteOffset), 'linear', true]])
+      }
+      // 趋光鱼群（远景 5 条 + 近景 8 条）：精修 210×26 刀身，近景过主光束时触发双闪。
+      const addFish = (length: number, yPct: number, rise: number, pitch: number, duration: number, at: number, opacity: number, calmPct: number, hasGlint: boolean) => {
+        const h = length * 26 / 210
+        const lane = stage.html(art, 'ks-symbol ks-saury', {
+          width: px(length), height: px(h), opacity,
+          '--sx0': px(-length - 60), '--sx1': px(W + 60),
+          '--fish-y0': () => px(H * yPct), '--fish-y1': () => px(H * yPct - rise),
+          transform: () => `translate(${px(W * calmPct)}, ${px(H * yPct)})`,
+        })
+        motion(lane, ['swim', duration, at, 'linear', true])
+        const pitchBox = stage.html(lane, 'ks-motion', { transform: `rotate(${pitch}deg)` })
+        const bobBox = stage.html(pitchBox, 'ks-motion')
+        motion(bobBox, ['bob', range(T.sanma.bob), -R(0, T.sanma.bobOffset), 'ease-in-out', true])
+        const tailBox = stage.html(bobBox, 'ks-motion', { 'transform-origin': '86% 50%' })
+        motion(tailBox, ['wig', range(T.sanma.wig), 0, 'ease-in-out', true])
+        if (!calm) { bobBox.style.animationDirection = 'alternate'; tailBox.style.animationDirection = 'alternate' }
+        stage.shape(stage.svg(tailBox, 210, 26), 'use', { href: `${symbols}sym-saury`, width: 210, height: 26 })
+        if (hasGlint) {
+          const glintBox = stage.html(tailBox, 'ks-sm-glint')
+          stage.shape(stage.svg(glintBox, 210, 26), 'use', { href: `${symbols}sym-saury-glint`, width: 210, height: 26 })
+          motion(glintBox, ['glint', duration, at, 'linear', true])
         }
       }
+      const farSchool = [
+        { yPct: .31, calmPct: .24 }, { yPct: .35, calmPct: .44 }, { yPct: .33, calmPct: .60 },
+        { yPct: .38, calmPct: .15 }, { yPct: .36, calmPct: .35 },
+      ]
+      farSchool.forEach((f, i) => addFish(R(118, 144), f.yPct, 36, -1.6, T.sanma.far, T.sanma.farAt[i], .36, f.calmPct, false))
+      const nearSchool = [
+        { yPct: .68, calmPct: .31, len: 214 }, { yPct: .73, calmPct: .41, len: 232 },
+        { yPct: .70, calmPct: .51, len: 202 }, { yPct: .78, calmPct: .25, len: 224 },
+        { yPct: .75, calmPct: .60, len: 218 }, { yPct: .82, calmPct: .37, len: 194 },
+        { yPct: .85, calmPct: .47, len: 208 }, { yPct: .72, calmPct: .17, len: 204 },
+      ]
+      nearSchool.forEach((f, i) => addFish(f.len, f.yPct, 68, -2.8, T.sanma.near, T.sanma.nearAt[i], .95, f.calmPct, true))
+      plateHalo()
     },
     halloween() {
+      // 雾夜残月港湾：防波堤与水面锚定在南瓜底缘 P.y + P.h + 38，缩放/改名全程贴合。
+      const backdrop = stage.html(scene, 'ks-hw-backdrop', { '--hw-sea-y': () => px(P.y + P.h + 74) })
+      scene.insertBefore(backdrop, art)
+      const moonWrap = stage.html(scene, 'ks-hw-moon-wrap', { top: () => px(Math.max(48, P.y * .28)) })
+      scene.insertBefore(moonWrap, art)
+      motion(moonWrap, ['fade', T.fixed.hwMoonIn, 0, 'ease'])
+      stage.html(moonWrap, 'ks-hw-moon')
+      const cloud = stage.html(moonWrap, 'ks-hw-cloud')
+      motion(cloud, ['hw-cloud', T.fixed.hwCloudDrift, 0, 'ease-in-out', true, 'none'])
+      if (!calm) cloud.style.animationDirection = 'alternate'
+      const waterline = stage.html(scene, 'ks-hw-waterline', { top: () => px(P.y + P.h + 74) })
+      scene.insertBefore(waterline, art)
+      const moonSea = stage.html(scene, 'ks-hw-moon-sea', { top: () => px(P.y + P.h + 78) })
+      scene.insertBefore(moonSea, art)
+      motion(moonSea, ['hw-glint', T.fixed.hwGlintSoft, 0, 'ease-in-out', true, 'none'])
+      if (!calm) moonSea.style.animationDirection = 'alternate'
+      const pier = stage.html(scene, 'ks-hw-pier', { top: () => px(P.y + P.h - 14) })
+      scene.insertBefore(pier, art)
+      motion(pier, ['fade', T.fixed.hwPierIn, 0, 'ease'])
+      const pierSvg = stage.svg(pier, 800, 84)
+      pierSvg.setAttribute('preserveAspectRatio', 'none')
+      stage.shape(pierSvg, 'path', { d: 'M0 54 L195 54 L222 46 L256 46 L264 56 L512 56 L526 44 L684 44 L710 52 L800 52 L800 84 L0 84 Z M64 42 H74 V54 H64 Z M660 34 H668 V44 H660 Z' }, 'ks-hw-pier-fill')
+      stage.shape(pierSvg, 'path', { d: 'M0 54 L195 54 L222 46 L256 46 M526 44 L684 44' }, 'ks-hw-pier-rim')
+      const mistOffsets = [20, 62]
+      mistOffsets.forEach((dy, i) => {
+        const mist = stage.html(scene, 'ks-hw-mist', { top: () => px(P.y + P.h + dy), opacity: i ? .75 : 1 })
+        scene.insertBefore(mist, art)
+        motion(mist, ['hw-mist', T.halloween.mist[i], T.halloween.mistAt[i], 'ease-in-out', true, 'none'])
+        if (!calm) mist.style.animationDirection = 'alternate'
+      })
       const positions = [{ dx: -150, w: 118 }, { dx: P.w + 34, w: 92 }, { dx: P.w + 138, w: 66 }]
       const order = shuffle(3), on: number[] = []
       order.forEach((index, i) => { on[index] = T.halloween.firstAt + i * T.halloween.step + R(-T.halloween.jitter, T.halloween.jitter) })
       positions.forEach(({ dx, w }, i) => {
         const h = w * 100 / 120
-        const halo = stage.html(scene, 'ks-pumpkin-halo', { left: () => px(P.x + (i ? P.w + (i === 1 ? 34 : 138) : dx) - w * .9), top: () => px(P.y + P.h + 38 - h * .45 - w * 1.4), width: px(w * 2.8), height: px(w * 2.8) })
+        const xOf = () => P.x + (i ? P.w + (i === 1 ? 34 : 138) : dx)
+        const shadow = stage.html(scene, 'ks-hw-pk-shadow', { left: () => px(xOf() + w * .08), top: () => px(P.y + P.h + 34), width: px(w * .84) })
+        scene.insertBefore(shadow, art)
+        const water = stage.html(scene, 'ks-hw-pk-water', { left: () => px(xOf() + w * .1), top: () => px(P.y + P.h + 78), width: px(w * .8) })
+        scene.insertBefore(water, art)
+        const waterLines = stage.html(water, 'ks-hw-pk-water-lines')
+        motion(water, ['pk-ignite', T.fixed.hwWaterIgnite, on[i]])
+        motion(waterLines, ['pk-flicker', T.fixed.pkFlicker, on[i] + T.fixed.pkIgnite, 'linear', true, 'none'])
+        const halo = stage.html(scene, 'ks-pumpkin-halo', { left: () => px(xOf() - w * .9), top: () => px(P.y + P.h + 38 - h * .45 - w * 1.4), width: px(w * 2.8), height: px(w * 2.8) })
         const haloLight = stage.html(halo, 'ks-motion ks-pumpkin-light')
         motion(halo, ['pk-ignite', T.fixed.pkIgnite, on[i]])
         motion(haloLight, ['pk-flicker', T.fixed.pkFlicker, on[i] + T.fixed.pkIgnite, 'linear', true, 'none'])
-        const position: Css = { left: () => px(P.x + (i ? P.w + (i === 1 ? 34 : 138) : dx)), top: () => px(P.y + P.h + 38 - h) }
+        const position: Css = { left: () => px(xOf()), top: () => px(P.y + P.h + 38 - h) }
         const pumpkin = stage.glyph(art, 'pumpkin', w, h)
         const carve = stage.glyph(art, 'pk-face', w, h, { fill: 'var(--pk-carve)' })
         const lit = stage.glyph(art, 'pk-lit', w, h)
@@ -367,10 +550,13 @@ export const mountWelcomeScene = (
       const last = Math.max(...on)
       const glow = stage.html(scene, 'ks-pumpkin-glow', { left: () => px(P.cx - P.w * .9 - 90), top: () => px(P.cy - 130), width: () => px(P.w * 1.8 + 180), height: '260px' })
       motion(glow, ['fade', T.fixed.pkGlow, last + T.halloween.glowAfter, 'ease'])
+      plateHalo()
       if (!calm) {
         for (let i = 0; i < 4; i++) {
-          const x0 = P.cx + R(-30, 30), y0 = P.cy + R(-8, 8), x3 = i % 2 ? R(W + 90, W + 240) : R(-240, -90), y3 = R(-160, 60)
-          const x1 = x0 + (x3 - x0) * .28 + R(-50, 50), y1 = y0 - R(100, 170), x2 = x0 + (x3 - x0) * .64 + R(-50, 50), y2 = y1 + (y3 - y1) * .45 + R(-40, 50), s = R(46, 66)
+          const leftSide = i % 2 === 0
+          const x0 = leftSide ? P.x - R(40, 140) : P.x + P.w + R(40, 140), y0 = P.y + P.h + R(-10, 26)
+          const x3 = leftSide ? R(-240, -90) : R(W + 90, W + 240), y3 = R(-140, 70)
+          const x1 = x0 + (x3 - x0) * .28 + R(-50, 50), y1 = y0 - R(120, 210), x2 = x0 + (x3 - x0) * .64 + R(-50, 50), y2 = y1 + (y3 - y1) * .45 + R(-40, 50), s = R(46, 64)
           const bat = stage.glyph(art, 'bat', s, s * 30 / 64, { '--x0': px(x0 - s / 2), '--y0': px(y0 - s * 15 / 64), '--x1': px(x1 - s / 2), '--y1': px(y1 - s * 15 / 64), '--x2': px(x2 - s / 2), '--y2': px(y2 - s * 15 / 64), '--x3': px(x3 - s / 2), '--y3': px(y3 - s * 15 / 64) })
           motion(bat, ['bat-fly', range(T.halloween.bat), last + T.halloween.batsAfter + i * T.halloween.batStep, 'cubic-bezier(.3,.1,.6,1)', false, 'both'])
           const wings = inner(bat)
@@ -385,6 +571,7 @@ export const mountWelcomeScene = (
       }
     },
     xmas() {
+      wash('ks-xmas-sky')
       const ground = () => P.y + P.h + 200, crest = () => P.y + P.h + 20
       const groundLayer = stage.html(art, 'ks-ground')
       const groundSvg = stage.svg(groundLayer, W, H)
@@ -401,9 +588,11 @@ export const mountWelcomeScene = (
       const span = () => P.w + 44, sags = Math.max(2, Math.round(span() / 150)), count = Math.max(6, Math.round(span() / 24))
       const wire = stage.shape(decoration!, 'path', { d: () => `M-22 -3${Array.from({ length: sags }, (_, i) => `Q${(i + .5) * span() / sags - 22} 23 ${(i + 1) * span() / sags - 22} -3`).join('')}` }, 'ks-wire')
       wire.setAttribute('fill', 'none')
+      // 长提督名下灯泡多时按总预算压缩步长，保证树顶星在 2.4s 淡出前稳稳亮起。
+      const bulbStep = Math.min(T.xmas.step, Math.floor(T.xmas.budget / Math.max(1, count - 1)))
       const onAt: number[] = []
-      shuffle(count).forEach((index, i) => { onAt[index] = T.xmas.firstAt + i * T.xmas.step })
-      const starsAt = T.xmas.firstAt + (count - 1) * T.xmas.step + T.xmas.starAfter
+      shuffle(count).forEach((index, i) => { onAt[index] = T.xmas.firstAt + i * bulbStep })
+      const starsAt = T.xmas.firstAt + (count - 1) * bulbStep + T.xmas.starAfter
       const star = stage.html(scene, 'ks-star', { left: () => px(trees[0].x() - 13), top: () => px(foot(trees[0].x()) - trees[0].h + trees[0].h * .025 - 13) })
       const starSvg = stage.svg(star, 22, 22)
       stage.shape(starSvg, 'use', { href: `${symbols}sym-star`, width: 22, height: 22 })
@@ -422,8 +611,6 @@ export const mountWelcomeScene = (
           motion(crystal, ['sway', range(T.xmas.sway) * 2, -R(0, T.xmas.sway[1]), 'ease-in-out', true])
         }
       })
-      // 小灯的暗壳/吊头仍是两条 SVG path；原先每两盏共用静止容器的发光层，
-      // 改为每盏独立的点亮/闪烁两层，避免同一伪元素上的两条 opacity 动画。
       const colors = ['var(--bulb-1)', 'var(--bulb-2)', 'var(--bulb-3)', 'var(--bulb-4)']
       const shells: (() => string)[] = [], caps: (() => string)[] = []
       for (let i = 0; i < count; i++) {
@@ -443,11 +630,14 @@ export const mountWelcomeScene = (
   if (selection.key === 'event') {
     const grid = stage.html(scene, 'ks-grid')
     motion(grid, ['fade', T.fixed.gridIn, 0, 'ease'], ['grid-drift', T.fixed.gridDrift, 0, 'linear', true])
+    plateHalo()
     const xs: number[] = []
     let x = 0
     for (const lamp of selection.lamps) { if (lamp.breakBefore) x += 22; xs.push(x); x += 34 }
     const row = stage.html(scene, 'ks-lamps', { left: () => px(P.cx - (xs.at(-1) ?? 0) / 2), top: () => px(P.y + P.h + 46) })
-    const at = (i: number) => T.event.firstAt + i * T.event.step
+    // 按图数压缩点亮步长，确保 5~7 图全通时的连金线与铭牌金边完整落在 2.4s 之内。
+    const lampStep = Math.min(T.event.step, Math.floor(T.event.budget / Math.max(1, selection.lamps.length - 1)))
+    const at = (i: number) => T.event.firstAt + i * lampStep
     const lastAt = at(selection.lamps.length - 1)
     const waveAt = lastAt + T.event.waveAfter
     const finishedAt = waveAt + selection.lamps.length * T.event.waveStep
@@ -458,17 +648,25 @@ export const mountWelcomeScene = (
         if (!lamp.breakBefore) {
           const route = stage.html(row, 'ks-route', { left: px(xs[i - 1]), width: px(xs[i] - xs[i - 1]) })
           motion(route, ['fade', T.fixed.routeIn, T.fixed.routeAt, 'ease'])
+        } else if (!selection.complete) {
+          const tick = stage.html(row, 'ks-break-tick', { left: px((xs[i - 1] + xs[i]) / 2) })
+          motion(tick, ['fade', T.fixed.routeIn, T.fixed.routeAt, 'ease'])
         }
         if ((!lamp.breakBefore && (selection.complete || i <= current)) || (lamp.breakBefore && selection.complete)) {
           const done = stage.html(row, 'ks-route ks-route-done', { left: px(xs[i - 1]), width: px(xs[i] - xs[i - 1]) })
-          motion(done, ['grow-x', lamp.breakBefore ? T.fixed.routeJoin : T.event.step, lamp.breakBefore ? finishedAt + T.event.joinAfter : at(i - 1)])
+          motion(done, ['grow-x', lamp.breakBefore ? T.fixed.routeJoin : lampStep, lamp.breakBefore ? finishedAt + T.event.joinAfter : at(i - 1)])
         }
       }
-      const node = stage.html(row, `ks-lamp ks-lamp-${lamp.state}`, { left: px(xs[i]), '--c': lamp.state === 'done' ? 'var(--gold)' : 'var(--accent)' })
+      const isFinal = i === selection.lamps.length - 1
+      const node = stage.html(row, `ks-lamp ks-lamp-${lamp.state}${isFinal ? ' ks-lamp-final' : ''}`, { left: px(xs[i]), '--c': lamp.state === 'done' ? 'var(--gold)' : 'var(--accent)' })
       node.dataset.mapId = String(lamp.mapId)
       motion(node, ['fade', T.fixed.lampIn, T.fixed.lampAt, 'ease'])
       const on = at(i) + (lamp.state === 'current' ? T.event.currentAfter : 0)
       if (lamp.state === 'current') {
+        if (!calm) {
+          const ping = stage.html(node, 'ks-lamp-ping')
+          motion(ping, ['lamp-ping', T.fixed.lampPing, on + T.fixed.lampOn, 'ease-out', true])
+        }
         const light = stage.html(node, 'ks-lamp-current-light')
         motion(light, ['lamp-breathe', T.fixed.lampBreathe, on + T.fixed.lampOn, 'ease-in-out', true, 'none'])
       }

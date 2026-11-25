@@ -1,24 +1,33 @@
-<!-- 季节开幕定稿的 symbol 路径；负原点 symbol 的外层视口须从 0 起。
+<!-- 季节开幕的 symbol 路径；负原点 symbol 的外层视口须从 0 起。
      构建时从 index.html 主题表补入两套 token，供外部 SVG 的渐变 stop 使用。 -->
 <svg xmlns="http://www.w3.org/2000/svg">
 <defs>
-    <linearGradient id="g-pk-mid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--pk-hi)"/><stop offset="1" style="stop-color:var(--pk-lo)"/></linearGradient>
-    <linearGradient id="g-pk-side" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--pk-side-hi)"/><stop offset="1" style="stop-color:var(--pk-side-lo)"/></linearGradient>
-    <radialGradient id="g-pk-lit" cx="50%" cy="62%" r="62%"><stop offset="0" style="stop-color:var(--pk-light-core)"/><stop offset=".45" style="stop-color:var(--pk-light-mid)"/><stop offset="1" style="stop-color:var(--pk-light-edge)"/></radialGradient>
-    <linearGradient id="g-saury" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--saury-back)"/><stop offset=".5" style="stop-color:var(--saury-mid)"/><stop offset="1" style="stop-color:var(--saury-belly)"/></linearGradient>
-    <radialGradient id="g-petal" cx="50%" cy="88%" r="85%"><stop offset="0" style="stop-color:var(--petal-core)"/><stop offset="1" style="stop-color:var(--petal)"/></radialGradient>
+    <linearGradient id="g-pk-mid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--pk-hi)"/><stop offset=".68" style="stop-color:var(--pk-lo)"/><stop offset="1" style="stop-color:var(--pk-rib)"/></linearGradient>
+    <linearGradient id="g-pk-side" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--pk-side-hi)"/><stop offset=".75" style="stop-color:var(--pk-side-lo)"/><stop offset="1" style="stop-color:var(--pk-rib)"/></linearGradient>
+    <radialGradient id="g-pk-lit" cx="50%" cy="62%" r="64%"><stop offset="0" style="stop-color:var(--pk-light-core)"/><stop offset=".48" style="stop-color:var(--pk-light-mid)"/><stop offset="1" style="stop-color:var(--pk-light-edge)"/></radialGradient>
+    <linearGradient id="g-saury" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--saury-back)"/><stop offset=".28" style="stop-color:var(--saury-teal)"/><stop offset=".52" style="stop-color:var(--saury-mid)"/><stop offset=".76" style="stop-color:var(--saury-silver)"/><stop offset="1" style="stop-color:var(--saury-belly)"/></linearGradient>
+    <linearGradient id="g-saury-fin" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--saury-back)" stop-opacity=".9"/><stop offset="1" style="stop-color:var(--saury-silver)" stop-opacity=".35"/></linearGradient>
+    <radialGradient id="g-petal" cx="46%" cy="82%" r="86%"><stop offset="0" style="stop-color:var(--petal-core)"/><stop offset=".62" style="stop-color:var(--petal)"/><stop offset="1" style="stop-color:var(--petal-edge)"/></radialGradient>
+    <radialGradient id="g-heart" cx="38%" cy="32%" r="74%"><stop offset="0" style="stop-color:var(--heart-hi)"/><stop offset=".55" style="stop-color:var(--heart)"/><stop offset="1" style="stop-color:var(--rib)"/></radialGradient>
+    <linearGradient id="g-fir" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--tree-hi)"/><stop offset="1" style="stop-color:var(--tree)"/></linearGradient>
+    <linearGradient id="g-teru" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--teru)"/><stop offset="1" style="stop-color:var(--teru-shade)"/></linearGradient>
+    <linearGradient id="g-bow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--rib-hi)"/><stop offset=".45" style="stop-color:var(--rib)"/><stop offset="1" style="stop-color:var(--rib-dark)"/></linearGradient>
 
     <symbol id="sym-pumpkin" viewBox="0 0 120 100" overflow="visible">
-      <ellipse cx="37" cy="61" rx="30" ry="34" fill="url(#g-pk-side)"/>
-      <ellipse cx="83" cy="61" rx="30" ry="34" fill="url(#g-pk-side)"/>
-      <ellipse cx="60" cy="61" rx="29" ry="37" fill="url(#g-pk-mid)" style="stroke:var(--pk-rib)" stroke-opacity=".35" stroke-width="1"/>
-      <path d="M57 27 C56 17 59 10 66 6 C68 5 70 7 69 9 C64 12 63 18 64 27 Z" style="fill:var(--pk-stem)"/>
+      <ellipse cx="28" cy="62" rx="22" ry="30" fill="url(#g-pk-side)"/>
+      <ellipse cx="92" cy="62" rx="22" ry="30" fill="url(#g-pk-side)"/>
+      <ellipse cx="43" cy="61" rx="25" ry="34" fill="url(#g-pk-side)" style="stroke:var(--pk-rib)" stroke-opacity=".28" stroke-width=".9"/>
+      <ellipse cx="77" cy="61" rx="25" ry="34" fill="url(#g-pk-side)" style="stroke:var(--pk-rib)" stroke-opacity=".28" stroke-width=".9"/>
+      <ellipse cx="60" cy="61" rx="27" ry="37" fill="url(#g-pk-mid)" style="stroke:var(--pk-rib)" stroke-opacity=".4" stroke-width="1"/>
+      <path d="M46 34 C41 44 40 58 43 72" fill="none" style="stroke:var(--pk-spec)" stroke-width="2" stroke-linecap="round" opacity=".32"/>
+      <path d="M56 27 C55 17 58 9 66 5 C69 4 72 6 70 9 C67 11 64 14 64 27 Z" style="fill:var(--pk-stem)"/>
+      <path d="M58.5 23 C58 15 61 10 66.5 7.5" fill="none" style="stroke:var(--pk-spec)" stroke-width="1.2" stroke-linecap="round" opacity=".28"/>
     </symbol>
     <symbol id="sym-pk-face" viewBox="0 0 120 100" overflow="visible">
-      <path d="M33 55 L48 55 L41 42 Z"/>
-      <path d="M72 55 L87 55 L79 42 Z"/>
-      <path d="M56 65 L64 65 L60 58 Z"/>
-      <path d="M31 70 L39 73 L44 69 L50 74 L56 70 L64 70 L70 74 L76 69 L81 73 L89 70 C84 85 72 91 60 91 C48 91 36 85 31 70 Z"/>
+      <path d="M32 55 L48 54 L41 41 Z"/>
+      <path d="M88 55 L72 54 L79 41 Z"/>
+      <path d="M56 65 L64 65 L60 57.5 Z"/>
+      <path d="M30 69.5 L39 73.5 L44.5 68.5 L50.5 74.5 L56.5 69.5 L63.5 69.5 L69.5 74.5 L75.5 68.5 L81 73.5 L90 69.5 C84.5 85.5 72.5 91.5 60 91.5 C47.5 91.5 35.5 85.5 30 69.5 Z"/>
     </symbol>
     <symbol id="sym-bat" viewBox="0 0 64 30" overflow="visible">
       <path d="M34 12 C40 6 52 4 63 8 C59 10 57 13 57 17 C54 14 50 14 48 18 C46 15 42 15 40 19 C38 16 36 16 34 18 Z"/>
@@ -26,52 +35,91 @@
       <ellipse cx="32" cy="15" rx="4.2" ry="7"/>
       <path d="M28.6 10 L29.6 4.5 L31.2 9.4 Z M35.4 10 L34.4 4.5 L32.8 9.4 Z"/>
     </symbol>
-    <symbol id="sym-saury" viewBox="0 0 170 22" overflow="visible">
-      <path d="M16 11 L2 3.6 L7 11 L2 18.4 Z" style="fill:var(--saury-back)"/>
-      <path d="M40 7.4 L46 3.9 L50 6.8 Z M40 14.6 L46 17.9 L50 15.1 Z" style="fill:var(--saury-back)" opacity=".85"/>
-      <path d="M14 11 C34 5 96 4 132 6.5 C146 7.5 158 9 169 11 C158 12.4 146 13.6 132 14.6 C96 17 34 16.5 14 11 Z" fill="url(#g-saury)"/>
-      <path d="M158 9.7 C162 10.2 166 10.6 169 11 C166 11.4 162 11.8 158 12.3 Z" style="fill:var(--saury-beak)"/>
-      <circle cx="146" cy="10.1" r="1.9" style="fill:var(--welcome-white)" opacity=".85"/>
-      <circle cx="146" cy="10.1" r="1.2" style="fill:var(--saury-eye)"/>
+    <symbol id="sym-saury" viewBox="0 0 210 26" overflow="visible">
+      <path d="M27 12.1 C19 9.8 11 6.2 2.2 2.4 C6.5 7.4 10.6 10.5 14.2 13 C10.4 15.6 6.2 18.8 1.8 23.6 C10.8 19.8 19 16.2 27 13.9 Z" fill="url(#g-saury-fin)"/>
+      <path d="M22 12.6 L7.5 6.4 M22 13.4 L7.2 19.6" fill="none" style="stroke:var(--saury-silver)" stroke-width=".55" opacity=".36" stroke-linecap="round"/>
+      <path d="M58 9.2 C62 6.8 68 5.2 75.5 4.4 C72.5 6.8 70.5 8.1 69.5 9.1 Z" style="fill:var(--saury-fin)" opacity=".82"/>
+      <path d="M56 16.5 C60.5 18.9 66.5 20.6 74 21.4 C71.2 19 69.2 17.6 68.2 16.5 Z" style="fill:var(--saury-fin)" opacity=".68"/>
+      <path d="M31 11.4 L34.5 9.8 L35 11.3 M36.5 10.9 L40 9.1 L40.6 10.7 M42.2 10.3 L45.8 8.5 L46.4 10.1 M48 9.8 L51.8 8 L52.3 9.6 M53.8 9.4 L57 7.8 L57.5 9.3" fill="none" style="stroke:var(--saury-back)" stroke-width=".95" stroke-linejoin="round" opacity=".78"/>
+      <path d="M31 14.6 L34.5 16.1 L35 14.7 M36.5 15 L40 16.7 L40.6 15.2 M42.2 15.5 L45.8 17.2 L46.4 15.7 M48 15.9 L51.8 17.6 L52.3 16.1 M53.8 16.3 L57 17.8 L57.5 16.4" fill="none" style="stroke:var(--saury-fin)" stroke-width=".85" stroke-linejoin="round" opacity=".62"/>
+      <path d="M113 17.1 L107.5 20.2 L117.5 17.3 Z" style="fill:var(--saury-mid)" opacity=".55"/>
+      <path d="M23.5 12.2 C38 10.4 64 8.5 96 7.5 C132 6.5 166 7.4 188 9.2 C195.5 9.8 200.5 10.7 204.2 11.5 L201.5 12.1 L207.8 12.4 C202.2 13.7 195 14.9 186 15.9 C163 17.9 128 18.6 92 17.8 C62 17 38 15.4 23.5 13.8 Z" fill="url(#g-saury)"/>
+      <path d="M38 11.4 C78 9.6 132 9.4 176 11.2" fill="none" style="stroke:var(--saury-silver)" stroke-width="1.05" stroke-linecap="round" opacity=".52"/>
+      <path d="M196 12 L207.4 12.4" fill="none" style="stroke:var(--saury-beak)" stroke-width=".85" stroke-linecap="round" opacity=".88"/>
+      <path d="M174 8.8 C171.2 11 171.5 14 174.5 15.9" fill="none" style="stroke:var(--saury-back)" stroke-width=".9" stroke-linecap="round" opacity=".52"/>
+      <path d="M174.8 9.1 C172.2 11.1 172.4 13.8 175.2 15.5" fill="none" style="stroke:var(--welcome-white)" stroke-width=".6" stroke-linecap="round" opacity=".45"/>
+      <path d="M171.5 13.2 C164 14.5 157.5 16.8 154 18.6 C160.5 18 166.5 16.5 171.5 14.8 Z" style="fill:var(--saury-silver)" opacity=".46"/>
+      <circle cx="186.5" cy="11.2" r="2.2" style="fill:var(--saury-silver)" opacity=".92"/>
+      <circle cx="186.7" cy="11.2" r="1.35" style="fill:var(--saury-eye)"/>
+      <circle cx="187.2" cy="10.7" r=".48" style="fill:var(--welcome-white)"/>
     </symbol>
-    <symbol id="sym-saury-glint" viewBox="0 0 170 22" overflow="visible">
-      <path d="M38 8.8 C70 7 108 6.8 134 7.8" fill="none" style="stroke:var(--welcome-white)" stroke-width="1.5" stroke-linecap="round"/>
+    <symbol id="sym-saury-glint" viewBox="0 0 210 26" overflow="visible">
+      <path d="M44 10.6 C86 8.3 138 8.2 178 10.2" fill="none" style="stroke:var(--welcome-white)" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M72 13.4 C112 12.6 146 12.7 170 13.5" fill="none" style="stroke:var(--welcome-white)" stroke-width=".85" stroke-linecap="round" opacity=".62"/>
+    </symbol>
+    <symbol id="sym-masu" viewBox="0 0 38 24" overflow="visible">
+      <polygon points="4,6 28,6 34,2 10,2" style="fill:var(--sb-masu-rim)"/>
+      <polygon points="6,6 27,6 31,3 10,3" style="fill:var(--bean-lo)" opacity=".75"/>
+      <rect x="4" y="6" width="24" height="16" style="fill:var(--sb-masu-front)"/>
+      <polygon points="28,6 34,2 34,18 28,22" style="fill:var(--sb-masu-side)"/>
+      <circle cx="13" cy="5" r="2.2" style="fill:var(--bean-hi)"/>
+      <circle cx="19" cy="4.8" r="2.1" style="fill:var(--bean-hi)"/>
+      <circle cx="24" cy="5.2" r="2" style="fill:var(--bean-lo)"/>
     </symbol>
     <symbol id="sym-petal" viewBox="-12 -13 24 25" overflow="visible">
-      <path d="M0 11 C-6 7 -10 0 -8 -6 C-6.6 -10.4 -3 -11 0 -8 C3 -11 6.6 -10.4 8 -6 C10 0 6 7 0 11 Z" fill="url(#g-petal)"/>
+      <path d="M0 11.2 C-6.2 7.4 -10.2 0.2 -8.4 -6.2 C-7 -10.5 -3.6 -11.4 -1.4 -9.2 L0 -6.8 L1.4 -9.2 C3.6 -11.4 7 -10.5 8.4 -6.2 C10.2 0.2 6.2 7.4 0 11.2 Z" fill="url(#g-petal)"/>
+      <path d="M0 8.5 C-1.4 4.2 -2.2 0.4 -2.2 -3.6" fill="none" style="stroke:var(--petal-core)" stroke-width=".9" stroke-linecap="round" opacity=".5"/>
     </symbol>
     <symbol id="sym-heart" viewBox="-12 -11 24 22" overflow="visible">
-      <path d="M0 9.5 C-9 3 -11.5 -3 -8.5 -7 C-6 -10 -2 -9.5 0 -6 C2 -9.5 6 -10 8.5 -7 C11.5 -3 9 3 0 9.5 Z"/>
+      <path d="M0 9.6 C-9 3.2 -11.6 -2.8 -8.6 -7 C-6 -10.2 -2 -9.6 0 -5.8 C2 -9.6 6 -10.2 8.6 -7 C11.6 -2.8 9 3.2 0 9.6 Z" fill="url(#g-heart)"/>
+      <path d="M-5.8 -4.4 C-6.6 -2.4 -5.8 -0.2 -4.2 1.2" fill="none" style="stroke:var(--heart-hi)" stroke-width="1.1" stroke-linecap="round" opacity=".45"/>
     </symbol>
     <symbol id="sym-fir" viewBox="0 0 100 160" overflow="visible">
       <path d="M44.5 128 H55.5 V156 H44.5 Z" style="fill:var(--tree)"/>
-      <path d="M50 74 L96 136 Q50 123 4 136 Z" style="fill:var(--tree)"/>
-      <path d="M4 136 L50 74 L96 136" fill="none" style="stroke:var(--tree-snow)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity=".75"/>
-      <path d="M50 48 L88 103 Q50 92 12 103 Z" style="fill:var(--tree)"/>
-      <path d="M12 103 L50 48 L88 103" fill="none" style="stroke:var(--tree-snow)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity=".75"/>
-      <path d="M50 24 L80 72 Q50 63 20 72 Z" style="fill:var(--tree)"/>
-      <path d="M20 72 L50 24 L80 72" fill="none" style="stroke:var(--tree-snow)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity=".75"/>
-      <path d="M50 4 L72 44 Q50 37 28 44 Z" style="fill:var(--tree)"/>
-      <path d="M28 44 L50 4 L72 44" fill="none" style="stroke:var(--tree-snow)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity=".75"/>
+      <path d="M50 74 L96 136 Q50 123 4 136 Z" fill="url(#g-fir)"/>
+      <path d="M9 129 C23 111 37 92 50 74 C63 92 77 111 91 129 Q76 123 64 114 Q50 102 36 114 Q24 123 9 129 Z" style="fill:var(--tree-snow)" opacity=".24"/>
+      <path d="M5 135 L50 74 L95 135" fill="none" style="stroke:var(--tree-snow)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".72"/>
+      <path d="M50 48 L88 103 Q50 92 12 103 Z" fill="url(#g-fir)"/>
+      <path d="M16 97 C28 80 39 64 50 48 C61 64 72 80 84 97 Q72 91 61 83 Q50 73 39 83 Q28 91 16 97 Z" style="fill:var(--tree-snow)" opacity=".28"/>
+      <path d="M13 102 L50 48 L87 102" fill="none" style="stroke:var(--tree-snow)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".76"/>
+      <path d="M50 24 L80 72 Q50 63 20 72 Z" fill="url(#g-fir)"/>
+      <path d="M24 66 C33 52 42 38 50 24 C58 38 67 52 76 66 Q66 61 58 54 Q50 47 42 54 Q34 61 24 66 Z" style="fill:var(--tree-snow)" opacity=".32"/>
+      <path d="M21 71 L50 24 L79 71" fill="none" style="stroke:var(--tree-snow)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".8"/>
+      <path d="M50 4 L72 44 Q50 37 28 44 Z" fill="url(#g-fir)"/>
+      <path d="M32 38 C38 27 44 15 50 4 C56 15 62 27 68 38 Q59 33 50 27 Q41 33 32 38 Z" style="fill:var(--tree-snow)" opacity=".38"/>
+      <path d="M29 43 L50 4 L71 43" fill="none" style="stroke:var(--tree-snow)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".84"/>
     </symbol>
     <symbol id="sym-star" viewBox="-11 -11 22 22" overflow="visible">
       <path d="M0 -10 L2.35 -3.24 L9.51 -3.09 L3.8 1.24 L5.88 8.09 L0 4 L-5.88 8.09 L-3.8 1.24 L-9.51 -3.09 L-2.35 -3.24 Z"/>
+      <path d="M0 -6.4 L1.4 -1.9 L5.8 -1.8 L2.3 .8 L3.6 4.9 L0 2.4 L-3.6 4.9 L-2.3 .8 L-5.8 -1.8 L-1.4 -1.9 Z" style="fill:var(--welcome-white)" opacity=".4"/>
     </symbol>
     <symbol id="sym-bow" viewBox="0 0 64 44" overflow="visible">
-      <path d="M29 19 L19 40 L24.5 37 L27 42 L33 20 Z M35 19 L45 40 L39.5 37 L37 42 L31 20 Z" style="fill:var(--rib-dark)"/>
-      <path d="M32 16 C24 2 6 2 6 12 C6 22 22 24 32 16 Z M32 16 C40 2 58 2 58 12 C58 22 42 24 32 16 Z" style="fill:var(--rib)"/>
-      <path d="M32 16 C25 8 13 8 12 12 C13 16 24 18 32 16 Z M32 16 C39 8 51 8 52 12 C51 16 40 18 32 16 Z" style="fill:var(--rib-dark)" opacity=".45"/>
-      <rect x="28" y="11" width="8" height="10" rx="3" style="fill:var(--rib-dark)"/>
+      <path d="M29 18 C25 27 21 35 16.5 41.5 L23.5 37.5 L26.5 43 C29.5 34 31.5 26 33 19 Z M35 18 C39 27 43 35 47.5 41.5 L40.5 37.5 L37.5 43 C34.5 34 32.5 26 31 19 Z" style="fill:var(--rib-dark)"/>
+      <path d="M29.5 20 C26.5 28 23.5 34.5 20.5 39 M34.5 20 C37.5 28 40.5 34.5 43.5 39" fill="none" style="stroke:var(--rib-hi)" stroke-width=".9" stroke-linecap="round" opacity=".32"/>
+      <path d="M32 16 C23 1 5 2 5 12.5 C5 22.5 21.5 24.5 32 16 Z M32 16 C41 1 59 2 59 12.5 C59 22.5 42.5 24.5 32 16 Z" fill="url(#g-bow)"/>
+      <path d="M32 16 C24.5 8 12.5 8 11.5 12.5 C12.5 16.5 24 18.2 32 16 Z M32 16 C39.5 8 51.5 8 52.5 12.5 C51.5 16.5 40 18.2 32 16 Z" style="fill:var(--rib-dark)" opacity=".48"/>
+      <path d="M11 8.6 C16 5.6 23 6.2 28.5 11.5 M53 8.6 C48 5.6 41 6.2 35.5 11.5" fill="none" style="stroke:var(--rib-hi)" stroke-width="1.3" stroke-linecap="round" opacity=".52"/>
+      <rect x="27.5" y="10.5" width="9" height="10.5" rx="3.8" style="fill:var(--rib-dark)"/>
+      <path d="M30 12.5 H34" fill="none" style="stroke:var(--rib-hi)" stroke-width="1.2" stroke-linecap="round" opacity=".45"/>
     </symbol>
     <symbol id="sym-teru" viewBox="0 0 44 74" overflow="visible">
-      <path d="M11 27 C9 40 5 50 3 58 C8 56 11 61 16 58 C19 62 25 62 28 58 C33 61 36 56 41 58 C39 50 35 40 33 27 Z" style="fill:var(--teru);stroke:var(--teru-edge)" stroke-width="1"/>
-      <path d="M12 28.5 C18 31.5 26 31.5 32 28.5" fill="none" style="stroke:var(--teru-tie)" stroke-width="2.2" stroke-linecap="round"/>
-      <circle cx="22" cy="17" r="12" style="fill:var(--teru);stroke:var(--teru-edge)" stroke-width="1"/>
+      <path d="M11 27 C9 40 5 50 3 58 C8 56 11 61 16 58 C19 62 25 62 28 58 C33 61 36 56 41 58 C39 50 35 40 33 27 Z" fill="url(#g-teru)" style="stroke:var(--teru-edge)" stroke-width="1"/>
+      <path d="M16.5 33 C15.2 42 13.8 50 13 56 M27.5 33 C28.8 42 30.2 50 31 56 M22 33.5 V57" fill="none" style="stroke:var(--teru-edge)" stroke-width=".85" stroke-linecap="round" opacity=".35"/>
+      <path d="M12 28.5 C18 31.8 26 31.8 32 28.5" fill="none" style="stroke:var(--teru-tie)" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M22 31 L18.5 38.5 M22 31 L25.5 38.5" fill="none" style="stroke:var(--teru-tie)" stroke-width="1.6" stroke-linecap="round"/>
+      <circle cx="22" cy="17" r="12" fill="url(#g-teru)" style="stroke:var(--teru-edge)" stroke-width="1"/>
+      <path d="M14.5 11.5 C16.8 8.2 20.4 7.2 24.5 7.8" fill="none" style="stroke:var(--welcome-white)" stroke-width="1.3" stroke-linecap="round" opacity=".55"/>
       <circle cx="18" cy="16.5" r="1.4" style="fill:var(--teru-face)"/>
       <circle cx="26" cy="16.5" r="1.4" style="fill:var(--teru-face)"/>
       <path d="M18.5 20.5 Q22 23.5 25.5 20.5" fill="none" style="stroke:var(--teru-face)" stroke-width="1.2" stroke-linecap="round"/>
     </symbol>
 
 <symbol id="sym-pk-lit" viewBox="0 0 120 100" overflow="visible"><use href="#sym-pk-face" width="120" height="100" fill="url(#g-pk-lit)"/></symbol>
+    <symbol id="sym-star4" viewBox="0 0 24 24" overflow="visible"><path d="M12 0 Q13 11 24 12 Q13 13 12 24 Q11 13 0 12 Q11 11 12 0 Z"/></symbol>
+    <symbol id="sym-gull" viewBox="0 0 36 14" overflow="visible"><path d="M1 10 Q9 1 18 7 Q27 1 35 10 Q26 5 18 9.5 Q10 5 1 10 Z"/></symbol>
+    <symbol id="sym-an-petal" viewBox="0 0 20 20" overflow="visible">
+      <path d="M10 19 C4.5 15.5 1.5 9.5 3.5 4.5 C5 1.5 7.8 1.2 9.2 3.2 L10 5 L10.8 3.2 C12.2 1.2 15 1.5 16.5 4.5 C18.5 9.5 15.5 15.5 10 19 Z"/>
+      <path d="M10 15.5 C6.8 12.6 5.2 8.4 6.4 5.2 C7.2 3.4 8.6 3.2 9.5 4.6 L10 5.6 L10.5 4.6 C11.4 3.2 12.8 3.4 13.6 5.2 C14.8 8.4 13.2 12.6 10 15.5 Z" style="fill:var(--welcome-white)" opacity=".42"/>
+    </symbol>
 </defs>
 </svg>

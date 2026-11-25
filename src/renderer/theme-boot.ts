@@ -1,7 +1,7 @@
 import {
   normalizeThemeMode, normalizeThemeBase, resolveThemeGround, deriveNeutrals,
   DEFAULT_THEME_BASE, NEUTRAL_TOKENS, THEME_CHANNEL, THEME_CONFIG_KEY, THEME_BASE_CONFIG_KEY,
-  type ThemeState,
+  CVD_CONFIG_KEY, normalizeCvdMode, type ThemeState,
 } from '../shared/theme'
 
 declare global {
@@ -13,7 +13,7 @@ declare global {
   }
 }
 
-let currentState: ThemeState = { mode: 'dark', base: '' }
+let currentState: ThemeState = { mode: 'dark', base: '', cvd: 'none' }
 let media: MediaQueryList | undefined
 const refresh = () => {
   const ground = resolveThemeGround({ ...currentState, systemPrefersDark: media!.matches })
@@ -33,7 +33,10 @@ export const applyTheme = (raw: unknown): void => {
   media ??= matchMedia('(prefers-color-scheme: dark)')
   if (currentState.mode === 'system' && mode !== 'system') media.removeEventListener('change', refresh)
   if (currentState.mode !== 'system' && mode === 'system') media.addEventListener('change', refresh)
-  currentState = { mode, base }
+  const cvd = normalizeCvdMode(state?.cvd)
+  if (cvd === 'none') delete document.documentElement.dataset.cvd
+  else document.documentElement.dataset.cvd = cvd
+  currentState = { mode, base, cvd }
   refresh()
 }
 
@@ -60,7 +63,10 @@ export const installThemeBoot = (): void => {
   const remote = require('@electron/remote')
   const config = remote.require('./config')
   const { ipcRenderer } = require('electron')
-  applyTheme({ mode: config.get(THEME_CONFIG_KEY, 'dark'), base: config.get(THEME_BASE_CONFIG_KEY, '') })
+  applyTheme({
+    mode: config.get(THEME_CONFIG_KEY, 'dark'), base: config.get(THEME_BASE_CONFIG_KEY, ''),
+    cvd: config.get(CVD_CONFIG_KEY, 'none'),
+  })
   ipcRenderer.on(THEME_CHANNEL, (_event: unknown, state: unknown) => applyTheme(state))
 }
 
@@ -76,6 +82,13 @@ export const setThemeBase = (hex: unknown): void => {
   const base = normalizeThemeBase(hex)
   config.set(THEME_BASE_CONFIG_KEY, base)
   applyTheme({ ...currentState, base })
+}
+
+export const setThemeCvd = (mode: unknown): void => {
+  const config = require('@electron/remote').require('./config')
+  const cvd = normalizeCvdMode(mode)
+  config.set(CVD_CONFIG_KEY, cvd)
+  applyTheme({ ...currentState, cvd })
 }
 
 export const clearThemeBase = (): void => setThemeBase('')

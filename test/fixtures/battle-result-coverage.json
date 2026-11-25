@@ -85,5 +85,175 @@
         "api_escape_type": 1
       }
     }
+  },
+  {
+    "name": "result-useitem-drop",
+    "note": "真实报文 2026-11-25T07:34:06Z（秋刀鱼祭 1-4 L 点 S 胜）。同包捞到叢雲与 api_get_useitem＝秋刀魚（id 68）；api_useitem_name 是空串，没有 api_useitem_count，名字只能按主数据解。",
+    "source": {
+      "event": 99048,
+      "ts": "2026-11-25T07:34:06.428Z"
+    },
+    "path": "/kcsapi/api_req_sortie/battleresult",
+    "body": {
+      "api_win_rank": "S",
+      "api_first_clear": 0,
+      "api_get_flag": [
+        1,
+        1,
+        0
+      ],
+      "api_get_ship": {
+        "api_ship_id": 33,
+        "api_ship_type": "駆逐艦",
+        "api_ship_name": "叢雲"
+      },
+      "api_get_useitem": {
+        "api_useitem_id": 68,
+        "api_useitem_name": ""
+      },
+      "api_get_exmap_rate": 0,
+      "api_get_exmap_useitem_id": 0
+    }
+  },
+  {
+    "name": "result-exmap-useitem",
+    "note": "真实报文 2026-11-03T02:08:16Z（EO 海域击破）。api_get_exmap_useitem_id 是**字符串** \"57\"＝勲章；账本里 14 次 EO 击破都是 57。非击破场次这一格是数字 0。",
+    "source": {
+      "event": 94027,
+      "ts": "2026-11-03T02:08:16.446Z"
+    },
+    "path": "/kcsapi/api_req_sortie/battleresult",
+    "body": {
+      "api_win_rank": "S",
+      "api_first_clear": 1,
+      "api_get_flag": [
+        0,
+        1,
+        0
+      ],
+      "api_get_ship": {
+        "api_ship_id": 42,
+        "api_ship_type": "駆逐艦",
+        "api_ship_name": "白露"
+      },
+      "api_get_exmap_rate": "100",
+      "api_get_exmap_useitem_id": "57"
+    }
+  },
+  {
+    "name": "result-event-reward-choice",
+    "note": "真实报文 2026-08-26T18:14:34Z（夏活最终攻略）。api_get_eventitem 的 api_type：1＝道具（105 格納庫増設、78 戦闘詳報）、2＝舰娘（1051 Algérie）、7＝自选，api_id 是 api_select_reward_dict 的键；字典里 api_type 3＝装备（582、497），按 api_item_no 分选项。api_slot_level 两件都是 1，语义未确认。",
+    "source": {
+      "event": 22296,
+      "ts": "2026-08-26T18:14:34.139Z"
+    },
+    "path": "/kcsapi/api_req_combined_battle/battleresult",
+    "body": {
+      "api_win_rank": "S",
+      "api_first_clear": 1,
+      "api_get_flag": [
+        0,
+        1,
+        0
+      ],
+      "api_get_ship": {
+        "api_ship_id": 120,
+        "api_ship_type": "重巡洋艦",
+        "api_ship_name": "三隈"
+      },
+      "api_get_exmap_rate": 0,
+      "api_get_exmap_useitem_id": 0,
+      "api_get_eventitem": [
+        {
+          "api_type": 1,
+          "api_id": 105,
+          "api_value": 4
+        },
+        {
+          "api_type": 7,
+          "api_id": 421,
+          "api_value": 1
+        },
+        {
+          "api_type": 1,
+          "api_id": 78,
+          "api_value": 1
+        },
+        {
+          "api_type": 7,
+          "api_id": 422,
+          "api_value": 1
+        },
+        {
+          "api_type": 2,
+          "api_id": 1051,
+          "api_value": 1
+        }
+      ],
+      "api_select_reward_dict": {
+        "421": [
+          {
+            "api_item_no": 1,
+            "api_type": 1,
+            "api_id": 105,
+            "api_value": 1
+          },
+          {
+            "api_item_no": 2,
+            "api_type": 1,
+            "api_id": 57,
+            "api_value": 1
+          }
+        ],
+        "422": [
+          {
+            "api_item_no": 1,
+            "api_type": 3,
+            "api_id": 582,
+            "api_value": 1,
+            "api_slot_level": 1
+          },
+          {
+            "api_item_no": 2,
+            "api_type": 3,
+            "api_id": 497,
+            "api_value": 1,
+            "api_slot_level": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "result-event-reward-ship",
+    "note": "真实报文 2026-08-27T16:49:53Z（夏活另一海域最终攻略）。api_get_eventitem 只有一项 api_type 2＝舰娘 1055 Béarn，没有自选字典。",
+    "source": {
+      "event": 25014,
+      "ts": "2026-08-27T16:49:53.353Z"
+    },
+    "path": "/kcsapi/api_req_combined_battle/battleresult",
+    "body": {
+      "api_win_rank": "S",
+      "api_first_clear": 1,
+      "api_get_flag": [
+        0,
+        1,
+        0
+      ],
+      "api_get_ship": {
+        "api_ship_id": 20,
+        "api_ship_type": "駆逐艦",
+        "api_ship_name": "雪風"
+      },
+      "api_get_exmap_rate": 0,
+      "api_get_exmap_useitem_id": 0,
+      "api_get_eventitem": [
+        {
+          "api_type": 2,
+          "api_id": 1055,
+          "api_value": 1
+        }
+      ]
+    }
   }
 ]

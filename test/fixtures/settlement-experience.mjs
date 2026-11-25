@@ -48,6 +48,7 @@ const dropShipGetMessage = () => ''
 const exmapSenkaOf = () => null
 const nextMapIdsOf = () => []
 const escapeOfferOf = () => null
+const battleRewardsOf = () => null
 const reconcileBattle = () => []
 const patchBasicLevel = () => false
 const incrementUseitem = () => false

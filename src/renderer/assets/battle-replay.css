@@ -119,7 +119,14 @@
 /* 当前点就是 Boss:亮红 + 「你在这」光环。boss 声明在 cur 之后,同权重会把
    当前点高亮盖成暗红(2026-08-12 幽灵尾巴修掉后用户报「Boss 点不亮了」) */
 .mod-di .tn.cur.boss { border-color: var(--enemy); color: var(--abyss-route-current-soft); background: color-mix(in srgb, var(--tint-abyss-route-current) 38%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--glow-abyss-route) 20%, transparent); }
-.mod-di .tn .r { position: absolute; top: -7px; right: -5px; font-size: 8px; color: var(--ok); font-family: var(--mono); }
+.mod-di .tn .r { position: absolute; top: -7px; right: -5px; font-size: 8px; font-family: var(--mono); }
+/* 维护者裁决 2026-11-25：战果横幅、芯片、海图节点和史共用评级色。 */
+.rank-s { color: var(--rank-s); }
+.rank-a { color: var(--rank-a); }
+.rank-b { color: var(--rank-b); }
+.rank-c { color: var(--rank-c); }
+.rank-d { color: var(--rank-d); }
+.rank-e { color: var(--rank-e); }
 .mod-di .te { width: 14px; height: 1.5px; background: var(--line); flex: none; }
 .mod-di .te.done { background: var(--tint-ok-route-line); }
 .mod-di .trail .sp { flex: 1; }
@@ -144,7 +151,7 @@
 .mod-di .verdict .ic .arrow-svg { display: block; width: 16px; height: 8px; }
 .mod-di .verdict .tx { flex: 1; min-width: 0; }
 .mod-di .verdict .tx b { font-size: 13px; }
-.mod-di .verdict .tx span { display: block; font-size: 11px; color: var(--sub); }
+.mod-di .verdict .tx > span { display: block; font-size: 11px; color: var(--sub); }
 /* 警告条与战果条现在并存：警告在上、战果在下，两条之间只留一条细线不再各自描边。 */
 .mod-di .verdict + .verdict { border-top: none; }
 /* 掉落卡：独占一行（verdict 是 wrap 的 flex），带边框背景，大破警告同屏时也抢得到眼睛。 */
@@ -176,7 +183,7 @@
 .mod-di .verdict.v-green .act { background: var(--tint-ok-action); color: var(--ok-action-soft); }
 .mod-di .verdict.v-gold { background: linear-gradient(90deg, color-mix(in srgb, var(--gold) 8%, transparent), transparent 60%); }
 .mod-di .verdict.v-gold .ic { background: var(--tint-gold); border: 1px solid var(--tint-gold-line); color: var(--gold); }
-.mod-di .verdict.v-gold .tx b { color: var(--gold); }
+.mod-di .verdict.v-gold .tx b { color: var(--text); }
 .mod-di .verdict.v-gold .act { background: linear-gradient(90deg, var(--gold), var(--glow-gold-action)); color: var(--gold-action-soft); }
 .mod-di .verdict.v-red { background: linear-gradient(90deg, color-mix(in srgb, var(--bad) 16%, transparent), color-mix(in srgb, var(--bad) 4%, transparent) 70%); }
 .mod-di .verdict.v-red .ic { background: var(--tint-bad-deep); border: 1px solid var(--bad); color: var(--bad-critical-soft); animation: di-blink 1s step-end infinite; }
@@ -405,8 +412,9 @@
   display: inline-flex; align-items: baseline; gap: 5px; font-size: 11px; color: var(--sub);
   background: var(--bg0); border: 1px solid var(--line); border-radius: 5px; padding: 2.5px 9px;
 }
-.mod-di .rchip b { font-family: var(--mono); font-size: 12px; color: var(--text); font-weight: 600; }
-.mod-di .rchip b.rank { color: var(--gold); font-size: 14px; }
+.mod-di .rchip b { font-family: var(--mono); font-size: 12px; font-weight: 600; }
+:where(.mod-di .rchip) b { color: var(--text); }
+.mod-di .rchip b.rank { font-size: 14px; }
 /* MVP 芯片：芯片本身是 inline-flex，「MVP」与舰名天生同一行（2026-08-20 从
    金色横幅搬进来时的硬要求）。联合舰队的「主力 X」「护卫 Y」各自成一个不折行的
    整体，唯一的断点是中间那道「 / 」——窄框下顶多在那儿换行，标签不会跟名字分家，

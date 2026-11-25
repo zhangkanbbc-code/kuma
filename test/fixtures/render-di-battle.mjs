@@ -68,6 +68,18 @@ const NAV_CARD = sliceBetween(
   '// 掉落：整轮累计',
   '节点卡 navCardHtml（含泊地修理行）',
 )
+// 评级文字（完全胜利标注、胜/败确定）原样切进来，不桩：评级上色要对着真文字断言。
+const RANK_WORDS = sliceBetween(
+  "const rankLabel = (rank: string, prediction: BattleView['prediction']): string =>",
+  '// 「只算我方损害率」的节点',
+  '评级文字 rankLabel / rankOutcomeWord',
+)
+// 本轮掉落卡：整轮累计的舰娘与道具掉落、点位筛选。紧接节点卡那一段，切到模块段之前。
+const DROP_CARD = sliceBetween(
+  '// 掉落：整轮累计',
+  '// ---- 模块 ----',
+  '本轮掉落卡 dropCardHtml',
+)
 // 夜战阻断条：判别式换成算分制之后，这一段有三个出口（null / 打不到 / 打得到），
 // 只钉源码文本的话「阈值写反」会整片绿。末锚取下一个函数名，好把它自己的注释收全。
 const BLOCKED_NIGHT = sliceBetween(
@@ -150,6 +162,7 @@ assert.ok(SORTIE_STATE.includes('const escapedInSortie ='))
 const MG_CHANGE = sliceBetween('    onMgChange((keys) => {', '    new ResizeObserver', '铭更新重画')
 
 const HARNESS = `
+import { rankToneClass } from ${JSON.stringify(path.join(ROOT, 'src/shared/rank-tone.ts'))}
 import { fcdTopologyUsable } from '${FCD_TOPOLOGY}'
 import { dameconOfShip, isTaihaShip, taihaVerdictOf } from '${TAIHA_VERDICT}'
 import { enemyNightTargetOf, isPtShipName } from '${ENEMY_NIGHT}'
@@ -235,7 +248,6 @@ const isDamageOnlyBattle = (battle: any) => battle.kind === 'airraid' || battle.
 const isDayFlowBattle = (battle: any) => battle.kind === 'day' || battle.kind === 'subAirRaid'
 const battleTypeLabel = (battle: any) => \`\${battle.kind}\`
 const battleForecastLead = (battle: any) => \`\${battle.kind}·\`
-const rankLabel = (rank: string, _p: any) => rank
 const actualEngagementText = (battle: any) => (battle.engagement === 1 ? '同航战' : '')
 const myAirPower = (_s: any) => null
 // 防空那几个数照真的那份口径算（原来是一律 0 的哑桩）：摘要行的「基地未受损 /
@@ -255,7 +267,7 @@ const nodeEventName = (n: any) => (n.eventId === 5 ? 'Boss 战' : '战斗')
 const routeTallyFor = (_s: any) => ({ tally: new Map() })
 // 战果槽用到的两个：方位角算不出来就走朝右那一支（fcdMap 桩是 null，本来就算不出）
 const sortieHeadingDeg = (..._a: any[]) => null
-const rankOutcomeWord = (rank: string) => (rank === 'S' ? '完胜' : '胜')
+${RANK_WORDS}
 const travelledEdges = (..._a: any[]) => []
 let fcdMap: any = null
 const setFcdMap = (value: any) => {
@@ -266,6 +278,11 @@ const setFcdMap = (value: any) => {
 // friendlyRequest 刻意**不给初值**：那正是「从没收到过 set_friendly_request」的未知态，
 // 也是这份桩的默认局面（用例要开要請时自己往上挂）。
 const mg: any = { master: { ships: {}, slotitems: {}, ready: false }, decks: [], ships: {}, slotitems: {} }
+mg.master.useitemNames = { 68: '秋刀魚', 57: '勲章', 105: '格納庫増設', 78: '戦闘詳報' }
+mg.master.ships[1051] = { name: 'Algérie' }
+mg.master.slotitems[582] = { name: '20.3cm/50 連装砲 Modèle 1931' }
+mg.master.slotitems[497] = { name: '九七式中戦車(チハ)' }
+const useItemIconHtml = (id: number) => \`<i data-item="\${id}"></i>\`
 let distractOn = false
 let fleetSetting: boolean | undefined
 const getDistractState = () => ({ on: distractOn })
@@ -327,6 +344,7 @@ ${RESULT_STRIP}
 ${LOG_HTML}
 ${SEA_CARD}
 ${NAV_CARD}
+${DROP_CARD}
 ${BLOCKED_NIGHT}
 ${OUTCOME_BANNER}
 ${IS_TAIHA}
@@ -348,6 +366,7 @@ export {
   logHtml,
   seaCardHtml,
   navCardHtml,
+  dropCardHtml,
   anchorageRepairLinesHtml,
   alertBannerHtml,
   offshoreSupplyBannerHtml,
@@ -412,6 +431,7 @@ export const renderSeaCard = (sortie, map = null) => {
   }
 }
 export const renderNavCard = (sortie) => loaded.navCardHtml(sortie)
+export const renderDropCard = (sortie) => loaded.dropCardHtml(sortie)
 export const renderAlertBanner = (sortie) => loaded.alertBannerHtml(sortie)
 export const renderOffshoreSupplyBanner = (sortie) => loaded.offshoreSupplyBannerHtml(sortie)
 export const renderBlockedBossNight = (sortie) => loaded.blockedBossNightHtml(sortie, sortie.battle)
@@ -537,6 +557,7 @@ export const sortieOf = (patch = {}) => ({
   battle: null,
   battleCount: 1,
   drops: [],
+  itemDrops: [],
   sunkShips: [],
   anchorageRepairs: [],
   airBaseStrikes: {},

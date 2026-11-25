@@ -47,6 +47,8 @@ import type {
   PlayerShip,
   Section,
   SlotitemInstance,
+  BattleReward,
+  BattleRewards,
   SortieAnchorageRepair,
   SortieView,
 } from '../../shared/mg-types'
@@ -727,6 +729,41 @@ const escapeOfferOf = (
   return { escape, tow, type: Number(raw?.api_escape_type) || 0 }
 }
 
+const eventRewardOf = (raw: any): BattleReward => {
+  const type = Number(raw.api_type)
+  const item = { id: Number(raw.api_id), count: Number(raw.api_value) || 1 }
+  switch (type) {
+    case 1: return { kind: 'useitem', ...item }
+    case 2: return { kind: 'ship', ...item }
+    case 3: return { kind: 'slotitem', ...item, ...(raw.api_slot_level == null ? {} : { level: raw.api_slot_level }) }
+    default: return { kind: 'unknown', type, ...item }
+  }
+}
+
+const battleRewardsOf = (body: any): BattleRewards | null => {
+  const rewards: BattleRewards = { drops: [], exmap: [], event: [], choices: [] }
+  const drop = body.api_get_useitem
+  const id = Number(drop?.api_useitem_id)
+  if (id > 0) rewards.drops.push({ kind: 'useitem', id, count: Number(drop.api_useitem_count) || 1 })
+  const exmap = Number(body.api_get_exmap_useitem_id)
+  if (exmap > 0) rewards.exmap.push({ kind: 'useitem', id: exmap, count: 1 })
+  for (const raw of body.api_get_eventitem ?? []) {
+    const rows = Number(raw.api_type) === 7 && body.api_select_reward_dict?.[raw.api_id]
+    if (!Array.isArray(rows) || !rows.length) {
+      rewards.event.push(eventRewardOf(raw))
+      continue
+    }
+    const options = new Map<number, BattleReward[]>()
+    for (const row of rows) {
+      const no = Number(row.api_item_no)
+      if (!options.has(no)) options.set(no, [])
+      options.get(no)!.push(eventRewardOf(row))
+    }
+    rewards.choices.push([...options.values()])
+  }
+  return rewards.drops.length || rewards.exmap.length || rewards.event.length || rewards.choices.length ? rewards : null
+}
+
 const enemyPreviewOf = (body: any): SortieView['nodes'][number]['enemyPreview'] => {
   if (!Array.isArray(body?.api_e_deck_info)) return undefined
   const decks = body.api_e_deck_info.flatMap((raw: any) => {
@@ -803,6 +840,7 @@ const newSortie = (partial: Partial<SortieView>): SortieView => ({
   battle: null,
   battleCount: 0,
   drops: [],
+  itemDrops: [],
   levelUps: [],
   sunkShips: [],
   anchorageRepairs: [],
@@ -1044,6 +1082,7 @@ const onBattleResult = (body: any, _post: Record<string, string>, ts: number): S
   const dropShip = body.api_get_ship
   // 入手台词：日文原文照录，只把 <br> 换成换行。台词是作品表达，不机翻。
   const getMessage = dropShipGetMessage(dropShip)
+  const rewards = battleRewardsOf(body)
   const exmapSenka = exmapSenkaOf(body)
   const nextMapIds = nextMapIdsOf(body)
   const escapeOffer = escapeOfferOf(body)
@@ -1054,6 +1093,7 @@ const onBattleResult = (body: any, _post: Record<string, string>, ts: number): S
     baseExp: body.api_get_base_exp ?? 0,
     dropShipMstId: dropShip?.api_ship_id ?? null,
     dropShipName: dropShip?.api_ship_name ?? null,
+    ...(rewards ? { rewards } : {}),
     ...(getMessage ? { dropShipMessage: getMessage } : {}),
     firstClear: body.api_first_clear === 1,
     ...(exmapSenka != null ? { exmapSenka } : {}),
@@ -1149,6 +1189,9 @@ const onBattleResult = (body: any, _post: Record<string, string>, ts: number): S
   const node = sortie.nodes.find((n) => n.cell === sortie.currentCell)
   if (node) node.rank = sortie.battle.result.rank
   // 掉落累计：整轮保持显示（下次出击才清）
+  for (const { id, count } of rewards?.drops ?? []) {
+    sortie.itemDrops.push({ cell: sortie.currentCell, id, count })
+  }
   if (dropShip?.api_ship_id) {
     sortie.drops.push({
       cell: sortie.currentCell,
@@ -1574,7 +1617,9 @@ const reducers: Record<string, Reducer> = {
       const name = typeof raw.api_name === 'string' ? raw.api_name.trim() : ''
       if (id > 0 && name && name !== '-') bgms[id] = name
     }
-    state.master = { ready: true, ships, stypes, slotitems, missions, upgrades, bgms }
+    const useitemNames: Record<number, string> = {}
+    for (const item of body.api_mst_useitem ?? []) useitemNames[item.api_id] = item.api_name
+    state.master = { ready: true, ships, stypes, slotitems, missions, upgrades, bgms, useitemNames }
     // 活动窗口侦测：活动海域只在活动期间存在于主数据里，它进出 api_start2 的时刻
     // 就是我们被动能观测到的活动开启/关闭。判定本身在 shared/event-area.ts
     // （铭、铎、鉴、锱同引一份）。

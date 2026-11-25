@@ -72,16 +72,28 @@ test('真实全库编成门可疑清单必须精确等于已核清单，新增�
   // 万圣节编成门补严：359 新增一道门，1038 已满足四艘及旗舰，不再列为可疑。
   // 2026-10-21 五条万圣节已定号，剩 B218 假设认领；B205 新增一道自研编成门。
   // 维护者裁决 2026-11-15：九道万圣节门退场，两道新演习门假设认领后进入审计。
-  assert.equal(result.summary.total, 399)
-  assert.deepEqual(result.summary.sources, { kcwiki: 261, kuma: 138 })
+  // 舰娘百科「任务/最新任务」2026-11-25 修订：秋刀鱼 2611Cw3、2611F1、2611F2 尚无编号，假设认领后进入审计，
+  // 自研规则新增两道编成门（kuma 138 → 140）。
+  assert.equal(result.summary.total, 401)
+  assert.deepEqual(result.summary.sources, { kcwiki: 261, kuma: 140 })
   // 舰娘百科任务页 2026-11-17 修订：2611Cw2 定号 386，移出假设认领。
-  assert.equal(result.unnumbered.length, 1)
+  // 2026-11-25 游戏任务列表核出 2611Cw3＝369，经定号表移出假设认领。
+  assert.equal(result.unnumbered.length, 3)
   // F144 的旗舰装备槽要求由准备项表达；机械体检按‘旗舰’将其列为缺编成门。
   // 维护者裁决 2026-11-15：F144 已定号，不再计入未定号缺门清单。
-  assert.deepEqual(result.missing, [])
+  // 2611F1 的旗舰（野埼或已结婚的长波）与第 1 格战斗粮食要求属准备项，机械体检列为缺编成门，
+  // 与 F144 定号前同一处理；定号后再核。
+  assert.deepEqual(result.missing.map((row) => row.code), ['2611F1'])
   assert.deepEqual(result.suspicious.map((row) => row.code).sort(), Object.keys(REVIEWED).sort())
   for (const code of ['C57', 'B194', 'B204', 'F138']) {
     assert.equal(result.rows.find((row) => row.code === code)?.status, 'clear', code)
   }
   assert.equal(result.rows.find((row) => row.code === 'By14')?.requiredShips, 2)
+  // 11-24 维护后 2611Cw2（386）换了对象舰名单；舰娘百科把旧名单留在「▼ 维护前 ▼」之后，
+  // 生成任务库时已去掉，编成门只认新名单的 4 艘（曾误解成新旧两组共 8 艘）。
+  const q386 = result.rows.find((row) => row.code === '2611Cw2')
+  assert.equal(q386?.requiredShips, 4)
+  assert.equal(q386?.groups.length, 1)
+  assert.match(q386?.groups[0].label ?? '', /岛根丸/)
+  assert.doesNotMatch(q386?.groups[0].label ?? '', /突击者|第四号海防舰/)
 })

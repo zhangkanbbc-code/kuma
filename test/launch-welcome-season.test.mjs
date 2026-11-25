@@ -299,7 +299,7 @@ const dom = (reduce = false, measuredWidth) => {
     },
     removeEventListener(type, handler) { windowListeners.get(type)?.delete(handler) },
     dispatchEvent(event) { for (const handler of windowListeners.get(event.type) ?? []) handler(event) } }
-  return { body, created, fire: (type) => { for (const handler of documentListeners.get(type) ?? []) handler({ type }) },
+  return { body, created, fire: (type, extra = {}) => { for (const handler of documentListeners.get(type) ?? []) handler({ type, ...extra }) },
     resize(width, height) { window.innerWidth = width; window.innerHeight = height; window.dispatchEvent({ type: 'resize' }) },
     resizeAdds: () => resizeAdds,
     resizeListeners: () => windowListeners.get('resize')?.size ?? 0,
@@ -309,8 +309,10 @@ const nodes = (node) => [node, ...node.children.flatMap(nodes)]
 const named = (tree, cls) => nodes(tree).filter((node) => node.classList.contains(cls))
 const seasons = ['newyear', 'setsubun', 'valentine', 'spring', 'tsuyu', 'summer', 'sanma', 'halloween', 'xmas']
 // 整棵欢迎屏（含铭牌、SVG/use；不把伪元素算作 DOM），以 560px 铭牌时的最大值为上限。
-const nodeCaps = { newyear: 36, setsubun: 82, valentine: 88, spring: 189, tsuyu: 44, summer: 88,
-  sanma: 182, halloween: 72, xmas: 142 }
+// 开幕审美改版（2026-11-25）各幕加了氛围层与铭牌后柔衬，上限随之调整
+const nodeCaps = { newyear: 38, setsubun: 83, valentine: 89, spring: 191, tsuyu: 45, summer: 92,
+  // 三幕重设计（维护者定稿，2026-11-26）：万圣节加港湾底幕、残月与云、防波堤、两层薄雾、南瓜接触影与水面倒影
+  sanma: 184, halloween: 94, xmas: 143 }
 const ready = (welcome) => { for (const signal of ['snapshot', 'lode', 'panes']) welcome.noteReady(signal, '长门') }
 const cleaned = (installed) => {
   assert.equal(installed.body.children.length, 0)
@@ -410,12 +412,12 @@ test('海图幕按玩家状态画灯；全通连接断口、灯依次跳、描�
     assert.equal(named(layer, 'ks-lamp-current').length, cleared === 5 ? 0 : 1)
     assert.equal(named(layer, 'ks-route').filter((node) => !node.classList.contains('ks-route-done')).length, 3)
     assert.equal(named(layer, 'ks-ring').length, cleared === 5 ? 1 : 0)
-    assert.ok(nodes(layer).length <= 24)
+    assert.ok(nodes(layer).length <= 25)
     if (cleared === 5 && !reduce) {
       const motions = named(layer, 'ks-lamp').map((node) => node.style['--lamp-motion'])
       assert.ok(motions.every((value) => value.includes('kuma-season-lamp-wave')))
       const starts = motions.map((value) => Number(/lamp-wave \d+ms ease-out (\d+)ms/.exec(value)[1]))
-      assert.deepEqual(starts.slice(1).map((value, i) => value - starts[i]), [70, 70, 70, 70])
+      assert.deepEqual(starts.slice(1).map((value, i) => value - starts[i]), [60, 60, 60, 60])
       assert.equal(named(layer, 'ks-route-done').length, 4)
     }
     if (reduce) for (const node of installed.created) assert.equal(node.style.animation, undefined)
@@ -611,4 +613,198 @@ test('缓存接线走现有配置与本地查询；开关在设置里当场退�
   assert.match(source, /input: async \(\) => \{\s*await snapshotReady/)
   assert.match(settings, /setWelcomeSceneMemoryEnabled\(next\)/)
   assert.equal(WELCOME_SCENE_CONFIG_KEY, 'kuma.launchWelcomeScene.v1')
+})
+
+// ---- 可选开幕风格（维护者定稿 2026-11-26，交接包「拓展风格开幕」） ----
+// 三套风格各两个变体，设置里连同「自动」共 7 项。用户选定的风格优先级最高：
+// 压过活动海图幕、季节企划幕（节分、秋刀鱼、万圣节……）与 JST 日历兜底；选「自动」时与原选幕完全一致。
+// 科技控制台与机甲舱门列「上次退出」的真实快照简报，没有快照就不出面板、不编数字。
+// 机甲舱门是点门才开（点、Enter、空格），不自动开门（维护者裁决 2026-11-26）；Esc 随时跳过整场。
+// 彩蛋：三件就绪后迟迟不点，VR 目镜层随机冒一句球磨催开门的话，换句时不连着重复。
+const styleModule = () => require(path.join(root, 'dist/shared/launch-welcome-style.js'))
+const STYLE_KEYS = ['cic-ice', 'cic-amber', 'anime-blue', 'anime-dusk', 'mech-split', 'mech-quad']
+const briefFixture = (savedAt) => ({
+  savedAt, admiralLevel: 120, admiralRank: 3, materials: [123456, 234567, 98765, 45678], buckets: 1234, ships: [300, 320],
+  expeditions: [{ fleet: 2, missionId: 5, returnAt: savedAt + 600000 }, { fleet: 3, missionId: 21, returnAt: savedAt - 60000 }],
+  ndocks: [{ dock: 1, shipName: '长门', completeAt: savedAt + 3600000 }], activeQuests: 5,
+})
+const mechTimers = (t) => t.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'] })
+const SPACE = String.fromCharCode(32)
+
+test('开幕风格：七个选项、默认自动，认不出的值落回自动', () => {
+  const { WELCOME_STYLES, WELCOME_STYLE_CONFIG_KEY, readWelcomeStyle } = styleModule()
+  assert.deepEqual([...WELCOME_STYLES], ['auto', ...STYLE_KEYS])
+  assert.equal(WELCOME_STYLE_CONFIG_KEY, 'kuma.launchWelcomeStyle')
+  const config = (value) => ({ get: (key, fallback) => (key === WELCOME_STYLE_CONFIG_KEY && value !== undefined ? value : fallback) })
+  assert.equal(readWelcomeStyle(config(undefined)), 'auto')
+  for (const key of STYLE_KEYS) assert.equal(readWelcomeStyle(config(key)), key)
+  assert.equal(readWelcomeStyle(config('bogus')), 'auto')
+  assert.equal(readWelcomeStyle(config(42)), 'auto')
+})
+
+test('选定的开幕风格压过活动、季节与日历选幕；自动时照原选幕走', () => {
+  for (const style of STYLE_KEYS) for (const scene of [{ key: 'setsubun' }, { key: 'halloween' }, { key: 'sanma' }, eventScene(2), { key: 'base' }]) {
+    const installed = dom(), welcome = armLaunchWelcome(true, scene, { style }), layer = installed.body.children[0]
+    assert.equal(layer.dataset.welcomeStyle, style, `${style} / ${scene.key}`)
+    assert.equal(named(layer, 'ks-scene').length, 0, `${style} 不该再挂季节或活动场景`)
+    assert.equal(layer.dataset.welcomeScene, undefined)
+    welcome.cancel(); cleaned(installed)
+  }
+  const installed = dom(), welcome = armLaunchWelcome(true, { key: 'setsubun' }, { style: 'auto' }), layer = installed.body.children[0]
+  assert.equal(layer.dataset.welcomeScene, 'setsubun')
+  assert.equal(layer.dataset.welcomeStyle, undefined)
+  welcome.cancel(); cleaned(installed)
+})
+
+test('启动点亮关着时，选了风格也零节点', () => {
+  for (const style of STYLE_KEYS) {
+    const installed = dom()
+    assert.equal(armLaunchWelcome(false, { key: 'base' }, { style }), null)
+    assert.equal(installed.body.children.length, 0)
+  }
+})
+
+test('科技控制台与机甲舱门：没有上次快照就不出简报面板、不编数字；有快照才列真实数字', () => {
+  for (const style of ['cic-ice', 'cic-amber', 'mech-split', 'mech-quad']) {
+    let installed = dom(), welcome = armLaunchWelcome(true, { key: 'base' }, { style, brief: null }), layer = installed.body.children[0]
+    assert.equal(nodes(layer).filter((node) => node.dataset.brief != null).length, 0, `${style}：无快照不该有简报面板`)
+    welcome.cancel(); cleaned(installed)
+    installed = dom(); welcome = armLaunchWelcome(true, { key: 'base' }, { style, brief: briefFixture(now - 3600000) }); layer = installed.body.children[0]
+    assert.ok(nodes(layer).some((node) => node.dataset.brief != null), `${style}：有快照应列简报`)
+    assert.match(nodes(layer).map((node) => node.textContent).join('|'), /123,?456/, `${style}：燃料取快照里的真实数字`)
+    welcome.cancel(); cleaned(installed)
+  }
+})
+
+test('机甲舱门：三件就绪、过了封顶也不自动开门；单按修饰键不开；点门、Enter、空格开门后照常交接', (t) => {
+  mechTimers(t)
+  try {
+    for (const style of ['mech-split', 'mech-quad']) for (const how of ['pointerdown', 'Enter', SPACE]) {
+      const installed = dom(), welcome = armLaunchWelcome(true, { key: 'base' }, { style }), layer = installed.body.children[0]
+      let handed = 0; welcome.done(() => handed++)
+      ready(welcome)
+      t.mock.timers.tick(LAUNCH_WELCOME_TIMING.cap + LAUNCH_WELCOME_TIMING.fade + LAUNCH_GUARD_TIMING.welcomeFadeSlack + 1000)
+      assert.equal(installed.body.children.length, 1, `${style}：不点就一直等着`)
+      assert.equal(handed, 0)
+      installed.fire('keydown', { key: 'Alt' })
+      assert.equal(installed.body.children.length, 1, '单按修饰键不开门')
+      if (how === 'pointerdown') installed.fire('pointerdown')
+      else installed.fire('keydown', { key: how })
+      t.mock.timers.tick(LAUNCH_WELCOME_TIMING.cap)
+      layer.fire('animationend', 'kuma-welcome-out')
+      cleaned(installed)
+      assert.equal(handed, 1, `${style} / ${how}`)
+    }
+  } finally { t.mock.timers.reset() }
+})
+
+test('机甲舱门：Esc 随时跳过整场，收摊后无节点、无监听', (t) => {
+  mechTimers(t)
+  try {
+    for (const style of ['mech-split', 'mech-quad']) {
+      const installed = dom(), welcome = armLaunchWelcome(true, { key: 'base' }, { style })
+      let handed = 0; welcome.done(() => handed++)
+      installed.fire('keydown', { key: 'Escape' })
+      t.mock.timers.tick(LAUNCH_WELCOME_TIMING.fade + LAUNCH_GUARD_TIMING.welcomeFadeSlack)
+      cleaned(installed)
+      assert.equal(handed, 1)
+    }
+  } finally { t.mock.timers.reset() }
+})
+
+test('机甲舱门彩蛋：三件就绪后迟迟不点，目镜层随机冒一句球磨催开门的话，换句不连着重复', (t) => {
+  const { MECH_NUDGE_LINES } = styleModule()
+  const { LAUNCH_MECH_TIMING } = timing
+  const { MECH_NUDGE_RARE_LINE, MECH_NUDGE_BRIEF_LINE } = styleModule()
+  // 维护者 2026-11-26 要的彩蛋：台词参考氖化用原版台词的稿，主会话定稿；口癖用假名「クマ」，句尾不加句号（他的语言习惯）
+  assert.deepEqual([...MECH_NUDGE_LINES], [
+    'クマー……クマー……才、才没有等得无聊呢クマ。球磨过得很充实クマ！',
+    'クマ？门锁已经就绪了クマ。提督不是在等球磨从里面开吧クマ？',
+    '提督，光盯着目镜看，舱门可不会自己开クマ。点一下就行クマ',
+    '选机甲舱门算是很有眼光クマ……但总得按下去才算启动クマ！',
+    '哼哼，这扇装甲门也很结实クマ……不过不开的话可看不到里面クマ',
+    '球磨可不是门外的毛绒摆件クマ。再干等下去要闹别扭了クマー',
+    '再不开门，球磨就要冬眠了クマ……',
+    '多摩都等得打起瞌睡了クマ',
+  ])
+  // 只在显示上次快照简报时才可能抽到（两侧真有简报，这句才说得通）
+  assert.equal(MECH_NUDGE_BRIEF_LINE, '报告提督，港区状态都列在目镜两侧了クマ。不进来确认一下吗クマ？')
+  // 低概率才冒出来的温柔彩蛋
+  assert.equal(MECH_NUDGE_RARE_LINE, '提督，辛苦了クマー。想先发会儿呆也可以，回过神再点门就好クマ')
+  const everyLine = [...MECH_NUDGE_LINES, MECH_NUDGE_RARE_LINE]
+  mechTimers(t)
+  try {
+    const installed = dom(), welcome = armLaunchWelcome(true, { key: 'base' }, { style: 'mech-split' }), layer = installed.body.children[0]
+    const shown = () => nodes(layer).filter((node) => node.dataset.nudge != null).map((node) => node.textContent).filter(Boolean)
+    ready(welcome)
+    t.mock.timers.tick(LAUNCH_MECH_TIMING.nudgeAfter - 1)
+    assert.deepEqual(shown(), [], '还没到时候不冒')
+    t.mock.timers.tick(2)
+    const first = shown()
+    assert.equal(first.length, 1)
+    assert.ok(everyLine.includes(first[0]), '没有简报时不抽简报句')
+    t.mock.timers.tick(LAUNCH_MECH_TIMING.nudgeEvery)
+    const second = shown()
+    assert.equal(second.length, 1)
+    assert.ok(everyLine.includes(second[0]), '没有简报时不抽简报句')
+    assert.notEqual(second[0], first[0], '换一句，不连着重复')
+    installed.fire('pointerdown')
+    t.mock.timers.tick(LAUNCH_WELCOME_TIMING.cap)
+    layer.fire('animationend', 'kuma-welcome-out')
+    cleaned(installed)
+  } finally { t.mock.timers.reset() }
+})
+
+test('催门台词抽法：不连着重复；简报句只在有简报时出现；彩蛋句低概率出现', () => {
+  const { pickMechNudgeLine, MECH_NUDGE_LINES, MECH_NUDGE_BRIEF_LINE, MECH_NUDGE_RARE_LINE } = styleModule()
+  // 固定种子的伪随机，结果可复现
+  const seeded = (seed) => () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648 }
+  for (const hasBrief of [false, true]) {
+    const random = seeded(hasBrief ? 7 : 3)
+    let last = null, rare = 0, brief = 0
+    const N = 6000
+    for (let i = 0; i < N; i++) {
+      const line = pickMechNudgeLine(last, { hasBrief, random })
+      assert.notEqual(line, last, '不连着重复')
+      assert.ok([...MECH_NUDGE_LINES, MECH_NUDGE_BRIEF_LINE, MECH_NUDGE_RARE_LINE].includes(line), line)
+      if (line === MECH_NUDGE_RARE_LINE) rare++
+      if (line === MECH_NUDGE_BRIEF_LINE) brief++
+      last = line
+    }
+    assert.ok(rare > 0 && rare / N < 0.1, `彩蛋句该是低概率：${rare}/${N}`)
+    if (hasBrief) assert.ok(brief > 0, '有简报时简报句能抽到')
+    else assert.equal(brief, 0, '没有简报时不抽简报句')
+  }
+})
+
+test('钥：开幕风格一行七个选项，默认自动；启动时按设置与上次快照接线', () => {
+  const settings = read('src/renderer/modules/yu.ts'), source = read('src/renderer/index.ts')
+  assert.match(settings, /config\.get\(WELCOME_STYLE_CONFIG_KEY, 'auto'\)/)
+  for (const label of ['自动', '科技控制台 · 冰青', '科技控制台 · 琥珀', '二次元 OP · 碧蓝', '二次元 OP · 黄昏', '机甲舱门 · 双开', '机甲舱门 · 四向']) {
+    assert.ok(settings.includes(label), label)
+  }
+  assert.match(source, /readWelcomeStyle\(config\)/)
+  assert.match(source, /WELCOME_BRIEF_CONFIG_KEY/)
+})
+
+// ---- 开幕风格悬停预览（维护者 2026-11-26：「开幕风格在鼠标移动上去的时候弹一个小窗简单展示」「相当于就是一个截图，倒也不是动图」） ----
+// 钥里「开幕风格」的 6 个风格选项，鼠标停上去弹一个小窗放该风格的截图（按当前深浅主题选图）；「自动」随季节变，不弹。
+// 截图由主会话用真代码的审片页拍摄后缩成 480×270，放在 src/renderer/assets/welcome-style/。
+const pngSize = (buf) => [buf.readUInt32BE(16), buf.readUInt32BE(20)]
+
+test('开幕风格预览截图：6 个风格各有深浅两张，480×270，单张不超过 150KB', () => {
+  for (const style of STYLE_KEYS) for (const theme of ['dark', 'light']) {
+    const file = path.join(root, 'src/renderer/assets/welcome-style', `${style}-${theme}.png`)
+    assert.ok(fs.existsSync(file), `缺 ${style}-${theme}.png`)
+    const buf = fs.readFileSync(file)
+    assert.deepEqual(pngSize(buf), [480, 270], `${style}-${theme} 尺寸`)
+    assert.ok(buf.length <= 150 * 1024, `${style}-${theme} 体积 ${buf.length}`)
+  }
+})
+
+test('钥：开幕风格选项悬停弹出截图小窗（自动除外），按当前主题选图', () => {
+  const settings = read('src/renderer/modules/yu.ts')
+  assert.match(settings, /pointerenter|mouseenter/)
+  assert.match(settings, /pointerleave|mouseleave/)
+  assert.match(settings, /assets\/welcome-style\//)
 })

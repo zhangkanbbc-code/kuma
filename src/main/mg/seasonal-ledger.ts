@@ -74,11 +74,12 @@ export class SeasonalLedger {
     for (const entry of Array.isArray(entries) ? entries : [entries]) {
       if (entry == null) continue
       const item = entry.api_item ?? entry.api_slotitem ?? entry.api_useitem ?? entry
-      const id = Number(item.api_useitem_id ?? item.api_slotitem_id ?? item.api_slotitem?.api_slotitem_id ?? item.api_id ?? entry.api_id) || 0
+      const id = Number(item.api_ship_id ?? item.api_useitem_id ?? item.api_slotitem_id ?? item.api_slotitem?.api_slotitem_id ?? item.api_id ?? entry.api_id) || 0
       const rawCount = entry.api_count ?? item.api_count ?? item.api_useitem_count ?? item.api_slotitem_count
       const rewardType = entry.api_type
       let kind: CampaignReward['kind'] = 'unknown'
-      if (entry.api_slotitem != null) kind = 'slotitem'
+      if (rewardType === 11 || item.api_ship_id != null) kind = 'ship'
+      else if (entry.api_slotitem != null) kind = 'slotitem'
       else if (entry.api_useitem != null) kind = 'useitem'
       else if (rewardType === 1 && quest) kind = 'material'
       else if (item.api_useitem_id != null || rewardType === 13) kind = 'useitem'
@@ -97,14 +98,24 @@ export class SeasonalLedger {
     return sumCampaignRewards(rewards)
   }
 
+  // 首次观测开窗；目录补登后，将该季无期限的旧窗口并入目录起点。
   private window(key: string, itemId: number, ts: number) {
     const spec = SEASONAL_ITEMS.find(s => s.key === key)!
     const catalog = SEASONAL_EXCHANGES.find(c => c.campaignKey === key && ts >= c.startsAt && ts < c.expiresAt)
+    const name = `${catalog?.season ?? new Date(ts + 9 * 3600_000).getUTCFullYear()} ${spec.zhLabel}`
+    if (catalog) {
+      const adopted = this.db.prepare(`UPDATE seasonal_archive SET opened = ?, expires_at = ?, name = ?
+        WHERE campaign = ? AND opened = (SELECT MIN(opened) FROM seasonal_archive
+          WHERE campaign = ? AND expires_at IS NULL AND opened >= ? AND opened < ?)
+        AND NOT EXISTS (SELECT 1 FROM seasonal_archive WHERE campaign = ? AND opened = ?)`)
+        .run(catalog.startsAt, catalog.expiresAt, name, key, key, catalog.startsAt, catalog.expiresAt, key, catalog.startsAt)
+      if (adopted.changes) return
+    }
     const old = this.db.prepare('SELECT * FROM seasonal_archive WHERE campaign = ? AND opened <= ? AND (expires_at IS NULL OR expires_at > ?) ORDER BY opened DESC LIMIT 1').get(key, ts, ts)
     const opened = catalog?.startsAt ?? old?.opened ?? ts
     this.db.prepare(`INSERT INTO seasonal_archive(campaign, opened, expires_at, item_id, name)
       VALUES (?, ?, ?, ?, ?) ON CONFLICT(campaign, opened) DO NOTHING`)
-      .run(key, opened, catalog?.expiresAt ?? null, itemId, `${catalog?.season ?? new Date(ts + 9 * 3600_000).getUTCFullYear()} ${spec.zhLabel}`)
+      .run(key, opened, catalog?.expiresAt ?? null, itemId, name)
   }
 
   observe(event: { ts: number; path: string; body: any; post: any }) {
@@ -220,12 +231,36 @@ export class SeasonalLedger {
     return this.backfillDone
   }
 
+  private repairClaimRewards() {
+    const claims = this.db.prepare(`SELECT observation_key, first_seen, quest_no, rewards
+      FROM quest_observations WHERE kind = 'claim' AND EXISTS (
+        SELECT 1 FROM json_each(rewards)
+        WHERE value ->> 'kind' = 'unknown' AND value ->> 'id' = 0
+      )`).all()
+    const receipt = this.db.prepare(`SELECT body FROM events WHERE path = ? AND ts = ?
+      AND CAST(post_body ->> 'api_quest_id' AS INTEGER) = ?
+      AND body IS NOT NULL AND COALESCE(body ->> 'api_result', 1) = 1
+      ORDER BY id LIMIT 1`)
+    const update = this.db.prepare('UPDATE quest_observations SET rewards = ? WHERE observation_key = ?')
+    for (const claim of claims) {
+      const event = receipt.get(CLAIM, claim.first_seen, claim.quest_no)
+      if (!event) continue
+      const body = JSON.parse(event.body)
+      const rewards = JSON.stringify(this.parseRewards(body.api_data ?? body, true))
+      if (rewards !== claim.rewards) update.run(rewards, claim.observation_key)
+    }
+  }
+
   startBackfill() {
     this.ready = new Promise<void>((resolve, reject) => {
       const step = () => {
         try {
           if (this.stopped) { resolve(); return }
-          if (this.backfillBatch()) { this.enrichEventArchives(); resolve() }
+          if (this.backfillBatch()) {
+            this.repairClaimRewards()
+            this.enrichEventArchives()
+            resolve()
+          }
           else setImmediate(step)
         } catch (error) { reject(error) }
       }

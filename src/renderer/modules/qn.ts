@@ -1,3 +1,4 @@
+import { familyRootOf } from '../ship-first-owned'
 import { registerModuleCommand } from '../module-command'
 import { renderQuestMarkHtml } from '../quest-mark-html'
 import { CAT_META, CAT_DETAIL_COLORS } from '../quest-category'
@@ -1869,6 +1870,11 @@ const ownedEquipCounts = (): Map<number, number> => {
 // 这里只负责把「现在有多少」和归一化函数递进去。
 const rewardParseContext = (): RewardParseContext => {
   const ownedByMstId = ownedEquipCounts()
+  const shipsByFamily = new Map<number, number>()
+  for (const ship of Object.values(mg.ships)) {
+    const root = familyRootOf(ship.shipId)
+    shipsByFamily.set(root, (shipsByFamily.get(root) ?? 0) + 1)
+  }
   const useitems: RewardParseContext['useitems'] = []
   for (const [id, name] of useitemNames) {
     if (isResourceMirrorUseitem(id)) continue
@@ -1880,6 +1886,11 @@ const rewardParseContext = (): RewardParseContext => {
     })
   }
   return {
+    ships: Object.entries(mg.master.ships).flatMap(([key, ship]) => {
+      const id = Number(key)
+      if (id <= 0 || id >= 1500) return []
+      return [{ id, name: ship.name, aliases: entityAliases('ship', id, ship.name), stock: shipsByFamily.get(familyRootOf(id)) ?? 0 }]
+    }),
     equips: equipNameIndex.map((equip) => {
       const extras = kcwikiEquipAliasById.get(equip.id)
       return {
@@ -1896,12 +1907,14 @@ const rewardParseContext = (): RewardParseContext => {
 }
 
 
-const rewardCandidateLabel = (candidate: RewardStockCandidate): string =>
-  candidate.kind === 'equip'
+const rewardCandidateLabel = (candidate: RewardStockCandidate): string => {
+  if (candidate.kind === 'ship') return elink('mstShip', candidate.id, candidate.name)
+  return candidate.kind === 'equip'
     ? `${equipTypeIconHtml(mg.master.slotitems[candidate.id]?.iconId ?? 0, { className: 'xs', title: entityNamePlain('equip', candidate.id, candidate.name) })}${elink('mstEquip', candidate.id, candidate.name)}`
     : candidate.kind === 'useitem'
       ? `${useItemIconHtml(candidate.id, entityNamePlain('item', candidate.id, candidate.name), { className: 'sm' })}${elink('useitem', candidate.id, candidate.name)}`
       : `${materialIconHtml(candidate.id + 1, { className: 'sm', title: candidate.name })}${elink('material', candidate.id, candidate.name)}`
+}
 
 const rewardCandidateHtml = (
   candidate: RewardStockCandidate,
@@ -1924,9 +1937,9 @@ const rewardAdviceHtml = (row: QRow, ctx: RewardParseContext): string => {
   if (!groups.length) return ''
   const html = groups.map((group, index) => {
     const comparable = group.filter(
-      (candidate) => candidate.kind !== 'material' && candidate.kind !== 'raw',
+      (candidate) => candidate.kind !== 'material' && candidate.kind !== 'raw' && candidate.kind !== 'ship',
     )
-    const pool = comparable.length ? comparable : group.filter((c) => c.kind !== 'raw')
+    const pool = comparable.length ? comparable : group.filter((c) => c.kind === 'material')
     const minStock = Math.min(...pool.map((candidate) => candidate.stock))
     return `<div class="reward-group"><span class="k">第${index + 1}组选一</span>
       <div>${group.map((candidate) => rewardCandidateHtml(candidate, {
@@ -1995,7 +2008,7 @@ const rewardSectionsHtml = (row: QRow): string => {
   const parseCtx = rewardParseContext()
   // 固定奖励段同样走补漏（declared 0 = 文本没自报项数）：认不出的名字照原文列出，
   // 别让一项奖励从面板上消失
-  const fixedItems = parseQuestRewardItems(fixedText, 0, parseCtx)
+  const fixedItems = parseQuestRewardItems(fixedText, 0, { ...parseCtx, ships: [] })
     .filter((candidate) => candidate.kind !== 'material')
   const ships = rewardShips(row)
   const hasResources = resources.some((amount) => amount > 0)

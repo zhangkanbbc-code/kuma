@@ -43,9 +43,10 @@ const renderer = ({ mode = 'dark', base = '', dark = true, bridge } = {}) => {
   }
   const config = {
     get: (key, fallback) => {
-      assert.ok([THEME_CONFIG_KEY, THEME_BASE_CONFIG_KEY].includes(key))
-      assert.equal(fallback, key === THEME_CONFIG_KEY ? 'dark' : '')
-      return key === THEME_CONFIG_KEY ? mode : base
+      // 色觉键（维护者裁决 2026-11-25 新增）与两枚主题键同读，缺省「标准」
+      assert.ok([THEME_CONFIG_KEY, THEME_BASE_CONFIG_KEY, theme.CVD_CONFIG_KEY].includes(key))
+      assert.equal(fallback, key === THEME_CONFIG_KEY ? 'dark' : key === THEME_BASE_CONFIG_KEY ? '' : 'none')
+      return key === THEME_CONFIG_KEY ? mode : key === THEME_BASE_CONFIG_KEY ? base : 'none'
     },
     set: (...args) => writes.push(args),
   }
@@ -155,7 +156,7 @@ test('浏览窗异步初值应用前隐藏内容，期间的新推送不会被�
 
 test('主进程广播两枚主题键的完整状态，六窗底色同步并跟随系统更新', () => {
   const handlers = new Map(), events = new Map(), sent = [], backgrounds = []
-  let mode = 'light', base = '', updated
+  let mode = 'light', base = '', cvd = 'none', updated
   const nativeTheme = { shouldUseDarkColors: true, on: (name, fn) => { assert.equal(name, 'updated'); updated = fn } }
   const module = { exports: {} }
   vm.runInNewContext(fs.readFileSync(new URL('../dist/main/theme-push.js', import.meta.url), 'utf8'), {
@@ -164,8 +165,8 @@ test('主进程广播两枚主题键的完整状态，六窗底色同步并跟�
       if (id === '../shared/theme') return theme
       if (id === './config') return {
         get: key => {
-          assert.ok([THEME_CONFIG_KEY, THEME_BASE_CONFIG_KEY].includes(key))
-          return key === THEME_CONFIG_KEY ? mode : base
+          assert.ok([THEME_CONFIG_KEY, THEME_BASE_CONFIG_KEY, theme.CVD_CONFIG_KEY].includes(key))
+          return key === THEME_CONFIG_KEY ? mode : key === THEME_BASE_CONFIG_KEY ? base : cvd
         },
         on: (event, fn) => events.set(event, fn),
       }
@@ -182,23 +183,32 @@ test('主进程广播两枚主题键的完整状态，六窗底色同步并跟�
   })
   module.exports.installThemePush()
   const state = () => JSON.parse(JSON.stringify(handlers.get(THEME_GET_CHANNEL)()))
-  assert.deepEqual(state(), { mode: 'light', base: '' })
+  assert.deepEqual(state(), { mode: 'light', base: '', cvd: 'none' })
   assert.equal(module.exports.themeBackgroundColor(), DEFAULT_THEME_BASE.light)
   events.get('config.set')('kuma.other', 'dark')
   assert.deepEqual(sent, [])
   for (const [raw, expected] of [['system', 'system'], ['LIGHT', 'dark']]) {
     mode = raw
     events.get('config.set')(THEME_CONFIG_KEY, raw)
-    assert.deepEqual(JSON.parse(JSON.stringify(sent.splice(0))), Array.from({ length: 6 }, (_, i) => [i, THEME_CHANNEL, { mode: expected, base: '' }]))
-    assert.deepEqual(state(), { mode: expected, base: '' })
+    assert.deepEqual(JSON.parse(JSON.stringify(sent.splice(0))), Array.from({ length: 6 }, (_, i) => [i, THEME_CHANNEL, { mode: expected, base: '', cvd: 'none' }]))
+    assert.deepEqual(state(), { mode: expected, base: '', cvd: 'none' })
     assert.deepEqual(backgrounds.splice(0), Array.from({ length: 6 }, (_, i) => [i, DEFAULT_THEME_BASE.dark]))
   }
   base = '#ABCDEF'
   events.get('config.set')(THEME_BASE_CONFIG_KEY, base)
-  assert.deepEqual(state(), { mode: 'dark', base: '#abcdef' })
+  assert.deepEqual(state(), { mode: 'dark', base: '#abcdef', cvd: 'none' })
   assert.deepEqual(backgrounds.splice(0), Array.from({ length: 6 }, (_, i) => [i, '#abcdef']))
   assert.equal(sent.splice(0).length, 6)
   assert.equal(module.exports.themeBackgroundColor(), '#abcdef')
+  // 色觉键改动同样广播完整状态；未知值规范成「标准」
+  cvd = 'redgreen'
+  events.get('config.set')(theme.CVD_CONFIG_KEY, cvd)
+  assert.deepEqual(state(), { mode: 'dark', base: '#abcdef', cvd: 'redgreen' })
+  assert.deepEqual(JSON.parse(JSON.stringify(sent.splice(0).map((one) => one[2]))), Array(6).fill({ mode: 'dark', base: '#abcdef', cvd: 'redgreen' }))
+  backgrounds.splice(0)
+  cvd = 'bogus'
+  assert.equal(state().cvd, 'none')
+  cvd = 'none'
   mode = 'system'
   base = ''
   nativeTheme.shouldUseDarkColors = false

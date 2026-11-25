@@ -1,6 +1,6 @@
 // 季节收集企划的永久事实；中文名在显示时走现有实体词典。
 export interface CampaignReward {
-  kind: 'material' | 'useitem' | 'slotitem' | 'unknown'
+  kind: 'material' | 'useitem' | 'slotitem' | 'ship' | 'unknown'
   id: number
   count: number
   name?: string

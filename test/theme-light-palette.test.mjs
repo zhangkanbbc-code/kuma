@@ -12,7 +12,8 @@ const varOf = (name, block = light[1]) => {
   assert.ok(hit, `找不到 --${name}`)
   return hit[1]
 }
-const excluded = name => /^(?:voice-dmg-|voice-special$|motion-|serif$|mono$|sans$)/.test(name)
+// kw-hover-dur：开幕风格的悬停过渡时长（运行时按参数表写进行内），不是颜色，深浅一致
+const excluded = name => /^(?:voice-dmg-|voice-special$|motion-|serif$|mono$|sans$|kw-hover-dur$)/.test(name)
 const rgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16))
 const lin = c => c / 255 <= 0.04045 ? c / 255 / 12.92 : ((c / 255 + 0.055) / 1.055) ** 2.4
 const lum = hex => {

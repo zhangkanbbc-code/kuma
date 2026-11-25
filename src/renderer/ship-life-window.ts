@@ -29,6 +29,7 @@ import { loadAssetArchive } from './asset-archive'
 import { lifeEventHtml, lifeJoinOriginText } from './ship-life-events'
 import { shipLifeDamageText } from '../shared/ship-life-damage'
 import { mapCodeOf } from '../shared/map-id'
+import { rankToneClass } from '../shared/rank-tone'
 import { MARRIED_LEVEL_CAP } from '../shared/ship-growth'
 
 import type { ShipBossKillEntry, ShipLifeEvent, ShipLifeReport } from '../shared/mg-types'
@@ -222,7 +223,7 @@ const killBattleHtml = (entry: ShipBossKillEntry): string => {
   }>
     <time>${esc(fmtDate(entry.ts))}</time>
     <span class="where">${esc(where)}</span>
-    ${entry.rank ? `<span class="rank">${esc(entry.rank)}</span>` : '<span></span>'}
+    ${entry.rank ? `<span class="rank ${rankToneClass(entry.rank)}">${esc(entry.rank)}</span>` : '<span></span>'}
   </button>`
 }
 

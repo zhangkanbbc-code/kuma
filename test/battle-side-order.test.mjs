@@ -27,7 +27,9 @@ const battleWithLosses = (kind) => {
 
 test('航空战预测先显示我方损失，再显示敌方损失，数值各归其方', () => {
   const html = renderOutcomeBanner(sortieOf({ battle: battleWithLosses('airbattle') }))
-  assert.match(html, /<b>航空战预测 B · 我方损失 17% · 敌方损失 63%<\/b>/)
+  // 预测评级段带评级色的标签（维护者裁决 2026-11-25，见 rank-tone.test.mjs）；这里只核标题文字的先后与数值
+  const headline = html.match(/<b>([\s\S]*?)<\/b>/)?.[1].replace(/<[^>]+>/g, '') ?? ''
+  assert.equal(headline, '航空战预测 B · 我方损失 17% · 敌方损失 63%')
 })
 
 test('航空战结果条先我后敌，B 胜条件的除法仍是敌损失除以我损失', () => {

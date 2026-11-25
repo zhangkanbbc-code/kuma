@@ -36,6 +36,7 @@ const BANNER = sliceBetween(
 )
 
 const HARNESS = `
+import { rankToneClass } from ${JSON.stringify(path.join(ROOT, 'src/shared/rank-tone.ts'))}
 import { sortieHeadingDeg } from './shared/sortie-route'
 
 type SortieView = any

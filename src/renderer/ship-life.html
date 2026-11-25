@@ -27,6 +27,12 @@
       --ok: #67c98a;
       --warn: #e8a04c;
       --bad: #e06c75;
+      --rank-s: var(--gold);
+      --rank-a: var(--bad);
+      --rank-b: var(--warn);
+      --rank-c: var(--accent);
+      --rank-d: var(--dim);
+      --rank-e: var(--dim);
       --dock: #48a6c9;
       --wedding: #ff8fd6;
       --abyss-ink: #ff9fae;
@@ -66,6 +72,12 @@
       --ok: #2a7d4f;
       --warn: #82470a;
       --bad: #c0392b;
+      --rank-s: var(--gold);
+      --rank-a: var(--bad);
+      --rank-b: var(--warn);
+      --rank-c: var(--accent);
+      --rank-d: var(--dim);
+      --rank-e: var(--dim);
       --dock: #15536a;
       --wedding: #d33196;
       --abyss-ink: #b32a40;
@@ -81,6 +93,68 @@
       /* 舰娘生涯击沉目标缩略图底。 */
       --tint-abyss-kill: #f4dade;
     }
+    /* 色觉配色开始 · 维护者裁决 2026-11-25 · 生成器产物，勿手改 */
+    :root[data-cvd="redgreen"] {
+      --accent: #9bb8ff;
+      --accent-dim: #5168a5;
+      --accent-ink: #d2e0ff;
+      --gold: #fff19b;
+      --ok: #57dcf2;
+      --warn: #e6ba6a;
+      --bad: #ed7952;
+      --dock: #6984c9;
+      --wedding: #eea97c;
+      --abyss-ink: #f3af60;
+      --entity-map: #9bc6d3;
+      --life-hero-surface: #1d283c;
+      --tint-abyss-kill: #281d14;
+    }
+    :root[data-theme="light"][data-cvd="redgreen"] {
+      --accent: #00396f;
+      --accent-dim: #3f78b9;
+      --accent-ink: #1d4d82;
+      --gold: #322300;
+      --ok: #006487;
+      --warn: #866b00;
+      --bad: #892d10;
+      --dock: #342558;
+      --wedding: #b56000;
+      --abyss-ink: #8c5900;
+      --entity-map: #48737f;
+      --life-hero-surface: #ebeff7;
+      --tint-abyss-kill: #efddcc;
+    }
+    :root[data-cvd="mono"] {
+      --accent: #d9d9d9;
+      --accent-dim: #909090;
+      --accent-ink: #ffffff;
+      --gold: #f6f6f6;
+      --ok: #858585;
+      --warn: #bcbcbc;
+      --bad: #a2a2a2;
+      --dock: #d9d9d9;
+      --wedding: #bbbbbb;
+      --abyss-ink: #bfbfbf;
+      --entity-map: #bdbdbd;
+      --life-hero-surface: #282828;
+      --tint-abyss-kill: #1f1f1f;
+    }
+    :root[data-theme="light"][data-cvd="mono"] {
+      --accent: #4b4b4b;
+      --accent-dim: #535353;
+      --accent-ink: #2c2c2c;
+      --gold: #080808;
+      --ok: #636363;
+      --warn: #353535;
+      --bad: #202020;
+      --dock: #4b4b4b;
+      --wedding: #767676;
+      --abyss-ink: #666666;
+      --entity-map: #6b6b6b;
+      --life-hero-surface: #efefef;
+      --tint-abyss-kill: #e0e0e0;
+    }
+    /* 色觉配色结束 */
     * {
       box-sizing: border-box;
       scrollbar-width: thin;
@@ -227,8 +301,14 @@
     }
     .kill-battle .rank {
       justify-self: end; padding: 0 6px; border-radius: 8px; background: var(--bg3);
-      color: var(--gold); font: 9px var(--mono); line-height: 15px;
+      color: var(--text); font: 9px var(--mono); line-height: 15px;
     }
+    .kill-battle .rank-s { color: var(--rank-s); }
+    .kill-battle .rank-a { color: var(--rank-a); }
+    .kill-battle .rank-b { color: var(--rank-b); }
+    .kill-battle .rank-c { color: var(--rank-c); }
+    .kill-battle .rank-d { color: var(--rank-d); }
+    .kill-battle .rank-e { color: var(--rank-e); }
     .kill-battle[disabled] { opacity: .62; cursor: default; }
 
     /* 履历时间轴：与主界面的人生记录卡同一套点色与排版 */

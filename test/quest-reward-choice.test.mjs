@@ -117,11 +117,18 @@ test('「以下奖励N选一」：选项在标记之后，项数自报', skip, (
   assert.deepEqual(split.fixedParts, [])
   assert.equal(split.groups.length, 2)
   assert.deepEqual(split.groups.map((group) => group.declared), [3, 3])
-  assert.ok(split.groups[0].text.startsWith('補強增設×1'))
+  // 舰娘百科 2026-11-21 起奖励栏统一排版，繁体字随之改成简体
+  assert.ok(split.groups[0].text.startsWith('补强增设×1'))
 })
 
+// 「从下列奖励中选择」「以上N者选择其一」两种旧写法：舰娘百科 2026-11-21 批量排版后，
+// 随包任务库里已统一为「以下奖励N选一」。解析器对旧写法的支持保留，这两条改用
+// 排版前的原文作夹具（B95、B101 当时的 memo 原样照抄），不再从随包任务库取。
+const LEGACY_B95_MEMO = '奖励:改修资材×4  从下列奖励中选择： 「强风改」  「舰本新设计 增设装甲板(中型舰)」'
+const LEGACY_B101_MEMO = '奖励:勋章×1 新型火炮兵装资材×1 「零式舰战63型(爆战)」×1  以上三者选择其一 改修资材×4'
+
 test('「从下列奖励中选择」：选项在标记之后，项数没自报', skip, () => {
-  const split = splitQuestReward(memoOf('B95'))
+  const split = splitQuestReward(LEGACY_B95_MEMO)
   // 提示语本身不许留在任何一段里——它进了固定段就会被当成一项奖励摆出来
   assert.deepEqual(split.fixedParts, ['改修资材×4'])
   assert.equal(split.groups.length, 1)
@@ -130,7 +137,7 @@ test('「从下列奖励中选择」：选项在标记之后，项数没自报',
 })
 
 test('「以上二者选择其一」：选项在标记之**前**，后面那截才是固定奖励', skip, () => {
-  const split = splitQuestReward(memoOf('B101'))
+  const split = splitQuestReward(LEGACY_B101_MEMO)
   assert.deepEqual(split.fixedParts, ['改修资材×4'])
   assert.equal(split.groups.length, 1)
   assert.equal(split.groups[0].declared, 3)
@@ -138,7 +145,8 @@ test('「以上二者选择其一」：选项在标记之**前**，后面那截�
 })
 
 test('没有选一的任务：整串还是固定奖励，一个字不动', skip, () => {
-  for (const code of ['A1', 'B96', 'B31']) {
+  // B96 在舰娘百科 2026-11-21 排版里改正为二选一，固定两项的样本换成 B73
+  for (const code of ['A1', 'B73', 'B31']) {
     const memo = memoOf(code)
     const split = splitQuestReward(memo)
     assert.deepEqual(split.groups, [], code)
@@ -217,9 +225,10 @@ test('数量只算自家的：不抢邻项的，也不吞邻项名字开头的�
 })
 
 test('固定奖励两项连写：不许在中间挤出一个空芯片', skip, () => {
-  assert.deepEqual(sections('B96', context()).fixed, [
-    'equip:219:零式艦戦63型(爆戦)×1',
-    'equip:220:8cm高角砲改+増設機銃×1',
+  // 原样本 B96 在舰娘百科 2026-11-21 排版里改正为二选一；B73 是「「探照灯」 「大发动艇」」两项固定连写
+  assert.deepEqual(sections('B73', context()).fixed, [
+    'equip:74:探照灯×1',
+    'equip:68:大発動艇×1',
   ])
 })
 
@@ -323,4 +332,26 @@ test('没有选一的普通任务，奖励区还是老样子（对照）', skip,
       ['equip:328:35.6cm連装砲改×2', 'equip:328:35.6cm連装砲改★+6×1', 'useitem:58:改装設計図×1'],
     ],
   })
+})
+
+// ---- 选一组里的舰娘（维护者 2026-11-25 截图：#866 两组里的「昭南」「明石」只剩灰色原文芯片） ----
+// 舰娘百科奖励栏用「」包舰娘名。解析要认出舰娘：芯片种类为 ship、带舰娘 id 与数量，
+// 不再落成 raw。舰娘的持有数由调用方按谱系算好注入（与装备、道具同一个 stock 口子）。
+const shipContext = () => ({
+  ...context(),
+  ships: Object.entries(l10n.entities.ship).map(([id, entry]) => ({
+    id: Number(id),
+    name: entry.ja,
+    aliases: aliases(entry, []),
+    stock: 0,
+  })),
+})
+
+test('#866 两组选一里的舰娘认成 ship 芯片，不落原文', skip, () => {
+  const groups = questRewardChoiceGroups(memoOf('2611B1'), shipContext()).map((group) => group.map(chip))
+  assert.equal(groups.length, 2)
+  assert.ok(groups[0].includes('ship:895:昭南×1'), JSON.stringify(groups[0]))
+  assert.ok(groups[1].includes('ship:182:明石×1'), JSON.stringify(groups[1]))
+  assert.ok(!groups.flat().some((item) => item.startsWith('raw')), JSON.stringify(groups))
+  assert.deepEqual(groups.map((group) => group.length), [3, 3])
 })

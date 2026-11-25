@@ -2,6 +2,13 @@ export const THEME_CONFIG_KEY = 'kuma.theme'
 export const THEME_MODES = ['dark', 'light', 'system'] as const
 export type ThemeMode = typeof THEME_MODES[number]
 export const THEME_MODE_LABEL = { dark: '深色', light: '浅色', system: '跟随系统' }
+export const CVD_CONFIG_KEY = 'kuma.themeCvd'
+export const CVD_MODES = ['none', 'redgreen', 'mono'] as const
+export type CvdMode = typeof CVD_MODES[number]
+export const CVD_MODE_LABEL = { none: '标准', redgreen: '红绿色盲', mono: '全色盲' }
+export const normalizeCvdMode = (raw: unknown): CvdMode =>
+  raw === 'redgreen' || raw === 'mono' ? raw : 'none'
+
 export const THEME_CHANNEL = 'kuma:theme'
 export const THEME_GET_CHANNEL = 'kuma:theme-get'
 
@@ -17,7 +24,7 @@ export const normalizeThemeBase = (raw: unknown): string =>
 
 export const DEFAULT_THEME_BASE = { dark: '#0d1318', light: '#f3f6f9' } as const
 export const GROUND_ACCENT = { dark: '#4db8ff', light: '#1773b2' } as const
-export type ThemeState = { mode: ThemeMode; base: string }
+export type ThemeState = { mode: ThemeMode; base: string; cvd: CvdMode }
 type Rgb = [number, number, number]
 
 export const hexToRgb = (hex: string): Rgb =>
@@ -72,6 +79,6 @@ export const deriveNeutrals = (baseHex: string): Record<typeof NEUTRAL_TOKENS[nu
   }
 }
 
-export const resolveThemeGround = ({ mode, base, systemPrefersDark }: ThemeState & {
+export const resolveThemeGround = ({ mode, base, systemPrefersDark }: Pick<ThemeState, 'mode' | 'base'> & {
   systemPrefersDark: boolean
 }): 'dark' | 'light' => base ? groundOf(base) : resolveTheme(mode, systemPrefersDark)

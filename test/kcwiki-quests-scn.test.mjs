@@ -124,7 +124,7 @@ test('kcwiki 任务页:跨页改码只记信息,同页改码和跨页同码不�
   assert.equal(quests['314'].code, 'Cs2')
 })
 
-test('kcwiki 任务页:维护者二十一条定号只记录公开游戏编号与核对日期', () => {
+test('kcwiki 任务页:维护者二十二条定号只记录公开游戏编号与核对日期', () => {
   assert.deepEqual(MAINTAINER_QUEST_NO_CORRECTIONS, [
     { code: '2609Cw1', id: 384, basis: '游戏任务列表编号（2026-09-11 核）' },
     { code: '2609Cw2', id: 385, basis: '游戏任务列表编号（2026-09-11 核）' },
@@ -147,6 +147,7 @@ test('kcwiki 任务页:维护者二十一条定号只记录公开游戏编号与
     { code: '2610F1', id: 1171, basis: '游戏任务列表编号（2026-10-21 核）' },
     { code: '2611Cw1', id: 381, basis: '游戏任务列表编号（2026-11-15 核）' },
     { code: 'F144', id: 1172, basis: '游戏任务列表编号（2026-11-15 核）' },
+    { code: '2611Cw3', id: 369, basis: '游戏任务列表编号（2026-11-25 核）' },
   ])
 })
 
@@ -175,16 +176,17 @@ test('kcwiki 任务页:定号表优先于错号或空注释,归一码并替换�
 {{任务表|编号=2610F1|<!---->|中文任务名字=反潜装备整理}}
 {{任务表|编号=2611Cw1|<!---->|中文任务名字=秋月型演习任务2026}}
 {{任务表|编号=F144|<!---->|中文任务名字=夜战突击装备的强化I}}
+{{任务表|编号=2611Cw3|<!---->|中文任务名字=盐烤秋刀鱼演习}}
 `], equipNames)
-  assert.deepEqual(Object.keys(quests), ['313', '359', '381', '384', '385', '984', '985', '986', '987', '1002', '1019', '1038', '1039', '1040', '1050', '1051', '1052', '1119', '1170', '1171', '1172'])
-  assert.deepEqual(Object.values(quests).map(({ code }) => code), ['Cs1', '2610Cw1', '2611Cw1', '2609Cw1', '2609Cw2', '2610B1', '2610Bw1', '2610B2', '2610Bm1', '2610B4', 'B205', '2610B3', '2610Bw2', '2610Bm2', 'By17', 'By18', 'B217', '2610Fm1', 'F143', '2610F1', 'F144'])
+  assert.deepEqual(Object.keys(quests), ['313', '359', '369', '381', '384', '385', '984', '985', '986', '987', '1002', '1019', '1038', '1039', '1040', '1050', '1051', '1052', '1119', '1170', '1171', '1172'])
+  assert.deepEqual(Object.values(quests).map(({ code }) => code), ['Cs1', '2610Cw1', '2611Cw3', '2611Cw1', '2609Cw1', '2609Cw2', '2610B1', '2610Bw1', '2610B2', '2610Bm1', '2610B4', 'B205', '2610B3', '2610Bw2', '2610Bm2', 'By17', 'By18', 'B217', '2610Fm1', 'F143', '2610F1', 'F144'])
   assert.equal(quests['313'].memo, '奖励:工厂资源×1')
   assert.equal(quests['384'].name, '与提督的秋祭演习')
   assert.equal(stats.withoutId, 0)
   assert.deepEqual(stats.withoutIdRows, [])
   assert.equal(stats.duplicates, 2)
   assert.equal(stats.conflicts, 0)
-  assert.equal(stats.maintainerHits.length, 21)
+  assert.equal(stats.maintainerHits.length, 22)
   assert.deepEqual(stats.maintainerHits, MAINTAINER_QUEST_NO_CORRECTIONS.map(({ code, id }) => ({ code, id })))
   for (const quest of Object.values(quests)) {
     assert.deepEqual(Object.keys(quest).sort(), ['code', 'desc', 'memo', 'memo2', 'name', 'pre'])
@@ -323,16 +325,38 @@ test('quests-scn 真包:换源后的锚定事实', { skip: !existsSync(packFile)
   }
   assert.equal(data[1019]?.code, 'B205')
   assert.equal(data[1018]?.code, 'By15')
-  assert.equal(Object.keys(data).length, 644)
+  // 舰娘百科「任务/最新任务」2026-11-25 修订补齐秋刀鱼任务文本：主线 2611B1～B3 带编号 866～868 入定号区。
+  assert.equal(Object.keys(data).length, 648)
+  assert.deepEqual([866, 867, 868].map((id) => data[id]?.code), ['2611B1', '2611B2', '2611B3'])
   assert.equal(data[381]?.code, '2611Cw1')
   assert.equal(data[1172]?.code, 'F144')
   // 舰娘百科任务页 2026-11-17 修订给出 2611Cw2 的游戏编号 386。
   assert.equal(data[386]?.code, '2611Cw2')
-  for (const code of ['SF1', 'B218']) {
+  // 周常演习 2611Cw3 由游戏任务列表核出编号 369（2026-11-25），经维护者定号表进入定号区。
+  assert.equal(data[369]?.code, '2611Cw3')
+  // 两条拡張仍无编号，留在未定号区等游戏任务列表核出编号。
+  for (const code of ['SF1', 'B218', '2611F1', '2611F2']) {
     assert.ok(!Object.values(data).some((quest) => quest.code === code), `${code} 不应进入定号区`)
     assert.equal(pack.unnumbered[code]?.code, code)
     assert.ok(pack.unnumbered[code]?.titleJa.trim(), `${code} 带日文标题`)
     assert.deepEqual(Object.keys(pack.unnumbered[code]).sort(), ['code', 'desc', 'memo', 'memo2', 'name', 'pre', 'titleJa'])
   }
-  assert.deepEqual(Object.keys(pack.unnumbered), ['SF1', 'B218'])
+  assert.deepEqual(Object.keys(pack.unnumbered).sort(), ['2611F1', '2611F2', 'B218', 'SF1'])
+})
+
+// 舰娘百科改条件后会把旧条件留在同一栏，以「▼ 2026/11/24维护前 ▼」隔开（2611Cw2 / 386 首见）。
+// 旧条件一旦混进正文，编成门会把新旧两份名单都当成要求（386 一度解出「需 8 艘」）。
+// 生成任务库时去掉标记及其后的旧条件，各栏只留现行条件。
+test('quests-scn 真包:维护前的旧条件不留在任何一栏', { skip: !existsSync(packFile) }, () => {
+  const pack = JSON.parse(readFileSync(packFile, 'utf8'))
+  for (const [section, rows] of [['data', pack.data], ['unnumbered', pack.unnumbered ?? {}]]) {
+    for (const [id, quest] of Object.entries(rows)) {
+      for (const field of ['name', 'desc', 'memo', 'memo2']) {
+        assert.doesNotMatch(`${quest[field] ?? ''}`, /维护前|維護前|メンテ前/, `${section}.${id}.${field}`)
+      }
+    }
+  }
+  const q386 = pack.data[386]
+  assert.match(q386.desc, /岛根丸/)
+  assert.doesNotMatch(`${q386.desc}${q386.memo2}`, /Ranger|突击者|Heywood|海伍德|第四号海防舰/)
 })

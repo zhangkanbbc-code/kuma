@@ -38,7 +38,7 @@ import { initPreviewBar } from './preview-bar'
 import { initLink } from './link'
 import { initCommandPalette } from './command-palette'
 import { initInputClear } from './input-clear'
-import { initLocalization } from './localization'
+import { entityNamePlain, initLocalization } from './localization'
 import { exitDistract, getDistractState, getModuleTitle, initModules, isModuleShowing, launchGlowLayout, setDistractSide, setLayoutDragHooks, toggleDistract, toggleFocus, toggleLayoutLock } from './mu'
 import { cycleDistractSide, DISTRACT_DEFAULTS, DISTRACT_PATHS, DISTRACT_SIDE_LABEL } from '../shared/distract-mode'
 import {
@@ -50,7 +50,9 @@ import {
   type LaunchWelcomeHandle,
 } from './launch-glow'
 import { readWelcomeScene } from '../shared/launch-welcome-scene'
-import { installWelcomeSceneMemory } from './launch-welcome-memory'
+import { WELCOME_BRIEF_CONFIG_KEY, isWelcomeBriefCache } from '../shared/launch-welcome-brief'
+import { isBriefWelcomeStyle, isMechWelcomeStyle, readWelcomeStyle } from '../shared/launch-welcome-style'
+import { installWelcomeBriefMemory, installWelcomeSceneMemory } from './launch-welcome-memory'
 import {
   LAUNCH_BADGE_TIMING,
   LAUNCH_BATTLE_TIMING,
@@ -581,10 +583,23 @@ let glow: LaunchGlowHandle | null = null
 let welcome: LaunchWelcomeHandle | null = null
 if (!POP_MODULE) try {
   const ceremonyOn: boolean = config.get(LAUNCH_GLOW_CONFIG_KEY, LAUNCH_GLOW_DEFAULT)
+  const welcomeStyle = readWelcomeStyle(config)
+  const rawBrief = ceremonyOn && isBriefWelcomeStyle(welcomeStyle)
+    ? config.get(WELCOME_BRIEF_CONFIG_KEY, null)
+    : null
+  const welcomeBrief = isWelcomeBriefCache(rawBrief) ? rawBrief : null
   // 同一个开关也管顶栏浮层的打开入场（一个实验开关管整个动画家族）
   setOverlayEntranceEnabled(ceremonyOn)
-  glow = armLaunchGlow(ceremonyOn)
-  welcome = armLaunchWelcome(ceremonyOn, ceremonyOn ? readWelcomeScene(config, Date.now()) : { key: 'base' })
+  glow = armLaunchGlow(ceremonyOn, { mechGate: isMechWelcomeStyle(welcomeStyle) })
+  welcome = armLaunchWelcome(
+    ceremonyOn,
+    ceremonyOn ? readWelcomeScene(config, Date.now()) : { key: 'base' },
+    {
+      style: welcomeStyle,
+      brief: welcomeBrief,
+      onGateOpen: () => glow?.notifyGateOpen?.(),
+    },
+  )
 } catch (error) {
   recordCrash('startup:launch-glow-arm', error)
   glow?.cancel()
@@ -871,6 +886,23 @@ void (async () => {
         useitems: mg.useitems, quests: Object.values(mg.quests), mapGauges: mg.mapGauges }
     },
   }, config.get(LAUNCH_GLOW_CONFIG_KEY, LAUNCH_GLOW_DEFAULT))
+  if (!POP_MODULE) installWelcomeBriefMemory({
+    config,
+    subscribe: onMgChange,
+    report: (error) => recordCrash('startup:welcome-brief-memory', error),
+    player: () => ({
+      basic: mg.basic,
+      materials: mg.materials,
+      ships: mg.ships,
+      decks: mg.decks,
+      ndocks: mg.ndocks,
+      quests: mg.quests,
+    }),
+    shipNameOf: (mstId) => {
+      const name = mg.master.ships[mstId]?.name
+      return name ? entityNamePlain('ship', mstId, name) : undefined
+    },
+  }, Boolean(config.get(LAUNCH_GLOW_CONFIG_KEY, LAUNCH_GLOW_DEFAULT)) && isBriefWelcomeStyle(readWelcomeStyle(config)))
   const lodeReady = initLocalization()
   // 欢迎屏那三件「真就绪」里的头两件。**失败也当到齐**：那一屏是缓冲不是守卫，
   // 为了一件永远不会来的事把玩家钉在欢迎屏上，比少等一步糟得多

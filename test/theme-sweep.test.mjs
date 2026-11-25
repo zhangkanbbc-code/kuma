@@ -1016,7 +1016,8 @@ const stripComments = value => value.replace(/\/\*[\s\S]*?\*\//g, '')
 const styles = source => [...source.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n')
 const blocks = source => [...styles(source).matchAll(/:root(?:\[data-theme="light"\])?\s*\{([^}]+)\}/g)].map(m => m[1])
 const declarations = block => Object.fromEntries([...stripComments(block).matchAll(/--([\w-]+):\s*([^;]+);/g)].map(m => [m[1], m[2].trim()]))
-const outsideRoots = source => stripComments(styles(source)).replace(/:root(?:\[data-theme="light"\])?\s*\{[^}]*\}/g, '')
+// 色觉配色四块（生成器产物，维护者裁决 2026-11-25）同属变量定义块；blocks() 仍只取深浅两块，位置不变
+const outsideRoots = source => stripComments(styles(source)).replace(/:root(?:\[data-theme="light"\])?(?:\[data-cvd="(?:redgreen|mono)"\])?\s*\{[^}]*\}/g, '')
 const rgb = hex => {
   let digits = hex.slice(1)
   if (digits.length === 3) digits = [...digits].map(c => c + c).join('')

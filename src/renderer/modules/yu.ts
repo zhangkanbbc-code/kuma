@@ -4,8 +4,9 @@
 //
 // 卡片按**分类分页**摆（页签在面板顶部，一次只画一类）。归属表在
 // shared/settings-sections，这里只消费：卡的次序、页签的次序都从那份表来。
-import { applyTheme, setThemeMode, setThemeBase, clearThemeBase } from '../theme-boot'
+import { applyTheme, setThemeCvd, setThemeMode, setThemeBase, clearThemeBase } from '../theme-boot'
 import {
+  CVD_CONFIG_KEY, CVD_MODES, CVD_MODE_LABEL, normalizeCvdMode,
   THEME_CONFIG_KEY, THEME_BASE_CONFIG_KEY, THEME_MODES, THEME_MODE_LABEL,
   normalizeThemeMode, normalizeThemeBase, resolveThemeGround, DEFAULT_THEME_BASE,
 } from '../../shared/theme'
@@ -24,7 +25,7 @@ import {
   VOICE_CAPTION_SPECIAL_PATH,
 } from '../../shared/voice-caption-special'
 import { setOverlayEntranceEnabled } from '../launch-glow'
-import { setWelcomeSceneMemoryEnabled } from '../launch-welcome-memory'
+import { setWelcomeBriefMemoryEnabled, setWelcomeSceneMemoryEnabled } from '../launch-welcome-memory'
 import { setFairySalvoEnabled } from '../fairy-salvo'
 import { FAIRY_SALVO_CONFIG_KEY, FAIRY_SALVO_DEFAULT, FAIRY_MIRROR_UI_KEY } from '../../shared/fairy-salvo'
 import { mg } from '../kernel'
@@ -89,6 +90,13 @@ import {
   VOICE_CAPTION_SIZE_STEP,
 } from '../../shared/voice-caption-size'
 import { LAUNCH_GLOW_CONFIG_KEY, LAUNCH_GLOW_DEFAULT } from '../../shared/launch-glow'
+import {
+  WELCOME_STYLE_CONFIG_KEY,
+  isBriefWelcomeStyle,
+  normalizeWelcomeStyle,
+  readWelcomeStyle,
+  type WelcomeStyle,
+} from '../../shared/launch-welcome-style'
 import {
   BOSS_HOTKEY_ENABLED_CONFIG_KEY,
   formatAccelerator,
@@ -981,17 +989,30 @@ const retentionCardHtml = (): string => {
 // 从前这些卡是 render 里一整条模板串，十几次同步跨进程 config 读一趟全做完。
 // 拆开之后只有**当前这一类**的卡会被求值，切页签不再顺手把别人的开关也读一遍。
 
+const fleetToneCardHtml = (): string => `
+  <div class="h"><b>编队状态着色</b></div>
+  ${toggleHtml(
+    'kuma.fleetStateTone', '显示编队状态色',
+    '泛光：小破 / 中破 / 大破 · 竖条：入渠、泊地修理中、红疲劳、橙疲劳、未补给、闪光',
+    config.get('kuma.fleetStateTone', false),
+  )}`
+
 const themeCardHtml = (): string => {
   const mode = normalizeThemeMode(config.get(THEME_CONFIG_KEY, 'dark'))
   const base = normalizeThemeBase(config.get(THEME_BASE_CONFIG_KEY, ''))
   const ground = resolveThemeGround({ mode, base, systemPrefersDark: matchMedia('(prefers-color-scheme: dark)').matches })
   const hex = base || DEFAULT_THEME_BASE[ground]
+  const cvd = normalizeCvdMode(config.get(CVD_CONFIG_KEY, 'none'))
+  const cvdChips = CVD_MODES.map(
+    (id) => `<span class="ychip${cvd === id ? ' on' : ''}" data-theme-cvd="${id}">${CVD_MODE_LABEL[id]}</span>`,
+  ).join('')
   const chips = THEME_MODES.map(
     (id) => `<span class="ychip${!base && mode === id ? ' on' : ''}" data-theme-mode="${id}">${THEME_MODE_LABEL[id]}</span>`,
   ).join('')
   return `<div class="h"><b>外观</b><span class="aux">beta · 即时生效</span></div>
     <div class="yline">${chips}${base ? '<span class="ychip on" data-theme-custom>自定义</span>' : ''}</div>
     <div class="yline"><span>底色</span><input type="color" data-theme-base value="${hex}"> <b style="font-family:var(--mono)">${hex}</b> <span class="ylk" data-theme-base-reset>恢复默认</span></div>
+    <div class="yline"><span>色觉</span>${cvdChips}</div>
     <div class="ynote">底色任选，其余颜色按对比度自动配</div>`
 }
 
@@ -1078,15 +1099,35 @@ const fairySalvoCardHtml = (): string => `<div class="h"><b>实验性</b><span c
   <div class="dim">已镜像的装备</div>
   ${uiGet<number[]>(FAIRY_MIRROR_UI_KEY, []).map((id) => `<div class="yrow"><span>${esc(entityNamePlain('equip', id, mg.master.slotitems[id]?.name ?? `#${id}`))}</span><button data-fairy-unmirror="${id}">移除镜像</button></div>`).join('') || '<div class="dim">暂无</div>'}`
 
+const hitShakeCardHtml = (): string => `<div class="h"><b>编队被弹动画</b></div>
+  ${toggleHtml(
+    'kuma.hitShake',
+    '播放被弹与修理动画',
+    '被弹抖动与缺角碎裂，要员、女神发动，入渠完成与泊地修理回血',
+    config.get('kuma.hitShake', false),
+  )}`
+
 const specialCaptionStyleHtml = (): string => {
   const style = normalizeSpecialCaptionStyle(config.get(VOICE_CAPTION_SPECIAL_PATH, VOICE_CAPTION_SPECIAL_DEFAULT))
   const disabled = !config.get('kuma.voiceCaptions', true)
   return toggleHtml(VOICE_CAPTION_SPECIAL_PATH, '特殊攻击视觉加强', '开关炫酷特殊攻击字幕', style, disabled)
 }
 
+const WELCOME_STYLE_OPTIONS: readonly [WelcomeStyle, string][] = [
+  ['auto', '自动'],
+  ['cic-ice', '科技控制台 · 冰青'],
+  ['cic-amber', '科技控制台 · 琥珀'],
+  ['anime-blue', '二次元 OP · 碧蓝'],
+  ['anime-dusk', '二次元 OP · 黄昏'],
+  ['mech-split', '机甲舱门 · 双开'],
+  ['mech-quad', '机甲舱门 · 四向'],
+]
+
 // 抬头那句不能写死「即时生效」：这一卡里最后那条（启动点亮动画）说的是「下次启动生效」,
 // 两句摆在同一张卡上就是自相矛盾。改成留个口子，例外由那一条自己说清楚。
-const uiHintsCardHtml = (): string => `<div class="h"><b>界面提示</b><span class="aux">即时生效 · 注明的除外</span></div>
+const uiHintsCardHtml = (): string => {
+  const welcomeStyle = normalizeWelcomeStyle(config.get(WELCOME_STYLE_CONFIG_KEY, 'auto'))
+  return `<div class="h"><b>界面提示</b><span class="aux">即时生效 · 注明的除外</span></div>
   ${toggleHtml(
     'kuma.voiceCaptions',
     '显示语音文字',
@@ -1124,7 +1165,11 @@ const uiHintsCardHtml = (): string => `<div class="h"><b>界面提示</b><span c
     '启动点亮动画',
     '启动入场动画 · 单击跳过 · 下次启动生效',
     config.get(LAUNCH_GLOW_CONFIG_KEY, LAUNCH_GLOW_DEFAULT),
-  )}`
+  )}
+  <div class="yline"><b>开幕风格</b>${WELCOME_STYLE_OPTIONS.map(
+    ([id, label]) => `<span class="ychip${welcomeStyle === id ? ' on' : ''}" data-welcome-style="${id}">${label}</span>`,
+  ).join('')}</div>`
+}
 
 const trayCardHtml = (): string => `<div class="h"><b>托盘与后台</b><span class="aux">改动后重启 kuma 生效</span></div>
   ${toggleHtml(
@@ -1471,10 +1516,12 @@ const aboutCardHtml = (): string => `<div class="h"><b>关于</b></div>
 const CARD_HTML: Record<SettingsCardId, () => string> = {
   zoom: zoomCardHtml,
   theme: themeCardHtml,
+  'fleet-tone': fleetToneCardHtml,
   'game-scale': gameScaleCardHtml,
   'caption-size': captionSizeCardHtml,
   'ui-hints': uiHintsCardHtml,
   'fairy-salvo': fairySalvoCardHtml,
+  'hit-shake': hitShakeCardHtml,
   tray: trayCardHtml,
   hotkeys: hotkeysCardHtml,
   distract: distractCardHtml,
@@ -1521,8 +1568,38 @@ if (!getPopModule()) ipcRenderer.on('yu:account-changed', () => {
   notifyAccountChanged()
 })
 
+let closeWelcomePreview: (() => void) | undefined
+
+const showWelcomePreview = (event: PointerEvent) => {
+  closeWelcomePreview?.()
+  const chip = event.currentTarget as HTMLElement
+  const theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'
+  const image = document.createElement('img')
+  image.className = 'yu-welcome-preview'
+  image.alt = ''
+  image.src = `./assets/welcome-style/${chip.dataset.welcomeStyle}-${theme}.png`
+  document.body.appendChild(image)
+
+  const anchor = chip.getBoundingClientRect()
+  const { width, height } = image.getBoundingClientRect()
+  const gap = 6
+  const centerLeft = anchor.left + (anchor.width - width) / 2
+  image.style.left = `${Math.max(gap, Math.min(centerLeft, window.innerWidth - width - gap))}px`
+  image.style.top = `${anchor.top >= height + gap ? anchor.top - height - gap : anchor.bottom + gap}px`
+
+  const listeners = new AbortController()
+  closeWelcomePreview = () => {
+    listeners.abort()
+    image.remove()
+    closeWelcomePreview = undefined
+  }
+  chip.addEventListener('pointerleave', closeWelcomePreview, { signal: listeners.signal })
+  window.addEventListener('blur', closeWelcomePreview, { signal: listeners.signal })
+}
+
 const render = () => {
   if (!pane || !pane.classList.contains('active')) return
+  closeWelcomePreview?.()
   withViewStateKept(pane, () => {
     pane.innerHTML = `<div class="yu-app">${sectionTabsHtml()}${settingsCardsOf(
       activeSection,
@@ -1540,6 +1617,14 @@ registerModule({
   mount(el) {
     if (getPopModule()) return
     pane = el
+    el.addEventListener('pointerenter', (event) => {
+      const chip = event.target as HTMLElement
+      if (chip.matches('[data-welcome-style]:not([data-welcome-style="auto"])')) {
+        // 重画也会让静止的指针进入新节点；等指针真的移动再打开预览。
+        chip.addEventListener('pointermove', showWelcomePreview, { once: true })
+      }
+    }, true)
+    trackMountCleanup(() => closeWelcomePreview?.())
     window.addEventListener('kuma-distract-changed', render)
     trackMountCleanup(() => window.removeEventListener('kuma-distract-changed', render))
     // 面板开着时出了新错误就刷一下诊断卡片。这个回调抛异常会被记账层吞掉
@@ -1657,7 +1742,7 @@ registerModule({
         if (!themeBaseFrame) themeBaseFrame = requestAnimationFrame(() => {
           themeBaseFrame = 0
           const base = normalizeThemeBase(themeInput.value)
-          applyTheme({ mode: normalizeThemeMode(config.get(THEME_CONFIG_KEY, 'dark')), base })
+          applyTheme({ mode: normalizeThemeMode(config.get(THEME_CONFIG_KEY, 'dark')), base, cvd: config.get(CVD_CONFIG_KEY, 'none') })
           themeInput.nextElementSibling!.textContent = base
           // 拖动时保留取色器节点，只更新芯片和色值，避免打断原生调色板。
           const card = themeInput.closest('[data-ycard]')!
@@ -1891,6 +1976,13 @@ registerModule({
       const zoomChip = t.closest<HTMLElement>('[data-zoom]')
       if (zoomChip) {
         setUiZoom(parseFloat(zoomChip.dataset.zoom!))
+        return
+      }
+      const cvdChip = t.closest<HTMLElement>('[data-theme-cvd]')
+      if (cvdChip) {
+        cancelThemeBasePreview()
+        setThemeCvd(cvdChip.dataset.themeCvd)
+        render()
         return
       }
       const themeModeChip = t.closest<HTMLElement>('[data-theme-mode]')
@@ -2236,6 +2328,16 @@ registerModule({
         }
         return
       }
+      const welcomeStyleChip = t.closest<HTMLElement>('[data-welcome-style]')
+      if (welcomeStyleChip) {
+        const next = normalizeWelcomeStyle(welcomeStyleChip.dataset.welcomeStyle)
+        config.set(WELCOME_STYLE_CONFIG_KEY, next)
+        setWelcomeBriefMemoryEnabled(
+          Boolean(config.get(LAUNCH_GLOW_CONFIG_KEY, LAUNCH_GLOW_DEFAULT)) && isBriefWelcomeStyle(next),
+        )
+        render()
+        return
+      }
       const toggle = t.closest<HTMLElement>('[data-toggle]')
       if (toggle) {
         const key = toggle.dataset.toggle!
@@ -2289,6 +2391,7 @@ registerModule({
           // （说明里写的就是这件事），但没道理为了它把浮层这半段也一起吊到重启。
           setOverlayEntranceEnabled(next)
           setWelcomeSceneMemoryEnabled(next)
+          setWelcomeBriefMemoryEnabled(next && isBriefWelcomeStyle(readWelcomeStyle(config)))
         } else if (key === PUSH_CONFIG_PATHS.enabled) {
           // 铃那边只拿它显示「总开关开没开」这行小字；发不发仍由主进程说了算
           setPushEnabled(next)

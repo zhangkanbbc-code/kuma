@@ -20,7 +20,10 @@ const slotitemMst = [
   { id: 2002, name: '二式陸上偵察機(熟練)' },
   { id: 2003, name: '熟練甲板要員+航空整備員' },
 ]
+// 任务奖励选舰娘时按舰娘域本地化（维护者 2026-11-25 报：#866 选了明石却显示未识别）
+const shipMst = [{ id: 3001, name: '明石' }]
 const zhNames = {
+  ship: { 3001: '明石' },
   item: { 1002: '改修材料', 1003: '开发材料', 1004: '改装设计图' },
   equip: { 2001: '二式大艇', 2002: '二式陆上侦察机(熟练)', 2003: '熟练甲板人员+航空整备员' },
 }
@@ -35,11 +38,14 @@ const context = vm.createContext({
   fmtDurationLong: () => '1周0时',
   mg: {
     quests: {}, useitemsTs: null,
-    master: { slotitems: Object.fromEntries(slotitemMst.map((item) => [item.id, item])) },
+    master: {
+      slotitems: Object.fromEntries(slotitemMst.map((item) => [item.id, item])),
+      ships: Object.fromEntries(shipMst.map((ship) => [ship.id, ship])),
+    },
   },
   useitemMst,
   entityNamePlain: (domain, id, jpName) => {
-    const mst = domain === 'item' ? useitemMst : slotitemMst
+    const mst = domain === 'item' ? useitemMst : domain === 'ship' ? shipMst : slotitemMst
     assert.equal(jpName, mst.find((item) => item.id === id)?.name)
     assert.ok(zhNames[domain]?.[id], `奖励域或 id 错误：${domain}/${id}`)
     return zhNames[domain][id]
@@ -175,4 +181,19 @@ test('任务点名而持有为零时仍展示目录与两道兑换的完整差�
   assert.match(html, /class="cq-chip">还差 3 个<\/span>/)
   assert.match(html, /class="cq-chip">还差 14 个<\/span>/)
   assert.doesNotMatch(html, /够换 0 次/)
+})
+
+test('任务奖励选了舰娘：本季任务里按舰娘名显示，不落未识别', () => {
+  const ts = Date.parse('2026-11-25T23:53:51+09:00')
+  context.campaignHistory = [{ key: 'sanma', opened: Date.parse('2026-11-24T00:00:00+09:00'), gained: 8, spent: 0, stock: 8,
+    sources: [], uses: [], receipts: [], rewards: [], party: [], otherUses: [],
+    quests: [{ no: 866, title: '秋刀魚漁：鎮守府秋刀魚祭り、二航戦出ます！', firstSeen: ts - 60000, lastSeen: ts, claims: [
+      { ts, selectNo: '1', selectNo2: '2', rewards: [{ kind: 'material', id: 1, count: 880 }, { kind: 'ship', id: 3001, count: 1, name: '明石' }] },
+    ] }] }]
+  try {
+    const output = context.view(detectSeasonalCampaigns({ useitemMst: [...useitemMst, { id: 1068, name: '秋刀魚' }], slotitemMst,
+      useitems: { 1068: 8 }, quests: [], now: ts, recordedKeys: ['sanma'] }))
+    assert.match(output, /选择 1 \/ 2 · 燃料 ×880 \+ 明石 ×1/)
+    assert.doesNotMatch(output, /未识别/)
+  } finally { context.campaignHistory = [] }
 })

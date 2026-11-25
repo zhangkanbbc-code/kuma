@@ -1,12 +1,13 @@
 import { BrowserWindow, ipcMain, nativeTheme } from 'electron'
 import config from './config'
 import {
-  normalizeThemeMode, normalizeThemeBase, resolveThemeGround, DEFAULT_THEME_BASE,
+  CVD_CONFIG_KEY, normalizeCvdMode, normalizeThemeMode, normalizeThemeBase, resolveThemeGround, DEFAULT_THEME_BASE,
   THEME_CHANNEL, THEME_CONFIG_KEY, THEME_BASE_CONFIG_KEY, THEME_GET_CHANNEL,
 } from '../shared/theme'
 
 const readTheme = () => ({
   mode: normalizeThemeMode(config.get(THEME_CONFIG_KEY, 'dark')),
+  cvd: normalizeCvdMode(config.get(CVD_CONFIG_KEY, 'none')),
   base: normalizeThemeBase(config.get(THEME_BASE_CONFIG_KEY, '')),
 })
 
@@ -26,7 +27,7 @@ export const installThemePush = (): void => {
     }
   }
   config.on('config.set', (path: string) => {
-    if (path === THEME_CONFIG_KEY || path === THEME_BASE_CONFIG_KEY) push()
+    if (path === THEME_CONFIG_KEY || path === THEME_BASE_CONFIG_KEY || path === CVD_CONFIG_KEY) push()
   })
   nativeTheme.on('updated', () => {
     if (readTheme().mode === 'system') push()

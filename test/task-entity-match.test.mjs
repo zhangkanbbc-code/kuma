@@ -290,8 +290,9 @@ test('全库前后对拍：新增别名来自异常词条；原有整词命中�
   // 2026-10-21 B205 与五条万圣节迁入定号区，增加 47 处实体出现位置。
   // 维护者裁决 2026-11-15：2611Cw1、F144 定号后增加 7 处整词、2 处部分命中。
   // 舰娘百科任务页 2026-11-17 修订：2611Cw2 定号后增加 3 处整词。
-  assert.deepEqual(before.summary, { total: 2076, matched: 1793, unmatched: 226, partial: 57 })
-  assert.deepEqual(after.summary, { total: 2076, matched: 1822, unmatched: 206, partial: 48 })
+  // 舰娘百科「任务/最新任务」2026-11-25 修订：秋刀鱼主线 866～868 入库，加上 11-21 批量排版，出现位置 2076 → 2267。
+  assert.deepEqual(before.summary, { total: 2267, matched: 1986, unmatched: 222, partial: 59 })
+  assert.deepEqual(after.summary, { total: 2267, matched: 2010, unmatched: 203, partial: 54 })
 })
 
 test('任务舰种新增的七处审计覆盖：六处整词；改装特务空母只标部分命中', () => {
@@ -312,15 +313,17 @@ test('任务舰种新增的七处审计覆盖：六处整词；改装特务空�
 })
 
 const quotedShortTerms = [
-  ['彗星', 'equip', 24, '彗星', 8],
+  ['彗星', 'equip', 24, '彗星', 9],
   ['瑞云', 'equip', 26, '瑞雲', 8],
   ['流星', 'equip', 18, '流星', 5],
-  ['天山', 'equip', 17, '天山', 4],
-  ['彩云', 'equip', 54, '彩雲', 3],
-  ['紫云', 'equip', 118, '紫雲', 1],
+  ['天山', 'equip', 17, '天山', 6],
+  ['彩云', 'equip', 54, '彩雲', 5],
+  ['紫云', 'equip', 118, '紫雲', 2],
   ['勋章', 'item', 57, '勲章', 4],
   ['烈风', 'equip', 22, '試製烈風 後期型', 2],
   ['南瓜', 'item', 96, '南瓜', 0],
+  // 舰娘百科 2026-11-21 排版后 F81 奖励写成引号内「雷电」，同一短名规则命中 175。
+  ['雷电', 'equip', 175, '雷電', 1],
 ]
 const quotePairs = [['「', '」'], ['『', '』'], ['"', '"'], ['“', '”']]
 const shortOptions = { allowQuotedSingle: true }
@@ -384,7 +387,7 @@ test('舰娘一字引号规则保持：四种整词引号命中，无引号与�
   }
 })
 
-test('全库短名规则前后对拍：仅新增八个两字词条 35 处，已有命中实体与部分命中不变', () => {
+test('全库短名规则前后对拍：仅新增九个两字词条 42 处，已有命中实体与部分命中不变', () => {
   // 还原本单之前正文装备／道具的门槛，不改索引别名与其它领域的匹配行为。
   const beforeIndexes = { ...indexes }
   for (const key of ['equipNameIndex', 'itemNameIndex']) {
@@ -393,8 +396,9 @@ test('全库短名规则前后对拍：仅新增八个两字词条 35 处，已�
   const beforeRuntime = { ...runtime, taskEntityRawMarks: (_indexes, ...args) => runtime.taskEntityRawMarks(beforeIndexes, ...args) }
   const before = auditQuestEntities(quests, indexes, beforeRuntime)
   const after = auditQuestEntities(quests, indexes, runtime)
-  assert.deepEqual(before.summary, { total: 2076, matched: 1787, unmatched: 241, partial: 48 })
-  assert.deepEqual(after.summary, { total: 2076, matched: 1822, unmatched: 206, partial: 48 })
+  // 舰娘百科 2026-11-21 排版与 11-25 秋刀鱼任务入库后的全库计数
+  assert.deepEqual(before.summary, { total: 2267, matched: 1968, unmatched: 245, partial: 54 })
+  assert.deepEqual(after.summary, { total: 2267, matched: 2010, unmatched: 203, partial: 54 })
   const added = []
   for (let i = 0; i < before.occurrences.length; i += 1) {
     const old = before.occurrences[i]
@@ -411,7 +415,8 @@ test('全库短名规则前后对拍：仅新增八个两字词条 35 处，已�
     added.push(current)
   }
   for (const [term, , , , count] of quotedShortTerms) assert.equal(added.filter((row) => row.term === term).length, count, term)
-  assert.equal(added.length, 35)
+  // 舰娘百科 2026-11-21 排版给更多装备名加了引号：35 → 42（天山 +2、彩云 +2、紫云 +1、彗星 +1、雷电 +1）
+  assert.equal(added.length, 42)
   for (const quest of Object.values(quests)) {
     for (const field of ['desc', 'memo2', 'memo']) {
       const { text } = runtime.cleanQuestText(quest[field] ?? '')
@@ -464,8 +469,9 @@ test('烈风别名前后全库对拍：仅 F15 desc、F47 memo2 两处新增命�
   }
   const before = auditQuestEntities(quests, beforeIndexes, runtime)
   const after = auditQuestEntities(quests, indexes, runtime)
-  assert.deepEqual(before.summary, { total: 2076, matched: 1820, unmatched: 208, partial: 48 })
-  assert.deepEqual(after.summary, { total: 2076, matched: 1822, unmatched: 206, partial: 48 })
+  // 舰娘百科 2026-11-21 排版与 11-25 秋刀鱼任务入库后的全库计数；新增命中仍只有 F15、F47 两处
+  assert.deepEqual(before.summary, { total: 2267, matched: 2008, unmatched: 205, partial: 54 })
+  assert.deepEqual(after.summary, { total: 2267, matched: 2010, unmatched: 203, partial: 54 })
   assert.equal(after.occurrences.length, before.occurrences.length)
   const added = []
   for (let i = 0; i < before.occurrences.length; i += 1) {

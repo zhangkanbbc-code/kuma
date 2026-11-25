@@ -147,12 +147,13 @@ test('游戏等的是「最后一个亮透的」而不是「最后一拍」，�
   }
 })
 
-test('时长参数表与总长：默认布局名义 4380ms，抖动只让它在 ±81ms 内浮动', () => {
+test('时长参数表与总长：默认布局名义 4170ms，抖动只让它在 ±81ms 内浮动', () => {
   const timing = LAUNCH_GLOW_TIMING
-  assert.deepEqual(timing, { leadIn: 390, step: 270, fade: 840, gameGap: 300, gameFade: 1500 })
+  // 开幕审美改版（维护者授权氖改动画，2026-11-25）：第零幕落幕到第一格点火的空窗 390 → 180ms
+  assert.deepEqual(timing, { leadIn: 180, step: 270, fade: 840, gameGap: 300, gameFade: 1500 })
   // 名义总长 = leadIn + 5×step + fade + gameGap + gameFade
   const nominal = timing.leadIn + 5 * timing.step + timing.fade + timing.gameGap + timing.gameFade
-  assert.equal(nominal, 4380)
+  assert.equal(nominal, 4170)
   const swing = timing.step * LAUNCH_GLOW_JITTER
   for (let seed = 1; seed <= 200; seed++) {
     const total = launchGlowTotalMs(launchGlowSequence(FULL, rngOf(seed)))
@@ -364,8 +365,8 @@ test('入场时序：加载段之后各行等间隔错峰，行数少时用名�
   )
   assert.ok(plan.rows.every((row) => row.duration === t.row))
   plan.rows.forEach((row, index) => assert.equal(row.index, index))
-  // 单舰队六艘是最常见的一屏，总长要落在「1.5 秒上下」
-  assert.equal(plan.total, 1530)
+  // 单舰队六艘是最常见的一屏，总长要落在「1.5 秒上下」；开幕改版让内容面板比仪表晚 40ms 起步（handoff 90 → 130）
+  assert.equal(plan.total, 1570)
 })
 
 test('入场时序：行多时压缩 step——真会遇到的行数一个都不许拖过两秒', () => {

@@ -1282,7 +1282,7 @@ const campaignCardHtml = (campaign: SeasonalCampaign): string => {
   const history = campaignHistory.find(h => h.key === campaign.key && (!campaign.exchange || h.opened === campaign.exchange.startsAt))
   const historyContext = { time: fmtDateTime, nameOf: (r: import('../../shared/seasonal-history').CampaignReward) =>
     r.kind === 'useitem' ? entityNamePlain('item', r.id, useitemMst.find(u => u.id === r.id)?.name ?? '未识别') :
-    r.name === 'ship' ? entityNamePlain('ship', r.id, mg.master.ships[r.id]?.name ?? '未识别') :
+    r.kind === 'ship' || r.name === 'ship' ? entityNamePlain('ship', r.id, mg.master.ships[r.id]?.name ?? '未识别') :
     entityNamePlain('equip', r.id, mg.master.slotitems[r.id]?.name ?? '未识别') }
   const exchange = campaign.exchange?.recipes.map((recipe) => {
     const choices = recipe.choices.map((choice, index) => {
@@ -1290,7 +1290,8 @@ const campaignCardHtml = (campaign: SeasonalCampaign): string => {
         const name = reward.kind === 'useitem'
           ? entityNamePlain('item', reward.id, useitemMst.find((u) => u.id === reward.id)!.name)
           : entityNamePlain('equip', reward.id, mg.master.slotitems[reward.id].name)
-        return `${esc(name)} ×${reward.count}`
+        const stars = reward.level === 10 ? '★max' : reward.level && reward.level > 0 && reward.level < 10 ? `★+${reward.level}` : ''
+        return `${esc(name)}${stars} ×${reward.count}`
       }).join(' + ')
       return `<div>${recipe.choices.length > 1 ? `${index + 1}. ` : ''}${rewards}</div>`
     }).join('')

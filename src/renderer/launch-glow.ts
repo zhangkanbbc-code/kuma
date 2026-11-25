@@ -39,6 +39,7 @@ import {
   LAUNCH_DIGITS_TIMING,
   LAUNCH_GLOW_TIMING,
   LAUNCH_GUARD_TIMING,
+  LAUNCH_MECH_TIMING,
   LAUNCH_OVERLAY_TIMING,
   LAUNCH_WELCOME_LEAD,
   LAUNCH_WELCOME_SKIP_HINT,
@@ -60,7 +61,14 @@ import {
   type LaunchWelcomeSignal,
 } from '../shared/launch-glow'
 import { mountWelcomeScene } from './launch-welcome-scene'
+import { mountWelcomeStyle, type WelcomeStyleMount } from './launch-welcome-styles'
+import type { WelcomeBriefCache } from '../shared/launch-welcome-brief'
 import type { WelcomeScene } from '../shared/launch-welcome-scene'
+import {
+  isMechWelcomeStyle,
+  pickMechNudgeLine,
+  type WelcomeStyle,
+} from '../shared/launch-welcome-style'
 
 const ARMED_CLASS = 'kuma-glow'
 const RUN_CLASS = 'kuma-glow-run'
@@ -162,6 +170,11 @@ export interface LaunchDigitsStage {
 
 export type LaunchStage = LaunchStaggerStage | LaunchDigitsStage
 
+export interface LaunchGlowOptions {
+  /** 机甲舱门模式：门未开前点门/Enter/空格是主动开门而非跳过，仅 Esc 跳过整场。 */
+  mechGate?: boolean
+}
+
 export interface LaunchGlowHandle {
   /**
    * 布局铺好之后调一次，开始顺次点亮。
@@ -171,6 +184,8 @@ export interface LaunchGlowHandle {
    *   都要按当时的实况算，不能拿装配时的快照。
    */
   run(layout: LaunchGlowLayout, stages?: readonly LaunchStage[]): void
+  /** 机甲舱门开始解封时唤醒第一幕装配看门狗（避免闭舱等待期间误触发 12s 看门狗）。 */
+  notifyGateOpen?(): void
   /** 立刻收摊（启动失败、或调用方不想放了）。幂等，所有幕一起收。 */
   cancel(): void
 }
@@ -321,17 +336,31 @@ export interface LaunchWelcomeHandle {
   cancel(): void
 }
 
+export interface LaunchWelcomeOptions {
+  style?: WelcomeStyle
+  brief?: WelcomeBriefCache | null
+  /** 机甲舱门开始液压开门那一刻回调（用于唤醒第一幕装配看门狗）。 */
+  onGateOpen?: () => void
+}
+
 /**
  * 挂欢迎屏。**与 armLaunchGlow 同一刻**同步调用（整屏罩暗那一下）。
  *
  * 返回 null = 这次不挂（开关关着）。此时**什么都没做**——一个节点、一个监听都不加。
  * 减少动态效果时**照挂**（它是缓冲不是动画），只是淡入淡出改硬切；minShow 照等。
  */
-export const armLaunchWelcome = (enabled: boolean, scene: WelcomeScene = { key: 'base' }): LaunchWelcomeHandle | null => {
+export const armLaunchWelcome = (
+  enabled: boolean,
+  scene: WelcomeScene = { key: 'base' },
+  options?: LaunchWelcomeOptions,
+): LaunchWelcomeHandle | null => {
   if (!enabled) return null
   if (typeof document === 'undefined' || !document.body) return null
 
   const timing = LAUNCH_WELCOME_TIMING
+  const style: WelcomeStyle = options?.style ?? 'auto'
+  const brief = options?.brief ?? null
+  const mech = isMechWelcomeStyle(style)
   // 「静」= 系统要求减少动态效果。等待本身照旧，只是不做淡入淡出。
   const calm = reduceMotion()
 
@@ -355,13 +384,17 @@ export const armLaunchWelcome = (enabled: boolean, scene: WelcomeScene = { key: 
   skip.textContent = LAUNCH_WELCOME_SKIP_HINT
   layer.appendChild(box)
   layer.appendChild(skip)
-  if (!calm) {
+  if (!calm && style === 'auto') {
     // 时长一律从参数表写进行内（与其余各幕同一条纪律：样式表里不写死毫秒数）
     box.style.animationDuration = `${timing.fade}ms`
     skip.style.animationDuration = `${timing.fade}ms`
   }
   document.body.appendChild(layer)
-  const seasonal = mountWelcomeScene(layer, box, scene, calm)
+  // 用户显式选定开幕风格时优先级最高，压过活动/季节/日历幕，不挂载 ks-scene。
+  const seasonal = style === 'auto' ? mountWelcomeScene(layer, box, scene, calm) : null
+  const styled: WelcomeStyleMount | null = style === 'auto'
+    ? null
+    : mountWelcomeStyle(layer, box, skip, style, brief, calm)
 
   const startedAt = Date.now()
   const ready = new Set<string>()
@@ -370,10 +403,24 @@ export const armLaunchWelcome = (enabled: boolean, scene: WelcomeScene = { key: 
   let holdTimer: ReturnType<typeof setTimeout> | null = null
   let capWatchdog: ReturnType<typeof setTimeout> | null = null
   let fadeWatchdog: ReturnType<typeof setTimeout> | null = null
+  let nudgeTimer: ReturnType<typeof setTimeout> | null = null
+  let handoffTimer: ReturnType<typeof setTimeout> | null = null
+  let openDoneTimer: ReturnType<typeof setTimeout> | null = null
+  let lastNudge: string | null = null
   let handoff: (() => void) | null = null
+  let handed = false
+  let opening = false // 机甲舱门已触发开门
   let leaving = false // 已经开始淡出
   let over = false // 已经收摊
   let aborted = false // 被 cancel 收掉：第一幕不放行
+
+  const fireHandoff = () => {
+    if (aborted || handed) return
+    handed = true
+    const next = handoff
+    handoff = null
+    next?.()
+  }
 
   /** 收摊：撤节点、退监听、停表，然后（除非是 cancel 那一路）放行第一幕。 */
   const close = () => {
@@ -385,14 +432,19 @@ export const armLaunchWelcome = (enabled: boolean, scene: WelcomeScene = { key: 
     capWatchdog = null
     if (fadeWatchdog !== null) clearTimeout(fadeWatchdog)
     fadeWatchdog = null
-    document.removeEventListener('pointerdown', skipNow, true)
-    document.removeEventListener('keydown', skipNow, true)
+    if (nudgeTimer !== null) clearTimeout(nudgeTimer)
+    nudgeTimer = null
+    if (handoffTimer !== null) clearTimeout(handoffTimer)
+    handoffTimer = null
+    if (openDoneTimer !== null) clearTimeout(openDoneTimer)
+    openDoneTimer = null
+    document.removeEventListener('pointerdown', onPointerDown, true)
+    document.removeEventListener('keydown', onKeyDown, true)
     layer.removeEventListener('animationend', onFadeEnd)
     seasonal?.dispose()
+    styled?.dispose()
     layer.remove()
-    const next = handoff
-    handoff = null
-    next?.()
+    fireHandoff()
   }
 
   const onFadeEnd = (event: Event) => {
@@ -415,20 +467,68 @@ export const armLaunchWelcome = (enabled: boolean, scene: WelcomeScene = { key: 
     fadeWatchdog = setTimeout(close, timing.fade + WELCOME_FADE_SLACK_MS)
   }
 
-  // 点哪儿、按哪个键都直接跳过。捕获阶段只旁听、不 preventDefault、不 stopPropagation
-  //（与第一幕同一条：这一下点击本来要落在哪儿就还落在哪儿）。整套仪式一起跳到终态
-  // 是靠第一幕自己那份同名监听——两边各自收各自的，谁都不依赖对方还在不在。
-  const skipNow = () => close()
+  /** 机甲舱门主动开门：点门 / Enter / 空格触发；~580ms 重叠交接第一幕，~940ms 撤舱门层。 */
+  const openMechDoor = () => {
+    if (over || leaving || opening) return
+    opening = true
+    if (nudgeTimer !== null) clearTimeout(nudgeTimer)
+    nudgeTimer = null
+    options?.onGateOpen?.()
+    styled?.beginOpen?.(calm)
+    if (calm) {
+      leaving = true
+      layer.classList.add(WELCOME_OUT_CLASS)
+      layer.style.animationDuration = `${LAUNCH_MECH_TIMING.calmFade}ms`
+      layer.addEventListener('animationend', onFadeEnd)
+      fadeWatchdog = setTimeout(close, LAUNCH_MECH_TIMING.calmFade + WELCOME_FADE_SLACK_MS)
+      return
+    }
+    handoffTimer = setTimeout(fireHandoff, LAUNCH_MECH_TIMING.handoffAt)
+    openDoneTimer = setTimeout(close, LAUNCH_MECH_TIMING.openDone)
+  }
 
-  document.addEventListener('pointerdown', skipNow, true)
-  document.addEventListener('keydown', skipNow, true)
-  // 封顶：三件真事有一件永远不来（进程卡住、IPC 丢了）也不能把玩家钉在这屏上。
-  // 到点就落幕——不是硬切，落幕的样子与正常路径一致。
-  capWatchdog = setTimeout(() => {
-    if (over || leaving) return
-    openedAt = openedAt ?? Date.now() - startedAt
-    leave()
-  }, timing.cap)
+  const scheduleMechNudge = (delayMs: number) => {
+    nudgeTimer = setTimeout(() => {
+      nudgeTimer = null
+      if (over || leaving || opening) return
+      lastNudge = pickMechNudgeLine(lastNudge, { hasBrief: brief != null })
+      styled?.setNudge?.(lastNudge)
+      scheduleMechNudge(LAUNCH_MECH_TIMING.nudgeEvery)
+    }, delayMs)
+  }
+
+  // 非机甲风格：点哪儿、按哪个键都直接跳过（捕获阶段只旁听、不阻止传播）。
+  // 机甲舱门：点门 / Enter / 空格主动开门；Esc 随时跳过整场；修饰键与其他键忽略。
+  const onPointerDown = () => {
+    if (mech) openMechDoor()
+    else close()
+  }
+  const onKeyDown = (event: Event) => {
+    if (!mech) {
+      close()
+      return
+    }
+    const ke = event as KeyboardEvent
+    if (ke.key === 'Escape') {
+      close()
+      return
+    }
+    if ((ke.key === 'Enter' || ke.key === ' ') && !ke.altKey && !ke.ctrlKey && !ke.metaKey) {
+      ke.preventDefault?.()
+      openMechDoor()
+    }
+  }
+
+  document.addEventListener('pointerdown', onPointerDown, true)
+  document.addEventListener('keydown', onKeyDown, true)
+  // 封顶：非机甲风格到点强制落幕；机甲舱门按维护者裁定绝不自动开门（Esc 随时跳过）。
+  if (!mech) {
+    capWatchdog = setTimeout(() => {
+      if (over || leaving) return
+      openedAt = openedAt ?? Date.now() - startedAt
+      leave()
+    }, timing.cap)
+  }
 
   return {
     noteReady: (signal, nickname) => {
@@ -437,19 +537,26 @@ export const armLaunchWelcome = (enabled: boolean, scene: WelcomeScene = { key: 
       if (signal === 'snapshot' && !ready.has('snapshot')) {
         name.textContent = launchWelcomeName(nickname)
         seasonal?.syncPlate()
+        styled?.syncPlate()
       }
       ready.add(signal)
-      if (openedAt !== null || !launchWelcomeGateOpen(ready)) return
-      // 门开了。还差多少最短展示就等多久——两个条件谁后到听谁的（判据在 shared）。
+      const allReady = launchWelcomeGateOpen(ready)
+      styled?.noteSignal(signal, allReady)
+      if (openedAt !== null || !allReady) return
       openedAt = Date.now() - startedAt
+      if (mech) {
+        if (!opening && nudgeTimer === null) scheduleMechNudge(LAUNCH_MECH_TIMING.nudgeAfter)
+        return
+      }
+      // 门开了。还差多少最短展示就等多久——两个条件谁后到听谁的（判据在 shared）。
       const rest = launchWelcomeLeaveAt(openedAt, timing) - openedAt
       if (rest <= 0) leave()
       else holdTimer = setTimeout(leave, rest)
     },
     done: (handler) => {
       if (aborted) return
-      if (over) {
-        handler() // 落幕比启动还早：当场放行，不然第一幕永远等不到人
+      if (handed || over) {
+        handler() // 落幕或舱门交接比启动还早：当场放行，不然第一幕永远等不到人
         return
       }
       handoff = handler
@@ -469,7 +576,7 @@ export const armLaunchWelcome = (enabled: boolean, scene: WelcomeScene = { key: 
  *
  * 返回 null = 这次不放（开关关着、或系统要求减少动态效果）。此时**什么都没做**。
  */
-export const armLaunchGlow = (enabled: boolean): LaunchGlowHandle | null => {
+export const armLaunchGlow = (enabled: boolean, options?: LaunchGlowOptions): LaunchGlowHandle | null => {
   if (!enabled) return null
   if (typeof document === 'undefined' || !document.body) return null
   if (reduceMotion()) return null
@@ -477,6 +584,7 @@ export const armLaunchGlow = (enabled: boolean): LaunchGlowHandle | null => {
   const gameArea = document.querySelector<HTMLElement>('#game-area')
   if (!gameArea) return null
 
+  const mechGate = Boolean(options?.mechGate)
   const body = document.body
   const veil = document.createElement('div')
   veil.id = VEIL_ID
@@ -493,7 +601,8 @@ export const armLaunchGlow = (enabled: boolean): LaunchGlowHandle | null => {
   let watchdog: ReturnType<typeof setTimeout> | null = null
   let stageWatchdog: ReturnType<typeof setTimeout> | null = null
   let handoffTimer: ReturnType<typeof setTimeout> | null = null
-  let armWatchdog: ReturnType<typeof setTimeout> | null = setTimeout(() => endAll(), ARM_CAP_MS)
+  // 机甲舱门模式下闭舱等待期间不挂 12s 看门狗（玩家可能在看催门彩蛋）；舱门触发开启后由 notifyGateOpen 挂上。
+  let armWatchdog: ReturnType<typeof setTimeout> | null = mechGate ? null : setTimeout(() => endAll(), ARM_CAP_MS)
   let stages: readonly LaunchStage[] = []
   let started = false
   let act1Done = false
@@ -551,8 +660,8 @@ export const armLaunchGlow = (enabled: boolean): LaunchGlowHandle | null => {
     stageWatchdog = null
     if (handoffTimer !== null) clearTimeout(handoffTimer)
     handoffTimer = null
-    document.removeEventListener('pointerdown', endAll, true)
-    document.removeEventListener('keydown', endAll, true)
+    document.removeEventListener('pointerdown', onGlowPointerDown, true)
+    document.removeEventListener('keydown', onGlowKeyDown, true)
     // 仪式态无论走哪条路都要摘：漏了它那几块内容就永远隐身，比任何残留都严重
     body.classList.remove(CEREMONY_CLASS)
     endAct1()
@@ -662,11 +771,24 @@ export const armLaunchGlow = (enabled: boolean): LaunchGlowHandle | null => {
     const plan = launchDigitsPlan(cells.map((cell) => digitCountOf(cell.real)), LAUNCH_DIGITS_TIMING)
     const startedAt = Date.now()
     let timer: ReturnType<typeof setInterval> | null = null
+    let settleTimer: ReturnType<typeof setTimeout> | null = null
     let settled = false
+    const locked: HTMLElement[] = []
 
+    const clearLock = () => {
+      if (settleTimer !== null) clearTimeout(settleTimer)
+      settleTimer = null
+      for (const el of locked) {
+        if (!el.isConnected) continue
+        delete el.dataset[MARK]
+        clearAnimation(el)
+      }
+      locked.length = 0
+    }
     const end = () => {
       if (timer !== null) clearInterval(timer)
       timer = null
+      clearLock()
       for (const cell of cells) {
         if (cell.el.isConnected && cell.el.textContent !== cell.real) cell.el.textContent = cell.real
       }
@@ -687,7 +809,17 @@ export const armLaunchGlow = (enabled: boolean): LaunchGlowHandle | null => {
       }
       if (done && !settled) {
         settled = true
-        end()
+        if (timer !== null) clearInterval(timer)
+        timer = null
+        // 共同终点齐锁瞬间给一记极轻的刻度定格（利用 settle 拍），不拦整场收尾，skip/cancel 时随 end 立刻撤干净。
+        for (const cell of cells) {
+          if (!cell.el.isConnected) continue
+          cell.el.dataset[MARK] = 'digits'
+          cell.el.style.animationDuration = `${LAUNCH_DIGITS_TIMING.settle}ms`
+          locked.push(cell.el)
+        }
+        cells.length = 0
+        if (locked.length) settleTimer = setTimeout(clearLock, LAUNCH_DIGITS_TIMING.settle)
         stageFinished()
       }
     }
@@ -788,12 +920,30 @@ export const armLaunchGlow = (enabled: boolean): LaunchGlowHandle | null => {
   // 点哪儿都直接到终态（所有幕一起收）。捕获阶段只旁听、不 preventDefault、
   // 不 stopPropagation：这一下点击本来要落在哪个按钮上，就还落在哪个按钮上。
   //
-  // **从罩暗那一刻就听，而不是等 run()**：第零幕的欢迎屏正盖在罩暗态上面，
-  // 玩家在那期间点的那一下（提示语写的就是「点击跳过动画」）必须当场把整场收掉。
-  // 只在 run() 里听的话，那一下只能收掉欢迎屏，紧接着第一幕照演不误。
-  // 顺带补上一个老口子：装配比动画长时，罩暗到点火之间那几秒里点屏幕原先毫无反应。
-  document.addEventListener('pointerdown', endAll, true)
-  document.addEventListener('keydown', endAll, true)
+  // **机甲舱门特例（mechGate）**：第一幕尚未点火（!started）前，点击与 Enter/空格
+  // 属于主动开门而非跳过——不能当场把整场收掉，否则 ~580ms 后交接第一幕时 glow
+  // 已经结束了。唯有 Esc 在闭舱/开门期间始终一键跳过整场；一旦第一幕点火（started），
+  // 任何点击与非修饰键恢复正常跳过整场。
+  const onGlowPointerDown = () => {
+    if (mechGate && !started) return
+    endAll()
+  }
+  const onGlowKeyDown = (event: Event) => {
+    const key = (event as KeyboardEvent).key
+    if (mechGate && !started) {
+      if (key === 'Escape') endAll()
+      return
+    }
+    if (mechGate && ['Alt', 'Control', 'Shift', 'Meta', 'AltGraph'].includes(key)) return
+    endAll()
+  }
+  const notifyGateOpen = () => {
+    if (over || started || armWatchdog !== null) return
+    armWatchdog = setTimeout(() => endAll(), ARM_CAP_MS)
+  }
 
-  return { run, cancel: endAll }
+  document.addEventListener('pointerdown', onGlowPointerDown, true)
+  document.addEventListener('keydown', onGlowKeyDown, true)
+
+  return { run, notifyGateOpen, cancel: endAll }
 }

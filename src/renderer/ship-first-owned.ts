@@ -65,7 +65,7 @@ const ensureFamilies = (): RemodelChains => {
 }
 
 /** 该形态所在改造谱系的根。链里没有它（主数据还没到）就自成一族。 */
-const familyRootOf = (mstId: number): number => ensureFamilies().rootOf.get(mstId) ?? mstId
+export const familyRootOf = (mstId: number): number => ensureFamilies().rootOf.get(mstId) ?? mstId
 
 /** 把若干形态扩成它们所在谱系的全部形态。 */
 export const expandFamilies = (ids: Iterable<number>): Set<number> => {

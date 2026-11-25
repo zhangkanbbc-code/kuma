@@ -41,6 +41,7 @@ const liveSortie = () => ({
   battle: { kind: 'day', fFormation: 1 },
   battleCount: 3,
   drops: [{ mstId: 200 }],
+  itemDrops: [{ cell: 12, id: 68, count: 1 }],
   sunkShips: [{ mstId: 100 }],
   anchorageRepairs: [{ cell: 12, ships: [], steel: 0 }],
   escaped: [{ rosterId: 102, role: 'escaped' }],

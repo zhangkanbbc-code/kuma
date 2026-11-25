@@ -115,6 +115,7 @@ export interface MasterShipUpgrade {
 export interface MgMaster {
   ready: boolean
   ships: Record<number, MasterShip>
+  useitemNames?: Record<number, string> // api_mst_useitem；旧主数据快照可缺席
   stypes: Record<number, string>
   slotitems: Record<number, MasterSlotitem>
   missions: Record<number, MasterMission>
@@ -480,7 +481,21 @@ export interface BattleDiscrepancy {
   who?: string
 }
 
+type BattleUseitemReward = { kind: 'useitem'; id: number; count: number }
+export type BattleReward = BattleUseitemReward
+  | { kind: 'ship'; id: number; count: number }
+  | { kind: 'slotitem'; id: number; count: number; level?: number } // api_slot_level 原值，语义未确认
+  | { kind: 'unknown'; type: number; id: number; count: number }
+
+export interface BattleRewards {
+  drops: BattleUseitemReward[] // api_get_useitem，缺数量按一件
+  exmap: BattleUseitemReward[] // api_get_exmap_useitem_id，EO 击破奖励一件
+  event: BattleReward[] // api_get_eventitem：1 道具、2 舰娘、3 装备
+  choices: BattleReward[][][] // 类型 7 按 id 取 api_select_reward_dict，再按 api_item_no 分选项
+}
+
 export interface BattleResultView {
+  rewards?: BattleRewards // battleresult 有上述奖励才记录
   rank: string // api_win_rank 实际判定
   mvp: number // 主力舰队 MVP：0 基位置，-1 无
   mvpCombined: number // 护卫舰队 MVP：0 基位置，-1 无
@@ -726,6 +741,7 @@ export interface SortieView {
   practiceOpponent?: PracticeOpponentPreview | null // 选择演习对手后、开战前的编成详情
   battle: BattleView | null // 当前节点战斗（昼夜合并推演）
   battleCount: number
+  itemDrops: { cell: number; id: number; count: number }[] // 本轮节点道具掉落，保持到下次出击
   drops: { cell: number; mstId: number; name: string }[] // 本轮捞到的舰（保持到下次出击）
   // 本次出击实际跨级的在籍舰：每舰一条，跨节点累计，返港前一直显示。
   levelUps: BattleLevelUp[]

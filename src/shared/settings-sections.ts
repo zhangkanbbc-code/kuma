@@ -23,8 +23,10 @@ export type SettingsSectionId = 'ui' | 'archive' | 'network' | 'lode' | 'health'
  */
 export type SettingsCardId =
   | 'fairy-salvo'
+  | 'hit-shake'
   | 'zoom'
   | 'theme'
+  | 'fleet-tone'
   | 'game-scale'
   | 'caption-size'
   | 'ui-hints'
@@ -73,11 +75,13 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     // 游戏那边的锁定档也跟着重摆一次，摆一起才看得出这层联动。
     // 字幕字号排第三同理，而且更紧：它显示的实际值就是「基准 × 上面那张卡的倍率」，
     // 隔开摆的话，改完倍率要翻页才看得见字幕跟着变成了多少
+    // 维护者裁决 2026-11-25：编队状态着色只控制颜色，排在字幕字号之后，让尺寸相关设置保持相连。
     cards: [
       'zoom',
       'theme',
       'game-scale',
       'caption-size',
+      'fleet-tone',
       'ui-hints',
       'tray',
       'hotkeys',
@@ -116,7 +120,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     // 「缓存与魔改」同一套摆法），两张卡说的是同一个目录的两件事
     cards: ['cache-repair', 'mod-dir', 'diagnostics', 'about'],
   },
-  { id: 'experimental', label: '实验性', cards: ['fairy-salvo'] },
+  { id: 'experimental', label: '实验性', cards: ['fairy-salvo', 'hit-shake'] },
 ]
 
 /** 默认落点：开设置最常是来调界面的 */

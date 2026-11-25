@@ -45,7 +45,7 @@ export interface LaunchGlowTiming {
 }
 
 export const LAUNCH_GLOW_TIMING: LaunchGlowTiming = {
-  leadIn: 390,
+  leadIn: 180,
   step: 270,
   fade: 840,
   gameGap: 300,
@@ -136,29 +136,187 @@ export const LAUNCH_GUARD_TIMING: LaunchGuardTiming = {
   welcomeFadeSlack: 300,
 }
 
-/** 季节开幕定稿（2026-10-15）。场景的等待节奏独立于欢迎屏的就绪门。 */
+/** 季节开幕参数表。场景的等待节奏独立于欢迎屏的就绪门，入场高潮收在 2.4s 最短展示内。 */
 export const LAUNCH_SEASON_TIMING = {
   sceneFade: 600,
   fixed: {
-    plateIn: 420, ring: 800, horizon: 700, sunHalo: 1900, sunHaloAt: 300, sunRise: 1800, sunRiseAt: 120, glintIn: 500,
-    beanShadow: 220, nudge: 260, ribbonH: 460, ribbonHAt: 340, ribbonV: 320, ribbonVAt: 760,
-    bowPop: 560, bowPopAt: 1040, bowSway: 2600, bowSwayAt: 1700, petalLand: 1350,
-    teruDrop: 1000, teruAt: 80, teruSwing: 3000, teruSwingAt: 1080,
-    pkIgnite: 520, pkFlicker: 1900, pkWake: 600, pkAppear: 420, pkGlow: 900, batCross: 7200,
-    groundIn: 800, treeIn: 1000, starPop: 560, starTwinkle: 2600, bulbOn: 380, bulbTwinkle: 1800,
-    gridIn: 1000, gridDrift: 16000, routeIn: 600, routeAt: 200, routeJoin: 220,
-    lampIn: 500, lampAt: 200, lampOn: 420, lampWave: 640, lampBreathe: 2200,
+    plateIn: 420, washIn: 900, ring: 720, horizon: 700, sunHalo: 1800, sunHaloAt: 260, sunRise: 1700, sunRiseAt: 100, glintIn: 480,
+    beanShadow: 200, nudge: 300, shojiIn: 850, masuIn: 750, masuAt: 120, sbBreathe: 4200,
+    ribbonH: 440, ribbonHAt: 300, ribbonV: 300, ribbonVAt: 700,
+    bowPop: 540, bowPopAt: 960, bowSway: 2600, bowSwayAt: 1600, petalLand: 1120,
+    teruDrop: 960, teruAt: 80, teruSwing: 3000, teruSwingAt: 1040,
+    smLampIgnite: 680, smBeamIn: 920, smSonarPing: 3200,
+    hwMoonIn: 900, hwPierIn: 750, hwCloudDrift: 11000, hwGlintSoft: 3400, hwWaterIgnite: 560,
+    pkIgnite: 520, pkFlicker: 1900, pkWake: 600, pkAppear: 420, pkGlow: 860, batCross: 7200,
+    groundIn: 800, treeIn: 960, starPop: 540, starTwinkle: 2600, bulbOn: 380, bulbTwinkle: 1800,
+    gridIn: 1000, gridDrift: 16000, routeIn: 560, routeAt: 160, routeJoin: 220,
+    lampIn: 460, lampAt: 160, lampOn: 400, lampWave: 600, lampBreathe: 2200, lampPing: 2200,
   },
-  newyear: { glint: [1300, 2600], glintAt: [1050, 1950], ringAt: 1500 },
-  setsubun: { toss: [950, 1250], leftAt: 120, rightAt: 640, spread: 160, hitAt: 1150, hitDuration: 1000, nudgeAt: 700 },
-  valentine: { rise: [7500, 11500], start: [250, 3800], sway: [1800, 2800] },
-  spring: { gust: [2400, 3400], gustAt: [0, 650], gustSway: [900, 1500], fall: [7500, 11500], fallAt: [500, 5200], sway: [1700, 2800], flutter: [2200, 4200], landAt: [450, 850, 1250] },
-  tsuyu: { rain: [650, 1000], firstAt: [0, 500], rainAt: [300, 1700], ripple: [1300, 1900], rippleAt: [350, 2400] },
-  summer: { cycle: 2800, starts: [300, 950, 1650] },
-  sanma: { current: [9000, 14000], bob: [1000, 1600], wig: [380, 520], near: 5000, far: 7600, farAt: 900, glintAt: 500 },
-  halloween: { firstAt: 420, step: 330, jitter: 60, glowAfter: 150, bat: [1500, 2000], batsAfter: 140, batStep: 90, flap: [130, 180], crossingAfter: 2600, crossingFlap: 150 },
-  xmas: { treesAt: [80, 240, 360], snow: [[13000, 17000], [9000, 12000], [6500, 8500]], sway: [2200, 3600], firstAt: 420, step: 70, starAfter: 380, alternate: 900 },
-  event: { firstAt: 450, step: 200, currentAfter: 100, waveAfter: 250, waveStep: 70, joinAfter: 120, ringAfter: 300 },
+  newyear: { glint: [1300, 2600], glintAt: [920, 1780], ringAt: 1420 },
+  setsubun: { toss: [940, 1220], leftAt: 100, rightAt: 540, spread: 220, hitAt: 1050, hitDuration: 920, nudgeAt: 644, dust: [2600, 4200] },
+  valentine: {
+    rise: [[9500, 12000], [7600, 9600], [6000, 7600]],
+    start: [220, 3400],
+    sway: [[2200, 3000], [1800, 2500], [1500, 2100]],
+  },
+  spring: {
+    gust: [2300, 3200], gustAt: [0, 620], gustSway: [900, 1450],
+    fall: [[10200, 12800], [7800, 9800], [5800, 7400]],
+    fallAt: [420, 4800],
+    sway: [[2200, 3100], [1750, 2500], [1400, 2000]],
+    flutter: [2200, 4200],
+    landAt: [300, 620, 940],
+  },
+  tsuyu: { rain: [620, 960], firstAt: [0, 480], rainAt: [280, 1650], ripple: [1350, 1950], rippleAt: [320, 2200] },
+  summer: { cycle: 2800, starts: [120, 680, 1280] },
+  sanma: {
+    lampAt: [140, 40, 200], beamSway: [8200, 9600, 7800], beamSwayAt: [-1400, -3200, -2200], coreSwayDelta: 800,
+    surfGlint: [2200, 1900, 2400, 2100], surfGlintAt: [200, 120, 460, 340],
+    sonarAt: [460, 1580], mote: [3400, 5600], moteOffset: 4200,
+    bob: [1050, 1550], bobOffset: 1200, wig: [320, 460],
+    far: 7000, farAt: [-2800, -1700, -800, -3500, -2200],
+    near: 4500, nearAt: [-1450, -1150, -880, -1680, -620, -1300, -980, -2150],
+  },
+  halloween: {
+    firstAt: 340, step: 300, jitter: 50, glowAfter: 140,
+    mist: [9600, 12000], mistAt: [-1800, -4800],
+    bat: [1450, 1850], batsAfter: 120, batStep: 85, flap: [130, 175], crossingAfter: 2500, crossingFlap: 150,
+  },
+  xmas: { treesAt: [80, 220, 340], snow: [[13000, 17000], [9000, 12000], [6500, 8500]], sway: [2200, 3600], firstAt: 380, step: 70, budget: 860, starAfter: 300, alternate: 900 },
+  event: { firstAt: 340, step: 180, budget: 640, currentAfter: 90, waveAfter: 180, waveStep: 60, joinAfter: 90, ringAfter: 200 },
+} as const
+
+/** 机甲舱门风格时长表（ms）：开门三段交接、VR 目镜动画、减少动态效果淡出与球磨催门彩蛋节拍。 */
+export const LAUNCH_MECH_TIMING = {
+  nudgeAfter: 8000,
+  nudgeEvery: 7000,
+  nudgeIn: 360,
+  recoil: 220,
+  seamBlaze: 620,
+  doorDelay: 200,
+  doorSlide: 760,
+  quadSlide: 740,
+  handoffAt: 580,
+  openDone: 940,
+  calmFade: 280,
+  flashOpen: 760,
+  flashAt: 180,
+  visorTopIn: 480,
+  visorTopAt: 120,
+  visorFade: 420,
+  visorFadeAt: 140,
+  wingIn: 560,
+  wingLeftAt: 140,
+  wingRightAt: 180,
+  wingOut: 380,
+  wingOutAt: 60,
+  coreUnlock: 360,
+  coreUnlockAt: 40,
+  clampPop: 260,
+  barFill: 580,
+  barBase: 260,
+  barStep: 70,
+  dotPulse: 1800,
+  ctaBreathe: 2200,
+  hoverTransition: 200,
+  briefThrottle: 3000,
+} as const
+
+/** 拓展可选风格（科技控制台 / 二次元 OP）时长表（ms），全部由 shared 单一口径下发。 */
+export const LAUNCH_STYLE_TIMING = {
+  cic: {
+    sceneFade: 420,
+    polarBoot: 780,
+    polarAt: 60,
+    radarIn: 600,
+    radarAt: 360,
+    radarSpin: 6400,
+    ticksSpin: 46000,
+    scan: 820,
+    scanAt: 180,
+    corner: 560,
+    cornerAt: 80,
+    topHud: 520,
+    topHudAt: 240,
+    panel: 480,
+    panelLeftAt: 320,
+    panelRightAt: 380,
+    row: 340,
+    rowBase: 440,
+    rowStep: 95,
+    bar: 540,
+    barOffset: 70,
+    opsExpAt: 480,
+    opsNdockAt: 680,
+    footAt: 860,
+    eyebrow: 420,
+    eyebrowAt: 420,
+    plateLock: 540,
+    plateLockAt: 240,
+    boxLine: 520,
+    boxLineAt: 460,
+    clamp: 640,
+    clampAt: 300,
+    clampSnap: 260,
+    gateRow: 420,
+    gateRowAt: 520,
+    ledLock: 260,
+    readyPulse: 720,
+    readyStatus: 260,
+    blipCycle: 6400,
+    blipDelays: [1060, 2540, 4620],
+  },
+  anime: {
+    sceneFade: 520,
+    cloudRise: 900,
+    cloudAt: 60,
+    horizonIn: 880,
+    capeIn: 760,
+    capeAt: 160,
+    barIn: 520,
+    slashA: 980,
+    slashAAt: 60,
+    slashB: 860,
+    slashBAt: 180,
+    flareIn: 800,
+    flares: [
+      { dur: 5200, delay: 0, inAt: 240 },
+      { dur: 4400, delay: -1200, inAt: 380 },
+      { dur: 5800, delay: -2200, inAt: 440 },
+    ],
+    comet: 6200,
+    cometAt: 280,
+    winds: [
+      { dur: 3800, delay: 400 },
+      { dur: 4200, delay: 1300 },
+    ],
+    gulls: [
+      { dur: 11000, delay: -2400, flap: 720 },
+      { dur: 11800, delay: -3200, flap: 640 },
+      { dur: 12400, delay: -4800, flap: 680 },
+    ],
+    stars: [2200, 2600, 1900, 2100, 2400, 2000, 2300],
+    starDelays: [320, 780, 1120, 460, 920, 1340, 640],
+    glints: [1900, 2300, 1800, 2200, 2400, 2100],
+    glintDelays: [160, 420, 680, 280, 540, 820],
+    petalDur: [5600, 8400],
+    petalDelayMax: 7200,
+    petalFlut: [1600, 2400],
+    jpRise: 580,
+    jpAt: 520,
+    cardPop: 600,
+    cardPopAt: 340,
+    cardSheen: 900,
+    cardSheenAt: 760,
+    accentBar: 480,
+    accentBarAt: 560,
+    badgePop: 520,
+    badgePopAt: 880,
+    badgeBreathe: 2600,
+    badgeBreatheAt: 1400,
+    subLine: 520,
+    subLineAt: 820,
+  },
 } as const
 
 /** 三件「真就绪」。缺一不开门；顺序无所谓，谁先到都行。 */
@@ -420,7 +578,7 @@ export interface LaunchStaggerTiming {
  */
 export const LAUNCH_ROSTER_TIMING: LaunchStaggerTiming = {
   loading: 520,
-  handoff: 90,
+  handoff: 130,
   row: 320,
   step: 120,
   stepBudget: 900,
@@ -429,12 +587,12 @@ export const LAUNCH_ROSTER_TIMING: LaunchStaggerTiming = {
 
 /**
  * 镝 · 战术屏开机：扫描线横扫，随后左右两栏相向合拢。
- * 分区数随战斗阶段多寡浮动（常见 6~12 块）：6 块 1425ms、11 块 1600ms。
+ * 分区数随战斗阶段多寡浮动（常见 6~12 块）：6 块 1465ms、11 块 1640ms。
  * 待机/空态只有一条扫描线的 480ms——不硬造分区。
  */
 export const LAUNCH_BATTLE_TIMING: LaunchStaggerTiming = {
   loading: 480,
-  handoff: 80,
+  handoff: 120,
   row: 340,
   step: 105,
   stepBudget: 700,
@@ -444,11 +602,11 @@ export const LAUNCH_BATTLE_TIMING: LaunchStaggerTiming = {
 /**
  * 铎 · 作战公告揭幕：自上而下逐块垂下。**不带罩**（loading = 0）——
  * 公告的气质是「一段段展开」，先蒙一层反而多此一举。
- * 典型 9 块 1250ms、5 块 970ms。
+ * 典型 9 块 1300ms、5 块 1020ms。
  */
 export const LAUNCH_BRIEF_TIMING: LaunchStaggerTiming = {
   loading: 0,
-  handoff: 90,
+  handoff: 140,
   row: 360,
   step: 130,
   stepBudget: 800,
@@ -457,11 +615,11 @@ export const LAUNCH_BRIEF_TIMING: LaunchStaggerTiming = {
 
 /**
  * 鉴 · 开卷：书架按对角线波纹一格格点起来。不带罩（点灯本身就是那一下）。
- * 元素数封顶 LAUNCH_STAGE_ITEM_CAP，所以最长就是满 24 格的 1257ms。
+ * 元素数封顶 LAUNCH_STAGE_ITEM_CAP，所以最长就是满 24 格的 1307ms。
  */
 export const LAUNCH_TOME_TIMING: LaunchStaggerTiming = {
   loading: 0,
-  handoff: 60,
+  handoff: 110,
   row: 300,
   step: 55,
   stepBudget: 900,
@@ -471,11 +629,11 @@ export const LAUNCH_TOME_TIMING: LaunchStaggerTiming = {
 /**
  * 钦 · 军令下达：任务行从左侧一条条推进来。与锐的纵向错峰形成横纵对照，
  * 所以节拍比锐更紧（命令是「一条接一条」，不是「一层层落位」）。
- * 24 行 1152ms、12 行 865ms。
+ * 24 行 1202ms、12 行 915ms。
  */
 export const LAUNCH_ORDER_TIMING: LaunchStaggerTiming = {
   loading: 0,
-  handoff: 70,
+  handoff: 120,
   row: 300,
   step: 45,
   stepBudget: 800,
@@ -485,11 +643,11 @@ export const LAUNCH_ORDER_TIMING: LaunchStaggerTiming = {
 /**
  * 镖 · 出航调度：总表行自上而下**快速**逐行点亮（调度板刷新的利落劲，
  * 比锐更快更密），右栏详情作为最后一个元素随后整块现身。
- * 24 行 1010ms。
+ * 24 行 1060ms。
  */
 export const LAUNCH_DISPATCH_TIMING: LaunchStaggerTiming = {
   loading: 0,
-  handoff: 60,
+  handoff: 110,
   row: 260,
   step: 38,
   stepBudget: 700,

@@ -35,19 +35,20 @@ test('当日措辞覆盖八条正文样本与指定词组，不把无关描述�
   }
 })
 
-test('随包两份来源分别覆盖 27 条标记和 42 条正文，取并集 48 条', () => {
+test('随包两份来源分别覆盖 27 条标记和 43 条正文，取并集 49 条', () => {
   const quests = JSON.parse(read('../assets/lodes/quests-scn.json')).data
   const reqs = JSON.parse(read('../assets/lodes/kcwiki-quest-req.json')).data
   const flagged = Object.keys(reqs).filter((id) => reqs[id].daily === true)
   const text = Object.keys(quests).filter((id) => questCodeFamily(quests[id].code) === 'C' &&
     questSameDayClause(`${quests[id].desc ?? ''}｜${quests[id].memo2 ?? ''}`))
   assert.deepEqual(flagged.map((id) => quests[id].code), flaggedCodes)
-  assert.equal(text.length, 42)
-  assert.equal(new Set([...flagged, ...text]).size, 48)
-  assert.equal(text.filter((id) => !flagged.includes(id)).length, 21)
+  // 2026-11-25 2611Cw3 定号 369（正文「今天之内」），正文统计 +1。
+  assert.equal(text.length, 43)
+  assert.equal(new Set([...flagged, ...text]).size, 49)
+  assert.equal(text.filter((id) => !flagged.includes(id)).length, 22)
   // 维护者裁决 2026-11-15：2606Cm1、2610Cw1 退场；2611Cw1 定号后加入正文统计。
   // 舰娘百科任务页 2026-11-17 修订：2611Cw2 定号 386 后加入正文统计。
-  const currentCodes = [...Object.keys(textOnlySamples).filter((code) => !['2606Cw1', '2606Cm1'].includes(code)), '2611Cw1', '2611Cw2']
+  const currentCodes = [...Object.keys(textOnlySamples).filter((code) => !['2606Cw1', '2606Cm1'].includes(code)), '2611Cw1', '2611Cw2', '2611Cw3']
   for (const code of currentCodes) {
     assert.ok(text.some((id) => quests[id].code === code), code)
     assert.ok(!flagged.some((id) => quests[id].code === code), code)

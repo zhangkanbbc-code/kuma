@@ -38,6 +38,7 @@ export const MAINTAINER_QUEST_NO_CORRECTIONS = [
   { code: '2610F1', id: 1171, basis: '游戏任务列表编号（2026-10-21 核）' },
   { code: '2611Cw1', id: 381, basis: '游戏任务列表编号（2026-11-15 核）' },
   { code: 'F144', id: 1172, basis: '游戏任务列表编号（2026-11-15 核）' },
+  { code: '2611Cw3', id: 369, basis: '游戏任务列表编号（2026-11-25 核）' },
 ]
 
 /** action=raw 取这两张页；顺序即合并顺序，后者覆盖前者的同号条目。 */
@@ -55,9 +56,7 @@ const WT_FILTERS = [
   [/\}\}/g, ''],
   [/\[\[/g, '「'],
   [/\]\]/g, '」'],
-  [/[Gg]reen\|/g, ''],
-  [/[Rr]ed\|/g, ''],
-  [/color\|/g, ''],
+  [/(?:green|red|blue|orange|color)\|/gi, ''],
   [/[x*](?=\d)/g, '×'],
   [/「「/g, '「'],
   [/」」/g, '」'],
@@ -66,7 +65,9 @@ const WT_FILTERS = [
 const applyWtFilters = (text) => {
   let out = `${text}`
   for (const [pattern, replacement] of WT_FILTERS) out = out.replace(pattern, replacement)
-  return out
+  // 旧条件混进正文会让编成门把维护前后的两份名单都当成要求。
+  const marker = out.search(/▼[^▼\n]*?(?:维护前|維護前|メンテ前)\s*▼/)
+  return marker < 0 ? out : out.slice(0, marker).trim()
 }
 
 /** 顶层 {{name|…}} 调用的原文（含首尾花括号），嵌套安全。 */

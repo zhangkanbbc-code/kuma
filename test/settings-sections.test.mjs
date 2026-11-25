@@ -187,11 +187,13 @@ test('分类表：抽掉维护者工具卡之后，没有一类被掏空或只�
   // 分心模式新增一张玩家卡，两种形态各加一。
   // 2026-09-09 加入第四份「资源档案」。
   // 2026-09-13 加入「外观」，两种形态各加一。
-  assert.equal(release.length, 27, '发行版的卡数变了——两种形态的数字都要重新对一遍')
+  // 维护者裁决 2026-11-25：加入「编队状态着色」（界面类玩家卡），两种形态各加一。
+  // 维护者裁决 2026-11-25：实验性一类加入「编队被弹动画」（玩家卡），两种形态各加一。
+  assert.equal(release.length, 29, '发行版的卡数变了——两种形态的数字都要重新对一遍')
   // 25：2026-08-26 拔掉战斗演出族时撤走了「索敌飞机 · Δ 校准」那张维护者卡（19），
   // 同日修语音滑条时又添了「游戏音频链路自检」（20）。那两张都只在调试门后装配，
   // 所以发行版那一列在 2026-08-29 之前自始至终是 18；之后添的四张玩家卡两列同涨。
-  assert.equal(SETTINGS_CARD_IDS.length, 29, '调试态的卡数变了')
+  assert.equal(SETTINGS_CARD_IDS.length, 31, '调试态的卡数变了')
 })
 
 // ---- ② 把钥编出来真渲染一遍 ----
@@ -551,7 +553,8 @@ test('外观卡位于游戏画面前，三枚芯片保存档位、即时应用�
     yu.click({ 'theme-mode': mode })
     assert.equal(yu.configOf('kuma.theme'), mode)
     assert.equal(globalThis.document.documentElement.dataset.theme, mode === 'dark' ? 'dark' : 'light')
-    assert.equal([...card().matchAll(/class="ychip on"/g)].length, 1)
+    // 色觉一行另有自己的选中项（维护者裁决 2026-11-25），这里只数主题档位与自定义那几枚
+    assert.equal([...card().matchAll(/class="ychip on" data-theme-(?:mode|custom)/g)].length, 1)
     assert.ok(card().includes(`class="ychip on" data-theme-mode="${mode}"`))
   }
 })
@@ -564,7 +567,8 @@ test('外观取色器保存自定义、显示色值，恢复默认与档位芯�
     yu.change('theme-base', '#123456')
     assert.equal(yu.configOf('kuma.themeBase'), '#123456')
     assert.match(card(), /class="ychip on" data-theme-custom>自定义<\/span>/)
-    assert.equal([...card().matchAll(/class="ychip on"/g)].length, 1)
+    // 色觉一行另有自己的选中项（维护者裁决 2026-11-25），这里只数主题档位与自定义那几枚
+    assert.equal([...card().matchAll(/class="ychip on" data-theme-(?:mode|custom)/g)].length, 1)
     assert.match(card(), /data-theme-base value="#123456"/)
     assert.match(card(), /<b style="font-family:var\(--mono\)">#123456<\/b>/)
     yu.click({ 'theme-mode': mode })

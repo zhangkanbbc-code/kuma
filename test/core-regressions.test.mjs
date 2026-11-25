@@ -11007,7 +11007,10 @@ test('任务自选奖励：识别数对不上声明数时按原文兜底，别�
   //「数量只算自家的」一格，用的是 Bq8 / B143 / F142 三条原文
   assert.match(reward, /\(\?:\[★☆\]\(\?<starGap>\\s\*\\\+\?\\s\*\)\(\?<star>\\d\+\)\)\?/)
   assert.match(reward, /\(\?:×\|x\|\\\*\)\(\?<gap>\\s\*\)\(\?<amount>\\d\+\)/)
-  assert.match(reward, /matches\.find\(\(match\) => match\.amount != null\) \?\? matches\[0\]/)
+  // 维护者裁决 2026-11-25：舰娘百科排版后 C77 写成「「35.6cm连装炮改」★+6」（省略 ×1），
+  // 带星级与带数量同样算「写了后缀」；单项回退取第一处带后缀的，处处不带才取第一处
+  assert.match(reward, /const marked = matches\.filter\(\(match\) => match\.amount != null \|\| match\.star != null\)/)
+  assert.match(reward, /\[marked\[0\] \?\? matches\[0\]\]/)
   assert.doesNotMatch(reward, /start \+ simple\.length \+ 24/)
   // 归一化抹空白会把「×6 25mm三连装机铳」黏成「×625mm…」——数量吞掉邻项开头的
   // 口径数字(B143 实锤 ×625 + 乱码残渣「mm三连装机铳」,2026-08-13)。
@@ -11290,7 +11293,8 @@ test('任务奖励关联不兴字节命中:更长实体名自动挖掉再判(秋
   const s2Url = new URL('../../s2.json', import.meta.url)
   if (fs.existsSync(scnUrl) && fs.existsSync(s2Url)) {
     const scn = JSON.parse(fs.readFileSync(scnUrl, 'utf8')).data
-    assert.match(`${scn['925']?.memo}`, /试制 秋水/)
+    // 舰娘百科 2026-11-21 排版后写成「试制秋水」（无空格）；匹配前两侧都去空白，长名照样含短名，遮蔽风险不变。
+    assert.match(`${scn['925']?.memo}`, /试制 ?秋水/)
     const api = (() => { const raw = JSON.parse(fs.readFileSync(s2Url, 'utf8')); return raw.api_data ?? raw })()
     assert.equal(api.api_mst_slotitem.find((e) => e.api_id === 351)?.api_name, '試製 秋水')
     assert.equal(api.api_mst_slotitem.find((e) => e.api_id === 352)?.api_name, '秋水')

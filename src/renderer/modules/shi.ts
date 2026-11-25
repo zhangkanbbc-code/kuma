@@ -67,6 +67,7 @@ import { localDayStart } from '../../shared/local-calendar'
 import { dropFurnitureBoxes, isFurnitureBoxId } from '../../shared/furniture-box'
 import { buildDailyMaterials, type DailyMaterial } from '../../shared/material-history'
 import { mapAreaOf, mapCodeOf } from '../../shared/map-id'
+import { rankToneClass } from '../../shared/rank-tone'
 import { PERSONAL_RATE_MIN_SAMPLES } from '../../shared/statistics'
 import {
   missingReviewQueries,
@@ -279,6 +280,7 @@ const groupByDay = <T extends { ts: number }>(
  *     一个场次劈成两张卡（本机 UTC+8：JST 日界在本地 23:00）。
  */
 type HistoryDayAxis = 'local' | 'jstSession'
+// 维护者裁决 2026-11-25：出击记录、节点时间线和掉落记录的标签均按评级上色。
 const battleHistoryHtml = (
   rows: readonly BattleSnapshotSummary[],
   titleOf: (row: BattleSnapshotSummary) => string,
@@ -293,7 +295,7 @@ const battleHistoryHtml = (
         (row) => `<div class="shi-history-row">
           <time>${fmtTime(row.ts)}</time>
           ${elink('battle', row.id, titleOf(row), 'shi')}
-          <span class="shi-rank ${WIN_RANKS.has(row.rank ?? '') ? 'win' : 'loss'}">${esc(row.rank ?? '—')}</span>
+          <span class="shi-rank ${rankToneClass(row.rank)}">${esc(row.rank ?? '—')}</span>
         </div>`,
       )
       .join('')
@@ -706,7 +708,7 @@ const nodeTimelineHtml = (): string => {
         return `<div class="shi-node-battle">
           <time>${esc(fmtDateTime(entry.ts))}</time>
           <div><b>${entry.isBoss ? 'Boss · ' : ''}${esc(FORMATION[entry.formation] ?? `阵形 ${entry.formation}`)}</b>
-            ${entry.rank ? `<span class="shi-rank ${WIN_RANKS.has(entry.rank) ? 'win' : 'loss'}">${esc(entry.rank)}</span>` : ''}
+            ${entry.rank ? `<span class="shi-rank ${rankToneClass(entry.rank)}">${esc(entry.rank)}</span>` : ''}
             ${entry.sunkMask != null ? `<span>击沉 ${sunk}/${entry.comp.length}</span>` : ''}
             ${entry.dropMst ? `<span class="drop">掉落 ${elink('mstShip', entry.dropMst, shipNames.get(entry.dropMst) ?? `#${entry.dropMst}`)}${firstDropBadgeHtml(entry.dropMst, entry.ts, true)}${unownedShipBadgeHtml(entry.dropMst)}</span>` : '<span class="dim">空掉落</span>'}
           </div>
@@ -740,7 +742,7 @@ const nodeDropsHtml = (): string => {
         (entry) => `<div class="shi-node-battle">
           <time>${esc(fmtDateTime(entry.ts))}</time>
           <div>${entry.isBoss ? '<b>Boss</b>' : ''}
-            ${entry.rank ? `<span class="shi-rank ${WIN_RANKS.has(entry.rank) ? 'win' : 'loss'}">${esc(entry.rank)}</span>` : ''}
+            ${entry.rank ? `<span class="shi-rank ${rankToneClass(entry.rank)}">${esc(entry.rank)}</span>` : ''}
             <span class="drop">掉落 ${elink('mstShip', entry.mstId, shipNames.get(entry.mstId) ?? `#${entry.mstId}`)}${firstDropBadgeHtml(entry.mstId, entry.ts, true)}${unownedShipBadgeHtml(entry.mstId)}</span>
           </div>
         </div>`,
@@ -988,7 +990,8 @@ const archiveDropHtml = (
 
 const eventViewHtml = (): string => {
   const historyContext = { time: fmtDateTime, nameOf: (r: CampaignReward) =>
-    r.kind === 'useitem' ? useitemNames.has(r.id) ? itemName(r.id) : '未识别' : r.name === 'ship' ? entityNamePlain('ship', r.id, mg.master.ships[r.id]?.name ?? '未识别') :
+    r.kind === 'useitem' ? useitemNames.has(r.id) ? itemName(r.id) : '未识别' :
+    r.kind === 'ship' || r.name === 'ship' ? entityNamePlain('ship', r.id, mg.master.ships[r.id]?.name ?? '未识别') :
     entityNamePlain('equip', r.id, mg.master.slotitems[r.id]?.name ?? '未识别') }
   const seasonal = `<div class="shi-view-head"><div><b>季节企划</b><span>${seasonalArchives.length} 次归档</span></div></div>
     <div class="shi-event-list">${seasonalArchives.map(h => `<article class="shi-event-card"><header><div><b>${esc(h.name)}</b><span>${fmtDate(h.opened)} — ${fmtDate(h.closed!)}</span></div></header><div class="shi-event-items">${campaignSummaryHtml(h, historyContext)}${campaignRecordsHtml(h, historyContext, true)}</div></article>`).join('') || '<div class="shi-empty">暂无季节企划归档</div>'}</div>`

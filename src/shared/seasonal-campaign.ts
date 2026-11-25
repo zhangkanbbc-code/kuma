@@ -85,6 +85,7 @@ export interface SeasonalExchangeReward {
   kind: 'useitem' | 'slotitem'
   id: number
   count: number
+  level?: number
 }
 
 export interface SeasonalExchangeRecipe {
@@ -104,11 +105,11 @@ export interface SeasonalExchange {
 }
 
 type SeasonalExchangeRecipeSpec = Omit<SeasonalExchangeRecipe, 'choices'> & {
-  choices: { kind: SeasonalExchangeReward['kind']; jpName: string; count: number }[][]
+  choices: { kind: SeasonalExchangeReward['kind']; jpName: string; count: number; level?: number }[][]
 }
 
 // 按企划、年份追加目录；奖励只存精确日文名，运行时对主数据解析。
-// 来源：游戏内兑换菜单，2026-10-14。
+// 南瓜来源：游戏内兑换菜单，2026-10-14。
 export const SEASONAL_EXCHANGES: {
   campaignKey: string
   season: number
@@ -140,6 +141,60 @@ export const SEASONAL_EXCHANGES: {
           { kind: 'slotitem', jpName: '二式陸上偵察機(熟練)', count: 2 },
         ],
         [{ kind: 'slotitem', jpName: '熟練甲板要員+航空整備員', count: 1 }],
+      ],
+    },
+  ],
+}, {
+  // 维护者裁决 2026-11-25：配方及选项顺序据游戏内菜单；蒲焼的罐头在道具框。
+  // 次数据舰娘百科「季节性/2026年秋刀鱼祭典」兑换说明表（2026-11-25 版）。
+  // 第四道名称据运营公告 04（2026-11-24）https://x.com/KanColle_STAFF/status/2125186655267021084
+  campaignKey: 'sanma',
+  season: 2026,
+  // 当天零点作账本统计下界；目录停显与道具实际消灭分开登记。
+  startsAt: Date.parse('2026-11-24T00:00:00+09:00'),
+  expiresAt: Date.parse('2027-01-01T00:00:00+09:00'),
+  recipes: [
+    {
+      key: 'sashimi', jpName: '刺身', cost: 3, limit: null,
+      choices: [
+        [
+          { kind: 'useitem', jpName: '弾薬', count: 300 },
+          { kind: 'useitem', jpName: '鋼材', count: 150 },
+        ],
+      ],
+    },
+    {
+      key: 'shioyaki', jpName: '塩焼', cost: 5, limit: null,
+      choices: [
+        [
+          { kind: 'useitem', jpName: '改修資材', count: 1 },
+          { kind: 'useitem', jpName: '開発資材', count: 3 },
+        ],
+      ],
+    },
+    {
+      key: 'kabayaki', jpName: '蒲焼', cost: 7, limit: 2,
+      choices: [
+        [
+          { kind: 'useitem', jpName: '秋刀魚の缶詰', count: 1 },
+          { kind: 'useitem', jpName: '高速修復材', count: 3 },
+        ],
+        [
+          { kind: 'useitem', jpName: '高速建造材', count: 25 },
+        ],
+      ],
+    },
+    {
+      key: 'curry', jpName: '秋刀魚カレー改二偵', cost: 27, limit: 1,
+      choices: [
+        [
+          { kind: 'useitem', jpName: '工廠資源', count: 6 },
+          { kind: 'slotitem', jpName: '12.7cm連装砲D型改三', count: 1 },
+        ],
+        [
+          { kind: 'useitem', jpName: '格納庫増設', count: 6 },
+          { kind: 'slotitem', jpName: '熟練見張員', count: 4, level: 10 },
+        ],
       ],
     },
   ],
@@ -186,7 +241,7 @@ const seasonalExchangeOf = (
           complete = false
           break
         }
-        rewards.push({ kind: reward.kind, id, count: reward.count })
+        rewards.push({ kind: reward.kind, id, count: reward.count, ...(reward.level == null ? {} : { level: reward.level }) })
       }
       choices.push(rewards)
     }

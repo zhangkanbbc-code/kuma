@@ -163,6 +163,17 @@ fs.copyFileSync(
   fileURLToPath(new URL('../src/shared/launch-glow.ts', import.meta.url)),
   path.join(sharedDir, 'launch-glow.ts'),
 )
+// 可选开幕风格（2026-11-26）新增的导入图：装配用例仍不挂欢迎屏，只补齐真实文件
+fs.copyFileSync(
+  fileURLToPath(new URL('../src/renderer/launch-welcome-styles.ts', import.meta.url)),
+  path.join(tempDir, 'launch-welcome-styles.ts'),
+)
+for (const name of ['launch-welcome-style.ts', 'launch-welcome-brief.ts']) {
+  fs.copyFileSync(
+    fileURLToPath(new URL(`../src/shared/${name}`, import.meta.url)),
+    path.join(sharedDir, name),
+  )
+}
 fs.writeFileSync(
   path.join(tempDir, 'mu.ts'),
   `${fs.readFileSync(fileURLToPath(new URL('../src/renderer/mu.ts', import.meta.url)), 'utf8')}

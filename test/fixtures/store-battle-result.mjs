@@ -41,6 +41,16 @@ const end = source.indexOf(
 assert.ok(start >= 0 && end > start, 'store.ts 里找不到 onBattleResult，这条守卫的锚点要跟着改')
 const ON_BATTLE_RESULT = source.slice(start, end)
 
+// 战果包字段读取器（入手台词、EO 战果、解锁海域、退避选项、战后奖励）一段不碰模块状态，
+// 原样切进来，不再逐个桩：战后奖励落进本轮掉落要走真读取器才看得出接没接上。
+const readersStart = source.indexOf('const dropShipGetMessage = (dropShip: any): string => {')
+const readersEnd = source.indexOf('const enemyPreviewOf =', readersStart)
+assert.ok(
+  readersStart >= 0 && readersEnd > readersStart,
+  'store.ts 里找不到战果包字段读取器，这条守卫的锚点要跟着改',
+)
+const RESULT_READERS = source.slice(readersStart, readersEnd)
+
 const HARNESS = `
 type Section = string
 type SortieView = any
@@ -53,10 +63,8 @@ export const state: any = {
   mapGauges: {},
 }
 
-const dropShipGetMessage = (_ship: any) => ''
-const exmapSenkaOf = (_body: any) => null
-const nextMapIdsOf = (_body: any) => []
-const escapeOfferOf = (_body: any) => null
+${RESULT_READERS}
+
 const reconcileBattle = (_battle: any, _body: any) => []
 const patchBasicLevel = (_body: any) => false
 const incrementUseitem = (_id: number, _count: number, _ts: number) => false

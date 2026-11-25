@@ -121,7 +121,8 @@ function scanTs(source) {
 function scanHtml(source) {
   const mask = value => value.replace(/[^\n]/g, ' ')
   const clean = source.replace(/<!--[\s\S]*?-->|\/\*[^]*?\*\//g, mask)
-    .replace(/:root(?:\[data-theme="light"\])?\s*\{[^}]*\}/g, mask)
+    // 色觉配色四块（生成器产物，维护者裁决 2026-11-25）同属变量定义块，与深浅根块一样不算写死颜色
+    .replace(/:root(?:\[data-theme="light"\])?(?:\[data-cvd="(?:redgreen|mono)"\])?\s*\{[^}]*\}/g, mask)
   const rules = [...clean.matchAll(/<style[^>]*>([^]*?)<\/style>/g)].flatMap(style =>
     [...style[1].matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(rule => ({
       context: rule[0].trim().replace(/\s+/g, ' '), length: rule[0].length,

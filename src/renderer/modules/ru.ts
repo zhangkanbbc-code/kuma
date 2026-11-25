@@ -1,6 +1,27 @@
 // 锐 (Ru) · 编队展示。判定/度量/个体三层 + 联合舰队合并度量。
 // 数据边界：制空/索敌33/TP 走 fleet-calc（poi 口径 + 战斗计算模型 + wikiwiki 逐条核对）。
 import type { AirBaseSquad, BattleLevelUp, Deck, PlayerShip } from '../../shared/mg-types'
+import { fleetStateTone } from '../../shared/fleet-state-tone'
+import {
+  createHpWatch,
+  hitCrackTier,
+  hitShakeParams,
+  type HitShakeParams,
+} from '../../shared/hit-shake'
+import {
+  hitGlassCssVars,
+  hitGlassGeometry,
+  hitGlassLayers,
+  type GlassPolygon,
+  type GlassPolyline,
+  type HitGlassGeometry,
+  type HitGlassTier,
+} from '../../shared/hit-glass'
+import {
+  createRepairWatch,
+  type RepairFxEvent,
+  type RepairItemSignal,
+} from '../../shared/repair-fx'
 import { airBaseCustomName } from '../../shared/air-base-name'
 import { airBaseTabGlow } from '../../shared/air-base-tab'
 import { AIR_BASE_MUTE_KEY, isAirBaseAreaMuted, toggleAirBaseAreaMute, unmutedAirBaseSquads } from '../../shared/air-base-mute'
@@ -67,6 +88,8 @@ import {
   onSortieScreen,
   onTick,
   sunkEffectsEnabled,
+  fleetStateToneEnabled,
+  hitShakeEnabled,
   queryFleetCheck,
   queryLode,
   queryMasterRaw,
@@ -1038,11 +1061,57 @@ const shipRow = (deck: Deck, ship: PlayerShip, isFlag: boolean) => {
   const leavingNow = !!escaped && !seenEscaped.has(ship.id)
   if (escaped) seenEscaped.add(ship.id)
   else seenEscaped.delete(ship.id) // 返港后恢复正常，下一趟再退避会重新播
+  const tone = fleetStateToneEnabled() && !escaped && !isSunkInSortie(ship.id) ? shipStateTone(ship) : null
+  const damageAttr = tone?.damage ? ` data-damage="${tone.damage}"` : ''
+  const stateAttr = tone?.state ? ` data-state="${tone.state}"` : ''
+  const stateBar = tone?.labels.length ? `<span class="state-bar" title="${tone.labels.join(' · ')}"></span>` : ''
+  const hit = !escaped && !isSunkInSortie(ship.id) ? shipHitShake(ship) : null
+  const crack = !escaped && !isSunkInSortie(ship.id) ? shipHitCrack(ship) : null
+  const fractureCss = crack || shattered ? shipHitFracture(ship) : ''
+  // 缺角玻璃层与修理演出挂件（维护者裁决 2026-11-26）：判定在 shipGlassFx，这里只拼进去；要在 shipHitFracture 之后取（它分配种子）
+  const glass = escaped ? null : shipGlassFx(ship, shattered)
+  const hitSev = hit ? hit.severity : 0
+  const hitDmg = hit ? hit.dmg : 0
+  const styleParts: string[] = []
+  if (fractureCss) styleParts.push(fractureCss)
+  if (hit) {
+    styleParts.push(
+      `--hit-shake:${hit.shake}`,
+      `--hit-glitch:${hit.glitch}`,
+      `--hit-shatter:${hit.shatter}`,
+      `--hp-from:${hit.from}%`,
+      `--hp-to:${hit.to}%`,
+      `--ghost-dur:${hit.ghostDurMs}ms`,
+    )
+  }
+  const hitAttr = `${
+    hit
+      ? ` data-hit data-hit-sev="${hitSev}"${hit.crossedTier ? ' data-hit-cross="1"' : ''}${hit.glitchBurst ? ' data-glitch-burst="1"' : ''}`
+      : ''
+  }${crack ? ` data-crack="${crack}"` : ''}${shattered && fractureCss ? ' data-fracture' : ''}${glass?.attrs ?? ''}${styleParts.length ? ` style="${styleParts.join(';')}"` : ''}`
+  const dmgFxHtml =
+    crack || hit || glass
+      ? `<span class="dmg-fx" aria-hidden="true">${
+          crack
+            ? `<span class="dmg-wash"></span>${crack === 'medium' || crack === 'heavy' ? '<span class="dmg-hazard"></span>' : ''}${crack === 'heavy' ? '<span class="dmg-ember"></span><span class="dmg-scan"></span>' : ''}`
+            : glass?.wash
+              ? '<span class="dmg-wash"></span>'
+              : ''
+        }${glass?.layers ?? ''}${crack === 'heavy' || hit?.glitchBurst ? '<span class="glitch-bars"></span>' : ''}${
+          hit ? '<span class="hit-flash"></span><span class="hit-sweep"></span>' : ''
+        }</span>`
+      : ''
+  const hpGhostHtml = hit
+    ? `<span class="hp-ghost${hitSev >= 4 ? ' crit' : ''}" aria-hidden="true"></span>`
+    : ''
+  const dmgPopHtml = hit && hitDmg > 0
+    ? `<span class="dmg-pop sev-${hitSev}" aria-hidden="true">${hitSev >= 4 ? `-${hitDmg}!` : `-${hitDmg}`}</span>`
+    : ''
   const rowCls = shattered
     ? ' shattered'
     : escaped
       ? ` left${leavingNow ? ' leaving' : ''}`
-      : issues.taiha ? ' crit' : issues.chuuha || issues.tired || issues.unsupplied ? ' alert' : dock ? ' dock' : ''
+      : tone ? '' : issues.taiha ? ' crit' : issues.chuuha || issues.tired || issues.unsupplied ? ' alert' : dock ? ' dock' : ''
   const name = masterShipName(ship.shipId)
   const fuelPct = master && master.fuelMax > 0 ? (ship.fuel / master.fuelMax) * 100 : 100
   const bullPct = master && master.bullMax > 0 ? (ship.bull / master.bullMax) * 100 : 100
@@ -1086,7 +1155,8 @@ const shipRow = (deck: Deck, ship: PlayerShip, isFlag: boolean) => {
       : escaped
         ? ` data-escaped="${escaped.role}" title="退避中，返港前不再参战"`
         : ''
-  }>
+  }${damageAttr}${stateAttr}${hitAttr}>${stateBar}${glass?.tether ?? ''}
+    ${dmgFxHtml}
     ${shattered ? '<span class="shatter" aria-hidden="true"></span>' : ''}
     ${sandboxOut}
     <div class="fc">${isFlag ? '<span class="flag">旗</span>' : ''}${shipThumbHtml(ship.shipId, name, {
@@ -1103,7 +1173,8 @@ const shipRow = (deck: Deck, ship: PlayerShip, isFlag: boolean) => {
     <div class="hpc ${hpClassOf(ship, !!dock)}">
       ${eventRunningNow() ? sallyMarkHtml(ship.sallyArea, currentEventAreaId()) : ''}
       <div class="hpbody">
-        <div class="bar"><i style="width:${dock ? 45 : hpPct}%"></i></div>
+        ${dmgPopHtml}
+        <div class="bar">${hpGhostHtml}<i style="width:${dock ? 45 : hpPct}%"></i></div>
         <div class="num"${dock ? ` data-repair-title="${dock.completeTime}" title="${repairClockText(dock.completeTime, Date.now())}"` : ''}><span>${dock ? `${ship.nowhp}→${ship.maxhp}` : `${ship.nowhp}/${ship.maxhp}`}</span>${hpLabelOf(ship, !!dock)}</div>
       </div>
     </div>
@@ -2609,23 +2680,47 @@ const BERTH_STATE_LABEL = {
 const berthDeckAtSea = (deck: Deck): boolean =>
   deckOnSortie(deck.id) || (inCombined(deck) && deckOnSortie(1))
 
-/** 一支能修的舰队。旗舰不是工作舰的队根本不进这里。 */
-const berthFleetHtml = (deck: Deck, flag: PlayerShip, now: number): string => {
-  const ships = fleetShips(deck)
+// 维护者裁决 2026-11-25：泊地卡和编队行共用覆盖位次与停修条件。
+const berthRepairContext = (deck: Deck, flag: PlayerShip) => {
   const cover = berthCoverage(berthFacilityCount(flag))
   const halt = berthHalt(flag, {
     onMission: deck.mission?.[0] > 0,
     flagDocked: !!dockOf(flag.id),
   })
-  const since = mg.berthSince[deck.id]
-  const elapsed = since ? Math.max(0, now - since) : null
-  const warm = elapsed !== null && elapsed >= BERTH_WARMUP_MS
 
   // 明石队自己出海了（2026-08-26 用户指出的缺口）：出击**不重置**计时（查证 ⑦
   // 两源「计时继续」），所以这里只停「显示」、不停表——海上 HP 还在战场上变，
   // 账面是出发前的旧值，摆出来必是算不准的数；回港 HP 落账后自动回到「停泊 N 分」。
   // 判据与出击裁决行同一份（含联合舰队一队带二队）。
   const atSea = berthDeckAtSea(deck)
+  const shipStatus = (ship: PlayerShip, index: number) => {
+    const docked = !!dockOf(ship.id)
+    const state = berthShipState(ship, docked)
+    const inRange = index >= 0 && index < cover
+    return { docked, state, inRange, repairing: inRange && !halt && !atSea && state === 'repairing' }
+  }
+  return { cover, halt, atSea, shipStatus }
+}
+
+const shipStateTone = (ship: PlayerShip) => {
+  const deck = mg.decks.find(d => d.id >= 1 && d.id <= 4 && d.ships.includes(ship.id))
+  const flag = deck && berthFlagshipOf(deck)
+  const anchorage = !!(deck && flag && berthRepairContext(deck, flag)
+    .shipStatus(ship, fleetShips(deck).findIndex(s => s.id === ship.id)).repairing)
+  return fleetStateTone({
+    nowhp: ship.nowhp, maxhp: ship.maxhp, docked: !!dockOf(ship.id), anchorage,
+    fatigue: fatigueBand(estimatedCond(ship.id, FATIGUE_READY_COND) ?? ship.cond),
+    sparkle: ship.cond >= 50, unsupplied: isUnsupplied(ship),
+  })
+}
+
+/** 一支能修的舰队。旗舰不是工作舰的队根本不进这里。 */
+const berthFleetHtml = (deck: Deck, flag: PlayerShip, now: number): string => {
+  const ships = fleetShips(deck)
+  const { cover, halt, atSea, shipStatus } = berthRepairContext(deck, flag)
+  const since = mg.berthSince[deck.id]
+  const elapsed = since ? Math.max(0, now - since) : null
+  const warm = elapsed !== null && elapsed >= BERTH_WARMUP_MS
 
   // 计时那一格：停摆时只说停摆（停摆的原因就是玩家要看的那句），
   // 没有锚点时说不知道——都不摆一个算不准的数出来。
@@ -2642,12 +2737,10 @@ const berthFleetHtml = (deck: Deck, flag: PlayerShip, now: number): string => {
 
   const rows = ships
     .map((ship, index) => {
-      const inRange = index < cover
-      const docked = !!dockOf(ship.id)
-      const state = berthShipState(ship, docked)
+      const { inRange, docked, state, repairing } = shipStatus(ship, index)
       // 估算只在「真在修 + 没停摆 + 没出海 + 过了 20 分」四条都成立时才出现
       const gain =
-        inRange && !halt && !atSea && warm && state === 'repairing'
+        repairing && warm
           ? berthEstimateHp(ship, elapsed!)
           : 0
       const name = masterShipName(ship.shipId)
@@ -2956,6 +3049,325 @@ const scheduleFleetQuestCheck = () => {
   }, 250)
 }
 
+// 被弹动画与修理演出（实验性，维护者裁决 2026-11-25 / 11-26）：
+// 对比上次绘制与当前耐久，出击掉血存一次性被弹参数，跨档存崩飞碎角，修理/保命走独立观察器。
+const hpWatch = createHpWatch()
+const repairWatch = createRepairWatch()
+const pendingHitShakes = new Map<number, HitShakeParams>()
+
+let cachedRowWidth = 540
+let cachedRowHeight = 48
+
+const measureFleetRowSize = () => {
+  if (!pane) return
+  const collapsed = pane.querySelector<HTMLElement>('.ships .ship:not(.open)')
+  const sample = collapsed ?? pane.querySelector<HTMLElement>('.ships .ship')
+  if (!sample) return
+  const w = Math.round(sample.clientWidth)
+  if (w >= 280) cachedRowWidth = w
+  if (collapsed) {
+    const h = Math.round(collapsed.offsetHeight)
+    if (h >= 36 && h <= 72) cachedRowHeight = h
+  }
+}
+
+const GLASS_TIER_RANK: Record<HitGlassTier | 'none', number> = {
+  none: 0,
+  light: 1,
+  medium: 2,
+  heavy: 3,
+  sunk: 4,
+}
+
+interface PendingShardFx {
+  shipId: number
+  geo: HitGlassGeometry
+  tier: HitGlassTier
+  prevTier: HitGlassTier | 'none'
+}
+
+interface PendingRepairAnimation {
+  event: RepairFxEvent
+  prevGeo: HitGlassGeometry | null
+  prevTier: HitGlassTier | 'none'
+  prevSvg: string
+  prevFuelPct: number
+  prevAmmoPct: number
+  healedCrack: boolean
+}
+
+const lastGlassTier = new Map<number, HitGlassTier | 'none'>()
+const lastFuelAmmo = new Map<number, { fuelPct: number; ammoPct: number }>()
+const weldedShips = new Set<number>()
+const transientAura = new Map<number, { kind: 'goddess' | 'dock'; until: number }>()
+const auraTimers = new Map<number, ReturnType<typeof setTimeout>>()
+const pendingShards: PendingShardFx[] = []
+const pendingRepairFx = new Map<number, PendingRepairAnimation>()
+// 本次渲染里泊修常驻态要亮的工作舰与受修舰（observeFleetHits 按 berthRepairContext 算好，shipGlassFx 只读）
+const berthFxFlagIds = new Set<number>()
+const berthFxRepairIds = new Set<number>()
+
+const activeTransientAura = (shipId: number): 'goddess' | 'dock' | null => {
+  const entry = transientAura.get(shipId)
+  if (!entry) return null
+  if (Date.now() >= entry.until) {
+    transientAura.delete(shipId)
+    return null
+  }
+  return entry.kind
+}
+
+const polyPoints = (poly: GlassPolygon): string => poly.map(([x, y]) => `${x},${y}`).join(' ')
+const linesPath = (lines: readonly GlassPolyline[]): string =>
+  lines.map((pts) => pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x} ${y}`).join(' ')).join(' ')
+
+const glassColorOf = (tier: HitGlassTier, welded: boolean): string =>
+  welded
+    ? 'var(--hit-glass-weld)'
+    : tier === 'sunk'
+      ? 'var(--hit-glass-sunk)'
+      : tier === 'heavy'
+        ? 'var(--hit-glass-heavy)'
+        : tier === 'medium'
+          ? 'var(--hit-glass-mid)'
+          : 'var(--hit-glass-light)'
+
+const glassFacetToneOf = (tier: HitGlassTier): string =>
+  tier === 'sunk' ? 'var(--hit-facet-sunk)' : tier === 'heavy' ? 'var(--hit-facet-heavy)' : 'var(--hit-facet-mid)'
+
+const glassSvgMarkup = (geo: HitGlassGeometry, tier: HitGlassTier, welded = false): string => {
+  const layers = hitGlassLayers(geo, tier)
+  const col = glassColorOf(tier, welded)
+  const rim = welded ? 'var(--hit-glass-weld)' : tier === 'heavy' ? 'var(--hit-glass-heavy-rim)' : col
+  const facetTone = glassFacetToneOf(tier)
+  const facetPolys = layers.facets.map((f) => `<polygon points="${polyPoints(f)}" style="fill:${facetTone}"/>`).join('')
+  const subD = linesPath(layers.subCracks)
+  const mainD = linesPath(layers.cracks)
+  const bevelD = linesPath(layers.bevels)
+  const cutPolys = layers.cuts.map((c) => `<polygon points="${polyPoints(c)}" style="fill:var(--hit-glass-void)"/>`).join('')
+  const weldGlow =
+    welded && (mainD || bevelD)
+      ? `<path d="${`${mainD} ${bevelD}`.trim()}" fill="none" style="stroke:var(--hit-damecon)" stroke-width="3.2" opacity=".32"/>`
+      : ''
+  return `<svg class="glass-svg" viewBox="0 0 ${geo.width} ${geo.height}" preserveAspectRatio="none">${facetPolys}${weldGlow}${
+    subD ? `<path d="${subD}" fill="none" style="stroke:var(--hit-glass-dark)" stroke-width="1.3" opacity=".55" transform="translate(.8,.8)"/><path d="${subD}" fill="none" style="stroke:${col}" stroke-width=".75" opacity=".58"/>` : ''
+  }${
+    mainD ? `<path d="${mainD}" fill="none" style="stroke:var(--hit-glass-dark)" stroke-width="1.6" opacity=".68" transform="translate(1,1)"/><path d="${mainD}" fill="none" style="stroke:${col}" stroke-width="${welded ? 1.25 : tier === 'sunk' ? 1.15 : .95}" opacity="${tier === 'light' ? .7 : .92}"/>` : ''
+  }${cutPolys}${
+    bevelD ? `<path d="${bevelD}" fill="none" style="stroke:var(--hit-glass-dark)" stroke-width="1.8" opacity=".42" transform="translate(.6,.6)"/><path d="${bevelD}" fill="none" style="stroke:${rim}" stroke-width="1.5" opacity=".92"/>` : ''
+  }</svg>`
+}
+
+const deckBerthActive = (deck: Deck): { flagId: number; repairingIds: Set<number> } | null => {
+  if (deck.id < 1 || deck.id > 4) return null
+  const flag = berthFlagshipOf(deck)
+  if (!flag) return null
+  const ctx = berthRepairContext(deck, flag)
+  if (ctx.halt !== null || ctx.atSea) return null
+  const repairingIds = new Set<number>()
+  fleetShips(deck).forEach((ship, index) => {
+    if (ctx.shipStatus(ship, index).repairing) repairingIds.add(ship.id)
+  })
+  return repairingIds.size > 0 ? { flagId: flag.id, repairingIds } : null
+}
+
+const activeRepairItems = (): Map<number, RepairItemSignal> => {
+  const items = new Map<number, RepairItemSignal>()
+  const sortie = mg.sortie
+  if (!sortie?.active || sortie.practice || !sortie.battle) return items
+  for (const entry of sortie.battle.fShips) {
+    if (entry.rosterId == null) continue
+    if (entry.repairItemUsedAtStart === 42 || entry.repairItemUsedAtStart === 43) {
+      items.set(entry.rosterId, {
+        item: entry.repairItemUsedAtStart,
+        key: `${sortie.battleCount}:start:${entry.rosterId}:${entry.repairItemUsedAtStart}`,
+      })
+    }
+    if (entry.repairItemUsed === 42 || entry.repairItemUsed === 43) {
+      items.set(entry.rosterId, {
+        item: entry.repairItemUsed,
+        key: `${sortie.battleCount}:${entry.rosterId}:${entry.repairItemUsed}`,
+      })
+    }
+  }
+  return items
+}
+
+const observeFleetHits = (deck: Deck) => {
+  const decks = inCombined(deck)
+    ? [1, 2].map((id) => mg.decks.find((d) => d.id === id)).filter(Boolean) as Deck[]
+    : [deck]
+  berthFxFlagIds.clear()
+  berthFxRepairIds.clear()
+  for (const d of decks) {
+    const info = deckBerthActive(d)
+    if (!info) continue
+    berthFxFlagIds.add(info.flagId)
+    for (const id of info.repairingIds) berthFxRepairIds.add(id)
+  }
+  const ships = decks.flatMap((d) => fleetShips(d))
+  const battle = Boolean(mg.sortie?.active && !mg.sortie.practice)
+  if (!mg.sortie?.active) weldedShips.clear()
+
+  const repairEvents = repairWatch.observe(
+    ships.map((ship) => ({
+      id: ship.id,
+      nowhp: ship.nowhp,
+      maxhp: ship.maxhp,
+      docked: !!dockOf(ship.id),
+      berthRepairing: berthFxRepairIds.has(ship.id),
+    })),
+    { sortie: battle, repairItems: battle ? activeRepairItems() : undefined },
+  )
+  const drops = hpWatch.observe(ships, { battle })
+
+  pendingHitShakes.clear()
+  pendingShards.length = 0
+  pendingRepairFx.clear()
+
+  const enabled = hitShakeEnabled()
+  const visible = document.visibilityState === 'visible'
+  const present = new Set<number>()
+
+  for (const ship of ships) {
+    present.add(ship.id)
+    const sunk = isSunkInSortie(ship.id)
+    const curTier: HitGlassTier | 'none' = sunk
+      ? 'sunk'
+      : (hitCrackTier({ nowhp: ship.nowhp, maxhp: ship.maxhp, docked: !!dockOf(ship.id) }) ?? 'none')
+    const prevTier = lastGlassTier.get(ship.id) ?? 'none'
+    const ev = repairEvents.get(ship.id)
+    const wasWelded = weldedShips.has(ship.id)
+
+    if (ev?.kind === 'damecon') weldedShips.add(ship.id)
+    if (sunk || ship.nowhp >= ship.maxhp) weldedShips.delete(ship.id)
+
+    if (enabled && visible && ev) {
+      const prevSeed = fractureSeeds.get(ship.id)
+      const prevGeo = prevSeed != null ? hitGlassGeometry(ship.id, prevSeed, cachedRowWidth, cachedRowHeight) : null
+      const prevSvg = prevGeo && prevTier !== 'none' ? glassSvgMarkup(prevGeo, prevTier, wasWelded) : ''
+      const prevFA = lastFuelAmmo.get(ship.id) ?? { fuelPct: 100, ammoPct: 100 }
+      pendingRepairFx.set(ship.id, {
+        event: ev,
+        prevGeo,
+        prevTier,
+        prevSvg,
+        prevFuelPct: prevFA.fuelPct,
+        prevAmmoPct: prevFA.ammoPct,
+        healedCrack: (ev.kind === 'berth' || ev.kind === 'anchorage') && prevTier === 'light' && curTier === 'none',
+      })
+      if (ev.kind === 'goddess') transientAura.set(ship.id, { kind: 'goddess', until: Date.now() + 4500 })
+      else if (ev.kind === 'dock') transientAura.set(ship.id, { kind: 'dock', until: Date.now() + 2600 })
+    }
+
+    const drop = drops.get(ship.id)
+    const suppressHit = ev?.kind === 'damecon' || ev?.kind === 'goddess'
+    if (enabled && visible && drop && !suppressHit) {
+      transientAura.delete(ship.id)
+      const params = hitShakeParams(drop)
+      if (params) pendingHitShakes.set(ship.id, params)
+    }
+
+    if (
+      enabled &&
+      visible &&
+      !suppressHit &&
+      GLASS_TIER_RANK[curTier] > GLASS_TIER_RANK[prevTier] &&
+      (curTier === 'medium' || curTier === 'heavy' || curTier === 'sunk')
+    ) {
+      let seed = fractureSeeds.get(ship.id)
+      if (seed == null) {
+        seed = fractureSeedSeq++
+        fractureSeeds.set(ship.id, seed)
+      }
+      pendingShards.push({
+        shipId: ship.id,
+        geo: hitGlassGeometry(ship.id, seed, cachedRowWidth, cachedRowHeight),
+        tier: curTier,
+        prevTier,
+      })
+    }
+
+    if (!sunk && ship.nowhp >= ship.maxhp) fractureSeeds.delete(ship.id)
+    lastGlassTier.set(ship.id, curTier)
+    const mst = mg.master.ships[ship.shipId]
+    lastFuelAmmo.set(ship.id, {
+      fuelPct: mst && mst.fuelMax > 0 ? (ship.fuel / mst.fuelMax) * 100 : 100,
+      ammoPct: mst && mst.bullMax > 0 ? (ship.bull / mst.bullMax) * 100 : 100,
+    })
+  }
+
+  for (const id of lastGlassTier.keys()) {
+    if (!present.has(id)) {
+      lastGlassTier.delete(id)
+      lastFuelAmmo.delete(id)
+    }
+  }
+}
+
+const shipHitShake = (ship: PlayerShip): HitShakeParams | null => {
+  const params = pendingHitShakes.get(ship.id) ?? null
+  if (params) pendingHitShakes.delete(ship.id)
+  return params
+}
+
+const shipHitCrack = (ship: PlayerShip) =>
+  hitShakeEnabled() ? hitCrackTier({ nowhp: ship.nowhp, maxhp: ship.maxhp, docked: !!dockOf(ship.id) }) : null
+
+// 缺角玻璃层与修理演出在行内的挂件（实验性，维护者裁决 2026-11-26）。
+// shipRow 只负责拼进去：attrs 挂在行上，layers 进 .dmg-fx，tether 是泊修连接线；wash 表示没有伤势底色时也要一层底色给余韵用。
+// 要在 shipHitFracture 之后调用——种子由它分配。
+interface ShipGlassFx {
+  attrs: string
+  layers: string
+  tether: string
+  wash: boolean
+}
+
+const shipGlassFx = (ship: PlayerShip, sunk: boolean): ShipGlassFx | null => {
+  if (!hitShakeEnabled()) return null
+  const tier: HitGlassTier | null = sunk ? 'sunk' : shipHitCrack(ship)
+  const welded = !sunk && weldedShips.has(ship.id)
+  const berthFlag = !sunk && berthFxFlagIds.has(ship.id)
+  const berthRepair = !sunk && berthFxRepairIds.has(ship.id)
+  const aura = sunk ? null : activeTransientAura(ship.id)
+  const pending = pendingRepairFx.has(ship.id)
+  const seed = tier ? fractureSeeds.get(ship.id) : undefined
+  const glassSvg =
+    tier && seed != null ? glassSvgMarkup(hitGlassGeometry(ship.id, seed, cachedRowWidth, cachedRowHeight), tier, welded) : ''
+  if (!glassSvg && !berthFlag && !berthRepair && !aura && !pending) return null
+  return {
+    attrs: `${welded ? ' data-weld="1"' : ''}${berthFlag ? ' data-berth-role="flag"' : ''}${
+      berthRepair ? ' data-berth-repair="1"' : ''
+    }${aura ? ` data-repair-aura="${aura}"` : ''}`,
+    layers: `<span class="glass-host" style="height:${cachedRowHeight}px">${glassSvg}</span>${
+      berthRepair ? '<span class="fx-akashi-wave"></span>' : ''
+    }<span class="fx-motes"></span><span class="fx-flash"></span><span class="fx-sweep"></span>`,
+    tether: berthRepair ? '<span class="berth-tether" aria-hidden="true"></span>' : '',
+    wash: berthFlag || !!aura || pending,
+  }
+}
+
+// 每艘舰当前受伤周期的随机裂纹种子：带伤期间（含入渠中）冻结，避免重渲跳位，且小破→中破→大破→击沉沿同一骨架生长；
+// 修满（且非击沉）后清空，下次再受创时自动换一套新裂纹。
+const fractureSeeds = new Map<number, number>()
+let fractureSeedSeq = 1
+
+const shipHitFracture = (ship: PlayerShip): string => {
+  if (!hitShakeEnabled()) return ''
+  const sunk = isSunkInSortie(ship.id)
+  if (!sunk && ship.nowhp >= ship.maxhp) {
+    fractureSeeds.delete(ship.id)
+    return ''
+  }
+  let seed = fractureSeeds.get(ship.id)
+  if (seed == null) {
+    seed = fractureSeedSeq++
+    fractureSeeds.set(ship.id, seed)
+  }
+  return hitGlassCssVars(hitGlassGeometry(ship.id, seed, cachedRowWidth, cachedRowHeight))
+}
+
 const fleetDivisionHtml = (deck: Deck, role: string): string => {
   const { canonical, custom } = fleetLabel(deck)
   const ships = fleetShips(deck)
@@ -2968,15 +3380,459 @@ const fleetDivisionHtml = (deck: Deck, role: string): string => {
 }
 
 const fleetViewHtml = (deck: Deck) => {
+  const hitFxAttr = hitShakeEnabled() ? ' data-hit-fx' : ''
   if (!inCombined(deck)) {
-    return `<div class="ships">${fleetShips(deck).map((ship, index) => shipRow(deck, ship, index === 0)).join('')}</div>`
+    return `<div class="ships"${hitFxAttr}>${fleetShips(deck).map((ship, index) => shipRow(deck, ship, index === 0)).join('')}</div>`
   }
   const first = mg.decks.find((entry) => entry.id === 1)
   const second = mg.decks.find((entry) => entry.id === 2)
-  return `<div class="ships combined-ships">
+  return `<div class="ships combined-ships"${hitFxAttr}>
     ${first ? fleetDivisionHtml(first, '主力舰队') : ''}
     ${second ? fleetDivisionHtml(second, '护卫舰队') : ''}
   </div>`
+}
+
+// ---- 一次性 Web Animations 演出（崩飞碎角 / 要员 / 女神 / 入渠完成 / 泊地修理） ----
+
+const spawnRowPop = (row: HTMLElement, text: string, colorVar: string) => {
+  const host = row.querySelector<HTMLElement>('.hpc .hpbody')
+  if (!host) return
+  const pop = document.createElement('span')
+  pop.className = 'repair-pop'
+  pop.textContent = text
+  pop.style.color = colorVar
+  host.appendChild(pop)
+  pop
+    .animate(
+      [
+        { opacity: 0, transform: 'translateY(6px) scale(1.2)' },
+        { opacity: 1, transform: 'translateY(-3px) scale(1)', offset: 0.2 },
+        { opacity: 0, transform: 'translateY(-13px) scale(.96)' },
+      ],
+      { duration: 920, easing: 'ease-out', fill: 'forwards' },
+    )
+    .onfinish = () => pop.remove()
+}
+
+const spawnRowMotes = (row: HTMLElement, count: number, colorVar: string, star: boolean) => {
+  const host = row.querySelector<HTMLElement>('.fx-motes')
+  if (!host) return
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement('div')
+    el.className = star ? 'mote-star' : 'mote-dot'
+    el.style.left = `${12 + Math.random() * 80}%`
+    el.style.top = `${18 + Math.random() * 62}%`
+    if (star) {
+      const sz = 8 + Math.random() * 6
+      el.style.width = `${sz}px`
+      el.style.height = `${sz}px`
+      el.innerHTML = `<svg viewBox="0 0 24 24" width="${sz}" height="${sz}" style="display:block"><path d="M12 0 Q13 11 24 12 Q13 13 12 24 Q11 13 0 12 Q11 11 12 0 Z" style="fill:${colorVar}"/></svg>`
+    } else {
+      const sz = 2.5 + Math.random() * 3
+      el.style.width = `${sz}px`
+      el.style.height = `${sz}px`
+      el.style.background = colorVar
+    }
+    host.appendChild(el)
+    const dx = (Math.random() - 0.5) * 18
+    const dy = -12 - Math.random() * 18
+    el
+      .animate(
+        [
+          { opacity: 0, transform: 'translate(0, 4px) scale(0.3) rotate(0deg)' },
+          { opacity: 0.95, transform: `translate(${(dx * 0.4).toFixed(1)}px, ${(dy * 0.4).toFixed(1)}px) scale(1.05) rotate(25deg)`, offset: 0.35 },
+          { opacity: 0, transform: `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) scale(0.4) rotate(50deg)` },
+        ],
+        { duration: 680 + Math.random() * 320, delay: i * 48, easing: 'ease-out', fill: 'forwards' },
+      )
+      .onfinish = () => el.remove()
+  }
+}
+
+const animateRowBars = (
+  row: HTMLElement,
+  prevHpPct: number,
+  nextHpPct: number,
+  prevFuelPct?: number,
+  nextFuelPct?: number,
+  prevAmmoPct?: number,
+  nextAmmoPct?: number,
+) => {
+  const hpBar = row.querySelector<HTMLElement>('.hpc .bar > i')
+  if (hpBar) {
+    hpBar.animate(
+      [{ width: `${prevHpPct}%` }, { width: `${nextHpPct}%` }],
+      { duration: 420, easing: 'cubic-bezier(.2,.82,.28,1)' },
+    )
+  }
+  if (prevFuelPct !== undefined && nextFuelPct !== undefined) {
+    const fuelBar = row.querySelector<HTMLElement>('.fa2 .fuel > i')
+    if (fuelBar) {
+      fuelBar.animate([{ width: `${prevFuelPct}%` }, { width: `${nextFuelPct}%` }], { duration: 460, easing: 'ease' })
+    }
+  }
+  if (prevAmmoPct !== undefined && nextAmmoPct !== undefined) {
+    const ammoBar = row.querySelector<HTMLElement>('.fa2 .ammo > i')
+    if (ammoBar) {
+      ammoBar.animate([{ width: `${prevAmmoPct}%` }, { width: `${nextAmmoPct}%` }], { duration: 460, easing: 'ease' })
+    }
+  }
+}
+
+const makeSvgEl = (markup: string): SVGSVGElement | null => {
+  const box = document.createElement('div')
+  box.innerHTML = markup
+  return box.firstElementChild as SVGSVGElement | null
+}
+
+const launchFlyingShard = (
+  row: HTMLElement,
+  geo: HitGlassGeometry,
+  poly: GlassPolygon | null,
+  tier: HitGlassTier,
+  dx: number,
+  dy: number,
+  rot: number,
+  delayMs: number,
+  isOpp: boolean,
+) => {
+  if (!poly) return
+  const col = glassColorOf(tier, false)
+  const svg = makeSvgEl(
+    `<svg class="flying-shard" viewBox="0 0 ${geo.width} ${geo.height}" style="height:${geo.height}px;transform-origin:${isOpp ? geo.extraOrigin : geo.shardOrigin}"><polygon points="${polyPoints(poly)}" style="fill:var(--bg1);stroke:${col};stroke-width:1" opacity=".92"/></svg>`,
+  )
+  if (!svg) return
+  row.appendChild(svg)
+  svg
+    .animate(
+      [
+        { opacity: 1, transform: 'translate(0, 0) rotate(0deg)' },
+        { opacity: 0.9, transform: `translate(${(dx * 0.4).toFixed(1)}px, ${dy < 0 ? -5 : 4}px) rotate(${(rot * 0.35).toFixed(0)}deg)`, offset: 0.24 },
+        { opacity: 0, transform: `translate(${dx.toFixed(1)}px, ${Math.abs(dy).toFixed(1)}px) rotate(${rot.toFixed(0)}deg)` },
+      ],
+      { duration: tier === 'sunk' ? 620 : 480, delay: delayMs, easing: 'cubic-bezier(.22,.62,.36,1)', fill: 'forwards' },
+    )
+    .onfinish = () => svg.remove()
+}
+
+const scheduleAuraCleanup = (shipId: number, delayMs: number) => {
+  const prev = auraTimers.get(shipId)
+  if (prev) clearTimeout(prev)
+  auraTimers.set(
+    shipId,
+    setTimeout(() => {
+      auraTimers.delete(shipId)
+      const entry = transientAura.get(shipId)
+      if (entry && Date.now() >= entry.until) {
+        transientAura.delete(shipId)
+        pane?.querySelector<HTMLElement>(`.ship[data-ship="${shipId}"]`)?.removeAttribute('data-repair-aura')
+      }
+    }, delayMs),
+  )
+}
+
+const runPostRenderHitFx = (root: HTMLElement) => {
+  const shards = pendingShards.splice(0, pendingShards.length)
+  const repairs = [...pendingRepairFx.entries()]
+  pendingRepairFx.clear()
+  if (!shards.length && !repairs.length) return
+  if (document.visibilityState !== 'visible') return
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+  for (const [shipId, item] of repairs) {
+    if (item.event.kind === 'goddess') scheduleAuraCleanup(shipId, 4500)
+    else if (item.event.kind === 'dock') scheduleAuraCleanup(shipId, 2600)
+  }
+  if (reduced) return
+
+  for (const item of shards) {
+    const row = root.querySelector<HTMLElement>(`.ship[data-ship="${item.shipId}"]`)
+    if (!row) continue
+    const layers = hitGlassLayers(item.geo, item.tier)
+    if (item.tier === 'medium' || item.tier === 'heavy') {
+      launchFlyingShard(
+        row,
+        item.geo,
+        layers.shard,
+        item.tier,
+        20 + Math.random() * 14,
+        item.geo.topSide ? -28 : 26,
+        (item.geo.topSide ? 1 : -1) * 38,
+        0,
+        false,
+      )
+    } else if (item.tier === 'sunk') {
+      launchFlyingShard(
+        row,
+        item.geo,
+        layers.shard,
+        'sunk',
+        24,
+        item.geo.topSide ? 30 : -28,
+        (item.geo.topSide ? -1 : 1) * 48,
+        0,
+        true,
+      )
+      if (item.prevTier !== 'heavy') {
+        launchFlyingShard(
+          row,
+          item.geo,
+          layers.extraShard,
+          'sunk',
+          26,
+          item.geo.topSide ? -34 : 30,
+          (item.geo.topSide ? 1 : -1) * 52,
+          40,
+          false,
+        )
+      }
+    }
+  }
+
+  let akashiPulsed = false
+  for (const [shipId, item] of repairs) {
+    const row = root.querySelector<HTMLElement>(`.ship[data-ship="${shipId}"]`)
+    if (!row) continue
+    const { event, prevGeo, prevTier, prevSvg, prevFuelPct, prevAmmoPct, healedCrack } = item
+    const prevPct = event.max > 0 ? Math.max(0, Math.min(100, (event.before / event.max) * 100)) : 0
+    const nextPct = event.max > 0 ? Math.max(0, Math.min(100, (event.after / event.max) * 100)) : 100
+    const flash = row.querySelector<HTMLElement>('.fx-flash')
+    const sweep = row.querySelector<HTMLElement>('.fx-sweep')
+
+    if (event.kind === 'damecon') {
+      const hpBar = row.querySelector<HTMLElement>('.hpc .bar > i')
+      if (hpBar) {
+        hpBar.animate(
+          [
+            { width: `${prevPct}%` },
+            { width: '0%', offset: 0.28 },
+            { width: '0%', offset: 0.36 },
+            { width: `${nextPct}%` },
+          ],
+          { duration: 640, easing: 'cubic-bezier(.2,.82,.28,1)' },
+        )
+      }
+      row.animate(
+        [
+          { transform: 'translate3d(0,0,0)' },
+          { transform: 'translate3d(10px,1px,0) rotate(-.7deg)', offset: 0.22 },
+          { transform: 'translate3d(-7px,-.6px,0) rotate(.45deg)', offset: 0.55 },
+          { transform: 'translate3d(0,0,0)' },
+        ],
+        { duration: 260, easing: 'ease-out' },
+      )
+      if (flash) {
+        flash.style.background = 'linear-gradient(90deg, color-mix(in srgb, var(--bad) 55%, transparent), transparent 72%)'
+        flash.animate([{ opacity: 0 }, { opacity: 1, offset: 0.2 }, { opacity: 0 }], { duration: 220, easing: 'ease-out' })
+      }
+      setTimeout(() => {
+        if (!row.isConnected) return
+        if (flash) {
+          flash.style.background =
+            'linear-gradient(90deg, color-mix(in srgb, var(--hit-damecon) 62%, transparent), color-mix(in srgb, var(--hit-damecon) 34%, transparent) 52%, transparent)'
+          flash.animate([{ opacity: 0 }, { opacity: 1, offset: 0.14 }, { opacity: 0 }], { duration: 520, easing: 'ease-out' })
+        }
+        if (sweep) {
+          sweep.style.background =
+            'linear-gradient(90deg, transparent, color-mix(in srgb, var(--hit-damecon) 70%, transparent) 50%, transparent)'
+          sweep.animate(
+            [
+              { opacity: 1, transform: 'translateX(-85%) skewX(-20deg)' },
+              { opacity: 0, transform: 'translateX(118%) skewX(-20deg)' },
+            ],
+            { duration: 480, easing: 'cubic-bezier(.16,.84,.3,1)' },
+          )
+        }
+        spawnRowMotes(row, 8, 'var(--hit-damecon)', false)
+        spawnRowPop(row, '要员发动', 'var(--hit-damecon)')
+      }, 220)
+    } else if (event.kind === 'goddess') {
+      const hpBar = row.querySelector<HTMLElement>('.hpc .bar > i')
+      if (hpBar) {
+        hpBar.animate(
+          [
+            { width: `${prevPct}%` },
+            { width: '0%', offset: 0.26 },
+            { width: '0%', offset: 0.34 },
+            { width: '100%' },
+          ],
+          { duration: 640, easing: 'cubic-bezier(.2,.82,.28,1)' },
+        )
+      }
+      row.animate(
+        [
+          { transform: 'translate3d(0,0,0)' },
+          { transform: 'translate3d(9px,1px,0) rotate(-.6deg)', offset: 0.24 },
+          { transform: 'translate3d(0,0,0)' },
+        ],
+        { duration: 230, easing: 'ease-out' },
+      )
+      if (flash) {
+        flash.style.background = 'linear-gradient(90deg, color-mix(in srgb, var(--bad) 50%, transparent), transparent 70%)'
+        flash.animate([{ opacity: 0 }, { opacity: 1, offset: 0.2 }, { opacity: 0 }], { duration: 200, easing: 'ease-out' })
+      }
+      setTimeout(() => {
+        if (!row.isConnected) return
+        animateRowBars(row, 0, 100, prevFuelPct, 100, prevAmmoPct, 100)
+        if (prevGeo && prevTier !== 'none') {
+          const prevLayers = hitGlassLayers(prevGeo, prevTier)
+          const poly = prevLayers.cuts[0] ?? prevLayers.shard
+          if (poly) {
+            const dirY = prevGeo.topSide ? -22 : 22
+            const rot = prevGeo.topSide ? 42 : -42
+            const rev = makeSvgEl(
+              `<svg class="flying-shard" viewBox="0 0 ${prevGeo.width} ${prevGeo.height}" style="height:${prevGeo.height}px;transform-origin:${prevGeo.shardOrigin}"><polygon points="${polyPoints(poly)}" style="fill:var(--hit-goddess);stroke:var(--glow-shatter);stroke-width:1.4" opacity=".95"/></svg>`,
+            )
+            if (rev) {
+              row.appendChild(rev)
+              rev
+                .animate(
+                  [
+                    { opacity: 0, transform: `translate(28px, ${dirY}px) rotate(${rot}deg) scale(0.82)` },
+                    { opacity: 1, transform: `translate(6px, ${(dirY * 0.22).toFixed(1)}px) rotate(${(rot * 0.22).toFixed(1)}deg) scale(1.04)`, offset: 0.62 },
+                    { opacity: 0, transform: 'translate(0, 0) rotate(0deg) scale(1)' },
+                  ],
+                  { duration: 480, easing: 'cubic-bezier(.16,.84,.28,1)', fill: 'forwards' },
+                )
+                .onfinish = () => rev.remove()
+            }
+          }
+        }
+        const gh = row.querySelector<HTMLElement>('.glass-host')
+        if (prevSvg && gh) {
+          gh.dataset.glassGold = '1'
+          gh.innerHTML = prevSvg
+          gh
+            .animate([{ opacity: 1 }, { opacity: 0 }], { duration: 560, delay: 160, easing: 'ease-out', fill: 'forwards' })
+            .onfinish = () => {
+              gh.innerHTML = ''
+              delete gh.dataset.glassGold
+            }
+        }
+        if (flash) {
+          flash.style.background =
+            'radial-gradient(ellipse 80% 120% at 50% 50%, color-mix(in srgb, var(--hit-goddess) 72%, transparent), color-mix(in srgb, var(--hit-goddess) 28%, transparent) 55%, transparent 88%)'
+          flash.animate([{ opacity: 0 }, { opacity: 1, offset: 0.18 }, { opacity: 0 }], { duration: 720, easing: 'ease-out' })
+        }
+        if (sweep) {
+          sweep.style.background =
+            'linear-gradient(90deg, transparent, color-mix(in srgb, var(--hit-goddess) 82%, transparent) 50%, transparent)'
+          sweep.animate(
+            [
+              { opacity: 1, transform: 'translateX(-95%) skewX(-18deg)' },
+              { opacity: 0, transform: 'translateX(120%) skewX(-18deg)' },
+            ],
+            { duration: 680, easing: 'cubic-bezier(.16,.82,.26,1)' },
+          )
+        }
+        spawnRowMotes(row, 10, 'var(--hit-goddess)', true)
+        spawnRowPop(row, '女神发动', 'var(--hit-goddess)')
+      }, 210)
+    } else if (event.kind === 'dock') {
+      animateRowBars(row, prevPct, 100)
+      const gh = row.querySelector<HTMLElement>('.glass-host')
+      if (prevSvg && gh) {
+        gh.innerHTML = prevSvg
+        gh
+          .animate([{ opacity: 0.88 }, { opacity: 0 }], { duration: 500, easing: 'ease-out', fill: 'forwards' })
+          .onfinish = () => {
+            gh.innerHTML = ''
+          }
+      }
+      if (flash) {
+        flash.style.background =
+          'linear-gradient(90deg, color-mix(in srgb, var(--hit-aqua) 36%, transparent), color-mix(in srgb, var(--hit-aqua) 14%, transparent) 55%, transparent)'
+        flash.animate([{ opacity: 0 }, { opacity: 1, offset: 0.18 }, { opacity: 0 }], { duration: 540, easing: 'ease-out' })
+      }
+      if (sweep) {
+        sweep.style.background =
+          'linear-gradient(90deg, transparent, color-mix(in srgb, var(--hit-aqua) 58%, transparent) 48%, color-mix(in srgb, var(--hit-aqua) 28%, transparent) 65%, transparent)'
+        sweep.animate(
+          [
+            { opacity: 0.95, transform: 'translateX(-90%) skewX(-16deg)' },
+            { opacity: 0, transform: 'translateX(120%) skewX(-16deg)' },
+          ],
+          { duration: 640, easing: 'cubic-bezier(.18,.78,.28,1)' },
+        )
+      }
+      spawnRowMotes(row, 8, 'var(--hit-aqua)', false)
+      spawnRowPop(row, '入渠完成', 'var(--hit-aqua)')
+    } else if (event.kind === 'berth' || event.kind === 'anchorage') {
+      if (!akashiPulsed) {
+        akashiPulsed = true
+        const repairShipRow =
+          root.querySelector<HTMLElement>('.ship[data-berth-role="flag"]') ??
+          Array.from(root.querySelectorAll<HTMLElement>('.ship')).find((el) => {
+            const s = mg.ships[Number(el.dataset.ship)]
+            return Boolean(s?.slot.some((sid) => sid > 0 && mg.slotitems[sid]?.mstId === REPAIR_FACILITY_MST_ID))
+          })
+        if (repairShipRow) {
+          const rf = repairShipRow.querySelector<HTMLElement>('.fx-flash')
+          if (rf) {
+            rf.style.background =
+              'linear-gradient(90deg, color-mix(in srgb, var(--hit-akashi) 30%, transparent), transparent 65%)'
+            rf.animate([{ opacity: 0 }, { opacity: 1, offset: 0.2 }, { opacity: 0 }], { duration: 480, easing: 'ease-out' })
+          }
+          const repairShip = mg.ships[Number(repairShipRow.dataset.ship)]
+          const eqIcons = repairShipRow.querySelectorAll<HTMLElement>('.eq > *')
+          let pulseIndex = 0
+          repairShip?.slot.forEach((slotId, slotIdx) => {
+            if (slotId <= 0 || mg.slotitems[slotId]?.mstId !== REPAIR_FACILITY_MST_ID) return
+            const icon = eqIcons[slotIdx]
+            if (!icon) return
+            icon.animate(
+              [
+                { filter: 'brightness(1)', transform: 'scale(1)' },
+                { filter: 'brightness(1.45)', transform: 'scale(1.12)', offset: 0.4 },
+                { filter: 'brightness(1)', transform: 'scale(1)' },
+              ],
+              { duration: 420, delay: pulseIndex++ * 55, easing: 'ease-out' },
+            )
+          })
+        }
+      }
+      const bead = document.createElement('span')
+      bead.className = 'berth-bead'
+      row.appendChild(bead)
+      bead
+        .animate(
+          [
+            { opacity: 0, transform: 'translateY(-4px) scale(0.5)' },
+            { opacity: 1, transform: 'translateY(4px) scale(1.1)', offset: 0.35 },
+            { opacity: 0, transform: 'translateY(18px) scale(0.4)' },
+          ],
+          { duration: 460, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' },
+        )
+        .onfinish = () => bead.remove()
+
+      animateRowBars(row, prevPct, nextPct)
+      if (healedCrack && prevSvg) {
+        const gh = row.querySelector<HTMLElement>('.glass-host')
+        if (gh) {
+          gh.innerHTML = prevSvg
+          gh
+            .animate([{ opacity: 0.8 }, { opacity: 0 }], { duration: 460, easing: 'ease-out', fill: 'forwards' })
+            .onfinish = () => {
+              gh.innerHTML = ''
+            }
+        }
+      }
+      if (sweep) {
+        sweep.style.background =
+          'linear-gradient(90deg, transparent, color-mix(in srgb, var(--hit-akashi) 42%, transparent) 50%, transparent)'
+        sweep.animate(
+          [
+            { opacity: 0.9, transform: 'translateX(-85%) skewX(-18deg)' },
+            { opacity: 0, transform: 'translateX(115%) skewX(-18deg)' },
+          ],
+          { duration: 620, easing: 'cubic-bezier(.2,.7,.3,1)' },
+        )
+      }
+      const gain = Math.max(1, Math.round(event.after - event.before))
+      spawnRowMotes(row, event.after >= event.max ? 8 : 5, 'var(--hit-akashi)', false)
+      spawnRowPop(row, `+${gain} 泊修`, 'var(--hit-akashi)')
+    }
+  }
 }
 
 // ---- デッキビルダー v4 互通（审计 C5）----
@@ -3474,6 +4330,16 @@ const render = (force = false) => {
       ? null
       : mg.decks.find((d) => d.id === activeFleetId)!
 
+  measureFleetRowSize()
+  if (deck && !sandboxActive) observeFleetHits(deck)
+  else {
+    pendingHitShakes.clear()
+    pendingShards.length = 0
+    pendingRepairFx.clear()
+    berthFxFlagIds.clear()
+    berthFxRepairIds.clear()
+  }
+
   // 输出没变就整段不动 DOM（口径见 kernel commitPaneHtml）
   const html = `<div class="ru-app">
       <div class="main">
@@ -3513,6 +4379,7 @@ const render = (force = false) => {
   foldMetrics(pane)
   foldProcRates(pane)
   refreshMetricsFoldCard()
+  if (hitShakeEnabled()) runPostRenderHitFx(pane)
 }
 
 const tickTimers = () => {
@@ -3569,7 +4436,7 @@ registerModule({
   order: 2,
   mount(el) {
     pane = el
-    for (const key of ['ru.sandbox', 'ship.personal.v1']) onUiPreferenceChange(key, scheduleRender)
+    for (const key of ['ru.sandbox', 'ship.personal.v1', 'kuma.fleetStateTone', 'kuma.hitShake']) onUiPreferenceChange(key, scheduleRender)
     pane.classList.add('fleet-skin')
     if (!los33TipRegistered) {
       registerTipBody('los33', los33TipBodyHtml)
@@ -3614,6 +4481,14 @@ registerModule({
       foldMetrics(pane)
       // 展开着的行里那排发动概率同理：坞一变窄，平铺态就该缩成一枚
       foldProcRates(pane)
+      if (hitShakeEnabled()) {
+        const sample = pane.querySelector<HTMLElement>('.ships .ship')
+        const w = sample ? Math.round(sample.clientWidth) : 0
+        if (w >= 280 && Math.abs(w - cachedRowWidth) >= 2) {
+          cachedRowWidth = w
+          deferPassive(pane, 'ru', render)
+        }
+      }
     })
     paneResize.observe(pane)
     // 装配作用域退订：重试装配时不断开，旧 observer 会一直对着废弃的 pane 开工

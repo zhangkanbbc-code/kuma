@@ -347,6 +347,18 @@ export const isEscapedInSortie = (rosterId: number): boolean => !!escapedInSorti
 let sunkEffectsOn = Boolean(kernelConfig.get('kuma.sunkEffects', true))
 export const sunkEffectsEnabled = () => sunkEffectsOn
 
+let fleetStateToneOn = Boolean(kernelConfig.get('kuma.fleetStateTone', false))
+export const fleetStateToneEnabled = () => fleetStateToneOn
+subscribeUiPreference('kuma.fleetStateTone', () => {
+  fleetStateToneOn = Boolean(kernelConfig.get('kuma.fleetStateTone', false))
+})
+
+let hitShakeOn = Boolean(kernelConfig.get('kuma.hitShake', false))
+export const hitShakeEnabled = () => hitShakeOn
+subscribeUiPreference('kuma.hitShake', () => {
+  hitShakeOn = Boolean(kernelConfig.get('kuma.hitShake', false))
+})
+
 /** 失色只挂在kuma自己的外壳上；游戏画面容器不在名单里（CSS 侧逐个列出）。 */
 const syncMourning = () => {
   document.body.classList.toggle('kuma-mourning', sunkEffectsOn && sortieSunkShips().length > 0)
