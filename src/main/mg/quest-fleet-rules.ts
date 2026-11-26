@@ -654,8 +654,10 @@ const FORM_ABBREV_PAREN = /^[」』】”]*[（(]\s*(?:或|含|或者)?\s*([一-
  * **「或」也在其中**：F103 的 memo2「以山風改二/丁**或**時雨改二為秘書艦」里，
  * 斜杠后面按最长四字量出来的是「丁或時雨」，把二选一的另一半整个吞进省写段，
  * 门就只剩山風改二一支——时雨改二当秘书舰会被拦下，硬伤方向。
+ * **「中」「之」「其」同理**：C75 的 memo2「白露/有明/夕暮中的任意一位」按最长四字
+ * 量出来是「夕暮中」，名单收尾的「中」被吞进省写段，标签就成了「有明/夕暮中」。
  */
-const NOT_A_FORM = /[旗僚舰艦队隊号位的了在与和或者及]/
+const NOT_A_FORM = /[旗僚舰艦队隊号位的了在与和或者及中之其]/
 
 /**
  * 把 `rest` 开头那段「省写形态」量出来：先按最长试，越界的字（旗/僚/舰…）一出现就缩短；
@@ -923,6 +925,30 @@ const PLACE_LIKE = /\d\s*-\s*\d|海域|近海|沿岸|方面|泊地|环礁|環礁
 /** 这个原子指的是具体的舰（具名舰或舰级），而不是一整个舰种 */
 const isNamed = (atom: Atom): boolean => atom.ships.length > 0 || atom.ctypes.length > 0
 
+/**
+ * 「凤翔改二/战」「三隈改二/改二特」「龙凤改二（含改二戊）」：斜杠或括号后面那截是
+ * 省写的另一个形态，索引里查不到。只认写明的形态就会把「凤翔改二战」「龙凤改二戊」
+ * 拦下——门变严，硬伤方向。见到这种收尾就放宽到后继形态。
+ * 队名组不放宽形态：成员的形态语义由注册表逐条写死（素名整链 / 写明形态只认列举），
+ * 再按后继形态放宽等于绕开那份口径做结构推断（一之一）。
+ * 普通原子与「名单里凑 N 艘」的凑数组共用这一条：2611Cw3（#369）的
+ * 「“时雨改二/改三”」落在凑数组里，曾只认改二，时雨改三被拦下。
+ */
+const hitWidensForm = (hits: EntityHit[], index: number, folded: string): boolean => {
+  const hit = hits[index]
+  if (!hit.ships.length || hit.squad) return false
+  if (hit.abbrev) return true
+  const next = hits.slice(index + 1).find((other) => !other.noise)
+  return /^[（(]/.test(folded.slice(hit.end)) && !(next && next.start <= hit.end + 2)
+}
+
+/** 省写形态那一截并进舰名的标签与跨度（「时雨改二/改三」整段，不只「时雨改二」） */
+const hitSpanEnd = (hits: EntityHit[], index: number): number => {
+  const hit = hits[index]
+  const tail = hit.abbrev ? hits[index + 1] : undefined
+  return tail?.noise ? tail.end : hit.end
+}
+
 /** 一句里扫出全部舰种原子。最长匹配，扫到就整体跳过——「轻巡洋舰」不会退化成「轻巡」。 */
 const readClause = (clause: string, ctx: FleetRuleContext, squad: SquadResolve): ClauseRead => {
   const blank: ClauseRead = { atoms: [], blocked: false, blockedByOr: false, unread: false }
@@ -972,14 +998,23 @@ const readClause = (clause: string, ctx: FleetRuleContext, squad: SquadResolve):
       return { atoms: [], blocked: true, blockedByOr: false, unread: strongOf(clause) }
     }
     const first = namedHits[0]
-    const last = namedHits[namedHits.length - 1]
+    const named = namedHits.map((hit) => {
+      const index = hits.indexOf(hit)
+      return {
+        hit,
+        end: hitSpanEnd(hits, index),
+        ships: hitWidensForm(hits, index, folded)
+          ? [...hit.ships, ...hit.ships.flatMap((mstId) => ctx.laterForms(mstId))]
+          : hit.ships,
+      }
+    })
     return {
       atoms: [{
-        label: namedHits
-          .map((hit) => clause.slice(hit.start, hit.end).replace(/[「」『』【】“”"']/g, ''))
+        label: named
+          .map(({ hit, end }) => clause.slice(hit.start, end).replace(/[「」『』【】“”"']/g, ''))
           .join('/'),
         tokens: namedHits.map((hit) => folded.slice(hit.start, hit.end)),
-        ships: [...new Set(namedHits.flatMap((hit) => hit.ships))],
+        ships: [...new Set(named.flatMap(({ ships }) => ships))],
         ctypes: [...new Set(namedHits.flatMap((hit) => hit.ctypes ?? []))],
         stypes: [],
         amount: chosen,
@@ -993,7 +1028,7 @@ const readClause = (clause: string, ctx: FleetRuleContext, squad: SquadResolve):
         squadApprox: namedHits.some((hit) => hit.squadApprox),
         widen: false,
         start: first.start,
-        end: last.end,
+        end: named[named.length - 1].end,
       }],
       blocked: false,
       blockedByOr: false,
@@ -1025,19 +1060,11 @@ const readClause = (clause: string, ctx: FleetRuleContext, squad: SquadResolve):
     if (hit.stypes.length && NOT_A_STYPE_SUFFIX.test(rest)) return
     // 「敌驱逐舰」「深海栖舰」不是自军编成要求
     if (ENEMY_PREFIX.test(folded.slice(Math.max(0, hit.start - 2), hit.start))) return
-    // 「凤翔改二/战」「三隈改二/改二特」「龙凤改二（含改二戊）」：斜杠或括号后面那截是
-    // 省写的另一个形态，索引里查不到。只认写明的形态就会把「凤翔改二战」「龙凤改二戊」
-    // 拦下——门变严，硬伤方向。见到这种收尾就放宽到后继形态。
-    const next = hits.slice(index + 1).find((other) => !other.noise)
-    // 队名组不放宽形态：成员的形态语义由注册表逐条写死（素名整链 / 写明形态只认列举），
-    // 再按后继形态放宽等于绕开那份口径做结构推断（一之一）。
-    const widen = Boolean(hit.ships.length) && !hit.squad && (
-      hit.abbrev || (/^[（(]/.test(rest) && !(next && next.start <= hit.end + 2))
-    )
+    // 省写形态放宽到后继形态：口径见 hitWidensForm。
+    const widen = hitWidensForm(hits, index, folded)
     // 省写形态那一截并进这个原子：留在外面的话，「凤翔改二**/战**旗舰+3驱逐舰」
     // 里的斜杠会被后面的「组间或」判定当成二选一，把整条门作废（C70/B190 实测）。
-    const tail = hit.abbrev ? hits[index + 1] : undefined
-    const end = tail?.noise ? tail.end : hit.end
+    const end = hitSpanEnd(hits, index)
     atoms.push({
       label: clause.slice(hit.start, end).replace(/[「」『』【】“”"']/g, ''),
       tokens: [folded.slice(hit.start, hit.end)],
@@ -1310,7 +1337,9 @@ const readText = (raw: string, ctx: FleetRuleContext, squad: SquadResolve): Text
       atom !== heap && !atom.flagship && (atom.ships.length > 0 || atom.ctypes.length > 0)
     for (const atom of collected) {
       if (!mergeable(atom)) continue
-      heap.ships = [...new Set([...heap.ships, ...atom.ships])]
+      // 并进来的原子带着自己的省写放宽（「高波改/改二」这类）：并入后组上不再有 widen，
+      // 这里不展开就把那截形态丢了。凑数组自己的成员在 readClause 里已按舰名逐个放宽。
+      heap.ships = [...new Set([...heap.ships, ...shipsOfAtom(atom, ctx)])]
       heap.ctypes = [...new Set([...heap.ctypes, ...atom.ctypes])]
       heap.label += `/${atom.label}`
       if (atom.chosen) heap.amount = Math.min(heap.amount, atom.amount)

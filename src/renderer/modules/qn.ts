@@ -110,6 +110,7 @@ import type { QuestMark } from '../../shared/quest-emphasis'
 import {
   allowTaskEquipTypeAlias,
   allowTaskShipAlias,
+  isTaskDialogueOnlyMention,
   allowTaskShipTypeAlias,
   excludeTaskHitsCoveredByAliases,
   hasUncoveredTaskPhrase,
@@ -1272,6 +1273,8 @@ const entityChipsHtml = (row: QRow) => {
     allowQuotedSingle: true,
     acceptAlias: (candidate) =>
       allowTaskShipAlias(candidate) &&
+      // 台词里点到的舰名不是要求（2611B2「飞龙，就在海上！」），只在这份「涉及」清单里不列，正文高亮照旧
+      !isTaskDialogueOnlyMention(candidate) &&
       !mapHits.some((mapHit) => rangesOverlap(candidate, mapHit)) &&
       !nationalityRanges.some((nationalityHit) => rangesOverlap(candidate, nationalityHit)) &&
       !equipHits.some((equipHit) => rangesOverlap(candidate, equipHit)),
@@ -1773,7 +1776,11 @@ const qpDetailHtml = (row: QRow): string => {
                   const label = group?.stypes.length > 0 && !(Array.isArray(group.ships) && group.ships.length)
                     ? elinkHtml('shipTypeGroup', group.stypes.join(','), esc(line.label))
                     : esc(line.label)
-                  return `${label} ${line.current}/${line.required}${line.ok ? ' ✓' : ` · ${esc(line.issue ?? '未满足')}`}`
+                  // 「还差 N 艘「标签」」在这里紧跟着标签本身，名单长的任务（2611Cw3 十三个名字）
+                  // 会把整串名单印两遍；这一格只留「还差 N 艘」。编队面板的提示不带标签，原句照用。
+                  const shortfall = `还差 ${Math.max(0, line.required - line.current)} 艘`
+                  const issue = line.issue === `${shortfall}「${line.label}」` ? shortfall : line.issue ?? '未满足'
+                  return `${label} ${line.current}/${line.required}${line.ok ? ' ✓' : ` · ${esc(issue)}`}`
                 }).join('；')
                 const selectedLabel = selectedGoal.groups
                   .filter((group) => group.amount > 0)

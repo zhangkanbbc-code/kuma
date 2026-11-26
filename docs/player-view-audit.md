@@ -21,7 +21,7 @@
 本单只建立比较与发布护栏；不改上游包、玩家文案及生产取舍。白名单登记的是本次有限存量，只有日文带路附有施工单给定的明确“不做”裁决，其余仍是待维护的数据差异；不得把护栏绿解读为已经补齐。
 
 运行：`npm run audit:player-view`。需要机器可读全量差异时：`npm run audit:player-view -- --json=<绝对临时文件路径>`。
-来源目录默认 `%APPDATA%/kuma`，新目录不存在时回退到已有的 `%APPDATA%/kanso`；可用 `KUMA_DATA_DIR` 指向另一份资料目录，旧名 `KANSO_DATA_DIR` 同样可用，新名优先（显式空串也屏蔽旧名）；维护者文件只读。
+来源目录默认 `%APPDATA%/kuma`；可用 `KUMA_DATA_DIR` 指向另一份资料目录（设成空串等于没设）；维护者文件只读。
 脚本不启动 Electron、不联网、不打开窗口、不读写玩家游戏报文。
 
 装配直接执行 `src/main/lode.ts` 的 `loadAll(sources)`，玩家侧只扫描打包白名单文件；

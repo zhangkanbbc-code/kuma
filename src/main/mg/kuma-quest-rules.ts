@@ -1015,6 +1015,17 @@ const DRAFTS: RuleDraft[] = [
       },
     }),
   },
+  // ---- 秋刀鱼祭 2026：秋刀鱼捕捞（2611B1～B3）----
+  // memo2「需要持有N条秋刀鱼（完成后不会消耗秋刀鱼）」：游戏只看持有数，
+  // 捕捞本身没有可计数的报文，所以整条只有持有条件，持有条件满足即整条满足（不标 partial）。
+  ...([[866, '2611B1', 8], [867, '2611B2', 16], [868, '2611B3', 27]] as const).map(([questId, code, count]): RuleDraft => ({
+    questId,
+    code,
+    build: (h) => ({
+      tasks: [],
+      stockGoals: [{ kind: 'useitem', id: h.useitem('秋刀魚'), label: '秋刀鱼', count }],
+    }),
+  })),
   // ---- 工厂 / 装备 ----
   {
     // memo：Ark Royal 秘书舰，一号格 ★max Swordfish；废弃 Swordfish×1、Fulmar×2；

@@ -105,13 +105,17 @@ test('舰娘离队后再回来按首次见到处理，不拿离队前的血量�
 test('有动画参数时，行挂 data-hit 与 --hit-shake / --hit-glitch / --hit-shatter / --hp-from', () => {
   reset({ names: { 1: '吹雪' } })
   setHitShake({
-    5: { shake: 0.6, glitch: 0.3, shatter: 0.2, from: 100, to: 62.5, dmg: 15, severity: 3, crossedTier: true, glitchBurst: false, ghostDurMs: 720 },
+    5: { shake: 0.6, glitch: 0.3, shatter: 0.2, from: 100, to: 62.5, dmg: 15, severity: 3, crossedTier: true, glitchBurst: false, ghostAtMs: 420, ghostDurMs: 740, stampAtMs: 1140, stampMs: 320, popMs: 1000, totalMs: 1460 },
   })
   const html = flat(renderRow({ id: 5, shipId: 1, nowhp: 25 }))
   const row = html.match(/<div class="ship[^"]*"[^>]*>/)?.[0] ?? ''
   assert.match(row, /\sdata-hit(?:="[^"]*")?[\s>]/)
   for (const [name, value] of [['--hit-shake', '0.6'], ['--hit-glitch', '0.3'], ['--hit-shatter', '0.2'], ['--hp-from', '100%']]) {
     assert.match(row, new RegExp(`${name}:\\s*${value.replace('.', '\\.')}`), `${name} 没挂到行上：${row}`)
+  }
+  // 各步错开留一口气（2026-11-26）：残影起点与时长、盖章时刻与时长、跳字时长都从被弹参数挂到行上
+  for (const [name, value] of [['--ghost-at', '420ms'], ['--ghost-dur', '740ms'], ['--hit-stamp-at', '1140ms'], ['--hit-stamp', '320ms'], ['--hit-pop', '1000ms']]) {
+    assert.ok(row.includes(`${name}:${value}`), `${name} 没挂到行上：${row}`)
   }
 })
 
@@ -189,7 +193,7 @@ test('编队行：有裂纹时挂 data-crack="<档位>" 与随机几何变量，
 test('被弹动画与常驻裂纹可同时挂在一行上，只有一个 style 属性', () => {
   reset({ names: { 1: '吹雪' } })
   setHitShake({
-    5: { shake: 0.7, glitch: 0.6, shatter: 0.5, from: 50, to: 25, dmg: 10, severity: 4, crossedTier: true, glitchBurst: true, ghostDurMs: 880 },
+    5: { shake: 0.7, glitch: 0.6, shatter: 0.5, from: 50, to: 25, dmg: 10, severity: 4, crossedTier: true, glitchBurst: true, ghostAtMs: 500, ghostDurMs: 860, stampAtMs: 1340, stampMs: 320, popMs: 1000, totalMs: 1660 },
   })
   setHitCrack({ 5: 'heavy' })
   setHitFracture({ 5: glassVars(5, 1) })
@@ -324,4 +328,53 @@ test('开关关着时不改原有样式：行骨架、舰列与击沉演出的�
     '@keyframes ru-shatter-in': '@keyframes ru-shatter-in { 0% { transform: translateX(0); filter: brightness(1.5) contrast(1.06); } 18% { transform: translateX(-3px); } 34% { transform: translateX(2px); } 52% { transform: translateX(-1px); } 100% { transform: none; filter: brightness(.72) contrast(1.06); } }',
   }
   for (const [head, expected] of Object.entries(ORIGINAL)) assert.equal(block(head), expected, head)
+})
+
+// ---- 节拍：各步错开留一口气（2026-11-26 他要「略微拉长…每个步骤之间有呼吸的间隙」） ----
+
+test('被弹节拍：冲击照旧，残影等主峰过去再降，盖章在残影降完后再停一口气，整段时长覆盖到最后一步', () => {
+  const { hitShakeParams } = hitModule()
+  const timing = require(path.join(ROOT, 'dist', 'shared', 'fleet-fx-timing.js'))
+  const { FX_BREATH, HIT_FX } = timing
+  // 40 → 15/40：跨进大破（sev 4）
+  const heavy = hitShakeParams({ before: 40, after: 9, max: 40 })
+  assert.equal(heavy.severity, 4)
+  assert.deepEqual([heavy.ghostAtMs, heavy.ghostDurMs, heavy.stampAtMs, heavy.stampMs, heavy.popMs, heavy.totalMs], [500, 860, 1340, 320, 1000, 1660])
+  for (const before of [40, 36, 30, 22]) {
+    const p = hitShakeParams({ before, after: before - 6, max: 40 })
+    const s = p.severity
+    // 大幅摆动在震动的前 40%（ru-hit-shake-3/4 关键帧 30%/38%），之后只剩余颤
+    assert.equal(p.ghostAtMs >= Math.round(HIT_FX.impact[s] * 0.4) + FX_BREATH, true, `sev ${s}：残影要等冲击主峰过去再喘口气`)
+    assert.equal(p.stampAtMs, p.ghostAtMs + HIT_FX.drainDur[s] + FX_BREATH, `sev ${s}：盖章在残影降完后再停一口气`)
+    const lastStep = Math.max(p.ghostAtMs + p.ghostDurMs, p.popMs, HIT_FX.shard, p.crossedTier ? p.stampAtMs + p.stampMs : 0)
+    assert.equal(p.totalMs >= lastStep, true, `sev ${s}：整段时长要覆盖最后一步，重画续挂才不会提前撤`)
+  }
+})
+
+test('修理节拍：每种都是起势 → 喘口气 → 修复 → 再喘口气报飘字，整段时长覆盖飘字', () => {
+  const { FX_BREATH, REPAIR_FX, repairFxTotal } = require(path.join(ROOT, 'dist', 'shared', 'fleet-fx-timing.js'))
+  const D = REPAIR_FX.damecon, G = REPAIR_FX.goddess, K = REPAIR_FX.dock, B = REPAIR_FX.berth
+  assert.equal(D.weldAt - D.impact, FX_BREATH, '要员：濒沉震颤过后喘口气再焊光')
+  assert.equal(D.popAt - D.weldAt, FX_BREATH)
+  assert.equal(G.reviveAt - G.impact, FX_BREATH, '女神：濒沉震颤过后喘口气再圣金拉满')
+  assert.equal(G.popAt - G.reviveAt, FX_BREATH)
+  assert.equal(K.barAt - K.washAt, FX_BREATH * 2, '入渠：扫波洗净旧裂纹之后血条再涨')
+  assert.equal(K.popAt, K.barAt + K.rise, '入渠：涨满再报「入渠完成」')
+  assert.equal(B.beadAt, FX_BREATH, '泊修：工作舰微闪后喘口气，光珠再落')
+  assert.equal(B.popAt > B.barAt, true)
+  for (const kind of ['damecon', 'goddess', 'dock', 'berth', 'anchorage']) {
+    const popAt = REPAIR_FX[kind === 'anchorage' ? 'berth' : kind].popAt
+    assert.equal(repairFxTotal(kind), popAt + REPAIR_FX.pop, kind)
+  }
+})
+
+test('被弹样式按节拍变量错开：残影、盖章、故障爆闪都带起点延迟，盖章前不先露字', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'src/renderer/index.html'), 'utf8')
+  assert.match(css, /animation: ru-hp-ghost var\(--ghost-dur, 620ms\) cubic-bezier\(\.22, 1, \.36, 1\) var\(--ghost-at, 0ms\) both;/)
+  assert.match(css, /animation: ru-st-stamp var\(--hit-stamp, 320ms\) cubic-bezier\(\.2, \.8, \.2, 1\) var\(--hit-stamp-at, 0ms\) both;/)
+  assert.match(css, /ru-glitch-burst-bars 320ms steps\(1, end\) var\(--hit-stamp-at, 0ms\) 1,/)
+  assert.match(css, /ru-glitch-burst-text 320ms steps\(1, end\) var\(--hit-stamp-at, 0ms\) 1,/)
+  assert.match(css, /animation: ru-dmg-pop var\(--hit-pop, 1000ms\) ease-out both;/)
+  // 延迟期间停在第一帧：盖章第一帧必须透明，新档的字才不会先露出来
+  assert.match(css, /@keyframes ru-st-stamp \{[^}]*?0% \{ transform: scale\(1\.48\); opacity: 0; \}/)
 })

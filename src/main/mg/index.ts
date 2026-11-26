@@ -35,6 +35,7 @@ import { questAnnualMonth, questPeriodFromCode } from '../../shared/quest-period
 import type { QuestPeriodKind } from '../../shared/quest-period'
 import { onQuestApi, reconcileQuestProgress } from './quest-counter-host'
 import { buildPowerupResultCue } from './powerup-result'
+import { acquiredShipsOf, type ShipAcquiredCue } from '../../shared/ship-acquired'
 import { onShipLifeApi, primeShipLife } from './ship-life'
 import * as store from './store'
 import {
@@ -251,6 +252,13 @@ const broadcastGameScene = (scene: 'mission' | 'away') => {
 const broadcastPowerupResult = (result: PowerupResultCue) => {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send('mg:powerup-result', result)
+  }
+}
+
+// 任务奖励与战斗掉落只给图鉴号，舰娘要等回港的舰娘列表才进账；新舰入库据此当场提醒（见 shared/ship-acquired）
+const broadcastShipAcquired = (cue: ShipAcquiredCue) => {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send('mg:ship-acquired', cue)
   }
 }
 
@@ -563,6 +571,8 @@ const handleEvent = (
   }
   broadcast(sections)
   if (powerupResult) broadcastPowerupResult(powerupResult)
+  const acquiredShips = acquiredShipsOf(apiPath, body)
+  if (acquiredShips.length) broadcastShipAcquired({ ts, mstIds: acquiredShips })
   // cue 排在 broadcast 之后：横幅上要写的舰名与它跳过去看到的那一行，
   // 必须已经是结婚后的状态。抢在状态落地前发，点进去看到的还是婚前那份。
   if (apiPath === MARRIAGE_PATH) {

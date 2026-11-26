@@ -360,7 +360,8 @@ test('both ship-life battle buttons open the shared replay window without routin
   assert.equal(life.match(/data-battle=/g)?.length, 2)
   assert.match(life, /openBattleReplayWindow\(snapshotId\)/)
   assert.doesNotMatch(life, /openBattleInMainWindow/)
-  assert.match(kernel, /openBattleReplayWindow[\s\S]*?ipcRenderer\.invoke\('window:battle-replay', snapshotId\)/)
+  // 2026-11-26 起可带 view（直达动画复盘）；不带时照旧只传快照 id，形状见 shared/battle-replay-request
+  assert.match(kernel, /openBattleReplayWindow[\s\S]*?ipcRenderer\.invoke\('window:battle-replay', view \? \{ snapshotId, view \} : snapshotId\)/)
   assert.match(life, /title="打开本战复盘"/)
 })
 
@@ -459,10 +460,11 @@ test('main process owns one replay window on the sender display and leaves the l
   assert.match(open, /screen\.getDisplayMatching\(senderBounds\)/)
   assert.match(open, /workArea\.width - width/)
   assert.match(open, /workArea\.height - height/)
-  assert.match(open, /webContents\.send\('battle-replay:open', snapshotId\)/)
+  assert.match(open, /const request = parseBattleReplayRequest\(rawRequest\)/)
+  assert.match(open, /webContents\.send\('battle-replay:open', request\)/)
   assert.match(open, /battleReplayWindow\.focus\(\)/)
   assert.match(open, /if \(battleReplayReady\)/)
-  assert.match(open, /if \(battleReplaySnapshotId !== snapshotId\)/)
+  assert.match(open, /if \(battleReplaySnapshotId !== snapshotId \|\| battleReplayView !== view\)/)
   assert.doesNotMatch(open, /mainWindow/)
   assert.equal(open.match(/new BrowserWindow\(/g)?.length, 1)
   assert.match(main, /ipcMain\.handle\('window:battle-replay'/)
@@ -488,7 +490,8 @@ test('standalone replay keeps one root, swaps snapshots in place, and pins the m
     page.indexOf("ipcRenderer.on('battle-replay:open'") < page.indexOf('const start = async'),
     '换片监听必须在异步初始化前就登记，启动期连点不能丢',
   )
-  assert.match(page, /pendingSnapshotId = id/)
+  assert.match(page, /const request = parseBattleReplayRequest\(raw\)/)
+  assert.match(page, /pendingSnapshotId = request\.snapshotId/)
   assert.match(page, /readyToLoad = true\s*void loadSnapshot\(pendingSnapshotId\)/)
   assert.match(page, /const missingText = '暂无这一场的复盘记录'/)
   assert.match(page, /const loadingText = '复盘读取中'/)

@@ -1,5 +1,6 @@
 // 把镝（di.ts）的**战型分类那一段**原样切出来真编译一遍：
-// `isDamageOnlyBattle` / `isDayFlowBattle` / `battleTypeLabel` / `battleForecastLead`。
+// `battleTypeLabel` / `battleForecastLead`；它们引用的 `isDamageOnlyBattle` / `isDayFlowBattle`
+// 2026-11-26 起在 shared/battle-flow（动画复盘共用），这里直接引真的那一份，不补桩。
 //
 // 手法与同目录的 render-di-battle.mjs、render-di-heading.mjs 相同：源码一个字不改，
 // 引用到的外部名字在这里补桩。**不用正则钉源码文本**——加一档时漏了某一路分支、
@@ -19,18 +20,20 @@ import { buildSync } from 'esbuild'
 const ROOT = fileURLToPath(new URL('../..', import.meta.url))
 const source = fs.readFileSync(path.join(ROOT, 'src', 'renderer', 'modules', 'di.ts'), 'utf8')
 
-// 从「只算我方损害率」那条判据的头注切起，切到下一个函数为止：
-// 四个函数是连着的一段，中间的注释一并带走。
-const start = source.indexOf('// 「只算我方损害率」的节点')
-const end = source.indexOf('const battleUsesEngagement =', start)
+// 从指向 shared/battle-flow 的那条头注切起，切到下一个函数为止：
+// battleTypeLabel 与 battleForecastLead 是连着的一段，中间的注释一并带走。
+const start = source.indexOf('// isDamageOnlyBattle / isDayFlowBattle / battleUsesEngagement 的判据与出处见 shared/battle-flow')
+const end = source.indexOf('const actualEngagementText =', start)
 assert.ok(
   start >= 0 && end > start,
-  'di.ts 里找不到战型分类那一段（isDamageOnlyBattle…battleForecastLead），这条守卫的锚点要跟着改',
+  'di.ts 里找不到战型分类那一段（battleTypeLabel…battleForecastLead），这条守卫的锚点要跟着改',
 )
 const SECTION = source.slice(start, end)
+const BATTLE_FLOW = path.join(ROOT, 'src', 'shared', 'battle-flow.ts').replace(/\\/g, '/')
 
 const HARNESS = `
 type BattleView = any
+import { isDamageOnlyBattle, isDayFlowBattle } from '${BATTLE_FLOW}'
 
 ${SECTION}
 

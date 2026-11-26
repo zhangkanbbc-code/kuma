@@ -63,6 +63,14 @@ const maintainerRows = [
   { edge: '119→1071', stage: 'first', site: 'maintainer', basis: 'maintainer',
     materials: { 'useitem:104': 5, 'useitem:2': 550, 'useitem:3': 55 },
     evidence: '公开游戏改装画面（2026-09-10 核）显示 北上改二→北上改三：改装設計図2／新型兵装資材3／工廠資源5／高速建造材550／開発資材55／弾薬1500／鋼材2500', date: '2026-09-10' },
+  // 宗谷三形态循环（特務艦→灯台補給船→南極観測船→特務艦）。百科模块两条图纸串不分档，
+  // 循环边不猜档而落 unknown；维护者亲历的初次改装定档，数值与百科模块同值。
+  { edge: '645→650', stage: 'first', site: 'maintainer', basis: 'maintainer',
+    materials: { 'useitem:2': 10, 'useitem:3': 20 },
+    evidence: '维护者实测改装（2026-11-26）：灯台補給船→南極観測船 初次，改造后资材刷新差额 高速建造材10／開発資材20／鋼材700', date: '2026-11-26' },
+  { edge: '650→699', stage: 'first', site: 'maintainer', basis: 'maintainer',
+    materials: { 'useitem:2': 5 },
+    evidence: '公开游戏改装画面（2026-11-26 核）显示 南極観測船→特務艦 初次：高速建造材5／弾薬130／鋼材280，无其他素材', date: '2026-11-26' },
 ]
 pageRows.push(...maintainerRows)
 const result = reconcileStagedRemodel(kc, wiki, raw, pages['改造'].text, supplements, [], pageRows)
@@ -116,7 +124,11 @@ const report = `# 改造素材结构分档核对（2026-09-07）
 
 2026-09-10 维护新增边登记：起点a923ce11550f44fcdec0bb1a5dab571646be7c69，工作树干净；测试基线4614、skipped 0。按公开游戏改装画面登记以下三条first事实，仅收API没有字段的工廠資源、高速建造材、開発資材；API显式素材仍由主数据提供。三个目标均无回程，不登记convert或确认无空档。既有222条边的值保留；重生成时，新主数据另使25→58、58→119按既有三源规则确认first无特殊素材，证据逐边列于下表。当前事实${Object.keys(pack.data).length}条，first ${Object.values(pack.data).filter(r => r.stages.first).length}条、convert ${Object.values(pack.data).filter(r => r.stages.convert).length}条，循环内first ${firstCycles}条；确认无共${result.confirmedNone.length}边/档，first ${result.confirmedNone.filter(r => r.stage === 'first').length}、convert ${result.confirmedNone.filter(r => r.stage === 'convert').length}。旧555边消费基线与循环单向进入23边62格的范围不变，新增终点边单独复验，运行时扶桑／山城各4项、北上5项。
 
-${table(['边', '档', '来源依据', '日期', '登记素材', '公开游戏改装画面原文'], maintainerRows.map(r => [r.edge, r.stage, r.basis, r.date, JSON.stringify(r.materials), r.evidence]))}
+${table(['边', '档', '来源依据', '日期', '登记素材', '公开游戏改装画面原文'], maintainerRows.filter(r => r.date === '2026-09-10').map(r => [r.edge, r.stage, r.basis, r.date, JSON.stringify(r.materials), r.evidence]))}
+
+2026-11-26 宗谷循环两边登记：百科页面缓存已清，按原 UA 与逐页 1.5 秒重抓舰娘百科 28 页（多数页面 2026-11-12 改版，原文护栏全部通过）。宗谷三形态循环中 645→650、650→699 的百科模块图纸串不分档，原先按「循环边不猜档」落 unknown；维护者亲历两次初次改装定档为 first，数值与百科模块同值，往复档仍缺。同次重生成另由新主数据按既有三源规则确认 54→222、222→158、61→264、480→391 的 first 与 883→888 的 convert 无特殊素材。
+
+${table(['边', '档', '来源依据', '日期', '登记素材', '证据原文'], maintainerRows.filter(r => r.date === '2026-11-26').map(r => [r.edge, r.stage, r.basis, r.date, JSON.stringify(r.materials), r.evidence]))}
 
 ## 确认无特殊素材
 

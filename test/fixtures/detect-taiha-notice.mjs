@@ -49,8 +49,10 @@ const MAP_ID = path.join(ROOT, 'src', 'shared', 'map-id.ts').replace(/\\/g, '/')
 const HARNESS = `
 import {
   ESCORT_FLAGSHIP_INDEX,
+  atBossNode,
   dameconOfShip,
   isTaihaShip,
+  noAdvanceAfterNode,
   taihaVerdictOf,
 } from '${TAIHA_VERDICT}'
 import { mapCodeOf, mapIdOf } from '${MAP_ID}'

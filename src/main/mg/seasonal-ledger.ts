@@ -287,7 +287,9 @@ export class SeasonalLedger {
       for (const excluded of spec?.excludeAliases ?? []) text = text.split(excluded).join('')
       const limited = [row.title, this.questTitle(row.quest_no)].some(title => /^【(?:期間限定|期间限定)/.test(title))
       const named = spec && [spec.jpName, ...spec.textAliases].some(n => text.includes(n))
-      if (!limited && !named) continue
+      // 季节企划只收点名企划道具的（领奖给了企划道具的见下面 claim 段）；【期間限定】前缀只给活动海域存档用。
+      // 2026-11-26 他报：同期挂着的预热限时任务（秋刀魚祭り準備演習）被算进了秋刀鱼本体企划。
+      if (!(spec ? named : limited)) continue
       const prev = byNo.get(row.quest_no)
       const times = (JSON.parse(row.seen_times) as number[]).filter(ts => ts >= opened && ts < closed)
       if (!times.length) continue

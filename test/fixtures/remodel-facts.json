@@ -2,35 +2,35 @@
   "sourceHashes": {
     "kcwiki": "dceb8d4808c001d79bfc5aeb7e672a97cccd88a5305ab3aab747b03f44ce9f59",
     "wikiwiki": "0e1932e970dc634f02f95d0879af9f7c101a6e1e3ab8cf26f5b8341539757d2a",
-    "master": "c93fa53bb520547142164931fc612fab6e473a0e91e94df1d29f5fa525e709b4",
-    "改造": "2cac5f96f9ab263cc0347d0e594cb9b309372b06253c87921b26b651d54e8039",
-    "模块:舰娘数据": "3a6b925e17bf65faa7bb008facde9cabea285b09ca9484c7e8de5fbb2e285820",
-    "球磨": "a2f433fc3b534d7f0b066df04b03b06f269d10f65ce3ede81d9395861c75b3e8",
-    "春雨": "d91b505124e76abf13977b73aaff8cb19bcae489843818b1075a5367284aafb7",
-    "三隈": "59efeabb442c46c171234dc80e2efebd92247faa6f73c421175272e53d2df559",
-    "贝尔格拉诺将军": "f8b07577e55fec58b5795e007d3ddbf914519e6adb1d42cbec9da6878699dd0f",
-    "翔鹤": "a7a968d544f92c13ba5333dc0afe2a86819e4c4a9c5e5cfb344e04c622c8b95d",
-    "瑞鹤": "53648d95ed62fd6732dbf41f68e3e57a6570732164eb597ac3288b65e31f263a",
-    "霞": "65183cd41448cb6fbe9cbe45f57116aee4f2535594a8e6f39703fcb67f83506a",
-    "朝潮": "1c04cece4422197f54cfff0bbb8612907fd64215dc0e840cb1d80a8c9e209cb5",
-    "最上": "e737975c2a3d7364dabac45a9102d473acc0dd7b7d8b4de41707dc3a87ee12fa",
-    "铃谷": "a691416a004d466db5e2ad560491ac433f7465a2c4ee1ee143fa19921c3044f8",
-    "熊野": "5406f1c64640b369d602c93052007b6ccf28fdc65194840f22cab698d93b9e21",
-    "Saratoga": "1a7c04dcbaf0595018a72cb545f3e29a8d8ebffca6bc0cb391abc6fe0f97ae7f",
-    "瑞凤": "f2e18c84b42d399e430205b5832d76951bccc624cdb20f195411cfa1e6d55a7b",
-    "山风": "fe4aaa13678148c1d3b07cc14140e1fa96d2b0e4895ee96432779eb481fc68b7",
-    "榛名": "1a8e4fd4640add189363aca105dad498172d22277afe8e46fe23ddb7daf4cdd9",
-    "赤城": "7d9efa0b93c5a1795be6ce7c2305968d321d5eb2633b8f52cb28542de4d467af",
-    "Fletcher": "f69a58ca6e8feed263638c65ff3ea1d66142d42114a7072f22fe36480d76d385",
-    "矢矧": "492ca986e6d63d203920f6565dadc4463b4a421f880203336ec1122960990e97",
-    "龙凤": "3eadead09938af0e4603e709b651065dfc19d872ccac2857f6532aa42c851983",
-    "凤翔": "a11a36a94afd476bfb72c0a06e720403e247e34e5a350cd8689a354dfe0d0522",
-    "天雾": "247e50ab5397abc028166a65b226daa28b2814e624b50f20a6b195c1214e3f48",
-    "大和": "cee4081bcf3630b0f513cd97cbc5fb2bf3ba093adada0935d179542dc3a37160",
-    "清霜": "5146ceec4da219c061d5ffc4387e6f6ec4f3c5b9bddffd85d6f8074a5521d840",
-    "加贺": "2e0e8fa4357b221a4f6e7e13cb21408d8567e54176ccb57adbd0a6305ec87331",
-    "夕张": "baba4e01659de1fecd333d11434381e8eab5dbe0f1d2d0ba2efb879b5792027a",
-    "宗谷": "e0185dabd11f29a86eeec5914ab5b7f7d5125a97237f597b59f8c9e2203e0f84"
+    "master": "e9854a4be40056594724cb041fcf8044ea4fe3924122208dd0645610a9d2fdd1",
+    "改造": "21930ace353bb48ac59134d1b20b81a2b7661474eb8435144e459b1680ab8e64",
+    "模块:舰娘数据": "b2a67616951c4f2af4cb8ad58f6673848c44632c59660eb7aeb9542765bfcf1d",
+    "球磨": "032b79979692ece3a0a355f393a6f2fc5a19d8aece7f36c646b182e07040e73b",
+    "春雨": "f10c8e04e334d7b27ec5fd9f5887c33df09935f23c4de9df38524551140a1a83",
+    "三隈": "974361548ac6d630cd658723223f97e162c71db75104dda61643a94f21da57aa",
+    "贝尔格拉诺将军": "79dc85ab43124015b8994ce6360d5950b046bb97775967793ffcecec051f7ac8",
+    "翔鹤": "a6df23e80dfa5345e4e5f827904bc7c1a638ef4ef25b09929f1fe8006378eb71",
+    "瑞鹤": "227985325d404e0fbf2b0861fedc1eca73c79a4f9cc79fcd5e9fd6edc584f1da",
+    "霞": "ab222a92047aa225308a980f8bca46ead358a57a46607537efd8be25d0ee9ef3",
+    "朝潮": "e384a21b1668596c7c243e9bb7a640e7a6a36c1e6d9f159d6cd02d9d94b96c2c",
+    "最上": "41cc47ca2fb26225a4efd5f44240819a8f36e9e0d5a1db8fd570d28f0d16cc04",
+    "铃谷": "643ced357ffc273a6a0e791df92116609e95021ab6936001f95b1d5a3ffbf8cf",
+    "熊野": "df4a188be1d8bf09e74b3a181843cc29d8b6fab621201191873ec7429114e548",
+    "Saratoga": "125c9a7a7ee6323d8435b762d921e9445fdf379fb520c546381f64cec6f67fc3",
+    "瑞凤": "41ce5e56fe007250360c8cac6f71e2f450d3e8418d2ce0024ad61dd99207ed17",
+    "山风": "1edc777b1d374de9fb978c7670e1951b1305a66f9d2be0fce80e76ac687ce2db",
+    "榛名": "72142a5d64886a4790f82d3b75ea5487d0b8e2307ffcc0488b2f46f804c01fee",
+    "赤城": "f40541b9fb9eac2e009d9a0eea6a9475bf3efb3881af0b3ba5447c6004866e45",
+    "Fletcher": "aed3fedc01bb854440ba042a38c7dfc398d19d28485c45489620d825da29a125",
+    "矢矧": "6a5f8615c0e5afd98465f16e06bc6625d54491172654e2bd5dd7ee63823d9b8d",
+    "龙凤": "2da776090c2153eef11aab436379cbbec077ab791db653f66a6c296a3c80a980",
+    "凤翔": "7423b66b1b270682e978063fe42b3f062739f4165396b08ccc93bf480029cc65",
+    "天雾": "2a9e4bdd39cfd2b01092f27648b25bfaf3178b2e21254822eda3025d789203d8",
+    "大和": "9dbfb1d7765c1708ef54cf281b946750fb88833efaaac744d240fadaed267179",
+    "清霜": "adab051d9dc2d18c24a100fb47b78ff7fbb7d36f7fa1227e3d09efd0848809b2",
+    "加贺": "1166efcd45c67d9a31033524d23153f32e36692a0af26a0276cec7600939fcd3",
+    "夕张": "7c3098a712980a630b9fb34fdf6ec634f37c8f5f8535f131584ce21263e2e0c8",
+    "宗谷": "9c27fcd19eb99187c1e0c1baebea6caf4477465249092d24d1e165087a89b645"
   },
   "raw": {
     "api_mst_ship": [
@@ -17222,6 +17222,34 @@
     ],
     "api_mst_shipupgrade": [
       {
+        "api_id": 650,
+        "api_current_ship_id": 645,
+        "api_original_ship_id": 699,
+        "api_upgrade_type": 1,
+        "api_upgrade_level": 2,
+        "api_drawing_count": 0,
+        "api_catapult_count": 0,
+        "api_report_count": 0,
+        "api_aviation_mat_count": 0,
+        "api_arms_mat_count": 0,
+        "api_tech_count": 0,
+        "api_sortno": 450
+      },
+      {
+        "api_id": 699,
+        "api_current_ship_id": 650,
+        "api_original_ship_id": 699,
+        "api_upgrade_type": 1,
+        "api_upgrade_level": 3,
+        "api_drawing_count": 0,
+        "api_catapult_count": 0,
+        "api_report_count": 0,
+        "api_aviation_mat_count": 0,
+        "api_arms_mat_count": 0,
+        "api_tech_count": 0,
+        "api_sortno": 408
+      },
+      {
         "api_id": 748,
         "api_current_ship_id": 411,
         "api_original_ship_id": 26,
@@ -21562,8 +21590,11 @@
     },
     "645→650": {
       "first": {
-        "missing": true,
-        "needs": {}
+        "missing": false,
+        "needs": {
+          "useitem:2": 10,
+          "useitem:3": 20
+        }
       },
       "convert": {
         "missing": true,
@@ -21588,8 +21619,10 @@
     },
     "650→699": {
       "first": {
-        "missing": true,
-        "needs": {}
+        "missing": false,
+        "needs": {
+          "useitem:2": 5
+        }
       },
       "convert": {
         "missing": true,
@@ -22053,7 +22086,7 @@
         }
       },
       "convert": {
-        "missing": true,
+        "missing": false,
         "needs": {}
       }
     },
@@ -22803,20 +22836,6 @@
       "stage": "first"
     },
     {
-      "edge": "645→650",
-      "identity": "useitem:2",
-      "oldValue": 10,
-      "newValue": null,
-      "stage": "first"
-    },
-    {
-      "edge": "645→650",
-      "identity": "useitem:3",
-      "oldValue": 20,
-      "newValue": null,
-      "stage": "first"
-    },
-    {
       "edge": "646→698",
       "identity": "useitem:2",
       "oldValue": 30,
@@ -22827,13 +22846,6 @@
       "edge": "646→698",
       "identity": "useitem:3",
       "oldValue": 60,
-      "newValue": null,
-      "stage": "first"
-    },
-    {
-      "edge": "650→699",
-      "identity": "useitem:2",
-      "oldValue": 5,
       "newValue": null,
       "stage": "first"
     },
@@ -23683,6 +23695,30 @@
       "identity": "useitem:3",
       "values": {
         "kcwikiTable": 180
+      }
+    },
+    {
+      "edge": "645→650",
+      "stage": "first",
+      "identity": "useitem:2",
+      "values": {
+        "maintainer": 10
+      }
+    },
+    {
+      "edge": "645→650",
+      "stage": "first",
+      "identity": "useitem:3",
+      "values": {
+        "maintainer": 20
+      }
+    },
+    {
+      "edge": "650→699",
+      "stage": "first",
+      "identity": "useitem:2",
+      "values": {
+        "maintainer": 5
       }
     },
     {
@@ -26677,6 +26713,26 @@
       "basis": "可以进行转换改装的舰船段落／方向列 → convert"
     },
     {
+      "edge": "888→883",
+      "stage": "convert",
+      "site": "kcwikiTable",
+      "materials": {},
+      "raw": "-",
+      "explicitEmptyCost": true,
+      "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
+      "basis": "可以进行转换改装的舰船段落／方向列 → convert"
+    },
+    {
+      "edge": "883→888",
+      "stage": "convert",
+      "site": "kcwikiTable",
+      "materials": {},
+      "raw": "-",
+      "explicitEmptyCost": true,
+      "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
+      "basis": "可以进行转换改装的舰船段落／方向列 → convert"
+    },
+    {
       "site": "wikiwiki",
       "edge": "466→461",
       "stage": "convert",
@@ -28979,7 +29035,7 @@
     {
       "site": "kcwikiPage",
       "title": "三隈",
-      "revision": 170343,
+      "revision": 192075,
       "edge": "121→502",
       "stage": "first",
       "materials": {
@@ -28995,7 +29051,7 @@
     {
       "site": "kcwikiPage",
       "title": "三隈",
-      "revision": 170343,
+      "revision": 192075,
       "edge": "502→507",
       "stage": "first",
       "materials": {
@@ -29009,7 +29065,7 @@
     {
       "site": "kcwikiPage",
       "title": "最上",
-      "revision": 174116,
+      "revision": 192227,
       "edge": "73→501",
       "stage": "first",
       "materials": {
@@ -29025,7 +29081,7 @@
     {
       "site": "kcwikiPage",
       "title": "最上",
-      "revision": 174116,
+      "revision": 192227,
       "edge": "501→506",
       "stage": "first",
       "materials": {
@@ -29039,7 +29095,7 @@
     {
       "site": "kcwikiPage",
       "title": "春雨",
-      "revision": 187515,
+      "revision": 192223,
       "edge": "323→975",
       "stage": "first",
       "materials": {
@@ -29052,7 +29108,7 @@
     {
       "site": "kcwikiPage",
       "title": "矢矧",
-      "revision": 182719,
+      "revision": 192289,
       "edge": "307→663",
       "stage": "first",
       "materials": {
@@ -29068,7 +29124,7 @@
     {
       "site": "kcwikiPage",
       "title": "贝尔格拉诺将军",
-      "revision": 170041,
+      "revision": 192349,
       "edge": "734→957",
       "stage": "first",
       "materials": {
@@ -29117,6 +29173,29 @@
       },
       "evidence": "公开游戏改装画面（2026-09-10 核）显示 北上改二→北上改三：改装設計図2／新型兵装資材3／工廠資源5／高速建造材550／開発資材55／弾薬1500／鋼材2500",
       "date": "2026-09-10"
+    },
+    {
+      "edge": "645→650",
+      "stage": "first",
+      "site": "maintainer",
+      "basis": "maintainer",
+      "materials": {
+        "useitem:2": 10,
+        "useitem:3": 20
+      },
+      "evidence": "维护者实测改装（2026-11-26）：灯台補給船→南極観測船 初次，改造后资材刷新差额 高速建造材10／開発資材20／鋼材700",
+      "date": "2026-11-26"
+    },
+    {
+      "edge": "650→699",
+      "stage": "first",
+      "site": "maintainer",
+      "basis": "maintainer",
+      "materials": {
+        "useitem:2": 5
+      },
+      "evidence": "公开游戏改装画面（2026-11-26 核）显示 南極観測船→特務艦 初次：高速建造材5／弾薬130／鋼材280，无其他素材",
+      "date": "2026-11-26"
     },
     {
       "site": "preserved",
@@ -29181,7 +29260,7 @@
     {
       "site": "kcwikiPage",
       "title": "三隈",
-      "revision": 170343,
+      "revision": 192075,
       "edge": "502→507",
       "stage": "first",
       "materials": {
@@ -29597,6 +29676,46 @@
             "系列": "024"
           },
           "basis": "ID=212的改造后=152对应目标152，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "222→158",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "60",
+          "basis": "目标158主条目fromShipId=222，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 222,
+            "api_id": 158,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 60,
+            "弹药": 480,
+            "钢材": 300,
+            "改造前": "046",
+            "改造后": "158",
+            "系列": "046"
+          },
+          "basis": "ID=222的改造后=158对应目标158，图纸栏缺失或为空"
         }
       ]
     },
@@ -30081,6 +30200,46 @@
       ]
     },
     {
+      "edge": "54→222",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "20",
+          "basis": "目标222主条目fromShipId=54，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 54,
+            "api_id": 222,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 20,
+            "弹药": 200,
+            "钢材": 200,
+            "改造前": -1,
+            "改造后": "046a",
+            "系列": "046"
+          },
+          "basis": "ID=54的改造后=046a对应目标222，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
       "edge": "17→225",
       "stage": "first",
       "sources": [
@@ -30517,6 +30676,46 @@
             "系列": "089"
           },
           "basis": "ID=48的改造后=089a对应目标252，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
+      "edge": "61→264",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "25",
+          "basis": "目标264主条目fromShipId=61，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 61,
+            "api_id": 264,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 25,
+            "弹药": 300,
+            "钢材": 250,
+            "改造前": -1,
+            "改造后": "054a",
+            "系列": "054"
+          },
+          "basis": "ID=61的改造后=054a对应目标264，图纸栏缺失或为空"
         }
       ]
     },
@@ -31681,6 +31880,46 @@
       ]
     },
     {
+      "edge": "480→391",
+      "stage": "first",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+          "date": "2026-08-18",
+          "raw": "30",
+          "basis": "目标391主条目fromShipId=480，needs=[]"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 480,
+            "api_id": 391,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        },
+        {
+          "site": "kcwiki",
+          "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+          "raw": {
+            "等级": 30,
+            "弹药": 130,
+            "钢材": 110,
+            "改造前": -1,
+            "改造后": "280a",
+            "系列": "280"
+          },
+          "basis": "ID=480的改造后=280a对应目标391，图纸栏缺失或为空"
+        }
+      ]
+    },
+    {
       "edge": "492→392",
       "stage": "first",
       "sources": [
@@ -32719,18 +32958,58 @@
         }
       ],
       "basis": "百科转换段同方向显式空成本行、wikiwiki同方向无脚注、API同边全部*_count显式零"
+    },
+    {
+      "edge": "883→888",
+      "stage": "convert",
+      "sources": [
+        {
+          "site": "wikiwiki",
+          "evidence": "https://wikiwiki.jp/kancolle/%E5%A4%A7%E9%AF%A8",
+          "date": "2026-08-06",
+          "raw": [],
+          "basis": "883→888方向脚注附加边核对"
+        },
+        {
+          "site": "kcwikiTable",
+          "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
+          "raw": [
+            {
+              "edge": "883→888",
+              "raw": "-",
+              "materials": {}
+            }
+          ],
+          "basis": "883→888方向转换段行核对；[]表示无该方向行"
+        },
+        {
+          "site": "api",
+          "raw": {
+            "api_current_ship_id": 883,
+            "api_id": 888,
+            "api_drawing_count": 0,
+            "api_catapult_count": 0,
+            "api_report_count": 0,
+            "api_aviation_mat_count": 0,
+            "api_arms_mat_count": 0,
+            "api_tech_count": 0
+          },
+          "basis": "同边升级行全部*_count显式为零"
+        }
+      ],
+      "basis": "百科转换段同方向显式空成本行、wikiwiki同方向无脚注、API同边全部*_count显式零"
     }
   ],
   "pageReview": [
     {
       "title": "球磨",
-      "revision": 177085,
+      "revision": 192276,
       "extractedEdges": [],
       "text": ""
     },
     {
       "title": "春雨",
-      "revision": 187515,
+      "revision": 192223,
       "extractedEdges": [
         "323→975"
       ],
@@ -32738,7 +33017,7 @@
     },
     {
       "title": "三隈",
-      "revision": 170343,
+      "revision": 192075,
       "extractedEdges": [
         "121→502",
         "502→507"
@@ -32747,7 +33026,7 @@
     },
     {
       "title": "贝尔格拉诺将军",
-      "revision": 170041,
+      "revision": 192349,
       "extractedEdges": [
         "734→957"
       ],
@@ -32755,31 +33034,31 @@
     },
     {
       "title": "翔鹤",
-      "revision": 175665,
+      "revision": 192324,
       "extractedEdges": [],
       "text": ""
     },
     {
       "title": "瑞鹤",
-      "revision": 181314,
+      "revision": 192278,
       "extractedEdges": [],
       "text": ""
     },
     {
       "title": "霞",
-      "revision": 146808,
+      "revision": 192383,
       "extractedEdges": [],
       "text": ""
     },
     {
       "title": "朝潮",
-      "revision": 141644,
+      "revision": 192232,
       "extractedEdges": [],
       "text": ""
     },
     {
       "title": "最上",
-      "revision": 174116,
+      "revision": 192227,
       "extractedEdges": [
         "73→501",
         "501→506"
@@ -32788,55 +33067,55 @@
     },
     {
       "title": "铃谷",
-      "revision": 78269,
+      "revision": 192364,
       "extractedEdges": [],
       "text": ""
     },
     {
       "title": "熊野",
-      "revision": 174382,
+      "revision": 192269,
       "extractedEdges": [],
       "text": ""
     },
     {
       "title": "Saratoga",
-      "revision": 168103,
+      "revision": 47782,
       "extractedEdges": [],
       "text": ""
     },
     {
       "title": "瑞凤",
-      "revision": 162801,
+      "revision": 192277,
       "extractedEdges": [],
       "text": ""
     },
     {
       "title": "山风",
-      "revision": 183524,
+      "revision": 192187,
       "extractedEdges": [],
       "text": ""
     },
     {
       "title": "榛名",
-      "revision": 181369,
+      "revision": 192248,
       "extractedEdges": [],
       "text": ""
     },
     {
       "title": "赤城",
-      "revision": 186853,
+      "revision": 192352,
       "extractedEdges": [],
       "text": ""
     },
     {
       "title": "Fletcher",
-      "revision": 183591,
+      "revision": 116888,
       "extractedEdges": [],
       "text": ""
     },
     {
       "title": "矢矧",
-      "revision": 182719,
+      "revision": 192289,
       "extractedEdges": [
         "307→663"
       ],
@@ -32844,49 +33123,49 @@
     },
     {
       "title": "龙凤",
-      "revision": 181181,
+      "revision": 2620,
       "extractedEdges": [],
       "text": ""
     },
     {
       "title": "凤翔",
-      "revision": 167650,
+      "revision": 192116,
       "extractedEdges": [],
       "text": ""
     },
     {
       "title": "天雾",
-      "revision": 181240,
+      "revision": 192176,
       "extractedEdges": [],
       "text": ""
     },
     {
       "title": "大和",
-      "revision": 183550,
+      "revision": 192167,
       "extractedEdges": [],
       "text": ""
     },
     {
       "title": "清霜",
-      "revision": 181147,
+      "revision": 192261,
       "extractedEdges": [],
       "text": ""
     },
     {
       "title": "加贺",
-      "revision": 186764,
+      "revision": 192131,
       "extractedEdges": [],
       "text": ""
     },
     {
       "title": "夕张",
-      "revision": 181659,
+      "revision": 192162,
       "extractedEdges": [],
       "text": ""
     },
     {
       "title": "宗谷",
-      "revision": 154899,
+      "revision": 192180,
       "extractedEdges": [],
       "text": ""
     }

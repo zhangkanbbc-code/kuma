@@ -3081,16 +3081,29 @@ class Ledger {
     }
   }
 
-  queryBattleSnapshots = (limit = 40): BattleSnapshotSummary[] => {
+  // 不带 map：全局最近的若干场（上限 500，回顾「全部海图」与演习日卡用）。
+  // 带 map：只取这一张图的，上限放到 5000——保留期 2026-08-23 退役后快照不再自己消失，
+  // 一张活动图打上几百场是常态（夏活 E-1 账本里 541 场）；只按全局最近 500 场再筛图，
+  // 活动结束两个月后它们就整张图「暂无战斗记录」了（2026-11-26 维护者报找不到活动复盘）。
+  queryBattleSnapshots = (limit = 40, map?: number): BattleSnapshotSummary[] => {
     try {
+      const byMap = Number.isInteger(map) && (map as number) > 0
       return (
-        this.db
-          .prepare(
-            `SELECT id, ts, sortie_id AS sortieId, battle_no AS battleNo,
-                    map, cell, rank, is_boss AS isBoss, practice
-             FROM battle_snapshots ORDER BY ts DESC LIMIT ?`,
-          )
-          .all(Math.max(1, Math.min(500, limit | 0))) as any[]
+        (byMap
+          ? this.db
+              .prepare(
+                `SELECT id, ts, sortie_id AS sortieId, battle_no AS battleNo,
+                        map, cell, rank, is_boss AS isBoss, practice
+                 FROM battle_snapshots WHERE map=? ORDER BY ts DESC LIMIT ?`,
+              )
+              .all(map as number, Math.max(1, Math.min(5000, limit | 0)))
+          : this.db
+              .prepare(
+                `SELECT id, ts, sortie_id AS sortieId, battle_no AS battleNo,
+                        map, cell, rank, is_boss AS isBoss, practice
+                 FROM battle_snapshots ORDER BY ts DESC LIMIT ?`,
+              )
+              .all(Math.max(1, Math.min(500, limit | 0)))) as any[]
       ).map((row) => ({
         id: Number(row.id),
         ts: Number(row.ts),

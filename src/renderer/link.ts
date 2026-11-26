@@ -226,7 +226,8 @@ const removePeekCard = (card: HTMLElement) => {
     card.remove()
     return
   }
-  window.setTimeout(() => card.remove(), 220)
+  // 等 .peek 的淡出（--motion-fast）与位移（--motion-view 300ms）走完再摘
+  window.setTimeout(() => card.remove(), 320)
 }
 
 // 钉住卡的落点：与悬停版 placeAt 同一条规则——量实际尺寸，下方放不下就

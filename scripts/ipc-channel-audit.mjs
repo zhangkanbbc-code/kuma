@@ -7,8 +7,7 @@ const mainRoot = path.join(repoRoot, 'src', 'main')
 const rendererRoot = path.join(repoRoot, 'src', 'renderer')
 const preloadRoot = path.join(repoRoot, 'assets', 'preload')
 const testRoot = path.join(repoRoot, 'test')
-const allowKanso = process.argv.includes('--allow-kanso')
-const channelPattern = /^(?:kanso|kuma):[\w-]+$/
+const channelPattern = /^kuma:[\w-]+$/
 
 const walk = (root) => {
   const files = []
@@ -102,13 +101,12 @@ const scanMatches = (pattern) => {
   return matches
 }
 
-const oldChannels = scanMatches(/kanso:[\w-]+/g)
 const newChannels = scanMatches(/kuma:[\w-]+/g)
-const dynamicChannels = scanMatches(/(?:kanso|kuma):\$\{/g)
+const dynamicChannels = scanMatches(/kuma:\$\{/g)
 const configChannels = new Map()
 for (const file of controlledFiles) {
   const source = fs.readFileSync(file, 'utf8')
-  const pattern = /\bconfig\.get\s*\(\s*(['"`])((?:kanso|kuma):[^'"`\r\n]+)\1/g
+  const pattern = /\bconfig\.get\s*\(\s*(['"`])(kuma:[^'"`\r\n]+)\1/g
   for (const match of source.matchAll(pattern)) add(configChannels, match[2], file, source, match.index)
 }
 
@@ -133,9 +131,6 @@ printDifference('renderer sends but main never listens', rendererWithoutMain)
 printDifference('main broadcasts but renderer never listens', broadcastsWithoutRenderer)
 printDifference('renderer listens but main never broadcasts', listenersWithoutMain)
 console.log(
-  `old kanso channels: ${countOccurrences(oldChannels)} occurrences, ${oldChannels.size} unique`,
-)
-console.log(
   `new kuma channels: ${countOccurrences(newChannels)} occurrences, ${newChannels.size} unique`,
 )
 console.log(`dynamic channel names: ${countOccurrences(dynamicChannels)}`)
@@ -150,8 +145,7 @@ const mismatches = [
 const failed =
   mismatches.length > 0 ||
   dynamicChannels.size > 0 ||
-  configChannels.size > 0 ||
-  (!allowKanso && oldChannels.size > 0)
+  configChannels.size > 0
 
 console.log(`RESULT: ${failed ? 'FAIL' : 'PASS'}`)
 process.exitCode = failed ? 1 : 0

@@ -22,7 +22,8 @@ export interface TaskEntityAliasCandidate<T extends TaskEntityIndex = TaskEntity
 export interface TaskEntityMatchOptions<T extends TaskEntityIndex = TaskEntityIndex> {
   skipClassSuffix?: boolean
   // 保留旧选项名：低于 minLength 的别名仅在被「」、『』、""、“” 整个包住时算，
-  // 包括一字舰名与两字装备／道具名；引号判据与 isQuotedTaskAlias 一致。
+  // 包括一字舰名与两字装备／道具名；一字舰名另认顿号/斜杠列举（【胧、曙、涟、潮】）。
+  // 判据见 isStandaloneTaskAlias。
   allowQuotedSingle?: boolean
   limit?: number
   acceptAlias?: (candidate: TaskEntityAliasCandidate<T>) => boolean
@@ -142,7 +143,7 @@ const aliasLocation = (text: string, alias: string, skipClassSuffix = false, quo
     if (at < 0) return -1
     if (
       (!skipClassSuffix || !/[型级]/.test(text[at + alias.length] ?? '')) &&
-      (!quotedOnly || isQuotedTaskAlias(text, alias, at))
+      (!quotedOnly || isStandaloneTaskAlias(text, alias, at))
     ) return at
     from = at + alias.length
   }
@@ -167,6 +168,50 @@ export const isQuotedTaskAlias = (text: string, alias: string, start: number) =>
   )
 }
 
+// 列举里的单字舰名：2611Cw3 的 memo2「【胧、曙、涟、潮、夕立改二…】」没有引号，
+// 只认引号会让第七驱逐队四艘在一串高亮里独独暗着。两侧都得是列举标点、且至少一侧是
+// 顿号或斜杠才认——「影响」「退潮」「曙光」两侧挨着字，照样不认。
+// 列举末位紧跟收尾字（B124「曙、潮、涟、胧中2艘」、Cy4「…涟、潮的舰队」）也算，
+// 但前一侧必须是顿号或斜杠，「退潮的」「满潮中」照样不认；列举首位紧跟「包含」「包括」
+// 同理，后一侧必须是顿号或斜杠。
+const LIST_SEP = /^[、/]$/
+const LIST_EDGE = /^[、/【】〔〕[\]()]$/
+const LIST_TAIL = /^[中的其之等]$/
+const LIST_HEAD = /^[含括]$/
+const isListedTaskAlias = (text: string, alias: string, start: number) => {
+  if (alias.length !== 1) return false
+  const before = text[start - 1] ?? ''
+  const after = text[start + alias.length] ?? ''
+  return (LIST_SEP.test(before) && (LIST_EDGE.test(after) || LIST_TAIL.test(after))) ||
+    ((LIST_EDGE.test(before) || LIST_HEAD.test(before)) && LIST_SEP.test(after))
+}
+
+// 任务正文的台词里点到的舰名不是要求：2611B2「……捕获16条新鲜的“秋刀鱼”！飞龙，就在海上！」（呼唤）、
+// 2611B3「只要由我飞龙来指挥秋刀鱼捕捞」（自称）。判据：不带引号，且要么在句首（文本开头或 】!。?. 之后）
+// 后面紧跟逗号或叹号，要么前面是「我」。比对的是归一后的紧凑文本（NFKC：！→!、，→,、…→...）。
+// 2026-11-26 全库扫描只命中这两条的飞龙与 By16「吹雪，拔锚」（吹雪改三另有引号原文）和几处「胜利」（另有规则）。
+const isDialogueAt = (text: string, alias: string, start: number): boolean => {
+  const before = text[start - 1] ?? ''
+  const after = text[start + alias.length] ?? ''
+  if (/[「『“"]/.test(before)) return false
+  if (before === '我') return true
+  return (start === 0 || /[】!。?.]/.test(before)) && /[,!]/.test(after)
+}
+
+/** 这个舰名在文本里每一处都是台词提及（别处有真要求就不算），「涉及舰娘」据此不列 */
+export const isTaskDialogueOnlyMention = ({ alias, text }: Pick<TaskEntityAliasCandidate, 'alias' | 'text'>): boolean => {
+  let seen = false
+  for (let at = text.indexOf(alias); at >= 0; at = text.indexOf(alias, at + alias.length)) {
+    if (!isDialogueAt(text, alias, at)) return false
+    seen = true
+  }
+  return seen
+}
+
+/** 短名（一字舰名、两字装备）能单独成词：引号整词，或一字舰名夹在列举标点之间 */
+export const isStandaloneTaskAlias = (text: string, alias: string, start: number) =>
+  isQuotedTaskAlias(text, alias, start) || isListedTaskAlias(text, alias, start)
+
 export const matchTaskEntityHits = <T extends TaskEntityIndex>(
   entries: T[],
   rawText: string,
@@ -177,14 +222,8 @@ export const matchTaskEntityHits = <T extends TaskEntityIndex>(
   const hits = entries.flatMap((entry) => {
     const match = entry.aliases
       .map((alias) => {
-        const allowed =
-          alias.length >= minLength ||
-          (
-            options.allowQuotedSingle &&
-            alias.length < minLength &&
-            [`「${alias}」`, `『${alias}』`, `"${alias}"`, `“${alias}”`].some((quoted) => text.includes(quoted))
-          )
-        // 短名必须定位到引号整词本身，不能借后面的引号放行前面长名里的同名片段。
+        const allowed = alias.length >= minLength || Boolean(options.allowQuotedSingle)
+        // 短名必须定位到引号整词（或列举里的一字舰名）本身，不能借后面的引号放行前面长名里的同名片段。
         const start = allowed ? aliasLocation(text, alias, options.skipClassSuffix, alias.length < minLength) : -1
         const candidate = { entry, alias, start, length: alias.length, text }
         return start >= 0 && (!options.acceptAlias || options.acceptAlias(candidate))
@@ -274,7 +313,7 @@ export const markTaskEntityHits = <T extends TaskEntityIndex>(
         if (at < 0) break
         from = at + alias.length
         if (options.skipClassSuffix && /[型级]/.test(packed[at + alias.length] ?? '')) continue
-        if (quotedOnly && !isQuotedTaskAlias(packed, alias, at)) continue
+        if (quotedOnly && !isStandaloneTaskAlias(packed, alias, at)) continue
         // 上下文规则（allowTaskShipAlias 等）本来就是照着紧凑文本写的，原样喂给它们
         if (options.acceptAlias && !options.acceptAlias({ entry, alias, start: at, length: alias.length, text: packed })) {
           continue

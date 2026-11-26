@@ -135,6 +135,25 @@ test('编成检查按引擎原组关联：舰队限制、同名组、具名舰�
   assert.equal((html.match(/data-etype="shipTypeGroup"/g) ?? []).length, 3)
 })
 
+test('编成检查的「还差 N 艘」不再把长名单印第二遍，其它原因原句照留', () => {
+  // 2611Cw3（#369）十三个名字的凑数组：「名单 3/4 · 还差 1 艘「名单」」整串出现两次（2026-11-26 实机截图）
+  const label = '第七驱逐队/夕立改二/时雨改二/改三/秋月/初月/敷波/矶风/祥凤/大泊/平安丸/贝阿恩/秃鹫/莫加多尔'
+  const render = (fleetGoal, fleet) => compile(qn, 'const qpDetailHtml =', '// kcwiki 任务文本的道具名', 'qpDetailHtml', {
+    qp: { trackers: { 1: { tasks: [], fleetGoal } }, progress: {}, serverFloors: {} },
+    qpTaskGroups: () => [], mg: {}, esc, elinkHtml,
+    expandFleetGoal: runtime.expandFleetGoal,
+    fleetCheck: { 1: { diffs: [runtime.evaluateFleetGoal(fleetGoal, fleet, 1)] } }, fleetCheckStaleHtml: () => '',
+  })({ id: 1 })
+  const ship = (mstId) => ({ mstId, stype: 2, ctype: 0, soku: 10, lv: 99 })
+  const heap = { groups: [{ label, ships: [1, 2, 3, 4, 5], stypes: [], amount: 4, overlapOk: true }] }
+  const html = render(heap, [ship(1), ship(2), ship(3), ship(9)])
+  assert.ok(html.includes(`${label} 3/4 · 还差 1 艘<`), '还差那一格还在带名单')
+  assert.equal(html.split(label).length - 1, 1)
+  // 旗舰不符这类原因不是重复，原句照留
+  const flagGoal = { groups: [{ label: '时雨改二', ships: [1], stypes: [], amount: 1, flagship: true }] }
+  assert.match(render(flagGoal, [ship(9), ship(1)]), /旗舰不符合「时雨改二」/)
+})
+
 test('qn 编成检查只渲染候选舰队，灰字只随引擎实际剔除结果出现', () => {
   const fleetGoal = { groups: [{ label: '轻巡', ships: [], stypes: [3], amount: 1 }] }
   const render = (check, goal = fleetGoal) => {

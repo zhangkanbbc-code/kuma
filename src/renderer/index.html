@@ -338,9 +338,11 @@
       /* 新增样式的档位约定（存量不追溯）：
          字号限 8.5 / 9.5 / 10.5 / 11.5 / 13；过渡限 micro/fast/view 三档；
          圆角限 3 / 5 / 8 / 10；行高限 1.3 / 1.5 / 1.8。 */
-      --motion-fast: 150ms;
+      /* 2026-11-26 维护者裁决「动画不宜过快，过渡舒心优先」：fast 150→200、view 200→300；
+         micro（悬停、按下这类跟手反馈）不动，控件反馈仍要跟手。 */
+      --motion-fast: 200ms;
       --motion-micro: 120ms;
-      --motion-view: 200ms;
+      --motion-view: 300ms;
       /* 三档之外的**唯一**例外，只给「整个工作台换一种状态」用（现仅击沉哀悼态的失色）。
          三档是控件反馈的尺度：那种时长套在全屏失色上，看起来像闪了一下故障，
          而这一下要读成「停顿」。别把它当第四档通用时长用。 */
@@ -5656,11 +5658,14 @@
     #kuma-welcome[data-welcome-style] > * { animation-name: none; }
     #kuma-welcome[data-welcome-style] .kw-mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
     #kuma-welcome .kw-st-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+    /* 用 zoom 放大而不是 transform: scale：transform 放大时，带变换动画的子层（机甲目镜翼里的资源条、
+       3D 倾斜的翼面）按动画开始那一刻的比例栅格化，启动时窗口随后最大化就停在小比例被拉伸，左翼整块发糊
+       （2026-11-26 实机截图）。zoom 按实际尺寸排版、文字按屏幕原生像素绘制；居中与子元素位置和原写法逐像素一致。 */
     #kuma-welcome .kw-st-stage {
       position: absolute; left: 50%; top: 50%;
       width: 1020px; height: 574px;
-      transform-origin: center center;
-      transform: translate(-50%, -50%) scale(var(--kw-scale));
+      zoom: var(--kw-scale);
+      transform: translate(-50%, -50%);
       pointer-events: none;
       z-index: 5;
     }
@@ -6051,6 +6056,8 @@
     @keyframes kuma-season-st-pulse-dot { 0% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(.82); } 100% { opacity: 1; transform: scale(1); } }
     @keyframes kuma-season-st-cta-breathe { 0% { opacity: .86; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-1.5px); } 100% { opacity: .86; transform: translateY(0); } }
     @keyframes kuma-season-st-nudge-in { 0% { opacity: 0; transform: translate(-50%, 6px); } 100% { opacity: 1; transform: translate(-50%, 0); } }
+    @keyframes kuma-season-st-nudge-out { 0% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, 0); } }
+    @keyframes kuma-season-st-nudge-swap { 0% { opacity: 0; transform: translate(-50%, 0); } 100% { opacity: 1; transform: translate(-50%, 0); } }
     @keyframes kuma-season-st-hatch-recoil { 0% { transform: translateY(0); } 35% { transform: translateY(2.5px); } 100% { transform: translateY(0); } }
     @keyframes kuma-season-st-seam-blaze { 0% { opacity: 0; } 22% { opacity: 1; } 70% { opacity: .85; } 100% { opacity: 0; } }
     @keyframes kuma-season-st-clamp-pop-l { 0% { opacity: 1; transform: translateX(0); } 100% { opacity: 0; transform: translateX(-20px); } }
@@ -7118,8 +7125,9 @@
     .fleet-skin .ship .flying-shard {
       position: absolute; top: 0; left: 0; width: 100%; pointer-events: none; z-index: 20; overflow: visible;
     }
+    /* 中破 / 大破的左端微光：从伤势左锚向右辐射、渐隐，只要柔光不要线条（维护者裁决 2026-11-26，取代原「左端微斜纹损管刻度」） */
     .fleet-skin .ship .dmg-hazard {
-      position: absolute; top: 0; bottom: 0; left: 11px; width: 12px; pointer-events: none; opacity: 0;
+      position: absolute; top: 0; bottom: 0; left: 11px; width: 84px; pointer-events: none; opacity: 0;
       mask-image: linear-gradient(90deg, rgba(0, 0, 0, .95), transparent);
       -webkit-mask-image: linear-gradient(90deg, rgba(0, 0, 0, .95), transparent);
     }
@@ -7159,7 +7167,10 @@
     .fleet-skin .ship[data-repair-aura="goddess"] .dmg-wash {
       background: linear-gradient(90deg, color-mix(in srgb, var(--hit-goddess) 16%, transparent), color-mix(in srgb, var(--hit-aqua) 6%, transparent) 58%, transparent);
     }
-    .fleet-skin .ship[data-repair-aura="goddess"] .hpc .bar > i {
+    /* 金色血条做成叠层（::after）而不是换底色：渐变底色没法过渡，叠层才能随余韵一起淡掉 */
+    .fleet-skin .ship[data-repair-aura="goddess"] .hpc .bar > i { position: relative; }
+    .fleet-skin .ship[data-repair-aura="goddess"] .hpc .bar > i::after {
+      content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
       background: linear-gradient(90deg, var(--gold), var(--hit-goddess));
     }
     /* 入渠完成瞬时水青余韵 */
@@ -7207,6 +7218,19 @@
       100% { transform: translateX(85%); opacity: 0; }
     }
     @keyframes ru-tether-pulse { 0%, 100% { opacity: .35; } 50% { opacity: .95; } }
+    /* 余韵与泊修常驻态退场：先淡出再撤属性（交接包：女神余韵「自然淡去」、入渠水青「归于平静」；
+       2026-11-26 他报「一帧消失」）。data-aura-fade / data-berth-fade 只在退场那段挂着，时长与 ru.ts 的 FX_FADE_MS 同值。
+       带伤势档的行底色属于伤势，不跟着泊修淡掉。 */
+    .fleet-skin .ship[data-aura-fade="1"] { animation: ru-fx-fade-shadow 600ms ease-out both; }
+    .fleet-skin .ship[data-aura-fade="1"] .dmg-wash,
+    .fleet-skin .ship[data-aura-fade="1"] .hpc .bar > i::after,
+    .fleet-skin .ship[data-berth-fade="1"]:not([data-crack]) .dmg-wash,
+    .fleet-skin .ship[data-berth-fade="1"] .fx-akashi-wave,
+    .fleet-skin .ship[data-berth-fade="1"] > .berth-tether { animation: ru-fx-fade-out 600ms ease-out both; }
+    .fleet-skin .ship[data-berth-fade="1"] .fc { animation: ru-fx-fade-fc 600ms ease-out both; }
+    @keyframes ru-fx-fade-shadow { to { box-shadow: inset 3px 0 16px -3px transparent; } }
+    @keyframes ru-fx-fade-out { to { opacity: 0; } }
+    @keyframes ru-fx-fade-fc { to { box-shadow: 0 0 0 1px transparent; } }
 
     /* 小破（51–75%）：第 3 道暖金左锚（2px）+ 首道随机位局部隐裂，静止不抢眼 */
     .fleet-skin .ship[data-crack="light"]::before {
@@ -7236,8 +7260,8 @@
         radial-gradient(ellipse 46% 120% at 6% 50%, color-mix(in srgb, var(--warn) 9%, transparent), transparent 72%);
     }
     .fleet-skin .ship[data-crack="medium"] .dmg-hazard {
-      opacity: .22;
-      background: repeating-linear-gradient(-45deg, var(--warn) 0 2px, transparent 2px 6px);
+      opacity: 1;
+      background: radial-gradient(ellipse 100% 72% at 0% 50%, color-mix(in srgb, var(--warn) 20%, transparent), color-mix(in srgb, var(--warn) 6%, transparent) 52%, transparent 100%);
     }
     .fleet-skin .ship[data-crack="medium"] .fc {
       filter: saturate(.82) brightness(.9);
@@ -7271,8 +7295,8 @@
         linear-gradient(180deg, color-mix(in srgb, var(--bad) 14%, transparent), transparent 22%, transparent 76%, color-mix(in srgb, var(--bad) 18%, transparent));
     }
     .fleet-skin .ship[data-crack="heavy"] .dmg-hazard {
-      opacity: .44; width: 14px;
-      background: repeating-linear-gradient(-45deg, var(--bad) 0 2.5px, transparent 2.5px 6.5px);
+      opacity: 1; width: 112px;
+      background: radial-gradient(ellipse 100% 80% at 0% 50%, color-mix(in srgb, var(--bad) 28%, transparent), color-mix(in srgb, var(--bad) 8%, transparent) 52%, transparent 100%);
     }
     .fleet-skin .ship[data-crack="heavy"] .dmg-scan {
       opacity: .22;
@@ -7320,6 +7344,35 @@
       animation: ru-glitch-text var(--g-dur, 3.9s) steps(1, end) infinite;
       animation-delay: var(--g-delay, 0s);
     }
+
+    /* 带伤入渠（维护者裁决 2026-11-26）：裂纹、缺角与头像倾斜照留，红黄告警与故障全撤，
+       换成缓慢脉冲的水青恢复光——人已经在修了，不该再像大破待命那样一直报警。
+       比伤势档多一个属性选择器，压过上面各档的同名规则。 */
+    .fleet-skin .ship[data-docked="1"][data-crack] {
+      background-color: var(--bg0);
+      box-shadow: inset 3px 0 10px -5px color-mix(in srgb, var(--hit-aqua) 18%, transparent);
+      animation: ru-dock-recover 4.2s ease-in-out infinite;
+    }
+    .fleet-skin .ship[data-docked="1"][data-crack]:hover { background-color: var(--bg1); }
+    .fleet-skin .ship[data-docked="1"][data-crack]::before { background: var(--hit-aqua); opacity: .7; }
+    .fleet-skin .ship[data-docked="1"][data-crack] .dmg-wash {
+      background: linear-gradient(90deg, color-mix(in srgb, var(--hit-aqua) 12%, transparent), color-mix(in srgb, var(--hit-aqua) 3%, transparent) 48%, transparent 72%);
+      animation: ru-dock-wash 4.2s ease-in-out infinite;
+    }
+    .fleet-skin .ship[data-docked="1"][data-crack] :is(.dmg-hazard, .dmg-scan, .dmg-ember, .glitch-bars) { display: none; }
+    .fleet-skin .ship[data-docked="1"][data-crack] .fc {
+      filter: saturate(.86) brightness(.94);
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--hit-aqua) 42%, transparent);
+    }
+    .fleet-skin .ship[data-docked="1"][data-crack] .hpc .bar { box-shadow: none; }
+    .fleet-skin .ship[data-docked="1"][data-crack] .who > b,
+    .fleet-skin .ship[data-docked="1"][data-crack] .hpc .num > span:first-child,
+    .fleet-skin .ship[data-docked="1"][data-crack] .hpc .num .st { animation: none; }
+    @keyframes ru-dock-recover {
+      0%, 100% { box-shadow: inset 3px 0 10px -5px color-mix(in srgb, var(--hit-aqua) 16%, transparent); }
+      50% { box-shadow: inset 4px 0 18px -3px color-mix(in srgb, var(--hit-aqua) 36%, transparent); }
+    }
+    @keyframes ru-dock-wash { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
 
     /* ── 瞬态「被弹」4 档物理后坐抖动 + 闪灼扫光 + 跨线 Glitch 爆发 ── */
     .fleet-skin .ship[data-hit][data-hit-sev="1"] {
@@ -7372,21 +7425,22 @@
     .fleet-skin .ship[data-hit][data-hit-sev="4"] .hit-sweep { background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--bad) 48%, transparent) 50%, transparent); animation-duration: 340ms; }
 
     /* 跨入大破危险线瞬间的 320ms Glitch 撕裂爆发 */
+    /* 跨进大破的故障爆闪与「中破 / 大破」盖章跟着同一拍：扣血残影降完、再停一口气（--hit-stamp-at，节拍表 shared/fleet-fx-timing） */
     .fleet-skin .ship[data-glitch-burst="1"] .glitch-bars {
       opacity: 1;
       animation:
-        ru-glitch-burst-bars 320ms steps(1, end) 1,
-        ru-glitch-slice var(--g-dur, 3.9s) steps(1, end) 360ms infinite;
+        ru-glitch-burst-bars 320ms steps(1, end) var(--hit-stamp-at, 0ms) 1,
+        ru-glitch-slice var(--g-dur, 3.9s) steps(1, end) calc(var(--hit-stamp-at, 0ms) + 360ms) infinite;
     }
     .fleet-skin .ship[data-glitch-burst="1"] .who > b,
     .fleet-skin .ship[data-glitch-burst="1"] .hpc .num > span:first-child {
       animation:
-        ru-glitch-burst-text 320ms steps(1, end) 1,
-        ru-glitch-text var(--g-dur, 3.9s) steps(1, end) 360ms infinite;
+        ru-glitch-burst-text 320ms steps(1, end) var(--hit-stamp-at, 0ms) 1,
+        ru-glitch-text var(--g-dur, 3.9s) steps(1, end) calc(var(--hit-stamp-at, 0ms) + 360ms) infinite;
     }
     .fleet-skin .ship[data-hit-cross="1"] .hpc .num .st {
       display: inline-block; transform-origin: right center;
-      animation: ru-st-stamp 240ms cubic-bezier(.2, .8, .2, 1) both;
+      animation: ru-st-stamp var(--hit-stamp, 320ms) cubic-bezier(.2, .8, .2, 1) var(--hit-stamp-at, 0ms) both;
     }
 
     /* 双层追尾扣血残影 + 浮动跳字（仅被弹行挂载） */
@@ -7396,7 +7450,8 @@
     .fleet-skin .hpc .bar .hp-ghost {
       position: absolute; top: 0; left: 0; bottom: 0; z-index: 1; border-radius: 3px;
       background: color-mix(in srgb, var(--gold) 35%, var(--glow-shatter)); pointer-events: none;
-      animation: ru-hp-ghost var(--ghost-dur, 620ms) cubic-bezier(.22, 1, .36, 1) both;
+      /* 残影等冲击主峰过去再降（--ghost-at），延迟期间停在旧血量 */
+      animation: ru-hp-ghost var(--ghost-dur, 620ms) cubic-bezier(.22, 1, .36, 1) var(--ghost-at, 0ms) both;
     }
     .fleet-skin .hpc .bar .hp-ghost.crit {
       background: linear-gradient(90deg, color-mix(in srgb, var(--bad) 26%, var(--glow-shatter)), var(--bad));
@@ -7405,7 +7460,7 @@
       position: absolute; right: 0; top: -8px; z-index: 10; pointer-events: none;
       font-family: var(--mono); font-weight: 700; font-size: 10.5px; line-height: 1;
       color: var(--text); text-shadow: 0 1px 4px rgba(0, 0, 0, .88); white-space: nowrap;
-      animation: ru-dmg-pop 760ms ease-out both;
+      animation: ru-dmg-pop var(--hit-pop, 1000ms) ease-out both;
     }
     .fleet-skin .hpc .dmg-pop.sev-2 { color: var(--gold); }
     .fleet-skin .hpc .dmg-pop.sev-3 { color: var(--warn); font-size: 11.5px; }
@@ -7459,8 +7514,8 @@
       100% { opacity: 0; transform: translateX(115%) skewX(-22deg); }
     }
     @keyframes ru-hp-ghost {
-      0%, 40% { width: var(--hp-from); opacity: .92; }
-      94% { width: var(--hp-to); opacity: .82; }
+      0% { width: var(--hp-from); opacity: .92; }
+      76% { width: var(--hp-to); opacity: .82; }
       100% { width: var(--hp-to); opacity: 0; }
     }
     @keyframes ru-dmg-pop {
@@ -7470,8 +7525,10 @@
       100% { opacity: 0; transform: translateY(-11px) scale(.95); }
     }
     @keyframes ru-st-stamp {
-      0% { transform: scale(1.48); opacity: .35; }
-      55% { transform: scale(.94); opacity: 1; }
+      /* 盖章前停在第一帧：透明（新档的字等残影降完才盖下去，不先露出来） */
+      0% { transform: scale(1.48); opacity: 0; }
+      30% { transform: scale(1.3); opacity: .45; }
+      62% { transform: scale(.94); opacity: 1; }
       100% { transform: scale(1); opacity: 1; }
     }
     @keyframes ru-heavy-heartbeat {
@@ -10319,7 +10376,7 @@
     .mod-ji .panel { display: none; padding: 13px 20px 20px; }
     .mod-ji .panel.on { display: block; }
     .mod-ji .ship-subview.enter {
-      animation: kuma-subview-enter var(--motion-fast) var(--motion-ease) both;
+      animation: kuma-subview-enter var(--motion-view) var(--motion-ease) both;
     }
     @keyframes kuma-subview-enter {
       from { opacity: .55; transform: translate3d(0, 2px, 0); }
@@ -12760,7 +12817,6 @@
       background:
         radial-gradient(300px 90px at 15% 0%, color-mix(in srgb, var(--glow-powerup) 9%, transparent), transparent 72%),
         color-mix(in srgb, var(--bg1) 97%, transparent);
-      animation: lg-powerup-in var(--motion-view) var(--motion-ease) both;
     }
     .lg-toast.powerup-result .ic {
       background: var(--tint-ok); color: var(--ok); border: 1px solid var(--tint-ok-powerup-line);
@@ -12804,10 +12860,6 @@
     .lg-toast.powerup-result .powerup-empty {
       margin-top: 7px; padding: 6px; border: 1px dashed var(--line);
       border-radius: 5px; color: var(--dim); font-size: 9.5px;
-    }
-    @keyframes lg-powerup-in {
-      from { opacity: 0; transform: translateX(18px) scale(.985); }
-      to { opacity: 1; transform: none; }
     }
 
     /* ══ 试听 · 悬浮迷你播放条 ══
@@ -13234,7 +13286,7 @@
     .mod-shi .shi-battle-drawer {
       flex: 0 0 min(58%, 720px); min-width: 360px; min-height: 0; display: flex; flex-direction: column;
       border-left: 1px solid var(--line); background: var(--bg0);
-      box-shadow: -12px 0 28px rgba(0, 0, 0, .2); animation: kuma-detail-enter var(--motion-fast) ease both;
+      box-shadow: -12px 0 28px rgba(0, 0, 0, .2); animation: kuma-detail-enter var(--motion-view) var(--motion-ease) both;
     }
     @keyframes kuma-detail-enter {
       from { opacity: .7; transform: translate3d(12px, 0, 0); }
@@ -13258,6 +13310,9 @@
     .mod-shi .shi-battle-drawer > header button:hover {
       color: var(--text); border-color: var(--accent-dim); background: var(--bg2);
     }
+    /* 「动画复盘」与 ✕ 并排；文字按钮不吃方钮的定宽 */
+    .mod-shi .shi-battle-drawer > header .shi-battle-actions { flex: none; display: flex; align-items: center; gap: 4px; font-size: 10.5px; }
+    .mod-shi .shi-battle-drawer > header button[data-shi-battle-anim] { width: auto; padding: 0 8px; color: var(--accent); font-size: 10.5px; }
     .mod-shi .shi-battle-detail {
       flex: 1; min-width: 0; min-height: 0; display: flex; overflow: hidden;
     }
@@ -13266,7 +13321,7 @@
       font-size: 10px; text-align: center;
     }
     .mod-shi .shi-view { min-width: 0; }
-    .mod-shi .shi-view.enter { animation: kuma-subview-enter var(--motion-fast) ease both; }
+    .mod-shi .shi-view.enter { animation: kuma-subview-enter var(--motion-view) var(--motion-ease) both; }
     .mod-shi .shi-view-head {
       min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
       gap: 6px 12px; margin-bottom: 8px;
@@ -13891,6 +13946,13 @@
       .fleet-skin .ship[data-berth-role="flag"] .fc,
       .fleet-skin .ship[data-berth-repair="1"] .fx-akashi-wave,
       .fleet-skin .ship > .berth-tether,
+      .fleet-skin .ship[data-docked="1"][data-crack],
+      .fleet-skin .ship[data-docked="1"][data-crack] .dmg-wash,
+      .fleet-skin .ship[data-aura-fade="1"],
+      .fleet-skin .ship[data-aura-fade="1"] .dmg-wash,
+      .fleet-skin .ship[data-aura-fade="1"] .hpc .bar > i::after,
+      .fleet-skin .ship[data-berth-fade="1"] .dmg-wash,
+      .fleet-skin .ship[data-berth-fade="1"] .fc,
       .fleet-skin .ship.shattered[data-fracture],
       .fleet-skin .hpc .bar .hp-ghost,
       .fleet-skin .hpc .dmg-pop,
@@ -13957,7 +14019,6 @@
       #header-status .pulse,
       .mod-di .brow.focus,
       .mod-ji .rt-row.focus,
-      .lg-toast.powerup-result,
       .mod-zi .tile.hl,
       .mod-di .bship-detail { animation: none !important; }
       #header-status .hs-res::after,

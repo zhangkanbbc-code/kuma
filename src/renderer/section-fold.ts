@@ -112,6 +112,56 @@ interface FoldBooks {
 // （见 revealSection 的注释）。按根挂 WeakMap：根一走，账跟着走。
 const foldBooks = new WeakMap<HTMLElement, FoldBooks>()
 
+// ---- 点标题开合时的高度过渡（维护者裁决 2026-11-26：动画不宜过快，要有过渡）----
+// 从前开合是一步到位：内容整块冒出来或整块消失，下面的段跟着一跳。
+// 现在只有玩家亲手点标题这一路走过渡：重渲染后的施加、页内跳转的 revealSection
+// 都照旧一步到位（后者紧接着要按最终版面滚动定位，等不得）。
+// 展开：先挂上属性量出展开后的高度，从折起时的高度过渡过去；
+// 收起：先量出折起后的高度（摘属性量完立刻挂回，同一帧不会画出来），过渡完再真摘属性。
+// 过渡期间段根 overflow: clip，内容按高度一路裁着走。
+const FOLD_MS = 300
+const FOLD_EASE = 'cubic-bezier(.2, .72, .22, 1)'
+const foldMotionOff = (section: HTMLElement) =>
+  typeof section.animate !== 'function' ||
+  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
+const foldRunning = new WeakMap<HTMLElement, Animation>()
+
+const setFoldOpen = (section: HTMLElement, open: boolean) => {
+  // 上一次开合还在走就从它当下的高度接着走，不先跳回起点
+  const running = foldRunning.get(section)
+  const midway = running ? section.getBoundingClientRect().height : null
+  running?.cancel()
+  if (foldMotionOff(section) || (midway == null && section.hasAttribute('data-open') === open)) {
+    section.toggleAttribute('data-open', open)
+    return
+  }
+  const from = midway ?? section.offsetHeight
+  section.toggleAttribute('data-open', open)
+  const to = section.offsetHeight
+  if (!open) section.setAttribute('data-open', '')
+  if (Math.abs(to - from) < 1) {
+    section.toggleAttribute('data-open', open)
+    return
+  }
+  section.style.overflow = 'clip'
+  const run = section.animate([{ height: `${from}px` }, { height: `${to}px` }], {
+    duration: FOLD_MS,
+    easing: FOLD_EASE,
+    fill: 'forwards',
+  })
+  foldRunning.set(section, run)
+  const settle = () => {
+    if (foldRunning.get(section) !== run) return
+    foldRunning.delete(section)
+    section.style.overflow = ''
+  }
+  run.onfinish = () => {
+    if (!open) section.removeAttribute('data-open')
+    run.cancel()
+  }
+  run.oncancel = settle
+}
+
 const foldNameOf = (section: HTMLElement, bareTitle: string): string => {
   const scope = section.closest<HTMLElement>('[data-fold-scope]')?.dataset.foldScope
   return scope ? `${scope}:${bareTitle}` : bareTitle
@@ -175,7 +225,7 @@ export const installSectionFolding = (root: HTMLElement, specs: FoldSpec[]): Set
     if (!spec || !bareTitle) return
     const name = foldNameOf(section, bareTitle)
     toggleSectionFold(spec, name, opened, closed)
-    section.toggleAttribute('data-open', sectionIsOpen(spec, name, opened, closed))
+    setFoldOpen(section, sectionIsOpen(spec, name, opened, closed))
   })
 
   // 换完 DOM 之后必须**同步**再施加一次，赶在滚动还原之前。

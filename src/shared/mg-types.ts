@@ -377,6 +377,11 @@ export interface BattleAttack {
     protect: boolean // 护卫替身（API 伤害带 .1）
     sunk: boolean // 该击后目标 HP 落 0
     repairItem: number | null // 该击触发的应急修理装备
+    /**
+     * 航空 stage3 这一格挨的是什么：api_*rai_flag（雷击）/ api_*bak_flag（爆击）各自立没立，
+     * 两个都立就是 'both'。只有航空阶段的命中有这个键；2026-11-26 之前的快照没有（显示端当「不明」）。
+     */
+    airKind?: 'torpedo' | 'bomb' | 'both'
   }[]
 }
 
@@ -638,6 +643,8 @@ export interface SortieNode {
   cell: number // api_no（字母名需海图点位包，暂以编号显示）
   eventId: number // 2 资源 3 涡潮 4 战斗 5 Boss 6 无事 7 航空战 8 护卫成功 9 扬陆 10 空袭
   eventKind: number
+  /** 进点报文 api_next：0＝这一点之后没有路了（Boss 点与死路点）；旧状态里没有这个字段 */
+  next?: number
   rank: string | null // 战斗节点：battleresult 实际评级
   note: string | null // 非战斗点实况：获得/涡潮损失（api_itemget / api_happening）
   offshoreSupply?: { supplyShip: number; givenShips: number[]; useNum: number }

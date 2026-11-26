@@ -154,6 +154,7 @@ test('内核派发必须逐个隔离——裸 forEach 会让一个模块拖垮�
     'sortieScreenListeners',
     'gameSceneListeners',
     'powerupResultListeners',
+    'shipAcquiredListeners',
     'marriageListeners',
     'qpListeners',
     'zoomListeners',
@@ -171,7 +172,8 @@ test('内核派发必须逐个隔离——裸 forEach 会让一个模块拖垮�
   // （婚舰那一处包在 dispatchMarriage 里：报文到达与调试模拟共用同一次派发）
   // 第 9 处是 settleView：换完 DOM、还原滚动之前那一拍的收尾登记（registerViewSettler）
   // ——它跑在重渲染的关键路径上，一个收尾抛异常不该让后面的收尾和滚动还原一起没掉
-  assert.equal((kernel.match(/safeEach\(/g) ?? []).length, 9)
+  // 第 10 处：新舰到手（任务奖励 / 战斗掉落报文只给图鉴号，2026-11-26 起当场提醒）
+  assert.equal((kernel.match(/safeEach\(/g) ?? []).length, 10)
   assert.equal((kernel.match(/timedEach\(/g) ?? []).length, 3)
   // 首见志的派发在单独的文件里，同样不许裸跑
   const firstEncounter = read('../src/renderer/first-encounter.ts')

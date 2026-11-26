@@ -54,13 +54,31 @@ test('kuma补充规则全部解析成功——名字解析失败会整条丢弃�
   // 2026-09-08 补 382/2606Cm1 的更新后编成门（+1），现共 64 条。
   // 同日全库编成门体检补 C57/B194/B204/F138/By14（+5），现共 69 条。
   // 2026-09-15 补 B217/F143 的编成门与准备条件（+2），现共 71 条。
-  assert.equal(rules.length, 71, `解析出 ${rules.length} 条`)
+  // 2026-11-26 补秋刀鱼捕捞 2611B1～B3 的持有条件（+3），现共 74 条。
+  assert.equal(rules.length, 74, `解析出 ${rules.length} 条`)
   for (const rule of rules) {
     assert.ok(
       rule.tasks.length || rule.fleetGoal || rule.stateGoal || rule.stockGoals?.length,
       `${rule.code} 是空规则`,
     )
   }
+})
+
+test('秋刀鱼捕捞 2611B1～B3：只有持有秋刀鱼一项，数量按正文 8/16/27，不标 partial', () => {
+  // memo2「需要持有N条秋刀鱼（完成后不会消耗秋刀鱼）」：游戏只看持有数，捕捞没有可计数的报文。
+  // 2026-11-26 实机：867 详情显示「暂无这条任务的判定资料」。
+  for (const [questId, code, count] of [[866, '2611B1', 8], [867, '2611B2', 16], [868, '2611B3', 27]]) {
+    const rule = byId.get(questId)
+    assert.ok(rule, `${code} 没有规则`)
+    assert.equal(rule.code, code)
+    assert.deepEqual(rule.tasks, [])
+    assert.deepEqual(rule.stockGoals, [{ kind: 'useitem', id: 68, label: '秋刀鱼', count }])
+    assert.equal(rule.partial, false)
+    assert.equal(rule.approx, false)
+    assert.equal(rule.fleetGoal, undefined)
+  }
+  // 69 是秋刀鱼罐头，另一个道具
+  assert.notEqual(masterRaw.api_mst_useitem.find((item) => item.api_id === 68)?.api_name, '秋刀魚の缶詰')
 })
 
 test('缺 poi-fcd 时带点位的规则整条弃用，绝不退化成空 nodes', () => {

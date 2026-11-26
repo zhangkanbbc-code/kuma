@@ -27,6 +27,8 @@ export interface WelcomeStyleMount {
   noteSignal(signal: LaunchWelcomeSignal, allReady: boolean): void
   setNudge?(line: string): void
   beginOpen?(calm: boolean): void
+  /** 机甲舱门：这一下按在中央舱锁热区（铭牌 + 「点击舱门解封」按钮）里没有 */
+  isDoorTarget?(target: unknown): boolean
   dispose(): void
 }
 
@@ -886,6 +888,7 @@ const mountMechStyle = (
   // 球磨催门彩蛋槽位：初始空文本，三件就绪后迟迟不点时由调度写入 textContent。
   const nudgeEl = div(visor, 'kw-mech-nudge')
   nudgeEl.dataset.nudge = '1'
+  let nudgeSwapTimer: ReturnType<typeof setTimeout> | null = null
 
   // 中央舱锁铭牌区：仅 .kw-mech-core-hit（静止热区）承接悬停，内部动画节点 pointer-events: none，杜绝卡尺颜色抖动。
   const coreWrap = div(stage, 'kw-mech-core')
@@ -932,14 +935,36 @@ const mountMechStyle = (
         coreTagText.textContent = 'COCKPIT SEALED · VISOR READY'
       }
     },
+    isDoorTarget(target: unknown) {
+      // 沿 parentNode 往上找：只认中央舱锁热区，舱门其余地方按下去不开门（2026-11-26 他报「点击非按钮也可以开门」）
+      for (let node = target as { parentNode?: unknown } | null; node; node = (node.parentNode ?? null) as typeof node) {
+        if (node === coreHit) return true
+      }
+      return false
+    },
     setNudge(line: string) {
-      nudgeEl.textContent = line
-      nudgeEl.classList.add('show')
-      if (!calm) {
+      const replay = (name: string, duration: number, easing: string, fill?: string) => {
         nudgeEl.style.animation = 'none'
         void nudgeEl.offsetWidth
-        anim(nudgeEl, false, [['st-nudge-in', MT.nudgeIn, 0, 'cubic-bezier(.18,.84,.28,1)']])
+        anim(nudgeEl, false, [[name, duration, 0, easing, false, fill]])
       }
+      if (nudgeSwapTimer !== null) clearTimeout(nudgeSwapTimer)
+      nudgeSwapTimer = null
+      // 第一句从下方滑上来；之后换句原地淡出、换字、淡入（2026-11-26 他报「隔几秒就跳一次」：
+      // 每句都重放滑入，文字又是瞬间替换，药丸宽度当着面突变）
+      const swapping = !calm && nudgeEl.classList.contains('show') && Boolean(nudgeEl.textContent)
+      if (!swapping) {
+        nudgeEl.textContent = line
+        nudgeEl.classList.add('show')
+        if (!calm) replay('st-nudge-in', MT.nudgeIn, 'cubic-bezier(.18,.84,.28,1)')
+        return
+      }
+      replay('st-nudge-out', MT.nudgeSwap, 'ease-in', 'forwards')
+      nudgeSwapTimer = setTimeout(() => {
+        nudgeSwapTimer = null
+        nudgeEl.textContent = line
+        replay('st-nudge-swap', MT.nudgeIn, 'ease-out')
+      }, MT.nudgeSwap)
     },
     beginOpen(isCalm: boolean) {
       layer.classList.add('kw-mech-open')
@@ -965,6 +990,8 @@ const mountMechStyle = (
       }
     },
     dispose() {
+      if (nudgeSwapTimer !== null) clearTimeout(nudgeSwapTimer)
+      nudgeSwapTimer = null
       flash.remove()
       rig.remove()
     },
@@ -1005,6 +1032,7 @@ export const mountWelcomeStyle = (
     noteSignal: inner.noteSignal,
     setNudge: inner.setNudge,
     beginOpen: inner.beginOpen,
+    isDoorTarget: inner.isDoorTarget,
     dispose() {
       window.removeEventListener('resize', onResize)
       inner.dispose()

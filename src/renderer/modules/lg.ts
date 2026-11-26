@@ -23,6 +23,7 @@ import {
   commitPaneHtml,
   onMgChange,
   onPowerupResult,
+  onShipAcquired,
   onQpChange,
   onTick,
   onTrayToggleDnd,
@@ -41,15 +42,17 @@ import { ACCOUNT_CHANGED_MESSAGE } from '../../shared/account-change'
 import { mapIdOf } from '../../shared/map-id'
 import {
   ESCORT_FLAGSHIP_INDEX,
+  atBossNode,
   dameconOfShip,
   isTaihaShip,
+  noAdvanceAfterNode,
   taihaVerdictOf,
 } from '../../shared/taiha-verdict'
 import { navigate } from '../link'
 import { entityNamePlain } from '../localization'
 import { ensureMapCellLetters, mapPlaceText } from '../map-cell-letter'
 import { activateModule, getPopModule, registerModule } from '../mu'
-import { observeOwnedShips } from '../ship-first-owned'
+import { noteAcquiredShips, observeOwnedShips } from '../ship-first-owned'
 
 import type { EntityRef } from '../link'
 
@@ -371,12 +374,43 @@ const syncWeddingPetals = () => {
   }
 }
 
-const closeEventBanner = (noticeKey: string) => {
-  activeBanners.delete(noticeKey)
-  bannerHost?.querySelector<HTMLElement>(`[data-banner-id="${noticeKey}"]`)?.remove()
+// 横幅收完、宿主空了才把宿主摘掉
+const dropBannerHostIfEmpty = () => {
   if (!bannerHost?.children.length) {
     bannerHost?.remove()
     bannerHost = null
+  }
+}
+
+// 关横幅（维护者裁决 2026-11-26：动画要有过渡）：进场一直有淡入下落，关掉却是凭空消失。
+// 现在先淡出上移，停一口气再收起位置，下面那张平滑补上来；外框光与花瓣照旧当场跟着状态走。
+const BANNER_LEAVE_MS = 460
+const closeEventBanner = (noticeKey: string) => {
+  activeBanners.delete(noticeKey)
+  const el = bannerHost?.querySelector<HTMLElement>(`[data-banner-id="${noticeKey}"]`)
+  if (el && !motionOff(el) && el.dataset.leaving !== '1') {
+    el.dataset.leaving = '1'
+    el.style.pointerEvents = 'none'
+    el.style.overflow = 'hidden'
+    const { open, shut } = boxFrames(el)
+    const lift = 'translateY(-8px) scale(.992)'
+    const leave = el.animate(
+      [
+        { ...open, opacity: 1, transform: 'none' },
+        { ...open, opacity: 0, transform: lift, offset: 0.45 },
+        { ...shut, opacity: 0, transform: lift },
+      ],
+      { duration: BANNER_LEAVE_MS, easing: 'ease-in-out', fill: 'forwards' },
+    )
+    const done = () => {
+      el.remove()
+      dropBannerHostIfEmpty()
+    }
+    leave.onfinish = done
+    leave.oncancel = done
+  } else if (el?.dataset.leaving !== '1') {
+    el?.remove()
+    dropBannerHostIfEmpty()
   }
   syncFrameGlow()
   syncWeddingPetals()
@@ -587,7 +621,86 @@ const armToastTtl = (el: HTMLElement) => {
     ttl.style.transition = `width ${TOAST_DURATION}ms linear`
     requestAnimationFrame(() => (ttl.style.width = '0%'))
   }
-  toastTimers.set(el, setTimeout(() => el.remove(), TOAST_DURATION))
+  toastTimers.set(el, setTimeout(() => dismissToast(el), TOAST_DURATION))
+}
+
+// ---- 弹卡进退场（维护者裁决 2026-11-26：动画不宜过快，要有过渡）----
+// 进场：从所在那一侧滑进来，同时把自己的位置撑开，旁边的卡平滑让位；
+// 退场：先淡出滑走，停一口气再把位置收起来，旁边的卡平滑补位。
+// 从前是 appendChild / remove 一步到位，卡片凭空出现、凭空消失，其余几张跟着一跳。
+// 退场途中的卡打 data-leaving：溢出驱逐与同类合并都不再算它（它已经在走了）。
+// 没有 Web Animations（测试的假 DOM）或系统要求减少动画时照旧一步到位，
+// 而且每次关闭都真摘一次——点击语义护栏数的就是「关闭发生了几次」。
+const TOAST_ENTER_MS = 320
+const TOAST_LEAVE_MS = 460
+const TOAST_EASE = 'cubic-bezier(.2, .72, .22, 1)'
+const motionOff = (el: HTMLElement) =>
+  typeof el.animate !== 'function' ||
+  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
+const isLeavingToast = (el: Element) => (el as HTMLElement).dataset?.leaving === '1'
+// 卡片所在那一侧：靠左的从左边进出，靠右的从右边
+const toastSlideX = (el: HTMLElement) =>
+  (el.parentElement as HTMLElement | null)?.dataset.corner?.endsWith('l') ? -18 : 18
+// 「撑开 / 收起」那一对关键帧：高度、上下内边距与边框一起归零，
+// 再用负的上外边距吃掉卡与卡之间那道 gap，收完不留缝（弹卡与顶部横幅共用）
+const boxFrames = (el: HTMLElement) => {
+  const cs = getComputedStyle(el)
+  const gap = parseFloat(getComputedStyle(el.parentElement ?? el).rowGap) || 0
+  return {
+    open: {
+      height: `${el.offsetHeight}px`,
+      paddingTop: cs.paddingTop,
+      paddingBottom: cs.paddingBottom,
+      borderTopWidth: cs.borderTopWidth,
+      borderBottomWidth: cs.borderBottomWidth,
+      marginTop: '0px',
+    },
+    shut: {
+      height: '0px',
+      paddingTop: '0px',
+      paddingBottom: '0px',
+      borderTopWidth: '0px',
+      borderBottomWidth: '0px',
+      marginTop: `${-gap}px`,
+    },
+  }
+}
+const enterToast = (el: HTMLElement) => {
+  if (motionOff(el)) return
+  const { open, shut } = boxFrames(el)
+  const dx = toastSlideX(el)
+  el.animate(
+    [
+      { ...shut, opacity: 0, transform: `translateX(${dx}px)` },
+      { ...open, opacity: 0.6, transform: `translateX(${dx * 0.4}px)`, offset: 0.55 },
+      { ...open, opacity: 1, transform: 'none' },
+    ],
+    { duration: TOAST_ENTER_MS, easing: TOAST_EASE },
+  )
+}
+const dismissToast = (el: HTMLElement) => {
+  const timer = toastTimers.get(el)
+  if (timer) clearTimeout(timer)
+  toastTimers.delete(el)
+  if (motionOff(el)) {
+    el.remove()
+    return
+  }
+  if (isLeavingToast(el)) return
+  el.dataset.leaving = '1'
+  el.style.pointerEvents = 'none'
+  const { open, shut } = boxFrames(el)
+  const dx = toastSlideX(el)
+  const leave = el.animate(
+    [
+      { ...open, opacity: 1, transform: 'none' },
+      { ...open, opacity: 0, transform: `translateX(${dx}px)`, offset: 0.45 },
+      { ...shut, opacity: 0, transform: `translateX(${dx}px)` },
+    ],
+    { duration: TOAST_LEAVE_MS, easing: 'ease-in-out', fill: 'forwards' },
+  )
+  leave.onfinish = () => el.remove()
+  leave.oncancel = () => el.remove()
 }
 
 // 「任务完成 ×3」这类标题里的批量数；合并计数要接着它累加，不能从 1 重数
@@ -599,10 +712,12 @@ const toastCountOf = (title: string): number => Number(title.match(/×(\d+)/)?.[
 // 版本，就等于给锁定级留了一条被挤掉的后门（近改结果那处正是如此）。
 const TOAST_MAX = 4
 const evictOverflowToasts = (box: HTMLElement) => {
-  while (box.children.length > TOAST_MAX) {
-    const evictable = [...box.children].find((child) => !(child as HTMLElement).dataset.locked)
+  for (;;) {
+    const live = [...box.children].filter((child) => !isLeavingToast(child)) as HTMLElement[]
+    if (live.length <= TOAST_MAX) break
+    const evictable = live.find((child) => !child.dataset.locked)
     if (!evictable) break
-    evictable.remove()
+    dismissToast(evictable)
   }
 }
 
@@ -615,7 +730,9 @@ const showToast = (def: EventDef, title: string, detail: string, ref?: EntityRef
   if (!def.locked) {
     const existing = [...box.children].find(
       (child): child is HTMLElement =>
-        (child as HTMLElement).dataset?.event === def.id && !(child as HTMLElement).dataset.locked,
+        (child as HTMLElement).dataset?.event === def.id &&
+        !(child as HTMLElement).dataset.locked &&
+        !isLeavingToast(child),
     )
     if (existing) {
       const count = (Number(existing.dataset.stack) || 1) + toastCountOf(title)
@@ -642,7 +759,7 @@ const showToast = (def: EventDef, title: string, detail: string, ref?: EntityRef
     ${def.locked ? '' : '<span class="ttl"></span>'}`
   el.querySelector('.x')!.addEventListener('click', (e) => {
     e.stopPropagation()
-    el.remove()
+    dismissToast(el)
   })
   // 点击语义（用户 2026-08-27 定）：**卡面任意位置＝只关闭，只有「→ ××」那行字才跳转**。
   // 从前整卡都是跳转热区，于是「顺手把这条通知划掉」这个最常见的动作会把人弹到
@@ -651,13 +768,14 @@ const showToast = (def: EventDef, title: string, detail: string, ref?: EntityRef
   el.querySelector('.tx .act')!.addEventListener('click', (e) => {
     e.stopPropagation()
     goToNotice(def, el.dataset.merged ? undefined : ref)
-    el.remove()
+    dismissToast(el)
   })
   // 锁定级（大破 / 出击前状态）同样点一下就关：locked 承诺的是「不自动超时、
   // 不被溢出驱逐」，手动关掉本来就在允许之列（`.x` 那句「需手动关闭」说的正是这件事）。
-  el.addEventListener('click', () => el.remove())
+  el.addEventListener('click', () => dismissToast(el))
   if (def.locked) el.dataset.locked = '1'
   box.appendChild(el)
+  enterToast(el)
   evictOverflowToasts(box)
   if (!def.locked) armToastTtl(el)
 }
@@ -710,16 +828,17 @@ const showPowerupResultToast = (result: PowerupResultCue) => {
     <span class="ttl"></span>`
   el.querySelector('.x')!.addEventListener('click', (event) => {
     event.stopPropagation()
-    el.remove()
+    dismissToast(el)
   })
   // 点击语义同 showToast（08-27 用户定）；09-04 用户报这张强化卡漏改。
   el.querySelector('.tx .act')!.addEventListener('click', (event) => {
     event.stopPropagation()
     navigate({ type: 'ship', id: result.rosterId })
-    el.remove()
+    dismissToast(el)
   })
-  el.addEventListener('click', () => el.remove())
+  el.addEventListener('click', () => dismissToast(el))
   box.appendChild(el)
+  enterToast(el)
   evictOverflowToasts(box)
 
   const duration = 7000
@@ -729,7 +848,7 @@ const showPowerupResultToast = (result: PowerupResultCue) => {
     ttl.style.width = '100%'
     requestAnimationFrame(() => (ttl.style.width = '0%'))
   }
-  setTimeout(() => el.remove(), duration)
+  toastTimers.set(el, setTimeout(() => dismissToast(el), duration))
 }
 
 // 游戏刚进入海域选择页时的即时编成提醒：不写入长期通知历史，
@@ -1509,19 +1628,30 @@ const detectQuestComplete = () => {
 // 图鉴新登录（仅徽章）：在籍 mstId 集合差分；首轮建基线不响
 // 基线本体搬到 ship-first-owned：首见志要的是同一个判定（按谱系、只增不减、
 // 首次运行不误报），不该两处各存一份。这里只管拿新到手的名单发通知。
+const announceNewShips = (fresh: number[]) => {
+  const names = fresh.map((id) => {
+    const original = mg.master.ships[id]?.name ?? `#${id}`
+    return entityNamePlain('ship', id, original)
+  })
+  notify(
+    'newShip',
+    `新舰入库：${names.slice(0, 3).join('、')}${fresh.length > 3 ? ` 等 ${fresh.length} 位` : ''}`,
+    '新舰锁定确认',
+    { type: 'mstShip', id: fresh[0] }, // 多舰时落到第一艘
+  )
+}
 const detectNewShips = () => {
   const fresh = observeOwnedShips()
   if (fresh.length) {
-    const names = fresh.map((id) => {
-      const original = mg.master.ships[id]?.name ?? `#${id}`
-      return entityNamePlain('ship', id, original)
-    })
-    notify(
-      'newShip',
-      `新舰入库：${names.slice(0, 3).join('、')}${fresh.length > 3 ? ` 等 ${fresh.length} 位` : ''}`,
-      '新舰锁定确认',
-      { type: 'mstShip', id: fresh[0] }, // 多舰时落到第一艘
-    )
+    announceNewShips(fresh)
+  }
+}
+// 任务奖励、战斗掉落报文一到就提醒，不等回港的舰娘列表（2026-11-26 他选秃鹫当奖励，回港才响）。
+// 谱系在这一刻记账，回港时 detectNewShips 就不会再响第二次。
+const detectAcquiredShips = (cue: { ts: number; mstIds: number[] }) => {
+  const fresh = noteAcquiredShips(cue.mstIds, cue.ts)
+  if (fresh.length) {
+    announceNewShips(fresh)
   }
 }
 
@@ -1556,9 +1686,9 @@ const detectTaiha = () => {
   // 已退避的舰不再喊：她被送回港了，「大破后继续前进可能被击沉」说的不是她。
   // 判据用战斗视图自带的 escaped（报文的 api_escape_idx / 血量 -1），与镝同一份。
   const isTaiha = (x: BattleShipView) => isTaihaShip(x)
-  const node = s.nodes.find((entry) => entry.cell === s.currentCell)
-  const atBoss =
-    (s.bossCell > 0 && s.currentCell === s.bossCell) || node?.eventId === 5
+  const atBoss = atBossNode(s)
+  // Boss 点之外，死路战斗点（游戏报这一点之后没有下一点）打完也只能回港，同样没有进击选项
+  const routeEnd = noAdvanceAfterNode(s)
   // 同一战里多艘大破只发一条：一战三破弹三次横幅，只会让人急着点掉，
   // 反而看不清到底谁破了。夜战后又新增大破时才再发一条，且内容列出当前全部。
   const taiha = s.battle.fShips.filter(isTaiha)
@@ -1620,9 +1750,12 @@ const detectTaiha = () => {
     list.length === 1 ? list[0] : `${list[0]} 等 ${list.length} 舰`
   const who = nameList(names)
   // Boss 后没有进击选择，一切降为战损陈述——这一档的措辞与路由都维持原样。
+  // 死路战斗点同理（6-1 I 点这类）：说清楚这一点没有进击选项，不喊撤退。
   const [title, tail] = atBoss
     ? [`${who}在 Boss 战中大破`, names.length > 1 ? ` · ${names.join('、')}` : '']
-    : verdict.tier === 'forced'
+    : routeEnd
+      ? [`${who}大破`, ` · 本节点无进击选项${names.length > 1 ? ` · ${names.join('、')}` : ''}`]
+      : verdict.tier === 'forced'
       ? [
           verdict.others.length
             ? `旗舰${verdict.flagship}、${verdict.others.join('、')} 大破 · 本战结束后强制返航`
@@ -1648,7 +1781,7 @@ const detectTaiha = () => {
     `${correcting ? '修正：' : ''}${s.mapArea}-${s.mapNo} ${atBoss ? 'Boss 战' : `第 ${s.battleCount} 战`}${tail}`,
     ref,
     // 带损管的说明档不上横幅：红色横幅是劝退级提示。
-    atBoss ? { banner: false, priority: 'normal' } : verdict.tier === 'insured' ? { banner: false, priority: 'normal' } : undefined,
+    routeEnd ? { banner: false, priority: 'normal' } : verdict.tier === 'insured' ? { banner: false, priority: 'normal' } : undefined,
   )
 }
 
@@ -2207,6 +2340,7 @@ registerModule({
     // `if (!mg.master.ready) return`，而补发跟主数据到没到毫无关系。
     onTick(pollPushPresence)
     onPowerupResult(showPowerupResultToast)
+    onShipAcquired(detectAcquiredShips)
     onMarriage(detectMarriage)
     // 精确计数打满 → 达成推定（事件瞬间即通知，不等 questlist）。
     // 订阅必须在 mount 的同步段登记：内核的装配作用域只圈 mod.mount 那一跳，

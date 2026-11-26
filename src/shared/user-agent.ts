@@ -6,10 +6,10 @@
 // 「这台机器上装了什么工具」。poi 也是同一手法（views/kan-game-wrapper.tsx）。
 //
 // **判据只有这一份**：游戏 webview 与浏览窗都引它。
-// 各写各的正则是这条曾经空转的原因——原先游戏页那份找的是 `kanso/`，
+// 各写各的正则是这条曾经空转的原因——原先游戏页那份找的是改名前的应用名，
 // 2026-08-28 改名 kuma 之后它一个字都没再匹配上，而这种失效不报错：
 // UA 照发，只是多带了应用名和版本号出去，谁也不会发现。
-const NOISE = /\s?(?:Electron|kuma|kanso)\/\S+/gi
+const NOISE = /\s?(?:Electron|kuma)\/\S+/gi
 
 /** 把上面那几段去掉。传进来的是 `navigator.userAgent`，返回真正要发出去的那条。 */
 export const cleanUserAgent = (raw: string): string => raw.replace(NOISE, '')

@@ -31,7 +31,9 @@ buildSync({
 const require = createRequire(import.meta.url)
 const {
   alignedTaskEntityText,
+  isTaskDialogueOnlyMention,
   markTaskEntityHits,
+  matchTaskEntityHits,
   normalizeTaskEntityText,
   TASK_SHIP_TEXT_ALIASES,
 } = require(output)
@@ -184,10 +186,26 @@ test('a name with a space inside is matched whole, space included', () => {
   assert.equal(text.slice(hit.start, hit.start + hit.length), 'Fletcher Mk.II')
 })
 
-test('single-character ship names only count inside quotes', () => {
+test('single-character ship names count inside quotes or a list, never inside a word', () => {
   const entries = [{ id: 2, name: '响', simple: '响', aliases: ['响'] }]
   assert.equal(markTaskEntityHits(entries, '影响出击', 2, { allowQuotedSingle: true }).length, 0)
   assert.equal(markTaskEntityHits(entries, '带上「响」', 2, { allowQuotedSingle: true }).length, 1)
+  // 2611Cw3 的 memo2：顿号列举里没有引号，第七驱逐队四艘曾独独不亮
+  const seventh = ['胧', '曙', '涟', '潮'].map((name, index) => ({ id: 10 + index, name, simple: name, aliases: [name] }))
+  const listed = '以包含【胧、曙、涟、潮、夕立改二】中4名舰娘的舰队'
+  const hits = markTaskEntityHits(seventh, listed, 2, { allowQuotedSingle: true })
+  assert.deepEqual(hits.map((hit) => listed.slice(hit.start, hit.start + hit.length)).sort(), ['曙', '涟', '潮', '胧'].sort())
+  assert.equal(matchTaskEntityHits(seventh, listed, 2, { allowQuotedSingle: true }).length, 4)
+  // 斜杠列举同样算；挨着字的不算（「退潮」「曙光」），只有一侧是标点也不算
+  // 列举末位紧跟「中」「的」（B124「曙、潮、涟、胧中2艘」）也亮，前一侧须是顿号或斜杠
+  assert.equal(markTaskEntityHits(seventh, '白露/潮/曙/胧中的一位', 2, { allowQuotedSingle: true }).length, 3)
+  assert.equal(markTaskEntityHits(seventh, '使用包含曙、涟、潮的舰队', 2, { allowQuotedSingle: true }).length, 3)
+  assert.equal(markTaskEntityHits(seventh, '退潮、曙光、胧月', 2, { allowQuotedSingle: true }).length, 0)
+  assert.equal(markTaskEntityHits(seventh, '退潮的、满潮中', 2, { allowQuotedSingle: true }).length, 0)
+  assert.equal(markTaskEntityHits(seventh, '潮、', 2, { allowQuotedSingle: true }).length, 0)
+  // 两字装备不走列举放行（minLength 3 的短名仍只认引号）
+  const equip = [{ id: 30, name: '彗星', simple: '彗星', aliases: ['彗星'] }]
+  assert.equal(markTaskEntityHits(equip, '【瑞云、彗星、天山】', 3, { allowQuotedSingle: true }).length, 0)
 })
 
 test('traditional-Chinese quest text lands on the simplified index names', () => {
@@ -248,4 +266,33 @@ test('every quest in the real library survives cleaning and marking', { skip: !q
   assert.equal(piped, 0, 'wiki 竖线必须一条不剩地折掉')
   // 六成以上的任务正文有硬条件可点；低于这个数就是规则退化了
   assert.ok(marked > quests.length * 0.6, `只有 ${marked}/${quests.length} 条正文有标记`)
+})
+
+
+test('台词里点到的舰名不进「涉及舰娘」：2611B2/B3 的飞龙不列，By16 另有引号原文的吹雪照列', () => {
+  // 2026-11-26 他报：867 的涉及舰娘列了飞龙，可这条任务跟飞龙没关系（正文是飞龙在说话）
+  assert.ok(quests, '缺任务库')
+  const byCode = new Map(quests.map((quest) => [quest.code, quest]))
+  const entries = [
+    { id: 1, name: '飛龍', simple: '飞龙', aliases: ['飞龙', '飛龍', '飞龙改', '飞龙改二'].map(normalizeTaskEntityText) },
+    { id: 2, name: '吹雪', simple: '吹雪', aliases: ['吹雪', '吹雪改', '吹雪改二', '吹雪改三'].map(normalizeTaskEntityText) },
+  ]
+  const related = (code) => {
+    const quest = byCode.get(code)
+    const text = `${quest.name} ${quest.desc} ${quest.memo2 ?? ''}`
+    return matchTaskEntityHits(entries, text, 2, { acceptAlias: (candidate) => !isTaskDialogueOnlyMention(candidate) })
+      .map((hit) => hit.entry.id)
+  }
+  assert.deepEqual(related('2611B2'), [], '「飞龙，就在海上！」是呼唤')
+  assert.deepEqual(related('2611B3'), [], '「由我飞龙来指挥」是自称')
+  assert.deepEqual(related('By16'), [2], '吹雪改三另有引号原文，照列')
+  // 判据本身：引号里、句中当宾语的都不是台词；别处有一次真提及就不算「只在台词里」
+  const dialogue = (raw, alias) => isTaskDialogueOnlyMention({ alias, text: normalizeTaskEntityText(raw) })
+  assert.equal(dialogue('出击吧！飞龙，就在海上！', '飞龙'), true)
+  assert.equal(dialogue('只要由我飞龙来指挥', '飞龙'), true)
+  assert.equal(dialogue('以“飞龙”为旗舰出击！飞龙，就在海上！', '飞龙'), false)
+  assert.equal(dialogue('编成以飞龙为旗舰的舰队', '飞龙'), false)
+  assert.equal(dialogue('飞龙、苍龙编入舰队', '飞龙'), false)
+  // 正文高亮不走这条：台词里的飞龙照样能点开（867 原文含「……」，归一后变长，整段本来就不标，这里取同句）
+  assert.ok(markTaskEntityHits(entries, '捕获16条新鲜的“秋刀鱼”！飞龙，就在海上！', 2).some((hit) => hit.entry.id === 1))
 })

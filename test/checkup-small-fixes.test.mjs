@@ -170,7 +170,7 @@ test('演习晚场跨 JST 零点分到次日日卡，03:00和15:00只换场；�
   assert.match(history, /2026-10-16 · 2 场/)
   const refreshSelection = selectedPracticeDay => evaluate(
     `${cut(read('renderer/modules/shi.ts'), '    if (snapshots) {', '    if (nodes) {')}\nreturn selectedPracticeDay`,
-    { snapshots: rows.slice(1, 3), battles: [], selectedPracticeDay, jstDayStart },
+    { snapshots: rows.slice(1, 3), battles: [], selectedPracticeDay, jstDayStart, mapBattlesGen: 0 },
   )
   assert.equal(refreshSelection(day + 86400_000), day + 86400_000, '次日零点后的晚场保持次日日卡选中态')
   assert.equal(refreshSelection(day), null, '前一天日卡已无演习记录，清除选中态')

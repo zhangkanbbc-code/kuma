@@ -208,16 +208,28 @@ test('359 靠领奖绑定企划后，任务与来源都回落到最近一次普�
 })
 
 for (const prefix of ['【期間限定任務】', '【期間限定】', '【期间限定任务】', '【期间限定】']) {
-  test(`本季与海域任务均识别前缀 ${prefix}，没有领奖仍记未完成`, async t => {
+  test(`海域任务识别前缀 ${prefix}，没有领奖仍记未完成；季节企划只认点名企划道具的`, async t => {
     const { db, book } = make(t)
     put(db, list(catalog.startsAt + 1000, 1119, `${prefix}Halloween`))
+    put(db, list(catalog.startsAt + 2000, 987, `${prefix}西方南瓜祭り! Buono!`))
     await book.startBackfill()
-    for (const key of [undefined, 'pumpkin']) {
-      const tasks = book.tasks(catalog.startsAt, catalog.expiresAt, key)
-      assert.deepEqual(tasks.map(q => [q.no, q.claims.length]), [[1119, 0]])
-    }
+    assert.deepEqual(book.tasks(catalog.startsAt, catalog.expiresAt).map(q => [q.no, q.claims.length]), [[1119, 0], [987, 0]])
+    // 2026-11-26 他报：同期挂着、不涉及企划道具的限时任务不算本季（预热任务被算进了秋刀鱼本体企划）
+    assert.deepEqual(book.tasks(catalog.startsAt, catalog.expiresAt, 'pumpkin').map(q => [q.no, q.claims.length]), [[987, 0]])
   })
 }
+
+test('秋刀鱼企划：祭典名里的「秋刀魚」不算点名，预热的准备演习不进本季任务，点名秋刀鱼的照收', async t => {
+  const { db, book } = make(t)
+  const opened = Date.parse('2026-11-24T00:00:00+09:00')
+  // 标题取自账本 11-26 的真实任务页
+  put(db, list(opened + 1000, 386, '【期間限定任務】秋刀魚祭り準備演習！', '【秋刀魚祭り準備演習】「しまね丸」「熊野丸」…の旗艦含む計4隻以上の艦隊で、本日中に演習【S判定】勝利3回以上を達成せよ！'))
+  put(db, list(opened + 2000, 369, '【鎮守府秋刀魚祭り】秋刀魚塩焼き演習！'))
+  put(db, list(opened + 3000, 1110, '秋刀魚祭り【拡張任務】新秋刀魚を美味しく料理！'))
+  put(db, list(opened + 4000, 866, '秋刀魚漁：鎮守府秋刀魚祭り、二航戦出ます！'))
+  await book.startBackfill()
+  assert.deepEqual(book.tasks(opened, opened + 86400000, 'sanma').map(q => q.no), [369, 1110, 866])
+})
 
 test('任务库的中文限时前缀也可识别，未观测且无任务库名字时才回落到编号', async t => {
   const { db } = make(t)

@@ -35,6 +35,8 @@ export interface HitGlassGeometry {
   readonly shardC: GlassPolygon
   readonly midCracks: readonly GlassPolyline[]
   readonly midSubCracks: readonly GlassPolyline[]
+  /** 中破的暗面：角缺构型是 A、B 之间那一圈；顶边 / 底边 V 构型没有（见 V 分支的维护者裁决） */
+  readonly midFacets: readonly GlassPolygon[]
   readonly heavyCracks: readonly GlassPolyline[]
   readonly heavySubCracks: readonly GlassPolyline[]
   readonly sunkCracks: readonly GlassPolyline[]
@@ -246,6 +248,7 @@ export const hitGlassGeometry = (
       shardC: cutC,
       midCracks: [lineB, [[W - bKx, yOf(bKy)], [rad1.mx, rad1.my]]],
       midSubCracks: [stubAB],
+      midFacets: [shardB],
       heavyCracks: [rad1.pts, rad2.pts, s1.pts],
       heavySubCracks: [lineC, radBridge],
       sunkCracks: [rad1.pts, rad2.pts, s1.pts, s2.pts],
@@ -353,8 +356,12 @@ export const hitGlassGeometry = (
     shardA: cutA,
     shardB,
     shardC: cutC,
-    midCracks: [lineB, [[impX, yOf(bD)], [vL.mx, vL.my]]],
-    midSubCracks: [[[impX, yOf(bD)], [vR.mx, vR.my]]],
+    // 维护者裁决 2026-11-26：中破不画外圈 B。交接包原稿的 B 与缺口 A 都是 V、彼此平行，读起来像「≫」双裂纹；
+    // 改为两道裂纹从缺口尖端放射出去（方案三，审片页对比后定），也不画 A、B 之间的暗面。
+    // 大破照旧沿 B 崩开，B 那圈在大破时才第一次出现。角缺构型（arch 0 / 1）不受影响。
+    midCracks: [[[impX, yOf(aD)], [vL.mx, vL.my]]],
+    midSubCracks: [[[impX, yOf(aD)], [vR.mx, vR.my]]],
+    midFacets: [],
     heavyCracks: [vL.pts, vR.pts, s1.pts],
     heavySubCracks: [lineC, vBridge],
     sunkCracks: [vL.pts, vR.pts, s1.pts, s2.pts],
@@ -386,7 +393,7 @@ export const hitGlassLayers = (geo: HitGlassGeometry, tier: HitGlassTier): HitGl
       cracks: geo.midCracks,
       subCracks: geo.midSubCracks,
       bevels: [geo.lineA],
-      facets: [geo.shardB],
+      facets: geo.midFacets,
       shard: geo.shardA,
       extraShard: null,
     }

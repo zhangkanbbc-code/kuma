@@ -95,7 +95,7 @@ test('UA 清洗：Electron 与应用名两段都去掉', () => {
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) ' +
     'kuma/1.0.0-beta.1 Chrome/150.0.7871.129 Electron/43.2.0 Safari/537.36'
   const cleaned = cleanUserAgent(raw)
-  for (const mark of ['kuma', 'kanso', 'Electron']) {
+  for (const mark of ['kuma', 'Electron']) {
     assert.ok(!cleaned.includes(mark), `清洗后仍带着 ${mark}：${cleaned}`)
   }
   assert.equal(
@@ -103,12 +103,10 @@ test('UA 清洗：Electron 与应用名两段都去掉', () => {
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)' +
       ' Chrome/150.0.7871.129 Safari/537.36',
   )
-  // 改名前的旧标记也还认（用过老版本、UA 里还写着 kanso 的情形）
-  assert.ok(!cleanUserAgent(raw.replace('kuma/', 'kanso/')).includes('kanso'))
 })
 
 test('UA 清洗只有一份判据：游戏页与浏览窗都引它，谁也别再自己写正则', () => {
-  // 各写各的正是这条曾经空转的原因：游戏页那份找的是 kanso/，改名之后一个字都没匹配上，
+  // 各写各的正是这条曾经空转的原因：游戏页那份找的是改名前的应用名，改名之后一个字都没匹配上，
   // 而这种失效不报错——UA 照发，只是多带了应用名和版本号出去
   for (const rel of ['src/renderer/index.ts', 'src/renderer/browse-window.ts']) {
     assert.match(code(rel), /cleanUserAgent\(navigator\.userAgent\)/, `${rel} 没走共用判据`)

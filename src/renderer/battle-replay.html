@@ -51,9 +51,9 @@
       --scrollbar-thumb: #334957;
       --scrollbar-thumb-hover: #486476;
       --scrollbar-thumb-active: #5c7b90;
-      --motion-fast: 150ms;
+      --motion-fast: 200ms;
       --motion-micro: 120ms;
-      --motion-view: 200ms;
+      --motion-view: 300ms;
       --motion-ease: cubic-bezier(.2, .72, .22, 1);
       --serif: 'Yu Mincho', 'MS Mincho', 'SimSun', serif;
       --mono: 'Maple Mono NF CN', 'Cascadia Code', 'Consolas', monospace;
@@ -899,11 +899,14 @@
     :root[data-theme="light"] body { font-weight: var(--weight-body); }
   </style>
   <link rel="stylesheet" href="assets/battle-replay.css">
+  <link rel="stylesheet" href="assets/battle-anim.css">
 </head>
 <body>
   <div id="battle-replay-root">
+    <nav id="battle-replay-views" hidden><button data-view="detail">详情</button><button data-view="animate">动画<span class="anim-beta">BETA</span></button></nav>
     <div id="battle-replay-status">复盘读取中</div>
     <div id="battle-replay-detail" class="mod-di" hidden></div>
+    <div id="battle-replay-anim" hidden></div>
   </div>
   <script src="./battle-replay.js"></script>
 </body>

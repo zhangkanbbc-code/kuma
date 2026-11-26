@@ -382,3 +382,32 @@ test('没人大破时既无计数也无风险句', () => {
   assert.match(html, /全员状态良好/)
   assert.doesNotMatch(html, /大破进击有被击沉风险/)
 })
+
+// ---- 死路战斗点（2026-11-26 维护者在 6-1 I 点撞上）----
+// 进点报文 api_next 为 0：打完只能回港，没有进击这一步。铃不上劝退横幅，锐的抬头不说风险句。
+
+const deadEnd = { bossCell: 11, nodes: [{ cell: 3, eventId: 4, next: 1 }, { cell: 7, eventId: 4, next: 0 }] }
+
+test('铃：死路战斗点大破只作普通提醒，标题不喊撤退', () => {
+  returnToPort()
+  const fShips = fShipsWithTaiha([4], 6)
+  const [out] = runDetect(sortieOf({ ...deadEnd, mapArea: 6, mapNo: 1, battleCount: 3, currentCell: 7, battle: { fShips } }))
+  assert.equal(out.title, '我舰5大破')
+  assert.equal(out.detail, '6-1 第 3 战 · 本节点无进击选项')
+  assert.deepEqual(out.presentation, { banner: false, priority: 'normal' })
+  // 还有路的点上照旧劝退
+  returnToPort()
+  const [mid] = runDetect(sortieOf({ ...deadEnd, mapArea: 6, mapNo: 1, battleCount: 1, currentCell: 3, battle: { fShips } }))
+  assert.equal(mid.title, '我舰5大破 · 撤退')
+  assert.equal(mid.presentation, undefined)
+})
+
+test('锐：停在死路战斗点时抬头照列大破计数，但不说风险句', () => {
+  const fleets = { 1: [1, 2, 3, 4, 5, 6].map((id) => shipOf(id, id === 5 ? { nowhp: 5 } : {})) }
+  setLedger({ fleets, combinedFlag: 0, sortie: { ...deadEnd, currentCell: 7 } })
+  const html = renderVerdict(1)
+  assert.match(html, /大破 1 ⚠/)
+  assert.doesNotMatch(html, /大破进击有被击沉风险/)
+  setLedger({ fleets, combinedFlag: 0, sortie: { ...deadEnd, currentCell: 3 } })
+  assert.match(renderVerdict(1), /大破进击有被击沉风险/)
+})

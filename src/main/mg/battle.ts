@@ -906,6 +906,9 @@ const applyStage3 = (
       const target = stage3Position(sim, targetSide, base, i)
       if (target < 0) return
       const hit = applyHit(sim, targetSide, target, num(raw), attackerSide, -1)
+      // 雷击 / 爆击两个标记各自独立：动画复盘据此画鱼雷还是炸弹，不再凭序号猜
+      const torpedo = num(rai?.[i], 0) > 0
+      const bomb = num(bak?.[i], 0) > 0
       attack.hits.push({
         target,
         damage: hit.damage,
@@ -917,6 +920,7 @@ const applyStage3 = (
         protect: hit.protect,
         sunk: hit.sunk,
         repairItem: hit.repairItem,
+        ...(torpedo || bomb ? { airKind: torpedo && bomb ? 'both' : torpedo ? 'torpedo' : 'bomb' } as const : {}),
       })
     })
     if (attack.hits.length) sim.attacks.push(attack)

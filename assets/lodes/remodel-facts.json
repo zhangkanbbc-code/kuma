@@ -11,7 +11,7 @@
       "wikiwiki主条目为first，footnote附加边为convert；百科按列/段落及同边同档整列对齐。API显式值（含零）优先。",
       "三隈502→507初次按公开游戏改装画面（2026-09 核）裁定高建40／开发35；wikiwiki开发45、舰页高建60／开发45为来源错误。往复仍为40/35；507→502往复仍为40/15。",
       "本次全部来源仅作只读核对；来源结构、API核对、分档冲突、缺项及旧解析修正见docs/remodel-facts-report.md。",
-      "2026-09-07：first空对象由wikiwiki目标主条目同来路needs=[]、同边API全部*_count显式零、百科出发形态指向目标的改造行无图纸共同确认；直接互逆回程允许主条目来自常规前置形态，但须needs=[]且同向无脚注、转换段无带成本行。convert空对象须直接互逆两向first确认无、两向无脚注且转换段无该对，或转换段同向显式空成本、同向无脚注、API同边全部*_count显式零；缺边或缺档仍未知；无特殊素材标签仅可逆改造显示；命中：25→58/first、77→82/first、87→88/first、58→119/first、243→145/first、143→148/first、209→149/first、210→150/first、211→151/first、212→152/first、171→172/first、280→196/first、9→201/first、10→202/first、32→203/first、11→204/first、12→206/first、78→209/first、86→210/first、85→212/first、100→216/first、23→220/first、17→225/first、18→226/first、19→227/first、20→228/first、15→231/first、42→242/first、43→243/first、44→244/first、96→249/first、98→251/first、48→252/first、69→272/first、71→273/first、72→274/first、80→275/first、81→276/first、91→280/first、26→286/first、27→287/first、113→289/first、114→290/first、132→301/first、133→302/first、134→303/first、138→306/first、181→316/first、185→318/first、405→323/first、409→324/first、421→330/first、424→345/first、453→349/first、458→350/first、423→357/first、448→358/first、452→359/first、456→362/first、486→368/first、526→380/first、534→381/first、492→392/first、544→396/first、201→426/first、248→463/first、468→463/first、253→464/first、470→464/first、463→468/first、464→470/first、521→526/first、117→555/first、574→579/first、561→681/first、528→688/first、674→718/first、886→720/first、922→730/first、522→884/first、911→916/first、464→470/convert、470→464/convert、463→468/convert、468→463/convert、646→698/convert、911→916/convert。"
+      "2026-09-07：first空对象由wikiwiki目标主条目同来路needs=[]、同边API全部*_count显式零、百科出发形态指向目标的改造行无图纸共同确认；直接互逆回程允许主条目来自常规前置形态，但须needs=[]且同向无脚注、转换段无带成本行。convert空对象须直接互逆两向first确认无、两向无脚注且转换段无该对，或转换段同向显式空成本、同向无脚注、API同边全部*_count显式零；缺边或缺档仍未知；无特殊素材标签仅可逆改造显示；命中：25→58/first、77→82/first、87→88/first、58→119/first、243→145/first、143→148/first、209→149/first、210→150/first、211→151/first、212→152/first、222→158/first、171→172/first、280→196/first、9→201/first、10→202/first、32→203/first、11→204/first、12→206/first、78→209/first、86→210/first、85→212/first、100→216/first、23→220/first、54→222/first、17→225/first、18→226/first、19→227/first、20→228/first、15→231/first、42→242/first、43→243/first、44→244/first、96→249/first、98→251/first、48→252/first、61→264/first、69→272/first、71→273/first、72→274/first、80→275/first、81→276/first、91→280/first、26→286/first、27→287/first、113→289/first、114→290/first、132→301/first、133→302/first、134→303/first、138→306/first、181→316/first、185→318/first、405→323/first、409→324/first、421→330/first、424→345/first、453→349/first、458→350/first、423→357/first、448→358/first、452→359/first、456→362/first、486→368/first、526→380/first、534→381/first、480→391/first、492→392/first、544→396/first、201→426/first、248→463/first、468→463/first、253→464/first、470→464/first、463→468/first、464→470/first、521→526/first、117→555/first、574→579/first、561→681/first、528→688/first、674→718/first、886→720/first、922→730/first、522→884/first、911→916/first、464→470/convert、470→464/convert、463→468/convert、468→463/convert、646→698/convert、911→916/convert、883→888/convert。"
     ],
     "corrections": [
       {
@@ -6930,6 +6930,45 @@
         ]
       },
       {
+        "edge": "645→650",
+        "stage": "first",
+        "identity": "useitem:2",
+        "sources": [
+          {
+            "site": "maintainer",
+            "evidence": "维护者实测改装（2026-11-26）：灯台補給船→南極観測船 初次，改造后资材刷新差额 高速建造材10／開発資材20／鋼材700",
+            "basis": "maintainer",
+            "date": "2026-11-26"
+          }
+        ]
+      },
+      {
+        "edge": "645→650",
+        "stage": "first",
+        "identity": "useitem:3",
+        "sources": [
+          {
+            "site": "maintainer",
+            "evidence": "维护者实测改装（2026-11-26）：灯台補給船→南極観測船 初次，改造后资材刷新差额 高速建造材10／開発資材20／鋼材700",
+            "basis": "maintainer",
+            "date": "2026-11-26"
+          }
+        ]
+      },
+      {
+        "edge": "650→699",
+        "stage": "first",
+        "identity": "useitem:2",
+        "sources": [
+          {
+            "site": "maintainer",
+            "evidence": "公开游戏改装画面（2026-11-26 核）显示 南極観測船→特務艦 初次：高速建造材5／弾薬130／鋼材280，无其他素材",
+            "basis": "maintainer",
+            "date": "2026-11-26"
+          }
+        ]
+      },
+      {
         "edge": "651→656",
         "stage": "first",
         "identity": "useitem:2",
@@ -9712,6 +9751,46 @@
         ]
       },
       {
+        "edge": "222→158",
+        "stage": "first",
+        "sources": [
+          {
+            "site": "wikiwiki",
+            "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+            "date": "2026-08-18",
+            "raw": "60",
+            "basis": "目标158主条目fromShipId=222，needs=[]"
+          },
+          {
+            "site": "api",
+            "raw": {
+              "api_current_ship_id": 222,
+              "api_id": 158,
+              "api_drawing_count": 0,
+              "api_catapult_count": 0,
+              "api_report_count": 0,
+              "api_aviation_mat_count": 0,
+              "api_arms_mat_count": 0,
+              "api_tech_count": 0
+            },
+            "basis": "同边升级行全部*_count显式为零"
+          },
+          {
+            "site": "kcwiki",
+            "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+            "raw": {
+              "等级": 60,
+              "弹药": 480,
+              "钢材": 300,
+              "改造前": "046",
+              "改造后": "158",
+              "系列": "046"
+            },
+            "basis": "ID=222的改造后=158对应目标158，图纸栏缺失或为空"
+          }
+        ]
+      },
+      {
         "edge": "171→172",
         "stage": "first",
         "sources": [
@@ -10192,6 +10271,46 @@
         ]
       },
       {
+        "edge": "54→222",
+        "stage": "first",
+        "sources": [
+          {
+            "site": "wikiwiki",
+            "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+            "date": "2026-08-18",
+            "raw": "20",
+            "basis": "目标222主条目fromShipId=54，needs=[]"
+          },
+          {
+            "site": "api",
+            "raw": {
+              "api_current_ship_id": 54,
+              "api_id": 222,
+              "api_drawing_count": 0,
+              "api_catapult_count": 0,
+              "api_report_count": 0,
+              "api_aviation_mat_count": 0,
+              "api_arms_mat_count": 0,
+              "api_tech_count": 0
+            },
+            "basis": "同边升级行全部*_count显式为零"
+          },
+          {
+            "site": "kcwiki",
+            "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+            "raw": {
+              "等级": 20,
+              "弹药": 200,
+              "钢材": 200,
+              "改造前": -1,
+              "改造后": "046a",
+              "系列": "046"
+            },
+            "basis": "ID=54的改造后=046a对应目标222，图纸栏缺失或为空"
+          }
+        ]
+      },
+      {
         "edge": "17→225",
         "stage": "first",
         "sources": [
@@ -10628,6 +10747,46 @@
               "系列": "089"
             },
             "basis": "ID=48的改造后=089a对应目标252，图纸栏缺失或为空"
+          }
+        ]
+      },
+      {
+        "edge": "61→264",
+        "stage": "first",
+        "sources": [
+          {
+            "site": "wikiwiki",
+            "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+            "date": "2026-08-18",
+            "raw": "25",
+            "basis": "目标264主条目fromShipId=61，needs=[]"
+          },
+          {
+            "site": "api",
+            "raw": {
+              "api_current_ship_id": 61,
+              "api_id": 264,
+              "api_drawing_count": 0,
+              "api_catapult_count": 0,
+              "api_report_count": 0,
+              "api_aviation_mat_count": 0,
+              "api_arms_mat_count": 0,
+              "api_tech_count": 0
+            },
+            "basis": "同边升级行全部*_count显式为零"
+          },
+          {
+            "site": "kcwiki",
+            "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+            "raw": {
+              "等级": 25,
+              "弹药": 300,
+              "钢材": 250,
+              "改造前": -1,
+              "改造后": "054a",
+              "系列": "054"
+            },
+            "basis": "ID=61的改造后=054a对应目标264，图纸栏缺失或为空"
           }
         ]
       },
@@ -11792,6 +11951,46 @@
         ]
       },
       {
+        "edge": "480→391",
+        "stage": "first",
+        "sources": [
+          {
+            "site": "wikiwiki",
+            "evidence": "https://wikiwiki.jp/kancolle/%E6%94%B9%E9%80%A0",
+            "date": "2026-08-18",
+            "raw": "30",
+            "basis": "目标391主条目fromShipId=480，needs=[]"
+          },
+          {
+            "site": "api",
+            "raw": {
+              "api_current_ship_id": 480,
+              "api_id": 391,
+              "api_drawing_count": 0,
+              "api_catapult_count": 0,
+              "api_report_count": 0,
+              "api_aviation_mat_count": 0,
+              "api_arms_mat_count": 0,
+              "api_tech_count": 0
+            },
+            "basis": "同边升级行全部*_count显式为零"
+          },
+          {
+            "site": "kcwiki",
+            "evidence": "https://zh.kcwiki.cn/wiki/模块:舰娘数据",
+            "raw": {
+              "等级": 30,
+              "弹药": 130,
+              "钢材": 110,
+              "改造前": -1,
+              "改造后": "280a",
+              "系列": "280"
+            },
+            "basis": "ID=480的改造后=280a对应目标391，图纸栏缺失或为空"
+          }
+        ]
+      },
+      {
         "edge": "492→392",
         "stage": "first",
         "sources": [
@@ -12830,6 +13029,46 @@
           }
         ],
         "basis": "百科转换段同方向显式空成本行、wikiwiki同方向无脚注、API同边全部*_count显式零"
+      },
+      {
+        "edge": "883→888",
+        "stage": "convert",
+        "sources": [
+          {
+            "site": "wikiwiki",
+            "evidence": "https://wikiwiki.jp/kancolle/%E5%A4%A7%E9%AF%A8",
+            "date": "2026-08-06",
+            "raw": [],
+            "basis": "883→888方向脚注附加边核对"
+          },
+          {
+            "site": "kcwikiTable",
+            "evidence": "https://zh.kcwiki.cn/wiki/改造#可以进行转换改装的舰船",
+            "raw": [
+              {
+                "edge": "883→888",
+                "raw": "-",
+                "materials": {}
+              }
+            ],
+            "basis": "883→888方向转换段行核对；[]表示无该方向行"
+          },
+          {
+            "site": "api",
+            "raw": {
+              "api_current_ship_id": 883,
+              "api_id": 888,
+              "api_drawing_count": 0,
+              "api_catapult_count": 0,
+              "api_report_count": 0,
+              "api_aviation_mat_count": 0,
+              "api_arms_mat_count": 0,
+              "api_tech_count": 0
+            },
+            "basis": "同边升级行全部*_count显式为零"
+          }
+        ],
+        "basis": "百科转换段同方向显式空成本行、wikiwiki同方向无脚注、API同边全部*_count显式零"
       }
     ]
   },
@@ -13634,6 +13873,21 @@
         }
       }
     },
+    "645→650": {
+      "stages": {
+        "first": {
+          "useitem:2": 10,
+          "useitem:3": 20
+        }
+      }
+    },
+    "650→699": {
+      "stages": {
+        "first": {
+          "useitem:2": 5
+        }
+      }
+    },
     "651→656": {
       "stages": {
         "first": {
@@ -13809,7 +14063,8 @@
       "stages": {
         "first": {
           "useitem:2": 20
-        }
+        },
+        "convert": {}
       }
     },
     "884→382": {
@@ -14076,6 +14331,11 @@
         "first": {}
       }
     },
+    "222→158": {
+      "stages": {
+        "first": {}
+      }
+    },
     "171→172": {
       "stages": {
         "first": {}
@@ -14136,6 +14396,11 @@
         "first": {}
       }
     },
+    "54→222": {
+      "stages": {
+        "first": {}
+      }
+    },
     "17→225": {
       "stages": {
         "first": {}
@@ -14187,6 +14452,11 @@
       }
     },
     "48→252": {
+      "stages": {
+        "first": {}
+      }
+    },
+    "61→264": {
       "stages": {
         "first": {}
       }
@@ -14332,6 +14602,11 @@
       }
     },
     "534→381": {
+      "stages": {
+        "first": {}
+      }
+    },
+    "480→391": {
       "stages": {
         "first": {}
       }

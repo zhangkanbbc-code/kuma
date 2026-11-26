@@ -13699,7 +13699,7 @@ registerModule({
     // 入档恰恰发生在他盯着这一页的时候，于是界面停在入档前那一帧（实测卡在四格）。
     //
     // 两道性能闸门一个没松：`scheduleRender` 自己就管着「面板不 active 不画」
-    // 与「手指按着时推迟」（memory/kanso-perf-architecture）。这里只多一层过滤：
+    // 与「手指按着时推迟」（memory/kuma-perf-architecture）。这里只多一层过滤：
     // 只有**正在看的那个形态**才值得重画，别让后台入档把整个图鉴刷起来。
     const onArchiveLit = (event: Event) => {
       const detail = (event as CustomEvent<{ kind?: string; mstId?: number }>).detail

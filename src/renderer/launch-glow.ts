@@ -498,10 +498,13 @@ export const armLaunchWelcome = (
   }
 
   // 非机甲风格：点哪儿、按哪个键都直接跳过（捕获阶段只旁听、不阻止传播）。
-  // 机甲舱门：点门 / Enter / 空格主动开门；Esc 随时跳过整场；修饰键与其他键忽略。
-  const onPointerDown = () => {
-    if (mech) openMechDoor()
-    else close()
+  // 机甲舱门：点中央舱锁热区 / Enter / 空格主动开门；Esc 随时跳过整场；修饰键与其他键、舱锁以外的地方忽略。
+  const onPointerDown = (event: Event) => {
+    if (!mech) {
+      close()
+      return
+    }
+    if (styled?.isDoorTarget?.(event.target)) openMechDoor()
   }
   const onKeyDown = (event: Event) => {
     if (!mech) {

@@ -1,24 +1,15 @@
 // 维护者脚本与「拿本机真数据跑」的测试共用的数据目录探测。
 //
-// 2026-08-28 产品改名之后数据目录是 `%APPDATA%\kuma`，而首次启动新版才会把
-// `%APPDATA%\kanso` 整体搬过来（判定在 src/shared/data-dir.ts，搬迁在 src/main/env.ts）。
-// 所以这一层不能写死任何一个名字：写死新名，还没启动过新版的机器上取不到；
-// 写死旧名，搬完之后取到的是不存在的目录。两种都不会报错——游戏报文/快照读不到时
-// 这些调用方一律走「没有就降级/跳过」的分支，于是真实数据覆盖会**静默消失**。
-//
-// 判据只有一条：**新目录在就用新的，不在再回退旧的**；两个都不在时仍返回新目录，
-// 让调用方按既有的「路径不存在」分支处理。
+// 数据目录是 `%APPDATA%\kuma`（改名前旧目录的回退已撤，维护者裁决 2026-11-26；
+// 玩家侧的首启搬迁仍在 src/shared/data-dir.ts 与 src/main/env.ts，不归这一层管）。
+// 目录不在时照样返回这个路径，让调用方按既有的「路径不存在」分支处理。
 
 import { readEnv } from '../../src/shared/env-names.ts'
-import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
 /** 现在的数据目录名。与 src/shared/data-dir.ts 的 DATA_DIR_NAME 同一个词。 */
 export const DATA_DIR_NAME = 'kuma'
-
-/** 改名前的数据目录名。首启搬迁完成前的机器上数据还在这里。 */
-export const LEGACY_DATA_DIR_NAME = 'kanso'
 
 /**
  * 本机数据目录的绝对路径。
@@ -29,11 +20,7 @@ export const LEGACY_DATA_DIR_NAME = 'kanso'
 export const userDataDir = () => {
   const override = readEnv('KUMA_DATA_DIR')
   if (override) return override
-  const root = process.env.APPDATA ?? os.homedir()
-  const dir = path.join(root, DATA_DIR_NAME)
-  if (fs.existsSync(dir)) return dir
-  const legacy = path.join(root, LEGACY_DATA_DIR_NAME)
-  return fs.existsSync(legacy) ? legacy : dir
+  return path.join(process.env.APPDATA ?? os.homedir(), DATA_DIR_NAME)
 }
 
 /** 数据目录下的某个文件或子目录。 */

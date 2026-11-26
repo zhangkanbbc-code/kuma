@@ -688,7 +688,18 @@ test('机甲舱门：三件就绪、过了封顶也不自动开门；单按修�
       assert.equal(handed, 0)
       installed.fire('keydown', { key: 'Alt' })
       assert.equal(installed.body.children.length, 1, '单按修饰键不开门')
-      if (how === 'pointerdown') installed.fire('pointerdown')
+      // 2026-11-26 他报「点击非按钮也可以开门」：只认中央舱锁热区（铭牌 + 解封按钮），舱门其余地方不开
+      const hit = named(layer, 'kw-mech-core-hit')[0]
+      assert.ok(hit, '要有中央舱锁热区')
+      installed.fire('pointerdown', { target: layer })
+      // 双开是 kw-mech-leaf，四向是 kw-mech-quad
+      const leaf = named(layer, 'kw-mech-leaf')[0] ?? named(layer, 'kw-mech-quad')[0]
+      assert.ok(leaf, '要有舱门叶片')
+      installed.fire('pointerdown', { target: leaf })
+      t.mock.timers.tick(LAUNCH_WELCOME_TIMING.cap)
+      assert.equal(installed.body.children.length, 1, `${style}：按在舱锁以外不开门`)
+      assert.equal(handed, 0)
+      if (how === 'pointerdown') installed.fire('pointerdown', { target: named(layer, 'kw-mech-cta')[0] ?? hit })
       else installed.fire('keydown', { key: how })
       t.mock.timers.tick(LAUNCH_WELCOME_TIMING.cap)
       layer.fire('animationend', 'kuma-welcome-out')
@@ -732,6 +743,8 @@ test('机甲舱门彩蛋：三件就绪后迟迟不点，目镜层随机冒一�
   // 低概率才冒出来的温柔彩蛋
   assert.equal(MECH_NUDGE_RARE_LINE, '提督，辛苦了クマー。想先发会儿呆也可以，回过神再点门就好クマ')
   const everyLine = [...MECH_NUDGE_LINES, MECH_NUDGE_RARE_LINE]
+  // 维护者 2026-11-26 定：换句「1分钟一条」（原 7 秒太勤）
+  assert.equal(LAUNCH_MECH_TIMING.nudgeEvery, 60000)
   mechTimers(t)
   try {
     const installed = dom(), welcome = armLaunchWelcome(true, { key: 'base' }, { style: 'mech-split' }), layer = installed.body.children[0]
@@ -743,12 +756,20 @@ test('机甲舱门彩蛋：三件就绪后迟迟不点，目镜层随机冒一�
     const first = shown()
     assert.equal(first.length, 1)
     assert.ok(everyLine.includes(first[0]), '没有简报时不抽简报句')
+    const nudgeNode = nodes(layer).find((node) => node.dataset.nudge != null)
+    assert.match(nudgeNode.style.animation, /kuma-season-st-nudge-in /, '第一句从下方滑入')
     t.mock.timers.tick(LAUNCH_MECH_TIMING.nudgeEvery)
+    // 换句先原地淡出：淡出期间旧字还在、不再重放滑入（2026-11-26 他报「隔几秒就跳一次」）
+    assert.deepEqual(shown(), first, '淡出期间不当面换字')
+    assert.match(nudgeNode.style.animation, /kuma-season-st-nudge-out /)
+    t.mock.timers.tick(LAUNCH_MECH_TIMING.nudgeSwap)
+    assert.match(nudgeNode.style.animation, /kuma-season-st-nudge-swap /, '换字后原地淡入')
+    assert.doesNotMatch(nudgeNode.style.animation, /st-nudge-in /)
     const second = shown()
     assert.equal(second.length, 1)
     assert.ok(everyLine.includes(second[0]), '没有简报时不抽简报句')
     assert.notEqual(second[0], first[0], '换一句，不连着重复')
-    installed.fire('pointerdown')
+    installed.fire('pointerdown', { target: named(layer, 'kw-mech-core-hit')[0] })
     t.mock.timers.tick(LAUNCH_WELCOME_TIMING.cap)
     layer.fire('animationend', 'kuma-welcome-out')
     cleaned(installed)
@@ -775,6 +796,15 @@ test('催门台词抽法：不连着重复；简报句只在有简报时出现�
     if (hasBrief) assert.ok(brief > 0, '有简报时简报句能抽到')
     else assert.equal(brief, 0, '没有简报时不抽简报句')
   }
+})
+
+test('开幕风格舞台用 zoom 等比放大，不用 transform: scale（否则带变换动画的子层按小比例栅格化发糊）', () => {
+  // 2026-11-26 实机：窗口启动后才最大化，舞台 transform 放大到约 2 倍，机甲左翼（带资源条动画的 3D 翼面）整块发糊
+  const html = read('src/renderer/index.html')
+  const rule = html.match(/#kuma-welcome \.kw-st-stage \{([^}]*)\}/)?.[1] ?? ''
+  assert.match(rule, /zoom:\s*var\(--kw-scale\)/)
+  assert.match(rule, /transform:\s*translate\(-50%,\s*-50%\);/)
+  assert.doesNotMatch(rule, /scale\(/)
 })
 
 test('钥：开幕风格一行七个选项，默认自动；启动时按设置与上次快照接线', () => {

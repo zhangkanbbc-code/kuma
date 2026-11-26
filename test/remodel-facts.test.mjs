@@ -80,8 +80,9 @@ test('555边逐档消费对拍；HEAD旧输出冻结，白名单不扩张', () =
   assert.equal(fixture.baselineHead, '176de57822f51c6376fc76b08868acc18a76b306')
   assert.equal(Object.keys(fixture.stageBaseline).length, 555)
   // 旧142条有素材边加维护新增3条；确认无空档另有逐边三源护栏。
-  assert.equal(Object.values(pack.data).filter(row => Object.values(row.stages).some(materials => Object.keys(materials).length)).length, 145)
-  assert.equal(Object.keys(pack.data).length, 227)
+  // 2026-11-26 重抓百科页重生成：+宗谷 645→650、650→699 两条有素材边；另由新主数据确认 54→222、222→158、61→264、480→391 无特殊素材
+  assert.equal(Object.values(pack.data).filter(row => Object.values(row.stages).some(materials => Object.keys(materials).length)).length, 147)
+  assert.equal(Object.keys(pack.data).length, 233)
   assert.equal(createHash('sha256').update(fs.readFileSync(new URL('../assets/lodes/kcwiki-ships.json', import.meta.url))).digest('hex'), fixture.sourceHashes.kcwiki)
   for (const [edge, expected] of Object.entries(fixture.output)) {
     const [from, to] = edge.split('→').map(Number)
@@ -212,6 +213,34 @@ test('三隈画面订正有维护者证据与日期，原始冲突已裁且错�
   const native = pack.meta.evidence.find(r => r.edge === '502→507' && r.stage === 'first' && r.identity === 'useitem:94')
   assert.deepEqual(native.apiCheck, { field: 'api_arms_mat_count', count: 1 })
   assert.equal(pack.data['502→507'].stages.first['useitem:94'], undefined)
+})
+
+test('11-26宗谷循环两边按维护者亲历定first，往复仍缺，百科旧串仍留unknown', () => {
+  // 循环边不猜档：百科模块「高速建造材x10 开发资材x20」「高速建造材x5」原落 unknown，
+  // 图鉴三形态循环里两条边一直显示「素材待补」。维护者改装实测与游戏改装画面定为初次。
+  for (const [from, to, materials] of [[645, 650, { 'useitem:2': 10, 'useitem:3': 20 }], [650, 699, { 'useitem:2': 5 }]]) {
+    const edge = `${from}→${to}`
+    assert.deepEqual(pack.data[edge], { stages: { first: materials } })
+    for (const [identity, count] of Object.entries(materials)) {
+      const row = pack.meta.evidence.find(r => r.edge === edge && r.stage === 'first' && r.identity === identity)
+      assert.equal(row.sources.length, 1)
+      assert.equal(row.sources[0].site, 'maintainer')
+      assert.equal(row.sources[0].date, '2026-11-26')
+      const name = fixture.maintenanceRaw.api_mst_useitem.find(s => `useitem:${s.api_id}` === identity).api_name
+      assert.ok(row.sources[0].evidence.includes(name + count), `${edge} ${identity}`)
+    }
+    assert.ok(fixture.unknown.some(r => r.edge === edge && r.site === 'kcwiki'), '百科旧串不该被改写成已定档')
+    // 全量夹具主数据才认得出宗谷三形态循环（维护投影只含登记边）
+    const raw = Object.values(kc).find(s => s.ID === from)?.改造?.图纸
+    const [first, convert] = runtime.needChipsHtml(raw, to, from).stages
+    assert.equal(first.stage, 'first')
+    assert.equal(first.missing, false)
+    assert.deepEqual(Object.fromEntries(first.needs.map(n => [`${n.kind}:${n.id}`, n.count])), materials)
+    assert.equal(convert.stage, 'convert')
+    assert.equal(convert.missing, true, '往复没有证据，仍是素材待补')
+  }
+  // 699→645 本来就有 wikiwiki＋百科两源，不受这次登记影响
+  assert.deepEqual(pack.data['699→645'], { stages: { first: { 'useitem:2': 5, 'useitem:3': 5 } } })
 })
 
 test('09-10三条单向边first仅登记API表外三项，维护证据逐项留日期，真实chip为4／4／5项', () => {
@@ -440,10 +469,10 @@ test('初次专属七种原生字段逐边核对；API显式零差异必须记�
   }
 })
 
-test('循环内初次20，普通初次101条加维护新增3条；三组循环逐方向列出', () => {
+test('循环内初次22（11-26 宗谷两条），普通初次101条加维护新增3条；三组循环逐方向列出', () => {
   const cyclic = edge => fixture.groups.some(g => edge.split('→').map(Number).every(id => g.includes(id)))
   // 仍钉旧有素材档数；确认无不算作新增素材。
-  assert.equal(Object.entries(pack.data).filter(([edge, row]) => cyclic(edge) && Object.keys(row.stages.first ?? {}).length).length, 20)
+  assert.equal(Object.entries(pack.data).filter(([edge, row]) => cyclic(edge) && Object.keys(row.stages.first ?? {}).length).length, 22)
   assert.equal(Object.entries(pack.data).filter(([edge, row]) => !cyclic(edge) && Object.keys(row.stages.first ?? {}).length).length, 104)
   assert.equal(fixture.direct.length, 21)
   assert.equal(fixture.groups.filter(g => g.length > 2).length, 3)

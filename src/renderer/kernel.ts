@@ -36,6 +36,7 @@ import type {
   UseitemHistoryChange,
 } from '../shared/mg-types'
 import type { QpFleetCheck, QpState } from '../shared/qp-types'
+import type { BattleReplayView } from '../shared/battle-replay-request'
 import { mourningShipsOf } from '../shared/sortie-mourning'
 import { escapedShipsOf } from '../shared/sortie-escape'
 import {
@@ -221,6 +222,7 @@ type TickListener = () => void
 type SortieScreenListener = (ts: number) => void
 type GameSceneListener = (scene: 'mission' | 'away') => void
 type PowerupResultListener = (result: PowerupResultCue) => void
+type ShipAcquiredListener = (cue: import('../shared/ship-acquired').ShipAcquiredCue) => void
 type MarriageListener = (cue: MarriageCue) => void
 
 const patchListeners: PatchListener[] = []
@@ -228,6 +230,7 @@ const tickListeners: TickListener[] = []
 const sortieScreenListeners: SortieScreenListener[] = []
 const gameSceneListeners: GameSceneListener[] = []
 const powerupResultListeners: PowerupResultListener[] = []
+const shipAcquiredListeners: ShipAcquiredListener[] = []
 const marriageListeners: MarriageListener[] = []
 
 // ---- 装配作用域：让「重试装配」能把上次挂了一半的订阅退掉 ----
@@ -306,6 +309,12 @@ export const onGameScene = (cb: GameSceneListener) => {
 export const onPowerupResult = (cb: PowerupResultListener) => {
   powerupResultListeners.push(cb)
   trackForMountScope(() => removeFrom(powerupResultListeners, cb))
+}
+
+/** 任务奖励 / 战斗掉落报文说有舰娘到手（只有图鉴号，在籍数据要等回港）。退订随装配作用域。 */
+export const onShipAcquired = (cb: ShipAcquiredListener) => {
+  shipAcquiredListeners.push(cb)
+  trackForMountScope(() => removeFrom(shipAcquiredListeners, cb))
 }
 
 /** ケッコンカッコカリ 报文到达。退订随装配作用域（重试装配不会叠一份）。 */
@@ -506,6 +515,9 @@ export const initKernel = (): Promise<void> => {
     const onPowerupResultCue = (_event: unknown, result: PowerupResultCue) => {
       safeEach('kernel:powerup-result', powerupResultListeners, (cb) => cb(result))
     }
+    const onShipAcquiredCue = (_event: unknown, cue: import('../shared/ship-acquired').ShipAcquiredCue) => {
+      safeEach('kernel:ship-acquired', shipAcquiredListeners, (cb) => cb(cue))
+    }
     const onMarriageCue = (_event: unknown, cue: MarriageCue) => {
       dispatchMarriage(cue)
     }
@@ -515,6 +527,7 @@ export const initKernel = (): Promise<void> => {
     ipcRenderer.on('mg:sortie-screen', onSortieScreenCue)
     ipcRenderer.on('mg:game-scene', onGameSceneCue)
     ipcRenderer.on('mg:powerup-result', onPowerupResultCue)
+    ipcRenderer.on('mg:ship-acquired', onShipAcquiredCue)
     ipcRenderer.on('mg:marriage', onMarriageCue)
     try {
       const s = await ipcRenderer.invoke('mg:get-state')
@@ -570,6 +583,7 @@ export const initKernel = (): Promise<void> => {
       ipcRenderer.removeListener('mg:sortie-screen', onSortieScreenCue)
       ipcRenderer.removeListener('mg:game-scene', onGameSceneCue)
       ipcRenderer.removeListener('mg:powerup-result', onPowerupResultCue)
+      ipcRenderer.removeListener('mg:ship-acquired', onShipAcquiredCue)
       ipcRenderer.removeListener('mg:marriage', onMarriageCue)
       throw error
     }
@@ -623,9 +637,13 @@ export const openQuestTreeWindow = (questId?: number): Promise<void> =>
 export const openShipLifeWindow = (rosterId: number): Promise<void> =>
   ipcRenderer.invoke('window:ship-life', rosterId)
 
-/** 人生记录窗 → 战斗复盘窗：全局复用一扇，已打开时在原窗换片。 */
-export const openBattleReplayWindow = (snapshotId: number): Promise<void> =>
-  ipcRenderer.invoke('window:battle-replay', snapshotId)
+/**
+ * 战斗复盘窗：全局复用一扇，已打开时在原窗换片。
+ * `view` 给 'animate' 时直达动画复盘（回顾抽屉、战斗面板本地复盘条的「动画复盘」按钮）；
+ * 不给就保持复盘窗当前视图。请求形状见 shared/battle-replay-request。
+ */
+export const openBattleReplayWindow = (snapshotId: number, view?: BattleReplayView): Promise<void> =>
+  ipcRenderer.invoke('window:battle-replay', view ? { snapshotId, view } : snapshotId)
 
 /** 人生记录窗 → 主窗：把这一场战斗的复盘打开（跨窗，与任务树那条同一套骨架）。 */
 export const openBattleInMainWindow = (snapshotId: number): Promise<void> =>
@@ -825,8 +843,9 @@ export const queryBossKills = (
   limit = 200,
 ): Promise<ShipBossKillEntry[]> => ipcRenderer.invoke('mg:ship-boss-kills', rosterId, limit)
 
-export const queryBattleSnapshots = (limit = 40): Promise<BattleSnapshotSummary[]> =>
-  ipcRenderer.invoke('chron:battles', limit)
+/** 最近的若干场战斗快照；给了 map 就只取这一张图的（上限 5000，见 ledger 同名函数） */
+export const queryBattleSnapshots = (limit = 40, map?: number): Promise<BattleSnapshotSummary[]> =>
+  ipcRenderer.invoke('chron:battles', map ? { limit, map } : limit)
 
 export const queryBattleRun = (sortieId: number): Promise<BattleSnapshotSummary[]> =>
   ipcRenderer.invoke('chron:battle-run', sortieId)

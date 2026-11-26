@@ -29,8 +29,10 @@ export interface SeasonalItemSpec {
 // 这类同 usetype 的非企划道具不收）。新企划上线若用了新道具，在这里加一行。
 export const SEASONAL_ITEMS: SeasonalItemSpec[] = [
   { key: 'pumpkin', jpName: '南瓜', zhLabel: '南瓜', seasonNote: '万圣节前后', textAliases: [] },
+  // 祭典名里的「秋刀魚」不是道具：预热期的「秋刀魚祭り準備演習」（2611Cw2）只带祭典名，
+  // 不涉及秋刀鱼本身，曾被算进本体企划的任务（2026-11-26 他报）。长的写在前面先剔。
   { key: 'sanma', jpName: '秋刀魚', zhLabel: '秋刀鱼', seasonNote: '秋季渔期', textAliases: ['秋刀鱼'],
-    excludeAliases: ['秋刀魚の缶詰', '秋刀魚缶詰', '秋刀鱼罐头', '秋刀魚「蒲焼」缶詰'] },
+    excludeAliases: ['秋刀魚の缶詰', '秋刀魚缶詰', '秋刀鱼罐头', '秋刀魚「蒲焼」缶詰', '秋刀魚祭り', '秋刀魚祭', '秋刀鱼祭典', '秋刀鱼祭'] },
   { key: 'iwashi', jpName: '鰯', zhLabel: '沙丁鱼', seasonNote: '秋季渔期', textAliases: ['沙丁鱼'] },
   { key: 'setsubun', jpName: '節分の豆', zhLabel: '节分豆', seasonNote: '节分（2 月初）', textAliases: ['节分の豆', '节分豆'] },
   { key: 'choco', jpName: '艦娘からのチョコ', zhLabel: '舰娘巧克力', seasonNote: '情人节', textAliases: ['チョコ', '巧克力'] },

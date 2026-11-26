@@ -53,6 +53,7 @@ import {
 } from './kcs-resource'
 import { handleWebviewPreloadHack, handleNewWindow, stopFileNavigate } from './webcontent-utils'
 import { DEFAULT_DISK_CACHE_MB, resolveDiskCacheMB } from '../shared/disk-cache'
+import { parseBattleReplayRequest, type BattleReplayView } from '../shared/battle-replay-request'
 
 // Chromium 的 Cookie / Local Storage / ServiceWorker 与业务数据共用稳定的 kuma 目录。
 // 不能依赖 productName 推导默认 userData，否则开发版改名或打包为「kuma」后会像首次登录。
@@ -151,6 +152,7 @@ let resourceTrendWindow: BrowserWindow | null = null
 let questTreeWindow: BrowserWindow | null = null
 let battleReplayWindow: BrowserWindow | null = null
 let battleReplaySnapshotId = 0
+let battleReplayView: BattleReplayView | null = null
 let battleReplayReady = false
 // 人生记录窗：**一艘一扇**，按在籍 id 记账。同一艘再点是把那扇拿到前面来
 //（多开同一艘等于凭空造出两份互不同步的同一条时间轴）；换一艘才开新的一扇。
@@ -396,14 +398,17 @@ ipcMain.handle('window:ship-life', (_event, rawRosterId: unknown) =>
   openShipLifeWindow(rawRosterId),
 )
 
-const openBattleReplayWindow = (rawSnapshotId: unknown, sender: Electron.WebContents) => {
-  const snapshotId = Number(rawSnapshotId)
-  if (!Number.isInteger(snapshotId) || snapshotId <= 0) return
+// rawRequest：快照 id（旧调用方），或 { snapshotId, view }（直达动画视图）。形状见 shared/battle-replay-request
+const openBattleReplayWindow = (rawRequest: unknown, sender: Electron.WebContents) => {
+  const request = parseBattleReplayRequest(rawRequest)
+  if (!request) return
+  const { snapshotId, view } = request
   battleReplaySnapshotId = snapshotId
+  battleReplayView = view
   if (battleReplayWindow && !battleReplayWindow.isDestroyed()) {
     if (battleReplayReady) {
       if (battleReplayWindow.isMinimized()) battleReplayWindow.restore()
-      battleReplayWindow.webContents.send('battle-replay:open', snapshotId)
+      battleReplayWindow.webContents.send('battle-replay:open', request)
       battleReplayWindow.show()
       battleReplayWindow.focus()
     }
@@ -482,14 +487,14 @@ const openBattleReplayWindow = (rawSnapshotId: unknown, sender: Electron.WebCont
   replayWindow.webContents.on('will-navigate', (event) => event.preventDefault())
   replayWindow.once('ready-to-show', () => {
     battleReplayReady = true
-    if (battleReplaySnapshotId !== snapshotId) {
-      replayWindow.webContents.send('battle-replay:open', battleReplaySnapshotId)
+    if (battleReplaySnapshotId !== snapshotId || battleReplayView !== view) {
+      replayWindow.webContents.send('battle-replay:open', { snapshotId: battleReplaySnapshotId, view: battleReplayView })
     }
     replayWindow.show()
     if (saved.isMaximized) replayWindow.maximize()
   })
   replayWindow.loadFile(path.join(ROOT, 'dist', 'renderer', 'battle-replay.html'), {
-    query: { snapshot: `${snapshotId}` },
+    query: view ? { snapshot: `${snapshotId}`, view } : { snapshot: `${snapshotId}` },
   })
   replayWindow.on('close', () => {
     if (replayWindow.isDestroyed()) return
@@ -506,8 +511,8 @@ const openBattleReplayWindow = (rawSnapshotId: unknown, sender: Electron.WebCont
   })
 }
 
-ipcMain.handle('window:battle-replay', (event, rawSnapshotId: unknown) =>
-  openBattleReplayWindow(rawSnapshotId, event.sender),
+ipcMain.handle('window:battle-replay', (event, rawRequest: unknown) =>
+  openBattleReplayWindow(rawRequest, event.sender),
 )
 
 // 旧版人生记录窗 → 主窗的兼容入口；当前独立窗已改走 window:battle-replay。

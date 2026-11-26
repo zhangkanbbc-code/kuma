@@ -71,7 +71,7 @@ const NAV_CARD = sliceBetween(
 // 评级文字（完全胜利标注、胜/败确定）原样切进来，不桩：评级上色要对着真文字断言。
 const RANK_WORDS = sliceBetween(
   "const rankLabel = (rank: string, prediction: BattleView['prediction']): string =>",
-  '// 「只算我方损害率」的节点',
+  '// isDamageOnlyBattle / isDayFlowBattle / battleUsesEngagement 的判据与出处见 shared/battle-flow',
   '评级文字 rankLabel / rankOutcomeWord',
 )
 // 本轮掉落卡：整轮累计的舰娘与道具掉落、点位筛选。紧接节点卡那一段，切到模块段之前。
@@ -164,10 +164,10 @@ const MG_CHANGE = sliceBetween('    onMgChange((keys) => {', '    new ResizeObse
 const HARNESS = `
 import { rankToneClass } from ${JSON.stringify(path.join(ROOT, 'src/shared/rank-tone.ts'))}
 import { fcdTopologyUsable } from '${FCD_TOPOLOGY}'
-import { dameconOfShip, isTaihaShip, taihaVerdictOf } from '${TAIHA_VERDICT}'
+import { atBossNode, dameconOfShip, isTaihaShip, noAdvanceAfterNode, taihaVerdictOf } from '${TAIHA_VERDICT}'
 import { enemyNightTargetOf, isPtShipName } from '${ENEMY_NIGHT}'
 import { isEventMapArea } from '${MAP_ID}'
-import { SPECIAL_ATTACK_SEGMENT_ORDER, specialAttackLabel } from '${SPECIAL_ATTACK}'
+import { SPECIAL_ATTACK_SEGMENT_ORDER, specialAttackLabel, specialAttackSpans } from '${SPECIAL_ATTACK}'
 import { hpAtStage, hpBarSegments, segmentStartOf, shipHpTimeline } from '${HP_TIMELINE}'
 import { DAMAGE_TIER_WORDS, damageTierOf } from '${BATTLE_DAMAGE}'
 import { shipArtDamaged } from '${SHIP_ART_PATH}'

@@ -157,6 +157,7 @@ const makeHandler = () => {
     store: { getState: () => state, handle: (...args) => { reduce(...args); return ['materials'] } },
     timeMain: (_label, fn) => fn(), onQuestApi: noop, onChronicleApi: noop, onShipLifeApi: noop,
     questSenkaInfo: () => null, broadcast: noop, broadcastGameScene: noop, missionScene: () => null,
+    acquiredShipsOf: () => [], broadcastShipAcquired: noop,
     ledger: { logDelta: (...row) => rows.push(row), logMaterials: noop, logExpeditionResult: noop },
     DOMAIN_SECTIONS: new Set(),
   }

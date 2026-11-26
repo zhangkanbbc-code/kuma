@@ -329,3 +329,40 @@ test('演习与基地防空不进警告条', () => {
   const defense = battleWithTaiha([0], 6)
   assert.equal(renderAlertBanner(sortieOf({ battle: { ...defense, kind: 'baseDefense' } })), '')
 })
+
+// ---- ⑤ 打完这一点还有没有路（2026-11-26 维护者在 6-1 I 点撞上）----
+// 进点报文 api_next 为 0＝这一点之后没有下一点：死路战斗点打完只能回港，与 Boss 点一样没有进击选项。
+
+const routeOf = (nodes, patch = {}) => ({ bossCell: 11, currentCell: nodes.at(-1).cell, nodes, ...patch })
+
+test('终点判定：Boss 格号、Boss 事件、api_next 0 三种都算；api_next 1 与旧状态缺字段都不算', () => {
+  const { atBossNode, noAdvanceAfterNode } = verdict
+  // 6-1 实录：C(3) → F(12) → G(6) → I(7, api_next 0)，Boss 是 11
+  const sixOne = routeOf([
+    { cell: 3, eventId: 4, next: 1 },
+    { cell: 12, eventId: 4, next: 1 },
+    { cell: 6, eventId: 6, next: 1 },
+    { cell: 7, eventId: 4, next: 0 },
+  ])
+  assert.equal(atBossNode(sixOne), false)
+  assert.equal(noAdvanceAfterNode(sixOne), true)
+  assert.equal(noAdvanceAfterNode(routeOf([{ cell: 3, eventId: 4, next: 1 }])), false)
+  assert.equal(noAdvanceAfterNode(routeOf([{ cell: 11, eventId: 5, next: 0 }])), true)
+  assert.equal(noAdvanceAfterNode(routeOf([{ cell: 9, eventId: 5 }])), true, 'Boss 事件不靠格号也算')
+  assert.equal(noAdvanceAfterNode(routeOf([{ cell: 7, eventId: 4 }])), false, '旧状态没有 next：只按 Boss 判')
+  // 同一点走过两次：看最近那一次
+  const revisit = routeOf([{ cell: 5, eventId: 4, next: 1 }, { cell: 8, eventId: 6, next: 1 }, { cell: 5, eventId: 4, next: 0 }])
+  assert.equal(noAdvanceAfterNode(revisit), true)
+})
+
+test('镝：死路战斗点大破只陈述战损，不出红条也不劝撤退', () => {
+  const nodes = [{ cell: 3, eventId: 4, next: 1 }, { cell: 7, eventId: 4, next: 0 }]
+  const html = bannerFor([4], 6, { bossCell: 11, currentCell: 7, nodes })
+  assert.match(html, /本战结束：我舰5 大破/)
+  assert.match(html, /本节点无进击选项/)
+  assert.doesNotMatch(html, /verdict v-red|击沉风险|撤退/)
+  // 同一艘舰停在还有路的点上：照常红条
+  const mid = bannerFor([4], 6, { bossCell: 11, currentCell: 3, nodes: nodes.slice(0, 1) })
+  assert.match(mid, /verdict v-red/)
+  assert.match(mid, /我舰5 大破 · 击沉风险/)
+})

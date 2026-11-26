@@ -53,6 +53,20 @@ export interface ShipHpTimeline {
 }
 
 /**
+ * 挨一击之后剩多少血——与解析层 applyHit 同一条规则：演习停在 1、
+ * 归零那一刻按这一击上记下的应急修理把血顶回去（43 女神满血、42 要员两成）。
+ * 触发结果已经记在这一击上，照抄即可，不必重演「有没有货」。
+ *
+ * 血量时间轴与动画复盘（shared/battle-anim-script）共用这一份，别各写一遍。
+ */
+export const hpAfterHit = (hp: number, hit: HpTimelineHit, hpMax: number, floor: number): number => {
+  const damage = Math.max(0, Math.floor(Number(hit.damage) || 0))
+  if (hit.repairItem === 43) return hpMax
+  if (hit.repairItem === 42) return Math.max(1, Math.floor(hpMax / 5))
+  return Math.max(floor, hp - damage)
+}
+
+/**
  * 重放一艘舰的挨打过程。
  *
  * `enemy` 指这条舰属于敌方：受击位置在敌我两侧各自独立编号，
@@ -78,8 +92,11 @@ export const shipHpTimeline = (
   }
   // 演习画面固定保留 1 HP：解析层的 hpFloor
   const floor = practice ? 1 : 0
+  // 友军夜战（phase 'friendly'）里敌方（side 1）打的是 NPC 友军，不是我方——
+  // 只按 side 过滤会把友军挨的打记到同舰位的我方舰头上（2026-11-26 账本 7 场带友军夜战的
+  // 13 条我方时间轴因此对不上 hpEnd）。判据与解析层 applyHougeki 的 sideOverride 一致。
   const ordered = attacks
-    .filter((attack) => (enemy ? attack.side !== 1 : attack.side === 1))
+    .filter((attack) => (enemy ? attack.side !== 1 : attack.side === 1 && attack.phase !== 'friendly'))
     .slice()
     .sort((left, right) => left.stage - right.stage || left.action - right.action)
 
@@ -99,12 +116,7 @@ export const shipHpTimeline = (
     }
     for (const hit of attack.hits ?? []) {
       if (hit.target !== ship.index) continue
-      const damage = Math.max(0, Math.floor(Number(hit.damage) || 0))
-      hp = Math.max(floor, hp - damage)
-      // 应急修理：解析层在归零那一刻取出道具并把血量顶回去，
-      // 触发结果已经记在这一击上，照抄即可，不必重演「有没有货」
-      if (hit.repairItem === 43) hp = ship.hpMax
-      else if (hit.repairItem === 42) hp = Math.max(1, Math.floor(ship.hpMax / 5))
+      hp = hpAfterHit(hp, hit, ship.hpMax, floor)
     }
   }
   closeStage()

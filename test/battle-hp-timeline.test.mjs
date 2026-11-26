@@ -201,3 +201,19 @@ test('the timeline flags itself when the replay does not reach the recorded hpEn
   const result = shipHpTimeline([foeAttack(2, 0, [hit(0, 5)])], ship({ hpEnd: 7 }), false, false)
   assert.equal(result.mismatch, true)
 })
+
+test('友军夜战里敌方打的是 NPC 友军：不记到同舰位的我方舰头上', () => {
+  // 2026-11-26 账本全量核出：7 场带友军夜战的 13 条我方时间轴因此对不上 hpEnd。
+  // 解析层的口径（applyHougeki 的 sideOverride）：phase 'friendly' 里 side 1 打友军（2）
+  const attacks = [
+    { side: 1, stage: 2, action: 0, phase: 'gun1', hits: [hit(0, 10)] },
+    { side: 1, stage: 6, action: 0, phase: 'friendly', hits: [hit(0, 25)] },
+    { side: 2, stage: 6, action: 1, phase: 'friendly', hits: [hit(0, 30)] },
+  ]
+  const ours = shipHpTimeline(attacks, ship({ hpEnd: 30 }), false, false)
+  assert.equal(ours.mismatch, false)
+  assert.deepEqual(ours.points, [{ stage: 2, hp: 30, before: 40 }])
+  // 敌舰照旧吃我方与友军两路的伤害
+  const foe = shipHpTimeline(attacks, ship({ hpEnd: 10 }), true, false)
+  assert.equal(foe.mismatch, false)
+})

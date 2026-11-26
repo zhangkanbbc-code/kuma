@@ -149,3 +149,21 @@ test('首次建基线将川内整条谱系记为记账前持有', () => {
   const before = f.owned.OWNED_BEFORE_LEDGER
   assert.deepEqual(f.values['ships.firstOwned'], { 54: before, 222: before, 158: before, 751: before })
 })
+
+// 2026-11-26 他选秃鹫当任务奖励，新舰入库要等回港才响：报文一到就按谱系记账并当场报，回港不再报第二次
+test('任务奖励 / 掉落报文先到：当场返回新谱系并记整条谱系，回港时在籍列表到了不再报', () => {
+  const T2 = 300
+  const f = sendaiFixture()
+  assert.deepEqual([...f.owned.noteAcquiredShips([445], T1)], [445], '秋津洲第一次到手')
+  assert.deepEqual(f.values['ships.firstOwned'], { ...sendaiHistory, 445: T1, 450: T1 })
+  assert.deepEqual([...f.owned.noteAcquiredShips([450, 54], T2)], [], '同谱系与已有谱系都不再报')
+  f.kernel.mg.ships[86] = { shipId: 445 }
+  assert.deepEqual([...f.owned.observeOwnedShips(T2)], [], '回港时不报第二次')
+  assert.equal(f.owned.firstOwnedAt(445), T1, '首次时刻是报文到手那一刻')
+})
+
+test('基线还没建时报文到手不记不报（那时不知道以前有没有过）', () => {
+  const f = sendaiFixture({})
+  assert.deepEqual([...f.owned.noteAcquiredShips([445], T1)], [])
+  assert.deepEqual(f.writes, [])
+})

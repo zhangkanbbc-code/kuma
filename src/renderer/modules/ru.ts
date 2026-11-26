@@ -22,12 +22,14 @@ import {
   type RepairFxEvent,
   type RepairItemSignal,
 } from '../../shared/repair-fx'
+import { REPAIR_FX, repairFxTotal } from '../../shared/fleet-fx-timing'
 import { airBaseCustomName } from '../../shared/air-base-name'
 import { airBaseTabGlow } from '../../shared/air-base-tab'
 import { AIR_BASE_MUTE_KEY, isAirBaseAreaMuted, toggleAirBaseAreaMute, unmutedAirBaseSquads } from '../../shared/air-base-mute'
 import {
   ESCORT_FLAGSHIP_INDEX,
   FLAGSHIP_INDEX,
+  noAdvanceAfterNode,
   taihaVerdictOf,
   type TaihaShipRef,
 } from '../../shared/taiha-verdict'
@@ -1081,7 +1083,12 @@ const shipRow = (deck: Deck, ship: PlayerShip, isFlag: boolean) => {
       `--hit-shatter:${hit.shatter}`,
       `--hp-from:${hit.from}%`,
       `--hp-to:${hit.to}%`,
+      // 各步错开留一口气（节拍表 shared/fleet-fx-timing）：冲击 → 残影下降 → 盖章 / 故障爆闪
+      `--ghost-at:${hit.ghostAtMs}ms`,
       `--ghost-dur:${hit.ghostDurMs}ms`,
+      `--hit-stamp-at:${hit.stampAtMs}ms`,
+      `--hit-stamp:${hit.stampMs}ms`,
+      `--hit-pop:${hit.popMs}ms`,
     )
   }
   const hitAttr = `${
@@ -1542,7 +1549,8 @@ const verdictHtml = (deck: Deck) => {
     const repairNote = sortie.anchorageRepairs?.length ? ` · 已泊地修理 ×${sortie.anchorageRepairs.length}` : ''
     // 风险句只在真有「进击可能轰沉」这回事时出（见 sortieTaihaTier）：
     // 联合二队旗舰受保护、旗舰大破没有进击选项，这两档说这句都是错的决策信息。
-    const tier = sortieTaihaTier(deck)
+    // 停在 Boss 点或死路点时打完就回港，根本没有进击这一步，两句都不说。
+    const tier = noAdvanceAfterNode(sortie) ? null : sortieTaihaTier(deck)
     return `<div class="verdict sortie${taiha ? '' : ' ok'}"><span class="ic">⚓</span>
       <span class="tx"><b>出击中 · ${sortie.mapArea}-${sortie.mapNo}</b><span>${
         problems.length ? problems.join(' · ') : '全员状态良好'
@@ -3053,7 +3061,11 @@ const scheduleFleetQuestCheck = () => {
 // 对比上次绘制与当前耐久，出击掉血存一次性被弹参数，跨档存崩飞碎角，修理/保命走独立观察器。
 const hpWatch = createHpWatch()
 const repairWatch = createRepairWatch()
-const pendingHitShakes = new Map<number, HitShakeParams>()
+// 被弹参数在整段演出期间续挂（until 前每次重画都带同一份属性，输出不变就不换 DOM）。
+// 原先只活一次渲染，掉血后 250ms 的「编队任务反查」重画就把演出拦腰截断了（2026-11-26 查出）。
+const activeHits = new Map<number, { params: HitShakeParams; until: number }>()
+// 修理演出的底色层同理续挂到演出播完
+const repairWashUntil = new Map<number, number>()
 
 let cachedRowWidth = 540
 let cachedRowHeight = 48
@@ -3107,14 +3119,62 @@ const pendingRepairFx = new Map<number, PendingRepairAnimation>()
 const berthFxFlagIds = new Set<number>()
 const berthFxRepairIds = new Set<number>()
 
-const activeTransientAura = (shipId: number): 'goddess' | 'dock' | null => {
+// 余韵与泊修常驻态的退场：到点后先淡出这么久再撤属性（交接包：女神余韵「自然淡去」、
+// 入渠水青「约 2–3 秒后归于平静」；2026-11-26 他报「一帧消失」）。样式表里 ru-fx-fade-* 的时长与它同值。
+const FX_FADE_MS = 600
+// 刚撤下泊修常驻态、正在淡出的工作舰与受修舰：舰 id → 淡出结束时刻
+const berthFadeFlag = new Map<number, number>()
+const berthFadeRepair = new Map<number, number>()
+const berthFadeTimers = new Map<number, ReturnType<typeof setTimeout>>()
+
+/** 余韵还在（含淡出那一段）就返回种类；fading 表示已过余韵时长、正在淡出 */
+const activeTransientAura = (shipId: number): { kind: 'goddess' | 'dock'; fading: boolean } | null => {
   const entry = transientAura.get(shipId)
   if (!entry) return null
-  if (Date.now() >= entry.until) {
+  const now = Date.now()
+  if (now >= entry.until + FX_FADE_MS) {
     transientAura.delete(shipId)
     return null
   }
-  return entry.kind
+  return { kind: entry.kind, fading: now >= entry.until }
+}
+
+const fleetRowOf = (shipId: number) => pane?.querySelector<HTMLElement>(`.ship[data-ship="${shipId}"]`) ?? null
+
+/**
+ * 本次渲染算出的泊修常驻态与上一次比：撤下的舰进淡出（续挂原属性 + data-berth-fade），
+ * 重新亮起的取消淡出。淡出结束时就地撤掉属性与连接线，不为它重画整块。
+ */
+const noteBerthFade = (prevFlag: ReadonlySet<number>, prevRepair: ReadonlySet<number>) => {
+  const now = Date.now()
+  const track = (prev: ReadonlySet<number>, current: ReadonlySet<number>, fading: Map<number, number>) => {
+    for (const id of current) fading.delete(id)
+    for (const id of prev) if (!current.has(id) && !fading.has(id)) fading.set(id, now + FX_FADE_MS)
+  }
+  track(prevFlag, berthFxFlagIds, berthFadeFlag)
+  track(prevRepair, berthFxRepairIds, berthFadeRepair)
+  for (const id of new Set([...berthFadeFlag.keys(), ...berthFadeRepair.keys()])) {
+    if (berthFadeTimers.has(id)) continue
+    const until = Math.max(berthFadeFlag.get(id) ?? 0, berthFadeRepair.get(id) ?? 0)
+    berthFadeTimers.set(id, setTimeout(() => {
+      berthFadeTimers.delete(id)
+      const row = fleetRowOf(id)
+      if (berthFadeFlag.delete(id)) row?.removeAttribute('data-berth-role')
+      if (berthFadeRepair.delete(id)) {
+        row?.removeAttribute('data-berth-repair')
+        row?.querySelector(':scope > .berth-tether')?.remove()
+        row?.querySelector('.fx-akashi-wave')?.remove()
+      }
+      row?.removeAttribute('data-berth-fade')
+    }, Math.max(0, until - now)))
+  }
+}
+
+const clearBerthFade = () => {
+  for (const timer of berthFadeTimers.values()) clearTimeout(timer)
+  berthFadeTimers.clear()
+  berthFadeFlag.clear()
+  berthFadeRepair.clear()
 }
 
 const polyPoints = (poly: GlassPolygon): string => poly.map(([x, y]) => `${x},${y}`).join(' ')
@@ -3197,6 +3257,8 @@ const observeFleetHits = (deck: Deck) => {
   const decks = inCombined(deck)
     ? [1, 2].map((id) => mg.decks.find((d) => d.id === id)).filter(Boolean) as Deck[]
     : [deck]
+  const prevBerthFlag = new Set(berthFxFlagIds)
+  const prevBerthRepair = new Set(berthFxRepairIds)
   berthFxFlagIds.clear()
   berthFxRepairIds.clear()
   for (const d of decks) {
@@ -3205,6 +3267,7 @@ const observeFleetHits = (deck: Deck) => {
     berthFxFlagIds.add(info.flagId)
     for (const id of info.repairingIds) berthFxRepairIds.add(id)
   }
+  noteBerthFade(prevBerthFlag, prevBerthRepair)
   const ships = decks.flatMap((d) => fleetShips(d))
   const battle = Boolean(mg.sortie?.active && !mg.sortie.practice)
   if (!mg.sortie?.active) weldedShips.clear()
@@ -3221,7 +3284,9 @@ const observeFleetHits = (deck: Deck) => {
   )
   const drops = hpWatch.observe(ships, { battle })
 
-  pendingHitShakes.clear()
+  const now = Date.now()
+  for (const [id, entry] of activeHits) if (entry.until <= now) activeHits.delete(id)
+  for (const [id, until] of repairWashUntil) if (until <= now) repairWashUntil.delete(id)
   pendingShards.length = 0
   pendingRepairFx.clear()
 
@@ -3256,6 +3321,7 @@ const observeFleetHits = (deck: Deck) => {
         prevAmmoPct: prevFA.ammoPct,
         healedCrack: (ev.kind === 'berth' || ev.kind === 'anchorage') && prevTier === 'light' && curTier === 'none',
       })
+      repairWashUntil.set(ship.id, now + repairFxTotal(ev.kind))
       if (ev.kind === 'goddess') transientAura.set(ship.id, { kind: 'goddess', until: Date.now() + 4500 })
       else if (ev.kind === 'dock') transientAura.set(ship.id, { kind: 'dock', until: Date.now() + 2600 })
     }
@@ -3265,7 +3331,7 @@ const observeFleetHits = (deck: Deck) => {
     if (enabled && visible && drop && !suppressHit) {
       transientAura.delete(ship.id)
       const params = hitShakeParams(drop)
-      if (params) pendingHitShakes.set(ship.id, params)
+      if (params) activeHits.set(ship.id, { params, until: Date.now() + params.totalMs })
     }
 
     if (
@@ -3306,8 +3372,8 @@ const observeFleetHits = (deck: Deck) => {
 }
 
 const shipHitShake = (ship: PlayerShip): HitShakeParams | null => {
-  const params = pendingHitShakes.get(ship.id) ?? null
-  if (params) pendingHitShakes.delete(ship.id)
+  const entry = activeHits.get(ship.id)
+  const params = entry && entry.until > Date.now() ? entry.params : null
   return params
 }
 
@@ -3328,10 +3394,15 @@ const shipGlassFx = (ship: PlayerShip, sunk: boolean): ShipGlassFx | null => {
   if (!hitShakeEnabled()) return null
   const tier: HitGlassTier | null = sunk ? 'sunk' : shipHitCrack(ship)
   const welded = !sunk && weldedShips.has(ship.id)
-  const berthFlag = !sunk && berthFxFlagIds.has(ship.id)
-  const berthRepair = !sunk && berthFxRepairIds.has(ship.id)
+  const berthFlagLive = !sunk && berthFxFlagIds.has(ship.id)
+  const berthRepairLive = !sunk && berthFxRepairIds.has(ship.id)
+  // 刚撤下的泊修常驻态续挂原属性淡出（见 noteBerthFade）
+  const berthFading = !sunk && !berthFlagLive && !berthRepairLive && (berthFadeFlag.has(ship.id) || berthFadeRepair.has(ship.id))
+  const berthFlag = berthFlagLive || (berthFading && berthFadeFlag.has(ship.id))
+  const berthRepair = berthRepairLive || (berthFading && berthFadeRepair.has(ship.id))
   const aura = sunk ? null : activeTransientAura(ship.id)
-  const pending = pendingRepairFx.has(ship.id)
+  // 修理演出的底色层：演出播完之前每次重画都带着，免得中途换 DOM 把演出截断
+  const pending = pendingRepairFx.has(ship.id) || (repairWashUntil.get(ship.id) ?? 0) > Date.now()
   const seed = tier ? fractureSeeds.get(ship.id) : undefined
   const glassSvg =
     tier && seed != null ? glassSvgMarkup(hitGlassGeometry(ship.id, seed, cachedRowWidth, cachedRowHeight), tier, welded) : ''
@@ -3339,7 +3410,12 @@ const shipGlassFx = (ship: PlayerShip, sunk: boolean): ShipGlassFx | null => {
   return {
     attrs: `${welded ? ' data-weld="1"' : ''}${berthFlag ? ' data-berth-role="flag"' : ''}${
       berthRepair ? ' data-berth-repair="1"' : ''
-    }${aura ? ` data-repair-aura="${aura}"` : ''}`,
+    }${berthFading ? ' data-berth-fade="1"' : ''}${
+      // 带伤入渠：裂纹与缺角照留（维护者裁决 2026-11-26 ②），红黄告警与故障换成缓慢脉冲的恢复光（同日裁决）
+      tier && tier !== 'sunk' && dockOf(ship.id) ? ' data-docked="1"' : ''
+    }${aura ? ` data-repair-aura="${aura.kind}"` : ''}${
+      aura?.fading ? ' data-aura-fade="1"' : ''
+    }`,
     layers: `<span class="glass-host" style="height:${cachedRowHeight}px">${glassSvg}</span>${
       berthRepair ? '<span class="fx-akashi-wave"></span>' : ''
     }<span class="fx-motes"></span><span class="fx-flash"></span><span class="fx-sweep"></span>`,
@@ -3394,7 +3470,9 @@ const fleetViewHtml = (deck: Deck) => {
 
 // ---- 一次性 Web Animations 演出（崩飞碎角 / 要员 / 女神 / 入渠完成 / 泊地修理） ----
 
-const spawnRowPop = (row: HTMLElement, text: string, colorVar: string) => {
+// 三个小工具都收起点延迟：延迟期间停在第一帧（fill both / backwards），
+// 血条不会先跳到新值、光点不会先露出来再开演。时长与起点都取节拍表 REPAIR_FX。
+const spawnRowPop = (row: HTMLElement, text: string, colorVar: string, delayMs = 0) => {
   const host = row.querySelector<HTMLElement>('.hpc .hpbody')
   if (!host) return
   const pop = document.createElement('span')
@@ -3409,12 +3487,12 @@ const spawnRowPop = (row: HTMLElement, text: string, colorVar: string) => {
         { opacity: 1, transform: 'translateY(-3px) scale(1)', offset: 0.2 },
         { opacity: 0, transform: 'translateY(-13px) scale(.96)' },
       ],
-      { duration: 920, easing: 'ease-out', fill: 'forwards' },
+      { duration: REPAIR_FX.pop, delay: delayMs, easing: 'ease-out', fill: 'both' },
     )
     .onfinish = () => pop.remove()
 }
 
-const spawnRowMotes = (row: HTMLElement, count: number, colorVar: string, star: boolean) => {
+const spawnRowMotes = (row: HTMLElement, count: number, colorVar: string, star: boolean, delayMs = 0) => {
   const host = row.querySelector<HTMLElement>('.fx-motes')
   if (!host) return
   for (let i = 0; i < count; i++) {
@@ -3443,39 +3521,127 @@ const spawnRowMotes = (row: HTMLElement, count: number, colorVar: string, star: 
           { opacity: 0.95, transform: `translate(${(dx * 0.4).toFixed(1)}px, ${(dy * 0.4).toFixed(1)}px) scale(1.05) rotate(25deg)`, offset: 0.35 },
           { opacity: 0, transform: `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) scale(0.4) rotate(50deg)` },
         ],
-        { duration: 680 + Math.random() * 320, delay: i * 48, easing: 'ease-out', fill: 'forwards' },
+        { duration: REPAIR_FX.mote + Math.random() * REPAIR_FX.moteJitter, delay: delayMs + i * 48, easing: 'ease-out', fill: 'both' },
       )
       .onfinish = () => el.remove()
   }
 }
 
+/** 血条 / 油弹条从旧比例涨到新比例；有起点延迟时延迟期间停在旧比例 */
 const animateRowBars = (
   row: HTMLElement,
-  prevHpPct: number,
-  nextHpPct: number,
-  prevFuelPct?: number,
-  nextFuelPct?: number,
-  prevAmmoPct?: number,
-  nextAmmoPct?: number,
+  bars: { hp?: [number, number]; fuel?: [number, number]; ammo?: [number, number] },
+  { delay = 0, duration = 460 }: { delay?: number; duration?: number } = {},
 ) => {
-  const hpBar = row.querySelector<HTMLElement>('.hpc .bar > i')
-  if (hpBar) {
-    hpBar.animate(
-      [{ width: `${prevHpPct}%` }, { width: `${nextHpPct}%` }],
-      { duration: 420, easing: 'cubic-bezier(.2,.82,.28,1)' },
+  const run = (selector: string, [from, to]: [number, number]) => {
+    row.querySelector<HTMLElement>(selector)?.animate(
+      [{ width: `${from}%` }, { width: `${to}%` }],
+      { duration, delay, easing: 'cubic-bezier(.2,.82,.28,1)', fill: delay ? 'backwards' : 'none' },
     )
   }
-  if (prevFuelPct !== undefined && nextFuelPct !== undefined) {
-    const fuelBar = row.querySelector<HTMLElement>('.fa2 .fuel > i')
-    if (fuelBar) {
-      fuelBar.animate([{ width: `${prevFuelPct}%` }, { width: `${nextFuelPct}%` }], { duration: 460, easing: 'ease' })
+  if (bars.hp) run('.hpc .bar > i', bars.hp)
+  if (bars.fuel) run('.fa2 .fuel > i', bars.fuel)
+  if (bars.ammo) run('.fa2 .ammo > i', bars.ammo)
+}
+
+// ---- 血条、油弹条跟着数值平滑走（维护者裁决 2026-11-26：动画要客观、要有过渡）----
+// 编队行每次重画都整块换 DOM，于是扣血、回血、补给都是一下跳到新值。现在提交新 DOM 之后
+// 拿新旧宽度比，变了的那几根从旧值走到新值。只做「如实走过去」这一件事，不加任何别的效果。
+// 不走的情形：
+// - 换了舰队页签、或不在编队页（沙盘、泊地修理、陆航）——那是换了一屏，不是数值变了；
+// - 修理演出正在播的舰（入渠完成、泊修、要员、女神各自有血条演出）；
+// - 被弹动画开着时的扣血：那边的设计是实血当场落位、残影随后下降，两套叠在一起就乱了；
+// - 入渠 / 出渠那一下：入渠中的血条是固定的示意宽度，宽度变了但血量没变。
+// 过渡途中又重画了（比如编队任务反查那一次），新元素从已走过的进度接着走，不重头来。
+const BAR_EASE_MS = 420
+const BAR_EASE = 'cubic-bezier(.2, .82, .28, 1)'
+interface RowBarWidths {
+  hp: number
+  fuel: number
+  ammo: number
+  docked: boolean
+}
+type BarSpan = [number, number]
+interface BarEase {
+  hp?: BarSpan
+  fuel?: BarSpan
+  ammo?: BarSpan
+  start: number
+}
+const BAR_SELECTORS = { hp: '.hpc .bar > i', fuel: '.fa2 .fuel > i', ammo: '.fa2 .ammo > i' } as const
+let barWidthsView = ''
+let barWidths = new Map<number, RowBarWidths>()
+const barEases = new Map<number, BarEase>()
+
+const inlineWidthOf = (row: HTMLElement, selector: string): number | null => {
+  const value = parseFloat(row.querySelector<HTMLElement>(selector)?.style.width ?? '')
+  return Number.isFinite(value) ? value : null
+}
+
+const runBarEase = (row: HTMLElement, ease: BarEase, elapsed: number) => {
+  for (const key of ['hp', 'fuel', 'ammo'] as const) {
+    const span = ease[key]
+    if (!span) continue
+    const run = row
+      .querySelector<HTMLElement>(BAR_SELECTORS[key])
+      ?.animate([{ width: `${span[0]}%` }, { width: `${span[1]}%` }], { duration: BAR_EASE_MS, easing: BAR_EASE })
+    if (run && elapsed > 0) run.currentTime = elapsed
+  }
+}
+
+/** 提交新 DOM 之后调；`view` 为空串表示当前不是编队页（不记也不走） */
+const easeFleetBars = (root: HTMLElement, view: string, busy: ReadonlySet<number>) => {
+  const next = new Map<number, RowBarWidths>()
+  if (view) {
+    for (const row of root.querySelectorAll<HTMLElement>('.fleet-body .ship[data-ship]')) {
+      const id = Number(row.dataset.ship)
+      const hp = inlineWidthOf(row, BAR_SELECTORS.hp)
+      const fuel = inlineWidthOf(row, BAR_SELECTORS.fuel)
+      const ammo = inlineWidthOf(row, BAR_SELECTORS.ammo)
+      if (!id || hp == null || fuel == null || ammo == null) continue
+      next.set(id, { hp, fuel, ammo, docked: !!dockOf(id) })
     }
   }
-  if (prevAmmoPct !== undefined && nextAmmoPct !== undefined) {
-    const ammoBar = row.querySelector<HTMLElement>('.fa2 .ammo > i')
-    if (ammoBar) {
-      ammoBar.animate([{ width: `${prevAmmoPct}%` }, { width: `${nextAmmoPct}%` }], { duration: 460, easing: 'ease' })
+  const before = view === barWidthsView ? barWidths : null
+  barWidths = next
+  barWidthsView = view
+  if (
+    !before ||
+    document.visibilityState !== 'visible' ||
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  ) {
+    barEases.clear()
+    return
+  }
+  const now = Date.now()
+  const dropsHandled = hitShakeEnabled()
+  for (const [id, after] of next) {
+    const prior = before.get(id)
+    const row = root.querySelector<HTMLElement>(`.fleet-body .ship[data-ship="${id}"]`)
+    if (!prior || !row || busy.has(id)) {
+      barEases.delete(id)
+      continue
     }
+    const moved = (from: number, to: number) => Math.abs(from - to) >= 0.5
+    const ease: BarEase = { start: now }
+    if (prior.docked === after.docked && moved(prior.hp, after.hp) && !(dropsHandled && after.hp < prior.hp)) {
+      ease.hp = [prior.hp, after.hp]
+    }
+    if (moved(prior.fuel, after.fuel)) ease.fuel = [prior.fuel, after.fuel]
+    if (moved(prior.ammo, after.ammo)) ease.ammo = [prior.ammo, after.ammo]
+    if (ease.hp || ease.fuel || ease.ammo) {
+      barEases.set(id, ease)
+      runBarEase(row, ease, 0)
+      continue
+    }
+    // 数值停在上一段的终点、而那一段还没走完：这次重画把元素换掉了，从已走过的进度接着走。
+    // 数值已经又变了（只是这一下不归这里走，比如被弹扣血）就不再重播旧的那段。
+    const running = barEases.get(id)
+    const atTarget =
+      running &&
+      (['hp', 'fuel', 'ammo'] as const).every((key) => !running[key] || !moved(running[key]![1], after[key]))
+    if (running && atTarget && now - running.start < BAR_EASE_MS) runBarEase(row, running, now - running.start)
+    else barEases.delete(id)
   }
 }
 
@@ -3515,18 +3681,31 @@ const launchFlyingShard = (
     .onfinish = () => svg.remove()
 }
 
+// 余韵两段收尾，都就地改属性、不重画整块：到点先挂 data-aura-fade 淡出，FX_FADE_MS 后再撤。
 const scheduleAuraCleanup = (shipId: number, delayMs: number) => {
   const prev = auraTimers.get(shipId)
   if (prev) clearTimeout(prev)
   auraTimers.set(
     shipId,
     setTimeout(() => {
-      auraTimers.delete(shipId)
       const entry = transientAura.get(shipId)
-      if (entry && Date.now() >= entry.until) {
-        transientAura.delete(shipId)
-        pane?.querySelector<HTMLElement>(`.ship[data-ship="${shipId}"]`)?.removeAttribute('data-repair-aura')
+      if (!entry || Date.now() < entry.until) {
+        auraTimers.delete(shipId)
+        return
       }
+      fleetRowOf(shipId)?.setAttribute('data-aura-fade', '1')
+      auraTimers.set(
+        shipId,
+        setTimeout(() => {
+          auraTimers.delete(shipId)
+          const current = transientAura.get(shipId)
+          if (!current || Date.now() < current.until + FX_FADE_MS) return
+          transientAura.delete(shipId)
+          const row = fleetRowOf(shipId)
+          row?.removeAttribute('data-repair-aura')
+          row?.removeAttribute('data-aura-fade')
+        }, FX_FADE_MS),
+      )
     }, delayMs),
   )
 }
@@ -3545,50 +3724,38 @@ const runPostRenderHitFx = (root: HTMLElement) => {
   }
   if (reduced) return
 
+  // 一次跨过几档就崩落几块：每档各有自己新崩开的那一块（中破＝缺口 A、大破＝A 外那圈 B、击沉＝对侧小角 C）。
+  // 小破直接到大破时 A、B 一起掉，掉下去的正好是「大破减小破」那整块（他 11-26 要的），
+  // 不再只飞走外圈那一条、A 凭空消失。块与块错开几十毫秒，像一大片先后裂落。
+  const SHARD_STEPS = ['medium', 'heavy', 'sunk'] as const
   for (const item of shards) {
     const row = root.querySelector<HTMLElement>(`.ship[data-ship="${item.shipId}"]`)
     if (!row) continue
-    const layers = hitGlassLayers(item.geo, item.tier)
-    if (item.tier === 'medium' || item.tier === 'heavy') {
-      launchFlyingShard(
-        row,
-        item.geo,
-        layers.shard,
-        item.tier,
-        20 + Math.random() * 14,
-        item.geo.topSide ? -28 : 26,
-        (item.geo.topSide ? 1 : -1) * 38,
-        0,
-        false,
-      )
-    } else if (item.tier === 'sunk') {
-      launchFlyingShard(
-        row,
-        item.geo,
-        layers.shard,
-        'sunk',
-        24,
-        item.geo.topSide ? 30 : -28,
-        (item.geo.topSide ? -1 : 1) * 48,
-        0,
-        true,
-      )
-      if (item.prevTier !== 'heavy') {
+    const { geo } = item
+    const steps = SHARD_STEPS.filter((step) => GLASS_TIER_RANK[step] > GLASS_TIER_RANK[item.prevTier] && GLASS_TIER_RANK[step] <= GLASS_TIER_RANK[item.tier])
+    steps.forEach((step, index) => {
+      const delay = index * 50
+      // 本档自己那块走主轨迹，先前跨过的几块走副轨迹（角度、距离错开，免得叠成一块）
+      const own = index === steps.length - 1
+      if (step === 'sunk') {
+        launchFlyingShard(row, geo, geo.shardC, 'sunk', 24, geo.topSide ? 30 : -28, (geo.topSide ? -1 : 1) * 48, delay, true)
+      } else if (own) {
         launchFlyingShard(
-          row,
-          item.geo,
-          layers.extraShard,
-          'sunk',
-          26,
-          item.geo.topSide ? -34 : 30,
-          (item.geo.topSide ? 1 : -1) * 52,
-          40,
-          false,
+          row, geo, step === 'medium' ? geo.shardA : geo.shardB, item.tier,
+          20 + Math.random() * 14, geo.topSide ? -28 : 26, (geo.topSide ? 1 : -1) * 38, delay, false,
+        )
+      } else {
+        launchFlyingShard(
+          row, geo, step === 'medium' ? geo.shardA : geo.shardB, item.tier,
+          26 + Math.random() * 10, geo.topSide ? -34 : 30, (geo.topSide ? 1 : -1) * 52, delay, false,
         )
       }
-    }
+    })
   }
 
+  // 各段起点与时长都取节拍表 REPAIR_FX：冲击 / 起势 → 喘口气 → 修复光效与血条 → 再喘口气报飘字。
+  // 后段用 Web Animations 的 delay 排进同一时间线（不再 setTimeout 等前段），
+  // 中途换了 DOM 就随旧行一起没掉，不会在新行上补播半段。
   let akashiPulsed = false
   for (const [shipId, item] of repairs) {
     const row = root.querySelector<HTMLElement>(`.ship[data-ship="${shipId}"]`)
@@ -3598,20 +3765,26 @@ const runPostRenderHitFx = (root: HTMLElement) => {
     const nextPct = event.max > 0 ? Math.max(0, Math.min(100, (event.after / event.max) * 100)) : 100
     const flash = row.querySelector<HTMLElement>('.fx-flash')
     const sweep = row.querySelector<HTMLElement>('.fx-sweep')
+    // 同一层 .fx-flash / .fx-sweep 前后两段换底色：第二段到点再换，免得第一段的红闪先染成修复色
+    const recolorAt = (el: HTMLElement | null, ms: number, background: string) => {
+      if (!el) return
+      setTimeout(() => {
+        if (el.isConnected) el.style.background = background
+      }, ms)
+    }
 
     if (event.kind === 'damecon') {
-      const hpBar = row.querySelector<HTMLElement>('.hpc .bar > i')
-      if (hpBar) {
-        hpBar.animate(
-          [
-            { width: `${prevPct}%` },
-            { width: '0%', offset: 0.28 },
-            { width: '0%', offset: 0.36 },
-            { width: `${nextPct}%` },
-          ],
-          { duration: 640, easing: 'cubic-bezier(.2,.82,.28,1)' },
-        )
-      }
+      const T = REPAIR_FX.damecon
+      const total = T.weldAt + T.rise
+      row.querySelector<HTMLElement>('.hpc .bar > i')?.animate(
+        [
+          { width: `${prevPct}%` },
+          { width: '0%', offset: T.dipEnd / total },
+          { width: '0%', offset: T.weldAt / total },
+          { width: `${nextPct}%` },
+        ],
+        { duration: total, easing: 'cubic-bezier(.2,.82,.28,1)' },
+      )
       row.animate(
         [
           { transform: 'translate3d(0,0,0)' },
@@ -3619,131 +3792,110 @@ const runPostRenderHitFx = (root: HTMLElement) => {
           { transform: 'translate3d(-7px,-.6px,0) rotate(.45deg)', offset: 0.55 },
           { transform: 'translate3d(0,0,0)' },
         ],
-        { duration: 260, easing: 'ease-out' },
+        { duration: T.impact, easing: 'ease-out' },
       )
       if (flash) {
         flash.style.background = 'linear-gradient(90deg, color-mix(in srgb, var(--bad) 55%, transparent), transparent 72%)'
-        flash.animate([{ opacity: 0 }, { opacity: 1, offset: 0.2 }, { opacity: 0 }], { duration: 220, easing: 'ease-out' })
+        flash.animate([{ opacity: 0 }, { opacity: 1, offset: 0.2 }, { opacity: 0 }], { duration: T.dipEnd, easing: 'ease-out' })
+        recolorAt(flash, T.weldAt,
+          'linear-gradient(90deg, color-mix(in srgb, var(--hit-damecon) 62%, transparent), color-mix(in srgb, var(--hit-damecon) 34%, transparent) 52%, transparent)')
+        flash.animate([{ opacity: 0 }, { opacity: 1, offset: 0.14 }, { opacity: 0 }], { duration: T.weldFlash, delay: T.weldAt, easing: 'ease-out' })
       }
-      setTimeout(() => {
-        if (!row.isConnected) return
-        if (flash) {
-          flash.style.background =
-            'linear-gradient(90deg, color-mix(in srgb, var(--hit-damecon) 62%, transparent), color-mix(in srgb, var(--hit-damecon) 34%, transparent) 52%, transparent)'
-          flash.animate([{ opacity: 0 }, { opacity: 1, offset: 0.14 }, { opacity: 0 }], { duration: 520, easing: 'ease-out' })
-        }
-        if (sweep) {
-          sweep.style.background =
-            'linear-gradient(90deg, transparent, color-mix(in srgb, var(--hit-damecon) 70%, transparent) 50%, transparent)'
-          sweep.animate(
-            [
-              { opacity: 1, transform: 'translateX(-85%) skewX(-20deg)' },
-              { opacity: 0, transform: 'translateX(118%) skewX(-20deg)' },
-            ],
-            { duration: 480, easing: 'cubic-bezier(.16,.84,.3,1)' },
-          )
-        }
-        spawnRowMotes(row, 8, 'var(--hit-damecon)', false)
-        spawnRowPop(row, '要员发动', 'var(--hit-damecon)')
-      }, 220)
-    } else if (event.kind === 'goddess') {
-      const hpBar = row.querySelector<HTMLElement>('.hpc .bar > i')
-      if (hpBar) {
-        hpBar.animate(
+      if (sweep) {
+        sweep.style.background =
+          'linear-gradient(90deg, transparent, color-mix(in srgb, var(--hit-damecon) 70%, transparent) 50%, transparent)'
+        sweep.animate(
           [
-            { width: `${prevPct}%` },
-            { width: '0%', offset: 0.26 },
-            { width: '0%', offset: 0.34 },
-            { width: '100%' },
+            { opacity: 1, transform: 'translateX(-85%) skewX(-20deg)' },
+            { opacity: 0, transform: 'translateX(118%) skewX(-20deg)' },
           ],
-          { duration: 640, easing: 'cubic-bezier(.2,.82,.28,1)' },
+          { duration: T.weldSweep, delay: T.weldAt, easing: 'cubic-bezier(.16,.84,.3,1)' },
         )
       }
+      spawnRowMotes(row, 8, 'var(--hit-damecon)', false, T.weldAt)
+      spawnRowPop(row, '要员发动', 'var(--hit-damecon)', T.popAt)
+    } else if (event.kind === 'goddess') {
+      const T = REPAIR_FX.goddess
+      const total = T.reviveAt + T.rise
+      // 血条一条时间线走完：探底 → 停在 0 → 圣金拉满。分两条动画接力会在交接那一帧闪回 100%
+      row.querySelector<HTMLElement>('.hpc .bar > i')?.animate(
+        [
+          { width: `${prevPct}%` },
+          { width: '0%', offset: T.dipEnd / total },
+          { width: '0%', offset: T.reviveAt / total },
+          { width: '100%' },
+        ],
+        { duration: total, easing: 'cubic-bezier(.2,.82,.28,1)' },
+      )
+      animateRowBars(row, { fuel: [prevFuelPct, 100], ammo: [prevAmmoPct, 100] }, { delay: T.reviveAt, duration: T.rise })
       row.animate(
         [
           { transform: 'translate3d(0,0,0)' },
           { transform: 'translate3d(9px,1px,0) rotate(-.6deg)', offset: 0.24 },
           { transform: 'translate3d(0,0,0)' },
         ],
-        { duration: 230, easing: 'ease-out' },
+        { duration: T.impact, easing: 'ease-out' },
       )
       if (flash) {
         flash.style.background = 'linear-gradient(90deg, color-mix(in srgb, var(--bad) 50%, transparent), transparent 70%)'
-        flash.animate([{ opacity: 0 }, { opacity: 1, offset: 0.2 }, { opacity: 0 }], { duration: 200, easing: 'ease-out' })
+        flash.animate([{ opacity: 0 }, { opacity: 1, offset: 0.2 }, { opacity: 0 }], { duration: T.dipEnd, easing: 'ease-out' })
+        recolorAt(flash, T.reviveAt,
+          'radial-gradient(ellipse 80% 120% at 50% 50%, color-mix(in srgb, var(--hit-goddess) 72%, transparent), color-mix(in srgb, var(--hit-goddess) 28%, transparent) 55%, transparent 88%)')
+        flash.animate([{ opacity: 0 }, { opacity: 1, offset: 0.18 }, { opacity: 0 }], { duration: T.flash, delay: T.reviveAt, easing: 'ease-out' })
       }
-      setTimeout(() => {
-        if (!row.isConnected) return
-        animateRowBars(row, 0, 100, prevFuelPct, 100, prevAmmoPct, 100)
-        if (prevGeo && prevTier !== 'none') {
-          const prevLayers = hitGlassLayers(prevGeo, prevTier)
-          const poly = prevLayers.cuts[0] ?? prevLayers.shard
-          if (poly) {
-            const dirY = prevGeo.topSide ? -22 : 22
-            const rot = prevGeo.topSide ? 42 : -42
-            const rev = makeSvgEl(
-              `<svg class="flying-shard" viewBox="0 0 ${prevGeo.width} ${prevGeo.height}" style="height:${prevGeo.height}px;transform-origin:${prevGeo.shardOrigin}"><polygon points="${polyPoints(poly)}" style="fill:var(--hit-goddess);stroke:var(--glow-shatter);stroke-width:1.4" opacity=".95"/></svg>`,
-            )
-            if (rev) {
-              row.appendChild(rev)
-              rev
-                .animate(
-                  [
-                    { opacity: 0, transform: `translate(28px, ${dirY}px) rotate(${rot}deg) scale(0.82)` },
-                    { opacity: 1, transform: `translate(6px, ${(dirY * 0.22).toFixed(1)}px) rotate(${(rot * 0.22).toFixed(1)}deg) scale(1.04)`, offset: 0.62 },
-                    { opacity: 0, transform: 'translate(0, 0) rotate(0deg) scale(1)' },
-                  ],
-                  { duration: 480, easing: 'cubic-bezier(.16,.84,.28,1)', fill: 'forwards' },
-                )
-                .onfinish = () => rev.remove()
-            }
+      if (sweep) {
+        sweep.style.background =
+          'linear-gradient(90deg, transparent, color-mix(in srgb, var(--hit-goddess) 82%, transparent) 50%, transparent)'
+        sweep.animate(
+          [
+            { opacity: 1, transform: 'translateX(-95%) skewX(-18deg)' },
+            { opacity: 0, transform: 'translateX(120%) skewX(-18deg)' },
+          ],
+          { duration: T.sweep, delay: T.reviveAt, easing: 'cubic-bezier(.16,.82,.26,1)' },
+        )
+      }
+      if (prevGeo && prevTier !== 'none') {
+        const prevLayers = hitGlassLayers(prevGeo, prevTier)
+        const poly = prevLayers.cuts[0] ?? prevLayers.shard
+        if (poly) {
+          const dirY = prevGeo.topSide ? -22 : 22
+          const rot = prevGeo.topSide ? 42 : -42
+          const rev = makeSvgEl(
+            `<svg class="flying-shard" viewBox="0 0 ${prevGeo.width} ${prevGeo.height}" style="height:${prevGeo.height}px;transform-origin:${prevGeo.shardOrigin}"><polygon points="${polyPoints(poly)}" style="fill:var(--hit-goddess);stroke:var(--glow-shatter);stroke-width:1.4" opacity=".95"/></svg>`,
+          )
+          if (rev) {
+            row.appendChild(rev)
+            rev
+              .animate(
+                [
+                  { opacity: 0, transform: `translate(28px, ${dirY}px) rotate(${rot}deg) scale(0.82)` },
+                  { opacity: 1, transform: `translate(6px, ${(dirY * 0.22).toFixed(1)}px) rotate(${(rot * 0.22).toFixed(1)}deg) scale(1.04)`, offset: 0.62 },
+                  { opacity: 0, transform: 'translate(0, 0) rotate(0deg) scale(1)' },
+                ],
+                { duration: T.shardReturn, delay: T.reviveAt, easing: 'cubic-bezier(.16,.84,.28,1)', fill: 'both' },
+              )
+              .onfinish = () => rev.remove()
           }
         }
-        const gh = row.querySelector<HTMLElement>('.glass-host')
-        if (prevSvg && gh) {
-          gh.dataset.glassGold = '1'
-          gh.innerHTML = prevSvg
-          gh
-            .animate([{ opacity: 1 }, { opacity: 0 }], { duration: 560, delay: 160, easing: 'ease-out', fill: 'forwards' })
-            .onfinish = () => {
-              gh.innerHTML = ''
-              delete gh.dataset.glassGold
-            }
-        }
-        if (flash) {
-          flash.style.background =
-            'radial-gradient(ellipse 80% 120% at 50% 50%, color-mix(in srgb, var(--hit-goddess) 72%, transparent), color-mix(in srgb, var(--hit-goddess) 28%, transparent) 55%, transparent 88%)'
-          flash.animate([{ opacity: 0 }, { opacity: 1, offset: 0.18 }, { opacity: 0 }], { duration: 720, easing: 'ease-out' })
-        }
-        if (sweep) {
-          sweep.style.background =
-            'linear-gradient(90deg, transparent, color-mix(in srgb, var(--hit-goddess) 82%, transparent) 50%, transparent)'
-          sweep.animate(
-            [
-              { opacity: 1, transform: 'translateX(-95%) skewX(-18deg)' },
-              { opacity: 0, transform: 'translateX(120%) skewX(-18deg)' },
-            ],
-            { duration: 680, easing: 'cubic-bezier(.16,.82,.26,1)' },
-          )
-        }
-        spawnRowMotes(row, 10, 'var(--hit-goddess)', true)
-        spawnRowPop(row, '女神发动', 'var(--hit-goddess)')
-      }, 210)
-    } else if (event.kind === 'dock') {
-      animateRowBars(row, prevPct, 100)
+      }
       const gh = row.querySelector<HTMLElement>('.glass-host')
       if (prevSvg && gh) {
+        // 冲击期间旧裂纹照原色留着，圣金光晕到了再转金、淡掉
         gh.innerHTML = prevSvg
+        setTimeout(() => {
+          if (gh.isConnected) gh.dataset.glassGold = '1'
+        }, T.reviveAt)
         gh
-          .animate([{ opacity: 0.88 }, { opacity: 0 }], { duration: 500, easing: 'ease-out', fill: 'forwards' })
+          .animate([{ opacity: 1 }, { opacity: 0 }], { duration: T.goldFade, delay: T.reviveAt + T.goldFadeDelay, easing: 'ease-out', fill: 'forwards' })
           .onfinish = () => {
             gh.innerHTML = ''
+            delete gh.dataset.glassGold
           }
       }
-      if (flash) {
-        flash.style.background =
-          'linear-gradient(90deg, color-mix(in srgb, var(--hit-aqua) 36%, transparent), color-mix(in srgb, var(--hit-aqua) 14%, transparent) 55%, transparent)'
-        flash.animate([{ opacity: 0 }, { opacity: 1, offset: 0.18 }, { opacity: 0 }], { duration: 540, easing: 'ease-out' })
-      }
+      spawnRowMotes(row, 10, 'var(--hit-goddess)', true, T.reviveAt)
+      spawnRowPop(row, '女神发动', 'var(--hit-goddess)', T.popAt)
+    } else if (event.kind === 'dock') {
+      const T = REPAIR_FX.dock
       if (sweep) {
         sweep.style.background =
           'linear-gradient(90deg, transparent, color-mix(in srgb, var(--hit-aqua) 58%, transparent) 48%, color-mix(in srgb, var(--hit-aqua) 28%, transparent) 65%, transparent)'
@@ -3752,12 +3904,28 @@ const runPostRenderHitFx = (root: HTMLElement) => {
             { opacity: 0.95, transform: 'translateX(-90%) skewX(-16deg)' },
             { opacity: 0, transform: 'translateX(120%) skewX(-16deg)' },
           ],
-          { duration: 640, easing: 'cubic-bezier(.18,.78,.28,1)' },
+          { duration: T.sweep, easing: 'cubic-bezier(.18,.78,.28,1)' },
         )
       }
-      spawnRowMotes(row, 8, 'var(--hit-aqua)', false)
-      spawnRowPop(row, '入渠完成', 'var(--hit-aqua)')
+      if (flash) {
+        flash.style.background =
+          'linear-gradient(90deg, color-mix(in srgb, var(--hit-aqua) 36%, transparent), color-mix(in srgb, var(--hit-aqua) 14%, transparent) 55%, transparent)'
+        flash.animate([{ opacity: 0 }, { opacity: 1, offset: 0.18 }, { opacity: 0 }], { duration: T.flash, easing: 'ease-out' })
+      }
+      const gh = row.querySelector<HTMLElement>('.glass-host')
+      if (prevSvg && gh) {
+        gh.innerHTML = prevSvg
+        gh
+          .animate([{ opacity: 0.88 }, { opacity: 0 }], { duration: T.wash, delay: T.washAt, easing: 'ease-out', fill: 'both' })
+          .onfinish = () => {
+            gh.innerHTML = ''
+          }
+      }
+      animateRowBars(row, { hp: [prevPct, 100] }, { delay: T.barAt, duration: T.rise })
+      spawnRowMotes(row, 8, 'var(--hit-aqua)', false, T.popAt)
+      spawnRowPop(row, '入渠完成', 'var(--hit-aqua)', T.popAt)
     } else if (event.kind === 'berth' || event.kind === 'anchorage') {
+      const T = REPAIR_FX.berth
       if (!akashiPulsed) {
         akashiPulsed = true
         const repairShipRow =
@@ -3771,7 +3939,7 @@ const runPostRenderHitFx = (root: HTMLElement) => {
           if (rf) {
             rf.style.background =
               'linear-gradient(90deg, color-mix(in srgb, var(--hit-akashi) 30%, transparent), transparent 65%)'
-            rf.animate([{ opacity: 0 }, { opacity: 1, offset: 0.2 }, { opacity: 0 }], { duration: 480, easing: 'ease-out' })
+            rf.animate([{ opacity: 0 }, { opacity: 1, offset: 0.2 }, { opacity: 0 }], { duration: T.flagFlash, easing: 'ease-out' })
           }
           const repairShip = mg.ships[Number(repairShipRow.dataset.ship)]
           const eqIcons = repairShipRow.querySelectorAll<HTMLElement>('.eq > *')
@@ -3786,7 +3954,7 @@ const runPostRenderHitFx = (root: HTMLElement) => {
                 { filter: 'brightness(1.45)', transform: 'scale(1.12)', offset: 0.4 },
                 { filter: 'brightness(1)', transform: 'scale(1)' },
               ],
-              { duration: 420, delay: pulseIndex++ * 55, easing: 'ease-out' },
+              { duration: T.iconPulse, delay: pulseIndex++ * T.iconStep, easing: 'ease-out' },
             )
           })
         }
@@ -3801,17 +3969,17 @@ const runPostRenderHitFx = (root: HTMLElement) => {
             { opacity: 1, transform: 'translateY(4px) scale(1.1)', offset: 0.35 },
             { opacity: 0, transform: 'translateY(18px) scale(0.4)' },
           ],
-          { duration: 460, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' },
+          { duration: T.bead, delay: T.beadAt, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'both' },
         )
         .onfinish = () => bead.remove()
 
-      animateRowBars(row, prevPct, nextPct)
+      animateRowBars(row, { hp: [prevPct, nextPct] }, { delay: T.barAt, duration: T.rise })
       if (healedCrack && prevSvg) {
         const gh = row.querySelector<HTMLElement>('.glass-host')
         if (gh) {
           gh.innerHTML = prevSvg
           gh
-            .animate([{ opacity: 0.8 }, { opacity: 0 }], { duration: 460, easing: 'ease-out', fill: 'forwards' })
+            .animate([{ opacity: 0.8 }, { opacity: 0 }], { duration: T.crackHeal, delay: T.barAt, easing: 'ease-out', fill: 'both' })
             .onfinish = () => {
               gh.innerHTML = ''
             }
@@ -3825,12 +3993,12 @@ const runPostRenderHitFx = (root: HTMLElement) => {
             { opacity: 0.9, transform: 'translateX(-85%) skewX(-18deg)' },
             { opacity: 0, transform: 'translateX(115%) skewX(-18deg)' },
           ],
-          { duration: 620, easing: 'cubic-bezier(.2,.7,.3,1)' },
+          { duration: T.sweep, delay: T.barAt, easing: 'cubic-bezier(.2,.7,.3,1)' },
         )
       }
       const gain = Math.max(1, Math.round(event.after - event.before))
-      spawnRowMotes(row, event.after >= event.max ? 8 : 5, 'var(--hit-akashi)', false)
-      spawnRowPop(row, `+${gain} 泊修`, 'var(--hit-akashi)')
+      spawnRowMotes(row, event.after >= event.max ? 8 : 5, 'var(--hit-akashi)', false, T.popAt)
+      spawnRowPop(row, `+${gain} 泊修`, 'var(--hit-akashi)', T.popAt)
     }
   }
 }
@@ -4333,11 +4501,13 @@ const render = (force = false) => {
   measureFleetRowSize()
   if (deck && !sandboxActive) observeFleetHits(deck)
   else {
-    pendingHitShakes.clear()
+    activeHits.clear()
+    repairWashUntil.clear()
     pendingShards.length = 0
     pendingRepairFx.clear()
     berthFxFlagIds.clear()
     berthFxRepairIds.clear()
+    clearBerthFade()
   }
 
   // 输出没变就整段不动 DOM（口径见 kernel commitPaneHtml）
@@ -4369,8 +4539,13 @@ const render = (force = false) => {
         }</div>
       </div>
     </div>`
+  // 修理演出自己会拨血条：这一拍要播演出的舰与演出还没播完的舰，平滑过渡让开
+  const barsBusy = new Set<number>(pendingRepairFx.keys())
+  const barsNow = Date.now()
+  for (const [id, until] of repairWashUntil) if (until > barsNow) barsBusy.add(id)
   // 没换 DOM 就不能重绑，也不必重新测量收纳：DOM 还是上一帧那份
   if (!commitPaneHtml(pane, 'ru', html)) return
+  easeFleetBars(pane, airBaseActive || berthActive || sandboxActive ? '' : `fleet:${activeFleetId}`, barsBusy)
 
   // 只绑每次渲染新建的子节点；pane 级委托在 mount 里挂过一次，别再叠
   wireFleetPanel(pane, (id) => (activeFleetId = id), render)

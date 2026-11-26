@@ -1,26 +1,21 @@
 // 产品运行时环境变量共用入口；主进程、渲染层与维护脚本都从这里读。
-export const ENV_ALIASES = {
-  // 永久保留：用户的验收配方、共享记忆与家法模板仍使用旧名。
-  KUMA_DATA_DIR: 'KANSO_DATA_DIR',
-  KUMA_SMOKE: 'KANSO_SMOKE',
-  KUMA_DEBUG_UI: 'KANSO_DEBUG_UI',
-  // 保留到下下版：迁移期间兼容旧的运行时开关。
-  KUMA_DEVTOOLS: 'KANSO_DEVTOOLS',
-  KUMA_QUIT_TRACE: 'KANSO_QUIT_TRACE',
-  KUMA_PERF_SLOW_MS: 'KANSO_PERF_SLOW_MS',
-  KUMA_PERF_PART_MS: 'KANSO_PERF_PART_MS',
-  KUMA_PERF_LONGTASK_MS: 'KANSO_PERF_LONGTASK_MS',
-  // 新增的本地诊断开关，没有旧产品名别名。
-  KUMA_CRASH_DUMPS: undefined,
-} as const
+// 改名前的旧变量名已撤除（维护者裁决 2026-11-26），只认下面这些。
+export const RUNTIME_ENV_NAMES = [
+  'KUMA_DATA_DIR',
+  'KUMA_SMOKE',
+  'KUMA_DEBUG_UI',
+  'KUMA_DEVTOOLS',
+  'KUMA_QUIT_TRACE',
+  'KUMA_PERF_SLOW_MS',
+  'KUMA_PERF_PART_MS',
+  'KUMA_PERF_LONGTASK_MS',
+  'KUMA_CRASH_DUMPS',
+] as const
 
-export type RuntimeEnvName = keyof typeof ENV_ALIASES
+export type RuntimeEnvName = (typeof RUNTIME_ENV_NAMES)[number]
 
-/** 新名优先；显式空串也覆盖旧名，只有未设置时才回退。 */
+/** 原样返回；未设置是 undefined，显式空串照样是空串（由调用方决定空串算不算开）。 */
 export const readEnv = (
   name: RuntimeEnvName,
   env: Readonly<Record<string, string | undefined>> = process.env,
-): string | undefined => {
-  const legacy = ENV_ALIASES[name]
-  return env[name] ?? (legacy ? env[legacy] : undefined)
-}
+): string | undefined => env[name]

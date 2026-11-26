@@ -39,6 +39,33 @@
 
 import type { BattleShipView } from './mg-types'
 
+/** 判「这一点是不是终点」只需要出击状态里这几样 */
+export interface RouteEndSortie {
+  bossCell: number
+  currentCell: number
+  nodes: readonly { cell: number; eventId: number; next?: number }[]
+}
+
+/** 当前这一点是 Boss 点（游戏报的 Boss 格号，或这一点的事件就是 Boss 战） */
+export const atBossNode = (s: RouteEndSortie): boolean =>
+  (s.bossCell > 0 && s.currentCell === s.bossCell) ||
+  s.nodes.find((node) => node.cell === s.currentCell)?.eventId === 5
+
+/**
+ * 打完这一点还有没有路（⑤）。没有路就没有进击选项，大破只作战损陈述，不劝撤退。
+ *
+ * 两种情形：Boss 点；以及游戏报「这一点之后没有下一点」的死路战斗点——
+ * 进点报文 `api_next` 为 0。维护者 2026-11-26 在 6-1 I 点撞上：I 点打完只能回港，
+ * 横幅、镝的红条与编队抬头却都在喊「大破进击有被击沉风险」，因为三处都只认 Boss 点。
+ * 账本实测（2026-11-26，全部 5329 条进点报文）：Boss 点 783 条全是 0；
+ * 非 Boss 而为 0 的 177 条都是尽头点（2-1、1-1、4-3、6-1 的死路战斗点，活动图各阶段终点，
+ * 1-6 护航终点）；其余 4369 条都是 1。
+ * 同一点走过两次时看最近那一次；旧状态没有这个字段时只按 Boss 判，与改动前一致。
+ */
+export const noAdvanceAfterNode = (s: RouteEndSortie): boolean =>
+  atBossNode(s) ||
+  [...s.nodes].reverse().find((node) => node.cell === s.currentCell)?.next === 0
+
 /** 応急修理要員 / 応急修理女神。两个 id 已对 api_start2 主数据核实（见 test/damecon-rules）。 */
 export const DAMECON_MST_IDS: readonly number[] = [42, 43]
 

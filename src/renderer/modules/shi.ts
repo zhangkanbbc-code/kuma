@@ -48,6 +48,7 @@ import {
   uiSet,
   fmtDate,
   fmtDateTime,
+  openBattleReplayWindow,
 } from '../kernel'
 import { MATERIAL_ICON_BY_INDEX, materialIconHtml, shipThumbHtml, useItemIconHtml } from '../entity-art'
 import { equipTypeIconHtml } from '../equip-icon'
@@ -166,6 +167,12 @@ let rangeDays = clampRangeDays(uiGet<number>('shi.rangeDays', 30))
 let selectedResource = Math.max(0, Math.min(7, uiGet<number>('shi.resource', 0)))
 let dailyMaterials: DailyMaterial[] = []
 let battles: BattleSnapshotSummary[] = []
+// 按图取的快照：全局只拉最近 500 场，老海图（结束了的活动图）全落在外面。
+// 选中某张图时单独按图取一次。快照刷新后只把缓存记作过期、不清空：再用到时先给旧的，
+// 同时在后台重取，取到再重画——选中的图不会在每次刷新时闪成空的。
+const mapBattles = new Map<number, { gen: number; rows: BattleSnapshotSummary[] }>()
+const mapBattlesLoading = new Set<number>()
+let mapBattlesGen = 0
 let nodeIndex: NodeHistoryIndexEntry[] = []
 let nodeSub = uiGet<'battles' | 'drops'>('shi.nodeSub', 'battles')
 let dropIndex: NodeDropIndexEntry[] = []
@@ -765,18 +772,40 @@ const shownNodeMap = (): number =>
   (nodeSub === 'drops' ? dropIndex[0]?.map : nodeIndex[0]?.map) ??
   0
 
+// 这一张图的全部快照：缓存里有就用；没有就先用全局最近那批里筛出来的顶着，同时按图去取，取到再重画
+const battlesOfMap = (map: number): readonly BattleSnapshotSummary[] => {
+  const cached = mapBattles.get(map)
+  if ((!cached || cached.gen !== mapBattlesGen) && !mapBattlesLoading.has(map)) {
+    const gen = mapBattlesGen
+    mapBattlesLoading.add(map)
+    void queryBattleSnapshots(5000, map)
+      .then((rows) => {
+        mapBattles.set(map, { gen, rows })
+        // 异步回程与其它被动重画同走闸门：按着鼠标、输入法组合中不换 DOM
+        deferPassive(pane, 'shi', render)
+      })
+      .catch((error) => console.warn('[kuma] 按图读取战斗快照失败', map, error))
+      .finally(() => mapBattlesLoading.delete(map))
+  }
+  return cached?.rows ?? battles.filter((battle) => battle.map === map)
+}
+
+// 按图取回来的快照一张练级图能有几千场：列表只铺最近这么多（与按图取之前的最坏情况同量级），场数照报全部
+const MAP_LIST_LIMIT = 500
+const listedCount = (total: number) => (total > MAP_LIST_LIMIT ? `${total} 场（列出最近 ${MAP_LIST_LIMIT} 场）` : `${total} 场`)
+
 const nodeSnapshotsBlock = (
   map: number,
 ): { title: string; list: string } => {
-  const rows = battles.filter((battle) => !battle.practice && (map <= 0 || battle.map === map))
+  const rows = (map > 0 ? battlesOfMap(map) : battles).filter((battle) => !battle.practice)
   const list = battleHistoryHtml(
-    rows,
+    rows.slice(0, MAP_LIST_LIMIT),
     (battle) =>
       `${mapCode(battle.map)} · ${battle.isBoss ? 'Boss' : `${letterOf(battle.map, battle.cell)}点`}`,
   )
   return {
     title: map > 0
-      ? `${mapCode(map)} · ${rows.length} 场 · 点击复盘`
+      ? `${mapCode(map)} · ${listedCount(rows.length)} · 点击复盘`
       : `出击记录 ${rows.length} 场 · 点击复盘`,
     list: list || '<div class="shi-empty">暂无战斗记录</div>',
   }
@@ -788,18 +817,16 @@ const nodeSnapshotsBlock = (
 const nodeBattlesBlock = (): { title: string; list: string } | null => {
   if (!selectedNode) return null
   const { map, cell } = selectedNode
-  const rows = battles.filter(
-    (battle) => !battle.practice && battle.map === map && battle.cell === cell,
-  )
+  const rows = battlesOfMap(map).filter((battle) => !battle.practice && battle.cell === cell)
   const list = battleHistoryHtml(
-    rows,
+    rows.slice(0, MAP_LIST_LIMIT),
     (battle) =>
       `${mapCode(battle.map)} · ${battle.isBoss ? 'Boss' : `${letterOf(battle.map, battle.cell)}点`}`,
   )
   const head = `${mapCode(map)} · ${letterOf(map, cell)} 点`
   return {
     // 遭遇志留着、快照被清掉的点很常见，空态只报「这里没有可回放的」，不摆成故障。
-    title: rows.length ? `${head} · ${rows.length} 场 · 点击复盘` : `${head} · 0 场`,
+    title: rows.length ? `${head} · ${listedCount(rows.length)} · 点击复盘` : `${head} · 0 场`,
     list: list || '<div class="shi-empty">当前点暂无可回放快照</div>',
   }
 }
@@ -1681,7 +1708,8 @@ const battleDrawerHtml = (): string => {
       )}</div>`
   return `<aside class="shi-battle-drawer">
     <header><div><b>${esc(title)}</b><span>回顾内复盘</span></div>
-      <button data-shi-battle-close title="关闭战斗详情">✕</button></header>
+      <span class="shi-battle-actions">${selectedBattle ? `<button data-shi-battle-anim title="在战斗复盘窗里播放这一场">动画复盘<span class="anim-beta">BETA</span></button>` : ''}
+      <button data-shi-battle-close title="关闭战斗详情">✕</button></span></header>
     ${body}
   </aside>`
 }
@@ -1780,6 +1808,8 @@ const refresh = async (requestedQueries?: readonly ReviewQuery[]) => {
     }
     if (snapshots) {
       battles = snapshots
+      // 快照有更新：按图缓存记作过期，下次用到时先给旧的、同时重取
+      mapBattlesGen += 1
       // 选中的日卡还在不在，判据必须跟日卡自己的分组同一把尺（演习＝JST 日）
       if (selectedPracticeDay != null && !battles.some((row) => row.practice && jstDayStart(row.ts) === selectedPracticeDay)) {
         selectedPracticeDay = null
@@ -1879,6 +1909,11 @@ registerModule({
       const target = event.target as HTMLElement
       if (target.closest('[data-shi-battle-close]')) {
         closeReviewBattle()
+        return
+      }
+      // 「动画复盘」：在独立复盘窗里直达动画视图
+      if (target.closest('[data-shi-battle-anim]')) {
+        if (selectedBattle) void openBattleReplayWindow(selectedBattle.id, 'animate')
         return
       }
       const battleDetail = target.closest<HTMLElement>('[data-shi-battle-detail]')

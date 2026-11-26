@@ -484,3 +484,20 @@ test('渲染：事件行与对空炮火行同属一个阶段，且排在它后�
   assert.match(html, /<span class="who">我舰5<\/span>/)
   assert.match(html, /<span class="who">我舰10<\/span>/)
 })
+
+test('真报文：航空命中按 rai_flag / bak_flag 记下鱼雷还是炸弹（动画复盘据此画，不凭序号猜）', () => {
+  const one = fixtureOf('each-battle-main')
+  const s3 = one.battle.api_kouku.api_stage3
+  const view = parseBattle(one.path, one.battle, ctx(), 0)
+  // 第一航空战里敌机打我方主力的那条记录：受击舰位与 stage3 下标同一套（主力段无偏移）
+  const strikes = view.attacks.filter((attack) => attack.phase === 'air' && attack.side === 1 && attack.source === 'api_kouku')
+  const hits = strikes.flatMap((attack) => attack.hits).filter((hit) => hit.target < 6)
+  assert.ok(hits.length > 0, '这场真报文里敌机确实打到了主力')
+  for (const hit of hits) {
+    const torpedo = Number(s3.api_frai_flag?.[hit.target]) > 0
+    const bomb = Number(s3.api_fbak_flag?.[hit.target]) > 0
+    const expected = torpedo && bomb ? 'both' : torpedo ? 'torpedo' : bomb ? 'bomb' : undefined
+    assert.equal(hit.airKind, expected, `舰位 ${hit.target}`)
+  }
+  assert.ok(hits.some((hit) => hit.airKind), '至少有一格立着标记')
+})

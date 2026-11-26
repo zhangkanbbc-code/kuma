@@ -793,6 +793,7 @@ const sortieNodeOf = (body: any): SortieView['nodes'][number] => ({
   cell: body.api_no ?? -1,
   eventId: body.api_event_id ?? 0,
   eventKind: body.api_event_kind ?? 0,
+  ...(typeof body.api_next === 'number' ? { next: body.api_next } : {}),
   rank: null,
   note: nodeNote(body),
   enemyPreview: enemyPreviewOf(body),

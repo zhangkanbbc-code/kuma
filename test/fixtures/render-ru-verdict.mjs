@@ -55,6 +55,7 @@ const HARNESS = `
 import {
   ESCORT_FLAGSHIP_INDEX,
   FLAGSHIP_INDEX,
+  noAdvanceAfterNode,
   taihaVerdictOf,
   type TaihaShipRef,
 } from '${TAIHA_VERDICT}'
@@ -167,6 +168,7 @@ export const setLedger = ({
   sortieDeckId = 1,
   onSortie = true,
   escaped = [],
+  sortie = {},
 }) => {
   const ships = {}
   const decks = Object.entries(fleets).map(([id, list]) => {
@@ -178,7 +180,7 @@ export const setLedger = ({
   loaded.mg.slotitems = slotitems
   loaded.mg.combinedFlag = combinedFlag
   loaded.mg.sortie = onSortie
-    ? { active: true, practice: false, deckId: sortieDeckId, mapArea: 3, mapNo: 5 }
+    ? { active: true, practice: false, deckId: sortieDeckId, mapArea: 3, mapNo: 5, bossCell: -1, currentCell: 1, nodes: [], ...sortie }
     : null
   loaded.setEscaped(escaped)
   return decks

@@ -1,0 +1,221 @@
+/* 动画复盘（像素兵牌推演）的样式。颜色只引用复盘窗根块里定义过的变量，跟着主题与色觉模式走
+   （test/battle-anim-css.test.mjs 逐个核对）。时长走 --motion-* 共用档；兵牌位置由脚本写 transform，
+   这里不给 transform 写过渡，免得重排时兵牌满屏乱飞。 */
+
+.ba-app { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg0); }
+.ba-top { flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--line-soft); background: var(--bg1); min-height: 34px; }
+.ba-trail { display: flex; flex-wrap: wrap; gap: 4px; }
+.ba-trail button {
+  padding: 3px 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg2);
+  color: var(--sub); font-size: 10.5px; cursor: pointer;
+}
+.ba-trail button.boss { border-color: var(--bad); }
+.ba-trail button.on { border-color: var(--accent); color: var(--text); background: var(--accent-wash); }
+
+.ba-main { flex: 1; min-height: 0; display: flex; }
+.ba-stage-host { flex: 1; min-width: 0; position: relative; display: flex; }
+.ba-empty { flex: 1; display: grid; place-items: center; color: var(--dim); font-size: 11.5px; }
+
+/* ---- 舞台 ---- */
+.ba-stage { position: relative; flex: 1; min-width: 0; overflow: hidden; background: var(--bg0); }
+.ba-stage canvas { position: absolute; left: 0; top: 0; image-rendering: pixelated; pointer-events: none; }
+.ba-sea { z-index: 0; }
+.ba-layer { position: absolute; inset: 0; z-index: 1; }
+.ba-fx { z-index: 2; }
+
+.ba-hud { position: absolute; left: 0; right: 0; top: 0; z-index: 3; display: flex; align-items: flex-start; justify-content: center; padding: 8px 12px; pointer-events: none; }
+.ba-banner {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; max-width: min(640px, 70%);
+  padding: 5px 14px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 5px;
+  background: color-mix(in srgb, var(--bg1) 88%, transparent); text-align: center;
+}
+.ba-banner b { font-size: 13px; color: var(--text); overflow-wrap: anywhere; }
+.ba-banner span { font-size: 10.5px; color: var(--sub); overflow-wrap: anywhere; }
+.ba-banner span:empty { display: none; }
+.ba-stage.carded .ba-banner { visibility: hidden; }
+.ba-banner[data-tone="air"], .ba-banner[data-tone="lbas"] { border-left-color: var(--air); }
+.ba-banner[data-tone="gun"] { border-left-color: var(--gold); }
+.ba-banner[data-tone="tor"] { border-left-color: var(--accent); }
+.ba-banner[data-tone="night"], .ba-banner[data-tone="transition"] { border-left-color: var(--night); }
+.ba-banner[data-tone="radar"] { border-left-color: var(--bad); }
+.ba-banner[data-tone="friend"] { border-left-color: var(--ok); }
+.ba-banner[data-tone="sup"], .ba-banner[data-tone="smoke"] { border-left-color: var(--sub); }
+.ba-banner[data-tone="outro"], .ba-banner[data-tone="special-cutin"] { border-left-color: var(--gold); }
+.ba-chips { position: absolute; right: 12px; top: 8px; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.ba-chip {
+  padding: 1px 7px; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--bg1) 86%, transparent);
+  color: var(--sub); font-size: 10px;
+}
+.ba-chip:empty { display: none; }
+.ba-chip.air { color: var(--air); }
+.ba-chip.flare { color: var(--gold); }
+.ba-chip.night { color: var(--night); }
+
+/* ---- 兵牌 ---- */
+.ba-token {
+  position: absolute; left: 0; top: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 2px;
+  padding: 3px 4px 3px 5px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 4px;
+  background: color-mix(in srgb, var(--bg1) 90%, transparent); overflow: hidden;
+  transition: opacity var(--motion-view) var(--motion-ease), filter var(--motion-view) var(--motion-ease);
+}
+.ba-token.side-1 { border-left: 1px solid var(--line); border-right: 3px solid var(--entity-abyss); padding: 3px 5px 3px 4px; }
+.ba-token.side-2 { border-left-color: var(--ok); }
+.ba-token.flag::before {
+  content: ''; position: absolute; left: 0; top: 0; width: 0; height: 0;
+  border-top: 7px solid var(--gold); border-right: 7px solid transparent;
+}
+.ba-token.side-1.flag::before { left: auto; right: 0; border-right: 0; border-left: 7px solid transparent; }
+.ba-art { position: relative; flex: 1; min-height: 0; display: flex; border-radius: 3px; overflow: hidden; }
+.ba-token .ship-thumb.ba-thumb { width: 100%; height: 100%; border-radius: 3px; }
+.ba-name {
+  position: absolute; left: 3px; right: 3px; bottom: 1px; font-size: 10px; line-height: 1.2; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px var(--bg0), 0 0 3px var(--bg0);
+}
+.ba-token.side-1 .ba-name { text-align: right; }
+.ba-hprow { flex: none; display: flex; align-items: center; gap: 4px; }
+.ba-hp { position: relative; flex: 1; height: 4px; border-radius: 2px; background: var(--bg3); overflow: hidden; }
+.ba-hp i { position: absolute; top: 0; bottom: 0; left: 0; width: 0; }
+.ba-solid.hp-g { background: linear-gradient(90deg, var(--meter-ok-start), var(--ok)); }
+.ba-solid.hp-y { background: linear-gradient(90deg, var(--meter-gold-start), var(--gold)); }
+.ba-solid.hp-o { background: linear-gradient(90deg, var(--meter-warn-start), var(--warn)); }
+.ba-solid.hp-r { background: linear-gradient(90deg, var(--meter-bad-start), var(--bad)); }
+.ba-ghost { background: repeating-linear-gradient(135deg, var(--bad) 0 3px, var(--tint-bad-loss) 3px 6px); opacity: .85; }
+.ba-num { flex: none; font: 9px/1.1 var(--mono); color: var(--sub); }
+.ba-stamp {
+  position: absolute; right: 4px; top: 3px; padding: 0 3px; border: 1px solid currentColor; border-radius: 2px;
+  background: color-mix(in srgb, var(--bg0) 70%, transparent); font-size: 10px; font-weight: 700; line-height: 1.3;
+  transform: rotate(-8deg); display: none;
+}
+.ba-token.side-1 .ba-stamp { right: auto; left: 4px; transform: rotate(8deg); }
+.ba-token.stamped .ba-stamp { display: block; }
+.ba-dealt {
+  position: absolute; left: 9px; top: 2px; padding: 0 3px; border-radius: 2px; font: 9px/1.3 var(--mono); color: var(--gold);
+  background: color-mix(in srgb, var(--bg0) 72%, transparent);
+}
+.ba-dealt:empty { display: none; }
+.ba-token.side-1 .ba-dealt { left: auto; right: 9px; }
+.ba-token.compact { padding: 2px 3px 2px 4px; }
+.ba-token.compact .ba-name, .ba-token.compact .ba-num, .ba-token.compact .ba-dealt { display: none; }
+.ba-token.compact .ba-stamp { font-size: 8.5px; }
+
+.ba-token.down { filter: grayscale(.85); opacity: .62; }
+.ba-token.escaped { opacity: .4; }
+.ba-token.unattackable { border-style: dashed; }
+.ba-token.benched { opacity: .34; }
+.ba-token.side-2 { opacity: 0; visibility: hidden; }
+.ba-stage.friend-in .ba-token.side-2 { opacity: 1; visibility: visible; }
+.ba-stage.friend-in .ba-token.side-0 { opacity: .34; }
+
+.ba-token.acting { box-shadow: 0 0 0 2px var(--accent), 0 0 12px color-mix(in srgb, var(--accent) 55%, transparent); }
+.ba-token.side-1.acting { box-shadow: 0 0 0 2px var(--entity-abyss), 0 0 12px color-mix(in srgb, var(--entity-abyss) 55%, transparent); }
+.ba-token.special { box-shadow: 0 0 0 2px var(--gold), 0 0 14px color-mix(in srgb, var(--gold) 60%, transparent); }
+.ba-token.aaci { box-shadow: 0 0 0 2px var(--air), 0 0 14px color-mix(in srgb, var(--air) 55%, transparent); }
+.ba-token.protect { box-shadow: 0 0 0 2px var(--accent-ink), 0 0 16px color-mix(in srgb, var(--accent) 70%, transparent); }
+.ba-token.hit { animation: ba-hit-shake 320ms steps(4, end) 1; }
+@keyframes ba-hit-shake {
+  0% { margin-left: 0; }
+  25% { margin-left: -3px; }
+  50% { margin-left: 3px; }
+  75% { margin-left: -2px; }
+  100% { margin-left: 0; }
+}
+.ba-stage.night .ba-token { background: color-mix(in srgb, var(--bg0) 86%, transparent); }
+
+/* ---- 特攻切入 / 序幕与战果卡 ---- */
+.ba-cutin {
+  position: absolute; left: 0; right: 0; top: 40%; z-index: 4; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 8px 12px; border-top: 2px solid var(--gold); border-bottom: 2px solid var(--gold);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--bg1) 92%, transparent) 20%, color-mix(in srgb, var(--bg1) 92%, transparent) 80%, transparent);
+  pointer-events: none;
+}
+.ba-cutin b { font-size: 16px; color: var(--gold); letter-spacing: 2px; }
+.ba-cutin span { font-size: 11px; color: var(--sub); }
+.ba-cutin[hidden], .ba-card[hidden] { display: none; }
+.ba-card {
+  position: absolute; left: 50%; top: 50%; z-index: 4; transform: translate(-50%, -50%);
+  min-width: 260px; max-width: min(520px, 80%); padding: 14px 18px; border: 1px solid var(--line); border-radius: 8px;
+  background: color-mix(in srgb, var(--bg1) 94%, transparent); text-align: center; pointer-events: none;
+}
+.ba-card-title { font-size: 15px; font-weight: 700; color: var(--text); }
+.ba-card-title.rank { font-size: 20px; color: var(--gold); }
+.ba-card-sub { margin-top: 3px; font-size: 11px; color: var(--sub); }
+.ba-card-sub:empty { display: none; }
+.ba-voice { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 2px; }
+.ba-voice b { font-size: 10.5px; color: var(--entity-abyss); }
+.ba-voice span { font-family: var(--serif); font-size: 12px; color: var(--text); white-space: pre-line; }
+
+/* ---- 右侧同步流水 ---- */
+.ba-log { flex: none; width: 260px; display: flex; flex-direction: column; border-left: 1px solid var(--line-soft); background: var(--bg1); min-height: 0; }
+.ba-log header { flex: none; display: flex; justify-content: space-between; align-items: baseline; padding: 6px 10px; border-bottom: 1px solid var(--line-soft); }
+.ba-log header b { font-size: 11.5px; }
+.ba-log header span { font-size: 10px; color: var(--dim); }
+.ba-log ol { flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 4px 0; list-style: none; }
+.ba-log li { display: grid; grid-template-columns: 44px 1fr; column-gap: 6px; padding: 3px 10px; cursor: pointer; border-left: 2px solid transparent; }
+.ba-log li .ph { grid-row: span 2; font-size: 9.5px; color: var(--dim); }
+.ba-log li .t { font-size: 10.5px; color: var(--text-soft); overflow-wrap: anywhere; }
+.ba-log li .d { font-size: 9.5px; color: var(--dim); overflow-wrap: anywhere; }
+.ba-log li .d:empty { display: none; }
+.ba-log li.dull .t { color: var(--dim); }
+.ba-log li:hover { background: var(--bg2); }
+.ba-log li.on { background: var(--accent-wash); border-left-color: var(--accent); }
+.ba-log li.on .t { color: var(--text); }
+
+/* ---- 播控 ---- */
+.ba-controls {
+  flex: none; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px;
+  padding: 6px 12px; border-top: 1px solid var(--line-soft); background: var(--bg1);
+}
+.ba-buttons { display: flex; gap: 3px; }
+.ba-btn {
+  min-width: 28px; height: 26px; padding: 0 6px; border: 1px solid var(--line); border-radius: 4px;
+  background: var(--bg2); color: var(--text); font-size: 12px; cursor: pointer;
+  transition: background var(--motion-micro), border-color var(--motion-micro);
+}
+.ba-btn:hover { border-color: var(--accent); }
+.ba-btn.primary { min-width: 36px; border-color: var(--accent); color: var(--accent); }
+.ba-btn.speed { min-width: 40px; font: 11px var(--mono); }
+.ba-scrub { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ba-scrub-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 10px; color: var(--dim); }
+.ba-now { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--sub); }
+.ba-count { font-family: var(--mono); flex: none; }
+.ba-track { position: relative; height: 8px; border-radius: 4px; background: var(--bg3); cursor: pointer; touch-action: none; }
+.ba-progress { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 4px; background: var(--accent-dim); }
+.ba-knob {
+  position: absolute; top: 50%; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%;
+  background: var(--accent); transform: translateY(-50%); box-shadow: 0 0 0 2px var(--bg1);
+}
+.ba-markers { position: absolute; inset: 0; pointer-events: none; }
+.ba-marker { position: absolute; top: -3px; width: 3px; height: 14px; margin-left: -1px; border-radius: 1px; background: var(--sub); pointer-events: auto; }
+.ba-marker.night, .ba-marker.day { background: var(--night); }
+.ba-marker.special { background: var(--gold); }
+.ba-marker.repair { background: var(--ok); }
+.ba-marker.taiha { background: var(--bad); }
+.ba-marker.flagship-down { background: var(--warn); }
+.ba-toggle { display: flex; align-items: center; gap: 4px; font-size: 10.5px; color: var(--sub); cursor: pointer; user-select: none; }
+
+/* ---- 窄窗：流水收起，舞台让给兵牌 ---- */
+@media (max-width: 980px) {
+  .ba-log { display: none; }
+}
+@media (max-width: 720px) {
+  .ba-controls { grid-template-columns: 1fr; gap: 6px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ba-token, .ba-btn { transition: none; }
+  .ba-token.hit { animation: none; }
+}
+
+/* ---- 复盘窗顶部的「详情 / 动画」切换 ---- */
+#battle-replay-views {
+  flex: none; display: flex; gap: 2px; padding: 5px 12px 0; background: var(--bg1);
+  border-bottom: 1px solid var(--line-soft);
+}
+#battle-replay-views[hidden] { display: none; }
+#battle-replay-views button {
+  padding: 4px 12px; border: 1px solid transparent; border-bottom: 0; border-radius: 5px 5px 0 0;
+  background: transparent; color: var(--sub); font-size: 11.5px; cursor: pointer; margin-bottom: -1px;
+}
+#battle-replay-views button.on { border-color: var(--line-soft); background: var(--bg0); color: var(--text); }
+#battle-replay-anim { flex: 1; min-width: 0; min-height: 0; display: flex; }
+#battle-replay-anim[hidden] { display: none; }

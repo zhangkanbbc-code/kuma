@@ -151,7 +151,7 @@ const PRELOAD_URL = pathToFileURL(
 ).href
 
 // UA 清洗：去掉 Electron 与应用名那两段（poi 同款手法）。判据在 shared/user-agent，
-// 浏览窗引的是同一个——这里原先自己写了一份找 `kanso/` 的正则，改名之后一直空转。
+// 浏览窗引的是同一个——这里原先自己写了一份找改名前应用名的正则，改名之后一直空转。
 const USER_AGENT = cleanUserAgent(navigator.userAgent)
 
 const $ = <T extends HTMLElement>(selector: string): T => {

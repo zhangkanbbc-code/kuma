@@ -111,7 +111,7 @@ export const loadArtArchive = (): Promise<void> => {
  * 所以现在：**并进索引之后如实说一声**（返回值 + `kuma:archive-lit` 事件），
  * 由消费端判断「这条是不是玩家正在看的那一页」再决定重渲。
  * 两道性能闸门一个没松——重渲仍旧走 ji 自己的 `scheduleRender`
- *（面板不 active 不画、手指按着的时候推迟，见 memory/kanso-perf-architecture）。
+ *（面板不 active 不画、手指按着的时候推迟，见 memory/kuma-perf-architecture）。
  */
 export const noteArtArchived = (entry: ArtArchiveEntry): boolean => {
   if (!ready || !entry?.pathname || !entry.sha1 || !(entry.bytes > 0)) return false

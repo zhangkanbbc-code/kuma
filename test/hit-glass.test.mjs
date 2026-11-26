@@ -20,6 +20,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
+import { runtimeHost } from '../scripts/lib/player-view-runtime.mjs'
 
 const require = createRequire(import.meta.url)
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
@@ -310,4 +311,236 @@ test('编队行：玻璃挂件的属性挂在行上、图层进 .dmg-fx、连接
   setGlassFx({})
   setHitCrack({})
   assert.doesNotMatch(flat(renderRow({ id: 5, shipId: 1, nowhp: 40 })), /dmg-fx|glass-host|berth-tether/, '没有挂件也没伤势时不留痕迹')
+})
+
+
+// 2026-11-26 他报「编队的动画消失是1帧消失」：余韵到点、泊修撤下都是硬切。
+// 交接包：女神余韵「自然淡去」、入渠水青「约 2–3 秒后归于平静」。切 ru.ts 真代码跑，计时器与时钟换成假的。
+const fadeHarness = () => {
+  let now = 1000
+  const timers = []
+  const rows = new Map()
+  const rowOf = (id) => {
+    if (!rows.has(id)) rows.set(id, { attrs: new Map(), removed: [] })
+    const state = rows.get(id)
+    return {
+      setAttribute: (key, value) => state.attrs.set(key, value),
+      removeAttribute: (key) => state.attrs.delete(key),
+      querySelector: (selector) => ({ remove: () => state.removed.push(selector) }),
+    }
+  }
+  const pane = { querySelector: (selector) => rowOf(Number(selector.match(/data-ship="(\d+)"/)[1])) }
+  const { api } = runtimeHost().extract('src/renderer/modules/ru.ts', [
+    'FX_FADE_MS', 'transientAura', 'berthFxFlagIds', 'berthFxRepairIds',
+    'activeTransientAura', 'scheduleAuraCleanup', 'noteBerthFade', 'shipGlassFx',
+  ], {
+    pane,
+    Date: { now: () => now },
+    setTimeout: (cb, ms) => { timers.push({ cb, at: now + ms }); return timers.length },
+    clearTimeout: () => {},
+    hitShakeEnabled: () => true,
+    shipHitCrack: () => null,
+    dockOf: () => null,
+    weldedShips: new Set(),
+    pendingRepairFx: new Map(),
+    fractureSeeds: new Map(),
+    cachedRowWidth: 540,
+    cachedRowHeight: 48,
+  })
+  const advance = (ms) => {
+    now += ms
+    for (let due = timers.filter((t) => t.at <= now); due.length; due = timers.filter((t) => t.at <= now)) {
+      for (const timer of due) timers.splice(timers.indexOf(timer), 1)
+      for (const timer of due) timer.cb()
+    }
+  }
+  const attrsOf = (id) => api.shipGlassFx({ id, nowhp: 40, maxhp: 40 }, false)?.attrs ?? ''
+  return { api, advance, rows, attrsOf, now: () => now }
+}
+
+test('余韵退场：到点先挂 data-aura-fade 淡出，FX_FADE_MS 后再撤，不再一帧消失', () => {
+  for (const [kind, hold] of [['dock', 2600], ['goddess', 4500]]) {
+    const { api, advance, rows, attrsOf, now } = fadeHarness()
+    api.transientAura.set(7, { kind, until: now() + hold })
+    api.scheduleAuraCleanup(7, hold)
+    assert.match(attrsOf(7), new RegExp(`data-repair-aura="${kind}"`))
+    assert.doesNotMatch(attrsOf(7), /data-aura-fade/)
+    advance(hold)
+    assert.equal(rows.get(7).attrs.get('data-aura-fade'), '1', `${kind} 到点就地挂淡出`)
+    assert.match(attrsOf(7), new RegExp(`data-repair-aura="${kind}" data-aura-fade="1"`), '淡出期间重画也续挂')
+    advance(api.FX_FADE_MS - 1)
+    assert.equal(rows.get(7).attrs.has('data-aura-fade'), true, '淡出没播完不撤')
+    advance(1)
+    assert.equal(rows.get(7).attrs.has('data-aura-fade'), false)
+    assert.equal(api.shipGlassFx({ id: 7, nowhp: 40, maxhp: 40 }, false), null, '淡完不留痕迹')
+  }
+})
+
+test('泊修常驻态退场：撤下的工作舰与受修舰续挂原属性淡出，重新亮起就取消淡出', () => {
+  const { api, advance, rows, attrsOf } = fadeHarness()
+  // 上一次渲染 7 是工作舰、8 在受修，这一次两者都不在了
+  api.noteBerthFade(new Set([7]), new Set([8]))
+  assert.match(attrsOf(7), /data-berth-role="flag" data-berth-fade="1"/)
+  assert.match(attrsOf(8), /data-berth-repair="1" data-berth-fade="1"/)
+  assert.match(api.shipGlassFx({ id: 8, nowhp: 30, maxhp: 40 }, false).tether, /berth-tether/, '连接线淡出期间还在')
+  advance(api.FX_FADE_MS)
+  assert.equal(api.shipGlassFx({ id: 7, nowhp: 40, maxhp: 40 }, false), null)
+  assert.equal(api.shipGlassFx({ id: 8, nowhp: 30, maxhp: 40 }, false), null)
+  assert.ok(rows.get(8).removed.some((selector) => selector.includes('berth-tether')), '淡完就地拆连接线')
+  // 9 刚撤下又在下一次渲染里亮起：取消淡出，照常显示
+  api.noteBerthFade(new Set([9]), new Set())
+  api.berthFxFlagIds.add(9)
+  api.noteBerthFade(new Set(), new Set())
+  assert.match(attrsOf(9), /data-berth-role="flag"/)
+  assert.doesNotMatch(attrsOf(9), /data-berth-fade/)
+})
+
+test('退场淡出样式：时长与 FX_FADE_MS 同值，金色血条做成可淡掉的叠层，减少动态时不播', () => {
+  const html = fs.readFileSync(path.join(ROOT, 'src/renderer/index.html'), 'utf8')
+  const ru = fs.readFileSync(path.join(ROOT, 'src/renderer/modules/ru.ts'), 'utf8')
+  const fadeMs = Number(ru.match(/const FX_FADE_MS = (\d+)/)[1])
+  const durations = [...html.matchAll(/animation: ru-fx-fade-(?:shadow|out|fc) (\d+)ms/g)].map((m) => Number(m[1]))
+  assert.equal(durations.length, 3)
+  for (const ms of durations) assert.equal(ms, fadeMs)
+  assert.match(html, /\[data-repair-aura="goddess"\] \.hpc \.bar > i::after \{[^}]*linear-gradient\(90deg, var\(--gold\), var\(--hit-goddess\)\)/)
+  assert.doesNotMatch(html, /\[data-repair-aura="goddess"\] \.hpc \.bar > i \{[^}]*background:/, '渐变不能直接换底色，否则淡不掉')
+  const reduced = html.slice(html.indexOf('.fleet-skin .ship.left.leaving,'))
+  for (const selector of ['.ship[data-aura-fade="1"],', '.ship[data-berth-fade="1"] .fc,']) {
+    assert.ok(reduced.slice(0, reduced.indexOf('{ animation: none; }')).includes(selector), selector)
+  }
+})
+
+// 2026-11-26 查出：被弹参数只活一次渲染、修理底色只挂一次，掉血后 250ms 的「编队任务反查」重画
+// 输出就变了、整块换 DOM，演出被拦腰截断（他感觉「几乎一眨眼就完成」的主因）。
+test('演出期间重画续挂同一份被弹参数与修理底色，播完才撤', () => {
+  let now = 1000
+  const { api } = runtimeHost().extract('src/renderer/modules/ru.ts', ['activeHits', 'repairWashUntil', 'shipHitShake', 'shipGlassFx'], {
+    Date: { now: () => now },
+    hitShakeEnabled: () => true,
+    shipHitCrack: () => null,
+    dockOf: () => null,
+    weldedShips: new Set(),
+    pendingRepairFx: new Map(),
+    fractureSeeds: new Map(),
+    berthFxFlagIds: new Set(),
+    berthFxRepairIds: new Set(),
+    berthFadeFlag: new Map(),
+    berthFadeRepair: new Map(),
+    activeTransientAura: () => null,
+    cachedRowWidth: 540,
+    cachedRowHeight: 48,
+  })
+  const params = { severity: 3, totalMs: 1460 }
+  api.activeHits.set(5, { params, until: now + params.totalMs })
+  const ship = { id: 5, nowhp: 25, maxhp: 40 }
+  assert.equal(api.shipHitShake(ship), params, '第一次渲染')
+  now += 300
+  assert.equal(api.shipHitShake(ship), params, '250ms 后的反查重画还是同一份，输出不变就不换 DOM')
+  now += 1160
+  assert.equal(api.shipHitShake(ship), null, '播完才撤')
+  api.repairWashUntil.set(6, now + 1500)
+  assert.match(api.shipGlassFx({ id: 6, nowhp: 40, maxhp: 40 }, false).layers, /fx-flash/)
+  now += 1500
+  assert.equal(api.shipGlassFx({ id: 6, nowhp: 40, maxhp: 40 }, false), null)
+})
+
+test('中破 V 构型按方案三：两道裂纹从缺口尖端放射，不画外圈 B 与暗面；角缺构型照旧', () => {
+  // 维护者裁决 2026-11-26：原稿外圈 B 与缺口 A 都是 V、彼此平行，读起来像「≫」双裂纹，审片页对比后定方案三
+  const { hitGlassGeometry, hitGlassLayers } = load('hit-glass')
+  let vArch = 0, corner = 0
+  for (const { id, seed, width } of SAMPLES) {
+    const geo = hitGlassGeometry(id, seed, width, H)
+    const mid = hitGlassLayers(geo, 'medium')
+    const tag = `#${id}/${seed}@${width} arch ${geo.arch}`
+    const lines = [...mid.cracks, ...mid.subCracks].map((line) => JSON.stringify(line))
+    if (geo.arch === 2 || geo.arch === 3) {
+      vArch++
+      const apex = JSON.stringify(geo.lineA[1])
+      assert.ok([...mid.cracks, ...mid.subCracks].every((line) => JSON.stringify(line[0]) === apex), `${tag} 中破裂纹都从缺口尖端出发`)
+      assert.ok(!lines.includes(JSON.stringify(geo.lineB)), `${tag} 中破不画外圈 B`)
+      assert.deepEqual(mid.facets, [], `${tag} 中破不画 A、B 之间的暗面`)
+      assert.deepEqual(hitGlassLayers(geo, 'heavy').bevels, [geo.lineB], `${tag} 大破照旧沿 B 崩开`)
+    } else {
+      corner++
+      assert.ok(lines.includes(JSON.stringify(geo.lineB)), `${tag} 角缺构型照旧画外圈 B`)
+      assert.deepEqual(mid.facets, [geo.shardB])
+    }
+  }
+  assert.ok(vArch > 0 && corner > 0, '样本两类构型都要有')
+})
+
+test('带伤入渠：行挂 data-docked，红黄告警与故障撤掉、换成缓慢脉冲的恢复光；裂纹照留', () => {
+  // 维护者裁决 2026-11-26：入渠期间裂纹保留（②），告警换恢复光（同日）
+  let docked = true
+  const { api } = runtimeHost().extract('src/renderer/modules/ru.ts', ['shipGlassFx'], {
+    Date: { now: () => 1000 },
+    hitShakeEnabled: () => true,
+    shipHitCrack: () => 'heavy',
+    dockOf: () => (docked ? { id: 1 } : null),
+    weldedShips: new Set(),
+    pendingRepairFx: new Map(),
+    repairWashUntil: new Map(),
+    fractureSeeds: new Map([[5, 1]]),
+    berthFxFlagIds: new Set(),
+    berthFxRepairIds: new Set(),
+    berthFadeFlag: new Map(),
+    berthFadeRepair: new Map(),
+    activeTransientAura: () => null,
+    cachedRowWidth: 540,
+    cachedRowHeight: 48,
+  })
+  const ship = { id: 5, nowhp: 8, maxhp: 40 }
+  const fx = api.shipGlassFx(ship, false)
+  assert.match(fx.attrs, /data-docked="1"/)
+  assert.match(fx.layers, /<svg class="glass-svg"/, '裂纹与缺角照留')
+  assert.doesNotMatch(api.shipGlassFx(ship, true).attrs, /data-docked/, '击沉不挂')
+  docked = false
+  assert.doesNotMatch(api.shipGlassFx(ship, false).attrs, /data-docked/, '没入渠不挂')
+
+  const css = fs.readFileSync(path.join(ROOT, 'src/renderer/index.html'), 'utf8')
+  assert.match(css, /\.ship\[data-docked="1"\]\[data-crack\] :is\(\.dmg-hazard, \.dmg-scan, \.dmg-ember, \.glitch-bars\) \{ display: none; \}/)
+  assert.match(css, /\.ship\[data-docked="1"\]\[data-crack\] \{[^}]*animation: ru-dock-recover 4\.2s ease-in-out infinite;/)
+  assert.match(css, /@keyframes ru-dock-recover \{[^}]*var\(--hit-aqua\)/)
+  assert.match(css, /\.ship\[data-docked="1"\]\[data-crack\] \.hpc \.num \.st \{ animation: none; \}/, '大破徽标不再故障闪')
+  const reduced = css.slice(css.indexOf('.fleet-skin .ship.left.leaving,'))
+  assert.ok(reduced.slice(0, reduced.indexOf('{ animation: none; }')).includes('.ship[data-docked="1"][data-crack],'), '减少动态时恢复光不脉冲')
+})
+
+test('一次跨几档就崩落几块：小破直跳大破 A、B 一起掉（＝大破减小破那整块），中破到击沉 B、C', () => {
+  // 2026-11-26 他要：从小破蔓延到大破时，大破与小破之间差的那片玻璃要崩落，不能只飞外圈那一条
+  const geo = { topSide: true, shardA: [[1, 1]], shardB: [[2, 2]], shardC: [[3, 3]] }
+  const run = (prevTier, tier) => {
+    const calls = []
+    const { api } = runtimeHost().extract('src/renderer/modules/ru.ts', ['runPostRenderHitFx'], {
+      pendingShards: [{ shipId: 5, geo, tier, prevTier }],
+      pendingRepairFx: new Map(),
+      document: { visibilityState: 'visible' },
+      window: { matchMedia: () => ({ matches: false }) },
+      launchFlyingShard: (_row, _geo, poly, _tier, _dx, _dy, _rot, delay, isOpp) => calls.push([poly === geo.shardA ? 'A' : poly === geo.shardB ? 'B' : 'C', delay, isOpp]),
+      scheduleAuraCleanup: () => {},
+      mg: { ships: {}, slotitems: {} },
+    })
+    api.runPostRenderHitFx({ querySelector: () => ({}) })
+    return calls
+  }
+  assert.deepEqual(run('light', 'medium').map(([piece]) => piece), ['A'])
+  assert.deepEqual(run('medium', 'heavy').map(([piece]) => piece), ['B'])
+  assert.deepEqual(run('light', 'heavy'), [['A', 0, false], ['B', 50, false]], '小破直跳大破：A 与 B 先后掉')
+  assert.deepEqual(run('none', 'heavy').map(([piece]) => piece), ['A', 'B'])
+  assert.deepEqual(run('medium', 'sunk').map(([piece]) => piece), ['B', 'C'])
+  assert.deepEqual(run('light', 'sunk').map(([piece, , opp]) => [piece, opp]), [['A', false], ['B', false], ['C', true]])
+  assert.deepEqual(run('heavy', 'sunk').map(([piece]) => piece), ['C'])
+})
+
+test('中破 / 大破左端是向右辐射的微光，只要柔光、不要任何线条', () => {
+  // 维护者裁决 2026-11-26：「改成向右辐射的微光」「不要加这种有点突兀的线，就用微光就行了」
+  // （取代 11-25 交接稿的「左端微斜纹损管刻度」）
+  const css = fs.readFileSync(path.join(ROOT, 'src/renderer/index.html'), 'utf8')
+  for (const tier of ['medium', 'heavy']) {
+    const at = css.indexOf(`.fleet-skin .ship[data-crack="${tier}"] .dmg-hazard {`)
+    assert.ok(at >= 0, tier)
+    const rule = css.slice(at, css.indexOf('}', at))
+    assert.match(rule, /background: radial-gradient\(ellipse [^;]*at 0% 50%/, `${tier}：从左锚向右扩散的柔光`)
+    assert.doesNotMatch(rule, /repeating-/, `${tier}：不要斜纹，也不要放射细线`)
+  }
 })

@@ -55,7 +55,7 @@ test('受控文件旧名不超过逐行白名单，清单本身及所有条目�
 })
 
 test('旧名护栏变异：新增、重复、大小写变化、死条目与清单夹带都报错', () => {
-  const entry = allowlist.find((item) => item.file === 'src/shared/env-names.ts')
+  const entry = allowlist.find((item) => item.file === 'src/shared/config-namespace.ts')
   const sources = new Map([[entry.file, entry.pattern]])
   assert.deepEqual(audit(sources, [entry]), [])
   assert.ok(audit(new Map([[entry.file, `${entry.pattern}\n${entry.pattern}`]]), [entry]).length)

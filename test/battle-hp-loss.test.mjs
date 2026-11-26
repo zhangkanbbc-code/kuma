@@ -218,6 +218,10 @@ const classList = () => {
   const names = new Set()
   return { toggle: (name, on) => on ? names.add(name) : names.delete(name) }
 }
+// 第一拍扣虚条按扣掉多少定时长（di.ts barDrainMs：380ms 起、整条 680ms）再加 30ms 接力余量；
+// 时钟一次拨到最长那一拍之后，第二拍的结算一定已经发生
+const BAR_BEAT_MAX_MS = 680 + 30
+
 const liveRow = (battle, side, ship) => {
   const html = renderBrow(battle, side, ship)
   const nums = { innerHTML: numsOf(html) }
@@ -226,7 +230,12 @@ const liveRow = (battle, side, ship) => {
     const style = { width, setProperty(name, value) { this[name] = value } }
     return ['.' + cls, { style }]
   }))
-  const bar = { classList: classList(), isConnected: true, querySelector: selector => pieces[selector] }
+  const bar = {
+    classList: classList(),
+    isConnected: true,
+    querySelector: selector => pieces[selector],
+    querySelectorAll: selector => (selector === 'span' ? Object.values(pieces) : []),
+  }
   const row = {
     dataset: { battleSide: String(side), battleIndex: String(ship.index) },
     classList: classList(),
@@ -249,7 +258,7 @@ test('同一行就地切阶段，扣血与血量/状态在第二拍一起更新�
     const previous = nums.innerHTML
     applyLogStage(pane, battle, stage)
     if (stage !== null) assert.equal(nums.innerHTML, previous, '旧虚条第一拍时数字不提前跳')
-    t.mock.timers.tick(230)
+    t.mock.timers.tick(BAR_BEAT_MAX_MS)
     assert.equal(lossOf(nums.innerHTML), lost)
     assert.ok(nums.innerHTML.includes(`>${hp}/37</span>`))
     assert.equal(nums.innerHTML, numsOf(renderBrow(battle, 0, ship)), '就地更新与整行渲染逐字一致')
@@ -274,7 +283,7 @@ test('就地切阶段同步重算档位，501px 右坞的窄档逐行显示，�
     const previous = nums.innerHTML
     applyLogStage(pane, battle, stage)
     assert.equal(nums.innerHTML, previous, '档位与数字都不提前于第二拍')
-    t.mock.timers.tick(230)
+    t.mock.timers.tick(BAR_BEAT_MAX_MS)
     assert.equal(lossVisible(nums.innerHTML, true), narrow, '窄档')
     assert.equal(lossVisible(nums.innerHTML, false), true, '宽档')
     assert.equal(nums.innerHTML, numsOf(renderBrow(battle, 0, ship)))

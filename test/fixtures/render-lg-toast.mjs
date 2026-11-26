@@ -73,6 +73,7 @@ ${ESCORT_STATE}
     export const onMgChange = (cb: (keys: string[]) => void) => { mgChangeCallbacks.push(cb) }
     export const mgChange = (keys: string[]) => { mgChangeCallbacks.forEach((cb) => cb(keys)) }
     export const onPowerupResult = (_cb: unknown) => {}
+    export const onShipAcquired = (_cb: unknown) => {}
     export const onQpChange = (_cb: unknown) => {}
     const ticks: (() => void)[] = []
     export const onTick = (cb: () => void) => { ticks.push(cb) }
@@ -107,7 +108,7 @@ ${ESCORT_STATE}
     export const entityNameHtml = (_k: string, _id: number, name: string) => name
     export const entityTermHtml = (_k: string, _id: number, term: string) => term
   `,
-  'renderer/ship-first-owned.ts': 'export const observeOwnedShips = () => []\n',
+  'renderer/ship-first-owned.ts': 'export const observeOwnedShips = () => []\nexport const noteAcquiredShips = () => []\n',
   'renderer/fatigue.ts': `
     export const FATIGUE_READY_COND = 30
     export const estimatedCond = (_a: unknown, _b: unknown) => 49

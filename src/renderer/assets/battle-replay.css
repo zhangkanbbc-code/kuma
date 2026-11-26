@@ -83,6 +83,16 @@
   float: right; padding: 1px 7px; border: 1px solid color-mix(in srgb, var(--warn-missing-soft) 42%, transparent); border-radius: 4px;
   color: var(--warn-dismiss-soft); background: transparent; font: 9px var(--sans); cursor: pointer;
 }
+/* 减少动态效果：战斗面板血条一步到位。主窗 index.html 有同一条；复盘窗只引这份共用样式，
+   不写这里，镝按扣血多少写的 380～680ms 行内过渡就会在复盘窗里照走 */
+@media (prefers-reduced-motion: reduce) {
+  .mod-di .hpx .bar > span { transition: none !important; }
+}
+/* 动画复盘还在试做：入口按钮与复盘窗「动画」页签挂 BETA 小标（维护者 2026-11-26）。跟着所在按钮的字色走 */
+.anim-beta {
+  display: inline-block; margin-left: 4px; padding: 0 3px; border: 1px solid currentColor; border-radius: 3px;
+  font: 700 7.5px/1.35 var(--sans); letter-spacing: .5px; vertical-align: 1px; opacity: .8;
+}
 /* 历史战斗打不开时的错误横条（读失败要在面板上说，正式包没有 DevTools） */
 .mod-di .battle-replay-note.replay-error {
   color: var(--bad-replay-soft); background: color-mix(in srgb, var(--bad) 10%, transparent); border-bottom-color: color-mix(in srgb, var(--bad) 30%, transparent);

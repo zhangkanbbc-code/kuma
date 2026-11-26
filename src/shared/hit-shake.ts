@@ -2,6 +2,7 @@
 // 编队行掉血侦测、4 档物理冲击分级、常驻伤势档位，以及确定性随机玻璃裂纹骨架 + 危险线 Glitch 错相参数。
 // 纯逻辑层，无 DOM/Electron 依赖，供锐的编队面板与单元测试共用。
 import { damageTierOf, type DamageTier } from './battle-damage'
+import { HIT_FX, hitFxTotal, hitGhostAt, hitGhostDur, hitStampAt } from './fleet-fx-timing'
 
 export interface HitShakeInput {
   before: number
@@ -28,7 +29,16 @@ export interface HitShakeParams {
   severity: HitSeverity
   crossedTier: boolean
   glitchBurst: boolean
+  /** 扣血残影几时开始下降、降多久（含淡出）；节拍见 shared/fleet-fx-timing */
+  ghostAtMs: number
   ghostDurMs: number
+  /** 跨档时「中破 / 大破」盖章与故障爆闪的时刻：残影降完再停一口气 */
+  stampAtMs: number
+  stampMs: number
+  /** 扣血跳字时长 */
+  popMs: number
+  /** 整段演出播完的时长：重画期间续挂被弹属性到这一刻 */
+  totalMs: number
 }
 
 export interface HpWatchShip {
@@ -51,13 +61,6 @@ const TIER_RANK: Record<DamageTier | 'none', number> = {
   light: 1,
   medium: 2,
   heavy: 3,
-}
-
-const GHOST_DUR_MS: Record<HitSeverity, number> = {
-  1: 420,
-  2: 560,
-  3: 720,
-  4: 880,
 }
 
 export const hitCrackTier = ({ nowhp, maxhp }: HitCrackInput): DamageTier | null => {
@@ -93,7 +96,12 @@ export const hitShakeParams = ({ before, after, max }: HitShakeInput): HitShakeP
     severity,
     crossedTier,
     glitchBurst: prevTier !== 'heavy' && nextTier === 'heavy',
-    ghostDurMs: GHOST_DUR_MS[severity],
+    ghostAtMs: hitGhostAt(severity),
+    ghostDurMs: hitGhostDur(severity),
+    stampAtMs: hitStampAt(severity),
+    stampMs: HIT_FX.stamp,
+    popMs: HIT_FX.pop,
+    totalMs: hitFxTotal(severity, crossedTier),
   }
 }
 

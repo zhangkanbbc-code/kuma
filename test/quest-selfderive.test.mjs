@@ -1383,6 +1383,31 @@ test('编成：三种「正文自己写的放宽」都要跟上，否则门比�
   assert.equal(passesShips(alias, [[522, 7]]), true, '八幡丸 一艘就该过')
 })
 
+test('编成：「名单里凑 N 艘」里的省写形态同样放宽，标签带上省写那一截', () => {
+  // 2611Cw3（#369）的「“时雨改二/改三”」落在凑数组里：凑数组曾直接拼舰名，
+  // 不看省写标记，时雨改三被拦下（2026-11-26 实机报告）。
+  const heap = fleetOf('以包含“白露”“时雨改二/改三”“秋月”中2艘以上的舰队，在今天之内达成4次演习胜利').fleetGoal
+  assert.equal(heap.groups.length, 1)
+  const [group] = heap.groups
+  assert.equal(group.amount, 2)
+  assert.ok(group.ships.includes(961), '时雨改三 被拦下了')
+  assert.ok(group.ships.includes(145))
+  assert.equal(group.label, '白露/时雨改二/改三/秋月')
+  // 跨句并进凑数组的原子也带着自己的放宽：「时雨改二/改三」写在凑数记号前一句
+  const merged = fleetOf('编成包含「时雨改二/改三」的舰队，配以「白露」或「秋月」中的一艘').fleetGoal
+  assert.ok(merged.groups.some((entry) => entry.ships.includes(961)), '并进凑数组后时雨改三丢了')
+})
+
+test('编成：名单收尾的「中」不被当成省写形态吞掉', () => {
+  // C75 memo2「白露/有明/夕暮中的任意一位」：按最长四字量出「夕暮中」，查不到就整截
+  // 当成「有明」的省写形态，夕暮从候选里消失（带夕暮的合规编成被拦下）。
+  const rule = fleetOf('', '舰队内包含时雨，以及白露/秋月/白雪中的任意一位，在单日内取得演习S胜5次').fleetGoal
+  const pool = rule.groups.find((group) => group.ships.includes(43))
+  assert.ok(pool, '凑数组没读出来')
+  assert.ok(pool.ships.includes(202), '白雪 被当成省写吞掉了')
+  assert.doesNotMatch(pool.label, /白雪中/)
+})
+
 test('编成：具名舰组不占去重名额，「含具名舰」才不会凭空多要一艘', () => {
   // C51「雪风旗舰 + 驱逐舰4艘」：EO 的意思是四艘驱逐里可以有雪风。
   // 照 QpFleetGoal 默认的「各组不同舰」办就成了雪风 + 另外四艘，比游戏严一艘。

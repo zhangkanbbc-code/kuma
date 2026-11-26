@@ -1,5 +1,7 @@
 import { BATTLESHIP_STYPES, CARRIER_STYPES, SUBMARINE_STYPES } from './kcs-domain'
 
+import type { BattleAttack } from './mg-types'
+
 export type FleetSpecialAttackRole =
   | 'normal'
   | 'strike'
@@ -130,6 +132,65 @@ export const specialAttackSegmentOrder = (
   segments: number,
 ): readonly number[] | undefined =>
   (segments <= 2 ? SUBMARINE_TWO_SEGMENT_ORDER[ci] : undefined) ?? SPECIAL_ATTACK_SEGMENT_ORDER[ci]
+
+/**
+ * 特殊攻击的「打包」：把解析层摊开的几段收回一组，返回每组在 `attacks` 里的 [start, end) 区间。
+ *
+ * 一次特攻（大和/长门/Nelson 齐射、僚舰夜战突击这一族）在报文里本来就是
+ * **一个攻击单元携带多段伤害**；解析层照 SPECIAL_ATTACK_SEGMENT_ORDER 把它摊成
+ * 逐段记录，好让每一段各自记到真正开火的那条舰头上（main/mg/battle.ts 的 applyHougeki）。
+ *
+ * 收回一组用的是**结构判据**，不是「相邻两行的标一样」：摊出来的段除了
+ * 「谁打谁、打掉多少」之外完全同源——同阶段同侧、同 ciType/ciKind、action 连号、
+ * 各带一击、si_list 是同一份。看文字的话，同一轮里两条舰各自弹着连击会被当场错认成一组。
+ *
+ * 两处边界：
+ * - **一组最多收到分段表给的段数**。同一 ciType 在一段里真发动两次，也不会并成一组。
+ * - **分段表里没有的特攻**（如 201 海空立体攻击）解析层根本不摊，多段留在同一条记录里；
+ *   它的上限按 1 条记录算。所以这里判「是不是特攻」认的是 specialAttackLabel，不是分段表。
+ *
+ * 战斗面板的流水（renderer/modules/di.ts）与动画复盘（shared/battle-anim-script）共用这一份。
+ * 只有一段的特攻也返回（区间长 1）；要不要为它多画一枚组头由调用方决定。
+ */
+export const specialAttackSpans = (
+  attacks: readonly BattleAttack[],
+): { start: number; end: number }[] => {
+  // 同阶段（stage 是真实阶段序，它自己就把 phase、段名、报文字段全钉死了，不必再各比一遍）、
+  // 同侧、同 ciType/ciKind、同一份 si_list、各带一击——这就是「摊开之前是同一个攻击单元」的形状。
+  const sameTouchSegment = (head: BattleAttack, seg: BattleAttack): boolean =>
+    head.hits.length === 1 &&
+    seg.hits.length === 1 &&
+    seg.stage === head.stage &&
+    seg.side === head.side &&
+    seg.ciType === head.ciType &&
+    seg.ciKind === head.ciKind &&
+    !!seg.carrierNightAttack === !!head.carrierNightAttack &&
+    (seg.equipmentMstIds ?? []).join(',') === (head.equipmentMstIds ?? []).join(',')
+  const spans: { start: number; end: number }[] = []
+  for (let i = 0; i < attacks.length; ) {
+    const head = attacks[i]
+    const label =
+      head.ciType != null
+        ? specialAttackLabel(head.ciType, head.ciKind === 'night' ? 'night' : 'day')
+        : undefined
+    if (!label) {
+      i += 1
+      continue
+    }
+    const cap = SPECIAL_ATTACK_SEGMENT_ORDER[head.ciType as number]?.length ?? 1
+    let end = i + 1
+    while (
+      end < attacks.length &&
+      end - i < cap &&
+      attacks[end].action === attacks[end - 1].action + 1 &&
+      sameTouchSegment(head, attacks[end])
+    )
+      end += 1
+    spans.push({ start: i, end })
+    i = end
+  }
+  return spans
+}
 
 const nameOf = (ship: FleetSpecialAttackShip | undefined): string =>
   ship?.name.replace(/\s+/g, ' ').trim() ?? ''

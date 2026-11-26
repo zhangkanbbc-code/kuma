@@ -130,6 +130,24 @@ export const observeOwnedShips = (ts = Date.now()): number[] => {
 }
 
 /**
+ * 报文先说「有舰娘到手」（任务奖励、战斗掉落只给图鉴号，见 shared/ship-acquired），在籍列表要等回港才到。
+ * 在这一刻就按谱系记账，返回其中第一次到手的形态，铃据此当场提醒；之后在籍列表到了，
+ * observeOwnedShips 看到谱系已记过就不再报第二次。基线还没建（首次运行）时不记不报——
+ * 那时连「以前有没有过」都不知道。
+ */
+export const noteAcquiredShips = (mstIds: readonly number[], ts = Date.now()): number[] => {
+  const known = load()
+  if (!Object.keys(known).length) return []
+  const fresh = [...new Set(mstIds)].filter((id) => id > 0 && firstOwnedAt(id) == null)
+  if (!fresh.length) return []
+  for (const id of expandFamilies(fresh)) {
+    if (known[id] == null) known[id] = ts
+  }
+  save()
+  return fresh
+}
+
+/**
  * 这条谱系第一次到你手里的时刻。
  * - `null`：本地从没见过它
  * - `OWNED_BEFORE_LEDGER`：记账之前就有，真正的第一次无从得知

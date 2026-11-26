@@ -23,6 +23,9 @@ import {
   renderBattleReplayDetail,
 } from './modules/di'
 
+import { mountBattleAnim, type BattleAnimHost } from './battle-anim/player'
+import { parseBattleReplayRequest, type BattleReplayView } from '../shared/battle-replay-request'
+
 import type { BattleSnapshot, BattleSnapshotSummary } from '../shared/mg-types'
 
 const { ipcRenderer } = require('electron')
@@ -31,7 +34,10 @@ const windowConfig = require('@electron/remote').require('./config')
 const root = document.querySelector<HTMLElement>('#battle-replay-root')!
 const status = document.querySelector<HTMLElement>('#battle-replay-status')!
 const detail = document.querySelector<HTMLElement>('#battle-replay-detail')!
-const initialSnapshotId = Number(new URLSearchParams(location.search).get('snapshot') ?? 0)
+const animHost = document.querySelector<HTMLElement>('#battle-replay-anim')!
+const viewsNav = document.querySelector<HTMLElement>('#battle-replay-views')!
+const query = new URLSearchParams(location.search)
+const initialSnapshotId = Number(query.get('snapshot') ?? 0)
 
 const missingText = '暂无这一场的复盘记录'
 const loadingText = '复盘读取中'
@@ -44,16 +50,47 @@ let battleLoadGeneration = 0
 let narrow: boolean | null = null
 let readyToLoad = false
 let pendingSnapshotId = initialSnapshotId
+// 「详情」是镝的复盘详表，「动画」是兵牌推演（renderer/battle-anim）。新开的窗默认详情，
+// 回顾 / 战斗面板的「动画复盘」按钮带 view=animate 直达动画。
+let view: BattleReplayView = query.get('view') === 'animate' ? 'animate' : 'detail'
+let anim: BattleAnimHost | null = null
+let animShownId = 0
 
 const renderCurrent = () => {
   const snapshot = currentSnapshot
   if (!snapshot) return
   status.hidden = true
+  viewsNav.hidden = false
+  for (const button of viewsNav.querySelectorAll<HTMLElement>('[data-view]')) {
+    button.classList.toggle('on', button.dataset.view === view)
+  }
+  document.title = `战斗复盘 · ${battleReplayPlaceText(snapshot)}`
+  if (view === 'animate') {
+    detail.hidden = true
+    animHost.hidden = false
+    anim ??= mountBattleAnim(animHost, { openSnapshot: (id) => void loadSnapshot(id) })
+    anim.setActive(true)
+    if (animShownId !== snapshot.id) {
+      animShownId = snapshot.id
+      anim.show(snapshot, trailIndex)
+    } else {
+      anim.setTrail(trailIndex)
+    }
+    return
+  }
+  anim?.setActive(false)
+  animHost.hidden = true
   detail.hidden = false
   detail.dataset.snapshotId = `${snapshot.id}`
-  document.title = `战斗复盘 · ${battleReplayPlaceText(snapshot)}`
   renderBattleReplayDetail(detail, snapshot, { trailIndex })
 }
+
+viewsNav.addEventListener('click', (event) => {
+  const next = (event.target as HTMLElement).closest<HTMLElement>('[data-view]')?.dataset.view
+  if ((next !== 'detail' && next !== 'animate') || next === view) return
+  view = next
+  renderCurrent()
+})
 
 const showStatus = (text: string) => {
   status.textContent = text
@@ -61,6 +98,8 @@ const showStatus = (text: string) => {
   status.classList.toggle('empty', currentSnapshot == null)
   if (!currentSnapshot) {
     detail.hidden = true
+    animHost.hidden = true
+    viewsNav.hidden = true
     document.title = '战斗复盘'
   }
 }
@@ -99,11 +138,15 @@ const loadSnapshot = async (id: number) => {
     })
 }
 
-ipcRenderer.on('battle-replay:open', (_event: unknown, rawId: unknown) => {
-  const id = Number(rawId)
-  if (!Number.isInteger(id) || id <= 0) return
-  pendingSnapshotId = id
-  if (readyToLoad) void loadSnapshot(id)
+// 主进程送来的是快照 id（旧形状）或 { snapshotId, view }；形状见 shared/battle-replay-request
+ipcRenderer.on('battle-replay:open', (_event: unknown, raw: unknown) => {
+  const request = parseBattleReplayRequest(raw)
+  if (!request) return
+  if (request.view) view = request.view
+  pendingSnapshotId = request.snapshotId
+  if (!readyToLoad) return
+  if (currentSnapshot?.id === request.snapshotId) renderCurrent()
+  else void loadSnapshot(request.snapshotId)
 })
 
 detail.addEventListener('click', (event) => {
@@ -115,6 +158,7 @@ detail.addEventListener('click', (event) => {
 })
 
 new ResizeObserver(() => {
+  if (view !== 'detail') return
   const next = detail.clientWidth < 700
   if (narrow === null) {
     narrow = next

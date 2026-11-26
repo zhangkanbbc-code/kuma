@@ -35,10 +35,7 @@ if (!fs.existsSync(dbPath)) {
   process.exit(2)
 }
 const liveCandidates = process.env.APPDATA
-  ? [
-      path.resolve(process.env.APPDATA, 'kuma', 'mg.sqlite'),
-      path.resolve(process.env.APPDATA, 'kanso', 'mg.sqlite'),
-    ]
+  ? [path.resolve(process.env.APPDATA, 'kuma', 'mg.sqlite')]
   : []
 if (liveCandidates.some((candidate) => candidate.toLowerCase() === dbPath.toLowerCase())) {
   console.error(`拒绝打开用户账本真库；请先复制到临时目录：${dbPath}`)

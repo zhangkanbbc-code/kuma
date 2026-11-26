@@ -118,6 +118,25 @@ test('compound item names never light up the base-item campaign', () => {
   assert.deepEqual(live[0].quests, [{ no: 932, period: 'limited' }])
 })
 
+test('festival name alone does not make a quest a sanma campaign quest', () => {
+  // 2026-11-26 他报：预热期的「秋刀魚祭り準備演習」（386 / 2611Cw2）只带祭典名，被算进了秋刀鱼本体企划
+  const catalog = {
+    386: { code: '2611Cw2', text: '【期间限定任务】秋刀鱼祭准备演习！ 以包含【岛根丸、熊野丸、山汐丸】中4名舰娘的舰队，在本日内取得3次演习S胜。' },
+    369: { code: '2611Cw3', text: '【镇守府秋刀鱼祭】盐烤秋刀鱼演习！' },
+  }
+  const detected = detectSeasonalCampaigns({
+    useitemMst: USEITEM_MST,
+    useitems: { 68: 12 },
+    quests: [
+      { no: 386, title: '【期間限定任務】秋刀魚祭り準備演習！', detail: '【秋刀魚祭り準備演習】「しまね丸」「熊野丸」の旗艦含む計4隻以上の艦隊で演習【S判定】勝利3回以上を達成せよ！' },
+      { no: 369, title: '【鎮守府秋刀魚祭り】秋刀魚塩焼き演習！' },
+    ],
+    catalogOf: (no) => catalog[no] ?? null,
+  })
+  assert.equal(detected.length, 1)
+  assert.deepEqual(detected[0].quests.map((quest) => quest.no), [369], '盐烤秋刀鱼点名了秋刀鱼本身，照收')
+})
+
 test('zh catalog aliases match when the live text is not enough', () => {
   const detected = detectSeasonalCampaigns({
     useitemMst: USEITEM_MST,

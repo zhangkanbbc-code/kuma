@@ -1975,7 +1975,10 @@ test('battle categories keep air raids, air battles, radar fire, and night trans
   assert.equal(upgradeBattleView(legacy).kind, 'airraid')
 
   const renderer = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
-  assert.match(renderer, /const isDamageOnlyBattle = /)
+  const battleFlow = fs.readFileSync(new URL('../src/shared/battle-flow.ts', import.meta.url), 'utf8')
+  // 2026-11-26 起判据在 shared/battle-flow（动画复盘共用），镝引它
+  assert.match(battleFlow, /export const isDamageOnlyBattle = /)
+  assert.match(renderer, /import \{ battleUsesEngagement, isDamageOnlyBattle, isDayFlowBattle \} from '\.\.\/\.\.\/shared\/battle-flow'/)
   // 空袭/雷达这类只算我方损害的节点，评级规则必须当场摆出来。
   // 2026-08-26 文案清扫删了「不要求击沉敌舰」「无需全灭…」那几句规则复述（族 3 玩家常识）——
   // 判定条件折叠卡里逐条列着同一件事，护栏改钉那份清单本体与口径半句，比钉复述更硬。
@@ -3817,7 +3820,8 @@ test('review node history remains independently browsable after the current sort
   assert.match(review, /data-shi-snapshots-title/)
   // 选中点位专属那块：整图那块必须留着，两块并排在底栏，且换点走补丁不整页重渲
   assert.match(review, /const nodeBattlesBlock = \(\)/)
-  assert.match(review, /battle\.map === map && battle\.cell === cell/)
+  // 2026-11-26 起按图取（battlesOfMap：老活动图在全局最近 500 场之外），再按点位精确筛
+  assert.match(review, /battlesOfMap\(map\)\.filter\(\(battle\) => !battle\.practice && battle\.cell === cell\)/)
   assert.match(review, /data-shi-node-snapshots-title/)
   assert.match(review, /nodeSnapPanel\.hidden = !nodeSnaps/)
   assert.match(review, /class="shi-panel shi-recent-battles"/)
@@ -4250,7 +4254,10 @@ test('boss taiha stays a normal notice and battle hint without a retreat banner'
   const notices = fs.readFileSync(new URL('../src/renderer/modules/lg.ts', import.meta.url), 'utf8')
   const combat = fs.readFileSync(new URL('../src/renderer/modules/di.ts', import.meta.url), 'utf8')
 
-  assert.match(notices, /const atBoss =[\s\S]*s\.currentCell === s\.bossCell[\s\S]*node\?\.eventId === 5/)
+  // Boss 判定与「打完这一点还有没有路」收进 shared/taiha-verdict（死路点 api_next 0 也算，行为钉在
+  // taiha-verdict 与 taiha-verdict-consumers 两份测试里）；这里只钉铃用的是那一份
+  assert.match(notices, /const atBoss = atBossNode\(s\)/)
+  assert.match(notices, /const routeEnd = noAdvanceAfterNode\(s\)/)
   // Boss 点大破不喊撤退（那里本来就没得选），只作普通提醒。
   // 同一战多艘大破合并成一条，标题里的主语是「谁」而不再是单艘舰名。
   // 钉的是措辞与「主语是 who」这两件事，不钉它写成三元还是别的形状——
@@ -4262,11 +4269,11 @@ test('boss taiha stays a normal notice and battle hint without a retreat banner'
   assert.doesNotMatch(notices, /for \(const ship of s\.battle\.fShips\.filter\(isTaiha\)\)/, '大破又变回逐舰各发一条了')
   // Boss 的呈现原样；新增 insured 也降普通提醒，其余档仍走默认规则。
   // insured 说明档也不上横幅，与 Boss 档同为普通级呈现。
-  assert.match(taihaNotice, /atBoss \? \{ banner: false, priority: 'normal' \} : verdict\.tier === 'insured' \? \{ banner: false, priority: 'normal' \} : undefined/)
+  assert.match(taihaNotice, /routeEnd \? \{ banner: false, priority: 'normal' \} : verdict\.tier === 'insured' \? \{ banner: false, priority: 'normal' \} : undefined/)
   assert.match(notices, /presentation\.priority === 'normal'[\s\S]*sev: 'warn'[\s\S]*locked: false/)
-  assert.match(combat, /if \(atBoss\) \{[\s\S]*Boss 战结束：\$\{names\} 大破/)
+  assert.match(combat, /if \(noAdvanceAfterNode\(s\)\) \{[\s\S]*\$\{atBossNode\(s\) \? 'Boss 战' : '本战'\}结束：\$\{names\} 大破/)
   assert.match(combat, /本节点无进击选项/)
-  const bossBranch = combat.match(/if \(atBoss\) \{[\s\S]*?\n      \}/)?.[0] ?? ''
+  const bossBranch = combat.match(/if \(noAdvanceAfterNode\(s\)\) \{[\s\S]*?\n      \}/)?.[0] ?? ''
   assert.doesNotMatch(bossBranch, /请选择撤退|建议撤退/)
 })
 
@@ -10750,7 +10757,7 @@ test('Toast 同类合并:一批同类通知折成一张卡,锁定级永不参与
   // 大破锁定卡承诺「需手动关闭」,既不被合并也不吞别人。
   const bell = fs.readFileSync(new URL('../src/renderer/modules/lg.ts', import.meta.url), 'utf8')
   assert.match(bell, /if \(!def\.locked\) \{\s*\n\s*const existing = /)
-  assert.match(bell, /dataset\?\.event === def\.id && !\(child as HTMLElement\)\.dataset\.locked/)
+  assert.match(bell, /dataset\?\.event === def\.id &&\s*!\(child as HTMLElement\)\.dataset\.locked/)
   assert.match(bell, /existing\.dataset\.stack = `\$\{count\}`/)
   assert.match(bell, /`\$\{def\.label\} ×\$\{count\}`/)
   assert.match(bell, /`最新：\$\{detail\}`/)
@@ -12839,7 +12846,9 @@ test('ケッコンカッコカリ：一手信号是 path 到达，认不出也�
   assert.match(lg, /^\s*marriage: \{ badge: true, toast: true, system: false, sound: false, push: false \},$/m)
   assert.match(petals, /const startWeddingPetals = \(\) => \{\s*\n\s*if \(!eventBannerEffectsEnabled\) return/)
   assert.match(lg, /const clearEventBanners = \(\)[\s\S]{0,220}?stopWeddingPetals\(\)/, '总闸关掉时花瓣没跟着停')
-  assert.match(lg, /const closeEventBanner = \(noticeKey: string\)[\s\S]{0,320}?syncWeddingPetals\(\)/, '手动关掉横幅时花瓣没跟着停')
+  // 关横幅那段现在带退场过渡，篇幅变长；只看函数体里有没有跟着收花瓣
+  const closeBody = lg.slice(lg.indexOf('const closeEventBanner = (noticeKey: string)'), lg.indexOf('const clearEventBanners'))
+  assert.match(closeBody, /syncWeddingPetals\(\)/, '手动关掉横幅时花瓣没跟着停')
 
   // ⑥ reduced-motion：花瓣停落，成为静态点缀（不是整个消失）
   const reduced = html.slice(html.indexOf('@media (prefers-reduced-motion: reduce)'))

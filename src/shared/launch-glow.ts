@@ -189,8 +189,11 @@ export const LAUNCH_SEASON_TIMING = {
 /** 机甲舱门风格时长表（ms）：开门三段交接、VR 目镜动画、减少动态效果淡出与球磨催门彩蛋节拍。 */
 export const LAUNCH_MECH_TIMING = {
   nudgeAfter: 8000,
-  nudgeEvery: 7000,
+  // 换句间隔：维护者 2026-11-26 定「1分钟一条」（原 7 秒太勤）；第一句仍在就绪后 nudgeAfter 冒出
+  nudgeEvery: 60000,
   nudgeIn: 360,
+  // 换句：原地淡出这么久再换字淡入，药丸宽度在看不见时变，不再每句从下方滑上来「跳」一下
+  nudgeSwap: 220,
   recoil: 220,
   seamBlaze: 620,
   doorDelay: 200,

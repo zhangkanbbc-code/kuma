@@ -69,6 +69,7 @@ import {
   withViewStateKept,
   fmtDate,
   fmtDateTime,
+  openBattleReplayWindow,
 } from '../kernel'
 import { elink, elinkHtml, registerEntityRoute } from '../link'
 import { entityNameHtml, entityNamePlain, entityTermHtml } from '../localization'
@@ -134,9 +135,10 @@ import type {
   SortieView,
   MapGauge,
 } from '../../shared/mg-types'
-import { SPECIAL_ATTACK_SEGMENT_ORDER, specialAttackLabel } from '../../shared/fleet-special-attack'
+import { specialAttackLabel, specialAttackSpans } from '../../shared/fleet-special-attack'
 import { fleetWipeStage } from '../../shared/fleet-wipe'
-import { dameconOfShip, isTaihaShip, taihaVerdictOf } from '../../shared/taiha-verdict'
+import { battleUsesEngagement, isDamageOnlyBattle, isDayFlowBattle } from '../../shared/battle-flow'
+import { atBossNode, dameconOfShip, isTaihaShip, noAdvanceAfterNode, taihaVerdictOf } from '../../shared/taiha-verdict'
 import { enemyNightTargetOf, isPtShipName } from '../../shared/enemy-night-target'
 import { aaciEntryOf } from '../../shared/ship-special-attack'
 import type { CatalogEncounterTally, EventDifficulty } from '../../shared/map-intel'
@@ -176,19 +178,8 @@ const rankOutcomeWord = (rank: string): string => {
   return '判定确定'
 }
 
-// 「只算我方损害率」的节点：我方全程不还手，敌全灭永远不成立，评级只看挨了多少。
-// **对潜空袭（subAirRaid）不在这里**：它有我方的先制对潜与炮击，敌方潜艇是真能沉的，
-// 胜负判定也照旧按击沉算——wikiwiki「戦闘について」写的是「勝敗判定は後方空母を除いた
-// 潜水艦を全滅させればS勝利」，账本那场也是 3 沉 3 → 游戏给 S。
-const isDamageOnlyBattle = (battle: BattleView): boolean =>
-  battle.kind === 'airraid' || battle.kind === 'baseDefense' || battle.kind === 'radar'
-
-// 「这场走的是不是通常昼战那套流程」。对潜空袭除了战型名之外全跟 day 走——
-// wikiwiki「戦闘について」：「戦闘自体は通常戦と同様の順番で進行する」，
-// 它只是敌方多一条不可攻击的空母，先制对潜、炮击、追击夜战都照旧。
-// 按 kind 逐处写 `=== 'day'` 的话，下一次加档必定漏掉其中一处。
-const isDayFlowBattle = (battle: BattleView): boolean =>
-  battle.kind === 'day' || battle.kind === 'subAirRaid'
+// isDamageOnlyBattle / isDayFlowBattle / battleUsesEngagement 的判据与出处见 shared/battle-flow
+//（动画复盘也用同一份，2026-11-26 从这里挪过去）。
 
 const battleTypeLabel = (battle: BattleView): string => {
   if (battle.practice) return battle.hasNight ? '演习·夜战' : '演习'
@@ -207,12 +198,6 @@ const battleForecastLead = (battle: BattleView): string => {
   if (battle.kind === 'day') return battle.hasNight ? '夜战后' : '昼战'
   return battleTypeLabel(battle)
 }
-
-const battleUsesEngagement = (battle: BattleView): boolean =>
-  !isDamageOnlyBattle(battle) &&
-  (battle.stages ?? []).some((stage) =>
-    ['openingTorp', 'gun1', 'gun2', 'gun3', 'torp'].includes(stage.phase),
-  )
 
 const actualEngagementText = (battle: BattleView): string =>
   battleUsesEngagement(battle) ? (ENGAGEMENT[battle.engagement] ?? '') : ''
@@ -1410,12 +1395,10 @@ const alertBannerHtml = (s: SortieView): string => {
     const taiha = b.fShips.filter(isTaiha)
     if (taiha.length) {
       const names = taiha.map((x) => esc(battleShipName(x))).join('、')
-      const node = currentNode(s)
-      const atBoss =
-        (s.bossCell > 0 && s.currentCell === s.bossCell) || node?.eventId === 5
-      if (atBoss) {
+      // Boss 点与死路战斗点（游戏报这一点之后没有下一点）打完都只能回港：没有进击选项可劝
+      if (noAdvanceAfterNode(s)) {
         return `<div class="verdict v-warn"><span class="ic">破</span><span class="tx">
-          <b>Boss 战结束：${names} 大破</b>
+          <b>${atBossNode(s) ? 'Boss 战' : '本战'}结束：${names} 大破</b>
           <span>本节点无进击选项</span>
         </span><span class="act">战损提示</span></div>`
       }
@@ -2775,73 +2758,27 @@ const logHtml = (b: BattleView, expanded: boolean): string => {
     })
   }
   /**
-   * 特殊攻击的「打包」。
-   *
-   * 一次特攻（大和/长门/Nelson 齐射、僚舰夜战突击这一族）在报文里本来就是
-   * **一个攻击单元携带多段伤害**；解析层照 SPECIAL_ATTACK_SEGMENT_ORDER 把它摊成
-   * 逐段记录，好让每一段各自记到真正开火的那条舰头上（main/mg/battle.ts 的
-   * applyHougeki）。摊开之后这几条记录在流水里各占一行、每行各挂一枚同名的标——
-   * 2026-08-27 用户按截图说的「分开显示、不太明显」就是这个。
-   *
-   * 收回一组用的是**结构判据**，不是「相邻两行的标一样」：摊出来的段除了
-   * 「谁打谁、打掉多少」之外完全同源——同阶段同侧、同 ciType/ciKind、action 连号、
-   * 各带一击、si_list 是同一份（见下面的 sameTouchSegment）。看文字的话，
-   * 同一轮里两条舰各自弹着连击会被当场错认成一组。
-   *
-   * 两处边界：
-   * - **一组最多收到分段表给的段数**。同一 ciType 在一段里真发动两次（本账本没见过，
-   *   特攻一场一次），也不会把两次并成一组。
-   * - **分段表里没有的特攻**（如 201 海空立体攻击）解析层根本不摊，多段留在同一条
-   *   记录里；它的上限按 1 条记录算，多目标时照样由下面的 byTarget 拆出多行，
-   *   同样够格成组。所以这里判「是不是特攻」认的是 specialAttackLabel，不是分段表。
+   * 特殊攻击的「打包」：解析层摊开的几段在流水里各占一行、每行各挂一枚同名的标——
+   * 2026-08-27 用户按截图说的「分开显示、不太明显」就是这个。收组的结构判据与两处边界
+   * 见 shared/fleet-special-attack 的 specialAttackSpans（动画复盘用同一份）。
    *
    * 只有**够两行**才成组：单段特攻维持现状，一行带标，不平白多一枚组头。
+   * 分段表里没有的特攻（如 201）多目标时照样由下面的 byTarget 拆出多行，同样够格成组。
    */
   const attacks = b.attacks ?? []
-  // 同阶段（stage 是真实阶段序，它自己就把 phase、段名、报文字段全钉死了，不必再各比一遍）、
-  // 同侧、同 ciType/ciKind、同一份 si_list、各带一击——这就是「摊开之前是同一个攻击单元」的形状。
-  const sameTouchSegment = (head: BattleAttack, seg: BattleAttack): boolean =>
-    head.hits.length === 1 &&
-    seg.hits.length === 1 &&
-    seg.stage === head.stage &&
-    seg.side === head.side &&
-    seg.ciType === head.ciType &&
-    seg.ciKind === head.ciKind &&
-    !!seg.carrierNightAttack === !!head.carrierNightAttack &&
-    (seg.equipmentMstIds ?? []).join(',') === (head.equipmentMstIds ?? []).join(',')
   // 一条记录出几行：同目标的几击合成一行（78+64），不同目标各起一行
   const rowsOfAttack = (attack: BattleAttack): number =>
     new Set(attack.hits.map((hit) => hit.target)).size
   const touchIdAt: (number | null)[] = new Array(attacks.length).fill(null)
   const touchRowCount = new Map<number, number>()
-  for (let i = 0, nextTouch = 0; i < attacks.length; ) {
-    const head = attacks[i]
-    const label =
-      head.ciType != null
-        ? specialAttackLabel(head.ciType, head.ciKind === 'night' ? 'night' : 'day')
-        : undefined
-    if (!label) {
-      i += 1
-      continue
-    }
-    const cap = SPECIAL_ATTACK_SEGMENT_ORDER[head.ciType as number]?.length ?? 1
-    let end = i + 1
-    while (
-      end < attacks.length &&
-      end - i < cap &&
-      attacks[end].action === attacks[end - 1].action + 1 &&
-      sameTouchSegment(head, attacks[end])
-    )
-      end += 1
-    const id = nextTouch++
+  specialAttackSpans(attacks).forEach(({ start, end }, id) => {
     let count = 0
-    for (let k = i; k < end; k += 1) {
+    for (let k = start; k < end; k += 1) {
       touchIdAt[k] = id
       count += rowsOfAttack(attacks[k])
     }
     touchRowCount.set(id, count)
-    i = end
-  }
+  })
 
   for (const [attackIndex, attack] of attacks.entries()) {
     const [phaseName, phaseCls] = PHASE_LABEL[attack.phase]
@@ -4707,7 +4644,7 @@ const renderBattlePane = (
         ${
           snapshot
             ? `<div class="battle-replay-note">本地复盘 · ${esc(fmtDateTime(snapshot.ts))}
-                ${embedded ? '' : '<button data-battle-live>返回实时</button>'}</div>`
+                ${embedded ? '' : `<button data-battle-anim="${snapshot.id}" title="在战斗复盘窗里播放这一场">动画复盘<span class="anim-beta">BETA</span></button><button data-battle-live>返回实时</button>`}</div>`
             : ''
         }
         ${trailHtml(snapshot ? replayTrailSortie(snapshot) : s, snapshot, trailIndex)}
@@ -4855,6 +4792,13 @@ const handleBattlePaneInteraction = (
     rerender()
     return true
   }
+  // 「动画复盘」：在独立复盘窗里直达动画视图（不在主窗游戏区上叠动画）
+  const animButton = target.closest<HTMLElement>('[data-battle-anim]')
+  if (animButton) {
+    const id = Number(animButton.dataset.battleAnim)
+    if (id > 0) void openBattleReplayWindow(id, 'animate')
+    return true
+  }
   // 航迹节点点击回顾（2026-08-12 用户提议）：默认走 openBattleSnapshot 的既有回放通道；
   // 嵌入宿主换成自己的换片逻辑（见上面 openSnapshot 的注释）
   const trailNode = target.closest<HTMLElement>('.tn[data-replay-id]')
@@ -4966,9 +4910,17 @@ const setBarWidths = (bar: HTMLElement, target: HpBarTarget) => {
 
 /** 两拍之间的接力定时器。同一根条子重入时先取消上一拍，快速连点不会叠帧。 */
 const barBeatTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>()
-// --motion-view 200ms + 一点余量。用定时器接力而不是 transitionend：
-// 旧虚条宽度本来就是 0 时那个事件永远不来。
-const BAR_BEAT_MS = 230
+// 第一拍扣虚条的时长按扣掉多少定：380ms 起、整条扣光 680ms（维护者裁决 2026-11-26：
+// 动画不宜过快，伤得越重走得越久；与编队被弹的残影下降 380～680ms 同一档）。
+// 原先跟着 --motion-view 一律 200ms，一阶段的扣血一眨眼就落完。
+// 时长直接写到血条那几截的 transition-duration 上（盖过 battle-replay.css 那条 --motion-view），
+// 接力定时器多等 30ms 余量。
+// 用定时器接力而不是 transitionend：旧虚条宽度本来就是 0 时那个事件永远不来。
+const barDrainMs = (ghostPct: number) => Math.round(380 + Math.min(100, Math.max(0, ghostPct)) * 3)
+const BAR_BEAT_SLACK_MS = 30
+const setBarBeatMs = (bar: HTMLElement, ms: number) => {
+  for (const seg of bar.querySelectorAll<HTMLElement>('span')) seg.style.transitionDuration = `${ms}ms`
+}
 
 /**
  * 血条两拍动画：第一拍把旧虚条扣干（实血原地不动——「虚部分落到上一段结算位」），
@@ -4979,6 +4931,8 @@ const animateHpBar = (bar: HTMLElement, target: HpBarTarget, settle?: () => void
   if (prior != null) clearTimeout(prior)
   const finish = () => {
     barBeatTimers.delete(bar)
+    // 第二拍是这一段新扣的血：按新虚条的长短定时长
+    setBarBeatMs(bar, barDrainMs(target.ghostPct))
     setBarWidths(bar, target)
     settle?.()
   }
@@ -4989,11 +4943,13 @@ const animateHpBar = (bar: HTMLElement, target: HpBarTarget, settle?: () => void
     finish()
     return
   }
+  const drain = barDrainMs(ghostNow)
+  setBarBeatMs(bar, drain)
   ghost.style.width = '0%'
   const timer = setTimeout(() => {
     if (bar.isConnected) finish()
     else barBeatTimers.delete(bar)
-  }, BAR_BEAT_MS)
+  }, drain + BAR_BEAT_SLACK_MS)
   barBeatTimers.set(bar, timer)
 }
 
@@ -5220,4 +5176,20 @@ export const registerBattleEntityRoutes = () => {
       }
     },
   })
+}
+
+// 动画复盘（renderer/battle-anim）的舰名与战况文字沿用镝这一份：阶段名、CI 名、航向、制空、索敌、战型。
+// 统一在文件末尾导出，不改各自的定义位置（测试夹具按定义处的锚点切片）。
+export {
+  DETECTION,
+  ENGAGEMENT,
+  aaciDescribe,
+  PHASE_LABEL,
+  SEIKU,
+  battleShipName,
+  battleTypeLabel,
+  ciLabel,
+  damageState,
+  hpClass,
+  rankLabel,
 }

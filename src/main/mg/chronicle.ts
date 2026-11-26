@@ -349,8 +349,11 @@ ipcMain.handle('chron:first-encounters', () => ledger.queryFirstEncounters())
 // 这张图上你自己每个分歧点的实际去向次数（战斗现场的分歧提示 / 鉴的可达路线）
 ipcMain.handle('chron:route-stats', (_event, map: number) => ledger.queryRouteStats(map | 0))
 
-ipcMain.handle('chron:battles', (_event, limit?: number) =>
-  ledger.queryBattleSnapshots(typeof limit === 'number' ? limit : 40),
+// 参数是条数（旧形状），或 { limit, map }：只取某一张图的全部快照（回顾按图看出击记录）
+ipcMain.handle('chron:battles', (_event, request?: number | { limit?: number; map?: number }) =>
+  typeof request === 'object' && request !== null
+    ? ledger.queryBattleSnapshots(typeof request.limit === 'number' ? request.limit : 40, Number(request.map))
+    : ledger.queryBattleSnapshots(typeof request === 'number' ? request : 40),
 )
 
 ipcMain.handle('chron:battle-run', (_event, sortieId: number) =>
