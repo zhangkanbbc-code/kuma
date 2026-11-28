@@ -1,17 +1,20 @@
-// 名卡单调缺角与修理演出（实验性，维护者裁决 2026-11-26，交接包「被弹缺角与损管维修」）。
+// 名卡防弹玻璃弹孔、持续战损与修理演出（实验性；交接包「编队被弹与特色入渠动画」v2，维护者 2026-11-27 定稿，
+// 取代 11-26 的单调缺角）。
 //
-// 一、单调缺角（src/shared/hit-glass.ts）
-//   hitGlassGeometry(shipId, seedKey, width, height) → 一艘舰这一轮带伤的全部顶点，**与档位无关**；
-//   hitGlassLayers(geo, tier) → 该档要画的层：cuts（被崩掉的区域）、cracks、bevels、facets、shard（跨入本档时崩飞的那块）。
-//   坐标是像素，原点在行左上角。档位只决定开哪几条既有路径：小破→中破→大破→击沉只会沿原缝切开、延伸，不重算、不跳位。
-//   四种冲击构型 arch：0 右上角、1 右下角、2 顶缘 V 口、3 底缘 V 口，在舰队内交错，避免全队一个样。
-//   裁决：缺口只切底色与特效层，油弹、疲劳、装备、血字照常压在上面（数据永远完整）。
+// 一、弹孔几何（src/shared/hit-glass.ts）与持续战损（src/shared/hit-damage.ts）
+//   buildBulletHole({ shipId, seedKey, idx, singleLoss, massive, kind, zones, existing }) → 一发的碎裂几何，
+//   四种样式（防弹蛛网 / 斜射长裂 / 钢化碎冰 / 边缘崩缺）按种子确定性轮换；落点只挑 rowZonesOf 算出的留白；
+//   新裂纹碰到旧裂纹或破口就停（T 型止裂）；单发高伤崩出直连弹着中心的不对称破口并飞出 6–8 块碎片。
+//   applyHitReport(...) 把一段战报追加到这一轮带伤的战损上：炮击留弹孔（一阶段最多 5 个、累计最多 7 个），
+//   鱼雷不留弹孔、进水（上限 52%）并右沉（顺时针正角），潜水舰按反潜画、只轻微进水。
+//   holeRepairState(holes, hole, progress) → 入渠按单发威力轻→重逐孔逆向收口；hitGlassSvg 拼整张玻璃层。
+//   坐标是像素，原点在行左上角。裁决：数据列永远压在弹孔上面（z-index 3），弹孔只切底色与特效层。
 //
 // 二、修理演出判定（src/shared/repair-fx.ts）
-//   createRepairWatch().observe(ships, { sortie, repairItems }) → Map<id, { kind, before, after, max }>
-//   kind：dock 入渠完成（自然出渠、用桶）、berth 母港泊地修理落账、anchorage 出击中紧急泊地修理、
+//   createRepairWatch().observe(ships, { sortie, repairItems, now }) → Map<id, { kind, before, after, max, bucket? }>
+//   kind：dock 入渠完成（自然出渠、用桶；bucket 标出泼桶）、berth 母港泊地修理落账、anchorage 出击中紧急泊地修理、
 //         damecon 要员（42）发动、goddess 女神（43）发动。
-//   repairItems 由调用方从战斗状态取：Map<id, { item: 42 | 43, key }>，key 是「哪一战哪一舰」的去重签名。
+//   dockRepairProgress(completeTime, ndockTime, now) → 入渠维修进度 0..1，拿不到总工时给 null。
 //
 // 三、文案（维护者 11-26 选定）：飘字「要员发动 / 女神发动 / 入渠完成 / +N 泊修」，不带符号、不写百分比。
 import assert from 'node:assert/strict'
@@ -30,7 +33,7 @@ const load = (name) => {
   return require(file)
 }
 
-// ---- 几何工具 ----
+// ---- 几何工具（测试自己的尺子，不借被测模块的） ----
 
 const onSegment = ([px, py], [ax, ay], [bx, by], tol) => {
   const dx = bx - ax
@@ -50,136 +53,371 @@ const covers = (poly, pt, tol = 0.6) => {
   }
   return inside
 }
-const area = (poly) => Math.abs(poly.reduce((sum, [x, y], i) => {
-  const [nx, ny] = poly[(i + 1) % poly.length]
-  return sum + x * ny - nx * y
-}, 0)) / 2
-const xs = (poly) => poly.map(([x]) => x)
-const ys = (poly) => poly.map(([, y]) => y)
+/** 两条线段严格相交（交点不在任一端点附近）时返回交点，否则 null */
+const crossing = ([a, b], [c, d]) => {
+  const r = [b[0] - a[0], b[1] - a[1]]
+  const s = [d[0] - c[0], d[1] - c[1]]
+  const den = r[0] * s[1] - r[1] * s[0]
+  if (Math.abs(den) < 1e-9) return null
+  const q = [c[0] - a[0], c[1] - a[1]]
+  const t = (q[0] * s[1] - q[1] * s[0]) / den
+  const u = (q[0] * r[1] - q[1] * r[0]) / den
+  return t > 0.06 && t < 0.94 && u > 0.06 && u < 0.94 ? [a[0] + r[0] * t, a[1] + r[1] * t] : null
+}
+const segsOf = (pts) => pts.slice(1).map((p, i) => [pts[i], p])
+const inRect = ([x, y], r) => x > r.x0 && x < r.x1 && y > r.y0 && y < r.y1
 
-const TIERS = ['light', 'medium', 'heavy', 'sunk']
 const H = 46
-const SAMPLES = []
-for (const width of [520, 760]) for (let id = 1; id <= 40; id++) for (const seed of [1, 2, 3]) SAMPLES.push({ id, seed, width })
-
-// ---- 一、单调缺角 ----
-
-test('缺角几何：同舰同种子同宽度逐字稳定；换舰、换受伤周期都换一套', () => {
-  const { hitGlassGeometry } = load('hit-glass')
-  const a = hitGlassGeometry(101, 1, 640, H)
-  assert.deepEqual(hitGlassGeometry(101, 1, 640, H), a)
-  assert.notDeepEqual(hitGlassGeometry(101, 2, 640, H), a, '修满后再受伤（seedKey 变了）要换一套')
-  assert.notDeepEqual(hitGlassGeometry(102, 1, 640, H), a, '不同舰不雷同')
-  assert.ok([0, 1, 2, 3].includes(a.arch), `arch 只有 0～3 四种构型，拿到 ${a.arch}`)
+// 一行收起时的典型列位置（宽档 760 / 窄档 560）：舰名文字到 230 / 190，装备只占到一半
+// 窄档里舰名列只到 W-388，主留白（舰名右缘到血条左缘）几乎没有，弹孔只能落在装备尾与上下缘
+const layoutOf = (width) => ({
+  width,
+  height: H,
+  whoRight: width > 600 ? 230 : width - 400,
+  hpc: { x0: width - 380, x1: width - 280, y0: 9, y1: 37 },
+  fa2: { x0: width - 272, x1: width - 220, y0: 17, y1: 29 },
+  cond: { x0: width - 212, x1: width - 172, y0: 8, y1: 38 },
+  eq: { x0: width - 164, x1: width - 14, y0: 12, y1: 34 },
+  eqContentRight: width - 90,
 })
+const SHIPS = Array.from({ length: 40 }, (_, i) => i + 1)
 
-test('缺角几何与档位无关：取各档的层不改几何，同档重取逐字相同', () => {
-  const { hitGlassGeometry, hitGlassLayers } = load('hit-glass')
-  for (const { id, seed, width } of SAMPLES.slice(0, 30)) {
-    const geo = hitGlassGeometry(id, seed, width, H)
-    const before = JSON.stringify(geo)
-    for (const tier of TIERS) assert.deepEqual(hitGlassLayers(geo, tier), hitGlassLayers(geo, tier))
-    assert.equal(JSON.stringify(geo), before, '取层不许改几何（档位只决定开哪几条既有路径）')
+/** 逐发打一轮：每发都用 applyHitReport 走真流程 */
+const pound = (shipId, seedKey, width, hits, max = 60, kind = 'shell') => {
+  const { applyHitReport, emptyDamageState } = load('hit-damage')
+  const { rowZonesOf } = load('hit-glass')
+  const zones = rowZonesOf(layoutOf(width))
+  let state = emptyDamageState(seedKey)
+  let hp = max
+  for (const dmg of hits) {
+    const report = kind === 'asw'
+      ? { shellHits: [], torpHits: [], aswHits: [dmg], shellDmg: 0, torpDmg: 0, aswDmg: dmg, totalDmg: dmg, shellRatio: 0, torpRatio: 0, dominant: 'asw', fallback: false }
+      : { shellHits: [dmg], torpHits: [], aswHits: [], shellDmg: dmg, torpDmg: 0, aswDmg: 0, totalDmg: dmg, shellRatio: 1, torpRatio: 0, dominant: 'shell', fallback: false }
+    const after = Math.max(1, hp - dmg)
+    state = applyHitReport({ shipId, state, report, before: hp, after, max, zones }).state
+    hp = after
   }
+  return { state, zones }
+}
+
+// ---- 一、弹孔几何与持续战损 ----
+
+test('弹孔几何：同舰同种子同一串命中逐字稳定；换舰、换受伤周期都换一套', () => {
+  const a = pound(101, 1, 760, [6, 9, 14]).state
+  assert.deepEqual(pound(101, 1, 760, [6, 9, 14]).state, a)
+  assert.notDeepEqual(pound(101, 2, 760, [6, 9, 14]).state.holes, a.holes, '修满后再受伤（seedKey 变了）要换一套')
+  assert.notDeepEqual(pound(102, 1, 760, [6, 9, 14]).state.holes, a.holes, '不同舰不雷同')
 })
 
-test('小破只有预埋细裂、不缺角；中破、大破各缺一块，击沉两块', () => {
-  const { hitGlassGeometry, hitGlassLayers } = load('hit-glass')
-  for (const { id, seed, width } of SAMPLES) {
-    const geo = hitGlassGeometry(id, seed, width, H)
-    const light = hitGlassLayers(geo, 'light')
-    assert.equal(light.cuts.length, 0, `#${id}/${seed} 小破不许缺角`)
-    assert.equal(light.shard, null, '小破没有崩飞的碎角')
-    assert.ok(light.cracks.length >= 1, '小破至少预埋一条细裂')
-    assert.equal(hitGlassLayers(geo, 'medium').cuts.length, 1)
-    assert.equal(hitGlassLayers(geo, 'heavy').cuts.length, 1)
-    assert.equal(hitGlassLayers(geo, 'sunk').cuts.length, 2)
+test('四种碎裂样式都会出现，同舰相邻两发不重样', () => {
+  const seen = new Set()
+  for (const id of SHIPS) {
+    const { holes } = pound(id, 3, 760, [5, 7, 9, 11]).state
+    holes.forEach((hole, i) => {
+      seen.add(hole.style)
+      if (i > 0 && !holes[i - 1].edge && !hole.edge) assert.notEqual(hole.style, holes[i - 1].style, `#${id} 第 ${i + 1} 发与上一发同样式`)
+    })
   }
+  assert.deepEqual([...seen].sort(), ['edge-cleave', 'mosaic', 'spiderweb', 'starburst'])
 })
 
-test('跨档只沿原缝扩切：中破的缺口整块落在大破缺口里，击沉沿用大破那一块原样不动', () => {
-  const { hitGlassGeometry, hitGlassLayers } = load('hit-glass')
-  for (const { id, seed, width } of SAMPLES) {
-    const geo = hitGlassGeometry(id, seed, width, H)
-    const [mid] = hitGlassLayers(geo, 'medium').cuts
-    const [heavy] = hitGlassLayers(geo, 'heavy').cuts
-    for (const pt of mid) assert.ok(covers(heavy, pt), `#${id}/${seed}@${width} 中破缺口的顶点 ${pt} 跑到了大破缺口外面（跳位）`)
-    assert.ok(area(heavy) > area(mid), '大破的缺口比中破大')
-    const sunk = hitGlassLayers(geo, 'sunk').cuts
-    assert.ok(sunk.some((cut) => JSON.stringify(cut) === JSON.stringify(heavy)), `#${id}/${seed} 击沉要原样保留大破那块缺口`)
-  }
-})
-
-test('四种构型的落点：角缺贴右缘，V 口落在行宽 50%～86% 之间；顶缘构型贴顶、底缘构型贴底', () => {
-  const { hitGlassGeometry, hitGlassLayers } = load('hit-glass')
-  for (const { id, seed, width } of SAMPLES) {
-    const geo = hitGlassGeometry(id, seed, width, H)
-    const [cut] = hitGlassLayers(geo, 'heavy').cuts
-    const tag = `#${id}/${seed}@${width} arch ${geo.arch}`
-    if (geo.arch === 0 || geo.arch === 1) {
-      assert.ok(Math.max(...xs(cut)) >= width - 0.5, `${tag} 角缺要贴右缘`)
-    } else {
-      assert.ok(Math.min(...xs(cut)) >= width * 0.5 && Math.max(...xs(cut)) <= width * 0.86, `${tag} V 口越界：${xs(cut)}`)
+test('落点只挑留白：弹着中心落在舰名右缘到血条左缘、装备尾到行右缘、或上下缘窄带里；边缘崩缺贴上下缘', () => {
+  let inMain = 0
+  for (const width of [560, 760]) {
+    for (const id of SHIPS) {
+      const { state, zones } = pound(id, 2, width, [4, 6, 8, 10, 12])
+      const [main] = zones.safe
+      for (const hole of state.holes) {
+        if (hole.edge) {
+          assert.ok(hole.y === 0 || hole.y === H, `#${id}@${width} 边缘崩缺要贴上下缘，拿到 y=${hole.y}`)
+          continue
+        }
+        const zone = zones.safe.find((z) => hole.x >= z.x0 && hole.x <= z.x1 && hole.y >= z.y0 && hole.y <= z.y1)
+        assert.ok(zone, `#${id}@${width} 弹孔 (${hole.x},${hole.y}) 不在任何留白里`)
+        // 不在上下缘窄带的，一定避开了头像舰名、血条、油弹、疲劳与装备
+        if (zone.y1 - zone.y0 > 8) for (const rect of zones.avoid) assert.ok(!inRect([hole.x, hole.y], rect), `#${id}@${width} 弹孔 (${hole.x},${hole.y}) 压在内容上 ${JSON.stringify(rect)}`)
+        if (zone === main && width === 760) inMain++
+      }
     }
-    if (geo.arch === 0 || geo.arch === 2) assert.ok(Math.min(...ys(cut)) <= 0.5, `${tag} 要贴顶缘`)
-    else assert.ok(Math.max(...ys(cut)) >= H - 0.5, `${tag} 要贴底缘`)
-    for (const [, y] of cut) assert.ok(y >= -0.5 && y <= H + 0.5, `${tag} 缺口超出行高`)
+  }
+  assert.ok(inMain > 40, `宽档里舰名右缘到血条左缘是最宽的留白，平均每艘至少一个弹孔落在那里（只有 ${inMain} 个）`)
+})
+
+test('不叠成一团：同一轮的弹着中心两两相距不少于 36px（常规要 44px，放不下时放宽到 36px 再不行就不加）', () => {
+  for (const id of SHIPS) {
+    const { holes } = pound(id, 4, 560, [3, 4, 5, 6, 7, 8, 9]).state
+    for (let i = 0; i < holes.length; i++) {
+      for (let j = i + 1; j < holes.length; j++) {
+        const d = Math.hypot(holes[i].x - holes[j].x, holes[i].y - holes[j].y)
+        assert.ok(d >= 36, `#${id} 第 ${i + 1}、${j + 1} 个弹孔只隔 ${d.toFixed(1)}px`)
+      }
+    }
   }
 })
 
-test('击沉多出的那块小角在右缘、贴大破缺口的对侧边', () => {
-  const { hitGlassGeometry, hitGlassLayers } = load('hit-glass')
-  for (const { id, seed, width } of SAMPLES) {
-    const geo = hitGlassGeometry(id, seed, width, H)
-    const heavy = JSON.stringify(hitGlassLayers(geo, 'heavy').cuts[0])
-    const extra = hitGlassLayers(geo, 'sunk').cuts.find((cut) => JSON.stringify(cut) !== heavy)
-    const tag = `#${id}/${seed}@${width} arch ${geo.arch}`
-    assert.ok(Math.max(...xs(extra)) >= width - 0.5, `${tag} 对侧小角要贴右缘`)
-    if (geo.arch === 0 || geo.arch === 2) assert.ok(Math.max(...ys(extra)) >= H - 0.5, `${tag} 大破在顶，小角就在底`)
-    else assert.ok(Math.min(...ys(extra)) <= 0.5, `${tag} 大破在底，小角就在顶`)
+test('T 型止裂：新弹孔的裂纹碰到旧裂纹或破口边就停，不穿过去', () => {
+  const { holeSegments } = load('hit-glass')
+  let checked = 0
+  for (const id of SHIPS) {
+    const { holes } = pound(id, 5, 560, [12, 14, 16, 18, 20], 50).state
+    for (let k = 1; k < holes.length; k++) {
+      const old = holeSegments(holes.slice(0, k))
+      for (const ray of holes[k].rays) {
+        const [sx, sy] = ray.pts[0]
+        for (const seg of segsOf(ray.pts)) {
+          for (const o of old) {
+            checked++
+            const hit = crossing(seg, o)
+            // 起点 3px 内的交叉不算：弹着点本身就可能压在旧裂纹上，止裂判据从裂纹起点的 3% 之后才算（看不出来）
+            if (hit && Math.hypot(hit[0] - sx, hit[1] - sy) > 3) assert.fail(`#${id} 第 ${k + 1} 个弹孔的裂纹在 (${hit[0].toFixed(1)},${hit[1].toFixed(1)}) 穿过了旧裂纹`)
+          }
+        }
+      }
+    }
+  }
+  assert.ok(checked > 1000, `样本太少（${checked}），这条护栏没量到东西`)
+})
+
+test('没有浮空黑块：每块破口都直连弹着中心，边缘崩缺的缺口贴着卡片上下缘', () => {
+  let spalls = 0
+  for (const id of SHIPS) {
+    for (const hits of [[30], [22, 34], [9, 16, 26]]) {
+      for (const hole of pound(id, 6, 760, hits, 60).state.holes) {
+        for (const poly of hole.spallPolys) {
+          spalls++
+          if (hole.edge) assert.ok(poly.some(([, y]) => y === 0 || y === H), `#${id} 边缘崩缺的缺口没贴边`)
+          else assert.ok(covers(poly, [hole.x, hole.y], 1.2), `#${id} ${hole.style} 破口没连到弹着中心 (${hole.x},${hole.y})`)
+        }
+      }
+    }
+  }
+  assert.ok(spalls > 50, `样本里破口太少（${spalls}）`)
+})
+
+test('单发威力：擦伤是 1.4–2.5px 的针孔核、没有破口；单发高伤崩出破口并飞出 6–8 块碎片', () => {
+  const { buildBulletHole, rowZonesOf, holePowerOf } = load('hit-glass')
+  const zones = rowZonesOf(layoutOf(760))
+  assert.deepEqual([0.05, 0.15, 0.3, 0.5].map((loss) => holePowerOf(loss, false)), [1, 2, 3, 4])
+  assert.equal(holePowerOf(0.2, true), 4, '健康一炮直穿大破＝按最重那一档')
+  for (const id of SHIPS) {
+    for (const forcedStyle of ['spiderweb', 'starburst', 'mosaic']) {
+      const pin = buildBulletHole({ shipId: id, seedKey: 1, idx: 1, singleLoss: 0.05, massive: false, kind: 'shell', zones, existing: [], forcedStyle })
+      if (pin && !pin.edge) {
+        assert.equal(pin.spallPolys.length, 0, `${forcedStyle} 擦伤不该有破口`)
+        for (const [x, y] of pin.corePts) assert.ok(Math.hypot(x - pin.x, y - pin.y) <= 4, `${forcedStyle} 擦伤的弹核不许画成大圆盘`)
+      }
+      const big = buildBulletHole({ shipId: id, seedKey: 1, idx: 1, singleLoss: 0.6, massive: true, kind: 'shell', zones, existing: [], forcedStyle })
+      if (big && !big.edge) {
+        assert.ok(big.spallPolys.length >= 1, `${forcedStyle} 单发高伤要崩出破口`)
+        assert.ok(big.shards.length >= 6 && big.shards.length <= 8, `${forcedStyle} 单发高伤飞出 ${big.shards.length} 块碎片`)
+      }
+    }
   }
 })
 
-test('缺口不吃掉整行：大破缺口不超过行面积 5%，击沉两块合计不超过 7%', () => {
-  const { hitGlassGeometry, hitGlassLayers } = load('hit-glass')
-  for (const { id, seed, width } of SAMPLES) {
-    const geo = hitGlassGeometry(id, seed, width, H)
-    const row = width * H
-    assert.ok(area(hitGlassLayers(geo, 'heavy').cuts[0]) <= row * 0.05, `#${id}/${seed}@${width} 大破缺口过大`)
-    const sunk = hitGlassLayers(geo, 'sunk').cuts.reduce((sum, cut) => sum + area(cut), 0)
-    assert.ok(sunk <= row * 0.07, `#${id}/${seed}@${width} 击沉缺口过大`)
+test('上限：一个阶段最多新添 5 个弹孔，一轮带伤累计最多 7 个；放不下的不硬叠', () => {
+  const { applyHitReport, emptyDamageState, HIT_CAPS } = load('hit-damage')
+  const { rowZonesOf } = load('hit-glass')
+  assert.equal(HIT_CAPS.holesPerStage, 5)
+  assert.equal(HIT_CAPS.holesTotal, 7)
+  const zones = rowZonesOf(layoutOf(760))
+  const salvo = [2, 3, 3, 4, 4, 5, 5, 6, 6]
+  const report = { shellHits: salvo, torpHits: [], aswHits: [], shellDmg: 38, torpDmg: 0, aswDmg: 0, totalDmg: 38, shellRatio: 1, torpRatio: 0, dominant: 'shell', fallback: false }
+  for (const id of SHIPS.slice(0, 12)) {
+    const first = applyHitReport({ shipId: id, state: emptyDamageState(1), report, before: 200, after: 162, max: 200, zones })
+    assert.ok(first.newHoles.length <= 5, `#${id} 一阶段添了 ${first.newHoles.length} 个`)
+    const heaviest = [...salvo].sort((a, b) => a - b).slice(-5)
+    for (const hole of first.newHoles) assert.ok(heaviest.includes(Math.round(hole.singleLoss * 200)), `#${id} 命中太多时按最重的几发画`)
+    const second = applyHitReport({ shipId: id, state: first.state, report, before: 162, after: 124, max: 200, zones })
+    assert.ok(second.state.holes.length <= 7, `#${id} 累计 ${second.state.holes.length} 个`)
   }
 })
 
-test('崩飞的碎角：中破、大破、击沉各有一块，小破没有；中破飞走的就是中破缺口那一块，击沉飞走的是对侧小角', () => {
-  const { hitGlassGeometry, hitGlassLayers } = load('hit-glass')
-  for (const { id, seed, width } of SAMPLES) {
-    const geo = hitGlassGeometry(id, seed, width, H)
-    const mid = hitGlassLayers(geo, 'medium')
-    const heavy = hitGlassLayers(geo, 'heavy')
-    const sunk = hitGlassLayers(geo, 'sunk')
-    assert.ok(mid.shard && heavy.shard && sunk.shard, `#${id}/${seed} 中破以上每次跨档都要有碎角崩飞`)
-    for (const pt of mid.shard) assert.ok(covers(mid.cuts[0], pt), '中破崩飞的碎角要落在中破缺口里')
-    for (const pt of heavy.shard) assert.ok(covers(heavy.cuts[0], pt), '大破崩飞的碎角要落在大破缺口里')
-    const extra = sunk.cuts.find((cut) => JSON.stringify(cut) !== JSON.stringify(heavy.cuts[0]))
-    for (const pt of sunk.shard) assert.ok(covers(extra, pt), '击沉崩飞的是对侧小角')
+test('鱼雷：不留弹孔，进水封顶 52%，破口侧（右侧）下沉＝正角；冲击峰值不超过 3.2°、常驻不超过 1.15°', () => {
+  const { applyHitReport, emptyDamageState, HIT_CAPS } = load('hit-damage')
+  const { rowZonesOf } = load('hit-glass')
+  const zones = rowZonesOf(layoutOf(760))
+  const torp = (dmg) => ({ shellHits: [], torpHits: [dmg], aswHits: [], shellDmg: 0, torpDmg: dmg, aswDmg: 0, totalDmg: dmg, shellRatio: 0, torpRatio: 1, dominant: 'torp', fallback: false })
+  let state = emptyDamageState(1)
+  let hp = 38
+  for (const dmg of [10, 12, 9]) {
+    const result = applyHitReport({ shipId: 102, state, report: torp(dmg), before: hp, after: hp - dmg, max: 38, zones })
+    assert.equal(result.newHoles.length, 0, '鱼雷不留弹孔')
+    assert.equal(result.motion.kind, 'torp')
+    assert.ok(result.motion.leadMs > 0, '航迹先切入水线，冲击后挪')
+    assert.ok(result.state.water <= HIT_CAPS.water, `进水 ${result.state.water}% 超过上限`)
+    assert.ok(result.state.listDeg > 0 && result.state.listDeg <= 1.15, `常驻倾角 ${result.state.listDeg}`)
+    assert.ok(result.motion.listPeak > 0 && result.motion.listPeak <= 3.2, `冲击峰值 ${result.motion.listPeak}`)
+    assert.ok(result.state.listDeg >= state.listDeg, '倾角只增不减')
+    state = result.state
+    hp -= dmg
+  }
+  assert.equal(state.water, HIT_CAPS.water, '连吃三雷封顶')
+})
+
+test('炮雷混合：按战报占比各演各的——炮击那几发留弹孔，雷击那部分进水倾侧；雷击不到一半时按炮击后坐', () => {
+  const { applyHitReport, emptyDamageState } = load('hit-damage')
+  const { rowZonesOf } = load('hit-glass')
+  const zones = rowZonesOf(layoutOf(760))
+  const report = { shellHits: [9, 14], torpHits: [13], aswHits: [], shellDmg: 23, torpDmg: 13, aswDmg: 0, totalDmg: 36, shellRatio: 23 / 36, torpRatio: 13 / 36, dominant: 'mixed', fallback: false }
+  const result = applyHitReport({ shipId: 103, state: emptyDamageState(1), report, before: 56, after: 20, max: 56, zones })
+  assert.ok(result.newHoles.length >= 1 && result.newHoles.length <= 2)
+  assert.ok(result.state.water > 0 && result.state.listDeg > 0)
+  assert.equal(result.motion.kind, 'shell')
+  assert.equal(result.state.dominant, 'mixed')
+})
+
+test('反潜：潜水舰只画耐压壳裂纹、轻微进水，深弹最多 3 颗，最后一颗起爆才扣血', () => {
+  const { applyHitReport, emptyDamageState, HIT_CAPS } = load('hit-damage')
+  const { aswDetonateAt } = load('fleet-fx-timing')
+  const { rowZonesOf } = load('hit-glass')
+  const zones = rowZonesOf(layoutOf(760))
+  const report = { shellHits: [], torpHits: [], aswHits: [4, 5, 6, 3], shellDmg: 0, torpDmg: 0, aswDmg: 18, totalDmg: 18, shellRatio: 0, torpRatio: 0, dominant: 'asw', fallback: false }
+  const result = applyHitReport({ shipId: 104, state: emptyDamageState(1), report, before: 24, after: 6, max: 24, zones })
+  assert.equal(result.motion.kind, 'asw')
+  assert.equal(result.motion.dropCount, 3)
+  assert.equal(result.motion.leadMs, aswDetonateAt(3))
+  assert.ok(aswDetonateAt(1) < aswDetonateAt(2) && aswDetonateAt(2) < aswDetonateAt(3))
+  assert.ok(result.newHoles.length > 0 && result.newHoles.every((hole) => hole.kind === 'asw'))
+  assert.ok(result.state.water > 0 && result.state.water <= HIT_CAPS.waterSub)
+  assert.equal(result.state.listDeg, 0, '潜水舰不倾侧')
+})
+
+test('入渠逐孔逆向修补：轻的先修、最重的留到最后；每孔先收外环、再缩裂纹、最后闭合破口', () => {
+  const { holeRepairState } = load('hit-glass')
+  const { holes } = pound(106, 1, 760, [6, 30, 12], 48).state
+  assert.ok(holes.length === 3)
+  const order = [...holes].sort((a, b) => a.power - b.power || a.idx - b.idx)
+  assert.ok(holes.every((hole) => holeRepairState(holes, hole, null).status === 'intact'), '不在渠不动')
+  assert.ok(holes.every((hole) => holeRepairState(holes, hole, 0).status === 'intact'))
+  assert.ok(holes.every((hole) => holeRepairState(holes, hole, 1).status === 'done'))
+  const mid = holeRepairState(holes, order[0], 1 / 6)
+  assert.equal(mid.status, 'healing')
+  assert.ok(mid.ringRetract >= mid.rayRetract && mid.rayRetract >= mid.voidClose, '外环先收、裂纹次之、破口最后')
+  assert.equal(holeRepairState(holes, order[2], 0.5).status, 'intact', '最重的那个还没轮到')
+  let prev = -1
+  for (let p = 0; p <= 1.0001; p += 0.05) {
+    const done = holes.filter((hole) => holeRepairState(holes, hole, p).status === 'done').length
+    assert.ok(done >= prev, '修好的只增不减')
+    prev = done
   }
 })
 
-test('全队不雷同：四种构型各占一成半到三成半；任意六艘相邻舰至少两种构型', () => {
-  const { hitGlassGeometry } = load('hit-glass')
-  const count = [0, 0, 0, 0]
-  for (let id = 1; id <= 400; id++) count[hitGlassGeometry(id, 1, 640, H).arch]++
-  for (const [arch, n] of count.entries()) assert.ok(n >= 60 && n <= 140, `构型 ${arch} 占 ${n}/400，分布失衡`)
-  for (let seed = 1; seed <= 60; seed++) {
-    const arches = new Set([101, 102, 103, 104, 105, 106].map((id) => hitGlassGeometry(id, seed, 640, H).arch))
-    assert.ok(arches.size >= 2, `seed ${seed}：六艘舰全是同一种缺角`)
+test('入渠扶正与抽水：0%→45% 倾角线性回正，积水随进度抽干', () => {
+  const { dockListDeg, dockWater, dockKindOf } = load('hit-damage')
+  assert.equal(dockListDeg(1.1, null), 1.1)
+  assert.equal(dockListDeg(1.1, 0), 1.1)
+  assert.ok(Math.abs(dockListDeg(1.1, 0.225) - 0.55) < 1e-9)
+  assert.equal(dockListDeg(1.1, 0.45), 0)
+  assert.equal(dockListDeg(1.1, 0.8), 0)
+  assert.equal(dockWater(40, null), 40)
+  assert.equal(dockWater(40, 0.5), 20)
+  assert.equal(dockWater(40, 1), 0)
+  assert.equal(dockKindOf(null, true), 'sub')
+  assert.equal(dockKindOf({ water: 30, dominant: 'shell' }, false), 'torp', '积水多按抽水扶正')
+  assert.equal(dockKindOf({ water: 0, dominant: 'torp' }, false), 'torp')
+  assert.equal(dockKindOf({ water: 4, dominant: 'shell' }, false), 'shell')
+})
+
+test('玻璃层 SVG：内容区蒙版压浅、破口从裂纹层镂空、裂纹 pathLength=100；焊修光只沿裂纹与破口棱边，不画圆环', () => {
+  const { hitGlassSvg } = load('hit-glass')
+  const { state, zones } = pound(105, 1, 760, [8, 30, 14], 60)
+  const intact = hitGlassSvg({ id: 105, holes: state.holes, tier: 'heavy', zones, progress: null })
+  assert.match(intact, /<mask id="glass-safe-105">[^]*fill="rgb\(84,84,84\)"/, '内容区下的裂纹压到约三成')
+  assert.match(intact, /<mask id="glass-void-105">[^]*class="hole-void-cut"/, '破口在 void mask 里镂空')
+  assert.match(intact, /<g mask="url\(#glass-void-105\)">/)
+  assert.match(intact, /class="hole-ray[^"]*"[^>]*pathLength="100"[^>]*stroke-dasharray="100 100"/)
+  for (const progress of [0.2, 0.5, 0.8]) {
+    const healing = hitGlassSvg({ id: 105, holes: state.holes, tier: 'heavy', zones, progress })
+    for (const circle of healing.match(/<circle[^>]*>/g) ?? []) {
+      assert.match(circle, /r="(?:0\.\d+|1\.\d+)"/, `只有针孔核的亮芯是圆，半径 1 上下：${circle}`)
+      assert.doesNotMatch(circle, /stroke/, '不许画描边圆环')
+    }
+  }
+  assert.equal(hitGlassSvg({ id: 105, holes: state.holes, tier: 'heavy', zones, progress: 1 }), '', '全修好就没有玻璃层')
+  assert.equal(hitGlassSvg({ id: 105, holes: [], tier: 'heavy', zones, progress: null }), '')
+})
+
+test('进水液面：右侧（破口侧）更深；入渠扶正回 0° 时液面变平；水线上间歇有浪来回横穿整行', () => {
+  const { hitWaterHtml } = load('hit-glass')
+  const read = (html) => ({ top: Number(html.match(/--water-top:(-?[\d.]+)px/)[1]), tilt: Number(html.match(/--water-tilt:(-?[\d.]+)deg/)[1]) })
+  const listed = hitWaterHtml({ level: 40, listNow: 1, listBase: 1, docked: false, width: 600, height: H })
+  assert.ok(read(listed).tilt < 0, `液面往右升（右侧更深）：tilt ${read(listed).tilt}`)
+  assert.match(listed, /^<span class="water-body"[^>]*><i class="surface"><\/i><i class="swell" style="[^"]+"><\/i><\/span>$/)
+  const righted = hitWaterHtml({ level: 40, listNow: 0, listBase: 1, docked: true, width: 600, height: H })
+  assert.equal(read(righted).tilt, 0, '扶正后液面水平')
+  assert.match(righted, /class="water-body dock"/, '入渠里的水用入渠色')
+  assert.ok(read(hitWaterHtml({ level: 50, listNow: 0, listBase: 0, docked: false, width: 600, height: H })).top < read(hitWaterHtml({ level: 20, listNow: 0, listBase: 0, docked: false, width: 600, height: H })).top, '水越多液面越高')
+  assert.equal(hitWaterHtml({ level: 0.2, listNow: 0, listBase: 0, docked: false, width: 600, height: H }), '')
+  // 浪（他 11-28 连报四次，见样式表注释）：浪是水线自己的一段起伏，间歇地从一端走到另一端再走回来；
+  // 周期与错相按舰稳定随机，同一艘每次一样，换一艘就不一样
+  const swellOf = (html) => {
+    const m = html.match(/class="swell" style="--rt:([\d.]+)s;--rd:(-?[\d.]+)s"/)
+    return { period: Number(m[1]), delay: Number(m[2]) }
+  }
+  const seeded = (seed) => hitWaterHtml({ level: 40, listNow: 1, listBase: 1, docked: false, width: 600, height: H, seed })
+  assert.equal(seeded(105), seeded(105), '同一艘逐字节一样，重画不打断正在走的浪')
+  assert.notEqual(seeded(105), seeded(106), '不同的舰浪不在同一拍')
+  const periods = Array.from({ length: 40 }, (_, i) => swellOf(seeded(200 + i)))
+  assert.ok(periods.every((s) => s.period >= 13 && s.period <= 19 && s.delay <= 0 && -s.delay < s.period * 2), '单程 13～19s，错相落在一来一回之内')
+  const css = fs.readFileSync(path.join(ROOT, 'src/renderer/index.html'), 'utf8')
+  const rule = (selector) => css.slice(css.indexOf(`${selector} {`), css.indexOf('\n    }', css.indexOf(`${selector} {`)))
+  const swell = rule('.fleet-skin .ship .water-body > .swell')
+  // 与静水面是同一条线：水线只有这一条（水体不再另画顶边），平的部分与起伏同一个元素、同一个颜色
+  assert.doesNotMatch(rule('.fleet-skin .ship .water-body > .surface'), /border/, '水体不另画水线，免得浪下面还压着一条平线')
+  assert.match(swell, /left: calc\(-100% - 140px\); width: calc\(200% \+ 140px\);/, '水线左右各一行宽的平线，中间 140px 起伏')
+  assert.match(swell, /linear-gradient\(black, black\) 0 7px \/ calc\(50% - 70px\) 1px no-repeat, linear-gradient\(black, black\) 100% 7px \/ calc\(50% - 70px\) 1px no-repeat, url\(/, '两段平线接在起伏两头')
+  assert.match(swell, /M0 7\.5C[^']*140 7\.5'/, '起伏首尾都落在水线上，两头收平')
+  assert.doesNotMatch(swell, /linear-gradient\(90deg/, '不靠淡出收两头')
+  assert.match(swell, /animation: ru-water-slosh var\(--rt\) linear var\(--rd\) infinite alternate;/, '走到另一端后原路走回来')
+  const slosh = css.slice(css.indexOf('@keyframes ru-water-slosh {'), css.indexOf('}\n    }', css.indexOf('@keyframes ru-water-slosh {')))
+  assert.match(slosh, /0%, 20% \{ transform: translate3d\(0, 0, 0\); \}/, '起点停一阵')
+  assert.match(slosh, /65%, 100% \{ transform: translate3d\(calc\(50% \+ 70px\), 0, 0\);/, '平移半条＝一行宽＋起伏宽：从行左端外走到右端外')
+  assert.doesNotMatch(slosh, /opacity/, '不在半路淡入淡出')
+  // 起伏高低不齐：浪峰（y 最小处）一个比一个高到中间、再往两头矮下去，不是等高的一排
+  const wavePath = swell.match(/d='([^']+)'/)[1] // -webkit-mask 与 mask 各写一遍，取一次
+  const crests = [...`${wavePath}'`.matchAll(/ (\d+) ([\d.]+)(?=C|')/g)].map((m) => [Number(m[1]), Number(m[2])]).filter(([, y]) => y < 7.5)
+  assert.ok(crests.length >= 4, `起伏至少四个浪峰：${crests.length}`)
+  assert.ok(new Set(crests.map(([, y]) => y)).size === crests.length, '浪峰高度各不相同')
+  const tallest = crests.reduce((a, c) => (c[1] < a[1] ? c : a))
+  assert.ok(tallest[0] > 50 && tallest[0] < 90, `最高的浪峰在中段：x=${tallest[0]}`)
+  assert.match(css, /\.fleet-skin \.ship \.water-host \{[^}]*overflow: hidden;/, '行外那段被裁掉')
+  assert.doesNotMatch(css, /\.water-body > \.(?:wave-[ab]|ripple)|ru-water-(?:roll|ripple|swell|phase)/, '整条滚动的正弦波、原地鼓起的涟漪、另画在水线上的浪串都已退役')
+})
+
+test('常驻循环动画只动 transform / opacity（合成线程，不逐帧重排重绘）：行级脉动、进水涟漪、焊修扫描', () => {
+  // 2026-11-27 实测（无头 Chrome，12 排大破）：脉动原先动 box-shadow，每秒绘制 113ms；焊修扫描动 left，一条每秒重排约 48ms；
+  // 进水动 SVG 里的 <g>，每帧重做 SVG 布局。改成只动 transform / opacity 后这几项归零
+  const css = fs.readFileSync(path.join(ROOT, 'src/renderer/index.html'), 'utf8')
+  for (const name of ['ru-mid-breath', 'ru-heavy-heartbeat', 'ru-dock-recover', 'ru-water-slosh', 'ru-dock-scan', 'ru-dock-derust']) {
+    const at = css.indexOf(`@keyframes ${name} {`)
+    assert.ok(at >= 0, name)
+    let depth = 0
+    let end = css.indexOf('{', at)
+    for (; end < css.length; end++) {
+      if (css[end] === '{') depth++
+      else if (css[end] === '}' && --depth === 0) break
+    }
+    const props = [...css.slice(at, end).matchAll(/([a-z-]+)\s*:/g)].map((m) => m[1])
+    assert.deepEqual([...new Set(props)].filter((p) => p !== 'transform' && p !== 'opacity'), [], `${name} 只许动 transform / opacity`)
+  }
+  assert.doesNotMatch(css, /\.fleet-skin \.ship\[data-crack="(?:medium|heavy)"\] \{[^}]*animation:/, '脉动不再挂在行上（挂在 ::after）')
+})
+
+test('头像裁角与故障错相：同舰同种子稳定、换舰或新受伤周期分化', () => {
+  const { hitAvatarCssVars, hitAvatarVars } = load('hit-glass')
+  assert.equal(hitAvatarCssVars(101, 1), hitAvatarCssVars(101, 1))
+  assert.notEqual(hitAvatarCssVars(101, 1), hitAvatarCssVars(102, 1))
+  assert.notEqual(hitAvatarCssVars(101, 1), hitAvatarCssVars(101, 2))
+  for (let id = 1; id <= 30; id++) {
+    const v = hitAvatarVars(id, id * 7)
+    assert.match(v.fcClipHeavy, /^polygon\(/)
+    assert.match(v.fcClipSunk, /^polygon\(/)
+    assert.ok(v.gDelay < 0 && Math.abs(v.gDelay) < v.gDur)
   }
 })
 
-// ---- 裁决①：缺口只切底色与特效层，数据列不被裁 ----
-
-test('样式表：开关作用域里不给编队行本身和数据列加 clip-path（缺口只切底色与特效层）', () => {
+test('样式表：开关作用域里不给编队行本身和数据列加 clip-path（弹孔只切底色与特效层）', () => {
   const html = fs.readFileSync(path.join(ROOT, 'src', 'renderer', 'index.html'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
   const splitTop = (sel) => {
     const out = []
@@ -198,12 +436,28 @@ test('样式表：开关作用域里不给编队行本身和数据列加 clip-pa
     const decls = m[2]
     if (!/(?:^|;|\s)clip-path\s*:/.test(decls)) continue
     for (const sel of splitTop(m[1])) {
-      if (!/\[data-(?:hit|crack|fracture|glass|repair|weld)/.test(sel) && !/data-hit-fx/.test(sel)) continue
+      if (!/\[data-(?:hit|crack|fracture|glass|repair|weld|listed|dock)/.test(sel) && !/data-hit-fx/.test(sel)) continue
       const last = sel.split(/\s*>\s*|\s+/).filter(Boolean).pop()
       if (DATA.test(last)) bad.push(sel)
     }
   }
-  assert.deepEqual(bad, [], '这些选择器会把数据列或整行裁掉（缺口只许切底色与特效层）')
+  assert.deepEqual(bad, [], '这些选择器会把数据列或整行裁掉（弹孔只许切底色与特效层）')
+})
+
+test('样式表：数据列压在进水层与玻璃层上面；鱼雷倾侧、反潜浮沉与冲击后挪都在开关作用域的属性上，减少动态时不播', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'src/renderer/index.html'), 'utf8')
+  assert.match(css, /\.fleet-skin \.ship \.water-host \{[^}]*z-index: 1;/)
+  assert.match(css, /\.fleet-skin \.ship \.glass-host \{[^}]*z-index: 2;/)
+  assert.match(css, /\.fleet-skin \.ship\[data-listed="1"\] \{[^}]*rotate\(var\(--list-deg/)
+  assert.match(css, /@keyframes ru-hit-list \{[^]*?100% \{ transform: translate3d\(0, var\(--list-y, 0px\), 0\) rotate\(var\(--list-deg, 0deg\)\); \}/, '倾侧落定在常驻倾角')
+  assert.match(css, /@keyframes ru-hit-shake-4 \{\s*0%, 100% \{ transform: translate3d\(0, var\(--list-y, 0px\), 0\) rotate\(var\(--list-deg, 0deg\)\); \}/, '倾着的行挨炮，抖完落回原倾角')
+  assert.match(css, /\.ship\[data-hit\]\[data-hit-kind="asw"\] \{[^}]*ru-hit-heave[^}]*var\(--hit-lead, 0ms\)/)
+  const reduced = css.slice(css.indexOf('.fleet-skin .ship.left.leaving,'))
+  const list = reduced.slice(0, reduced.indexOf('{ animation: none; }'))
+  for (const selector of ['.ship[data-hit][data-hit-kind="torp"],', '.ship[data-hit][data-hit-kind="asw"],', '.ship[data-crack]::after,', '.ship .water-body > i,']) {
+    assert.ok(list.includes(selector), `减少动态时要停：${selector}`)
+  }
+  assert.match(reduced, /\.fleet-skin \.ship \.dock-weld-scan,\s*\.fleet-skin \.ship \.dock-derust,\s*\.fleet-skin \.ship \.dock-sub-bubble \{ display: none; \}/, '减少动态时不扫光、不除锈、不冒泡')
 })
 
 // ---- 二、修理演出判定 ----
@@ -222,8 +476,34 @@ test('母港：在渠的舰出渠且修满 → 入渠完成；没进渠直接修
   const watch = createRepairWatch()
   watch.observe([ship(1, 10, { docked: true }), ship(2, 12)], { sortie: false })
   const fx = watch.observe([ship(1, 40), ship(2, 40)], { sortie: false })
-  assert.deepEqual(fx.get(1), { kind: 'dock', before: 10, after: 40, max: 40 })
-  assert.deepEqual(fx.get(2), { kind: 'dock', before: 12, after: 40, max: 40 })
+  assert.deepEqual(fx.get(1), { kind: 'dock', before: 10, after: 40, max: 40, bucket: false })
+  assert.deepEqual(fx.get(2), { kind: 'dock', before: 12, after: 40, max: 40, bucket: true }, '没进过渠就修满＝入渠当场泼了桶')
+})
+
+test('母港：在渠里离预计修好还早就修满出来＝泼了高速修复桶；到点（含几十秒抖动）出来＝自然出渠', () => {
+  const { createRepairWatch, BUCKET_EARLY_MS } = load('repair-fx')
+  const now = 1_000_000_000
+  const watch = createRepairWatch()
+  watch.observe([
+    ship(1, 10, { docked: true, dockCompleteAt: now + 3_600_000 }),
+    ship(2, 10, { docked: true, dockCompleteAt: now - 5_000 }),
+    ship(3, 10, { docked: true, dockCompleteAt: now + BUCKET_EARLY_MS - 1_000 }),
+  ], { sortie: false, now: now - 60_000 })
+  const fx = watch.observe([ship(1, 40), ship(2, 40), ship(3, 40)], { sortie: false, now })
+  assert.equal(fx.get(1).bucket, true, '还差一小时就出来了')
+  assert.equal(fx.get(2).bucket, false, '到点出渠')
+  assert.equal(fx.get(3).bucket, false, '只早了不到一分半，按自然出渠')
+})
+
+test('入渠维修进度：1 − 剩余 / 总工时；拿不到总工时或预计修好时刻给 null，不猜', () => {
+  const { dockRepairProgress } = load('repair-fx')
+  assert.equal(dockRepairProgress(10_000, 8_000, 6_000), 0.5)
+  assert.equal(dockRepairProgress(10_000, 8_000, 2_000), 0)
+  assert.equal(dockRepairProgress(10_000, 8_000, 10_000), 1)
+  assert.equal(dockRepairProgress(10_000, 8_000, 12_000), 1, '过点不超过 1')
+  assert.equal(dockRepairProgress(10_000, 4_000, 0), 0, '剩余比总工时还长按 0')
+  assert.equal(dockRepairProgress(10_000, 0, 6_000), null)
+  assert.equal(dockRepairProgress(0, 8_000, 6_000), null)
 })
 
 test('母港：在泊地修理范围内的舰回血 → 泊修落账，带回血前后', () => {
@@ -343,7 +623,8 @@ const fadeHarness = () => {
     dockOf: () => null,
     weldedShips: new Set(),
     pendingRepairFx: new Map(),
-    fractureSeeds: new Map(),
+    damageStates: new Map(),
+    isSubShip: () => false,
     cachedRowWidth: 540,
     cachedRowHeight: 48,
   })
@@ -421,7 +702,8 @@ test('演出期间重画续挂同一份被弹参数与修理底色，播完才�
     dockOf: () => null,
     weldedShips: new Set(),
     pendingRepairFx: new Map(),
-    fractureSeeds: new Map(),
+    damageStates: new Map(),
+    isSubShip: () => false,
     berthFxFlagIds: new Set(),
     berthFxRepairIds: new Set(),
     berthFadeFlag: new Map(),
@@ -444,43 +726,20 @@ test('演出期间重画续挂同一份被弹参数与修理底色，播完才�
   assert.equal(api.shipGlassFx({ id: 6, nowhp: 40, maxhp: 40 }, false), null)
 })
 
-test('中破 V 构型按方案三：两道裂纹从缺口尖端放射，不画外圈 B 与暗面；角缺构型照旧', () => {
-  // 维护者裁决 2026-11-26：原稿外圈 B 与缺口 A 都是 V、彼此平行，读起来像「≫」双裂纹，审片页对比后定方案三
-  const { hitGlassGeometry, hitGlassLayers } = load('hit-glass')
-  let vArch = 0, corner = 0
-  for (const { id, seed, width } of SAMPLES) {
-    const geo = hitGlassGeometry(id, seed, width, H)
-    const mid = hitGlassLayers(geo, 'medium')
-    const tag = `#${id}/${seed}@${width} arch ${geo.arch}`
-    const lines = [...mid.cracks, ...mid.subCracks].map((line) => JSON.stringify(line))
-    if (geo.arch === 2 || geo.arch === 3) {
-      vArch++
-      const apex = JSON.stringify(geo.lineA[1])
-      assert.ok([...mid.cracks, ...mid.subCracks].every((line) => JSON.stringify(line[0]) === apex), `${tag} 中破裂纹都从缺口尖端出发`)
-      assert.ok(!lines.includes(JSON.stringify(geo.lineB)), `${tag} 中破不画外圈 B`)
-      assert.deepEqual(mid.facets, [], `${tag} 中破不画 A、B 之间的暗面`)
-      assert.deepEqual(hitGlassLayers(geo, 'heavy').bevels, [geo.lineB], `${tag} 大破照旧沿 B 崩开`)
-    } else {
-      corner++
-      assert.ok(lines.includes(JSON.stringify(geo.lineB)), `${tag} 角缺构型照旧画外圈 B`)
-      assert.deepEqual(mid.facets, [geo.shardB])
-    }
-  }
-  assert.ok(vArch > 0 && corner > 0, '样本两类构型都要有')
-})
-
-test('带伤入渠：行挂 data-docked，红黄告警与故障撤掉、换成缓慢脉冲的恢复光；裂纹照留', () => {
-  // 维护者裁决 2026-11-26：入渠期间裂纹保留（②），告警换恢复光（同日）
+test('带伤入渠：行挂 data-docked 与入渠特色层，红黄告警与故障撤掉、换成缓慢脉冲的恢复光；弹孔照留', () => {
+  // 维护者裁决 2026-11-26：入渠期间裂纹保留（②），告警换恢复光（同日）；交接包 v2：特色层按伤势种类，弹孔随进度收口
+  const { state } = pound(5, 1, 540, [8, 14], 40)
   let docked = true
   const { api } = runtimeHost().extract('src/renderer/modules/ru.ts', ['shipGlassFx'], {
     Date: { now: () => 1000 },
     hitShakeEnabled: () => true,
     shipHitCrack: () => 'heavy',
     dockOf: () => (docked ? { id: 1 } : null),
+    isSubShip: () => false,
     weldedShips: new Set(),
     pendingRepairFx: new Map(),
     repairWashUntil: new Map(),
-    fractureSeeds: new Map([[5, 1]]),
+    damageStates: new Map([[5, state]]),
     berthFxFlagIds: new Set(),
     berthFxRepairIds: new Set(),
     berthFadeFlag: new Map(),
@@ -492,44 +751,19 @@ test('带伤入渠：行挂 data-docked，红黄告警与故障撤掉、换成�
   const ship = { id: 5, nowhp: 8, maxhp: 40 }
   const fx = api.shipGlassFx(ship, false)
   assert.match(fx.attrs, /data-docked="1"/)
-  assert.match(fx.layers, /<svg class="glass-svg"/, '裂纹与缺角照留')
+  assert.match(fx.attrs, /data-dock-kind="shell"/, '炮击伤入渠：逐孔焊修')
+  assert.match(fx.layers, /<span class="dock-fx-layer"><span class="dock-weld-scan"><\/span><\/span>/)
+  assert.match(fx.layers, /<svg class="glass-svg"/, '弹孔照留（拿不到维修进度时整片不动）')
   assert.doesNotMatch(api.shipGlassFx(ship, true).attrs, /data-docked/, '击沉不挂')
   docked = false
   assert.doesNotMatch(api.shipGlassFx(ship, false).attrs, /data-docked/, '没入渠不挂')
 
   const css = fs.readFileSync(path.join(ROOT, 'src/renderer/index.html'), 'utf8')
   assert.match(css, /\.ship\[data-docked="1"\]\[data-crack\] :is\(\.dmg-hazard, \.dmg-scan, \.dmg-ember, \.glitch-bars\) \{ display: none; \}/)
-  assert.match(css, /\.ship\[data-docked="1"\]\[data-crack\] \{[^}]*animation: ru-dock-recover 4\.2s ease-in-out infinite;/)
-  assert.match(css, /@keyframes ru-dock-recover \{[^}]*var\(--hit-aqua\)/)
+  assert.match(css, /\.ship\[data-docked="1"\]\[data-crack\]::after \{[^}]*var\(--hit-aqua\)[^}]*animation: ru-dock-recover 4\.2s ease-in-out infinite;/, '恢复光脉动挂在 ::after、只调透明度')
   assert.match(css, /\.ship\[data-docked="1"\]\[data-crack\] \.hpc \.num \.st \{ animation: none; \}/, '大破徽标不再故障闪')
   const reduced = css.slice(css.indexOf('.fleet-skin .ship.left.leaving,'))
   assert.ok(reduced.slice(0, reduced.indexOf('{ animation: none; }')).includes('.ship[data-docked="1"][data-crack],'), '减少动态时恢复光不脉冲')
-})
-
-test('一次跨几档就崩落几块：小破直跳大破 A、B 一起掉（＝大破减小破那整块），中破到击沉 B、C', () => {
-  // 2026-11-26 他要：从小破蔓延到大破时，大破与小破之间差的那片玻璃要崩落，不能只飞外圈那一条
-  const geo = { topSide: true, shardA: [[1, 1]], shardB: [[2, 2]], shardC: [[3, 3]] }
-  const run = (prevTier, tier) => {
-    const calls = []
-    const { api } = runtimeHost().extract('src/renderer/modules/ru.ts', ['runPostRenderHitFx'], {
-      pendingShards: [{ shipId: 5, geo, tier, prevTier }],
-      pendingRepairFx: new Map(),
-      document: { visibilityState: 'visible' },
-      window: { matchMedia: () => ({ matches: false }) },
-      launchFlyingShard: (_row, _geo, poly, _tier, _dx, _dy, _rot, delay, isOpp) => calls.push([poly === geo.shardA ? 'A' : poly === geo.shardB ? 'B' : 'C', delay, isOpp]),
-      scheduleAuraCleanup: () => {},
-      mg: { ships: {}, slotitems: {} },
-    })
-    api.runPostRenderHitFx({ querySelector: () => ({}) })
-    return calls
-  }
-  assert.deepEqual(run('light', 'medium').map(([piece]) => piece), ['A'])
-  assert.deepEqual(run('medium', 'heavy').map(([piece]) => piece), ['B'])
-  assert.deepEqual(run('light', 'heavy'), [['A', 0, false], ['B', 50, false]], '小破直跳大破：A 与 B 先后掉')
-  assert.deepEqual(run('none', 'heavy').map(([piece]) => piece), ['A', 'B'])
-  assert.deepEqual(run('medium', 'sunk').map(([piece]) => piece), ['B', 'C'])
-  assert.deepEqual(run('light', 'sunk').map(([piece, , opp]) => [piece, opp]), [['A', false], ['B', false], ['C', true]])
-  assert.deepEqual(run('heavy', 'sunk').map(([piece]) => piece), ['C'])
 })
 
 test('中破 / 大破左端是向右辐射的微光，只要柔光、不要任何线条', () => {
@@ -543,4 +777,129 @@ test('中破 / 大破左端是向右辐射的微光，只要柔光、不要任�
     assert.match(rule, /background: radial-gradient\(ellipse [^;]*at 0% 50%/, `${tier}：从左锚向右扩散的柔光`)
     assert.doesNotMatch(rule, /repeating-/, `${tier}：不要斜纹，也不要放射细线`)
   }
+})
+
+// ---- 五、审查修正（2026-11-27）：开关关着零变化、维修进度不让面板一直换 DOM、总工时不跨入渠沿用 ----
+
+test('开关关着：在渠血条照旧是 45% 示意；开着才按维修进度画', async () => {
+  const { reset, renderRow, setDock, setGlassFx, setHitCrack, setHitFracture, setHitShake } = await import('./fixtures/render-ru-row.mjs')
+  reset({ names: { 1: '吹雪' } })
+  setHitShake({})
+  setHitCrack({})
+  setHitFracture({})
+  setGlassFx({})
+  setDock({ 5: { completeTime: 2_000_000_000_000 } }, false)
+  assert.match(renderRow({ id: 5, shipId: 1, nowhp: 10 }), /<div class="bar"><i style="width:45%"><\/i><\/div>/, '开关关着')
+  setDock({ 5: { completeTime: 2_000_000_000_000 } }, true)
+  assert.match(renderRow({ id: 5, shipId: 1, nowhp: 10 }), /<div class="bar"><i style="width:77%"><\/i><\/div>/, '开关开着：按真实维修进度')
+  setDock({}, false)
+})
+
+test('维修进度：画进 HTML 的只按 10% 取整（无关重画不换 DOM），就地刷新按 1%；总工时只在同一次入渠里沿用', () => {
+  let now = 0
+  const dockSeen = new Map()
+  const { api } = runtimeHost().extract('src/renderer/modules/ru.ts', ['dockProgressOf', 'DOCK_LIVE_STEP'], { dockSeen, Date: { now: () => now } })
+  const ship = { id: 5, ndockTime: 10_000 }
+  const dock = { completeTime: 10_000 }
+  now = 3_700
+  assert.equal(api.dockProgressOf(ship, dock), 0.3, '渲染用 10% 一档')
+  assert.equal(api.dockProgressOf(ship, dock, now, api.DOCK_LIVE_STEP), 0.37, '就地刷新用 1%')
+  now = 3_999
+  assert.equal(api.dockProgressOf(ship, dock), 0.3, '同一档里再画一次，输出不变')
+  // 报文在渠期间把总工时改小了：同一次入渠沿用记下的
+  dockSeen.set(5, { completeTime: 10_000, total: 10_000 })
+  assert.equal(api.dockProgressOf({ id: 5, ndockTime: 0 }, dock, 5_000, api.DOCK_LIVE_STEP), 0.5)
+  // 泼桶后又挨打、重新入渠 20 分钟：预计修好时刻变了，不再拿上一次 6 小时的总工时算（否则一进渠就快修完了）
+  dockSeen.set(5, { completeTime: 10_000, total: 6 * 3_600_000 })
+  assert.equal(api.dockProgressOf({ id: 5, ndockTime: 1_200_000 }, { completeTime: 1_200_000 }, 0, api.DOCK_LIVE_STEP), 0)
+})
+
+test('减少动态效果：炮击 4 档后坐、大破行的后坐与心跳、头像顿挫也停（选择器比 [data-hit] 更具体，单列出来）', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'src/renderer/index.html'), 'utf8')
+  const reduced = css.slice(css.indexOf('.fleet-skin .ship.left.leaving,'))
+  const list = reduced.slice(0, reduced.indexOf('{ animation: none; }'))
+  for (const selector of ['.fleet-skin .ship[data-hit][data-hit-sev],', '.fleet-skin .ship[data-hit][data-hit-sev] .fc,', '.fleet-skin .ship[data-hit][data-crack="heavy"],']) {
+    assert.ok(list.includes(selector), `减少动态时要停：${selector}`)
+  }
+})
+
+test('玻璃层宽度钉成像素：行宽变了弹孔原地不动、不被拉扁', () => {
+  const { hitGlassSvg } = load('hit-glass')
+  const { state, zones } = pound(7, 1, 760, [8, 12], 40)
+  assert.match(hitGlassSvg({ id: 7, holes: state.holes, tier: 'medium', zones, progress: null }), /^<svg class="glass-svg" viewBox="0 0 760 46" preserveAspectRatio="none" style="width:760px">/)
+})
+
+test('开幕入场优先：带伤 / 入渠 / 被弹的舰娘行挂着自己的循环动画，入场期间也要先跟着一排排落位（2026-11-27 他报开门就已在场上）', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'src/renderer/index.html'), 'utf8')
+  const at = css.indexOf("@media not (prefers-reduced-motion: reduce) {\n      .ws-pane.mod-ru .ships .ship[data-kuma-in='roster'] {")
+  assert.ok(at >= 0, '入场优先那条要在「不减少动态」里，减少动态时整套入场本来就不播')
+  const rule = css.slice(at, css.indexOf('}', css.indexOf('{', at + 50)))
+  assert.match(rule, /animation-name: kuma-roster-row !important;/, '压过带伤行更具体的 animation 简写')
+  assert.match(rule, /animation-iteration-count: 1 !important;/, '不能沿用心跳 / 呼吸的 infinite')
+  assert.match(rule, /animation-fill-mode: both !important;/, '轮到之前停在首帧（透明）')
+  assert.doesNotMatch(rule, /animation-(?:delay|duration)/, '起点与时长由 launch-glow 写在行内，这里不碰')
+})
+
+test('擦伤（没到小破线）也有弹孔 / 进水：行挂 data-glass，拿到定位、数据列压在上面，弹孔不被画到列表顶上（2026-11-27 白露）', () => {
+  const { state } = pound(9, 1, 760, [4], 31)
+  const { api } = runtimeHost().extract('src/renderer/modules/ru.ts', ['shipGlassFx'], {
+    Date: { now: () => 1000 },
+    hitShakeEnabled: () => true,
+    shipHitCrack: () => null,
+    dockOf: () => null,
+    isSubShip: () => false,
+    weldedShips: new Set(),
+    pendingRepairFx: new Map(),
+    repairWashUntil: new Map(),
+    damageStates: new Map([[9, state]]),
+    berthFxFlagIds: new Set(),
+    berthFxRepairIds: new Set(),
+    berthFadeFlag: new Map(),
+    berthFadeRepair: new Map(),
+    activeTransientAura: () => null,
+    cachedRowWidth: 760,
+    cachedRowHeight: 46,
+  })
+  const fx = api.shipGlassFx({ id: 9, nowhp: 27, maxhp: 31 }, false)
+  assert.match(fx.attrs, /^ data-glass/)
+  assert.match(fx.layers, /<svg class="glass-svg"/)
+  const css = fs.readFileSync(path.join(ROOT, 'src/renderer/index.html'), 'utf8')
+  assert.match(css, /\.fleet-skin \.ship\[data-glass\],[^{]*\{\s*position: relative; isolation: isolate;/, '行要成为定位与层叠的容器')
+  assert.match(css, /\.fleet-skin \.ship\[data-glass\] > :is\(\.fc, \.who, \.hpc, \.fa2, \.cond, \.eq, \.ship-detail\),[^{]*\{\s*position: relative; z-index: 3;/, '数据列压在玻璃与进水层上面')
+})
+
+// ---- 六、重启后照账本重放（2026-11-27 他报「受到伤害的次数跟弹孔不对应」：原先一律按伤势档补 1～3 个默认弹孔） ----
+
+const chainBattle = (hpStart, hpEnd, damages, { practice = false, max = 31 } = {}) => ({
+  practice,
+  fShips: [{ index: 0, rosterId: 7, hpStart, hpEnd, hpMax: max }],
+  eShips: [{ index: 0, mstId: 1501 }],
+  attacks: damages.map((damage, i) => ({ phase: 'gun1', side: 1, attacker: 0, stage: i + 1, action: 0, ciKind: null, ciType: null, hits: [{ target: 0, damage }] })),
+})
+
+test('照账本找这一轮带伤：从最近一场往回接，接到满血开场为止；逐场重放，弹孔与命中逐发对应', () => {
+  const { damageChainOf, replayDamageChain } = load('hit-damage')
+  const { rowZonesOf } = load('hit-glass')
+  const b1 = chainBattle(31, 27, [3, 1])
+  const b2 = chainBattle(27, 27, [])
+  const b3 = chainBattle(27, 24, [2, 1])
+  const older = chainBattle(31, 31, [])
+  const chain = damageChainOf([b3, b2, b1, older], { id: 7, nowhp: 24, maxhp: 31 })
+  assert.equal(chain.status, 'done')
+  assert.deepEqual(chain.battles, [b1, b2, b3], '从早到晚，满血开场那场之前的不要')
+  const state = replayDamageChain(chain.battles, 7, { seedKey: 1, zones: rowZonesOf(layoutOf(1040)), stypeOf: () => 2, targetStype: 2 })
+  assert.equal(state.holes.length, 4, '挨了四下就是四个弹孔')
+})
+
+test('照账本找这一轮带伤：中途回过血（泊修）、最大耐久对不上就算接不上；找不到满血开场时给出已接上的几场；演习跳过', () => {
+  const { damageChainOf } = load('hit-damage')
+  const ship = { id: 7, nowhp: 24, maxhp: 31 }
+  assert.equal(damageChainOf([chainBattle(28, 24, [4]), chainBattle(31, 26, [5])], ship).status, 'broken', '26 → 28 中间回过血')
+  assert.equal(damageChainOf([chainBattle(28, 25, [3])], ship).status, 'broken', '最近一场的终局血量不是现在的血量')
+  assert.equal(damageChainOf([chainBattle(31, 24, [7], { max: 33 })], ship).status, 'broken')
+  const open = damageChainOf([chainBattle(28, 24, [4]), chainBattle(30, 28, [2])], ship)
+  assert.equal(open.status, 'open')
+  assert.equal(open.battles.length, 2)
+  assert.equal(open.startHp, 30, '链头之前的伤（31 → 30）补默认碎裂')
+  assert.equal(damageChainOf([chainBattle(31, 10, [21], { practice: true }), chainBattle(31, 24, [7])], ship).status, 'done', '演习不改耐久，跳过')
 })

@@ -237,6 +237,13 @@ const observeAccountChange = (incoming: string | number) => {
   }
 }
 
+// 改修清单或一次改修记进账本之后（store 的 remodel_slotlist / remodel_slot）：鉴的「今日改修」去重取实测
+const broadcastImproveObserved = () => {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send('mg:improve-observed')
+  }
+}
+
 const broadcastSortieScreen = (ts: number) => {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send('mg:sortie-screen', ts)
@@ -426,6 +433,7 @@ const handleEvent = (
       .map(([id]) => Number(id)),
   )
   const sections = timeMain('api:state', () => store.handle(apiPath, body, postBody, ts), () => apiPath)
+  if (apiPath === '/kcsapi/api_req_kousyou/remodel_slotlist' || apiPath === '/kcsapi/api_req_kousyou/remodel_slot') broadcastImproveObserved()
   if (sections.includes('slotitems')) learnEquipSeenFromInventory(ts)
   if (sections.includes('slotitems')) recordNewSlotitems(ts, apiPath)
   if (apiPath === '/kcsapi/api_port/port' && Array.isArray((body as any)?.api_log)) {

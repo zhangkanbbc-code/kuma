@@ -156,7 +156,7 @@ const makeHandler = () => {
     destroyedSlotitemIds, MARRIAGE_PATH: pathOf('api_req_kaisou/marriage'), HANGAR_EXPAND_PATH: pathOf('api_req_kaisou/hangar_expand'),
     store: { getState: () => state, handle: (...args) => { reduce(...args); return ['materials'] } },
     timeMain: (_label, fn) => fn(), onQuestApi: noop, onChronicleApi: noop, onShipLifeApi: noop,
-    questSenkaInfo: () => null, broadcast: noop, broadcastGameScene: noop, missionScene: () => null,
+    questSenkaInfo: () => null, broadcast: noop, broadcastGameScene: noop, broadcastImproveObserved: noop, missionScene: () => null,
     acquiredShipsOf: () => [], broadcastShipAcquired: noop,
     ledger: { logDelta: (...row) => rows.push(row), logMaterials: noop, logExpeditionResult: noop },
     DOMAIN_SECTIONS: new Set(),

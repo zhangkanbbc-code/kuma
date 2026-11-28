@@ -14,6 +14,7 @@ import assert from 'node:assert/strict'
 import { buildSync } from 'esbuild'
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url))
+const abs = (...parts) => path.join(ROOT, ...parts).replace(/\\/g, '/')
 const read = (...parts) =>
   fs.readFileSync(path.join(ROOT, ...parts), 'utf8').replace(/\r\n/g, '\n')
 
@@ -89,9 +90,10 @@ type Section = string
 type MgState = any
 type MasterShipUpgrade = any
 type SlotitemInstance = any
+import { remodelCostOf, remodelOfResponse } from '${abs('src', 'shared', 'improve-remodel.ts')}'
 
 export const state: any = {
-  player: { ships: {}, useitems: {}, slotitems: {}, materials: null },
+  player: { ships: {}, useitems: {}, slotitems: {}, materials: null, decks: [] },
   master: { ships: {}, upgrades: {} },
 }
 let improveEntries: any[] = []
@@ -99,8 +101,11 @@ const getLode = (id: string) => id === 'equip-improve' ? { data: improveEntries 
 
 // 落账本是真代码里的副作用，这里只记一笔好让护栏看得见它被调过。
 export const useitemLog: any[] = []
+// 改修素材实测（shared/improve-remodel）照真判据整理好之后落账本，这里同样只记下来
+export const remodelLog: any[] = []
 const ledger = {
   logUseitems: (ts: number, changes: any[]) => { useitemLog.push({ ts, changes }) },
+  recordImproveRemodel: (row: any) => { remodelLog.push(row) },
 }
 
 export const buildUpgrades = (body: any) => {
@@ -114,8 +119,16 @@ const applySlotitemInventoryMutation = (
   _path: string,
   body: any,
 ) => {
+  // 同真函数：吞掉的素材实例当场删掉（改修素材实测必须赶在这之前读）
+  let changed = false
+  for (const id of Array.isArray(body?.api_use_slot_id) ? body.api_use_slot_id : []) {
+    if (inventory[Number(id)]) {
+      delete inventory[Number(id)]
+      changed = true
+    }
+  }
   const after = body?.api_after_slot
-  if (!after?.api_id) return false
+  if (!after?.api_id) return changed
   inventory[Number(after.api_id)] = {
     id: Number(after.api_id),
     mstId: Number(after.api_slotitem_id),
@@ -183,6 +196,9 @@ export const reset = (ships = {}, options = {}) => {
     ]),
   )
   loaded.state.player.materials = options.materials ? [...options.materials] : null
+  // 第一舰队：[旗舰, 二号舰, ...] 的在籍编号（改修的二号舰从这里认）
+  loaded.state.player.decks = options.fleet ? [{ id: 1, ships: [...options.fleet] }] : []
+  loaded.remodelLog.length = 0
   loaded.state.master.upgrades = loaded.buildUpgrades({
     api_mst_shipupgrade: options.upgradeRows ?? [],
   })
@@ -208,6 +224,7 @@ export const feedUseitemSync = (counts, ts = REMODEL_TS + 300_000) =>
   )
 
 export const useitems = () => loaded.state.player.useitems
+export const remodelLog = () => loaded.remodelLog
 export const useitemLog = () => loaded.useitemLog
 export const slotitems = () => loaded.state.player.slotitems
 export const materials = () => loaded.state.player.materials

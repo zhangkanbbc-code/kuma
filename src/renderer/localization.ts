@@ -50,6 +50,7 @@ const ENTITY_COLOR_CLASS_BY_LINK_TYPE: Record<string, string> = {
   map: 'e-map',
   battle: 'e-map',
   battleCurrent: 'e-map',
+  bgm: 'e-map', // BGM（反查落在海域卷 BGM 页签）：与海域同族，不新开色
   useitem: 'e-item',
   furniture: 'e-item', // 装饰品（家具）：与道具同族——都是「持有物」，不新开色
   quest: 'e-quest',

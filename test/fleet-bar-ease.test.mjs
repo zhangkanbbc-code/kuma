@@ -19,7 +19,9 @@ const from = source.indexOf('// ---- 血条、油弹条跟着数值平滑走')
 const to = source.indexOf('const makeSvgEl = ', from)
 assert.ok(from >= 0 && to > from, 'ru.ts 里找不到 easeFleetBars 那一段，这条测试的锚点要跟着改')
 
+const BAR_TONE = path.join(ROOT, 'src', 'shared', 'bar-tone.ts').replace(/\\/g, '/')
 const HARNESS = `
+import { barToneStops } from '${BAR_TONE}'
 export const env = { docked: new Set<number>(), hitShake: false, hidden: false, reduced: false }
 const dockOf = (id: number) => (env.docked.has(id) ? { shipId: id } : undefined)
 const hitShakeEnabled = () => env.hitShake
@@ -34,12 +36,21 @@ buildSync({ entryPoints: [path.join(dir, 'entry.ts')], bundle: true, format: 'cj
 const animations = []
 globalThis.document = { get visibilityState() { return lib.env.hidden ? 'hidden' : 'visible' } }
 globalThis.window = { matchMedia: () => ({ matches: lib.env.reduced }) }
+// 档色取值：记成变量名，断言看的是「从哪一档渐变到哪一档」
+globalThis.getComputedStyle = () => ({ getPropertyValue: (name) => name })
 const lib = createRequire(import.meta.url)(out)
 
 const barEl = (ship, key, width) => ({
   style: { width: `${width}%` },
   animate(frames, options) {
-    const run = { ship, key, frames: frames.map((f) => f.width), duration: options.duration, currentTime: 0 }
+    const run = {
+      ship,
+      key,
+      frames: frames.filter((f) => f.width != null).map((f) => f.width),
+      tones: frames.filter((f) => f['--bar-c1']).map((f) => f['--bar-c1'].replace(/^--hpbar-|-1$/g, '')),
+      duration: options.duration,
+      currentTime: 0,
+    }
     animations.push(run)
     return run
   },
@@ -69,6 +80,8 @@ const commit = (rows, { view = 'fleet:1', busy = [], gap = 1000 } = {}) => {
   lib.easeFleetBars(paneOf(rows), view, new Set(busy))
   return animations.map(({ ship, key, frames, currentTime }) => ({ ship, key, frames, currentTime }))
 }
+// 刚提交那一次里血条的颜色渐变（档位序列）
+const tonesOfLast = () => animations.filter((a) => a.key === 'hp').map((a) => a.tones)
 const reset = (t) => {
   t.mock.timers.enable({ apis: ['Date'], now: 1_000_000 })
   clock = t.mock.timers
@@ -105,13 +118,27 @@ test('换页签、首次出现、修理演出在播：一律不走', (t) => {
   assert.deepEqual(commit({ 1: { hp: 70 } }, { view: '' }), [], '不在编队页')
 })
 
-test('入渠、出渠那一下血条宽度变了但血量没变：血条不走，油弹照常', (t) => {
+test('入渠、出渠那一下血条宽度变了但血量没变：血条宽度不走、只把颜色在档色与水青之间渐变过去，油弹照常', (t) => {
   reset(t)
   commit({ 1: { hp: 30, fuel: 60 } })
   lib.env.docked.add(1)
-  assert.deepEqual(commit({ 1: { hp: 45, fuel: 100 } }).map((a) => a.key), ['fuel'])
+  const docking = commit({ 1: { hp: 45, fuel: 100 } })
+  assert.deepEqual(docking.map((a) => [a.key, a.frames]), [['hp', []], ['fuel', ['60%', '100%']]], '血条不带宽度关键帧')
+  assert.deepEqual(tonesOfLast(), [['o', 'd']], '橙档渐变到水青')
   lib.env.docked.delete(1)
-  assert.deepEqual(commit({ 1: { hp: 100, fuel: 100 } }), [])
+  assert.deepEqual(commit({ 1: { hp: 100, fuel: 100 } }).map((a) => [a.key, a.frames]), [['hp', []]])
+  assert.deepEqual(tonesOfLast(), [['d', 'g']])
+})
+
+test('跨档的平滑过渡：颜色与宽度同一条时间线，每过一条档线换到新档（2026-11-28 他报血条「颜色抽动」）', (t) => {
+  reset(t)
+  commit({ 1: { hp: 80 } })
+  assert.deepEqual(commit({ 1: { hp: 20 } }).map((a) => a.frames), [['80%', '20%']])
+  assert.deepEqual(tonesOfLast(), [['g', 'y', 'o', 'r', 'r']])
+  commit({ 1: { hp: 60 } })
+  assert.deepEqual(tonesOfLast(), [['r', 'o', 'y', 'y']])
+  assert.deepEqual(commit({ 1: { hp: 70 } }).map((a) => a.frames), [['60%', '70%']])
+  assert.deepEqual(tonesOfLast(), [[]], '同在黄档不加颜色关键帧')
 })
 
 test('过渡途中又重画：新元素从已走过的进度接着走，不重头来', (t) => {

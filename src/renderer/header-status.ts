@@ -30,6 +30,8 @@ import { isBuildSpoilerEnabled, openNotifyRule } from './modules/lg'
 import { fleetHasUnsupplied } from './modules/ru'
 import { type KcsBgmCue } from '../shared/kcs-bgm'
 import { bgmNameOf, ensureBgmNames } from './bgm-names'
+import { BGM_USAGE_EVENT, bgmUsageOf, ensureBgmUsage } from './bgm-usage'
+import { bgmUsageKey, bgmUsagePlaces } from '../shared/bgm-usage'
 import { materialCues, onMaterialCueChange } from './material-deltas'
 import { headerFitStage } from '../shared/header-fit'
 
@@ -96,9 +98,14 @@ const bgmHtml = () => {
   const name =
     bgmNameOf(currentBgm.kind, currentBgm.id) ??
     `${currentBgm.kind === 'port' ? '母港' : '战斗'} BGM #${`${currentBgm.id}`.padStart(3, '0')}`
-  return `<span class="hs-bgm" title="${esc(`正在播放 · ${name}`)}">
+  // BGM 反查：曲名本身就是链接（悬停看用在哪，点了跳海域卷 BGM 页签）。
+  // 槽位是固定预算（09-03 定），不另加「N 处」占宽
+  ensureBgmUsage()
+  const places = bgmUsagePlaces(bgmUsageOf(currentBgm.kind, currentBgm.id))
+  const label = places ? elink('bgm', bgmUsageKey(currentBgm.kind, currentBgm.id), name) : esc(name)
+  return `<span class="hs-bgm" title="${esc(`正在播放 · ${name}${places ? ` · 用在 ${places} 处` : ''}`)}">
     <i aria-hidden="true"><b></b><b></b><b></b></i>
-    <span>正在播放</span><strong>${esc(name)}</strong>
+    <span>正在播放</span><strong>${label}</strong>
   </span>`
 }
 
@@ -682,6 +689,7 @@ export const initHeaderStatus = (broadcaster?: BgmBroadcaster) => {
   currentBgm = broadcaster?.currentBgm ?? null
   // 曲名表到位后顶栏那一格要自己补上（拉取先于第一次播放时是无声的）
   ensureBgmNames(render)
+  document.addEventListener(BGM_USAGE_EVENT, render)
   broadcaster?.addListener('kancolle.bgm', (cue) => {
     currentBgm = cue
     render()

@@ -205,9 +205,51 @@ import {
 import { installZhSimplifier, simplifyZh } from '../zh-simplify'
 import { ENEMY_FORMATION, formationText } from '../../shared/enemy-formation'
 import { bgmPreviewHtml } from '../bgm-preview'
-import { archivedMapBgmOf } from '../../shared/event-map-bgm'
+import { archivedMapBgmOf, EVENT_MAP_BGM } from '../../shared/event-map-bgm'
+import { bgmNameOf, ensureBgmNames } from '../bgm-names'
+import {
+  applyImproveFacts,
+  improveFactKey,
+  improveFactsOf,
+  type ImproveFact,
+  type ImproveListCost,
+  type ImproveObservation,
+} from '../../shared/improve-observed'
+import {
+  applyLearnedStage,
+  learnedFodderGroups,
+  learnedImproveByLevel,
+  learnedImproveLevel,
+  learnedImproveStage,
+  type ImproveRemodel,
+  type ImproveStage,
+  type LearnedField,
+  type LearnedImproveStage,
+} from '../../shared/improve-remodel'
+import {
+  BGM_USAGE_EVENT,
+  bgmHistoryStart,
+  bgmUsageAll,
+  bgmUsageOf,
+  bgmUsageReady,
+  bgmUsesLinkHtml,
+  ensureBgmUsage,
+  namedBgmIds,
+  recordedMapBgmRowOf,
+} from '../bgm-usage'
+import {
+  bgmSlotLabels,
+  bgmUsageKey,
+  bgmUsagePlaces,
+  mapBgmEntriesOf,
+  parseBgmUsageKey,
+  type BgmMapUse,
+  type BgmSlotUse,
+  type BgmUsage,
+} from '../../shared/bgm-usage'
+import type { KcsBgmKind } from '../../shared/kcs-bgm'
 import { eventLifecycleOf } from '../../shared/event-lifecycle'
-import { applyScrollProfile, captureScrollProfile, combinedEscortState, commitPaneHtml, deferPassive, esc, exitWithMotion, fmtDate, fmtDateTime, fmtTime, forgetCommittedHtml, jstDayOfWeek, lodeCredit, lodeCreditMark, lodeCreditShort, masterShipName, mg, nextJstTime, onFilterInput, onMgChange, ownedHangarExpansionOf, queryLode, queryMasterRaw, queryShipMemorial, trackMountCleanup, uiGet, uiSet, withViewStateKept } from '../kernel'
+import { applyScrollProfile, captureScrollProfile, combinedEscortState, commitPaneHtml, deferPassive, esc, exitWithMotion, fmtDate, fmtDateTime, fmtMonthDay, fmtTime, forgetCommittedHtml, jstDayOfWeek, lodeCredit, lodeCreditMark, lodeCreditShort, masterShipName, mg, nextJstTime, onFilterInput, onMgChange, ownedHangarExpansionOf, queryLode, queryMasterRaw, queryShipMemorial, trackMountCleanup, uiGet, uiSet, withViewStateKept } from '../kernel'
 import { fmtJstDate } from '../../shared/jst-day'
 import type { ScrollProfile } from '../kernel'
 import { createNavHistory } from '../nav-history'
@@ -895,6 +937,21 @@ let buildRecipeLode: { meta: LodeMeta; data: any } | null = null
 let kcwikiLode: { meta: LodeMeta; data: any } | null = null
 let kcwikiByMst: Map<number, any> = new Map() // mst id → kcwiki 中文数据条目
 let eoByEquip: Map<number, any> = new Map() // equip mst id → 改修条目(EO 同构,现源自 wikiwiki 改修表)
+// 改修日程的游戏实测（shared/improve-observed，维护者 2026-11-28 定「让 kuma 从游戏里面学并直接折叠掉实测出来无法改修的」）：
+// 打开明石改修画面时游戏下发的清单记在账本里，资料与游戏打架时以它为准
+let improveObservations: ImproveObservation[] = []
+let improveFactsCache: { obs: ImproveObservation[]; table: Map<number, any>; facts: Map<string, ImproveFact> } | null = null
+const improveFactsNow = (): Map<string, ImproveFact> => {
+  if (improveFactsCache && improveFactsCache.obs === improveObservations && improveFactsCache.table === eoByEquip) {
+    return improveFactsCache.facts
+  }
+  const facts = improveFactsOf(improveObservations, [...eoByEquip.values()])
+  improveFactsCache = { obs: improveObservations, table: eoByEquip, facts }
+  return facts
+}
+// 改修素材的游戏实测（shared/improve-remodel，维护者 2026-11-28 问「让 kuma 识别改修之后的装备变化来判断素材」
+// 「能否区分开是普通改修还是保正改修」）：每次改修吞掉的装备、普通 / 确保两种打法各扣的开发 / 改修资材，资料与它对不上时以它为准
+let improveRemodels: ImproveRemodel[] = []
 // 改修表的覆盖边界（收到第几号）。装配期算一次：判「这件是不能改，还是还没收录」
 // 每次渲染都要问，逐次扫全表就是白扫（同注册表「别在渲染里逐条扫全表」那条）。
 let improveCoverageMax = 0
@@ -3058,6 +3115,7 @@ const shipDrawerHtml = () => {
       </div>`
     })()}
     ${equipMatrixHtml(shipState.selectedForm)}
+    ${shipImproveHelperHtml(shipState.selectedForm, chain)}
     ${shipHistFleetSectionHtml(shipState.selectedRoot)}
     <div class="sec personal-note">
       <div class="sec-h">个人备注<span class="aux">同一改装链共用</span></div>
@@ -5625,6 +5683,8 @@ interface TodayImprovementRow {
   ready: boolean
   helperReady: boolean
   missing: string[]
+  /** 资料说今天能改、而这件的二号舰今天全都实测不可：折叠到页底 */
+  observedOut: boolean
   html: string
 }
 
@@ -5732,8 +5792,94 @@ const improvementHelperListHtml = (
   </details>`
 }
 
+const loadImproveObservations = () => {
+  const failed = Symbol('failed')
+  void Promise.all([
+    jiIpc.invoke('chron:improve-observations').catch(() => failed),
+    jiIpc.invoke('chron:improve-remodels').catch(() => failed),
+  ])
+    .then(([rows, remodels]: unknown[]) => {
+      if (rows !== failed) improveObservations = Array.isArray(rows) ? (rows as ImproveObservation[]) : []
+      if (remodels !== failed) improveRemodels = Array.isArray(remodels) ? (remodels as ImproveRemodel[]) : []
+      if (pane?.isConnected && (activeBook === 'equip' || activeBook === 'ship')) deferPassive(pane, 'ji', render)
+    })
+    .catch(() => {})
+}
+
+/** 实测的出处：游戏实测（本机记到的）/ 维护者实测（随包），带日期 */
+const improveFactSource = (fact: ImproveFact): string =>
+  `${fact.source === 'game' ? '游戏实测' : '维护者实测'} ${fact.date ? fact.date.slice(5) : fmtMonthDay(fact.ts)}`
+
+/** 这件装备的全部实测，按星期列：周六 · 实测不可 村雨改二、夕云改二（维护者实测 11-28） */
+const improveFactLinesHtml = (eqId: number): string => {
+  const own = [...improveFactsNow().values()].filter((fact) => fact.eq === eqId)
+  return [0, 1, 2, 3, 4, 5, 6]
+    .flatMap((day) =>
+      [false, true].map((ok) => {
+        const list = own.filter((fact) => fact.day === day && fact.ok === ok)
+        return list.length
+          ? `<div class="ak-observed${ok ? ' ok' : ''}">${JST_WEEKDAY_LABELS[day]} · 实测${ok ? '可' : '不可'} ${improveFactShipsHtml(list)}</div>`
+          : ''
+      }),
+    )
+    .join('')
+}
+
+/** 几条实测按出处并成一句：「村雨改二、夕云改二（维护者实测 11-28）」 */
+const improveFactShipsHtml = (facts: readonly ImproveFact[]): string => {
+  const groups = new Map<string, number[]>()
+  for (const fact of facts) groups.set(improveFactSource(fact), [...(groups.get(improveFactSource(fact)) ?? []), fact.helper])
+  return [...groups]
+    .map(([source, ids]) => `${ids.map((id) => elink('mstShip', id, masterShipName(id))).join('、')}<i>（${esc(source)}）</i>`)
+    .join('；')
+}
+
+const LEARNED_FIELD_LABEL: Record<LearnedField, string> = {
+  fodder: '素材',
+  devmats: '开发资材（普通）',
+  devmats_sli: '开发资材（确保）',
+  screws: '改修资材（普通）',
+  screws_sli: '改修资材（确保）',
+}
+
+/** 资料那一档的某一项写的是什么（悬停里对照用） */
+const improveTableValueText = (table: ImproveStageCost | undefined, field: LearnedField): string => {
+  if (!table) return '未收录'
+  if (field === 'fodder') {
+    const parts = (table.equips ?? []).map(
+      (need) => `${entityNamePlain('equip', Number(need.id), friendlyEquips.get(Number(need.id))?.api_name ?? `装备 #${need.id}`)}×${Number(need.eq_count)}`,
+    )
+    return parts.join('、') || '无'
+  }
+  if (field === 'devmats_sli') return `${Number(table.devmats_sli ?? table.devmats ?? 0)}`
+  if (field === 'screws_sli') return `${Number(table.screws_sli ?? table.screws ?? 0)}`
+  return `${Number(table[field] ?? 0)}`
+}
+
+/**
+ * 「实测」角标：资料这一档跟游戏实测对不上的那几项（fields 里挑），悬停写清实测是哪天、资料写的是什么。
+ * 对得上就不挂——多数装备两边一样，逐件挂等于没挂。
+ */
+const improveLearnedMark = (
+  table: ImproveStageCost | undefined,
+  learned: LearnedImproveStage | null,
+  changed: readonly LearnedField[],
+  fields: readonly LearnedField[],
+): string => {
+  const hit = changed.filter((field) => fields.includes(field))
+  if (!hit.length || !learned) return ''
+  const ts = Math.max(
+    ...hit.map((field) =>
+      field === 'fodder' ? learned.fodder?.ts ?? 0 : field.endsWith('_sli') ? learned.certain?.ts ?? 0 : learned.normal?.ts ?? 0,
+    ),
+  )
+  const said = table ? `资料写 ${hit.map((field) => `${LEARNED_FIELD_LABEL[field]} ${improveTableValueText(table, field)}`).join('、')}` : '资料未收录'
+  return ` <span class="ti-observed" title="${esc(`游戏实测 ${fmtMonthDay(ts)} · ${said}`)}">实测</span>`
+}
+
 const todayImprovementRows = (): TodayImprovementRow[] => {
   const day = jstDayOfWeek()
+  const facts = improveFactsNow()
   const firstDeck = mg.decks.find((deck) => deck.id === 1) ?? mg.decks[0]
   const flagshipRosterId = firstDeck?.ships?.[0] ?? -1
   const flagship = flagshipRosterId > 0 ? mg.ships[flagshipRosterId] : null
@@ -5765,13 +5911,23 @@ const todayImprovementRows = (): TodayImprovementRow[] => {
       const todayHelpers = helpers.filter(
         (helper: any) => Array.isArray(helper.days) && helper.days.includes(day),
       )
-      if (!todayHelpers.length) continue
-      const allowedHelpers = new Set<number>(
-        todayHelpers.flatMap((helper: any) =>
-          Array.isArray(helper.ship_ids) ? helper.ship_ids.map(Number).filter((id: number) => id > 0) : [],
+      const tableIds = [
+        ...new Set<number>(
+          todayHelpers.flatMap((helper: any) =>
+            Array.isArray(helper.ship_ids) ? helper.ship_ids.map(Number).filter((id: number) => id > 0) : [],
+          ),
         ),
-      )
-      const helperReady = allowedHelpers.size === 0 || (!!second && allowedHelpers.has(second.shipId))
+      ]
+      const noHelperNeeded = todayHelpers.length > 0 && tableIds.length === 0
+      // 游戏实测修正：资料里写着、游戏今天的清单里没有的二号舰去掉；清单里有、资料没写的补上（补在第一套方案上）。
+      // 一个能用的二号舰都不剩 → 实测今日不可，折叠到页底（他 11-28 定「直接折叠掉实测出来无法改修的」）
+      const observed = applyImproveFacts(eo.eq_id, day, tableIds, facts)
+      const added = variant === 0 ? observed.added : []
+      const keptIds = tableIds.filter((id) => !observed.removed.some((fact) => fact.helper === id))
+      if (!todayHelpers.length && !added.length) continue
+      const observedOut = !noHelperNeeded && keptIds.length + added.length === 0
+      const allowedHelpers = new Set<number>([...keptIds, ...added.map((fact) => fact.helper)])
+      const helperReady = !observedOut && (noHelperNeeded || (!!second && allowedHelpers.has(second.shipId)))
 
       const candidates = targets.flatMap((target) => {
         let stageKey: 'p1' | 'p2' | 'conv'
@@ -5788,8 +5944,15 @@ const todayImprovementRows = (): TodayImprovementRow[] => {
         } else {
           return []
         }
-        const stage = imp.costs?.[stageKey]
-        if (!stage) return []
+        // 游戏实测（这一星吞了什么、普通 / 确保各扣多少资材）盖过资料；特殊道具不在响应里，照资料
+        const tableStage = imp.costs?.[stageKey] as ImproveStageCost | undefined
+        const learned = learnedImproveLevel(improveRemodels, eo.eq_id, target.level, {
+          afterEq: stageKey === 'conv' ? Number(imp.convert?.id_after) || null : null,
+          helpers: noHelperNeeded ? [] : [...allowedHelpers],
+        })
+        if (!tableStage && !learned) return []
+        const applied = applyLearnedStage(tableStage, learned)
+        const stage = (applied.stage ?? {}) as ImproveStageCost
         const missing: string[] = []
         const resources = mg.materials
         if (!resources) {
@@ -5821,7 +5984,7 @@ const todayImprovementRows = (): TodayImprovementRow[] => {
             missing.push(`${entityNamePlain('item', Number(need.id), useitemMst.get(Number(need.id))?.api_name ?? `道具 #${need.id}`)}缺 ${Number(need.eq_count) - count}`)
           }
         }
-        return [{ target, stage, stageLabel, missing }]
+        return [{ target, stage, stageLabel, missing, tableStage, learned, changed: applied.changed }]
       })
       if (!candidates.length) continue
       candidates.sort((a, b) => a.missing.length - b.missing.length || a.target.level - b.target.level)
@@ -5830,16 +5993,25 @@ const todayImprovementRows = (): TodayImprovementRow[] => {
       // 折叠态只答「谁当助手」：命中就点名打钩，没命中就报头一个候选 + 还有几艘。
       // 全部候选留给展开层，那里放得下
       const candidateIds = [...allowedHelpers]
-      const helperShort = allowedHelpers.size === 0
+      const secondFact = second ? facts.get(improveFactKey(eo.eq_id, second.shipId, day)) : undefined
+      const observedMark = secondFact?.ok
+        ? ` <span class="ti-observed" title="${esc(improveFactSource(secondFact))}">实测</span>`
+        : ''
+      const helperShort = noHelperNeeded
         ? '无需指定二号舰'
-        : helperReady && second
-          ? `${elink('ship', second.id, masterShipName(second.shipId))} ✓`
-          : `${elink('mstShip', candidateIds[0], masterShipName(candidateIds[0]))}${candidateIds.length > 1 ? ` 等 ${candidateIds.length} 位` : ''}`
+        : observedOut
+          ? '<span class="dim">二号舰今日均实测不可</span>'
+          : helperReady && second
+            ? `${elink('ship', second.id, masterShipName(second.shipId))} ✓${observedMark}`
+            : `${elink('mstShip', candidateIds[0], masterShipName(candidateIds[0]))}${candidateIds.length > 1 ? ` 等 ${candidateIds.length} 位` : ''}`
       const stage = best.stage
       // 括号里是确保化那一侧，不是范围（wikiwiki 改修表原表头：必要資材(通常/確実)）
-      const costs = `${improvementMaterialLink(6, '开发')} ${improveCostCell(stage.devmats, stage.devmats_sli)} · ${improvementMaterialLink(7, '改修')} ${improveCostCell(stage.screws, stage.screws_sli)}`
+      const costs = `${improvementMaterialLink(6, '开发')} ${improveCostCell(stage.devmats, stage.devmats_sli)} · ${improvementMaterialLink(7, '改修')} ${improveCostCell(stage.screws, stage.screws_sli)}${improveLearnedMark(best.tableStage, best.learned, best.changed, ['devmats', 'devmats_sli', 'screws', 'screws_sli'])}`
       const fodder = improveFodderHtml(stage)
-      const status = ready
+      const fodderMark = improveLearnedMark(best.tableStage, best.learned, best.changed, ['fodder'])
+      const status = observedOut
+        ? '<span class="today-status wait">实测今日不可</span>'
+        : ready
         ? '<span class="today-status ok">今日可改修</span>'
         : `<span class="today-status wait"${best.missing.length > 2 ? ` title="${esc(best.missing.join(' · '))}"` : ''}>${
             !akashiReady
@@ -5870,7 +6042,8 @@ const todayImprovementRows = (): TodayImprovementRow[] => {
         ready,
         helperReady,
         missing: best.missing,
-        html: `<details class="improve-item" data-equip="${eo.eq_id}">
+        observedOut,
+        html: `<details class="improve-item${observedOut ? ' observed-out' : ''}" data-equip="${eo.eq_id}">
           <summary>
             <div class="row improve-row${ready ? ' ready' : ''}">
               <div class="face eqface">${equipTypeIconHtml(iconId, { className: 'lg', title: entityNamePlain('equip', eo.eq_id, equip.api_name) })}</div>
@@ -5890,8 +6063,10 @@ const todayImprovementRows = (): TodayImprovementRow[] => {
             <div class="ti-row">装备中 ${equippedCount} · 空闲 ${targets.length - equippedCount}</div>
             <div class="ti-row" title="按装备所在舰队状态统计">当前不可用 远征中 ${awayCount.mission} · 出击中 ${awayCount.sortie} · <span class="ti-untested" title="入渠舰计入当前不可用">入渠中 ${awayCount.ndock}</span></div>
             ${candidateIds.length > 1 && !(helperReady && second) ? `<div class="ti-row">${improvementHelperListHtml(candidateIds, 6, '二号舰')}</div>` : ''}
+            ${observed.removed.length ? `<div class="ti-row ti-observed-row">实测今日不可 ${improveFactShipsHtml(observed.removed)}</div>` : ''}
+            ${added.length ? `<div class="ti-row ti-observed-row">实测今日可 ${improveFactShipsHtml(added)}</div>` : ''}
             <div class="ti-row ti-cost-fold">每次消耗 ${costs}</div>
-            ${fodder === '—' ? '' : `<div class="ti-row">素材 ${fodder}</div>`}
+            ${fodder === '—' && !fodderMark ? '' : `<div class="ti-row">素材 ${fodder === '—' ? '无' : fodder}${fodderMark}</div>`}
             ${best.missing.length ? `<div class="ti-row bad">缺 ${best.missing.map(esc).join(' · ')}</div>` : ''}
             <a class="ti-open" data-improve-open="${eo.eq_id}">装备详情 ›</a>
             <a class="ti-fav" data-improve-favorite="${eo.eq_id}">${favorite ? '★ 已收藏' : '☆ 收藏'}</a>
@@ -5900,6 +6075,7 @@ const todayImprovementRows = (): TodayImprovementRow[] => {
       })
     }
   }
+  rows.push(...listedOnlyImprovementRows(day, facts, second, akashiReady))
   return rows.sort(
     (a, b) =>
       Number(b.ready) - Number(a.ready) ||
@@ -5908,6 +6084,125 @@ const todayImprovementRows = (): TodayImprovementRow[] => {
       a.equipId - b.equipId ||
       a.variant - b.variant,
   )
+}
+
+/**
+ * 改修资料里完全没收录、而游戏今天的清单里有的装备（新装备刚实装、官方当天就给了改修）：
+ * 照游戏清单给的消耗（燃弹钢铝、开发资材、改修资材）列一行，二号舰就是清单当时那艘，挂「实测」。
+ * 素材装备清单里不给，写「资料未收录」，判可不可做时不算它（2026-11-28 他问「新装备官方今天加了改修，打开的话会自动新增吗」）。
+ */
+const listedOnlyImprovementRows = (
+  day: number,
+  facts: ReadonlyMap<string, ImproveFact>,
+  second: { id: number; shipId: number } | null,
+  akashiReady: boolean,
+): TodayImprovementRow[] => {
+  const byEquip = new Map<number, ImproveFact[]>()
+  for (const fact of facts.values()) {
+    if (!fact.ok || fact.day !== day || fact.source !== 'game' || eoByEquip.get(fact.eq)) continue
+    byEquip.set(fact.eq, [...(byEquip.get(fact.eq) ?? []), fact])
+  }
+  const rows: TodayImprovementRow[] = []
+  for (const [eqId, list] of byEquip) {
+    const equip = friendlyEquips.get(eqId)
+    if (!equip || !equipMatches(equip)) continue
+    const targets = equipInstancesOf(eqId).map(([id, item]) => ({ id: parseInt(id, 10), ...item }))
+    if (!targets.length) continue
+    const helperIds = [...new Set(list.map((fact) => fact.helper))]
+    const helperReady = !!second && helperIds.includes(second.shipId)
+    const fact = list.find((one) => one.helper === second?.shipId) ?? list[0]
+    const cost: ImproveListCost | undefined = fact.cost
+    const target = [...targets].sort((a, b) => a.level - b.level)[0]
+    const stageLabel = target.level >= IMPROVE_MAX ? '★max' : `★${target.level} → ★${target.level + 1}`
+    // 改过这件的话，游戏实测给得出这一星的素材与普通 / 确保两种打法的资材
+    const learned = learnedImproveLevel(improveRemodels, eqId, target.level, { helpers: helperIds })
+    const devmats = learned?.normal?.devmats ?? cost?.devmats
+    const screws = learned?.normal?.screws ?? cost?.screws
+    const missing: string[] = []
+    const resources = mg.materials
+    if (!cost && devmats == null) missing.push('消耗未记录')
+    else if (!resources) missing.push('资源未同步')
+    else {
+      for (const [idx, need, label] of [
+        ...(cost
+          ? ([
+              [0, cost.fuel, '燃料'],
+              [1, cost.bull, '弹药'],
+              [2, cost.steel, '钢材'],
+              [3, cost.baux, '铝土'],
+            ] as const)
+          : []),
+        ...(devmats != null ? ([[6, devmats, '开发资材']] as const) : []),
+        ...(screws != null ? ([[7, screws, '改修资材']] as const) : []),
+      ]) {
+        if ((resources[idx] ?? 0) < need) missing.push(`${label}缺 ${need - (resources[idx] ?? 0)}`)
+      }
+    }
+    for (const need of learned?.fodder?.items ?? []) {
+      // 目标装备若未锁且与素材同型，留出当前这一件（同资料行的口径）
+      const usable = unlockedEquipCount(need.id) - (need.id === eqId && !target.locked ? 1 : 0)
+      if (usable < need.count) {
+        missing.push(`${entityNamePlain('equip', need.id, friendlyEquips.get(need.id)?.api_name ?? `装备 #${need.id}`)}缺 ${need.count - Math.max(0, usable)}`)
+      }
+    }
+    const ready = akashiReady && helperReady && missing.length === 0 && target.level < IMPROVE_MAX
+    const favorite = isImproveFavorite(eqId)
+    const iconId = Array.isArray(equip.api_type) ? equip.api_type[3] : 0
+    const helperShort = helperReady && second
+      ? `${elink('ship', second.id, masterShipName(second.shipId))} ✓`
+      : `${elink('mstShip', helperIds[0], masterShipName(helperIds[0]))}${helperIds.length > 1 ? ` 等 ${helperIds.length} 位` : ''}`
+    const costs = devmats != null && screws != null
+      ? `${improvementMaterialLink(6, '开发')} ${improveCostCell(devmats, learned?.certain?.devmats)} · ${improvementMaterialLink(7, '改修')} ${improveCostCell(screws, learned?.certain?.screws)}${improveLearnedMark(undefined, learned, learned?.certain ? ['devmats', 'devmats_sli'] : learned?.normal ? ['devmats'] : [], ['devmats', 'devmats_sli'])}`
+      : '<span class="dim">消耗未记录</span>'
+    const fodderText = learned?.fodder
+      ? `${improveFodderHtml({ equips: learned.fodder.items.map((one) => ({ id: one.id, eq_count: one.count })) }).replace(/^—$/, '无')}${improveLearnedMark(undefined, learned, ['fodder'], ['fodder'])}`
+      : '<span class="dim">资料未收录</span>'
+    const base = cost
+      ? [['燃', cost.fuel], ['弹', cost.bull], ['钢', cost.steel], ['铝', cost.baux]]
+          .filter(([, value]) => Number(value) > 0)
+          .map(([label, value]) => `${label} ${value}`)
+          .join(' · ')
+      : ''
+    const status = ready
+      ? '<span class="today-status ok">今日可改修</span>'
+      : `<span class="today-status wait">${!akashiReady ? '需明石任第一舰队旗舰' : !helperReady ? '需换二号舰' : target.level >= IMPROVE_MAX ? '已改满' : missing.slice(0, 2).map(esc).join(' · ')}</span>`
+    rows.push({
+      equipId: eqId,
+      favorite,
+      variant: 0,
+      type2: Array.isArray(equip.api_type) ? equip.api_type[2] : 0,
+      ready,
+      helperReady,
+      missing,
+      observedOut: false,
+      html: `<details class="improve-item listed-only" data-equip="${eqId}">
+          <summary>
+            <div class="row improve-row${ready ? ' ready' : ''}">
+              <div class="face eqface">${equipTypeIconHtml(iconId, { className: 'lg', title: entityNamePlain('equip', eqId, equip.api_name) })}</div>
+              <div class="nm">
+                <b>${elinkHtml('mstEquip', eqId, entityNameHtml('equip', eqId, equip.api_name, { compact: true }))}</b>
+                <span class="ti-line">
+                  <span class="ti-stage">${esc(stageLabel)}</span>
+                  <span class="ti-helper">${helperShort} <span class="ti-observed" title="${esc(improveFactSource(fact))}">实测</span></span>
+                  <span class="ti-cost">${costs}</span>
+                </span>
+              </div>
+              ${status}
+            </div>
+          </summary>
+          <div class="ti-more">
+            <div class="ti-row">持有 ${targets.length}</div>
+            <div class="ti-row ti-observed-row">资料未收录这件的改修 · 游戏清单里今天有（${improveFactShipsHtml(list)}）</div>
+            <div class="ti-row ti-cost-fold">每次消耗 ${costs}${base ? ` · ${base}` : ''}</div>
+            <div class="ti-row">素材 ${fodderText}</div>
+            ${missing.length ? `<div class="ti-row bad">缺 ${missing.map(esc).join(' · ')}</div>` : ''}
+            <a class="ti-open" data-improve-open="${eqId}">装备详情 ›</a>
+            <a class="ti-fav" data-improve-favorite="${eqId}">${favorite ? '★ 已收藏' : '☆ 收藏'}</a>
+          </div>
+        </details>`,
+    })
+  }
+  return rows
 }
 
 // 没有实际方案行的收藏都列灰行：含未持有、已改满，周历仍展示该款全部日程。
@@ -5953,9 +6248,17 @@ const todayImprovementFavoriteGhosts = (rows: TodayImprovementRow[]): string[] =
  * 传进来的 `rows` **已经筛过**（`todayImprovementRows` 里调了 `equipMatches`），
  * 所以筛空的类别根本进不到这里——不会剩下一个空组头。
  */
-const todayImprovementGroupsHtml = (rows: TodayImprovementRow[]): string => {
+const todayImprovementGroupsHtml = (allRows: TodayImprovementRow[]): string => {
+  // 实测今日不可的方案不进收藏与类别分组，统一收进页底一个默认合上的折叠
+  const rows = allRows.filter((row) => !row.observedOut)
+  const out = allRows.filter((row) => row.observedOut)
+  const outFold = out.length
+    ? `<details class="today-observed-out"><summary title="资料写着今天能改，游戏下发的改修清单里没有">实测今日不可 <i>${out.length}</i></summary>${out
+        .map((row) => row.html)
+        .join('')}</details>`
+    : ''
   const favorites = rows.filter((row) => row.favorite)
-  const ghosts = todayImprovementFavoriteGhosts(rows)
+  const ghosts = todayImprovementFavoriteGhosts(allRows)
   const total = favorites.length + ghosts.length
   const ready = favorites.filter((row) => row.ready).length
   const favoriteGroup = total ? groupBoxHtml(
@@ -5979,7 +6282,7 @@ const todayImprovementGroupsHtml = (rows: TodayImprovementRow[]): string => {
         list.map((row) => row.html).join(''),
       )
     })
-    .join('')
+    .join('') + outFold
 }
 
 /**
@@ -6046,12 +6349,13 @@ const equipCatalogHtml = () => {
   }
   if (equipState.mode === 'today') {
     const today = JST_WEEKDAY_LABELS[jstDayOfWeek()]
-    const rows = todayImprovementRows()
+    const allRows = todayImprovementRows()
+    const rows = allRows.filter((row) => !row.observedOut)
     const ready = rows.filter((row) => row.ready).length
     // chip 与搜索本来就在筛这一页（todayImprovementRows 里调了 equipMatches），
     // 只是抬头没说，看着像「今天就这么几条」
     const filtered = !!(equipState.chip !== '全部' || equipState.typeFilter || equipState.search || equipState.once)
-    const grouped = todayImprovementGroupsHtml(rows)
+    const grouped = todayImprovementGroupsHtml(allRows)
     return `${searchAndMode}
       ${chipsRow}
       <div class="today-summary">
@@ -6481,13 +6785,20 @@ const improveFodderHtml = (stage: ImproveStageCost | undefined): string => {
   return parts.join(' · ') || '—'
 }
 
-/** 七枚圆点的周历，能开修的那几天实心。 */
-const improveWeekHtml = (days: readonly number[]): string => {
+/** 七枚圆点的周历，能开修的那几天实心。
+ * 游戏实测改过的那天另画：资料说能、实测不可的划掉（out），资料没写、实测可的实心加框（added），悬停写谁测的。
+ */
+const improveWeekHtml = (
+  days: readonly number[],
+  observed: { out?: ReadonlyMap<number, string>; added?: ReadonlyMap<number, string> } = {},
+): string => {
   const on = new Set((days ?? []).map(Number))
-  return `<div class="week">${CALENDAR_WEEKDAY_CHIPS.map(
-    ({ day, label, title }) =>
-      `<span class="day${on.has(day) ? ' on' : ''}" title="${title}">${label}</span>`,
-  ).join('')}</div>`
+  return `<div class="week">${CALENDAR_WEEKDAY_CHIPS.map(({ day, label, title }) => {
+    const out = observed.out?.get(day)
+    const added = observed.added?.get(day)
+    const cls = out ? ' out' : on.has(day) ? (added ? ' on observed' : ' on') : ''
+    return `<span class="day${cls}" title="${esc(out ? `${title} · ${out}` : added ? `${title} · ${added}` : title)}">${label}</span>`
+  }).join('')}</div>`
 }
 
 /** 素材现在手上有几件。装备只数闲置且没上锁的——那才是能吞进改修工厂的。 */
@@ -6586,6 +6897,92 @@ const improveBudgetLines = (
 }
 
 /**
+ * 资料里一组二号舰按游戏实测拆开：某艘某天实测不可就把那天划掉，实测可而资料没写就把那天点亮；
+ * 拆完日子仍一样的几艘并成一行（他 11-28：「图鉴没有变化啊，村雨改二依然在」——周历原先直接照资料画）。
+ */
+const observedHelperGroups = (
+  eqId: number,
+  ships: readonly number[],
+  days: readonly number[],
+  facts: ReadonlyMap<string, ImproveFact>,
+): { ships: number[]; days: number[]; out: Map<number, string>; added: Map<number, string>; facts: ImproveFact[] }[] => {
+  const groups = new Map<string, { ships: number[]; days: number[]; out: Map<number, string>; added: Map<number, string>; facts: ImproveFact[] }>()
+  for (const ship of ships) {
+    const out = new Map<number, string>()
+    const added = new Map<number, string>()
+    const used: ImproveFact[] = []
+    for (let day = 0; day < 7; day++) {
+      const fact = facts.get(improveFactKey(eqId, ship, day))
+      if (!fact) continue
+      if (!fact.ok && days.includes(day)) {
+        out.set(day, `实测不可（${improveFactSource(fact)}）`)
+        used.push(fact)
+      } else if (fact.ok && !days.includes(day)) {
+        added.set(day, `实测可（${improveFactSource(fact)}）`)
+        used.push(fact)
+      }
+    }
+    const effective = [...days.filter((day) => !out.has(day)), ...added.keys()].sort((a, b) => a - b)
+    const sig = JSON.stringify([effective, [...out.keys()], [...added.keys()]])
+    const group = groups.get(sig)
+    if (group) {
+      group.ships.push(ship)
+      group.facts.push(...used)
+    } else groups.set(sig, { ships: [ship], days: effective, out, added, facts: used })
+  }
+  return [...groups.values()]
+}
+
+/** 一行二号舰 + 周历；实测改过的挂「实测」，悬停逐条写哪天、谁测的 */
+const observedHelperRowHtml = (group: ReturnType<typeof observedHelperGroups>[number]): string => {
+  const tip = [...new Set(group.facts.map((fact) => `${masterShipName(fact.helper)} ${JST_WEEKDAY_LABELS[fact.day]}实测${fact.ok ? '可' : '不可'}（${improveFactSource(fact)}）`))].join('\n')
+  const mark = tip ? ` <span class="ti-observed" title="${esc(tip)}">实测</span>` : ''
+  return `<div class="ak-row"><span class="who">${improvementHelperListHtml(group.ships, 6, '')}<i>二号舰${mark}</i></span>${improveWeekHtml(group.days, { out: group.out, added: group.added })}</div>`
+}
+
+/**
+ * 改修资料没收录的装备：改过的话按档列出游戏实测——每次吞的素材、普通 / 确保两种打法各扣的开发 / 改修资材。
+ * 「★0-5 · 普通 开发 10 · 改修 8；确保 开发 12 · 改修 8 · 素材 九六式艦戦×2（游戏实测 11-24）」
+ */
+const improveLearnedLinesHtml = (eqId: number): string => {
+  const own = improveRemodels.filter((r) => r.eq === eqId && r.level != null)
+  if (!own.length) return ''
+  const afters = [...new Set(own.filter((r) => r.ok && r.level === 10 && r.afterEq && r.afterEq !== eqId).map((r) => Number(r.afterEq)))]
+  const stages: [ImproveStage, number | null, string][] = [
+    ['p1', null, '★0-5'],
+    ['p2', null, '★6-9'],
+    ...afters.map((after): [ImproveStage, number | null, string] => [
+      'conv',
+      after,
+      `★max 更新 → ${entityNamePlain('equip', after, friendlyEquips.get(after)?.api_name ?? `装备 #${after}`)}`,
+    ]),
+  ]
+  return stages
+    .map(([stageKey, afterEq, label]) => {
+      const byLevel = learnedImproveByLevel(improveRemodels, eqId, stageKey, { afterEq })
+      if (!byLevel.size) return ''
+      const whole = learnedImproveStage(improveRemodels, eqId, stageKey, { afterEq })
+      const pair = (side: 'normal' | 'certain', name: string) => {
+        const one = whole?.[side]
+        return one ? `${name} ${improvementMaterialLink(6, '开发')} ${one.devmats} · ${improvementMaterialLink(7, '改修')} ${one.screws}` : ''
+      }
+      const costs = [pair('normal', '普通'), pair('certain', '确保')].filter(Boolean).join('；')
+      const groups = learnedFodderGroups(byLevel)
+      const fodder = groups.length
+        ? `素材 ${groups
+            .map(
+              (group) =>
+                `${groups.length > 1 || stageKey !== 'conv' ? `★${group.from}${group.to > group.from ? `-${group.to}` : ''} ` : ''}${improveFodderHtml({ equips: group.items.map((one) => ({ id: one.id, eq_count: one.count })) }).replace(/^—$/, '无')}`,
+            )
+            .join(' · ')}`
+        : ''
+      const ts = Math.max(...[...byLevel.values()].flatMap((one) => [one.fodder?.ts ?? 0, one.normal?.ts ?? 0, one.certain?.ts ?? 0]))
+      return `<div class="ak-learned">${esc(label)} · ${[costs, fodder].filter(Boolean).join(' · ')}<i>（游戏实测 ${esc(fmtMonthDay(ts))}）</i></div>`
+    })
+    .join('')
+}
+
+/**
  * 改修工厂卡。骨架照《图鉴设计稿》02-装备图鉴 的「改修工厂」段：
  * 二号舰 × 周历圆点 × 更新目标同一行，三档消耗一张表，推满账收成两行。
  *
@@ -6611,14 +7008,20 @@ const improveSectionHtml = (e: any, instances: [string, { level?: number }][]): 
           ? `改修表暂未收录这件${improveCoverageMax ? `（只到第 ${improveCoverageMax} 号）` : ''}`
           : '改修表暂无当前装备 · 不可改修'
       }</div>
+      ${improveFactLinesHtml(e.api_id)}
+      ${improveLearnedLinesHtml(e.api_id)}
       <details class="ak-grow"><summary>逐星加成</summary><div class="ak-empty">待补</div></details>
     </div>`
   }
   const imps = eo.improvement as any[]
   const today = jstDayOfWeek()
-  const openToday = imps.some((imp) =>
-    ((imp.helpers ?? []) as any[]).some((helper) => (helper.days ?? []).includes(today)),
-  )
+  const facts = improveFactsNow()
+  // 今天开不开照游戏实测修正：资料里今天的二号舰全被实测否掉就算不开；实测可而资料没写的也算开
+  const todayGroups = imps.flatMap((imp) => ((imp.helpers ?? []) as any[]).filter((helper) => (helper.days ?? []).includes(today)))
+  const todayIds = [...new Set<number>(todayGroups.flatMap((helper) => ((helper.ship_ids ?? []) as number[]).map(Number).filter((id) => id > 0)))]
+  const openToday =
+    (todayGroups.length > 0 && todayIds.length === 0) || applyImproveFacts(e.api_id, today, todayIds, facts).helpers.length > 0
+  const factLines = improveFactLinesHtml(e.api_id)
   // 同一件装备里**别的**方案能更新、这一条不能 → 那是「这个二号舰不给更新」，
   // 与「这件装备压根没有更新路线」是两回事，别用同一句话打发
   //（2026-08-25 裁决：二号舰全档可用，差别只在更新可否）。
@@ -6660,10 +7063,17 @@ const improveSectionHtml = (e: any, instances: [string, { level?: number }][]): 
   }
   for (const plan of plans) plan.imps.sort((a, b) => imps.indexOf(a) - imps.indexOf(b))
 
+  // 资料里这件装备哪套方案都没写、游戏实测可的二号舰：补在第一张卡上
+  const tableShips = new Set<number>(
+    imps.flatMap((imp) => ((imp.helpers ?? []) as any[]).flatMap((helper) => ((helper.ship_ids ?? []) as number[]).map(Number))),
+  )
+  const extraShips = [...new Set([...facts.values()].filter((fact) => fact.eq === e.api_id && fact.ok && !tableShips.has(fact.helper)).map((fact) => fact.helper))]
+  const extraRows = observedHelperGroups(e.api_id, extraShips, [], facts).map(observedHelperRowHtml).join('')
   const planHtml = plans
     .map((plan, planIndex) => {
       const rows = plan.imps
-        .map((imp) => {
+        .map((imp, impIndex) => {
+          const extra = planIndex === 0 && impIndex === 0 ? extraRows : ''
           const target = Number(imp.convert?.id_after ?? 0)
           const to = target
             ? `<span class="to">★max 后更新 → ${equipVisualLink(target)}${Number(imp.convert.lvl_after ?? 0) ? ` ★${Number(imp.convert.lvl_after)}` : ''}</span>`
@@ -6675,21 +7085,19 @@ const improveSectionHtml = (e: any, instances: [string, { level?: number }][]): 
           const helpers = (imp.helpers ?? []) as any[]
           const targetRow = to ? `<div class="ak-to">${to}</div>` : ''
           if (!helpers.length) {
-            return `<div class="ak-imp"><div class="ak-row"><span class="ak-warn">资料未收录改修日程与二号舰</span></div>${targetRow}</div>`
+            return `<div class="ak-imp"><div class="ak-row"><span class="ak-warn">资料未收录改修日程与二号舰</span></div>${extra}${targetRow}</div>`
           }
           // 同一套方案里几组二号舰共用一张卡，更新目标在卡尾只写一次。
           // 2026-09-13 鬼怒改二案：后排卡片没有目标行，被读成「不能更新」；
           // 08-25「更新目标只出现一次」现在靠「一卡一目标」满足，避免逐行重复。
           const helperRows = helpers
-            .map((helper) => {
+            .flatMap((helper) => {
               const ships = (helper.ship_ids ?? []).map(Number).filter((id: number) => id > 0)
-              const who = ships.length
-                ? `<span class="who">${improvementHelperListHtml(ships, 6, '')}<i>二号舰</i></span>`
-                : '<span class="who">无需指定二号舰</span>'
-              return `<div class="ak-row">${who}${improveWeekHtml(helper.days ?? [])}</div>`
+              if (!ships.length) return [`<div class="ak-row"><span class="who">无需指定二号舰</span>${improveWeekHtml(helper.days ?? [])}</div>`]
+              return observedHelperGroups(e.api_id, ships, ((helper.days ?? []) as number[]).map(Number), facts).map(observedHelperRowHtml)
             })
             .join('')
-          return `<div class="ak-imp">${helperRows}${targetRow}</div>`
+          return `<div class="ak-imp">${helperRows}${extra}${targetRow}</div>`
         })
         .join('')
       // 更新那一档按**目标**分行：同一组里几个目标的价钱本来就不一样，
@@ -6710,22 +7118,62 @@ const improveSectionHtml = (e: any, instances: [string, { level?: number }][]): 
             (one) => one.label === conv.label && stageSig(one.stage) === stageSig(conv.stage),
           ) === index,
       )
-      const matsRow = (label: string, stage: ImproveStageCost) => `<tr>
+      // 游戏实测按这套方案的二号舰取（素材跟二号舰走的少数装备不串）；有不限二号舰的就不挑
+      const planHelperIds = plan.imps.some((imp) =>
+        ((imp.helpers ?? []) as any[]).some((helper) => !((helper.ship_ids ?? []) as number[]).some((id) => Number(id) > 0)),
+      )
+        ? []
+        : [...new Set<number>(plan.imps.flatMap((imp) => ((imp.helpers ?? []) as any[]).flatMap((helper) => ((helper.ship_ids ?? []) as number[]).map(Number))))].filter((id) => id > 0)
+      const learnedStageOf = (stageKey: ImproveStage, table: ImproveStageCost, afterEq: number | null) => {
+        const opts = { afterEq, helpers: planHelperIds }
+        const whole = learnedImproveStage(improveRemodels, e.api_id, stageKey, opts)
+        const applied = applyLearnedStage(table, whole)
+        // 档内各星要的素材不一样（熟练见张员 ★6 与 ★7-9）：按星分组列，整档那一格不拿某一星冒充
+        const groups = whole?.mixed.includes('fodder') ? learnedFodderGroups(learnedImproveByLevel(improveRemodels, e.api_id, stageKey, opts)) : []
+        return { table, whole, stage: (applied.stage ?? table) as ImproveStageCost, changed: applied.changed, groups }
+      }
+      const p1Learned = plan.costs.p1 ? learnedStageOf('p1', plan.costs.p1, null) : null
+      const p2Learned = plan.costs.p2 ? learnedStageOf('p2', plan.costs.p2, null) : null
+      const convLearned = uniqueConvs.map((conv) => {
+        const afterEq = Number(plan.imps.find((imp) => imp.costs?.conv === conv.stage)?.convert?.id_after) || null
+        return { ...conv, learned: learnedStageOf('conv', conv.stage, afterEq) }
+      })
+      const matsRow = (label: string, row: ReturnType<typeof learnedStageOf>) => {
+        const fodder = row.groups.length
+          ? `${row.groups
+              .map(
+                (group) =>
+                  `<i>★${group.from}${group.to > group.from ? `-${group.to}` : ''}</i> ${improveFodderHtml({ equips: group.items.map((one) => ({ id: one.id, eq_count: one.count })) }).replace(/^—$/, '无')}`,
+              )
+              .join(' · ')}${(row.table.consumable ?? []).length ? ` · ${improveFodderHtml({ consumable: row.table.consumable })}` : ''} <span class="ti-observed" title="${esc(`游戏实测：这一档各星要的素材不一样 · 资料写 ${improveTableValueText(row.table, 'fodder')}`)}">实测</span>`
+          : `${improveFodderHtml(row.stage)}${improveLearnedMark(row.table, row.whole, row.changed, ['fodder'])}`
+        return `<tr>
         <td class="rng">${label}</td>
-        <td class="n">${improveCostCell(stage.devmats, stage.devmats_sli)}</td>
-        <td class="n">${improveCostCell(stage.screws, stage.screws_sli)}</td>
-        <td>${improveFodderHtml(stage)}</td>
+        <td class="n">${improveCostCell(row.stage.devmats, row.stage.devmats_sli)}${improveLearnedMark(row.table, row.whole, row.changed, ['devmats', 'devmats_sli'])}</td>
+        <td class="n">${improveCostCell(row.stage.screws, row.stage.screws_sli)}${improveLearnedMark(row.table, row.whole, row.changed, ['screws', 'screws_sli'])}</td>
+        <td>${fodder}</td>
       </tr>`
+      }
       const matsRows = [
-        plan.costs.p1 ? matsRow('★0-5', plan.costs.p1) : '',
-        plan.costs.p2 ? matsRow('★6-9', plan.costs.p2) : '',
-        ...uniqueConvs.map((conv) =>
+        p1Learned ? matsRow('★0-5', p1Learned) : '',
+        p2Learned ? matsRow('★6-9', p2Learned) : '',
+        ...convLearned.map((conv) =>
           matsRow(
-            `★max 更新${uniqueConvs.length > 1 ? ` → ${esc(conv.label)}` : ''}`,
-            conv.stage,
+            `★max 更新${convLearned.length > 1 ? ` → ${esc(conv.label)}` : ''}`,
+            conv.learned,
           ),
         ),
       ].join('')
+      // 推满账跟着整档对得上的实测走；档内各星不一样的那一项仍按资料算
+      const learnedCosts: ImproveCosts = {
+        ...plan.costs,
+        ...(p1Learned ? { p1: p1Learned.stage } : {}),
+        ...(p2Learned ? { p2: p2Learned.stage } : {}),
+      }
+      const learnedConvs = convLearned.map((conv) => ({ label: conv.label, stage: conv.learned.stage }))
+      const groupStages = [p1Learned, p2Learned, ...convLearned.map((conv) => conv.learned)].flatMap((row) =>
+        (row?.groups ?? []).map((group) => ({ equips: group.items.map((one) => ({ id: one.id, eq_count: one.count })) })),
+      )
       const base = (
         [
           ['燃', plan.costs.fuel],
@@ -6748,8 +7196,8 @@ const improveSectionHtml = (e: any, instances: [string, { level?: number }][]): 
       return `<div class="ak-plan">
         ${plans.length > 1 ? `<div class="ak-plan-h">方案 ${planIndex + 1}</div>` : ''}
         ${rows}${mats}
-        ${improveBudgetLines(plan.costs, instances, uniqueConvs)}
-        ${improveFodderStockHtml([plan.costs.p1, plan.costs.p2, ...uniqueConvs.map((conv) => conv.stage)])}
+        ${improveBudgetLines(learnedCosts, instances, learnedConvs)}
+        ${improveFodderStockHtml([learnedCosts.p1, learnedCosts.p2, ...learnedConvs.map((conv) => conv.stage), ...groupStages])}
       </div>`
     })
     .join('')
@@ -6800,6 +7248,7 @@ const improveSectionHtml = (e: any, instances: [string, { level?: number }][]): 
     <div class="sec-h">改修工厂<span class="aux${openToday ? ' ok' : ''}" title="改修日程">${JST_WEEKDAY_LABELS[today]} · ${openToday ? '今日可改修 ✓' : '今日不可改修 ✗'}</span><span class="sp"></span><a class="ak-fav" data-improve-favorite="${e.api_id}">${isImproveFavorite(e.api_id) ? '★ 已收藏' : '☆ 收藏'}</a>${eoLode ? lodeCreditMark(eoLode.meta) : ''}</div>
     <div class="akashi">
       ${starTable}${planHtml}
+      ${factLines}
       ${anyConvert ? '' : '<div class="ak-note">当前装备无更新路线 · ★max 为终点</div>'}
     </div>
   </div>`
@@ -8204,6 +8653,10 @@ const mapState = {
   fleetId: 1,
   personalNode: '',
   dropNode: '',
+  // BGM 页签（BGM 反查，2026-11-28）：open 两个页签共用——在 BGM 页签时开的是那首曲的抽屉
+  tab: 'map' as 'map' | 'bgm',
+  bgm: '', // 选中的曲：shared/bgm-usage 的键（battle:76 / port:108）
+  bgmSearch: '',
 }
 const emptyMapForecast = (): SortieForecastReport => ({
   sortie: { total: 0, wins: 0, saWins: 0, sWins: 0, reached: 0 },
@@ -10160,33 +10613,255 @@ const miniMapSvg = (code: string, mapId: number, options: MiniMapOptions = {}): 
 }
 
 // 海域 BGM（api_mst_mapbgm，2026-08-17 用户拍板启用）：海图移动 + 昼/夜战 + Boss。
-// 昼夜同曲就合并写，别把同一首歌列两遍。♪ 词条可点试听（bgm-preview）。
+// 昼夜同曲就合并写，别把同一首歌列两遍（叫法与 BGM 反查共用 shared/bgm-usage）。
+// ♪ 词条可点试听（bgm-preview）；旁边的「N 处」是反查，点了跳到 BGM 页签那一首。
 const mapBgmLineHtml = (mapId: number): string => {
   // 主数据优先：活动在场期间以官方当刻下发的为准（期中改配曲的先例是有的）。
-  // 撤场后那一行会从 start2 里消失，才回落到活动期间抄下的留存（shared/event-map-bgm）。
+  // 撤场后那一行会从 start2 里消失：先看本机留存的配曲（shared/map-bgm-history，2026-11-28 起自动记），
+  // 再回落到活动期间手抄的留存（shared/event-map-bgm，62 期）。
   const row =
-    (mst?.api_mst_mapbgm ?? []).find((b: any) => b.api_id === mapId) ?? archivedMapBgmOf(mapId)
+    (mst?.api_mst_mapbgm ?? []).find((b: any) => b.api_id === mapId) ??
+    recordedMapBgmRowOf(mapId) ??
+    archivedMapBgmOf(mapId)
   if (!row) return ''
-  const entries: [string, number][] = []
-  if (row.api_moving_bgm > 0) entries.push(['海图', row.api_moving_bgm])
-  const day = row.api_map_bgm?.[0] ?? 0
-  const night = row.api_map_bgm?.[1] ?? 0
-  if (day > 0 && day === night) entries.push(['战斗', day])
-  else {
-    if (day > 0) entries.push(['昼战', day])
-    if (night > 0) entries.push(['夜战', night])
-  }
-  const bossDay = row.api_boss_bgm?.[0] ?? 0
-  const bossNight = row.api_boss_bgm?.[1] ?? 0
-  if (bossDay > 0 && bossDay === bossNight) entries.push(['Boss', bossDay])
-  else {
-    if (bossDay > 0) entries.push(['Boss 昼', bossDay])
-    if (bossNight > 0) entries.push(['Boss 夜', bossNight])
-  }
+  const entries = mapBgmEntriesOf(row)
   if (!entries.length) return ''
   return `<div class="own-line map-bgm-line"><span class="k9">BGM</span>${entries
-    .map(([label, id]) => `<span class="own-pill bgm">${label} ${bgmPreviewHtml(id, 'battle')}</span>`)
+    .map(([label, id]) => `<span class="own-pill bgm">${label} ${bgmPreviewHtml(id, 'battle')}${bgmUsesLinkHtml('battle', id)}</span>`)
     .join('')}</div>`
+}
+
+// ---- 海域卷 · BGM 页签（BGM 反查，2026-11-28 他定「总表＋曲名旁跳转」）----
+// 每首曲一行：用在哪张图哪一步、哪些家具；判据全在 shared/bgm-usage，这里只排版。
+
+const bgmNo = (id: number) => `${id}`.padStart(3, '0')
+const bgmKindLabel = (kind: KcsBgmKind) => (kind === 'port' ? '母港曲' : '战斗曲')
+const bgmTitleOf = (kind: KcsBgmKind, id: number) => bgmNameOf(kind, id) ?? `#${bgmNo(id)}`
+
+let furnitureTitles: { from: any; titles: Map<number, string> } | null = null
+const furnitureTitleOf = (id: number): string => {
+  let cache = furnitureTitles
+  if (!cache || cache.from !== mst) {
+    cache = furnitureTitles = {
+      from: mst,
+      titles: new Map(
+        (mst?.api_mst_furniture ?? []).map((f: any) => [Number(f.api_id), `${f.api_title ?? ''}`.trim()]),
+      ),
+    }
+  }
+  return cache.titles.get(id) || `装饰品 #${id}`
+}
+
+const bgmMapLabel = (mapId: number): string => {
+  const info = mapInfos.find((m) => m.api_id === mapId)
+  return info ? `${mapCodeOf(mapId)} ${entityNamePlain('map', mapId, info.api_name)}` : mapCodeOf(mapId)
+}
+
+const bgmIsCurrentMap = (map: BgmMapUse) => map.slots.some((slot) => slot.current)
+
+/** 目录行副标题：当前在用的图在前，曾用的跟在后面，最多列 6 张 */
+const bgmRowSummary = (usage: BgmUsage): string => {
+  const places = bgmUsagePlaces(usage)
+  if (usage.kind === 'port') {
+    const first = usage.furniture[0]
+    return `${places} 处 · ${first ? furnitureTitleOf(first) : ''}${usage.furniture.length > 1 ? ' 等' : ''}`
+  }
+  const current = usage.maps.filter(bgmIsCurrentMap).map((map) => mapCodeOf(map.mapId))
+  const past = usage.maps.filter((map) => !bgmIsCurrentMap(map)).map((map) => mapCodeOf(map.mapId))
+  const shown = current.slice(0, 6)
+  const pastShown = past.slice(0, Math.max(0, 6 - shown.length))
+  const more = current.length + past.length > shown.length + pastShown.length ? ' …' : ''
+  return `${places} 处 · ${shown.join(' ')}${pastShown.length ? `${shown.length ? ' · ' : ''}曾用 ${pastShown.join(' ')}` : ''}${more}`
+}
+
+const mapTabsHtml = () =>
+  `<div class="ab-tabs map-tabs">
+    <span class="ab-tab${mapState.tab === 'map' ? ' on' : ''}" data-maptab="map">海域 ${mapInfos.length}</span>
+    <span class="ab-tab${mapState.tab === 'bgm' ? ' on' : ''}" data-maptab="bgm">BGM${bgmUsageReady() ? ` ${bgmUsageAll().length}` : ''}</span>
+  </div>`
+
+const bgmRowHtml = (kind: KcsBgmKind, id: number, usage: BgmUsage | null) => {
+  const key = bgmUsageKey(kind, id)
+  const on = mapState.open && mapState.bgm === key
+  return `<div class="row bgm-row${usage ? '' : ' ghost'}${on ? ' on' : ''}" data-bgm-key="${key}" style="--rc:var(--tint-teal-done-line)">
+    <div class="face bgm-face">${bgmNo(id)}</div>
+    <div class="nm"><b>${esc(bgmTitleOf(kind, id))}</b><span>${esc(usage ? bgmRowSummary(usage) : '暂无使用记录')}</span></div>
+  </div>`
+}
+
+/** 搜索：曲名（全半角同折）或编号（76 / 076 / #76 都认） */
+const bgmMatches = (kind: KcsBgmKind, id: number, query: string): boolean => {
+  if (!query) return true
+  const numeric = /^#?\d{1,3}$/.test(query) ? Number(query.replace('#', '')) : null
+  if (numeric != null && numeric === id) return true
+  const name = bgmNameOf(kind, id)
+  return !!name && searchFold(name).includes(query)
+}
+
+const onBgmNamesReady = () => {
+  if (pane?.isConnected && activeBook === 'map') deferPassive(pane, 'ji', render)
+}
+
+const bgmCatalogHtml = () => {
+  ensureBgmUsage()
+  ensureBgmNames(onBgmNamesReady)
+  if (!bgmUsageReady()) {
+    return `${mapTabsHtml()}<div class="ship-list" id="ji-bgm-list"><div class="af-empty" style="padding:20px">正在整理配曲…</div></div>`
+  }
+  const query = searchFold(mapState.bgmSearch.trim())
+  const all = bgmUsageAll()
+  const byPlaces = (a: BgmUsage, b: BgmUsage) => bgmUsagePlaces(b) - bgmUsagePlaces(a) || a.id - b.id
+  const group = (key: string, title: string, items: BgmUsage[]) => {
+    const shown = items.filter((usage) => bgmMatches(usage.kind, usage.id, query)).sort(byPlaces)
+    if (!shown.length) return ''
+    return groupBoxHtml(
+      `bgm:${key}`,
+      `<b>${title}</b><span class="cnt">${shown.length}</span>`,
+      shown.map((usage) => bgmRowHtml(usage.kind, usage.id, usage)).join(''),
+    )
+  }
+  // 搜索时把没有任何地方在用、但收了名字的曲子也列出来——「这首现在哪儿都没用」本身就是答案
+  const unused = query
+    ? (['battle', 'port'] as KcsBgmKind[]).flatMap((kind) =>
+        namedBgmIds(kind)
+          .filter((id) => !bgmUsageOf(kind, id) && bgmMatches(kind, id, query))
+          .map((id) => bgmRowHtml(kind, id, null)),
+      )
+    : []
+  const rows = [
+    group('battle', '海域配曲', all.filter((usage) => usage.kind === 'battle')),
+    group('port', '家具附带', all.filter((usage) => usage.kind === 'port')),
+    unused.length
+      ? groupBoxHtml('bgm:unused', `<b>其余曲目</b><span class="cnt">${unused.length}</span>`, unused.join(''))
+      : '',
+  ].join('')
+  return `${mapTabsHtml()}
+    <div class="search-row"><div class="search">⌕<input id="ji-bgm-search" placeholder="曲名 / 编号" value="${esc(mapState.bgmSearch)}"></div></div>
+    <div class="ship-list" id="ji-bgm-list">${rows || '<div style="padding:20px;color:var(--dim)">暂无匹配项</div>'}</div>`
+}
+
+/** 一张图上这首曲的几枚词条：当前在用的照海域页的叫法，曾用的带上最后见到的日子 */
+const bgmMapPillsHtml = (map: BgmMapUse, start: number | null): string => {
+  const current = map.slots.filter((slot) => slot.current)
+  const past = map.slots.filter((slot) => !slot.current)
+  const pills: string[] = []
+  // 留存开始之后才换上的（季节换曲之类）标出从哪天起；留存之前就这么配的不标，免得像是新换的
+  const since =
+    current.length && start != null && current.every((slot) => slot.firstSeen != null && slot.firstSeen > start)
+      ? Math.min(...current.map((slot) => slot.firstSeen!))
+      : null
+  for (const label of bgmSlotLabels(current.map((slot) => slot.slot))) {
+    pills.push(`<span class="own-pill">${esc(label)}</span>`)
+  }
+  if (since != null) {
+    pills.push(`<span class="bgm-since" title="${esc(`本机 ${fmtDate(since)} 起见到这一配法`)}">${fmtMonthDay(since)} 起</span>`)
+  }
+  const pastGroups = new Map<string, { slots: BgmSlotUse[]; title: string; text: string }>()
+  for (const slot of past) {
+    const key = slot.archived ? 'archived' : `${slot.lastSeen}`
+    const entry = pastGroups.get(key) ?? {
+      slots: [],
+      title: slot.archived
+        ? '活动期间手抄的配曲留存'
+        : `本机最早见于 ${fmtDate(slot.firstSeen!)} · 最后见于 ${fmtDate(slot.lastSeen!)}`,
+      text: slot.archived ? '活动期间' : `～${fmtMonthDay(slot.lastSeen!)}`,
+    }
+    entry.slots.push(slot)
+    pastGroups.set(key, entry)
+  }
+  for (const entry of pastGroups.values()) {
+    for (const label of bgmSlotLabels(entry.slots.map((slot) => slot.slot))) {
+      pills.push(`<span class="own-pill past" title="${esc(entry.title)}">${esc(label)} ${entry.text}</span>`)
+    }
+  }
+  return pills.join('')
+}
+
+const bgmDrawerHtml = () => {
+  const parsed = parseBgmUsageKey(mapState.bgm)
+  if (!parsed) return ''
+  const { kind, id } = parsed
+  const key = bgmUsageKey(kind, id)
+  ensureBgmUsage()
+  const usage = bgmUsageOf(kind, id)
+  const start = bgmHistoryStart()
+  const name = bgmNameOf(kind, id)
+  const currentMaps = usage?.maps.filter(bgmIsCurrentMap) ?? []
+  const pastMaps = usage?.maps.filter((map) => !bgmIsCurrentMap(map)) ?? []
+  const furniture = usage?.furniture ?? []
+  const areas = new Map<number, BgmMapUse[]>()
+  for (const map of usage?.maps ?? []) {
+    const areaId = Math.floor(map.mapId / 10)
+    areas.set(areaId, [...(areas.get(areaId) ?? []), map])
+  }
+  const mapsHtml = [...areas]
+    .sort((a, b) => a[0] - b[0])
+    .map(([areaId, maps]) => `<div class="bgm-area">
+      <div class="bgm-area-h">${entityNameHtml('mapArea', areaId, mapAreas.get(areaId) ?? `海域 ${areaId}`, { compact: true })}</div>
+      ${maps
+        .map(
+          (map) => `<div class="bgm-map${bgmIsCurrentMap(map) ? '' : ' past'}">
+            <span class="bgm-map-name">${elink('map', map.mapId, bgmMapLabel(map.mapId))}</span>
+            <span class="bgm-map-pills">${bgmMapPillsHtml(map, start)}</span>
+          </div>`,
+        )
+        .join('')}
+    </div>`)
+    .join('')
+  const archivedUsed = (usage?.maps ?? []).some((map) => map.slots.some((slot) => slot.archived))
+  const credit = [
+    `${kind === 'battle' ? '配曲' : '家具'} · 游戏基础数据 · 更新于 ${masterTs ? fmtDate(masterTs) : '—'}`,
+    kind === 'battle' && start != null ? `配曲变动 · 本机自 ${fmtDate(start)} 起留存` : '',
+    archivedUsed ? `${EVENT_MAP_BGM.map((archive) => `${archive.area} 期`).join('、')}活动图 · 活动期间手抄` : '',
+  ].filter(Boolean)
+  return `
+  <div class="d-head">
+    <span class="x" id="ji-bgm-close" title="关闭（Esc）">✕</span>
+    <span class="crumb">BGM › <b>${bgmKindLabel(kind)} #${bgmNo(id)}</b></span><span class="sp"></span>
+  </div>
+  <div class="detail" data-fold-scope="bgm:${key}">
+    <div class="hero bgm-hero">
+      <div class="hero-l">
+        <div class="meta-line">
+          <span class="badge" style="color:var(--map-area-ink);border-color:var(--tint-teal-done-line)">${bgmKindLabel(kind)}</span>
+          <span class="no">#${bgmNo(id)}</span>
+        </div>
+        <div class="name-block"><h1 style="font-size:22px">${esc(name ?? `#${bgmNo(id)}`)}</h1></div>
+        <div class="own-line">
+          <span class="own-pill bgm">${bgmPreviewHtml(id, kind)}</span>
+          ${currentMaps.length ? `<span class="own-pill">当前 <b>${currentMaps.length}</b> 张图</span>` : ''}
+          ${pastMaps.length ? `<span class="own-pill">曾用 <b>${pastMaps.length}</b> 张图</span>` : ''}
+          ${furniture.length ? `<span class="own-pill">家具 <b>${furniture.length}</b> 件</span>` : ''}
+        </div>
+      </div>
+    </div>
+    ${
+      usage?.maps.length
+        ? `<div class="sec bgm-sec"><div class="sec-h">使用海域<span class="aux">${start != null ? '当前配曲 · 本机留存' : '当前配曲'}</span></div>${mapsHtml}</div>`
+        : ''
+    }
+    ${
+      furniture.length
+        ? `<div class="sec bgm-sec"><div class="sec-h">附带家具</div>
+          <div class="bgm-furniture">${furniture.map((fid) => elink('furniture', fid, furnitureTitleOf(fid))).join('')}</div></div>`
+        : ''
+    }
+    ${!usage ? `<div class="af-empty" style="padding:16px 18px">${bgmUsageReady() ? '暂无使用记录' : '正在整理配曲…'}</div>` : ''}
+    <div class="foot"><span class="credit-mark" title="${esc(credit.join(' ｜ '))}">源</span></div>
+  </div>`
+}
+
+/** 鉴外各处「N 处」的落点：海域卷 BGM 页签，开那一首的抽屉 */
+const openBgm = (key: string) => {
+  const parsed = parseBgmUsageKey(key)
+  if (!parsed) return
+  activateModule('ji')
+  activeBook = 'map'
+  mapState.tab = 'bgm'
+  mapState.bgm = bgmUsageKey(parsed.kind, parsed.id)
+  mapState.open = true
+  render()
+  pane?.querySelector<HTMLElement>('#ji-bgm-list .bgm-row.on')?.scrollIntoView({ block: 'nearest' })
 }
 
 /**
@@ -10368,6 +11043,115 @@ const exslotInfo = (shipMstId: number): {
     }
   }
   return { types, excludedTypes, extras }
+}
+
+// ---- 装备改修助手（舰娘图鉴）----
+// 他 11-28 要「给舰娘的图鉴加入装备改修助手」：这一形态能当哪些装备的改修二号舰、星期几、★max 能不能顺手更新。
+// 日程照改修资料；游戏实测（打开明石改修画面时的清单倒推，见 shared/improve-observed）改过的那天照实测画
+
+interface ImproveHelperEntry {
+  days: Set<number>
+  converts: Set<number>
+  out: Map<number, string>
+  added: Map<number, string>
+  facts: ImproveFact[]
+}
+
+// 二号舰 → 装备 → 资料里的星期与更新目标。随改修资料身份失效，装配后算一次（别在渲染里逐艘扫全表）
+let improveHelperIndexCache: { table: Map<number, any>; index: Map<number, Map<number, { days: Set<number>; converts: Set<number> }>> } | null = null
+const improveHelperIndex = () => {
+  if (improveHelperIndexCache?.table === eoByEquip) return improveHelperIndexCache.index
+  const index = new Map<number, Map<number, { days: Set<number>; converts: Set<number> }>>()
+  for (const eo of eoByEquip.values()) {
+    for (const imp of (eo.improvement ?? []) as any[]) {
+      const convert = Number(imp?.convert?.id_after) || 0
+      for (const helper of (imp?.helpers ?? []) as any[]) {
+        for (const ship of ((helper?.ship_ids ?? []) as number[]).map(Number)) {
+          if (!(ship > 0)) continue
+          const byEquip = index.get(ship) ?? new Map<number, { days: Set<number>; converts: Set<number> }>()
+          const entry = byEquip.get(eo.eq_id) ?? { days: new Set<number>(), converts: new Set<number>() }
+          for (const day of (helper?.days ?? []) as number[]) entry.days.add(Number(day))
+          if (convert) entry.converts.add(convert)
+          byEquip.set(eo.eq_id, entry)
+          index.set(ship, byEquip)
+        }
+      }
+    }
+  }
+  improveHelperIndexCache = { table: eoByEquip, index }
+  return index
+}
+
+/** 这艘当二号舰能改的装备：资料的星期按游戏实测改（实测不可划掉、实测可补上，资料完全没写而实测可的也列） */
+const improveHelperEntries = (shipId: number): Map<number, ImproveHelperEntry> => {
+  const entries = new Map<number, ImproveHelperEntry>()
+  for (const [eq, entry] of improveHelperIndex().get(shipId) ?? []) {
+    entries.set(eq, { days: new Set(entry.days), converts: entry.converts, out: new Map(), added: new Map(), facts: [] })
+  }
+  for (const fact of improveFactsNow().values()) {
+    if (fact.helper !== shipId) continue
+    const fresh = (): ImproveHelperEntry => ({ days: new Set(), converts: new Set(), out: new Map(), added: new Map(), facts: [] })
+    const entry = entries.get(fact.eq) ?? (fact.ok ? fresh() : null)
+    if (!entry) continue
+    if (fact.ok && !entry.days.has(fact.day)) {
+      entry.days.add(fact.day)
+      entry.added.set(fact.day, `实测可（${improveFactSource(fact)}）`)
+      entry.facts.push(fact)
+    } else if (!fact.ok && entry.days.has(fact.day)) {
+      entry.days.delete(fact.day)
+      entry.out.set(fact.day, `实测不可（${improveFactSource(fact)}）`)
+      entry.facts.push(fact)
+    }
+    entries.set(fact.eq, entry)
+  }
+  return entries
+}
+
+/**
+ * 舰娘图鉴的「装备改修助手」：一件装备一行——装备、七天周历、★max 能更新成什么；今天能改的排前面。
+ * 这一形态不当二号舰、改装链里别的形态当，就点名那几个形态（点了切过去）；整条链都不当就不出这一段。
+ */
+const shipImproveHelperHtml = (formId: number, chain: readonly number[]): string => {
+  const entries = improveHelperEntries(formId)
+  const others = chain
+    .filter((id) => id !== formId)
+    .map((id) => [id, improveHelperEntries(id).size] as const)
+    .filter(([, count]) => count > 0)
+  if (!entries.size && !others.length) return ''
+  const othersLine = others.length
+    ? `<div class="ih-forms">${entries.size ? '同改装链' : '本形态暂无 · 同改装链'} ${others
+        .map(([id, count]) => `<a data-helper-form="${id}">${esc(masterShipName(id))}</a> ${count} 件`)
+        .join('、')}</div>`
+    : ''
+  if (!entries.size) {
+    return `<div class="sec improve-helper"><div class="sec-h">装备改修助手<span class="aux">本形态暂无</span></div>${othersLine}</div>`
+  }
+  const today = jstDayOfWeek()
+  const rows = [...entries]
+    .map(([eq, entry]) => ({
+      eq,
+      entry,
+      today: entry.days.has(today),
+      type: Number(friendlyEquips.get(eq)?.api_type?.[2] ?? 999),
+    }))
+    .sort((a, b) => Number(b.today) - Number(a.today) || a.type - b.type || a.eq - b.eq)
+  const todayCount = rows.filter((row) => row.today).length
+  const body = rows
+    .map(({ eq, entry, today: isToday }) => {
+      const held = equipInstancesOf(eq).length
+      const tip = [...new Set(entry.facts.map((fact) => `${JST_WEEKDAY_LABELS[fact.day]}实测${fact.ok ? '可' : '不可'}（${improveFactSource(fact)}）`))].join('\n')
+      const mark = tip ? ` <span class="ti-observed" title="${esc(tip)}">实测</span>` : ''
+      const converts = [...entry.converts].map((id) => equipVisualLink(id)).join('、')
+      return `<div class="ih-row${isToday ? ' today' : ''}">
+        <span class="ih-eq">${equipVisualLink(eq)}${mark}${held ? `<i>持有 ${held}</i>` : ''}</span>
+        ${improveWeekHtml([...entry.days], { out: entry.out, added: entry.added })}
+        ${converts ? `<span class="ih-to">★max 可更新 → ${converts}</span>` : ''}
+      </div>`
+    })
+    .join('')
+  return `<div class="sec improve-helper"><div class="sec-h">装备改修助手<span class="aux${todayCount ? ' ok' : ''}">共 ${rows.length} 件 · ${JST_WEEKDAY_LABELS[today]}${todayCount ? `可改 ${todayCount} 件` : '暂无'}</span></div>
+    ${body}${othersLine}
+  </div>`
 }
 
 const equipMatrixHtml = (shipMstId: number): string => {
@@ -11471,7 +12255,10 @@ const jiNavKeyNow = (): string => {
     return equipState.open ? `equip:d${equipState.selected}` : `equip:${equipState.mode}`
   if (activeBook === 'abyss')
     return abyssState.open ? `abyss:${abyssState.tab}:${abyssState.selected}` : `abyss:${abyssState.tab}`
-  if (activeBook === 'map') return mapState.open ? `map:${mapState.selected}` : 'map'
+  if (activeBook === 'map') {
+    if (mapState.tab === 'bgm') return mapState.open ? `map:bgm:${mapState.bgm}` : 'map:bgm'
+    return mapState.open ? `map:${mapState.selected}` : 'map'
+  }
   if (activeBook === 'item') return itemState.open ? `item:${itemState.selected}` : 'item'
   return activeBook // 列表/仓库的内部状态在各自模块里，这里只记「在哪一卷」
 }
@@ -11546,6 +12333,10 @@ const jiNavLabelOf = (loc: JiNavLocation): string => {
     return loc.abyss.tab === 'equip' ? '深海图鉴 · 装备' : '深海图鉴'
   }
   if (loc.book === 'map') {
+    if (loc.map.tab === 'bgm') {
+      const parsed = loc.map.open ? parseBgmUsageKey(loc.map.bgm) : null
+      return parsed ? `BGM · ${bgmTitleOf(parsed.kind, parsed.id)}` : '海域图鉴 · BGM'
+    }
     if (loc.map.open && mapInfos.some((m) => m.api_id === loc.map.selected)) {
       return `海域 · ${mapCodeOf(loc.map.selected)}`
     }
@@ -11699,7 +12490,10 @@ const render = () => {
       abyssState.open ? (abyssState.tab === 'equip' ? abyssEquipDrawerHtml() : abyssDrawerHtml()) : '',
     )
   } else if (activeBook === 'map') {
-    body = bookWrap('ji-map-wrap', mapState.open, mapCatalogHtml(), mapState.open ? mapDrawerHtml() : '')
+    body =
+      mapState.tab === 'bgm'
+        ? bookWrap('ji-map-wrap', mapState.open, bgmCatalogHtml(), mapState.open ? bgmDrawerHtml() : '')
+        : bookWrap('ji-map-wrap', mapState.open, mapTabsHtml() + mapCatalogHtml(), mapState.open ? mapDrawerHtml() : '')
   } else {
     body = bookWrap('ji-item-wrap', itemState.open, itemCatalogHtml(), itemState.open ? itemDrawerHtml() : '')
   }
@@ -11998,7 +12792,8 @@ function wireShipDetailPanel(panel: HTMLElement) {
 const ALWAYS_OPEN = new Set(['属性', '数值', '装备槽', '装备加成', '估算数值', '作战概要'])
 // 折叠钮照给，但打开抽屉时是展开的：改修工厂紧挨着常开的「装备加成」，
 // 玩家点进一件装备十有八九就是来看它今天能不能改
-const OPEN_BY_DEFAULT = new Set(['改修工厂'])
+// BGM 页签的抽屉只有这两段，就是来看它们的
+const OPEN_BY_DEFAULT = new Set(['改修工厂', '使用海域', '附带家具'])
 
 /**
  * 当前目录是否被搜索 / 分类条件收窄。
@@ -12029,6 +12824,7 @@ const catalogGroupsForcedOpen = (): boolean => {
       : !!(abyssState.search || abyssState.equipChip !== '全部' || abyssState.equipTypeFilter)
   }
   if (activeBook === 'item') return !!(itemState.search || itemState.cat !== 'all')
+  if (activeBook === 'map') return mapState.tab === 'bgm' && !!mapState.bgmSearch.trim()
   return false
 }
 
@@ -12465,6 +13261,13 @@ const wire = () => {
     shipState.selectedForm = parseInt(node.dataset.form!, 10)
     render()
   })
+  // 装备改修助手里点名的同链形态：切过去看那个形态当二号舰的装备
+  pane.querySelector('#ji-ship-wrap .improve-helper')?.addEventListener('click', (e) => {
+    const link = (e.target as HTMLElement).closest<HTMLElement>('[data-helper-form]')
+    if (!link) return
+    shipState.selectedForm = parseInt(link.dataset.helperForm!, 10)
+    render()
+  })
   pane.querySelector('#ji-ship-tabs')?.addEventListener('click', (e) => {
     const tab = (e.target as HTMLElement).closest<HTMLElement>('.tab')
     const next = tab?.dataset.p
@@ -12759,6 +13562,40 @@ const wire = () => {
       setRouteTarget(code, select.value)
       render()
     })
+  })
+  // 海域卷 · 页签与 BGM 总表
+  pane.querySelectorAll<HTMLElement>('.ab-tab[data-maptab]').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const next = tab.dataset.maptab === 'bgm' ? 'bgm' : 'map'
+      if (mapState.tab === next) return
+      mapState.tab = next
+      // 两个页签的抽屉不是同一种东西（图 / 曲），切页签时收起
+      if (mapState.open) closeBookDrawer(mapState)
+      else render()
+    })
+  })
+  const bgmSearch = pane.querySelector<HTMLInputElement>('#ji-bgm-search')
+  if (bgmSearch) {
+    onFilterInput(bgmSearch, () => {
+      mapState.bgmSearch = bgmSearch.value
+      render()
+      pane.querySelector<HTMLInputElement>('#ji-bgm-search')?.focus()
+    })
+  }
+  pane.querySelector('#ji-bgm-list')?.addEventListener('click', (e) => {
+    const row = (e.target as HTMLElement).closest<HTMLElement>('.bgm-row')
+    if (!row?.dataset.bgmKey) return
+    const me = e as MouseEvent
+    if (me.altKey || me.ctrlKey) {
+      pinEntityPeek({ type: 'bgm', id: row.dataset.bgmKey }, row)
+      return
+    }
+    mapState.bgm = row.dataset.bgmKey
+    mapState.open = true
+    render()
+  })
+  pane.querySelector('#ji-bgm-close')?.addEventListener('click', () => {
+    closeBookDrawer(mapState)
   })
   pane.querySelector('#ji-map-close')?.addEventListener('click', () => {
     closeBookDrawer(mapState)
@@ -13464,6 +14301,8 @@ const openMap = (id: number) => {
   missNotice = null
   activateModule('ji')
   activeBook = 'map'
+  // 从 BGM 页签点进某张图：左边的目录跟着换回海域，抽屉与目录说的是同一张图
+  mapState.tab = 'map'
   if (id !== mapState.selected) {
     mapState.personalNode = ''
     mapState.dropNode = ''
@@ -13517,6 +14356,47 @@ registerEntityRoute('map', {
       { label: '带路与节点图', run: () => openMap(id) },
       { label: '有关任务', mod: 'qn', run: () => void runModuleCommand('qn', 'search', mapCodeOf(id)) },
     ]
+  },
+})
+
+// BGM 实体（BGM 反查）：id 是 shared/bgm-usage 的键（battle:76 / port:108）。
+// 悬停速览用在哪，点击进海域卷 BGM 页签那一首。
+registerEntityRoute('bgm', {
+  mod: 'ji',
+  colorClass: 'e-map',
+  open(ref) {
+    openBgm(`${ref.id}`)
+  },
+  peek(ref) {
+    const parsed = parseBgmUsageKey(ref.id)
+    if (!parsed) return null
+    const { kind, id } = parsed
+    ensureBgmUsage()
+    const usage = bgmUsageOf(kind, id)
+    const lines: string[] = []
+    const mapText = (map: BgmMapUse, current: boolean) => {
+      const slots = map.slots.filter((slot) => slot.current === current).map((slot) => slot.slot)
+      return `${mapCodeOf(map.mapId)} ${bgmSlotLabels(slots).join(' ')}`
+    }
+    const listText = (items: string[], limit: number, unit: string) =>
+      `${items.slice(0, limit).join('、')}${items.length > limit ? ` 等 ${items.length} ${unit}` : ''}`
+    if (usage) {
+      const current = usage.maps.filter(bgmIsCurrentMap)
+      const past = usage.maps.filter((map) => map.slots.some((slot) => !slot.current))
+      if (current.length) lines.push(`当前 · ${esc(listText(current.map((map) => mapText(map, true)), 4, '张图'))}`)
+      if (past.length) lines.push(`曾用 · ${esc(listText(past.map((map) => mapText(map, false)), 3, '张图'))}`)
+      if (usage.furniture.length) {
+        lines.push(`家具 · ${esc(listText(usage.furniture.map(furnitureTitleOf), 2, '件'))}`)
+      }
+    } else {
+      lines.push(bgmUsageReady() ? '暂无使用记录' : '正在整理配曲…')
+    }
+    return {
+      title: bgmTitleOf(kind, id),
+      typeLabel: `${kind === 'port' ? '母港' : '战斗'} BGM #${bgmNo(id)}`,
+      lines,
+      primary: '海域图鉴 · BGM',
+    }
   },
 })
 
@@ -13728,9 +14608,20 @@ registerModule({
     trackMountCleanup(() =>
       document.removeEventListener('kuma:ship-costumes-change', onCostumesChange),
     )
+    // 游戏下发改修清单（打开明石改修画面）之后重取实测
+    const onImproveObserved = () => loadImproveObservations()
+    jiIpc.on('mg:improve-observed', onImproveObserved)
+    trackMountCleanup(() => jiIpc.removeListener('mg:improve-observed', onImproveObserved))
+    loadImproveObservations()
     const onEquipBookChange = () => scheduleRender()
     document.addEventListener('kuma:equip-book-change', onEquipBookChange)
     trackMountCleanup(() => document.removeEventListener('kuma:equip-book-change', onEquipBookChange))
+    // BGM 反查索引攒好（或主数据换版后重攒）：海域卷的 BGM 页签与海域页的「N 处」要跟上
+    const onBgmUsageChange = () => {
+      if (activeBook === 'map') deferPassive(pane, 'ji', render)
+    }
+    document.addEventListener(BGM_USAGE_EVENT, onBgmUsageChange)
+    trackMountCleanup(() => document.removeEventListener(BGM_USAGE_EVENT, onBgmUsageChange))
     const onVoiceAbsentChange = () => scheduleRender()
     document.addEventListener('kuma:voice-absent-change', onVoiceAbsentChange)
     trackMountCleanup(() =>

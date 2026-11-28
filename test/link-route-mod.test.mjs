@@ -28,23 +28,23 @@ const visitDir = (dir) => {
 visitDir(fileURLToPath(new URL('../src/renderer', import.meta.url)))
 const property = (node, name) => node.properties?.find((prop) => prop.name?.getText() === name)
 
-test('全部 28 条实体路由声明合法且正确的宿主模块', () => {
+test('全部 29 条实体路由声明合法且正确的宿主模块', () => {
   const expected = {
     kdock: 'header', practice: 'header', timer: 'header', expedition: 'bi',
     battle: 'di', battleCurrent: 'di', furniture: 'ji',
     shipClass: 'ji', shipTypeCatalog: 'ji', shipTypeGroup: 'ji', shipNationality: 'ji',
     histFleet: 'ji', equipTypeCatalog: 'ji', equipTypeGroup: 'ji', mstShip: 'ji',
-    mstEquip: 'ji', equipCapacity: 'ji', abyssShip: 'ji', map: 'ji', abyssEquip: 'ji',
+    mstEquip: 'ji', equipCapacity: 'ji', abyssShip: 'ji', map: 'ji', bgm: 'ji', abyssEquip: 'ji',
     useitem: 'ji', ship: 'ji', shipCapacity: 'ji', quest: 'qn', questBatch: 'qn',
     fleet: 'ru', fleetShip: 'ru', material: 'zi',
   }
-  assert.equal(registrations.length, 28)
+  assert.equal(registrations.length, 29)
   for (const { type, route } of registrations) {
     const mod = property(route, 'mod')?.initializer?.text
     assert.ok([...pop.POP_MODULE_IDS, 'header'].includes(mod), `${type} 缺合法 mod`)
     assert.equal(mod, expected[type], type)
   }
-  assert.equal(new Set(registrations.map(({ type }) => type)).size, 28)
+  assert.equal(new Set(registrations.map(({ type }) => type)).size, 29)
 })
 
 test('跨模块目标的显式 mod 清单完整，动态标签同样钉住宿主', () => {

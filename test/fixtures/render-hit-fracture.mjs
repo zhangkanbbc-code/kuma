@@ -1,8 +1,8 @@
-// 把锐的随机裂纹种子（`fractureSeeds` + `shipHitFracture`）**原样切出来**真编译一遍。
+// 把锐的持续战损记录（`damageStates` + `shipHitFracture`）**原样切出来**真编译一遍。
 //
 // 这一段决定「哪一行拿到随机裂纹变量」，而它在 shipRow 之外——编成行夹具里只能给它打桩，
 // 桩一写就把「实验开关关着时击沉行也不许变」这一半抹掉了。所以单独切真的那一份，
-// 只给它依赖的四个名字（开关、入渠、击沉、舰型）打可设的桩；裂纹几何引真的 shared/hit-glass。
+// 只给它依赖的几个名字（开关、入渠、击沉）打可设的桩；头像裁角变量与空战损记录引真的 shared/hit-glass、shared/hit-damage。
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -15,29 +15,29 @@ import { buildSync } from 'esbuild'
 const ROOT = fileURLToPath(new URL('../..', import.meta.url))
 const ru = fs.readFileSync(path.join(ROOT, 'src', 'renderer', 'modules', 'ru.ts'), 'utf8').replace(/\r\n/g, '\n')
 
-const start = ru.indexOf('const fractureSeeds = new Map')
+const start = ru.indexOf('const damageStates = new Map')
 const end = ru.indexOf('\nconst fleetDivisionHtml', start)
-assert.ok(start >= 0 && end > start, '找不到 ru.ts 里的 fractureSeeds … shipHitFracture 一段，这条守卫的锚点要跟着改')
+assert.ok(start >= 0 && end > start, '找不到 ru.ts 里的 damageStates … shipHitFracture 一段，这条守卫的锚点要跟着改')
 const FRACTURE = ru.slice(start, end)
 
 const HIT_GLASS = path.join(ROOT, 'src', 'shared', 'hit-glass.ts').replace(/\\/g, '/')
+const HIT_DAMAGE = path.join(ROOT, 'src', 'shared', 'hit-damage.ts').replace(/\\/g, '/')
 
 const HARNESS = `
-import { hitGlassCssVars, hitGlassGeometry } from '${HIT_GLASS}'
+import { hitAvatarCssVars } from '${HIT_GLASS}'
+import { emptyDamageState, syntheticDamageState } from '${HIT_DAMAGE}'
 
 type PlayerShip = any
 
-export const state = { enabled: false, docked: new Set<number>(), sunk: new Set<number>() }
+export const state = { enabled: false, docked: new Set<number>(), sunk: new Set<number>(), sortie: new Set<number>() }
 const hitShakeEnabled = () => state.enabled
 const dockOf = (id: number) => (state.docked.has(id) ? { completeTime: 0 } : undefined)
 const isSunkInSortie = (id: number) => state.sunk.has(id)
-// 缺角几何要行宽行高（锐里是上一次量到的缓存），这里给固定值
-const cachedRowWidth = 540
-const cachedRowHeight = 48
-
+const shipInSortie = (id: number) => state.sortie.has(id)
+const isSubShip = (_ship: PlayerShip) => false
 ${FRACTURE}
 
-export { shipHitFracture, fractureSeeds }
+export { shipHitFracture, damageStates, syntheticPending }
 `
 
 const bundle = (() => {
@@ -56,7 +56,8 @@ export const setFracture = ({ enabled = false, docked = [], sunk = [] } = {}) =>
   loaded.state.enabled = enabled
   loaded.state.docked = new Set(docked)
   loaded.state.sunk = new Set(sunk)
-  loaded.fractureSeeds.clear()
+  loaded.damageStates.clear()
+  loaded.syntheticPending.clear()
 }
 
 /** 只改开关/入渠/击沉，不清种子记忆（验「带伤期间不跳位」用）。 */

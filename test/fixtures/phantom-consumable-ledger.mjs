@@ -25,11 +25,13 @@ const shared = fileURLToPath(new URL('../../src/shared/material-delta-detail.ts'
 const ranking = fileURLToPath(new URL('../../src/shared/senka-ranking.ts', import.meta.url)).replaceAll('\\', '/')
 const seasonal = fileURLToPath(new URL('../../src/main/mg/seasonal-ledger.ts', import.meta.url)).replaceAll('\\', '/')
 const bodyRetention = fileURLToPath(new URL('../../src/main/mg/slotitem-body-retention.ts', import.meta.url)).replaceAll('\\', '/')
+const remodelBackfill = fileURLToPath(new URL('../../src/main/mg/improve-remodel-backfill.ts', import.meta.url)).replaceAll('\\', '/')
 const harness = `
 import { buildDeltaDetail, replayDeltaCategoryFixes } from ${JSON.stringify(shared)}
 import { incentiveItems } from ${JSON.stringify(ranking)}
 import { SeasonalLedger } from ${JSON.stringify(seasonal)}
 import { SlotitemBodyRetention } from ${JSON.stringify(bodyRetention)}
+import { improveRemodelsFromEvents } from ${JSON.stringify(remodelBackfill)}
 const SLOTITEM_BODY_RETENTION_CONFIG = 'kuma.ledger.trimSlotitemBodies'
 const config = { get: (_key, fallback) => fallback, on: () => {} }
 const getLode = () => null

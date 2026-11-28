@@ -1103,7 +1103,7 @@ const hitShakeCardHtml = (): string => `<div class="h"><b>编队被弹动画</b>
   ${toggleHtml(
     'kuma.hitShake',
     '播放被弹与修理动画',
-    '被弹抖动与缺角碎裂，要员、女神发动，入渠完成与泊地修理回血',
+    '炮击弹孔、鱼雷进水倾侧、潜艇挨深弹，返港后转成四角碎裂与锈渍，入渠按进度修复；要员、女神发动与泊地修理回血',
     config.get('kuma.hitShake', false),
   )}`
 

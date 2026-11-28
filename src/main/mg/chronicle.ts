@@ -334,6 +334,14 @@ ipcMain.handle('chron:archive-event', (_event, areaId: number, opened: number, c
   ledger.archiveEvent(areaId | 0, opened, closed),
 )
 
+// 改修日程的游戏实测（鉴的「今日改修」与装备详情）
+ipcMain.handle('chron:improve-observations', () => ledger.queryImproveObservations())
+// 改修素材的游戏实测（今日改修与装备详情的素材、普通 / 确保两种打法的资材）
+ipcMain.handle('chron:improve-remodels', () => ledger.queryImproveRemodels())
+
+// BGM 反查（海域卷 BGM 页签）：本机留存的海域配曲变动
+ipcMain.handle('chron:map-bgm-history', () => ledger.queryMapBgmHistory())
+
 // 深海舰 → 你在哪些图遇到过它（鉴的深海卷 Peek / 右键「出现海域」）
 ipcMain.handle('chron:abyss-maps', () => ledger.abyssSeenMaps())
 

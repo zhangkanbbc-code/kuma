@@ -89,6 +89,8 @@ const WEEK = sliceBetween(
 const abs = (...parts) => path.join(ROOT, ...parts).replace(/\\/g, '/')
 
 const HARNESS = `
+import { applyImproveFacts, improveFactKey } from '${abs('src', 'shared', 'improve-observed.ts')}'
+import { applyLearnedStage, learnedImproveLevel } from '${abs('src', 'shared', 'improve-remodel.ts')}'
 import { IMPROVE_MAX, type ImproveStageCost } from '${abs('src', 'shared', 'improve-budget.ts')}'
 // 「已装备的不算素材」引真的那一份（三处判据的唯一出处），不打桩：
 // 桩一写成「只查舰上」，陆航里飞着的机体就会被当成素材，正是这份护栏要盯的错法。
@@ -108,6 +110,14 @@ export const stub: any = {
 }
 
 const esc = (s: unknown) => \`\${s ?? ''}\`.replace(/[&<>"']/g, (c) => \`&#\${c.charCodeAt(0)};\`)
+// 改修日程的游戏实测（shared/improve-observed）：判据引真的，结论表由用例摆（缺省为空＝与资料一致）
+const improveFactsNow = () => (stub.facts ?? new Map())
+// 改修素材的游戏实测（shared/improve-remodel）：判据引真的，改修记录由用例摆（缺省为空＝照资料）
+let improveRemodels: any[] = []
+export const setRemodels = (rows: any[]) => {
+  improveRemodels = rows
+}
+const fmtMonthDay = (ts: number) => { const d = new Date(ts); return \`\${\`\${d.getMonth() + 1}\`.padStart(2, '0')}-\${\`\${d.getDate()}\`.padStart(2, '0')}\` }
 const mg: any = new Proxy({}, { get: (_t, key: string) => stub.state[key] })
 const eoByEquip = {
   values: () => stub.eo as any[],
@@ -197,6 +207,8 @@ export const todayRows = (setup = {}) => {
   stub.day = setup.day ?? 2
   stub.favorites = setup.favorites ?? []
   stub.match = setup.match ?? null
+  stub.facts = setup.facts ?? null
+  loaded.setRemodels(setup.remodels ?? [])
   stub.state = {
     ships: {},
     slotitems: {},

@@ -73,6 +73,10 @@ import {
   type UseitemCauseAction,
 } from '../../shared/useitem-cause'
 import { mapIdOf } from '../../shared/map-id'
+import { mapBgmCellsOf, planMapBgmSpans, type MapBgmSpan } from '../../shared/map-bgm-history'
+import type { ImproveListCost, ImproveObservation } from '../../shared/improve-observed'
+import type { ImproveRemodel } from '../../shared/improve-remodel'
+import { improveRemodelsFromEvents } from './improve-remodel-backfill'
 import {
   buildDeltaDetail, replayDeltaCategoryFixes,
   type DeltaDetail, type DeltaReplayEvent, type DeltaReplayRow,
@@ -556,12 +560,55 @@ class Ledger {
         PRIMARY KEY (equip_mst, form_id, stars, count)
       );
       CREATE INDEX IF NOT EXISTS idx_fit_obs_equip ON fit_observations(equip_mst);
+      -- 海域配曲留存（shared/map-bgm-history）：api_mst_mapbgm 只给当下的配法，
+      -- 季节活动换的曲一结束就换回去，活动图撤场后整行消失。每拿到一份主数据记一遍：
+      -- 同一格同一首曲连续见到算一段，换了曲或整张图不在了就收口（closed＝首次确认不在的时刻）。
+      -- 改修日程的游戏实测（shared/improve-observed）：打开明石改修画面时游戏下发的清单＝旗舰明石 + 这艘二号舰今天能改的全部。
+      -- 记下当时第一舰队旗舰与二号舰（舰船 mst id）、日本时间星期、清单里的装备号，资料与游戏打架时以它为准。
+      CREATE TABLE IF NOT EXISTS improve_observations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ts INTEGER NOT NULL,
+        day INTEGER NOT NULL,         -- 日本时间星期（0＝周日）
+        flagship INTEGER,             -- 第一舰队旗舰（mst id）
+        helper INTEGER,               -- 第一舰队二号舰（mst id），空位为 NULL
+        items TEXT NOT NULL,          -- 清单里的装备号（JSON，升序去重）
+        detail TEXT                   -- 清单里每件的消耗（JSON：燃弹钢铝、开发资材、改修资材）
+      );
+      -- 改修素材的游戏实测（shared/improve-remodel）：每改修一次，游戏的响应交出这次吞掉的装备实例与扣完的资源，
+      -- 改修前对成装备号与差额，连同打法（普通 / 确保）记下。资料按档写素材，游戏有时按星不同，以这里为准。
+      CREATE TABLE IF NOT EXISTS improve_remodels (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ts INTEGER NOT NULL,
+        eq INTEGER NOT NULL,          -- 改修前的装备号
+        level INTEGER,                -- 改修前的星级，说不出为 NULL
+        after_eq INTEGER,             -- 改修后的装备号（成功才有，更新时会变）
+        after_level INTEGER,
+        certain INTEGER NOT NULL,     -- 1＝确保改修（api_certain_flag）
+        ok INTEGER NOT NULL,          -- 1＝成功
+        helper INTEGER,               -- 二号舰（mst id），说不出为 NULL
+        fodder TEXT,                  -- 吞掉的装备（JSON：装备号 × 件数），实例对不上为 NULL
+        cost TEXT,                    -- 扣掉的资源（JSON：燃弹钢铝、开发资材、改修资材），对不出为 NULL
+        source TEXT NOT NULL          -- live＝当场记；backfill＝从旧报文补
+      );
+      CREATE INDEX IF NOT EXISTS idx_improve_remodels_eq ON improve_remodels(eq, ts);
+      CREATE TABLE IF NOT EXISTS improve_remodel_backfill_state (id INTEGER PRIMARY KEY);
+      CREATE TABLE IF NOT EXISTS map_bgm_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        map_id INTEGER NOT NULL,      -- api_mst_mapbgm.api_id（区号×10＋图号）
+        slot TEXT NOT NULL,           -- moving / map-day / map-night / boss-day / boss-night
+        bgm INTEGER NOT NULL,         -- 战斗树资源号
+        first_seen INTEGER NOT NULL,
+        last_seen INTEGER NOT NULL,
+        closed INTEGER
+      );
     `)
     // 后加的列：老库建表时没有，CREATE TABLE IF NOT EXISTS 不会补，得显式 ALTER。
     // 已存在时 sqlite 会报错，吞掉即可（没有 IF NOT EXISTS 语法）。
     for (const [table, col, type] of [
       // 维护者裁决 2026-10-30：只保存观察当时的其它装备，旧行 NULL 不重算扣减。
       ['fit_observations', 'other_equips', 'TEXT'],
+      // 改修实测（2026-11-28 同日补）：清单里每件的消耗，资料没收录的新装备照它出一行
+      ['improve_observations', 'detail', 'TEXT'],
       ['encounters', 'sunk_mask', 'INTEGER'],
       ['sortie_samples', 'supply_baseline', "TEXT NOT NULL DEFAULT '[]'"],
       ['sortie_samples', 'fuel_cost', 'INTEGER'],
@@ -616,6 +663,7 @@ class Ledger {
     this.db.exec(`PRAGMA user_version = ${questProgressV13 ? 15 : 12}`)
     this.repairShipLifeExpLevels()
     this.backfillIncentives()
+    this.backfillImproveRemodels()
     this.seasonal = new SeasonalLedger(this.db, no => (getLode('quests-scn')?.data as any)?.[`${no}`]?.name ?? '', getLode)
     this.seasonal.setMaster((this.loadSnapshot('/kcsapi/api_start2/getData')?.body as any)?.api_data ?? {})
     this.slotitemBodyRetention = new SlotitemBodyRetention(this.db, DB_PATH,
@@ -781,6 +829,49 @@ class Ledger {
 
   queryIncentiveReceipts = (): IncentiveReceipt[] => this.db.prepare(`SELECT ts, api_mode, api_type,
     api_mst_id, api_slotitem_level, api_getmes FROM incentive_receipts ORDER BY ts, event_id, item_index`).all()
+
+
+  // ---- 改修素材的游戏实测：记录与一次性回填（查询在「改修日程的游戏实测」那一节）----
+  /** 记一次改修（store 的 remodel_slot 当场调；回填也走这里） */
+  recordImproveRemodel = (r: ImproveRemodel) => {
+    try {
+      this.db
+        .prepare(
+          `INSERT INTO improve_remodels (ts, eq, level, after_eq, after_level, certain, ok, helper, fodder, cost, source)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          r.ts,
+          r.eq,
+          r.level,
+          r.afterEq,
+          r.afterLevel,
+          r.certain ? 1 : 0,
+          r.ok ? 1 : 0,
+          r.helper,
+          r.fodder ? JSON.stringify(r.fodder) : null,
+          r.cost ? JSON.stringify(r.cost) : null,
+          r.source,
+        )
+    } catch (error) {
+      console.warn('[kuma] mg: improve remodel save failed', error)
+    }
+  }
+
+  // 只在首次建表后从旧报文补一次（判据见 improve-remodel-backfill），条目与完成标记同批提交
+  private backfillImproveRemodels = () => {
+    try {
+      if (this.db.prepare('SELECT id FROM improve_remodel_backfill_state WHERE id = 1').get()) return
+      const rows = improveRemodelsFromEvents(this.db)
+      this.runBatch(2, () => {
+        for (const row of rows) this.recordImproveRemodel(row)
+        this.db.prepare('INSERT INTO improve_remodel_backfill_state (id) VALUES (1)').run()
+      })
+      if (rows.length) console.log(`[kuma] mg: 改修实测回填 ${rows.length} 条`)
+    } catch (error) {
+      console.warn('[kuma] mg: improve remodel backfill failed', error)
+    }
+  }
 
   // 批量写包进一个事务：WAL 下每条自动提交各付一次同步开销，
   // 一次 port 后 ship-life 可能几十条 upsert，逐条提交把写盘次数放大一个量级。
@@ -3739,6 +3830,160 @@ class Ledger {
         .run(closedAt, closedAt, areaId)
     } catch (error) {
       console.warn('[kuma] mg: event map catalog close failed', error)
+    }
+  }
+
+  // ---- 改修日程的游戏实测 ----
+
+  /** 记一次游戏下发的改修清单；与这艘二号舰同一天的上一次一模一样就只刷新时间，不重复记 */
+  observeImproveList = (
+    ts: number,
+    day: number,
+    flagship: number | null,
+    helper: number | null,
+    items: readonly number[],
+    detail: readonly ImproveListCost[] = [],
+  ) => {
+    try {
+      const list = JSON.stringify([...new Set(items.map(Number).filter((id) => id > 0))].sort((a, b) => a - b))
+      const costs = detail.length ? JSON.stringify(detail) : null
+      const prev = this.db
+        .prepare(
+          `SELECT id, ts, items FROM improve_observations
+           WHERE day = ? AND flagship IS ? AND helper IS ? ORDER BY ts DESC LIMIT 1`,
+        )
+        .get(day, flagship, helper) as any
+      if (prev && prev.items === list && ts - Number(prev.ts) < 24 * 3600e3) {
+        this.db.prepare('UPDATE improve_observations SET ts = ?, detail = COALESCE(?, detail) WHERE id = ?').run(ts, costs, prev.id)
+        return
+      }
+      this.db
+        .prepare('INSERT INTO improve_observations (ts, day, flagship, helper, items, detail) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(ts, day, flagship, helper, list, costs)
+    } catch (error) {
+      console.warn('[kuma] mg: improve observation save failed', error)
+    }
+  }
+
+  queryImproveObservations = (): ImproveObservation[] => {
+    try {
+      return (
+        this.db.prepare('SELECT ts, day, flagship, helper, items, detail FROM improve_observations ORDER BY ts DESC LIMIT 2000').all() as any[]
+      ).map((row) => ({
+        ts: Number(row.ts),
+        day: Number(row.day),
+        flagship: row.flagship == null ? null : Number(row.flagship),
+        helper: row.helper == null ? null : Number(row.helper),
+        items: (() => {
+          try {
+            const parsed = JSON.parse(row.items)
+            return Array.isArray(parsed) ? parsed.map(Number) : []
+          } catch {
+            return []
+          }
+        })(),
+        detail: (() => {
+          try {
+            const parsed = row.detail ? JSON.parse(row.detail) : []
+            return Array.isArray(parsed) ? parsed : []
+          } catch {
+            return []
+          }
+        })(),
+      }))
+    } catch (error) {
+      console.warn('[kuma] mg: improve observation query failed', error)
+      return []
+    }
+  }
+
+  // ---- 改修素材的游戏实测 ----
+
+  queryImproveRemodels = (): ImproveRemodel[] => {
+    const json = (text: unknown): any => {
+      try {
+        return typeof text === 'string' ? JSON.parse(text) : null
+      } catch {
+        return null
+      }
+    }
+    try {
+      return (
+        this.db
+          .prepare(
+            `SELECT ts, eq, level, after_eq, after_level, certain, ok, helper, fodder, cost, source
+             FROM improve_remodels ORDER BY ts DESC, id DESC LIMIT 5000`,
+          )
+          .all() as any[]
+      ).map((row) => {
+        const fodder = json(row.fodder)
+        const cost = json(row.cost)
+        return {
+          ts: Number(row.ts),
+          eq: Number(row.eq),
+          level: row.level == null ? null : Number(row.level),
+          afterEq: row.after_eq == null ? null : Number(row.after_eq),
+          afterLevel: row.after_level == null ? null : Number(row.after_level),
+          certain: Number(row.certain) === 1,
+          ok: Number(row.ok) === 1,
+          helper: row.helper == null ? null : Number(row.helper),
+          fodder: Array.isArray(fodder) ? fodder.map((one: any) => ({ id: Number(one?.id), count: Number(one?.count) })) : null,
+          cost: cost && typeof cost === 'object' ? cost : null,
+          source: row.source === 'live' ? 'live' : 'backfill',
+        }
+      })
+    } catch (error) {
+      console.warn('[kuma] mg: improve remodel query failed', error)
+      return []
+    }
+  }
+
+  // ---- 海域配曲留存 ----
+
+  /**
+   * 每份主数据到手时调一次（含启动回放）。判据全在 shared/map-bgm-history 的 planMapBgmSpans。
+   * 启动回放灌的是最近那份主数据，比账本里最后见到的还旧就一格都不改。
+   */
+  observeMapBgm = (rows: unknown, observedAt: number) => {
+    try {
+      const cells = mapBgmCellsOf(Array.isArray(rows) ? rows : [])
+      if (!cells.length || !Number.isFinite(observedAt)) return
+      const latest = (this.db.prepare('SELECT MAX(last_seen) AS ts FROM map_bgm_history').get() as any)?.ts
+      if (latest != null && observedAt < Number(latest)) return
+      const open = this.db
+        .prepare(
+          `SELECT id, map_id AS mapId, slot, bgm, first_seen AS firstSeen, last_seen AS lastSeen, closed
+           FROM map_bgm_history WHERE closed IS NULL`,
+        )
+        .all() as unknown as MapBgmSpan[]
+      const plan = planMapBgmSpans(open, cells)
+      const extend = this.db.prepare('UPDATE map_bgm_history SET last_seen = MAX(last_seen, ?) WHERE id = ?')
+      const close = this.db.prepare('UPDATE map_bgm_history SET closed = ? WHERE id = ?')
+      const insert = this.db.prepare(
+        `INSERT INTO map_bgm_history (map_id, slot, bgm, first_seen, last_seen, closed)
+         VALUES (?, ?, ?, ?, ?, NULL)`,
+      )
+      this.runBatch(plan.extend.length + plan.close.length + plan.insert.length, () => {
+        for (const id of plan.extend) extend.run(observedAt, id)
+        for (const id of plan.close) close.run(observedAt, id)
+        for (const cell of plan.insert) insert.run(cell.mapId, cell.slot, cell.bgm, observedAt, observedAt)
+      })
+    } catch (error) {
+      console.warn('[kuma] mg: map bgm history save failed', error)
+    }
+  }
+
+  queryMapBgmHistory = (): MapBgmSpan[] => {
+    try {
+      return this.db
+        .prepare(
+          `SELECT id, map_id AS mapId, slot, bgm, first_seen AS firstSeen, last_seen AS lastSeen, closed
+           FROM map_bgm_history ORDER BY map_id, slot, first_seen`,
+        )
+        .all() as unknown as MapBgmSpan[]
+    } catch (error) {
+      console.warn('[kuma] mg: map bgm history query failed', error)
+      return []
     }
   }
 

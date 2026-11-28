@@ -29,10 +29,7 @@ const hitModule = () => {
 }
 const flat = (html) => html.replace(/\s+/g, ' ')
 const glassModule = () => require(path.join(ROOT, 'dist', 'shared', 'hit-glass.js'))
-const glassVars = (id, seed) => {
-  const { hitGlassCssVars, hitGlassGeometry } = glassModule()
-  return hitGlassCssVars(hitGlassGeometry(id, seed, 540, 48))
-}
+const glassVars = (id, seed) => glassModule().hitAvatarCssVars(id, seed)
 
 // ---- 动画参数 ----
 
@@ -214,13 +211,12 @@ test('被弹动画与常驻裂纹可同时挂在一行上，只有一个 style �
   assert.match(html, /class="glitch-bars"/)
 })
 
-test('行上的头像裁角与故障错相变量：同舰同种子稳定、换舰或新受伤周期分化（缺角几何本身见 hit-glass.test.mjs）', () => {
+test('行上的头像裁角与故障错相变量：同舰同种子稳定、换舰或新受伤周期分化（弹孔几何本身见 hit-glass.test.mjs）', () => {
   assert.equal(glassVars(101, 1), glassVars(101, 1))
   assert.notEqual(glassVars(101, 1), glassVars(102, 1))
   assert.notEqual(glassVars(101, 1), glassVars(101, 2))
   for (let id = 1; id <= 30; id++) {
-    const { hitGlassGeometry } = glassModule()
-    const v = hitGlassGeometry(id, id * 7, 540, 48)
+    const v = glassModule().hitAvatarVars(id, id * 7)
     assert.match(v.fcClipHeavy, /^polygon\(/)
     assert.match(v.fcClipSunk, /^polygon\(/)
     assert.ok(v.gDelay < 0 && Math.abs(v.gDelay) < v.gDur)
@@ -353,18 +349,27 @@ test('被弹节拍：冲击照旧，残影等主峰过去再降，盖章在残�
 
 test('修理节拍：每种都是起势 → 喘口气 → 修复 → 再喘口气报飘字，整段时长覆盖飘字', () => {
   const { FX_BREATH, REPAIR_FX, repairFxTotal } = require(path.join(ROOT, 'dist', 'shared', 'fleet-fx-timing.js'))
-  const D = REPAIR_FX.damecon, G = REPAIR_FX.goddess, K = REPAIR_FX.dock, B = REPAIR_FX.berth
+  const D = REPAIR_FX.damecon, G = REPAIR_FX.goddess, O = REPAIR_FX.dockOut, B = REPAIR_FX.berth
   assert.equal(D.weldAt - D.impact, FX_BREATH, '要员：濒沉震颤过后喘口气再焊光')
   assert.equal(D.popAt - D.weldAt, FX_BREATH)
   assert.equal(G.reviveAt - G.impact, FX_BREATH, '女神：濒沉震颤过后喘口气再圣金拉满')
   assert.equal(G.popAt - G.reviveAt, FX_BREATH)
-  assert.equal(K.barAt - K.washAt, FX_BREATH * 2, '入渠：扫波洗净旧裂纹之后血条再涨')
-  assert.equal(K.popAt, K.barAt + K.rise, '入渠：涨满再报「入渠完成」')
+  // 四套特色出渠（交接包 v2，数值照审片台）：残余裂纹先逆向收口，血条滞后起涨，飘字在血条起涨之后；泼桶整体快一截
+  assert.ok(O.reverse.rayAt > O.reverse.ringAt && O.reverse.voidAt > O.reverse.rayAt, '出渠：外环先收、裂纹再缩、破口最后闭合')
+  for (const style of ['shell', 'torp', 'sub']) assert.ok(O[style].popAt > O.barAt, `出渠（${style}）：血条起涨之后再报「入渠完成」`)
+  assert.ok(O.bucket.popAt > O.bucketBarAt && O.bucket.popAt < O.shell.popAt, '泼桶：比自然出渠快，飘字仍在血条起涨之后')
+  assert.ok(O.bucketScale < 1 && O.bucketDrain < O.drain && O.bucketRise < O.rise)
   assert.equal(B.beadAt, FX_BREATH, '泊修：工作舰微闪后喘口气，光珠再落')
   assert.equal(B.popAt > B.barAt, true)
-  for (const kind of ['damecon', 'goddess', 'dock', 'berth', 'anchorage']) {
+  for (const kind of ['damecon', 'goddess', 'berth', 'anchorage']) {
     const popAt = REPAIR_FX[kind === 'anchorage' ? 'berth' : kind].popAt
     assert.equal(repairFxTotal(kind), popAt + REPAIR_FX.pop, kind)
+  }
+  for (const style of ['shell', 'torp', 'sub', 'bucket']) {
+    const total = repairFxTotal('dock', style)
+    const bucket = style === 'bucket'
+    assert.ok(total >= O[style].popAt + REPAIR_FX.pop, `出渠（${style}）整段要盖过飘字`)
+    assert.ok(total >= (bucket ? O.bucketBarAt + O.bucketRise : O.barAt + O.rise), `出渠（${style}）整段要盖过血条涨满`)
   }
 })
 

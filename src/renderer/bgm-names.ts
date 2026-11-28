@@ -11,18 +11,30 @@ import { bgmSongName, type KcsBgmKind, type KcsBgmNames } from '../shared/kcs-bg
 
 let names: KcsBgmNames | null = null
 let asked = false
+let settled = false
+// 拉取在途时各处传进来的回调都要叫到：顶栏先问了，海域卷的 BGM 总表也得在曲名到货后重画
+const waiters: (() => void)[] = []
 
 /** 按需拉一次曲名表。拉到之前一律显示编号，拉失败也只是继续显示编号。 */
 export const ensureBgmNames = (onReady?: () => void) => {
+  if (onReady && !settled && !waiters.includes(onReady)) waiters.push(onReady)
   if (asked) return
   asked = true
   void queryLode('kcwiki-bgm').then((lode) => {
+    settled = true
+    const pending = waiters.splice(0)
     const battle = (lode?.data as KcsBgmNames | undefined)?.battle
     if (!battle || !Object.keys(battle).length) return
     names = { battle }
-    onReady?.()
+    for (const cb of pending) cb()
   })
 }
+
+/** 曲名表里收了名字的战斗树号（誊写层），给 BGM 总表搜「没有图在用」的曲子 */
+export const namedBattleBgmIds = (): number[] =>
+  Object.keys(names?.battle ?? {})
+    .map(Number)
+    .filter((id) => Number.isInteger(id) && id > 0)
 
 /** 官方曲名，查不到给 null。同步取当前已加载的那份，不触发拉取。 */
 export const bgmNameOf = (kind: KcsBgmKind, resourceId: number): string | null =>

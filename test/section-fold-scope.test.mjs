@@ -260,7 +260,7 @@ test('only 与 alwaysOpen 仍按裸标题判断，带前缀的名单不能误命
   assert.equal(excluded.head.hasAttribute('data-fold-head'), false)
 })
 
-test('ji 作用范围：七个抽屉根都带各自前缀的作用域，前缀互不相同', () => {
+test('ji 作用范围：八个抽屉根都带各自前缀的作用域，前缀互不相同', () => {
   const source = fs.readFileSync(new URL('../src/renderer/modules/ji.ts', import.meta.url), 'utf8')
   const drawers = [
     ['shipDrawerHtml', 'ship', 'esc(form.api_id)'],
@@ -270,8 +270,9 @@ test('ji 作用范围：七个抽屉根都带各自前缀的作用域，前缀�
     ['itemDrawerHtml', 'item', 'esc(u.api_id)'],
     ['npcDrawerHtml', 'npc', 'esc(group.name)'],
     ['mapDrawerHtml', 'map', 'code'],
+    ['bgmDrawerHtml', 'bgm', 'key'],
   ]
-  assert.equal(new Set(drawers.map(([, prefix]) => prefix)).size, 7)
+  assert.equal(new Set(drawers.map(([, prefix]) => prefix)).size, 8)
   for (const [name, prefix, id] of drawers) {
     const start = source.indexOf(`const ${name} = `)
     const end = source.indexOf('\n}\n', start)
@@ -281,8 +282,8 @@ test('ji 作用范围：七个抽屉根都带各自前缀的作用域，前缀�
       '<div class="detail" data-fold-scope="' + prefix + ':${' + id + '}">',
     ], `${name} 的详情根必须按当前词条标识隔离`)
   }
-  assert.equal([...source.matchAll(/data-fold-scope/g)].length, 7,
-    '作用域仅加在七个抽屉根，分类目录不加')
+  assert.equal([...source.matchAll(/data-fold-scope/g)].length, 8,
+    '作用域仅加在八个抽屉根，分类目录不加')
   const start = source.indexOf('const mapDrawerHtml = () => {')
   const end = source.indexOf('\nconst mapOfficialInfoHtml = ', start)
   assert.ok(start >= 0 && end > start)

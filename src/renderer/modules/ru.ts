@@ -1,6 +1,6 @@
 // 锐 (Ru) · 编队展示。判定/度量/个体三层 + 联合舰队合并度量。
 // 数据边界：制空/索敌33/TP 走 fleet-calc（poi 口径 + 战斗计算模型 + wikiwiki 逐条核对）。
-import type { AirBaseSquad, BattleLevelUp, Deck, PlayerShip } from '../../shared/mg-types'
+import type { AirBaseSquad, BattleLevelUp, BattleView, Deck, PlayerShip } from '../../shared/mg-types'
 import { fleetStateTone } from '../../shared/fleet-state-tone'
 import {
   createHpWatch,
@@ -9,20 +9,47 @@ import {
   type HitShakeParams,
 } from '../../shared/hit-shake'
 import {
-  hitGlassCssVars,
-  hitGlassGeometry,
-  hitGlassLayers,
+  hitAvatarCssVars,
+  hitGlassSvg,
+  hitWaterHtml,
+  rowZonesOf,
+  type GlassHole,
   type GlassPolygon,
-  type GlassPolyline,
-  type HitGlassGeometry,
+  type GlassRect,
+  type GlassShard,
   type HitGlassTier,
+  type RowLayout,
+  type RowZones,
 } from '../../shared/hit-glass'
 import {
+  applyHitReport,
+  dockKindOf,
+  dockListDeg,
+  dockRustStrength,
+  dockScar,
+  dockWater,
+  damageChainOf,
+  emptyDamageState,
+  replayDamageChain,
+  reconcileScar,
+  returnToPort,
+  syntheticDamageState,
+  visibleListDeg,
+  type DockKind,
+  type HitMotion,
+  type ShipDamageState,
+} from '../../shared/hit-damage'
+import { analyzeShipHitReport } from '../../shared/hit-report'
+import { barToneStops, type BarToneStop } from '../../shared/bar-tone'
+import { hitRustSvg, hitScarSvg, scarExtents, scarGeometry, scarMerge, scarParts, type ScarCorner } from '../../shared/hit-scar'
+import { isSubmarineStype } from '../../shared/kcs-domain'
+import {
   createRepairWatch,
+  dockRepairProgress,
   type RepairFxEvent,
   type RepairItemSignal,
 } from '../../shared/repair-fx'
-import { REPAIR_FX, repairFxTotal } from '../../shared/fleet-fx-timing'
+import { HIT_REPORT_FX, REPAIR_FX, RETURN_FX, repairFxTotal, type DockOutStyle } from '../../shared/fleet-fx-timing'
 import { airBaseCustomName } from '../../shared/air-base-name'
 import { airBaseTabGlow } from '../../shared/air-base-tab'
 import { AIR_BASE_MUTE_KEY, isAirBaseAreaMuted, toggleAirBaseAreaMute, unmutedAirBaseSquads } from '../../shared/air-base-mute'
@@ -92,6 +119,8 @@ import {
   sunkEffectsEnabled,
   fleetStateToneEnabled,
   hitShakeEnabled,
+  queryBattleSnapshot,
+  queryBattleSnapshots,
   queryFleetCheck,
   queryLode,
   queryMasterRaw,
@@ -1076,6 +1105,7 @@ const shipRow = (deck: Deck, ship: PlayerShip, isFlag: boolean) => {
   const hitDmg = hit ? hit.dmg : 0
   const styleParts: string[] = []
   if (fractureCss) styleParts.push(fractureCss)
+  if (glass?.style) styleParts.push(...glass.style)
   if (hit) {
     styleParts.push(
       `--hit-shake:${hit.shake}`,
@@ -1090,10 +1120,14 @@ const shipRow = (deck: Deck, ship: PlayerShip, isFlag: boolean) => {
       `--hit-stamp:${hit.stampMs}ms`,
       `--hit-pop:${hit.popMs}ms`,
     )
+    // 战报驱动的动作（交接包 v2）：反潜等深弹起爆、鱼雷等航迹切入，冲击整体后挪 lead；鱼雷右沉倾侧、反潜垂直浮沉
+    if (hit.leadMs > 0) styleParts.push(`--hit-lead:${hit.leadMs}ms`)
+    if (hit.kind === 'torp') styleParts.push(`--list-from:${hit.listFrom}deg`, `--list-peak:${hit.listPeak}deg`)
+    if (hit.kind === 'asw') styleParts.push(`--heave-amp:${hit.heaveAmp}px`)
   }
   const hitAttr = `${
     hit
-      ? ` data-hit data-hit-sev="${hitSev}"${hit.crossedTier ? ' data-hit-cross="1"' : ''}${hit.glitchBurst ? ' data-glitch-burst="1"' : ''}`
+      ? ` data-hit data-hit-sev="${hitSev}"${hit.kind === 'torp' || hit.kind === 'asw' ? ` data-hit-kind="${hit.kind}"` : ''}${hit.leadMs > 0 ? ' data-hit-lead' : ''}${hit.crossedTier ? ' data-hit-cross="1"' : ''}${hit.glitchBurst ? ' data-glitch-burst="1"' : ''}`
       : ''
   }${crack ? ` data-crack="${crack}"` : ''}${shattered && fractureCss ? ' data-fracture' : ''}${glass?.attrs ?? ''}${styleParts.length ? ` style="${styleParts.join(';')}"` : ''}`
   const dmgFxHtml =
@@ -1181,7 +1215,7 @@ const shipRow = (deck: Deck, ship: PlayerShip, isFlag: boolean) => {
       ${eventRunningNow() ? sallyMarkHtml(ship.sallyArea, currentEventAreaId()) : ''}
       <div class="hpbody">
         ${dmgPopHtml}
-        <div class="bar">${hpGhostHtml}<i style="width:${dock ? 45 : hpPct}%"></i></div>
+        <div class="bar">${hpGhostHtml}<i style="width:${dock ? (hitShakeEnabled() ? dockBarPct(ship, dock) : 45) : hpPct}%"></i></div>
         <div class="num"${dock ? ` data-repair-title="${dock.completeTime}" title="${repairClockText(dock.completeTime, Date.now())}"` : ''}><span>${dock ? `${ship.nowhp}→${ship.maxhp}` : `${ship.nowhp}/${ship.maxhp}`}</span>${hpLabelOf(ship, !!dock)}</div>
       </div>
     </div>
@@ -3057,8 +3091,9 @@ const scheduleFleetQuestCheck = () => {
   }, 250)
 }
 
-// 被弹动画与修理演出（实验性，维护者裁决 2026-11-25 / 11-26）：
-// 对比上次绘制与当前耐久，出击掉血存一次性被弹参数，跨档存崩飞碎角，修理/保命走独立观察器。
+// 被弹动画与修理演出（实验性，维护者裁决 2026-11-25 / 11-26；战报驱动的弹孔、鱼雷倾侧进水、反潜深弹与特色入渠出渠，
+// 交接包「编队被弹与特色入渠动画」v2，维护者 2026-11-27 定稿）：
+// 对比上次绘制与当前耐久，出击掉血按战报归因追加持续战损（弹孔 / 积水 / 倾角）并存一次性被弹参数，修理/保命走独立观察器。
 const hpWatch = createHpWatch()
 const repairWatch = createRepairWatch()
 // 被弹参数在整段演出期间续挂（until 前每次重画都带同一份属性，输出不变就不换 DOM）。
@@ -3083,38 +3118,61 @@ const measureFleetRowSize = () => {
   }
 }
 
-const GLASS_TIER_RANK: Record<HitGlassTier | 'none', number> = {
-  none: 0,
-  light: 1,
-  medium: 2,
-  heavy: 3,
-  sunk: 4,
+// 行内各列的真实像素位置（每次换 DOM 后量一次，见 measureRowLayouts）：弹孔只落在留白、内容区下的裂纹压浅都靠它
+const rowLayouts = new Map<number, RowLayout>()
+// 每艘舰玻璃层定下来的那份安全区：落弹孔时取当时量到的，之后（含入渠中）照用，行宽变了才换。
+// 列位置会随文字微动（Lv、下一改装提示），每次重画都换会让输出一直在变、把正在播的演出拦腰截断。
+const glassZones = new Map<number, RowZones>()
+const liveZonesOf = (shipId: number): RowZones =>
+  rowZonesOf(rowLayouts.get(shipId) ?? { width: cachedRowWidth, height: cachedRowHeight })
+const glassZonesOf = (shipId: number): RowZones => {
+  const held = glassZones.get(shipId)
+  if (held && Math.abs(held.width - cachedRowWidth) < 2 && held.height === cachedRowHeight) return held
+  const zones = liveZonesOf(shipId)
+  glassZones.set(shipId, zones)
+  return zones
 }
 
-interface PendingShardFx {
-  shipId: number
-  geo: HitGlassGeometry
-  tier: HitGlassTier
-  prevTier: HitGlassTier | 'none'
+interface PendingHitFx {
+  motion: HitMotion
+  newHoles: GlassHole[]
+  tier: HitGlassTier | null
+  torpRatio: number
+  /** 扣血前后的血量百分比：血条换档的颜色从旧档渐变到新档 */
+  hpFrom: number
+  hpTo: number
 }
 
 interface PendingRepairAnimation {
   event: RepairFxEvent
-  prevGeo: HitGlassGeometry | null
-  prevTier: HitGlassTier | 'none'
+  /** 修理前那一刻的持续战损（女神发动要把碎片嵌回去） */
+  prevState: ShipDamageState | null
+  /** 修理前那一刻的玻璃层（四角碎裂＋弹孔）、积水与锈渍（在渠的按当时进度） */
   prevSvg: string
+  prevWater: number
+  prevRust: string
+  /** 修理前那一刻血条的宽度（在渠的按维修进度） */
+  prevBarPct: number
   prevFuelPct: number
   prevAmmoPct: number
+  /** 出渠演出的四套特色之一 */
+  dockStyle: DockOutStyle | null
   healedCrack: boolean
 }
 
-const lastGlassTier = new Map<number, HitGlassTier | 'none'>()
 const lastFuelAmmo = new Map<number, { fuelPct: number; ammoPct: number }>()
 const weldedShips = new Set<number>()
 const transientAura = new Map<number, { kind: 'goddess' | 'dock'; until: number }>()
 const auraTimers = new Map<number, ReturnType<typeof setTimeout>>()
-const pendingShards: PendingShardFx[] = []
+const pendingHitFx = new Map<number, PendingHitFx>()
 const pendingRepairFx = new Map<number, PendingRepairAnimation>()
+// 返港转化：这一趟的弹孔与积水转成四角碎裂与锈渍（维护者 2026-11-28 定）。上一次观察时还在出击、这一次回港了就是返港
+const pendingReturnFx = new Map<number, { prev: ShipDamageState; next: ShipDamageState }>()
+let lastSortieBattle = false
+/** 返港后多久之内第一次看到编队还补播转化动画（切到别的页签、过了很久才回来就直接是转化后的样子） */
+const RETURN_FX_WINDOW = 20_000
+// 在渠舰的预计修好时刻与总工时：出渠那一刻舰已不在渠，泼桶时还剩多少要靠上一次记下的
+const dockSeen = new Map<number, { completeTime: number; total: number }>()
 // 本次渲染里泊修常驻态要亮的工作舰与受修舰（observeFleetHits 按 berthRepairContext 算好，shipGlassFx 只读）
 const berthFxFlagIds = new Set<number>()
 const berthFxRepairIds = new Set<number>()
@@ -3177,45 +3235,88 @@ const clearBerthFade = () => {
   berthFadeRepair.clear()
 }
 
-const polyPoints = (poly: GlassPolygon): string => poly.map(([x, y]) => `${x},${y}`).join(' ')
-const linesPath = (lines: readonly GlassPolyline[]): string =>
-  lines.map((pts) => pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x} ${y}`).join(' ')).join(' ')
+const isSubShip = (ship: PlayerShip): boolean => {
+  const stype = mg.master.ships[ship.shipId]?.stype
+  return stype != null && isSubmarineStype(stype)
+}
 
-const glassColorOf = (tier: HitGlassTier, welded: boolean): string =>
-  welded
-    ? 'var(--hit-glass-weld)'
-    : tier === 'sunk'
-      ? 'var(--hit-glass-sunk)'
-      : tier === 'heavy'
-        ? 'var(--hit-glass-heavy)'
-        : tier === 'medium'
-          ? 'var(--hit-glass-mid)'
-          : 'var(--hit-glass-light)'
+/**
+ * 画进面板 HTML 的维修进度只按 10% 取整：进度随时间走，按 1% 画的话，任何一次无关的重画（编队任务反查、
+ * 每分钟的疲劳刷新）只要碰上跨过一个百分点，输出就变、整块换 DOM，正在播的出渠演出会被拦腰截断。
+ * 换完 DOM 当场（render 里提交之后、上屏之前）与每秒的 tickTimers 都由 refreshDockProgress 就地补到 1%。
+ */
+const DOCK_RENDER_STEP = 0.1
+const DOCK_LIVE_STEP = 0.01
 
-const glassFacetToneOf = (tier: HitGlassTier): string =>
-  tier === 'sunk' ? 'var(--hit-facet-sunk)' : tier === 'heavy' ? 'var(--hit-facet-heavy)' : 'var(--hit-facet-mid)'
+/**
+ * 入渠维修进度 0..1，按 step 向下取整。总工时取 api_ndock_time 与这一次入渠里记下的那份中较大的
+ * （报文若在渠期间把它清零或改小，进度不倒退；换了一次入渠——预计修好时刻变了——就不再沿用旧的）。
+ * 拿不到就返回 null，血条退回原来的静态示意宽度，不猜假进度。
+ * 实测（2026-11-27 本机 port 快照）：在渠舰的 api_ndock_time 仍是这次修满的总工时，剩余时间比它短。
+ */
+const dockProgressOf = (ship: PlayerShip, dock: { completeTime: number }, now = Date.now(), step = DOCK_RENDER_STEP): number | null => {
+  const seen = dockSeen.get(ship.id)
+  const total = Math.max(ship.ndockTime, seen && seen.completeTime === dock.completeTime ? seen.total : 0)
+  const progress = dockRepairProgress(dock.completeTime, total, now)
+  return progress == null ? null : Math.round(Math.floor(progress / step) * step * 100) / 100
+}
 
-const glassSvgMarkup = (geo: HitGlassGeometry, tier: HitGlassTier, welded = false): string => {
-  const layers = hitGlassLayers(geo, tier)
-  const col = glassColorOf(tier, welded)
-  const rim = welded ? 'var(--hit-glass-weld)' : tier === 'heavy' ? 'var(--hit-glass-heavy-rim)' : col
-  const facetTone = glassFacetToneOf(tier)
-  const facetPolys = layers.facets.map((f) => `<polygon points="${polyPoints(f)}" style="fill:${facetTone}"/>`).join('')
-  const subD = linesPath(layers.subCracks)
-  const mainD = linesPath(layers.cracks)
-  const bevelD = linesPath(layers.bevels)
-  const cutPolys = layers.cuts.map((c) => `<polygon points="${polyPoints(c)}" style="fill:var(--hit-glass-void)"/>`).join('')
-  const weldGlow =
-    welded && (mainD || bevelD)
-      ? `<path d="${`${mainD} ${bevelD}`.trim()}" fill="none" style="stroke:var(--hit-damecon)" stroke-width="3.2" opacity=".32"/>`
-      : ''
-  return `<svg class="glass-svg" viewBox="0 0 ${geo.width} ${geo.height}" preserveAspectRatio="none">${facetPolys}${weldGlow}${
-    subD ? `<path d="${subD}" fill="none" style="stroke:var(--hit-glass-dark)" stroke-width="1.3" opacity=".55" transform="translate(.8,.8)"/><path d="${subD}" fill="none" style="stroke:${col}" stroke-width=".75" opacity=".58"/>` : ''
-  }${
-    mainD ? `<path d="${mainD}" fill="none" style="stroke:var(--hit-glass-dark)" stroke-width="1.6" opacity=".68" transform="translate(1,1)"/><path d="${mainD}" fill="none" style="stroke:${col}" stroke-width="${welded ? 1.25 : tier === 'sunk' ? 1.15 : .95}" opacity="${tier === 'light' ? .7 : .92}"/>` : ''
-  }${cutPolys}${
-    bevelD ? `<path d="${bevelD}" fill="none" style="stroke:var(--hit-glass-dark)" stroke-width="1.8" opacity=".42" transform="translate(.6,.6)"/><path d="${bevelD}" fill="none" style="stroke:${rim}" stroke-width="1.5" opacity=".92"/>` : ''
-  }</svg>`
+/** 入渠中的血条：从伤血按真实维修进度推进到满（取代原先写死的 45% 示意） */
+const dockBarPct = (ship: PlayerShip, dock: { completeTime: number }, step = DOCK_RENDER_STEP): number => {
+  const progress = dockProgressOf(ship, dock, Date.now(), step)
+  if (progress == null) return 45
+  const hpPct = ship.maxhp > 0 ? (ship.nowhp / ship.maxhp) * 100 : 100
+  return Math.round((hpPct + (100 - hpPct) * progress) * 10) / 10
+}
+
+const glassMarkupOf = (shipId: number, state: ShipDamageState, tier: HitGlassTier | null, progress: number | null, welded: boolean): string =>
+  hitGlassSvg({ id: shipId, holes: state.holes, tier, zones: glassZonesOf(shipId), progress, welded })
+
+/** 历史战损的四角碎裂（入渠时按维修进度缩回） */
+const scarMarkupOf = (shipId: number, state: ShipDamageState, progress: number | null): string =>
+  hitScarSvg({ id: shipId, shipId, seedKey: state.seedKey, zones: glassZonesOf(shipId), loss: dockScar(state.scar ?? 0, progress) })
+
+/** 玻璃层整层：底下是历史的四角碎裂，上面是这一趟的弹孔 */
+const glassLayersOf = (shipId: number, state: ShipDamageState, tier: HitGlassTier | null, progress: number | null, welded: boolean): string =>
+  `${scarMarkupOf(shipId, state, progress)}${state.holes.length ? glassMarkupOf(shipId, state, tier, progress, welded) : ''}`
+
+/** 锈渍（入渠时随进度除净） */
+const rustMarkupOf = (shipId: number, state: ShipDamageState, progress: number | null): string => {
+  const zones = glassZonesOf(shipId)
+  return hitRustSvg({ shipId, seedKey: state.seedKey, width: zones.width, height: zones.height, level: state.rust ?? 0, strength: dockRustStrength(progress) })
+}
+
+/** 这艘在不在正在进行的这次出击里（联合舰队算两队）；不在的舰就算全局在出击，也按在港算 */
+const shipInSortie = (shipId: number): boolean => {
+  const sortie = mg.sortie
+  if (!sortie?.active || sortie.practice) return false
+  const ids = sortie.deckId === 1 && mg.combinedFlag > 0 ? [1, 2] : [sortie.deckId]
+  return mg.decks.some((deck) => ids.includes(deck.id) && deck.ships.includes(shipId))
+}
+
+const waterMarkupOf = (shipId: number, level: number, listNow: number, listBase: number, docked: boolean): string => {
+  if (level <= 0.4) return ''
+  const zones = glassZonesOf(shipId)
+  return hitWaterHtml({ level, listNow, listBase, docked, width: zones.width, height: zones.height, seed: shipId })
+}
+
+// 入渠中的常驻特色层：炮击伤焊修扫描光（焊补四角碎裂）、鱼雷伤沿锈线来回的除锈光、潜水舰压载排气慢泡
+const DOCK_SUB_BUBBLES = [18, 32, 44, 58, 72, 86]
+  .map((left, i) => {
+    const size = 3 + (i % 3) * 1.4
+    return `<span class="dock-sub-bubble" style="left:${left}%;width:${size}px;height:${size}px;--dur:${(2.6 + (i % 3) * 0.65).toFixed(2)}s;--del:${(-i * 0.55).toFixed(2)}s;--drift:${i % 2 ? 5 : -4}px"></span>`
+  })
+  .join('')
+const dockLayerHtml = (kind: DockKind, rustLevel: number): string => {
+  // 返港时积水已经抽干，在渠的鱼雷伤修的是锈：除锈光贴着锈线走（没有锈线时落在行高七成处）
+  const lineTop = Math.round(cachedRowHeight * (1 - (rustLevel > 0.4 ? rustLevel : 30) / 100)) - 3
+  return `<span class="dock-fx-layer">${
+    kind === 'sub'
+      ? DOCK_SUB_BUBBLES
+      : kind === 'torp'
+        ? `<span class="dock-derust" style="top:${lineTop}px"></span>`
+        : '<span class="dock-weld-scan"></span>'
+  }</span>`
 }
 
 const deckBerthActive = (deck: Deck): { flagId: number; repairingIds: Set<number> } | null => {
@@ -3253,6 +3354,9 @@ const activeRepairItems = (): Map<number, RepairItemSignal> => {
   return items
 }
 
+const tierAt = (hp: number, max: number, sunk: boolean): HitGlassTier | null =>
+  sunk ? 'sunk' : hitCrackTier({ nowhp: hp, maxhp: max, docked: false })
+
 const observeFleetHits = (deck: Deck) => {
   const decks = inCombined(deck)
     ? [1, 2].map((id) => mg.decks.find((d) => d.id === id)).filter(Boolean) as Deck[]
@@ -3271,91 +3375,166 @@ const observeFleetHits = (deck: Deck) => {
   const ships = decks.flatMap((d) => fleetShips(d))
   const battle = Boolean(mg.sortie?.active && !mg.sortie.practice)
   if (!mg.sortie?.active) weldedShips.clear()
+  const returned = lastSortieBattle && !mg.sortie?.active
+  lastSortieBattle = battle
 
+  const now = Date.now()
   const repairEvents = repairWatch.observe(
-    ships.map((ship) => ({
-      id: ship.id,
-      nowhp: ship.nowhp,
-      maxhp: ship.maxhp,
-      docked: !!dockOf(ship.id),
-      berthRepairing: berthFxRepairIds.has(ship.id),
-    })),
-    { sortie: battle, repairItems: battle ? activeRepairItems() : undefined },
+    ships.map((ship) => {
+      const dock = dockOf(ship.id)
+      return {
+        id: ship.id,
+        nowhp: ship.nowhp,
+        maxhp: ship.maxhp,
+        docked: !!dock,
+        berthRepairing: berthFxRepairIds.has(ship.id),
+        dockCompleteAt: dock?.completeTime ?? null,
+      }
+    }),
+    { sortie: battle, repairItems: battle ? activeRepairItems() : undefined, now },
   )
   const drops = hpWatch.observe(ships, { battle })
 
-  const now = Date.now()
   for (const [id, entry] of activeHits) if (entry.until <= now) activeHits.delete(id)
   for (const [id, until] of repairWashUntil) if (until <= now) repairWashUntil.delete(id)
-  pendingShards.length = 0
+  pendingHitFx.clear()
   pendingRepairFx.clear()
+  pendingReturnFx.clear()
 
   const enabled = hitShakeEnabled()
   const visible = document.visibilityState === 'visible'
+  // 返港：每艘带伤舰（不止眼前这一队）这一趟的弹孔收口、积水抽干，转成四角碎裂与锈渍
+  if (returned) {
+    const recent = mg.lastPortTs != null && now - mg.lastPortTs < RETURN_FX_WINDOW
+    for (const [id, state] of damageStates) {
+      const ship = mg.ships[id]
+      if (!ship) continue
+      if (ship.nowhp >= ship.maxhp) {
+        damageStates.delete(id)
+        continue
+      }
+      const next = returnToPort(state, ship.nowhp, ship.maxhp)
+      damageStates.set(id, next)
+      if (enabled && visible && recent && (state.holes.length || state.water > 0.4)) pendingReturnFx.set(id, { prev: state, next })
+    }
+  }
   const present = new Set<number>()
+  // 列表最底下那一行：鱼雷冲击峰值也按常驻倾角封顶——编队表在六舰满编时只余几像素，右端一沉就闪出滚动条
+  const lastShipId = ships.at(-1)?.id
 
   for (const ship of ships) {
     present.add(ship.id)
     const sunk = isSunkInSortie(ship.id)
-    const curTier: HitGlassTier | 'none' = sunk
-      ? 'sunk'
-      : (hitCrackTier({ nowhp: ship.nowhp, maxhp: ship.maxhp, docked: !!dockOf(ship.id) }) ?? 'none')
-    const prevTier = lastGlassTier.get(ship.id) ?? 'none'
     const ev = repairEvents.get(ship.id)
     const wasWelded = weldedShips.has(ship.id)
+    const prior = damageStates.get(ship.id) ?? null
 
     if (ev?.kind === 'damecon') weldedShips.add(ship.id)
     if (sunk || ship.nowhp >= ship.maxhp) weldedShips.delete(ship.id)
 
     if (enabled && visible && ev) {
-      const prevSeed = fractureSeeds.get(ship.id)
-      const prevGeo = prevSeed != null ? hitGlassGeometry(ship.id, prevSeed, cachedRowWidth, cachedRowHeight) : null
-      const prevSvg = prevGeo && prevTier !== 'none' ? glassSvgMarkup(prevGeo, prevTier, wasWelded) : ''
+      // 修理前那一刻的样子：在渠的玻璃层、积水与血条都按当时的维修进度（自然出渠多半已修到头，泼桶还剩一截）
+      const prevDock = dockSeen.get(ship.id) ?? null
+      const prevProgress = prevDock ? dockRepairProgress(prevDock.completeTime, prevDock.total, now) : null
+      const beforePct = ev.max > 0 ? Math.max(0, Math.min(100, (ev.before / ev.max) * 100)) : 0
       const prevFA = lastFuelAmmo.get(ship.id) ?? { fuelPct: 100, ammoPct: 100 }
+      const dockStyle: DockOutStyle | null = ev.kind === 'dock' ? (ev.bucket ? 'bucket' : dockKindOf(prior, isSubShip(ship))) : null
       pendingRepairFx.set(ship.id, {
         event: ev,
-        prevGeo,
-        prevTier,
-        prevSvg,
+        prevState: prior,
+        prevSvg: prior ? glassLayersOf(ship.id, prior, tierAt(ev.before, ev.max, false), prevProgress, wasWelded) : '',
+        prevWater: prior ? dockWater(prior.water, prevProgress) : 0,
+        prevRust: prior ? rustMarkupOf(ship.id, prior, prevProgress) : '',
+        prevBarPct: prevDock ? (prevProgress == null ? 45 : beforePct + (100 - beforePct) * prevProgress) : beforePct,
         prevFuelPct: prevFA.fuelPct,
         prevAmmoPct: prevFA.ammoPct,
-        healedCrack: (ev.kind === 'berth' || ev.kind === 'anchorage') && prevTier === 'light' && curTier === 'none',
+        dockStyle,
+        healedCrack:
+          (ev.kind === 'berth' || ev.kind === 'anchorage') && !!prior && (prior.holes.length > 0 || (prior.scar ?? 0) > 0) && ship.nowhp >= ship.maxhp,
       })
-      repairWashUntil.set(ship.id, now + repairFxTotal(ev.kind))
+      repairWashUntil.set(ship.id, now + repairFxTotal(ev.kind, dockStyle ?? undefined))
       if (ev.kind === 'goddess') transientAura.set(ship.id, { kind: 'goddess', until: Date.now() + 4500 })
       else if (ev.kind === 'dock') transientAura.set(ship.id, { kind: 'dock', until: Date.now() + 2600 })
     }
 
+    // 掉血：按战报归因追加持续战损。面板看不见时也记（之后看到的弹孔与积水照实），只是不播演出；
+    // 要员 / 女神那一下另有修理演出，不叠被弹动作
     const drop = drops.get(ship.id)
     const suppressHit = ev?.kind === 'damecon' || ev?.kind === 'goddess'
-    if (enabled && visible && drop && !suppressHit) {
-      transientAura.delete(ship.id)
-      const params = hitShakeParams(drop)
-      if (params) activeHits.set(ship.id, { params, until: Date.now() + params.totalMs })
-    }
-
-    if (
-      enabled &&
-      visible &&
-      !suppressHit &&
-      GLASS_TIER_RANK[curTier] > GLASS_TIER_RANK[prevTier] &&
-      (curTier === 'medium' || curTier === 'heavy' || curTier === 'sunk')
-    ) {
-      let seed = fractureSeeds.get(ship.id)
-      if (seed == null) {
-        seed = fractureSeedSeq++
-        fractureSeeds.set(ship.id, seed)
-      }
-      pendingShards.push({
-        shipId: ship.id,
-        geo: hitGlassGeometry(ship.id, seed, cachedRowWidth, cachedRowHeight),
-        tier: curTier,
-        prevTier,
+    if (enabled && drop) {
+      const sub = isSubShip(ship)
+      const report = analyzeShipHitReport(mg.sortie?.battle, ship.id, {
+        stypeOf: (mstId) => mg.master.ships[mstId]?.stype ?? null,
+        slotTypeOf: (mstId) => mg.master.slotitems[mstId]?.type2 ?? null,
+        targetStype: mg.master.ships[ship.shipId]?.stype ?? null,
+        drop,
       })
+      const zones = liveZonesOf(ship.id)
+      // 这一下之前就带伤、却还没有战损记录（换编队才第一次见到）：先按掉血前的血量补一套默认碎裂
+      let base = prior
+      if ((!base || (syntheticPending.has(ship.id) && !base.holes.length)) && drop.before < drop.max) {
+        base = syntheticDamageState(base?.seedKey ?? nextDamageSeed(), drop.before, drop.max, sub)
+      }
+      const result = applyHitReport({
+        shipId: ship.id,
+        state: base ?? emptyDamageState(nextDamageSeed()),
+        report,
+        before: drop.before,
+        after: drop.after,
+        max: drop.max,
+        zones,
+      })
+      damageStates.set(ship.id, result.state)
+      glassZones.set(ship.id, zones)
+      syntheticPending.delete(ship.id)
+      if (visible && !suppressHit) {
+        transientAura.delete(ship.id)
+        const motion = {
+          ...result.motion,
+          listFrom: visibleListDeg(result.motion.listFrom, zones.width, true),
+          listPeak: visibleListDeg(result.motion.listPeak, zones.width, ship.id === lastShipId),
+        }
+        const params = hitShakeParams(drop, motion, result.newHoles.length)
+        if (params) {
+          activeHits.set(ship.id, { params, until: Date.now() + params.totalMs })
+          pendingHitFx.set(ship.id, {
+            motion,
+            newHoles: result.newHoles,
+            tier: tierAt(drop.after, drop.max, sunk),
+            torpRatio: report.torpRatio,
+            hpFrom: (drop.before / drop.max) * 100,
+            hpTo: (drop.after / drop.max) * 100,
+          })
+        }
+      }
     }
 
-    if (!sunk && ship.nowhp >= ship.maxhp) fractureSeeds.delete(ship.id)
-    lastGlassTier.set(ship.id, curTier)
+    if (!sunk && ship.nowhp >= ship.maxhp) {
+      damageStates.delete(ship.id)
+      glassZones.delete(ship.id)
+      syntheticPending.delete(ship.id)
+    }
+    // 在港（不在这次出击的队里）：四角碎裂跟着血量走——泊修回血就缩；出击中冻结，新挨的打画成弹孔。
+    // 漏看了返港那一拍（比如开关是在港里才打开的）还挂着弹孔或积水的，也在这里转掉
+    const held = damageStates.get(ship.id)
+    if (held && !sunk && ship.nowhp < ship.maxhp && !shipInSortie(ship.id)) {
+      const next = returnToPort(held, ship.nowhp, ship.maxhp)
+      if (next.scar !== (held.scar ?? 0) || next.rust !== (held.rust ?? 0) || held.holes.length || held.water > 0 || held.listDeg > 0) {
+        damageStates.set(ship.id, next)
+      }
+    } else if (held && !sunk && ship.nowhp < ship.maxhp) {
+      // 出击中：保底——旧伤＋这一趟记下的掉血要等于实际缺失，没记到的补成四角碎裂（reconcileScar）
+      const next = reconcileScar(held, ship.nowhp, ship.maxhp)
+      if (next !== held) damageStates.set(ship.id, next)
+    }
+    const dock = dockOf(ship.id)
+    if (dock) {
+      const seen = dockSeen.get(ship.id)
+      const kept = seen && seen.completeTime === dock.completeTime ? seen.total : 0
+      dockSeen.set(ship.id, { completeTime: dock.completeTime, total: Math.max(ship.ndockTime, kept) })
+    } else {
+      dockSeen.delete(ship.id)
+    }
     const mst = mg.master.ships[ship.shipId]
     lastFuelAmmo.set(ship.id, {
       fuelPct: mst && mst.fuelMax > 0 ? (ship.fuel / mst.fuelMax) * 100 : 100,
@@ -3363,12 +3542,24 @@ const observeFleetHits = (deck: Deck) => {
     })
   }
 
-  for (const id of lastGlassTier.keys()) {
-    if (!present.has(id)) {
-      lastGlassTier.delete(id)
-      lastFuelAmmo.delete(id)
+  for (const id of lastFuelAmmo.keys()) {
+    if (!present.has(id)) lastFuelAmmo.delete(id)
+  }
+  // 不在渠了的（在别的页签上出的渠）撤掉入渠记录；退役、击沉后不在籍的舰，战损与量过的列位置一并清掉
+  for (const id of dockSeen.keys()) if (!dockOf(id)) dockSeen.delete(id)
+  for (const map of [damageStates, glassZones, rowLayouts] as Map<number, unknown>[]) {
+    for (const id of map.keys()) if (!mg.ships[id]) map.delete(id)
+  }
+  // 保底：不在眼前这一队的舰也按实际血量核一遍，回满了血就清掉战损（不止看得见的那一队）
+  for (const id of damageStates.keys()) {
+    const ship = mg.ships[id]
+    if (ship && ship.nowhp >= ship.maxhp && !isSunkInSortie(id)) {
+      damageStates.delete(id)
+      glassZones.delete(id)
+      syntheticPending.delete(id)
     }
   }
+  for (const id of syntheticPending) if (!mg.ships[id]) syntheticPending.delete(id)
 }
 
 const shipHitShake = (ship: PlayerShip): HitShakeParams | null => {
@@ -3380,11 +3571,13 @@ const shipHitShake = (ship: PlayerShip): HitShakeParams | null => {
 const shipHitCrack = (ship: PlayerShip) =>
   hitShakeEnabled() ? hitCrackTier({ nowhp: ship.nowhp, maxhp: ship.maxhp, docked: !!dockOf(ship.id) }) : null
 
-// 缺角玻璃层与修理演出在行内的挂件（实验性，维护者裁决 2026-11-26）。
-// shipRow 只负责拼进去：attrs 挂在行上，layers 进 .dmg-fx，tether 是泊修连接线；wash 表示没有伤势底色时也要一层底色给余韵用。
-// 要在 shipHitFracture 之后调用——种子由它分配。
+// 玻璃层、进水层与修理演出在行内的挂件（实验性，维护者裁决 2026-11-26；交接包 v2 2026-11-27）。
+// shipRow 只负责拼进去：attrs 挂在行上，style 并进行上唯一的 style（鱼雷常驻倾角），layers 进 .dmg-fx，
+// tether 是泊修连接线；wash 表示没有伤势底色时也要一层底色给余韵用。
+// 要在 shipHitFracture 之后调用——战损记录（种子）由它补。
 interface ShipGlassFx {
   attrs: string
+  style: string[]
   layers: string
   tether: string
   wash: boolean
@@ -3403,45 +3596,67 @@ const shipGlassFx = (ship: PlayerShip, sunk: boolean): ShipGlassFx | null => {
   const aura = sunk ? null : activeTransientAura(ship.id)
   // 修理演出的底色层：演出播完之前每次重画都带着，免得中途换 DOM 把演出截断
   const pending = pendingRepairFx.has(ship.id) || (repairWashUntil.get(ship.id) ?? 0) > Date.now()
-  const seed = tier ? fractureSeeds.get(ship.id) : undefined
-  const glassSvg =
-    tier && seed != null ? glassSvgMarkup(hitGlassGeometry(ship.id, seed, cachedRowWidth, cachedRowHeight), tier, welded) : ''
-  if (!glassSvg && !berthFlag && !berthRepair && !aura && !pending) return null
+  const state = damageStates.get(ship.id)
+  const dock = sunk ? undefined : dockOf(ship.id)
+  const progress = dock ? dockProgressOf(ship, dock) : null
+  const glassSvg = state ? glassLayersOf(ship.id, state, tier, progress, welded) : ''
+  // 鱼雷倾侧与进水：入渠前段（0%→45%）扶正，积水随进度抽干；击沉的行交给击沉演出，不倾侧。
+  // 行上画的倾角按行宽换算、按邻行余量封顶（visibleListDeg），液面斜率仍按原倾角算扶正到了哪一步
+  const listRaw = state && !sunk ? dockListDeg(state.listDeg, progress) : 0
+  const listNow = listRaw > 0 ? visibleListDeg(listRaw, glassZonesOf(ship.id).width, true) : 0
+  const listed = listNow > 0.04
+  const waterSvg = state
+    ? `${rustMarkupOf(ship.id, state, progress)}${waterMarkupOf(ship.id, dockWater(state.water, progress), listRaw, state.listDeg, !!dock)}`
+    : ''
+  const dockKind: DockKind | null = dock && ship.nowhp < ship.maxhp ? dockKindOf(state, isSubShip(ship)) : null
+  if (!glassSvg && !waterSvg && !listed && !dockKind && !berthFlag && !berthRepair && !aura && !pending) return null
+  const H = cachedRowHeight
   return {
-    attrs: `${welded ? ' data-weld="1"' : ''}${berthFlag ? ' data-berth-role="flag"' : ''}${
+    // data-glass：行上挂了玻璃 / 进水 / 入渠层。擦伤（没到小破线、没有 data-crack）也会留弹孔、进水，
+    // 行要靠它拿到定位与数据列压在上面，否则这些层相对更外层定位、被画到列表顶上去（2026-11-27 他报白露弹孔「没了」）
+    attrs: ` data-glass${welded ? ' data-weld="1"' : ''}${berthFlag ? ' data-berth-role="flag"' : ''}${
       berthRepair ? ' data-berth-repair="1"' : ''
     }${berthFading ? ' data-berth-fade="1"' : ''}${
-      // 带伤入渠：裂纹与缺角照留（维护者裁决 2026-11-26 ②），红黄告警与故障换成缓慢脉冲的恢复光（同日裁决）
-      tier && tier !== 'sunk' && dockOf(ship.id) ? ' data-docked="1"' : ''
-    }${aura ? ` data-repair-aura="${aura.kind}"` : ''}${
-      aura?.fading ? ' data-aura-fade="1"' : ''
-    }`,
-    layers: `<span class="glass-host" style="height:${cachedRowHeight}px">${glassSvg}</span>${
-      berthRepair ? '<span class="fx-akashi-wave"></span>' : ''
-    }<span class="fx-motes"></span><span class="fx-flash"></span><span class="fx-sweep"></span>`,
+      // 带伤入渠：裂纹照留（维护者裁决 2026-11-26 ②），红黄告警与故障换成缓慢脉冲的恢复光（同日裁决）；
+      // 交接包 v2：弹孔随维修进度逐孔逆向收口，特色层按伤势种类（焊修 / 抽水扶正 / 压载浮升）
+      tier && tier !== 'sunk' && dock ? ' data-docked="1"' : ''
+    }${dockKind ? ` data-dock-kind="${dockKind}" data-dock-prog="${progress == null ? '' : Math.round(progress * 100)}"` : ''}${
+      listed ? ' data-listed="1"' : ''
+    }${aura ? ` data-repair-aura="${aura.kind}"` : ''}${aura?.fading ? ' data-aura-fade="1"' : ''}`,
+    style: listed ? [`--list-deg:${listNow.toFixed(2)}deg`, `--list-y:${(listNow * 0.45).toFixed(2)}px`] : [],
+    layers: `<span class="water-host" style="height:${H}px">${waterSvg}</span><span class="glass-host" style="height:${H}px">${glassSvg}</span>${
+      dockKind ? dockLayerHtml(dockKind, state?.rust ?? 0) : ''
+    }${berthRepair ? '<span class="fx-akashi-wave"></span>' : ''}<span class="fx-motes"></span><span class="fx-flash"></span><span class="fx-sweep"></span>`,
     tether: berthRepair ? '<span class="berth-tether" aria-hidden="true"></span>' : '',
     wash: berthFlag || !!aura || pending,
   }
 }
 
-// 每艘舰当前受伤周期的随机裂纹种子：带伤期间（含入渠中）冻结，避免重渲跳位，且小破→中破→大破→击沉沿同一骨架生长；
-// 修满（且非击沉）后清空，下次再受创时自动换一套新裂纹。
-const fractureSeeds = new Map<number, number>()
-let fractureSeedSeq = 1
+// 每艘舰这一轮带伤的持续战损（弹孔 / 积水 / 倾角，连同头像裁角与故障错相的种子）：带伤期间（含入渠中）冻结，
+// 重画不跳位；修满（且非击沉）后清空，下次再受创换一个新种子整套重来。
+// 只在内存里：重启后本就带伤、没有逐发战报的舰先占一个种子，等量到这一行的列位置再按缺失血量补一套默认碎裂
+// （syntheticPending，见 settleSyntheticDamage）。
+const damageStates = new Map<number, ShipDamageState>()
+const syntheticPending = new Set<number>()
+let damageSeedSeq = 1
+const nextDamageSeed = (): number => damageSeedSeq++
 
 const shipHitFracture = (ship: PlayerShip): string => {
   if (!hitShakeEnabled()) return ''
   const sunk = isSunkInSortie(ship.id)
   if (!sunk && ship.nowhp >= ship.maxhp) {
-    fractureSeeds.delete(ship.id)
+    damageStates.delete(ship.id)
+    syntheticPending.delete(ship.id)
     return ''
   }
-  let seed = fractureSeeds.get(ship.id)
-  if (seed == null) {
-    seed = fractureSeedSeq++
-    fractureSeeds.set(ship.id, seed)
+  let state = damageStates.get(ship.id)
+  if (!state) {
+    // 先按缺失血量给上保底的四角碎裂（不必等账本，出击中的也一样）；锈渍与出击中的弹孔等账本重放补上
+    state = sunk ? emptyDamageState(nextDamageSeed()) : syntheticDamageState(nextDamageSeed(), ship.nowhp, ship.maxhp, isSubShip(ship))
+    damageStates.set(ship.id, state)
+    syntheticPending.add(ship.id)
   }
-  return hitGlassCssVars(hitGlassGeometry(ship.id, seed, cachedRowWidth, cachedRowHeight))
+  return hitAvatarCssVars(ship.id, state.seedKey)
 }
 
 const fleetDivisionHtml = (deck: Deck, role: string): string => {
@@ -3531,15 +3746,17 @@ const spawnRowMotes = (row: HTMLElement, count: number, colorVar: string, star: 
 const animateRowBars = (
   row: HTMLElement,
   bars: { hp?: [number, number]; fuel?: [number, number]; ammo?: [number, number] },
-  { delay = 0, duration = 460 }: { delay?: number; duration?: number } = {},
+  { delay = 0, duration = 460, hpDocked = [false, false] }: { delay?: number; duration?: number; hpDocked?: [boolean, boolean] } = {},
 ) => {
+  const timing: KeyframeAnimationOptions = { duration, delay, easing: 'cubic-bezier(.2,.82,.28,1)', fill: delay ? 'backwards' : 'none' }
   const run = (selector: string, [from, to]: [number, number]) => {
-    row.querySelector<HTMLElement>(selector)?.animate(
-      [{ width: `${from}%` }, { width: `${to}%` }],
-      { duration, delay, easing: 'cubic-bezier(.2,.82,.28,1)', fill: delay ? 'backwards' : 'none' },
-    )
+    row.querySelector<HTMLElement>(selector)?.animate([{ width: `${from}%` }, { width: `${to}%` }], timing)
   }
-  if (bars.hp) run('.hpc .bar > i', bars.hp)
+  if (bars.hp) {
+    const [from, to] = bars.hp
+    const bar = row.querySelector<HTMLElement>('.hpc .bar > i')
+    bar?.animate(hpBarFrames(bar, from, to, hpDocked[0], hpDocked[1]), timing)
+  }
   if (bars.fuel) run('.fa2 .fuel > i', bars.fuel)
   if (bars.ammo) run('.fa2 .ammo > i', bars.ammo)
 }
@@ -3553,6 +3770,30 @@ const animateRowBars = (
 // - 被弹动画开着时的扣血：那边的设计是实血当场落位、残影随后下降，两套叠在一起就乱了；
 // - 入渠 / 出渠那一下：入渠中的血条是固定的示意宽度，宽度变了但血量没变。
 // 过渡途中又重画了（比如编队任务反查那一次），新元素从已走过的进度接着走，不重头来。
+/**
+ * 血条的颜色关键帧：按 shared/bar-tone 排出的档位，读样式表里各档的两端颜色（--hpbar-*，深浅主题与色觉配色都在那边）。
+ * 只给 --bar-c0 / --bar-c1（样式表 @property 注册过的颜色属性），宽度另给。
+ */
+const barToneFrames = (el: Element, stops: readonly BarToneStop[]): Keyframe[] => {
+  if (!stops.length) return []
+  const style = getComputedStyle(el)
+  const color = (name: string) => style.getPropertyValue(name).trim()
+  return stops.map(({ offset, tone }) => ({ offset, '--bar-c0': color(`--hpbar-${tone}-0`), '--bar-c1': color(`--hpbar-${tone}-1`) }))
+}
+
+/**
+ * 血条从 from 走到 to（百分比）的整套关键帧：宽度与颜色在同一条缓动上，跨档线那一刻正好换到新档的颜色，
+ * 不再是类名一换整条颜色先跳过去、宽度后到（2026-11-28 他报血条「颜色抽动」）。withWidth=false 时只换颜色。
+ */
+const hpBarFrames = (el: Element, from: number, to: number, fromDocked: boolean, toDocked: boolean, withWidth = true): Keyframe[] => {
+  const tone = barToneFrames(el, barToneStops(from, to, fromDocked, toDocked))
+  if (!withWidth) return tone
+  if (!tone.length) return [{ width: `${from}%` }, { width: `${to}%` }]
+  tone[0] = { ...tone[0], width: `${from}%` }
+  tone[tone.length - 1] = { ...tone[tone.length - 1], width: `${to}%` }
+  return tone
+}
+
 const BAR_EASE_MS = 420
 const BAR_EASE = 'cubic-bezier(.2, .82, .28, 1)'
 interface RowBarWidths {
@@ -3564,6 +3805,9 @@ interface RowBarWidths {
 type BarSpan = [number, number]
 interface BarEase {
   hp?: BarSpan
+  /** 血条两端的在渠状态（颜色在水青与档色之间渐变）；toneOnly：入渠那一下宽度不走、只换颜色 */
+  hpDocked?: [boolean, boolean]
+  toneOnly?: boolean
   fuel?: BarSpan
   ammo?: BarSpan
   start: number
@@ -3582,10 +3826,15 @@ const runBarEase = (row: HTMLElement, ease: BarEase, elapsed: number) => {
   for (const key of ['hp', 'fuel', 'ammo'] as const) {
     const span = ease[key]
     if (!span) continue
-    const run = row
-      .querySelector<HTMLElement>(BAR_SELECTORS[key])
-      ?.animate([{ width: `${span[0]}%` }, { width: `${span[1]}%` }], { duration: BAR_EASE_MS, easing: BAR_EASE })
-    if (run && elapsed > 0) run.currentTime = elapsed
+    const el = row.querySelector<HTMLElement>(BAR_SELECTORS[key])
+    if (!el) continue
+    const frames =
+      key === 'hp'
+        ? hpBarFrames(el, span[0], span[1], ease.hpDocked?.[0] ?? false, ease.hpDocked?.[1] ?? false, !ease.toneOnly)
+        : [{ width: `${span[0]}%` }, { width: `${span[1]}%` }]
+    if (!frames.length) continue
+    const run = el.animate(frames, { duration: BAR_EASE_MS, easing: BAR_EASE })
+    if (elapsed > 0) run.currentTime = elapsed
   }
 }
 
@@ -3626,6 +3875,12 @@ const easeFleetBars = (root: HTMLElement, view: string, busy: ReadonlySet<number
     const ease: BarEase = { start: now }
     if (prior.docked === after.docked && moved(prior.hp, after.hp) && !(dropsHandled && after.hp < prior.hp)) {
       ease.hp = [prior.hp, after.hp]
+      ease.hpDocked = [prior.docked, after.docked]
+    } else if (prior.docked !== after.docked) {
+      // 入渠 / 出渠那一下：宽度照旧不走（入渠中的血条是另一套刻度），颜色在档色与水青之间渐变过去
+      ease.hp = [prior.hp, after.hp]
+      ease.hpDocked = [prior.docked, after.docked]
+      ease.toneOnly = true
     }
     if (moved(prior.fuel, after.fuel)) ease.fuel = [prior.fuel, after.fuel]
     if (moved(prior.ammo, after.ammo)) ease.ammo = [prior.ammo, after.ammo]
@@ -3651,34 +3906,582 @@ const makeSvgEl = (markup: string): SVGSVGElement | null => {
   return box.firstElementChild as SVGSVGElement | null
 }
 
-const launchFlyingShard = (
-  row: HTMLElement,
-  geo: HitGlassGeometry,
-  poly: GlassPolygon | null,
-  tier: HitGlassTier,
-  dx: number,
-  dy: number,
-  rot: number,
-  delayMs: number,
-  isOpp: boolean,
-) => {
-  if (!poly) return
-  const col = glassColorOf(tier, false)
-  const svg = makeSvgEl(
-    `<svg class="flying-shard" viewBox="0 0 ${geo.width} ${geo.height}" style="height:${geo.height}px;transform-origin:${isOpp ? geo.extraOrigin : geo.shardOrigin}"><polygon points="${polyPoints(poly)}" style="fill:var(--bg1);stroke:${col};stroke-width:1" opacity=".92"/></svg>`,
-  )
-  if (!svg) return
-  row.appendChild(svg)
-  svg
+// ---- 战报驱动的被弹演出与特色出渠（交接包 v2，维护者 2026-11-27 定稿；节拍取 HIT_REPORT_FX / REPAIR_FX.dockOut）----
+// 全部是一次性 Web Animations，播完 onfinish 自己拆掉。飞出来的元素（碎片、气泡、声呐环、深弹、航迹）样式表里
+// 默认不可见、动画不留首帧（fill none）：反潜、鱼雷要等 lead 才炸，起点延迟期间不能先在原位露出来；
+// 玻璃层里的弹孔则停在首帧（fill backwards，首帧就是还没裂开）；
+// 中途换了 DOM 就随旧行一起没掉，不在新行上补播半段。减少动态效果时一概不播（runPostRenderHitFx 统一判）。
+
+/** 行上方不裁切的特效层（深弹从行上方落下、碎片飞出行外）；每次换 DOM 后按需补一个 */
+const airFxOf = (row: HTMLElement): HTMLElement => {
+  let air = row.querySelector<HTMLElement>(':scope > .air-fx')
+  if (!air) {
+    air = document.createElement('span')
+    air.className = 'air-fx'
+    air.setAttribute('aria-hidden', 'true')
+    row.appendChild(air)
+  }
+  return air
+}
+
+const spawnBubbles = (row: HTMLElement, count: number, [x0, x1]: [number, number], colorVar: string, delayMs = 0, risePx = 38) => {
+  const air = airFxOf(row)
+  for (let i = 0; i < count; i++) {
+    const bubble = document.createElement('span')
+    const size = 2.5 + Math.random() * 4.2
+    bubble.className = 'fx-bubble'
+    bubble.style.cssText = `left:${(x0 + Math.random() * (x1 - x0)).toFixed(1)}%;top:${(58 + Math.random() * 34).toFixed(1)}%;width:${size.toFixed(1)}px;height:${size.toFixed(1)}px;--bubble:${colorVar}`
+    air.appendChild(bubble)
+    const dx = (Math.random() - 0.5) * 18
+    bubble
+      .animate(
+        [
+          { opacity: 0, transform: 'translate(0, 4px) scale(.4)' },
+          { opacity: 0.9, transform: `translate(${(dx * 0.4).toFixed(1)}px, ${(-risePx * 0.45).toFixed(1)}px) scale(1.05)`, offset: 0.35 },
+          { opacity: 0, transform: `translate(${dx.toFixed(1)}px, ${-risePx}px) scale(.7)` },
+        ],
+        { duration: HIT_REPORT_FX.bubble + Math.random() * HIT_REPORT_FX.bubbleJitter, delay: delayMs + i * 38, easing: 'ease-out', fill: 'none' },
+      )
+      .onfinish = () => bubble.remove()
+  }
+}
+
+const spawnSonarRing = (row: HTMLElement, xPct: number, yPct: number, colorVar: string, delayMs = 0, maxScale = 2.5) => {
+  const ring = document.createElement('span')
+  ring.className = 'fx-sonar'
+  ring.style.cssText = `left:${xPct}%;top:${yPct}%;--sonar:${colorVar}`
+  airFxOf(row).appendChild(ring)
+  ring
     .animate(
       [
-        { opacity: 1, transform: 'translate(0, 0) rotate(0deg)' },
-        { opacity: 0.9, transform: `translate(${(dx * 0.4).toFixed(1)}px, ${dy < 0 ? -5 : 4}px) rotate(${(rot * 0.35).toFixed(0)}deg)`, offset: 0.24 },
-        { opacity: 0, transform: `translate(${dx.toFixed(1)}px, ${Math.abs(dy).toFixed(1)}px) rotate(${rot.toFixed(0)}deg)` },
+        { opacity: 0.95, transform: 'scale(.25)' },
+        { opacity: 0.55, transform: `scale(${(maxScale * 0.62).toFixed(2)})`, offset: 0.48 },
+        { opacity: 0, transform: `scale(${maxScale.toFixed(2)})` },
       ],
-      { duration: tier === 'sunk' ? 620 : 480, delay: delayMs, easing: 'cubic-bezier(.22,.62,.36,1)', fill: 'forwards' },
+      { duration: HIT_REPORT_FX.sonar, delay: delayMs, easing: 'cubic-bezier(.16,.84,.3,1)', fill: 'none' },
     )
-    .onfinish = () => svg.remove()
+    .onfinish = () => ring.remove()
+}
+
+/**
+ * 一块碎片自己那么大的 SVG（坐标仍是行内像素）。整行宽的 SVG 绕碎片一转，包围盒能有上千像素——
+ * 编队表只留了几像素余量，会闪出滚动条、整列跟着挤一下。
+ */
+const shardSvg = (poly: GlassPolygon, fill: string, stroke: string, strokeWidth: number): SVGSVGElement | null => {
+  const xs = poly.map(([x]) => x)
+  const ys = poly.map(([, y]) => y)
+  const x0 = Math.floor(Math.min(...xs)) - 2
+  const y0 = Math.floor(Math.min(...ys)) - 2
+  const w = Math.ceil(Math.max(...xs)) + 2 - x0
+  const h = Math.ceil(Math.max(...ys)) + 2 - y0
+  return makeSvgEl(
+    `<svg class="fx-shard" viewBox="${x0} ${y0} ${w} ${h}" style="left:${x0}px;top:${y0}px;width:${w}px;height:${h}px"><polygon points="${poly.map(([x, y]) => `${x},${y}`).join(' ')}" style="fill:${fill};stroke:${stroke};stroke-width:${strokeWidth}" opacity=".94"/></svg>`,
+  )
+}
+
+/** 崩飞的玻璃碎片：先抛起、再旋转着坠落淡出（单发重击 6–8 块） */
+const launchGlassShards = (row: HTMLElement, shards: readonly GlassShard[], tier: HitGlassTier | null, delayMs = 0) => {
+  if (!shards.length) return
+  const col = tier === 'heavy' || tier === 'sunk' ? 'var(--hit-glass-heavy-rim)' : tier === 'medium' ? 'var(--hit-glass-mid)' : 'var(--hit-glass-light)'
+  const S = HIT_REPORT_FX.shard
+  shards.forEach((shard, i) => {
+    const svg = shardSvg(shard.poly, 'color-mix(in srgb, var(--bg2) 82%, var(--glow-shatter))', col, shard.large ? 1.15 : 0.85)
+    if (!svg) return
+    airFxOf(row).appendChild(svg)
+    const dist = (shard.large ? 26 : 36) * shard.speed
+    const dx = Math.cos(shard.ang) * dist + (shard.large ? 8 : 0)
+    const dyPeak = Math.sin(shard.ang) * (dist * 0.45) - (shard.large ? 6 : 10)
+    const dyEnd = dyPeak + (shard.large ? 34 : 26)
+    const rot = (dx >= 0 ? 1 : -1) * (35 + Math.round(shard.speed * 58))
+    svg
+      .animate(
+        [
+          { opacity: 1, transform: 'translate(0,0) rotate(0deg) scale(1)' },
+          { opacity: 0.96, transform: `translate(${(dx * 0.45).toFixed(1)}px, ${dyPeak.toFixed(1)}px) rotate(${Math.round(rot * 0.42)}deg) scale(1.04)`, offset: 0.28 },
+          { opacity: 0, transform: `translate(${dx.toFixed(1)}px, ${dyEnd.toFixed(1)}px) rotate(${rot}deg) scale(.76)` },
+        ],
+        { duration: shard.large ? S.large : S.small, delay: delayMs + i * S.step, easing: 'cubic-bezier(.2,.68,.35,1)', fill: 'none' },
+      )
+      .onfinish = () => svg.remove()
+  })
+}
+
+/** 破裂正向延展：核心 / 崩口先击穿张开 → 放射裂纹从中心向外飙开（dashoffset 100→0）→ 环裂与折光接续 */
+const animateHolesSpread = (row: HTMLElement, holeIdxs: readonly number[], delayMs: number) => {
+  const svg = row.querySelector<SVGSVGElement>('.glass-host .glass-svg')
+  if (!svg || !holeIdxs.length) return
+  const S = HIT_REPORT_FX.spread
+  holeIdxs.forEach((hid, order) => {
+    const base = delayMs + order * S.holeStep
+    svg.querySelectorAll<SVGElement>(`.hole-void-group[data-hid="${hid}"], .hole-core-group[data-hid="${hid}"], .hole-void-cut[data-hid="${hid}"]`).forEach((el) => {
+      el.style.transformOrigin = `${el.dataset.cx}px ${el.dataset.cy}px`
+      el.animate([{ transform: 'scale(.12)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], {
+        duration: S.core,
+        delay: base,
+        easing: 'cubic-bezier(.16,.88,.3,1)',
+        fill: 'backwards',
+      })
+    })
+    svg.querySelectorAll<SVGElement>(`.hole-ray[data-hid="${hid}"]`).forEach((el, i) => {
+      el.animate([{ strokeDashoffset: '100' }, { strokeDashoffset: '0' }], {
+        duration: S.ray + (i % 3) * S.rayStep,
+        delay: base + S.rayAt,
+        easing: 'cubic-bezier(.14,.84,.26,1)',
+        fill: 'backwards',
+      })
+    })
+    svg.querySelectorAll<SVGElement>(`.hole-ring[data-hid="${hid}"]`).forEach((el, i) => {
+      el.animate([{ strokeDashoffset: '100', opacity: 0 }, { strokeDashoffset: '0', opacity: 1 }], {
+        duration: S.ring,
+        delay: base + S.ringAt + (i % 4) * S.ringStep,
+        easing: 'ease-out',
+        fill: 'backwards',
+      })
+    })
+    svg.querySelectorAll<SVGElement>(`.hole-facet[data-hid="${hid}"]`).forEach((el) => {
+      el.animate([{ opacity: 0 }, { opacity: Number(el.getAttribute('opacity') || 0.7) }], {
+        duration: S.facet,
+        delay: base + S.facetAt,
+        easing: 'ease-out',
+        fill: 'backwards',
+      })
+    })
+  })
+}
+
+/**
+ * 出渠 / 泼桶时把还剩的裂纹精确逆向收口：外环与折光先收 → 放射裂纹从外尖端缩回核心（转水青焊修色）
+ * → 中心破口与针孔核向心闭合。泼桶整体快一截。
+ */
+const animateGlassReverseClose = (gh: HTMLElement, bucket: boolean, removeHost = false) => {
+  const R = REPAIR_FX.dockOut.reverse
+  const k = bucket ? REPAIR_FX.dockOut.bucketScale : 1
+  const finish = () => {
+    if (!gh.isConnected) return
+    if (removeHost) gh.remove()
+    else gh.innerHTML = ''
+  }
+  // 四角碎裂：裂纹从里往碎角缩回、碎角向角点收拢、碎板的折光淡掉（与弹孔收口同一段时长）
+  const scar = gh.querySelector<SVGSVGElement>('.scar-svg')
+  if (scar) {
+    scar.querySelectorAll<SVGElement>('.scar-crack').forEach((el) => {
+      el.animate([{ strokeDashoffset: el.getAttribute('stroke-dashoffset') || '0' }, { strokeDashoffset: '100' }], {
+        duration: Math.round(R.ray * k),
+        delay: Math.round(R.rayAt * k),
+        easing: 'cubic-bezier(.42, 0, .82, .56)',
+        fill: 'forwards',
+      })
+    })
+    scar.querySelectorAll<SVGElement>('.scar-chip').forEach((el) => {
+      const from = Number(el.getAttribute('transform')?.match(/scale\(([\d.]+)\)/)?.[1] ?? 1)
+      el.style.transformOrigin = `${el.dataset.ox}px ${el.dataset.oy}px`
+      el.animate([{ transform: `scale(${from})`, opacity: 1 }, { transform: 'scale(.05)', opacity: 0 }], {
+        duration: Math.round(R.void * k),
+        delay: Math.round(R.voidAt * k),
+        easing: 'cubic-bezier(.4, 0, .85, .45)',
+        fill: 'forwards',
+      })
+    })
+    scar.querySelectorAll<SVGElement>('.scar-facet').forEach((el) => {
+      el.animate([{ opacity: el.getAttribute('opacity') || '0.8' }, { opacity: 0 }], {
+        duration: Math.round(R.ring * k),
+        delay: R.ringAt,
+        easing: 'ease-out',
+        fill: 'forwards',
+      })
+    })
+  }
+  const svg = gh.querySelector<SVGSVGElement>('.glass-svg')
+  if (!svg) {
+    if (scar) setTimeout(finish, Math.round(R.total * k))
+    return
+  }
+  svg.querySelectorAll<SVGElement>('.hole-ring').forEach((el) => {
+    el.animate([{ strokeDashoffset: el.getAttribute('stroke-dashoffset') || '0' }, { strokeDashoffset: '100', opacity: 0 }], {
+      duration: Math.round(R.ring * k),
+      delay: R.ringAt,
+      easing: 'ease-in',
+      fill: 'forwards',
+    })
+  })
+  svg.querySelectorAll<SVGElement>('.hole-facet').forEach((el) => {
+    el.animate([{ opacity: el.getAttribute('opacity') || '0.6' }, { opacity: 0 }], {
+      duration: Math.round(R.ring * k),
+      delay: R.ringAt,
+      easing: 'ease-out',
+      fill: 'forwards',
+    })
+  })
+  svg.querySelectorAll<SVGElement>('.hole-ray').forEach((el) => {
+    if (el.classList.contains('hole-ray-main')) el.style.stroke = 'var(--hit-aqua)'
+    el.animate([{ strokeDashoffset: el.getAttribute('stroke-dashoffset') || '0' }, { strokeDashoffset: '100' }], {
+      duration: Math.round(R.ray * k),
+      delay: Math.round(R.rayAt * k),
+      easing: 'cubic-bezier(.42, 0, .82, .56)',
+      fill: 'forwards',
+    })
+  })
+  svg.querySelectorAll<SVGElement>('.hole-void-group, .hole-core-group, .hole-void-cut').forEach((el) => {
+    // 在渠修到一半的破口带着 transform 属性（缩到 s 倍）；样式里的 transform 会盖过它，所以从 s 接着缩
+    const from = Number(el.getAttribute('transform')?.match(/scale\(([\d.]+)\)/)?.[1] ?? 1)
+    el.style.transformOrigin = `${el.dataset.cx}px ${el.dataset.cy}px`
+    el.animate([{ transform: `scale(${from})`, opacity: 1 }, { transform: 'scale(.05)', opacity: 0 }], {
+      duration: Math.round(R.void * k),
+      delay: Math.round(R.voidAt * k),
+      easing: 'cubic-bezier(.4, 0, .85, .45)',
+      fill: 'forwards',
+    })
+  })
+  setTimeout(finish, Math.round(R.total * k))
+}
+
+/**
+ * 四角碎裂从旧伤长到新伤（返港转化）：每条裂纹从旧长度接着延伸，新亮起的角从无到有，碎角从旧大小长到新大小，
+ * 两头接上时碎板的折光淡入。长度照 shared/hit-scar 同一套算法按旧伤再算一遍，不在标记里另存。
+ */
+const animateScarGrowth = (svg: Element, shipId: number, prev: ShipDamageState, next: ShipDamageState) => {
+  const zones = glassZonesOf(shipId)
+  const geo = scarGeometry(shipId, next.seedKey, zones.width, zones.height)
+  const from = scarExtents(geo, prev.scar ?? 0)
+  const timing = { duration: RETURN_FX.scar, delay: RETURN_FX.scarAt, easing: 'cubic-bezier(.2, .7, .3, 1)', fill: 'backwards' as const }
+  svg.querySelectorAll<SVGElement>('.scar-crack').forEach((el) => {
+    const [where, key] = (el.dataset.scar ?? '').split(':')
+    let drawn = 0
+    if (where === 'l' || where === 'r') drawn = scarMerge(from[`${where}t` as ScarCorner], from[`${where}b` as ScarCorner])
+    else if (where in from) {
+      const parts = scarParts(from[where as ScarCorner])
+      drawn = key === 'main' ? parts.main : key === 'b1' ? parts.branch1 : parts.branch2
+    }
+    el.animate([{ strokeDashoffset: (100 * (1 - drawn)).toFixed(1) }, { strokeDashoffset: el.getAttribute('stroke-dashoffset') || '0' }], timing)
+  })
+  svg.querySelectorAll<SVGElement>('.scar-chip').forEach((el) => {
+    const corner = (el.dataset.scar ?? '').split(':')[0] as ScarCorner
+    const start = corner in from ? scarParts(from[corner]).chip : 0
+    const end = Number(el.getAttribute('transform')?.match(/scale\(([\d.]+)\)/)?.[1] ?? 1)
+    el.style.transformOrigin = `${el.dataset.ox}px ${el.dataset.oy}px`
+    el.animate([{ transform: `scale(${Math.max(0.02, start)})` }, { transform: `scale(${end})` }], timing)
+  })
+  svg.querySelectorAll<SVGElement>('.scar-facet').forEach((el) => {
+    const side = (el.dataset.scar ?? '').split(':')[0]
+    const start = scarMerge(from[`${side}t` as ScarCorner], from[`${side}b` as ScarCorner]) * 0.9
+    el.animate([{ opacity: start.toFixed(2) }, { opacity: el.getAttribute('opacity') || '0.9' }], timing)
+  })
+}
+
+/**
+ * 返港转化：这一趟的弹孔另挂一层、照出渠的逆向收口缩掉；四角碎裂同时从旧伤长到新伤。
+ * 积水另挂一层液面降下去、倾侧扶正，锈渍晚半拍从原水线显出来。都在新画好的行上播（行本身已是转化后的样子）。
+ */
+const playReturnToPort = (row: HTMLElement, shipId: number, prev: ShipDamageState, next: ShipDamageState) => {
+  const zones = glassZonesOf(shipId)
+  const ship = mg.ships[shipId]
+  const gh = row.querySelector<HTMLElement>('.glass-host')
+  if (gh && prev.holes.length) {
+    const layer = document.createElement('span')
+    layer.innerHTML = hitGlassSvg({ id: `${shipId}-return`, holes: prev.holes, tier: ship ? shipHitCrack(ship) : null, zones, progress: null })
+    gh.appendChild(layer)
+    animateGlassReverseClose(layer, false, true)
+  }
+  const scar = gh?.querySelector('.scar-svg')
+  if (scar) animateScarGrowth(scar, shipId, prev, next)
+  const wh = row.querySelector<HTMLElement>('.water-host')
+  if (wh && prev.water > 0.4) {
+    const layer = document.createElement('span')
+    layer.innerHTML = waterMarkupOf(shipId, prev.water, prev.listDeg, prev.listDeg, false)
+    wh.appendChild(layer)
+    const body = layer.querySelector<HTMLElement>('.water-body')
+    const drain = body?.animate(
+      [
+        { transform: `${getComputedStyle(body).transform === 'none' ? '' : getComputedStyle(body).transform} translateY(0)`.trim(), opacity: 1 },
+        { transform: `translateY(${Math.round(zones.height * 0.5)}px)`, opacity: 0 },
+      ],
+      { duration: RETURN_FX.drain, delay: RETURN_FX.drainAt, easing: 'cubic-bezier(.3, .1, .4, 1)', fill: 'both' },
+    )
+    if (drain) drain.onfinish = () => layer.remove()
+    else layer.remove()
+  }
+  const rust = wh?.querySelector<SVGElement>('.rust-svg')
+  if (rust && (next.rust ?? 0) > (prev.rust ?? 0)) {
+    rust.animate([{ opacity: 0 }, { opacity: rust.getAttribute('opacity') || '1' }], {
+      duration: RETURN_FX.rust,
+      delay: RETURN_FX.rustAt,
+      easing: 'ease-out',
+      fill: 'backwards',
+    })
+  }
+  if (prev.listDeg > 0) {
+    const deg = visibleListDeg(prev.listDeg, zones.width, true)
+    if (deg > 0.04) {
+      row.animate(
+        [
+          { transform: `translate3d(0, ${(deg * 0.45).toFixed(2)}px, 0) rotate(${deg.toFixed(2)}deg)`, transformOrigin: '44% 62%' },
+          { transform: 'translate3d(0, 0, 0) rotate(0deg)', transformOrigin: '44% 62%' },
+        ],
+        { duration: RETURN_FX.right, delay: RETURN_FX.rightAt, easing: 'cubic-bezier(.22, .85, .32, 1)', fill: 'backwards' },
+      )
+    }
+  }
+}
+
+/** 反潜：声呐扫掠 → 从行上方投下深弹（顶缘入水涟漪 + 下潜尾泡）→ 定深起爆（扣血从这一刻起，由 --hit-lead 排在样式里） */
+const playAswDrop = (row: HTMLElement, motion: HitMotion) => {
+  const A = HIT_REPORT_FX.aswDrop
+  const xs = motion.dropCount <= 1 ? [42] : motion.dropCount === 2 ? [39, 70] : [37, 45, 71]
+  const air = airFxOf(row)
+  spawnSonarRing(row, xs[0], 42, 'var(--asw-sonar)', 0, 2.2)
+  xs.forEach((xPct, i) => {
+    const start = A.start + i * A.step
+    const ripple = document.createElement('span')
+    ripple.className = 'fx-asw-ripple'
+    ripple.style.left = `${xPct}%`
+    air.appendChild(ripple)
+    ripple
+      .animate(
+        [
+          { opacity: 0, transform: 'scale(.2)' },
+          { opacity: 0.85, transform: 'scale(.9)', offset: 0.35 },
+          { opacity: 0, transform: 'scale(1.65)' },
+        ],
+        { duration: A.ripple, delay: start + A.rippleAt, easing: 'ease-out', fill: 'none' },
+      )
+      .onfinish = () => ripple.remove()
+    const charge = document.createElement('span')
+    charge.className = 'fx-depth-charge'
+    charge.style.left = `${xPct}%`
+    charge.innerHTML =
+      '<svg viewBox="0 0 14 18" width="14" height="18"><rect x="3" y="2" width="8" height="13" rx="3" style="fill:var(--asw-charge);stroke:var(--asw-charge-rim)" stroke-width="1"/><rect x="3.4" y="6.2" width="7.2" height="2.6" style="fill:var(--asw-charge-band)"/><line x1="4.5" y1="15" x2="9.5" y2="15" style="stroke:var(--asw-charge-rim)" stroke-width="1.2"/></svg>'
+    air.appendChild(charge)
+    charge
+      .animate(
+        [
+          { opacity: 0, transform: 'translateY(-28px) rotate(-10deg) scale(.86)' },
+          { opacity: 1, transform: 'translateY(-4px) rotate(-4deg) scale(1)', offset: 0.25 },
+          { opacity: 1, transform: 'translateY(17px) rotate(3deg) scale(1.02)', offset: 0.82 },
+          { opacity: 1, transform: 'translateY(19px) rotate(0deg) scale(1.25)', filter: 'brightness(2.2)' },
+        ],
+        { duration: A.fall, delay: start, easing: 'cubic-bezier(.32,.1,.45,1)', fill: 'none' },
+      )
+      .onfinish = () => charge.remove()
+    spawnBubbles(row, 3, [xPct - 2, xPct + 2], 'var(--asw-sonar)', start + A.bubblesAt, 18)
+  })
+  // 起爆：同心冲击波与气泡群（水下声压爆闪与垂直浮沉走样式表）
+  xs.forEach((xPct, i) => spawnSonarRing(row, xPct, 52, 'var(--asw-sonar)', motion.leadMs + i * 55, 3.2))
+  spawnBubbles(row, 11, [30, 76], 'var(--asw-sonar)', motion.leadMs + 40, 44)
+}
+
+/** 鱼雷：一两条航迹从右侧敌方切入水线；命中后右侧水柱浪花与进水气泡，积水液面涨上来 */
+const playTorpRuns = (row: HTMLElement, motion: HitMotion, torpRatio: number, zones: RowZones) => {
+  const air = airFxOf(row)
+  for (let t = 0; t < motion.torpRuns; t++) {
+    const streak = document.createElement('span')
+    streak.className = 'fx-torp-run'
+    streak.style.top = `${66 + t * 14}%`
+    air.appendChild(streak)
+    streak
+      .animate(
+        [
+          { opacity: 0.2, transform: 'translateX(36px) scaleX(.6)' },
+          { opacity: 1, transform: `translateX(-${Math.round(zones.width * 0.24)}px) scaleX(1.15)`, offset: 0.72 },
+          { opacity: 0, transform: `translateX(-${Math.round(zones.width * 0.3)}px) scaleX(.4)` },
+        ],
+        { duration: HIT_REPORT_FX.torpRun, delay: t * HIT_REPORT_FX.torpRunStep, easing: 'cubic-bezier(.25,.7,.35,1)', fill: 'none' },
+      )
+      .onfinish = () => streak.remove()
+  }
+  spawnBubbles(row, Math.round(6 + torpRatio * 8), [54, 94], 'var(--accent)', motion.leadMs + 20, 40)
+  spawnSonarRing(row, 82, 72, 'var(--accent)', motion.leadMs + 10, 2.4)
+  const rise = motion.waterTo - motion.waterFrom
+  const wh = row.querySelector<HTMLElement>('.water-host')
+  if (wh && rise > 0.4) {
+    wh.animate([{ transform: `translateY(${((rise / 100) * zones.height).toFixed(1)}px)` }, { transform: 'translateY(0)' }], {
+      duration: HIT_REPORT_FX.list,
+      delay: motion.leadMs,
+      easing: 'cubic-bezier(.22,.78,.32,1)',
+      fill: 'backwards',
+    })
+  }
+}
+
+/** 量每一行内各列的真实像素位置（相对行左上角，取整）。行可能正倾着 1° 上下，误差在一两像素内 */
+const measureRowLayouts = (root: HTMLElement) => {
+  for (const row of root.querySelectorAll<HTMLElement>('.ship[data-ship]')) {
+    const id = Number(row.dataset.ship)
+    const width = Math.round(row.clientWidth)
+    if (!id || width < 120) continue
+    const rr = row.getBoundingClientRect()
+    const rel = (el: Element | null): GlassRect | null => {
+      if (!el) return null
+      const b = el.getBoundingClientRect()
+      if (!b.width) return null
+      return { x0: Math.round(b.left - rr.left), x1: Math.round(b.right - rr.left), y0: Math.round(b.top - rr.top), y1: Math.round(b.bottom - rr.top) }
+    }
+    const rightOf = (els: NodeListOf<Element>): number | null =>
+      els.length ? Math.round(Math.max(...Array.from(els, (el) => el.getBoundingClientRect().right - rr.left))) : null
+    rowLayouts.set(id, {
+      width,
+      height: cachedRowHeight,
+      whoRight: rightOf(row.querySelectorAll(':scope > .who > *')),
+      hpc: rel(row.querySelector(':scope > .hpc')),
+      fa2: rel(row.querySelector(':scope > .fa2')),
+      cond: rel(row.querySelector(':scope > .cond')),
+      eq: rel(row.querySelector(':scope > .eq')),
+      eqContentRight: rightOf(row.querySelectorAll(':scope > .eq > *')),
+    })
+  }
+}
+
+/** 等到量到列位置，给没有逐发战报的带伤舰补默认碎裂；补了就要再画一次 */
+/**
+ * 重启后（或刚打开开关）才见到的带伤舰：照账本里的战斗把这一轮挨的每一下重放出来，弹孔与实际挨打逐发对应
+ * （2026-11-27 他报「受到伤害的次数跟弹孔不对应」：原先一律按伤势档补 1～3 个默认弹孔）。
+ * 只读、走现有的战斗快照查询（chron:battles / chron:battle），不碰游戏请求。从最近一场往回取，都找到起点就停，
+ * 最多取这么多场（一场约 12KB，96 场读加解析约 10ms）。找不到满血开场的，已接上的那几场照样逐发重放、更早的伤补默认碎裂；
+ * 接不上（中途泊修回过血、记录不全）或取不到就整个退回默认碎裂。同一时间只跑一批。
+ * 账本 60 个重启点实测（2026-11-27）：接上的弹孔数与命中数逐个相等（鱼雷伤改为进水、7 个封顶的除外），没有接错的。
+ */
+const LEDGER_REBUILD_MAX = 96
+let ledgerRebuildRunning = false
+
+const rebuildDamageFromLedger = async (ids: readonly number[]): Promise<Map<number, ShipDamageState | null>> => {
+  const out = new Map<number, ShipDamageState | null>()
+  const open = new Set(ids)
+  const battles: BattleView[] = []
+  // 按出击分段（维护者 2026-11-28 定）：之前出击的弹孔与积水在段尾转成四角碎裂与锈渍，只有眼下这次出击的还是弹孔
+  const sortieOfBattle = new Map<BattleView, number>()
+  let current: number | null | undefined
+  const sorties = { sortieOf: (battle: BattleView) => sortieOfBattle.get(battle) ?? null, current: null as number | null }
+  try {
+    const summaries = await queryBattleSnapshots(LEDGER_REBUILD_MAX)
+    for (const summary of summaries) {
+      if (!open.size) break
+      if (summary.practice) continue
+      // 最近一场就是眼下这次出击的（在出击中、这次已经打过、图也对得上）才认它为当前出击
+      if (current === undefined) {
+        const sortie = mg.sortie
+        const live = !!sortie?.active && !sortie.practice && sortie.battleCount > 0 && summary.map === sortie.mapArea * 10 + sortie.mapNo
+        current = live ? summary.sortieId : null
+        sorties.current = current
+      }
+      const battle = (await queryBattleSnapshot(summary.id))?.sortie?.battle
+      if (!battle) continue
+      battles.push(battle)
+      sortieOfBattle.set(battle, summary.sortieId)
+      for (const id of [...open]) {
+        const ship = mg.ships[id]
+        const state = damageStates.get(id)
+        if (!ship || !state) {
+          open.delete(id)
+          continue
+        }
+        const chain = damageChainOf(battles, ship)
+        if (chain.status === 'open') continue
+        open.delete(id)
+        out.set(id, chain.status === 'done' ? replayDamageChain(chain.battles, id, replayDepsOf(id), undefined, sorties) : null)
+      }
+    }
+    // 取到头也没找到满血开场：已接上的那几场照样逐发重放，链头之前的伤算历史战损
+    for (const id of open) {
+      const ship = mg.ships[id]
+      if (!ship || !damageStates.get(id)) continue
+      const chain = damageChainOf(battles, ship)
+      if (chain.status !== 'open' || !chain.battles.length) continue
+      const deps = replayDepsOf(id)
+      const base = syntheticDamageState(deps.seedKey, chain.startHp, ship.maxhp, isSubShip(ship))
+      out.set(id, replayDamageChain(chain.battles, id, deps, base, sorties))
+      open.delete(id)
+    }
+  } catch {
+    // 账本查不到：下面统一退回默认碎裂
+  }
+  for (const id of open) out.set(id, null)
+  return out
+}
+
+const replayDepsOf = (id: number) => {
+  const ship = mg.ships[id]
+  return {
+    seedKey: damageStates.get(id)?.seedKey ?? 0,
+    zones: liveZonesOf(id),
+    stypeOf: (mstId: number) => mg.master.ships[mstId]?.stype ?? null,
+    slotTypeOf: (mstId: number) => mg.master.slotitems[mstId]?.type2 ?? null,
+    targetStype: (ship && mg.master.ships[ship.shipId]?.stype) ?? null,
+  }
+}
+
+/** 等量到列位置，给没有逐发战报的带伤舰补战损（先照账本重放，接不上才补默认碎裂）；补完再画一次 */
+const settleSyntheticDamage = (root: HTMLElement) => {
+  if (ledgerRebuildRunning) return
+  const ready = [...syntheticPending].filter((id) => {
+    const ship = mg.ships[id]
+    const state = damageStates.get(id)
+    if (!ship || !state || state.holes.length) {
+      syntheticPending.delete(id)
+      return false
+    }
+    return rowLayouts.has(id)
+  })
+  if (!ready.length) return
+  ledgerRebuildRunning = true
+  void rebuildDamageFromLedger(ready)
+    .then((rebuilt) => {
+      let changed = false
+      for (const id of ready) {
+        const ship = mg.ships[id]
+        const state = damageStates.get(id)
+        // 等账本的这段时间里这艘又挨了打（掉血那一路已经补过）或修满了：不再覆盖
+        if (!syntheticPending.has(id) || !ship || !state || state.holes.length) continue
+        syntheticPending.delete(id)
+        const zones = liveZonesOf(id)
+        const sunk = isSunkInSortie(id)
+        const replayed = rebuilt.get(id) ?? syntheticDamageState(state.seedKey, sunk ? 0 : ship.nowhp, ship.maxhp, isSubShip(ship))
+        // 重放出来的也再按实际血量核一遍（账本缺了几场时，缺的那截补成四角碎裂）
+        const next = sunk ? replayed : reconcileScar(replayed, ship.nowhp, ship.maxhp)
+        damageStates.set(id, next)
+        glassZones.set(id, zones)
+        changed = true
+      }
+      if (changed && root.isConnected) deferPassive(root, 'ru', render)
+    })
+    .finally(() => {
+      ledgerRebuildRunning = false
+    })
+}
+
+/** 在渠舰的维修进度跨过整百分点：就地改血条、弹孔收口、积水与倾角，不为它重画整块（交接包：低频就地刷新） */
+const refreshDockProgress = (root: HTMLElement) => {
+  const now = Date.now()
+  for (const row of root.querySelectorAll<HTMLElement>('.ship[data-dock-kind]')) {
+    const id = Number(row.dataset.ship)
+    const ship = mg.ships[id]
+    const dock = dockOf(id)
+    if (!ship || !dock) continue
+    const progress = dockProgressOf(ship, dock, now, DOCK_LIVE_STEP)
+    const pct = progress == null ? '' : String(Math.round(progress * 100))
+    if (row.dataset.dockProg === pct) continue
+    row.dataset.dockProg = pct
+    const bar = row.querySelector<HTMLElement>('.hpc .bar > i')
+    const barPct = dockBarPct(ship, dock, DOCK_LIVE_STEP)
+    if (bar) bar.style.width = `${barPct}%`
+    // 平滑过渡记的宽度跟着就地补的走：否则下一次整块重画会从上一回的旧宽度重走一遍，血条先缩回去一截
+    const recorded = barWidths.get(id)
+    if (recorded) recorded.hp = barPct
+    const state = damageStates.get(id)
+    const listRaw = state ? dockListDeg(state.listDeg, progress) : 0
+    const listNow = listRaw > 0 ? visibleListDeg(listRaw, glassZonesOf(id).width, true) : 0
+    const gh = row.querySelector<HTMLElement>('.glass-host')
+    if (gh) gh.innerHTML = state ? glassLayersOf(id, state, shipHitCrack(ship), progress, false) : ''
+    const wh = row.querySelector<HTMLElement>('.water-host')
+    if (wh) wh.innerHTML = state ? `${rustMarkupOf(id, state, progress)}${waterMarkupOf(id, dockWater(state.water, progress), listRaw, state.listDeg, true)}` : ''
+    if (listNow > 0.04) {
+      row.setAttribute('data-listed', '1')
+      row.style.setProperty('--list-deg', `${listNow.toFixed(2)}deg`)
+      row.style.setProperty('--list-y', `${(listNow * 0.45).toFixed(2)}px`)
+    } else {
+      row.removeAttribute('data-listed')
+      row.style.removeProperty('--list-deg')
+      row.style.removeProperty('--list-y')
+    }
+  }
 }
 
 // 余韵两段收尾，都就地改属性、不重画整块：到点先挂 data-aura-fade 淡出，FX_FADE_MS 后再撤。
@@ -3710,11 +4513,20 @@ const scheduleAuraCleanup = (shipId: number, delayMs: number) => {
   )
 }
 
+/** 被弹换档时血条颜色渐变的时长（实血当场落位，颜色跟着冲击那一拍过去） */
+const HIT_BAR_TONE_MS = 360
+
 const runPostRenderHitFx = (root: HTMLElement) => {
-  const shards = pendingShards.splice(0, pendingShards.length)
+  // 先量列位置：下一次落弹孔、补默认碎裂都读它
+  measureRowLayouts(root)
+  settleSyntheticDamage(root)
+  const hits = [...pendingHitFx.entries()]
+  pendingHitFx.clear()
   const repairs = [...pendingRepairFx.entries()]
   pendingRepairFx.clear()
-  if (!shards.length && !repairs.length) return
+  const returns = [...pendingReturnFx.entries()]
+  pendingReturnFx.clear()
+  if (!hits.length && !repairs.length && !returns.length) return
   if (document.visibilityState !== 'visible') return
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -3722,35 +4534,30 @@ const runPostRenderHitFx = (root: HTMLElement) => {
     if (item.event.kind === 'goddess') scheduleAuraCleanup(shipId, 4500)
     else if (item.event.kind === 'dock') scheduleAuraCleanup(shipId, 2600)
   }
+  // 减少动态效果：深弹下坠、航迹、碎片蹦飞、震颤与逆向扫动一概不播，只留静态战损与静态维修进度
   if (reduced) return
 
-  // 一次跨过几档就崩落几块：每档各有自己新崩开的那一块（中破＝缺口 A、大破＝A 外那圈 B、击沉＝对侧小角 C）。
-  // 小破直接到大破时 A、B 一起掉，掉下去的正好是「大破减小破」那整块（他 11-26 要的），
-  // 不再只飞走外圈那一条、A 凭空消失。块与块错开几十毫秒，像一大片先后裂落。
-  const SHARD_STEPS = ['medium', 'heavy', 'sunk'] as const
-  for (const item of shards) {
-    const row = root.querySelector<HTMLElement>(`.ship[data-ship="${item.shipId}"]`)
+  // 战报驱动的被弹：反潜先投深弹再起爆、鱼雷先切入水线再炸；弹孔在冲击那一拍（lead）正向延展、碎片崩飞。
+  // 冲击、残影、盖章与倾侧 / 浮沉走样式表（--hit-lead 排在同一时间线）。
+  for (const [shipId, item] of hits) {
+    const row = root.querySelector<HTMLElement>(`.ship[data-ship="${shipId}"]`)
     if (!row) continue
-    const { geo } = item
-    const steps = SHARD_STEPS.filter((step) => GLASS_TIER_RANK[step] > GLASS_TIER_RANK[item.prevTier] && GLASS_TIER_RANK[step] <= GLASS_TIER_RANK[item.tier])
-    steps.forEach((step, index) => {
-      const delay = index * 50
-      // 本档自己那块走主轨迹，先前跨过的几块走副轨迹（角度、距离错开，免得叠成一块）
-      const own = index === steps.length - 1
-      if (step === 'sunk') {
-        launchFlyingShard(row, geo, geo.shardC, 'sunk', 24, geo.topSide ? 30 : -28, (geo.topSide ? -1 : 1) * 48, delay, true)
-      } else if (own) {
-        launchFlyingShard(
-          row, geo, step === 'medium' ? geo.shardA : geo.shardB, item.tier,
-          20 + Math.random() * 14, geo.topSide ? -28 : 26, (geo.topSide ? 1 : -1) * 38, delay, false,
-        )
-      } else {
-        launchFlyingShard(
-          row, geo, step === 'medium' ? geo.shardA : geo.shardB, item.tier,
-          26 + Math.random() * 10, geo.topSide ? -34 : 30, (geo.topSide ? 1 : -1) * 52, delay, false,
-        )
-      }
-    })
+    const { motion, newHoles, tier, torpRatio } = item
+    const zones = glassZonesOf(shipId)
+    if (motion.kind === 'asw') playAswDrop(row, motion)
+    else if (motion.torpRuns > 0) playTorpRuns(row, motion, torpRatio, zones)
+    animateHolesSpread(row, newHoles.map((hole) => hole.idx), motion.leadMs)
+    // 实血当场落位（残影随后下降）；跨了档的话颜色在冲击那一拍从旧档渐变到新档，不一下跳过去
+    const bar = row.querySelector<HTMLElement>('.hpc .bar > i')
+    const tone = bar ? hpBarFrames(bar, item.hpFrom, item.hpTo, false, false, false) : []
+    if (bar && tone.length) bar.animate(tone, { duration: HIT_BAR_TONE_MS, delay: motion.leadMs, easing: 'ease-out', fill: 'backwards' })
+    newHoles.forEach((hole, i) => launchGlassShards(row, hole.shards, tier, motion.leadMs + 30 + i * HIT_REPORT_FX.shard.holeStep))
+  }
+
+  // 返港转化：弹孔收口、四角碎裂长出来；积水抽干、倾侧扶正、锈渍显出来
+  for (const [shipId, item] of returns) {
+    const row = root.querySelector<HTMLElement>(`.ship[data-ship="${shipId}"]`)
+    if (row) playReturnToPort(row, shipId, item.prev, item.next)
   }
 
   // 各段起点与时长都取节拍表 REPAIR_FX：冲击 / 起势 → 喘口气 → 修复光效与血条 → 再喘口气报飘字。
@@ -3760,7 +4567,7 @@ const runPostRenderHitFx = (root: HTMLElement) => {
   for (const [shipId, item] of repairs) {
     const row = root.querySelector<HTMLElement>(`.ship[data-ship="${shipId}"]`)
     if (!row) continue
-    const { event, prevGeo, prevTier, prevSvg, prevFuelPct, prevAmmoPct, healedCrack } = item
+    const { event, prevState, prevSvg, prevWater, prevRust, prevBarPct, prevFuelPct, prevAmmoPct, dockStyle, healedCrack } = item
     const prevPct = event.max > 0 ? Math.max(0, Math.min(100, (event.before / event.max) * 100)) : 0
     const nextPct = event.max > 0 ? Math.max(0, Math.min(100, (event.after / event.max) * 100)) : 100
     const flash = row.querySelector<HTMLElement>('.fx-flash')
@@ -3854,28 +4661,24 @@ const runPostRenderHitFx = (root: HTMLElement) => {
           { duration: T.sweep, delay: T.reviveAt, easing: 'cubic-bezier(.16,.82,.26,1)' },
         )
       }
-      if (prevGeo && prevTier !== 'none') {
-        const prevLayers = hitGlassLayers(prevGeo, prevTier)
-        const poly = prevLayers.cuts[0] ?? prevLayers.shard
-        if (poly) {
-          const dirY = prevGeo.topSide ? -22 : 22
-          const rot = prevGeo.topSide ? 42 : -42
-          const rev = makeSvgEl(
-            `<svg class="flying-shard" viewBox="0 0 ${prevGeo.width} ${prevGeo.height}" style="height:${prevGeo.height}px;transform-origin:${prevGeo.shardOrigin}"><polygon points="${polyPoints(poly)}" style="fill:var(--hit-goddess);stroke:var(--glow-shatter);stroke-width:1.4" opacity=".95"/></svg>`,
-          )
-          if (rev) {
-            row.appendChild(rev)
-            rev
-              .animate(
-                [
-                  { opacity: 0, transform: `translate(28px, ${dirY}px) rotate(${rot}deg) scale(0.82)` },
-                  { opacity: 1, transform: `translate(6px, ${(dirY * 0.22).toFixed(1)}px) rotate(${(rot * 0.22).toFixed(1)}deg) scale(1.04)`, offset: 0.62 },
-                  { opacity: 0, transform: 'translate(0, 0) rotate(0deg) scale(1)' },
-                ],
-                { duration: T.shardReturn, delay: T.reviveAt, easing: 'cubic-bezier(.16,.84,.28,1)', fill: 'both' },
-              )
-              .onfinish = () => rev.remove()
-          }
+      // 崩掉的那块最大的破口飞回来嵌上（女神截断击沉）
+      const biggest = prevState?.holes.filter((hole) => hole.spallPolys.length).sort((a, b) => b.power - a.power || b.idx - a.idx)[0]
+      if (biggest) {
+        const dirY = biggest.y < glassZonesOf(shipId).height / 2 ? -22 : 22
+        const rot = dirY < 0 ? 42 : -42
+        const rev = shardSvg(biggest.spallPolys[0], 'var(--hit-goddess)', 'var(--glow-shatter)', 1.4)
+        if (rev) {
+          airFxOf(row).appendChild(rev)
+          rev
+            .animate(
+              [
+                { opacity: 0, transform: `translate(28px, ${dirY}px) rotate(${rot}deg) scale(0.82)` },
+                { opacity: 1, transform: `translate(6px, ${(dirY * 0.22).toFixed(1)}px) rotate(${(rot * 0.22).toFixed(1)}deg) scale(1.04)`, offset: 0.62 },
+                { opacity: 0, transform: 'translate(0, 0) rotate(0deg) scale(1)' },
+              ],
+              { duration: T.shardReturn, delay: T.reviveAt, easing: 'cubic-bezier(.16,.84,.28,1)', fill: 'both' },
+            )
+            .onfinish = () => rev.remove()
         }
       }
       const gh = row.querySelector<HTMLElement>('.glass-host')
@@ -3895,35 +4698,108 @@ const runPostRenderHitFx = (root: HTMLElement) => {
       spawnRowMotes(row, 10, 'var(--hit-goddess)', true, T.reviveAt)
       spawnRowPop(row, '女神发动', 'var(--hit-goddess)', T.popAt)
     } else if (event.kind === 'dock') {
-      const T = REPAIR_FX.dock
-      if (sweep) {
-        sweep.style.background =
-          'linear-gradient(90deg, transparent, color-mix(in srgb, var(--hit-aqua) 58%, transparent) 48%, color-mix(in srgb, var(--hit-aqua) 28%, transparent) 65%, transparent)'
-        sweep.animate(
-          [
-            { opacity: 0.95, transform: 'translateX(-90%) skewX(-16deg)' },
-            { opacity: 0, transform: 'translateX(120%) skewX(-16deg)' },
-          ],
-          { duration: T.sweep, easing: 'cubic-bezier(.18,.78,.28,1)' },
-        )
-      }
-      if (flash) {
-        flash.style.background =
-          'linear-gradient(90deg, color-mix(in srgb, var(--hit-aqua) 36%, transparent), color-mix(in srgb, var(--hit-aqua) 14%, transparent) 55%, transparent)'
-        flash.animate([{ opacity: 0 }, { opacity: 1, offset: 0.18 }, { opacity: 0 }], { duration: T.flash, easing: 'ease-out' })
-      }
+      // 四套特色出渠（交接包 v2）：残余裂纹精确逆向收口 → 积水排空 → 按伤势种类各自的光效 → 血条滞后涨满 → 「入渠完成」
+      const O = REPAIR_FX.dockOut
+      const style = dockStyle ?? 'shell'
+      const bucket = style === 'bucket'
+      const zones = glassZonesOf(shipId)
       const gh = row.querySelector<HTMLElement>('.glass-host')
       if (prevSvg && gh) {
         gh.innerHTML = prevSvg
-        gh
-          .animate([{ opacity: 0.88 }, { opacity: 0 }], { duration: T.wash, delay: T.washAt, easing: 'ease-out', fill: 'both' })
-          .onfinish = () => {
-            gh.innerHTML = ''
-          }
+        animateGlassReverseClose(gh, bucket)
       }
-      animateRowBars(row, { hp: [prevPct, 100] }, { delay: T.barAt, duration: T.rise })
-      spawnRowMotes(row, 8, 'var(--hit-aqua)', false, T.popAt)
-      spawnRowPop(row, '入渠完成', 'var(--hit-aqua)', T.popAt)
+      const wh = row.querySelector<HTMLElement>('.water-host')
+      if ((prevWater > 0.4 || prevRust) && wh) {
+        // 残余的锈与积水：锈随除锈光淡掉，积水往下排空（返港后一般已经抽干，只剩锈）
+        wh.innerHTML = `${prevRust}${prevWater > 0.4 ? waterMarkupOf(shipId, prevWater, 0, 0, true) : ''}`
+        const dur = bucket ? O.bucketDrain : O.drain
+        const ends: Animation[] = []
+        const body = wh.querySelector<HTMLElement>('.water-body')
+        if (body) {
+          ends.push(
+            body.animate(
+              [
+                { opacity: 0.95, transform: 'translateY(0)' },
+                { opacity: 0.65, transform: `translateY(${Math.round(zones.height * 0.45)}px)`, offset: 0.62 },
+                { opacity: 0, transform: `translateY(${zones.height}px)` },
+              ],
+              { duration: dur, delay: O.drainAt, easing: 'cubic-bezier(.22,.72,.28,1)', fill: 'both' },
+            ),
+          )
+        }
+        const rust = wh.querySelector<SVGElement>('.rust-svg')
+        if (rust) {
+          ends.push(rust.animate([{ opacity: rust.getAttribute('opacity') || '1' }, { opacity: 0 }], { duration: dur, delay: O.drainAt, easing: 'ease-in', fill: 'both' }))
+        }
+        void Promise.all(ends.map((a) => a.finished)).then(
+          () => {
+            if (wh.isConnected) wh.innerHTML = ''
+          },
+          () => {},
+        )
+      }
+      if (style === 'bucket') {
+        // 高速修复桶：清亮水花泼溅弧波 + 水珠四溅
+        if (sweep) {
+          sweep.style.background =
+            'radial-gradient(ellipse 32% 160% at 50% 50%, color-mix(in srgb, var(--glow-shatter) 75%, var(--hit-aqua)), color-mix(in srgb, var(--hit-aqua) 45%, transparent) 55%, transparent 82%)'
+          sweep.animate(
+            [
+              { opacity: 1, transform: 'translateX(-75%) scaleY(1.2)' },
+              { opacity: 0, transform: 'translateX(115%) scaleY(1)' },
+            ],
+            { duration: O.bucket.sweep, easing: 'cubic-bezier(.16,.84,.28,1)' },
+          )
+        }
+        spawnBubbles(row, 14, [16, 88], 'var(--hit-aqua)', O.bucket.bubblesAt, 36)
+      } else if (style === 'sub') {
+        // 潜水舰：压载舱吹除气泡群 + 同心声呐复压环
+        if (flash) {
+          flash.style.background = 'radial-gradient(ellipse 75% 130% at 45% 65%, color-mix(in srgb, var(--hit-aqua) 42%, transparent), transparent 82%)'
+          flash.animate([{ opacity: 0 }, { opacity: 1, offset: 0.25 }, { opacity: 0 }], { duration: O.sub.flash, easing: 'ease-out' })
+        }
+        spawnSonarRing(row, 44, 52, 'var(--hit-aqua)', O.sub.ringAt, 3.0)
+        spawnSonarRing(row, 44, 52, 'var(--asw-sonar)', O.sub.ring2At, 2.6)
+        spawnBubbles(row, 15, [20, 82], 'var(--hit-aqua)', O.sub.bubblesAt, 48)
+      } else if (style === 'torp') {
+        // 鱼雷伤：排涝水流冲刷，船体轻盈回正
+        if (sweep) {
+          sweep.style.background =
+            'linear-gradient(90deg, transparent, color-mix(in srgb, var(--hit-aqua) 54%, transparent) 46%, color-mix(in srgb, var(--accent) 32%, transparent) 66%, transparent)'
+          sweep.animate(
+            [
+              { opacity: 0.95, transform: 'translateX(-88%) skewX(-14deg)' },
+              { opacity: 0, transform: 'translateX(118%) skewX(-14deg)' },
+            ],
+            { duration: O.torp.sweep, easing: 'cubic-bezier(.18,.78,.28,1)' },
+          )
+        }
+        spawnBubbles(row, 10, [35, 90], 'var(--hit-aqua)', O.torp.bubblesAt, 32)
+      } else {
+        // 炮击伤：银青复合光幕扫平弹孔与蛛网
+        if (sweep) {
+          sweep.style.background =
+            'linear-gradient(90deg, transparent, color-mix(in srgb, var(--hit-aqua) 52%, transparent) 42%, color-mix(in srgb, var(--glow-shatter) 56%, transparent) 52%, color-mix(in srgb, var(--hit-aqua) 28%, transparent) 65%, transparent)'
+          sweep.animate(
+            [
+              { opacity: 0.96, transform: 'translateX(-90%) skewX(-18deg)' },
+              { opacity: 0, transform: 'translateX(118%) skewX(-18deg)' },
+            ],
+            { duration: O.shell.sweep, easing: 'cubic-bezier(.18,.78,.28,1)' },
+          )
+        }
+        if (flash) {
+          flash.style.background = 'linear-gradient(90deg, color-mix(in srgb, var(--hit-aqua) 32%, transparent), transparent 60%)'
+          flash.animate([{ opacity: 0 }, { opacity: 1, offset: 0.2 }, { opacity: 0 }], { duration: O.shell.flash, easing: 'ease-out' })
+        }
+        spawnBubbles(row, 8, [24, 86], 'var(--hit-akashi)', O.shell.bubblesAt, 26)
+      }
+      animateRowBars(
+        row,
+        { hp: [prevBarPct, 100] },
+        bucket ? { delay: O.bucketBarAt, duration: O.bucketRise, hpDocked: [true, false] } : { delay: O.barAt, duration: O.rise, hpDocked: [true, false] },
+      )
+      spawnRowPop(row, '入渠完成', 'var(--hit-aqua)', O[style].popAt)
     } else if (event.kind === 'berth' || event.kind === 'anchorage') {
       const T = REPAIR_FX.berth
       if (!akashiPulsed) {
@@ -4503,7 +5379,7 @@ const render = (force = false) => {
   else {
     activeHits.clear()
     repairWashUntil.clear()
-    pendingShards.length = 0
+    pendingHitFx.clear()
     pendingRepairFx.clear()
     berthFxFlagIds.clear()
     berthFxRepairIds.clear()
@@ -4545,6 +5421,8 @@ const render = (force = false) => {
   for (const [id, until] of repairWashUntil) if (until > barsNow) barsBusy.add(id)
   // 没换 DOM 就不能重绑，也不必重新测量收纳：DOM 还是上一帧那份
   if (!commitPaneHtml(pane, 'ru', html)) return
+  // 在渠行的维修进度在 HTML 里只画到 10%，换完 DOM 当场就地补到 1%（见 DOCK_RENDER_STEP）
+  if (hitShakeEnabled()) refreshDockProgress(pane)
   easeFleetBars(pane, airBaseActive || berthActive || sandboxActive ? '' : `fleet:${activeFleetId}`, barsBusy)
 
   // 只绑每次渲染新建的子节点；pane 级委托在 mount 里挂过一次，别再叠
@@ -4575,6 +5453,8 @@ const tickTimers = () => {
       label.textContent = label.dataset.readyDone ?? '全员已就绪'
     }
   })
+  // 在渠舰的维修进度（编队被弹与特色入渠，实验性）：跨过整百分点才就地改那一行
+  if (hitShakeEnabled()) refreshDockProgress(pane)
   const minute = Math.floor(Date.now() / 60000)
   if (
     minute !== lastFatigueRenderMinute &&
@@ -4661,6 +5541,7 @@ registerModule({
         const w = sample ? Math.round(sample.clientWidth) : 0
         if (w >= 280 && Math.abs(w - cachedRowWidth) >= 2) {
           cachedRowWidth = w
+          measureRowLayouts(pane)
           deferPassive(pane, 'ru', render)
         }
       }

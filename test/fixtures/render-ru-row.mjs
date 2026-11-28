@@ -68,7 +68,14 @@ export const setSunkShipIds = (ids: number[]) => { sunkShipIds = ids }
 const isSunkInSortie = (rosterId: number) => sunkShipIds.includes(rosterId)
 const sunkEffectsEnabled = () => true
 const SANDBOX_DECK_ID = -1
-const dockOf = (_id: number) => undefined
+// 入渠与被弹开关（编队被弹与特色入渠，交接包 v2）：在渠格、开关与「按真实进度的血条宽」都给可设的桩
+export const dockById: Record<number, any> = {}
+const dockOf = (id: number) => dockById[id]
+export const hitFx = { on: false, dockBar: 77 }
+const hitShakeEnabled = () => hitFx.on
+const dockBarPct = (_ship: any, _dock: any) => hitFx.dockBar
+const fmtCountdown = (_t: number) => '00:42:10'
+const repairClockText = (_t: number, _now: number) => ''
 const shipIssues = (ship: any) => ({
   taiha: ship.nowhp / (ship.maxhp || 1) <= 0.25,
   chuuha: false,
@@ -108,6 +115,11 @@ const shipHitFracture = (ship: any) => fractureById[ship.id] ?? ''
 // 缺角玻璃层与修理演出挂件（维护者裁决 2026-11-26）：shipRow 之外判定，返回 { attrs, layers, tether, wash } 或 null
 export const glassFxById: Record<number, any> = {}
 const shipGlassFx = (ship: any, _sunk: boolean) => glassFxById[ship.id] ?? null
+export const setDock = (docks: Record<number, any> = {}, on = false) => {
+  for (const key of Object.keys(dockById)) delete dockById[+key]
+  Object.assign(dockById, docks)
+  hitFx.on = on
+}
 export const setGlassFx = (fx: Record<number, any> = {}) => {
   for (const key of Object.keys(glassFxById)) delete glassFxById[+key]
   Object.assign(glassFxById, fx)
@@ -202,3 +214,6 @@ export const setHitFracture = (fractures = {}) => loaded.setHitFracture(fracture
 
 /** 缺角玻璃层与修理演出挂件（shipGlassFx 的返回值）。逐例设置。 */
 export const setGlassFx = (fx = {}) => loaded.setGlassFx(fx)
+
+/** 在渠格（{ 舰 id: { completeTime } }）与被弹开关。逐例设置。 */
+export const setDock = (docks = {}, on = false) => loaded.setDock(docks, on)

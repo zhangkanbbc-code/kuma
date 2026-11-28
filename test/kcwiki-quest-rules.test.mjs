@@ -1356,6 +1356,40 @@ test('858 按第一方补录文本把三隈改二特补进三隈组', {
   assert.deepEqual(decoded.fleetGoal.groups[3].ships, [121, 506, 507])
 })
 
+// 维护者 2026-11-27 实测：熊野改二旗舰、二号舰铃谷航改二、最上改二特、三隈改 → A76 游戏判达成。
+// 第七战队两条（A76 编成、B101 出击）都按补录把最上改二 / 改二特、三隈改二 / 改二特补进对应组
+const SEVENTH_SQUADRON_SHIPS = [
+  [70, '最上', 73], [73, '最上改', 501], [501, '最上改二', 506], [506, '最上改二特', 501],
+  [120, '三隈', 121], [121, '三隈改', 502], [502, '三隈改二', 507], [507, '三隈改二特', 502],
+  [129, '鈴谷改', 503], [130, '熊野改', 504], [503, '鈴谷改二', 508], [504, '熊野改二', 509],
+  [508, '鈴谷航改二', 503], [509, '熊野航改二', 504],
+].map(([api_id, api_name, api_aftershipid], index) => ({
+  api_id,
+  api_name,
+  api_aftershipid: `${api_aftershipid}`,
+  api_stype: 6,
+  api_soku: 10,
+  api_sortno: index + 1,
+}))
+
+for (const questId of [181, 858]) {
+  test(`${questId} 第七战队：最上改二 / 改二特、三隈改二 / 改二特都能算（A76 维护者实测）`, {
+    skip: !requirements[questId] || !quests[questId],
+  }, () => {
+    const context = rules.buildKcwikiRuleContext({ api_mst_ship: SEVENTH_SQUADRON_SHIPS, api_mst_shipupgrade: [] })
+    const decoded = rules.decodeKcwikiRequirement(requirements[questId], context)
+    assert.ok(decoded?.fleetGoal)
+    const quest = quests[questId]
+    // 运行时带中文舰名表去认（kcwiki 备注写的是简体「铃谷航改二」）
+    const zh = new Map([[503, '铃谷改二'], [508, '铃谷航改二'], [509, '熊野航改二']])
+    rules.augmentShipGroupsFromQuestText(decoded, context, `${quest.desc ?? ''}｜${quest.memo2 ?? ''}｜${QUEST_TEXT_NOTES[questId] ?? ''}`, zh)
+    const groupOf = (id) => decoded.fleetGoal.groups.find((group) => Array.isArray(group.ships) && group.ships.includes(id))
+    for (const id of [73, 501, 506]) assert.ok(groupOf(id) === groupOf(73), `最上组要认 ${id}`)
+    for (const id of [121, 502, 507]) assert.ok(groupOf(id) === groupOf(121), `三隈组要认 ${id}`)
+    assert.ok(groupOf(508) === groupOf(503), '二号舰组照旧认铃谷航改二')
+  })
+}
+
 test('859 按第一方补录文本把伊势改二与日向改二补进一二号位两组', {
   skip: !requirements[859] || !quests[859],
 }, () => {

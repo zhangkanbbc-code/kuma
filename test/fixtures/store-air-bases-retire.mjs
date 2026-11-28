@@ -32,7 +32,7 @@ export const logs: string[] = []
 export const calls: any[] = []
 const console = { log: (message: string) => logs.push(message) }
 const ledger = Object.fromEntries(
-  ['observeEventMapCatalog', 'closeEventMapCatalog', 'archiveEvent'].map((name) => [
+  ['observeEventMapCatalog', 'closeEventMapCatalog', 'archiveEvent', 'observeMapBgm'].map((name) => [
     name, (...args: any[]) => calls.push({ name, args, airBases: state.player.airBases }),
   ]),
 )

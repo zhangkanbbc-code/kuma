@@ -66,7 +66,7 @@ test('start2：62 消失后先归档再撤三队，更新时间戳并通知 airB
   assert.equal(state.player.airBasesTs, 200)
   assert.deepEqual(state.eventAreas[62], { firstSeenTs: 10, lastSeenTs: 200, closed: true })
   assert.equal(state.master.ready, true)
-  assert.deepEqual(calls.filter((c) => c.name !== 'observeEventMapCatalog'), [
+  assert.deepEqual(calls.filter((c) => !['observeEventMapCatalog', 'observeMapBgm'].includes(c.name)), [
     { name: 'closeEventMapCatalog', args: [62, 200], airBases: previous },
     { name: 'archiveEvent', args: [62, 10, 200], airBases: previous },
   ])

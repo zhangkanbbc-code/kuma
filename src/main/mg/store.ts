@@ -24,6 +24,8 @@ import { provisionBanked, provisionShipAt } from '../../shared/provision-ship'
 import { detectEventAreas } from '../../shared/event-area'
 import { getLode } from '../lode'
 import ledger from './ledger'
+import { improveObservationDay } from '../../shared/improve-observed'
+import { remodelCostOf, remodelOfResponse } from '../../shared/improve-remodel'
 import { diffPayitemStocks, parsePayitemList, payitemUseEffect } from '../../shared/pay-log'
 import { reduceQuestList } from './quest-state'
 import { applySlotitemInventoryMutation } from '../../shared/slotitem-mutation'
@@ -1436,6 +1438,13 @@ interface ImproveEntry {
   improvement?: ImprovePlan[]
 }
 
+// 第一舰队二号舰（mst id）＝改修的二号舰。请求里的 api_id 是改修清单（remodel_slotlist）的方案号，
+// 不是舰船编号：维护者账本 59 次改修的 api_id 全对得上清单里那件装备（2026-11-28 核）
+const firstFleetSecondMst = (): number => {
+  const roster = state.player.decks.find((d) => d.id === 1)?.ships?.[1] ?? -1
+  return roster > 0 ? state.player.ships[roster]?.shipId ?? 0 : 0
+}
+
 // 改修的特殊道具消耗查随包 equip-improve。请求给的是装备实例 id；星级必须在
 // applySlotitemInventoryMutation 用响应覆盖实例之前读取。★0–5 / ★6–9 / ★max
 // 分别对应 p1 / p2 / conv。
@@ -1467,10 +1476,7 @@ const remodelSlotUseitemCosts = (
       plans = plans.filter((plan) => Number(plan.convert?.id_after) === afterMst)
     }
   }
-  const helperMst =
-    Number(body?.api_voice_ship_id) ||
-    state.player.ships[Number(post.api_id)]?.shipId ||
-    0
+  const helperMst = Number(body?.api_voice_ship_id) || firstFleetSecondMst()
   if (helperMst > 0) {
     const matched = plans.filter((plan) =>
       (plan.helpers ?? []).some((helper) =>
@@ -1494,6 +1500,24 @@ const remodelSlotUseitemCosts = (
     if (id > 0 && count > 0) costs.push({ id, count })
   }
   return costs
+}
+// 改修素材的游戏实测（shared/improve-remodel）：吞掉的装备实例对成装备号、资源对出差额，
+// 连同打法（普通 / 确保）、改修前星级、二号舰记进账本。实例与资源必须在
+// applySlotitemInventoryMutation 删掉素材、toMaterials 换掉资源之前读。只读响应，不发请求
+const recordImproveRemodel = (body: any, post: Record<string, string>, ts: number) => {
+  const target = state.player.slotitems[Number(post.api_slot_id)]
+  const helper = firstFleetSecondMst() || Number(body?.api_voice_ship_id) || null
+  const remodel = remodelOfResponse({
+    ts,
+    body,
+    post,
+    target: target ? { mstId: target.mstId, level: target.level } : null,
+    mstOf: (instanceId) => state.player.slotitems[instanceId]?.mstId ?? null,
+    helper,
+    cost: remodelCostOf(state.player.materials, body?.api_after_material),
+    source: 'live',
+  })
+  if (remodel) ledger.recordImproveRemodel(remodel)
 }
 // api_mst_ship 的成长属性是 [初始, 最大]；取初始值（裸值）
 const first = (v: unknown): number => (Array.isArray(v) ? (v[0] ?? 0) : 0)
@@ -1621,6 +1645,8 @@ const reducers: Record<string, Reducer> = {
     const useitemNames: Record<number, string> = {}
     for (const item of body.api_mst_useitem ?? []) useitemNames[item.api_id] = item.api_name
     state.master = { ready: true, ships, stypes, slotitems, missions, upgrades, bgms, useitemNames }
+    // 配曲留存：季节换曲、活动图撤场之后主数据里就查不到了，趁在场记下（shared/map-bgm-history）
+    ledger.observeMapBgm(body.api_mst_mapbgm, ts)
     // 活动窗口侦测：活动海域只在活动期间存在于主数据里，它进出 api_start2 的时刻
     // 就是我们被动能观测到的活动开启/关闭。判定本身在 shared/event-area.ts
     // （铭、铎、鉴、锱同引一份）。
@@ -2598,9 +2624,37 @@ const reducers: Record<string, Reducer> = {
 
   // 改修：响应同时带完整资源数组、被消耗的素材实例与改修后目标实例；
   // 特殊道具不在响应里，按随包事实表当场自扣。
+  // 改修清单（打开明石改修画面）：游戏给的是「旗舰明石 + 这艘二号舰今天能改的全部」，
+  // 连同当时第一舰队的旗舰、二号舰记进账本，资料过时的时候以它为准（shared/improve-observed）。只读这份响应
+  '/kcsapi/api_req_kousyou/remodel_slotlist': (body, _post, ts) => {
+    const list: any[] = Array.isArray(body) ? body : Array.isArray(body?.api_data) ? body.api_data : []
+    const deck = state.player.decks.find((d) => d.id === 1)
+    const mstOf = (rosterId: number | undefined) => (rosterId && rosterId > 0 ? state.player.ships[rosterId]?.shipId ?? null : null)
+    ledger.observeImproveList(
+      ts,
+      improveObservationDay(ts),
+      mstOf(deck?.ships?.[0]),
+      mstOf(deck?.ships?.[1]),
+      list.map((item) => Number(item?.api_slot_id)).filter((id) => id > 0),
+      // 每件的消耗也记下：资料没收录的新装备，今日改修照它出一行
+      list
+        .filter((item) => Number(item?.api_slot_id) > 0)
+        .map((item) => ({
+          id: Number(item.api_slot_id),
+          fuel: Number(item.api_req_fuel) || 0,
+          bull: Number(item.api_req_bull) || 0,
+          steel: Number(item.api_req_steel) || 0,
+          baux: Number(item.api_req_bauxite) || 0,
+          devmats: Number(item.api_req_buildkit) || 0,
+          screws: Number(item.api_req_remodelkit) || 0,
+        })),
+    )
+    return []
+  },
   '/kcsapi/api_req_kousyou/remodel_slot': (body, post, ts) => {
     const sections: Section[] = []
     const useitemCosts = remodelSlotUseitemCosts(body, post)
+    recordImproveRemodel(body, post, ts)
     if (Array.isArray(body.api_after_material)) {
       state.player.materials = toMaterials(body.api_after_material, state.player.materials)
       sections.push('materials')

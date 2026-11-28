@@ -37,6 +37,8 @@ import type {
 } from '../shared/mg-types'
 import type { QpFleetCheck, QpState } from '../shared/qp-types'
 import type { BattleReplayView } from '../shared/battle-replay-request'
+import type { MapBgmSpan } from '../shared/map-bgm-history'
+import type { ImproveObservation } from '../shared/improve-observed'
 import { mourningShipsOf } from '../shared/sortie-mourning'
 import { escapedShipsOf } from '../shared/sortie-escape'
 import {
@@ -855,6 +857,12 @@ export const queryBattleSnapshot = (id: number): Promise<BattleSnapshot | null> 
 
 export const queryEventArchives = (): Promise<any[]> =>
   ipcRenderer.invoke('chron:event-archives')
+// 改修日程的游戏实测（shared/improve-observed），今日改修用
+export const queryImproveObservations = (): Promise<ImproveObservation[]> =>
+  ipcRenderer.invoke('chron:improve-observations')
+// 海域配曲留存（shared/map-bgm-history 的段），BGM 反查用
+export const queryMapBgmHistory = (): Promise<MapBgmSpan[]> =>
+  ipcRenderer.invoke('chron:map-bgm-history')
 
 export const querySeasonalHistory = (): Promise<import('../shared/seasonal-history').CampaignHistory[]> =>
   ipcRenderer.invoke('mg:seasonal-history')
@@ -875,8 +883,12 @@ export const queryMasterRaw = async (): Promise<any> => {
   }
   return masterRaw
 }
+// 主数据换版计数：只想知道「换没换」的调用方（BGM 反查索引）不必每次都走一趟异步取数
+let masterRawEpochNow = 0
+export const masterRawEpoch = (): number => masterRawEpochNow
 export const invalidateMasterRaw = () => {
   masterRaw = null
+  masterRawEpochNow += 1
 }
 
 // 任务精确计数（钦）：主进程引擎的状态镜像 + 增量订阅

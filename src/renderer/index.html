@@ -218,6 +218,26 @@
       --hit-goddess: #ffe69c;
       --hit-aqua: #5ad8c8;
       --hit-akashi: #6ae0b4;
+      /* 编队被弹与特色入渠（交接包 v2，2026-11-27）：弹孔针孔核、折光面、焊修火花，进水液面，反潜声呐与深弹 */
+      --hit-glass-core: rgba(232, 240, 248, .55);
+      --hit-glass-core-pit: rgba(6, 10, 14, .62);
+      --hit-glass-frost: rgba(226, 238, 250, .11);
+      /* 历史战损（2026-11-28）：返港后弹孔转成的四角碎裂、积水抽干留下的锈渍 */
+      --hit-scar: rgba(214, 224, 234, .62);
+      --hit-scar-rim: rgba(236, 242, 248, .7);
+      --hit-rust: rgba(184, 98, 44, .62);
+      --hit-rust-deep: rgba(128, 60, 26, .7);
+      --hit-weld-spark: #ffd685;
+      --water-deep: rgba(22, 86, 128, .44);
+      --water-mid: rgba(46, 134, 184, .32);
+      --water-crest: rgba(152, 222, 255, .64);
+      --water-dock-deep: rgba(30, 126, 136, .34);
+      --water-dock-crest: rgba(128, 232, 220, .62);
+      --asw-sonar: #64e0d8;
+      --asw-flash: #d6fbff;
+      --asw-charge: #46596b;
+      --asw-charge-rim: #a6c4db;
+      --asw-charge-band: #f2ae44;
       --bg1: #151c23;
       --bg2: #1c252e;
       --bg3: #232f3a;
@@ -1259,6 +1279,24 @@
       --hit-goddess: #d89b1e;
       --hit-aqua: #15998c;
       --hit-akashi: #1b9a6c;
+      --hit-glass-core: rgba(96, 118, 138, .48);
+      --hit-glass-core-pit: rgba(34, 48, 64, .34);
+      --hit-glass-frost: rgba(255, 255, 255, .42);
+      --hit-scar: rgba(64, 82, 100, .55);
+      --hit-scar-rim: rgba(48, 64, 82, .62);
+      --hit-rust: rgba(170, 86, 30, .5);
+      --hit-rust-deep: rgba(118, 54, 18, .58);
+      --hit-weld-spark: #d98218;
+      --water-deep: rgba(24, 112, 168, .26);
+      --water-mid: rgba(46, 152, 206, .18);
+      --water-crest: rgba(18, 118, 178, .55);
+      --water-dock-deep: rgba(20, 142, 132, .22);
+      --water-dock-crest: rgba(18, 148, 134, .52);
+      --asw-sonar: #129c92;
+      --asw-flash: #1da6c2;
+      --asw-charge: #46596b;
+      --asw-charge-rim: #a6c4db;
+      --asw-charge-band: #d98a1c;
       --bg1: #ffffff;
       --bg2: #eaf0f5;
       --bg3: #dfe7ee;
@@ -2202,6 +2240,12 @@
       --hit-goddess: #ffe69f;
       --hit-aqua: #88c7ff;
       --hit-akashi: #8dcff9;
+      --hit-weld-spark: #fed77b;
+      --asw-sonar: #9dceff;
+      --asw-flash: #ebf4ff;
+      --asw-charge: #495872;
+      --asw-charge-rim: #aac0e7;
+      --asw-charge-band: #edb300;
       --accent: #9bb8ff;
       --accent-dim: #5168a5;
       --gold: #fff19b;
@@ -2768,6 +2812,12 @@
       --hit-goddess: #d09e00;
       --hit-aqua: #4b8ac1;
       --hit-akashi: #4e8bac;
+      --hit-weld-spark: #c28d00;
+      --asw-sonar: #4c8dc7;
+      --asw-flash: #5296ef;
+      --asw-charge: #495772;
+      --asw-charge-rim: #aac0e7;
+      --asw-charge-band: #c79300;
       --accent: #00396f;
       --accent-dim: #3f78b9;
       --gold: #322300;
@@ -3334,6 +3384,12 @@
       --hit-goddess: #e7e7e7;
       --hit-aqua: #c0c0c0;
       --hit-akashi: #c6c6c6;
+      --hit-weld-spark: #dcdcdc;
+      --asw-sonar: #c9c9c9;
+      --asw-flash: #f3f3f3;
+      --asw-charge: #575757;
+      --asw-charge-rim: #bfbfbf;
+      --asw-charge-band: #bdbdbd;
       --accent: #d9d9d9;
       --accent-dim: #909090;
       --gold: #f6f6f6;
@@ -3900,6 +3956,12 @@
       --hit-goddess: #a6a6a6;
       --hit-aqua: #858585;
       --hit-akashi: #838383;
+      --hit-weld-spark: #969696;
+      --asw-sonar: #878787;
+      --asw-flash: #959595;
+      --asw-charge: #575757;
+      --asw-charge-rim: #bfbfbf;
+      --asw-charge-band: #9b9b9b;
       --accent: #4b4b4b;
       --accent-dim: #535353;
       --gold: #080808;
@@ -6256,6 +6318,20 @@
       from { opacity: 0; transform: translate3d(0, 8px, 0) scale(.992); }
       to { opacity: 1; transform: none; }
     }
+    /* 带伤 / 入渠 / 被弹的舰娘行自己挂着 animation 简写（中破呼吸、大破心跳、入渠恢复光、被弹后坐……），
+       选择器更具体，会把上面这条入场整个顶掉：那几行开门就已经在场上，循环动画还被套上入场的行内时长
+       （2026-11-27 他报）。入场期间入场优先，launch-glow 一摘标记，原来那段自然接回去。
+       时长与起点仍由 launch-glow 写在行内——这里不碰 delay / duration，行内照样胜出。
+       减少动态效果时整套入场本来就不播（文末 [data-kuma-in] 那条），所以只在不减少时生效。 */
+    @media not (prefers-reduced-motion: reduce) {
+      .ws-pane.mod-ru .ships .ship[data-kuma-in='roster'] {
+        animation-name: kuma-roster-row !important;
+        animation-iteration-count: 1 !important;
+        animation-fill-mode: both !important;
+        animation-timing-function: var(--motion-ease) !important;
+        animation-direction: normal !important;
+      }
+    }
 
     /* ── 镝 · 战术屏开机：一道扫描线横扫，随后左右两栏相向合拢 ──
        战斗面板的气质是敌我对阵，所以两栏**相向归位**：左栏从更左、右栏从更右
@@ -7037,6 +7113,7 @@
     .fleet-skin .ship[data-hit] { padding-left: 20px; }
     .fleet-skin .ship[data-crack],
     .fleet-skin .ship[data-hit],
+    .fleet-skin .ship[data-glass],
     .fleet-skin .ship[data-weld],
     .fleet-skin .ship[data-berth-role],
     .fleet-skin .ship[data-berth-repair],
@@ -7046,6 +7123,7 @@
     }
     .fleet-skin .ship[data-crack] > :is(.fc, .who, .hpc, .fa2, .cond, .eq, .ship-detail),
     .fleet-skin .ship[data-hit] > :is(.fc, .who, .hpc, .fa2, .cond, .eq, .ship-detail),
+    .fleet-skin .ship[data-glass] > :is(.fc, .who, .hpc, .fa2, .cond, .eq, .ship-detail),
     .fleet-skin .ship[data-weld] > :is(.fc, .who, .hpc, .fa2, .cond, .eq, .ship-detail),
     .fleet-skin .ship[data-berth-role] > :is(.fc, .who, .hpc, .fa2, .cond, .eq, .ship-detail),
     .fleet-skin .ship[data-berth-repair] > :is(.fc, .who, .hpc, .fa2, .cond, .eq, .ship-detail),
@@ -7109,21 +7187,24 @@
     .fleet-skin .ship .hit-sweep {
       position: absolute; inset: 0; pointer-events: none;
     }
-    /* 新单调缺角 SVG 玻璃层：锁在收起行高，位于 z-index: 2（底色之上、数据列之下） */
+    /* 防弹玻璃弹孔 SVG 层（交接包 v2，取代 11-26 的单调缺角）：锁在收起行高，位于 z-index: 2（进水层之上、数据列之下） */
     .fleet-skin .ship .glass-host {
       position: absolute; top: 0; left: 0; right: 0; z-index: 2; pointer-events: none;
     }
     .fleet-skin .ship .glass-svg {
       position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible;
     }
+    /* 历史战损（维护者 2026-11-28 定）：返港后弹孔转成的四角碎裂（同在玻璃层，画在这一趟的弹孔下面）、
+       积水抽干后留在原水线的锈渍（进水层最底下，出击中新进的水盖在上面） */
+    .fleet-skin .ship :is(.scar-svg, .rust-svg) {
+      position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible;
+    }
     .fleet-skin .ship .glass-host[data-glass-gold="1"] path {
       stroke: var(--hit-goddess) !important;
     }
-    .fleet-skin .ship .glass-host[data-glass-gold="1"] polygon {
+    /* 只染看得见的破口、针孔与折光面；<mask> 里镂空用的多边形不能染，否则破口里会透出裂纹 */
+    .fleet-skin .ship .glass-host[data-glass-gold="1"] :is(.hole-void-group polygon, .hole-core-group polygon, polygon.hole-facet) {
       fill: color-mix(in srgb, var(--hit-goddess) 28%, transparent) !important;
-    }
-    .fleet-skin .ship .flying-shard {
-      position: absolute; top: 0; left: 0; width: 100%; pointer-events: none; z-index: 20; overflow: visible;
     }
     /* 中破 / 大破的左端微光：从伤势左锚向右辐射、渐隐，只要柔光不要线条（维护者裁决 2026-11-26，取代原「左端微斜纹损管刻度」） */
     .fleet-skin .ship .dmg-hazard {
@@ -7247,8 +7328,19 @@
     /* 中破（26–50%）：第 3 道琥珀左锚（3px）+ 双随机主裂贯通 + 首块轻暗楔片 + 头像单角微切 + 左缘缓呼吸 */
     .fleet-skin .ship[data-crack="medium"] {
       box-shadow:
-        inset 3px 0 12px -4px color-mix(in srgb, var(--warn) 32%, transparent),
-        inset 0 -1px 0 color-mix(in srgb, var(--warn) 16%, transparent);
+        inset 3px 0 10px -4px color-mix(in srgb, var(--warn) 24%, transparent),
+        inset 0 -1px 0 color-mix(in srgb, var(--warn) 12%, transparent);
+    }
+    /* 行级脉动（中破缓呼吸 / 大破双拍心跳 / 入渠恢复光）只动透明度：原先直接动 box-shadow，每帧整行重绘
+       （12 排大破实测每秒绘制 113ms → 8ms，2026-11-27）。静态那一档留在行上，峰值多出来的那部分画在 ::after、只调 opacity；
+       叠加后的峰值浓度与原关键帧相当。 */
+    .fleet-skin .ship[data-crack]::after {
+      content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0;
+    }
+    .fleet-skin .ship[data-crack="medium"]::after {
+      box-shadow:
+        inset 4px 0 16px -3px color-mix(in srgb, var(--warn) 40%, transparent),
+        inset 0 -1px 0 color-mix(in srgb, var(--warn) 22%, transparent);
       animation: ru-mid-breath 3.4s ease-in-out infinite;
     }
     .fleet-skin .ship[data-crack="medium"]::before {
@@ -7274,13 +7366,21 @@
       filter: drop-shadow(1px 1px 0 color-mix(in srgb, var(--bg0) 76%, transparent));
     }
     @keyframes ru-mid-breath {
-      0%, 100% { box-shadow: inset 3px 0 10px -4px color-mix(in srgb, var(--warn) 24%, transparent), inset 0 -1px 0 color-mix(in srgb, var(--warn) 12%, transparent); }
-      50% { box-shadow: inset 4px 0 16px -3px color-mix(in srgb, var(--warn) 40%, transparent), inset 0 -1px 0 color-mix(in srgb, var(--warn) 22%, transparent); }
+      0%, 100% { opacity: 0; }
+      50% { opacity: 1; }
     }
 
     /* 大破危险线（≤25%）：第 3 道绯红告警锚（4px）+ 三随机主裂逼近崩碎 + 双楔暗片 + 头像微倾 + 双拍心跳 + 间歇 HUD Glitch */
     .fleet-skin .ship[data-crack="heavy"] {
       background-color: color-mix(in srgb, var(--bad) 7%, var(--bg0));
+      box-shadow:
+        inset 4px 0 14px -3px color-mix(in srgb, var(--bad) 36%, transparent),
+        inset 0 0 0 1px color-mix(in srgb, var(--bad) 16%, transparent);
+    }
+    .fleet-skin .ship[data-crack="heavy"]::after {
+      box-shadow:
+        inset 6px 0 24px -2px color-mix(in srgb, var(--bad) 56%, transparent),
+        inset 0 0 0 1px color-mix(in srgb, var(--bad) 31%, transparent);
       animation: ru-heavy-heartbeat 1.85s ease-in-out infinite;
     }
     .fleet-skin .ship[data-crack="heavy"]::before {
@@ -7350,7 +7450,10 @@
        比伤势档多一个属性选择器，压过上面各档的同名规则。 */
     .fleet-skin .ship[data-docked="1"][data-crack] {
       background-color: var(--bg0);
-      box-shadow: inset 3px 0 10px -5px color-mix(in srgb, var(--hit-aqua) 18%, transparent);
+      box-shadow: inset 3px 0 10px -5px color-mix(in srgb, var(--hit-aqua) 16%, transparent);
+    }
+    .fleet-skin .ship[data-docked="1"][data-crack]::after {
+      box-shadow: inset 4px 0 18px -3px color-mix(in srgb, var(--hit-aqua) 24%, transparent);
       animation: ru-dock-recover 4.2s ease-in-out infinite;
     }
     .fleet-skin .ship[data-docked="1"][data-crack]:hover { background-color: var(--bg1); }
@@ -7369,8 +7472,8 @@
     .fleet-skin .ship[data-docked="1"][data-crack] .hpc .num > span:first-child,
     .fleet-skin .ship[data-docked="1"][data-crack] .hpc .num .st { animation: none; }
     @keyframes ru-dock-recover {
-      0%, 100% { box-shadow: inset 3px 0 10px -5px color-mix(in srgb, var(--hit-aqua) 16%, transparent); }
-      50% { box-shadow: inset 4px 0 18px -3px color-mix(in srgb, var(--hit-aqua) 36%, transparent); }
+      0%, 100% { opacity: 0; }
+      50% { opacity: 1; }
     }
     @keyframes ru-dock-wash { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
 
@@ -7388,9 +7491,7 @@
       animation: ru-hit-shake-4 560ms ease-out 1;
     }
     .fleet-skin .ship[data-hit][data-crack="heavy"] {
-      animation:
-        ru-hit-shake-4 560ms ease-out 1,
-        ru-heavy-heartbeat 1.85s ease-in-out 560ms infinite;
+      animation: ru-hit-shake-4 560ms ease-out 1;
     }
     .fleet-skin .ship[data-hit][data-hit-sev="2"] .fc,
     .fleet-skin .ship[data-hit][data-hit-sev="3"] .fc,
@@ -7466,37 +7567,200 @@
     .fleet-skin .hpc .dmg-pop.sev-3 { color: var(--warn); font-size: 11.5px; }
     .fleet-skin .hpc .dmg-pop.sev-4 { color: var(--bad); font-size: 12px; }
 
-    @keyframes ru-hit-shake-1 {
+    /* 战报驱动的被弹与特色入渠（交接包「编队被弹与特色入渠动画」v2，维护者 2026-11-27 定稿）：
+       进水层、鱼雷常驻倾侧、入渠特色层、反潜 / 鱼雷动作与冲击后挪、深弹 / 航迹 / 气泡 / 声呐环的特效层。
+       全部挂在开关作用域里才会出现的属性与元素上，开关关着时零变化。 */
+    .fleet-skin .ship .water-host {
+      position: absolute; top: 0; left: 0; right: 0; z-index: 1; overflow: hidden; pointer-events: none;
+    }
+    /* 液体外壳：液面高度与斜率由行内变量给（shared/hit-glass 的 hitWaterHtml），斜率是绕左上角的 skewY */
+    .fleet-skin .ship .water-body {
+      --water-top: 50%; --water-tilt: 0deg; /* 默认值；实际液面高度与斜率由行内样式覆盖 */
+      position: absolute; left: 0; right: 0; top: var(--water-top); bottom: -14px;
+      transform: skewY(var(--water-tilt)); transform-origin: 0 0;
+    }
+    /* 水面：平水体＋水线。水线上间歇有一道浪从行的一端走到另一端，停一阵再走回来，像进水的舱里水在晃
+       （2026-11-28 他连报四次：「波纹太规律」——两层正弦整条滚；「像中间突然凸起一块」——原地鼓起；
+       「浪出现至少也得从左端到右端」——半路淡入淡出；「不要这么突兀……和旁边的平静的水面脱节了」——
+       另画在水线上的整齐浪串比水线亮、两头靠淡出收）。
+       现在浪就是水线自己的一段起伏：水线是一条比行宽得多的长线（左右各一行宽的平线，中间 140px 起伏），
+       整条平移时平线看不出在动，只有起伏那段在走，与静水面同一条线、同一个亮度。
+       起伏中间最高、往两头收到平，间距不全一样。周期与错相按舰稳定随机（shared/hit-glass 的 hitWaterHtml），
+       一个单程里前 20% 停在起点、45% 走完一行、35% 停在终点，来回两段停顿长短不一。只动 transform（合成线程） */
+    .fleet-skin .ship .water-body > .surface {
+      position: absolute; top: 5px; bottom: 0; left: 0; right: 0;
+      background: linear-gradient(180deg, var(--water-mid), var(--water-deep) 70%);
+    }
+    /* 水线：贴图的基线在第 7px，整条上移 2px，正好压在水体顶边（5px）上；左端在行外一行宽＋起伏宽处 */
+    .fleet-skin .ship .water-body > .swell {
+      --rt: 16s; --rd: 0s; /* 默认值；周期与错相由行内样式覆盖 */
+      position: absolute; top: -2px; height: 12px; left: calc(-100% - 140px); width: calc(200% + 140px);
+      background: color-mix(in srgb, var(--water-crest) 50%, transparent);
+      -webkit-mask: linear-gradient(black, black) 0 7px / calc(50% - 70px) 1px no-repeat, linear-gradient(black, black) 100% 7px / calc(50% - 70px) 1px no-repeat, url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='12'%3E%3Cpath d='M0 7.5C11 7.5 11 6.7 22 6.7C28 6.7 28 8.2 34 8.2C40.5 8.2 40.5 5.7 47 5.7C53.5 5.7 53.5 8.9 60 8.9C67 8.9 67 5.1 74 5.1C81 5.1 81 9 88 9C94.5 9 94.5 6 101 6C107 6 107 8.3 113 8.3C119 8.3 119 6.9 125 6.9C132.5 6.9 132.5 7.5 140 7.5' fill='none' stroke='black' stroke-width='1'/%3E%3C/svg%3E") 50% 0 / 140px 12px no-repeat;
+      mask: linear-gradient(black, black) 0 7px / calc(50% - 70px) 1px no-repeat, linear-gradient(black, black) 100% 7px / calc(50% - 70px) 1px no-repeat, url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='12'%3E%3Cpath d='M0 7.5C11 7.5 11 6.7 22 6.7C28 6.7 28 8.2 34 8.2C40.5 8.2 40.5 5.7 47 5.7C53.5 5.7 53.5 8.9 60 8.9C67 8.9 67 5.1 74 5.1C81 5.1 81 9 88 9C94.5 9 94.5 6 101 6C107 6 107 8.3 113 8.3C119 8.3 119 6.9 125 6.9C132.5 6.9 132.5 7.5 140 7.5' fill='none' stroke='black' stroke-width='1'/%3E%3C/svg%3E") 50% 0 / 140px 12px no-repeat;
+      animation: ru-water-slosh var(--rt) linear var(--rd) infinite alternate;
+      will-change: transform;
+    }
+    /* 起伏下面的水身：浪峰处高出水线的那一小块是水色 */
+    .fleet-skin .ship .water-body > .swell::before {
+      content: ''; position: absolute; inset: 0;
+      background: var(--water-mid);
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='12'%3E%3Cpath d='M0 7.5C11 7.5 11 6.7 22 6.7C28 6.7 28 8.2 34 8.2C40.5 8.2 40.5 5.7 47 5.7C53.5 5.7 53.5 8.9 60 8.9C67 8.9 67 5.1 74 5.1C81 5.1 81 9 88 9C94.5 9 94.5 6 101 6C107 6 107 8.3 113 8.3C119 8.3 119 6.9 125 6.9C132.5 6.9 132.5 7.5 140 7.5Z' fill='black' fill-opacity='.6'/%3E%3C/svg%3E") 50% 0 / 140px 12px no-repeat;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='12'%3E%3Cpath d='M0 7.5C11 7.5 11 6.7 22 6.7C28 6.7 28 8.2 34 8.2C40.5 8.2 40.5 5.7 47 5.7C53.5 5.7 53.5 8.9 60 8.9C67 8.9 67 5.1 74 5.1C81 5.1 81 9 88 9C94.5 9 94.5 6 101 6C107 6 107 8.3 113 8.3C119 8.3 119 6.9 125 6.9C132.5 6.9 132.5 7.5 140 7.5Z' fill='black' fill-opacity='.6'/%3E%3C/svg%3E") 50% 0 / 140px 12px no-repeat;
+    }
+    .fleet-skin .ship .water-body.dock > .surface { background: var(--water-dock-deep); }
+    .fleet-skin .ship .water-body.dock > .swell { background: color-mix(in srgb, var(--water-dock-crest) 50%, transparent); }
+    .fleet-skin .ship .water-body.dock > .swell::before { background: var(--water-dock-deep); }
+    /* 平移半条（＝一行宽＋起伏宽）：起伏从行左端外走到行右端外；alternate 让下一程原路走回来 */
+    @keyframes ru-water-slosh {
+      0%, 20% { transform: translate3d(0, 0, 0); }
+      65%, 100% { transform: translate3d(calc(50% + 70px), 0, 0); }
+    }
+    /* 鱼雷常驻倾侧：敌方在右、鱼雷切入右水线，破口侧（右侧）下沉＝顺时针正角；入渠前段（0%→45%）逐步扶正 */
+    .fleet-skin .ship[data-listed="1"] {
+      transform: translate3d(0, var(--list-y, .5px), 0) rotate(var(--list-deg, .95deg));
+      transform-origin: 44% 62%;
+      transition: transform 620ms cubic-bezier(.22, .85, .32, 1);
+    }
+    /* 被弹动作：鱼雷主导右沉倾侧后滞重晃荡落定，反潜垂直水压浮沉；冲击整体后挪 --hit-lead（深弹起爆 / 航迹切入） */
+    .fleet-skin .ship[data-hit][data-hit-kind="torp"] {
+      animation: ru-hit-list 620ms cubic-bezier(.22, .78, .32, 1) var(--hit-lead, 0ms) 1 backwards;
+    }
+    .fleet-skin .ship[data-hit][data-hit-kind="asw"] {
+      animation: ru-hit-heave 480ms ease-out var(--hit-lead, 0ms) 1 backwards;
+    }
+    .fleet-skin .ship[data-hit][data-hit-lead]:not([data-hit-kind]),
+    .fleet-skin .ship[data-hit][data-hit-lead] :is(.fc, .hit-flash, .hit-sweep, .hpc .dmg-pop) {
+      animation-delay: var(--hit-lead, 0ms);
+    }
+    .fleet-skin .ship[data-hit][data-hit-kind="torp"] .hit-flash {
+      background: linear-gradient(270deg, color-mix(in srgb, var(--asw-flash) 56%, transparent) 0%, color-mix(in srgb, var(--accent) 34%, transparent) 42%, transparent 88%);
+    }
+    .fleet-skin .ship[data-hit][data-hit-kind="asw"] .hit-flash {
+      background: radial-gradient(ellipse 68% 120% at 46% 52%, color-mix(in srgb, var(--asw-flash) 58%, transparent), color-mix(in srgb, var(--asw-sonar) 24%, transparent) 55%, transparent 90%);
+    }
+    @keyframes ru-hit-list {
+      0% { transform: translate3d(0, 0, 0) rotate(var(--list-from, 0deg)); }
+      22% { transform: translate3d(-4px, 2.2px, 0) rotate(var(--list-peak, 2deg)); }
+      52% { transform: translate3d(2px, -.5px, 0) rotate(calc(var(--list-peak, 2deg) * .35)); }
+      78% { transform: translate3d(-1px, 1.2px, 0) rotate(calc(var(--list-peak, 2deg) * .78)); }
+      100% { transform: translate3d(0, var(--list-y, 0px), 0) rotate(var(--list-deg, 0deg)); }
+    }
+    @keyframes ru-hit-heave {
       0%, 100% { transform: translate3d(0, 0, 0); }
-      18% { transform: translate3d(3px, 0, 0); }
-      46% { transform: translate3d(-2px, 0, 0); }
-      74% { transform: translate3d(1px, 0, 0); }
+      14% { transform: translate3d(0, var(--heave-amp, 4px), 0) scaleY(.985); }
+      36% { transform: translate3d(0, calc(var(--heave-amp, 4px) * -.72), 0) scaleY(1.01); }
+      62% { transform: translate3d(0, calc(var(--heave-amp, 4px) * .42), 0); }
+      82% { transform: translate3d(0, calc(var(--heave-amp, 4px) * -.18), 0); }
+    }
+    /* 入渠中的特色层：炮击伤焊修扫描光、鱼雷伤除锈光、潜水舰压载排气慢泡 */
+    .fleet-skin .ship .dock-fx-layer {
+      position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none;
+    }
+    .fleet-skin .ship .dock-weld-scan {
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--hit-aqua) 24%, transparent) 45%, color-mix(in srgb, var(--hit-weld-spark) 28%, transparent) 52%, transparent) 50% 0 / 96px 100% no-repeat;
+      animation: ru-dock-scan 3.8s ease-in-out infinite;
+      will-change: transform, opacity;
+    }
+    /* 光带宽 96px、居中画在整行宽的一层上，平移这一层；原先动 left，每帧重排（一条每秒约 48ms） */
+    @keyframes ru-dock-scan {
+      0% { transform: translate3d(calc(-68% + 48px), 0, 0); opacity: 0; }
+      16% { opacity: .95; }
+      84% { opacity: .95; }
+      100% { transform: translate3d(calc(52% + 48px), 0, 0); opacity: 0; }
+    }
+    /* 鱼雷伤在渠修的是锈（返港时积水已抽干）：一小段除锈光贴着锈线来回走。光带宽 72px、居中画在整行宽的一层上，平移这一层 */
+    .fleet-skin .ship .dock-derust {
+      position: absolute; left: 0; right: 0; height: 6px;
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--hit-weld-spark) 46%, transparent) 44%, color-mix(in srgb, var(--hit-aqua) 40%, transparent) 56%, transparent) 50% 0 / 72px 100% no-repeat;
+      animation: ru-dock-derust 3.4s ease-in-out infinite alternate;
+      will-change: transform;
+    }
+    @keyframes ru-dock-derust {
+      from { transform: translate3d(calc(-50% + 36px), 0, 0); }
+      to { transform: translate3d(calc(50% - 36px), 0, 0); }
+    }
+    .fleet-skin .ship .dock-sub-bubble {
+      position: absolute; bottom: 2px; border-radius: 50%;
+      border: 1px solid color-mix(in srgb, var(--hit-aqua) 72%, transparent);
+      background: color-mix(in srgb, var(--hit-aqua) 22%, transparent);
+      animation: ru-dock-bubble var(--dur, 3.2s) ease-in infinite;
+      animation-delay: var(--del, 0s);
+    }
+    @keyframes ru-dock-bubble {
+      0% { transform: translateY(4px) scale(.55); opacity: 0; }
+      20% { opacity: .82; }
+      80% { opacity: .55; }
+      100% { transform: translateY(-44px) translateX(var(--drift, 4px)) scale(1.1); opacity: 0; }
+    }
+    /* 一次性特效层：行上方不裁切（深弹从行上方落下、碎片飞出行外）。里面飞出来的元素默认不可见，
+       只在各自的动画时段里显形（起点延迟期间不先露在原位） */
+    .fleet-skin .ship .air-fx :is(.fx-shard, .fx-bubble, .fx-sonar, .fx-asw-ripple, .fx-depth-charge, .fx-torp-run) { opacity: 0; }
+    .fleet-skin .ship .air-fx {
+      position: absolute; inset: 0; z-index: 20; overflow: visible; pointer-events: none;
+    }
+    .fleet-skin .ship .fx-bubble {
+      position: absolute; border-radius: 50%; pointer-events: none;
+      border: 1px solid var(--bubble); background: color-mix(in srgb, var(--bubble) 28%, transparent);
+    }
+    .fleet-skin .ship .fx-sonar {
+      position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; pointer-events: none;
+      border: 1.5px solid var(--sonar); box-shadow: 0 0 8px color-mix(in srgb, var(--sonar) 45%, transparent);
+    }
+    .fleet-skin .ship .fx-asw-ripple {
+      position: absolute; top: 0; width: 26px; height: 6px; margin-left: -13px; border-radius: 50%; pointer-events: none;
+      border: 1px solid var(--asw-sonar);
+    }
+    .fleet-skin .ship .fx-depth-charge {
+      position: absolute; top: 0; width: 14px; height: 18px; margin-left: -7px; pointer-events: none;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .45));
+    }
+    .fleet-skin .ship .fx-depth-charge svg { display: block; }
+    .fleet-skin .ship .fx-shard {
+      position: absolute; overflow: visible; pointer-events: none; transform-origin: 50% 50%;
+    }
+    /* 列表最底下那一行：特效不往下越出（编队表在六舰满编时只余几像素，越出去会闪出滚动条、整列跟着挤一下）。
+       那一行的鱼雷冲击峰值也按常驻倾角封顶（observeFleetHits） */
+    .fleet-skin .ships[data-hit-fx] .ship:last-child > .air-fx { overflow: hidden; }
+    .fleet-skin .ship .fx-torp-run {
+      position: absolute; right: 0; width: 72px; height: 3px; border-radius: 2px; pointer-events: none;
+      background: linear-gradient(90deg, var(--asw-flash), var(--accent) 40%, transparent);
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    /* 4 档后坐都叠在常驻倾角上（--list-deg / --list-y，没进水时为 0）：倾着的行挨炮，抖完落回原倾角，不先回正再一跳 */
+    @keyframes ru-hit-shake-1 {
+      0%, 100% { transform: translate3d(0, var(--list-y, 0px), 0) rotate(var(--list-deg, 0deg)); }
+      18% { transform: translate3d(3px, var(--list-y, 0px), 0) rotate(var(--list-deg, 0deg)); }
+      46% { transform: translate3d(-2px, var(--list-y, 0px), 0) rotate(var(--list-deg, 0deg)); }
+      74% { transform: translate3d(1px, var(--list-y, 0px), 0) rotate(var(--list-deg, 0deg)); }
     }
     @keyframes ru-hit-shake-2 {
-      0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
-      12% { transform: translate3d(6px, .8px, 0) rotate(.35deg); }
-      32% { transform: translate3d(-4.5px, -.4px, 0) rotate(-.25deg); }
-      56% { transform: translate3d(2.8px, 0, 0) rotate(.15deg); }
-      78% { transform: translate3d(-1.2px, 0, 0) rotate(0deg); }
+      0%, 100% { transform: translate3d(0, var(--list-y, 0px), 0) rotate(var(--list-deg, 0deg)); }
+      12% { transform: translate3d(6px, calc(var(--list-y, 0px) + .8px), 0) rotate(calc(var(--list-deg, 0deg) + .35deg)); }
+      32% { transform: translate3d(-4.5px, calc(var(--list-y, 0px) - .4px), 0) rotate(calc(var(--list-deg, 0deg) - .25deg)); }
+      56% { transform: translate3d(2.8px, var(--list-y, 0px), 0) rotate(calc(var(--list-deg, 0deg) + .15deg)); }
+      78% { transform: translate3d(-1.2px, var(--list-y, 0px), 0) rotate(var(--list-deg, 0deg)); }
     }
     @keyframes ru-hit-shake-3 {
-      0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
-      8% { transform: translate3d(9.5px, 1.6px, 0) rotate(-.75deg); }
-      15% { transform: translate3d(9px, 1.4px, 0) rotate(-.65deg); }
-      30% { transform: translate3d(-7px, -.9px, 0) rotate(.55deg); }
-      48% { transform: translate3d(4.6px, .6px, 0) rotate(-.32deg); }
-      68% { transform: translate3d(-2.6px, -.3px, 0) rotate(.18deg); }
-      84% { transform: translate3d(1.2px, 0, 0) rotate(0deg); }
+      0%, 100% { transform: translate3d(0, var(--list-y, 0px), 0) rotate(var(--list-deg, 0deg)); }
+      8% { transform: translate3d(9.5px, calc(var(--list-y, 0px) + 1.6px), 0) rotate(calc(var(--list-deg, 0deg) - .75deg)); }
+      15% { transform: translate3d(9px, calc(var(--list-y, 0px) + 1.4px), 0) rotate(calc(var(--list-deg, 0deg) - .65deg)); }
+      30% { transform: translate3d(-7px, calc(var(--list-y, 0px) - .9px), 0) rotate(calc(var(--list-deg, 0deg) + .55deg)); }
+      48% { transform: translate3d(4.6px, calc(var(--list-y, 0px) + .6px), 0) rotate(calc(var(--list-deg, 0deg) - .32deg)); }
+      68% { transform: translate3d(-2.6px, calc(var(--list-y, 0px) - .3px), 0) rotate(calc(var(--list-deg, 0deg) + .18deg)); }
+      84% { transform: translate3d(1.2px, var(--list-y, 0px), 0) rotate(var(--list-deg, 0deg)); }
     }
     @keyframes ru-hit-shake-4 {
-      0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
-      6% { transform: translate3d(12.5px, 2px, 0) rotate(-1.1deg); }
-      13% { transform: translate3d(11.5px, 1.8px, 0) rotate(-1deg); }
-      25% { transform: translate3d(-9.5px, 1px, 0) rotate(.8deg); }
-      38% { transform: translate3d(7px, -.9px, 0) rotate(-.55deg); }
-      53% { transform: translate3d(-4.5px, .6px, 0) rotate(.35deg); }
-      68% { transform: translate3d(2.8px, -.3px, 0) rotate(-.18deg); }
-      83% { transform: translate3d(-1.2px, 0, 0) rotate(0deg); }
+      0%, 100% { transform: translate3d(0, var(--list-y, 0px), 0) rotate(var(--list-deg, 0deg)); }
+      6% { transform: translate3d(12.5px, calc(var(--list-y, 0px) + 2px), 0) rotate(calc(var(--list-deg, 0deg) - 1.1deg)); }
+      13% { transform: translate3d(11.5px, calc(var(--list-y, 0px) + 1.8px), 0) rotate(calc(var(--list-deg, 0deg) - 1deg)); }
+      25% { transform: translate3d(-9.5px, calc(var(--list-y, 0px) + 1px), 0) rotate(calc(var(--list-deg, 0deg) + .8deg)); }
+      38% { transform: translate3d(7px, calc(var(--list-y, 0px) - .9px), 0) rotate(calc(var(--list-deg, 0deg) - .55deg)); }
+      53% { transform: translate3d(-4.5px, calc(var(--list-y, 0px) + .6px), 0) rotate(calc(var(--list-deg, 0deg) + .35deg)); }
+      68% { transform: translate3d(2.8px, calc(var(--list-y, 0px) - .3px), 0) rotate(calc(var(--list-deg, 0deg) - .18deg)); }
+      83% { transform: translate3d(-1.2px, var(--list-y, 0px), 0) rotate(var(--list-deg, 0deg)); }
     }
     @keyframes ru-hit-fc-jolt {
       0%, 100% { translate: 0 0; }
@@ -7532,11 +7796,9 @@
       100% { transform: scale(1); opacity: 1; }
     }
     @keyframes ru-heavy-heartbeat {
-      0%, 100% { box-shadow: inset 4px 0 14px -3px color-mix(in srgb, var(--bad) 36%, transparent), inset 0 0 0 1px color-mix(in srgb, var(--bad) 16%, transparent); }
-      14% { box-shadow: inset 6px 0 24px -2px color-mix(in srgb, var(--bad) 72%, transparent), inset 0 0 0 1px color-mix(in srgb, var(--bad) 42%, transparent); }
-      28% { box-shadow: inset 4px 0 14px -3px color-mix(in srgb, var(--bad) 32%, transparent), inset 0 0 0 1px color-mix(in srgb, var(--bad) 16%, transparent); }
-      42% { box-shadow: inset 5px 0 20px -2px color-mix(in srgb, var(--bad) 56%, transparent), inset 0 0 0 1px color-mix(in srgb, var(--bad) 30%, transparent); }
-      64% { box-shadow: inset 4px 0 13px -3px color-mix(in srgb, var(--bad) 28%, transparent), inset 0 0 0 1px color-mix(in srgb, var(--bad) 14%, transparent); }
+      0%, 28%, 64%, 100% { opacity: 0; }
+      14% { opacity: 1; }
+      42% { opacity: .56; }
     }
     @keyframes ru-ember-drift {
       from { opacity: .42; transform: translateY(2px); }
@@ -7668,11 +7930,22 @@
     .fleet-skin .hpc .bar i { display: block; height: 100%; border-radius: 3px; }
     .fleet-skin .hpc .num { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 9.5px; color: var(--dim); margin-top: 1px; }
     .fleet-skin .hpc .num .st { font-size: 9px; }
-    .fleet-skin .hp-g i { background: linear-gradient(90deg, var(--meter-ok-start), var(--ok)); }
-    .fleet-skin .hp-y i { background: linear-gradient(90deg, var(--meter-gold-start), var(--gold)); }
-    .fleet-skin .hp-o i { background: linear-gradient(90deg, var(--meter-warn-start), var(--warn)); }
-    .fleet-skin .hp-r i { background: linear-gradient(90deg, var(--meter-bad-start), var(--bad)); }
-    .fleet-skin .hp-d i { background: linear-gradient(90deg, var(--meter-teal-start), var(--expedition-soft)); }
+    /* 血条两端的颜色是注册过的颜色属性：宽度动画里能跟着过渡（shared/bar-tone，2026-11-28 他报血条「颜色抽动」）。
+       各档取值收在 --hpbar-*（深色是同色系深一档 → 主色的渐变，浅色是纯色），脚本按档读这几个值排关键帧 */
+    @property --bar-c0 { syntax: '<color>'; inherits: false; initial-value: transparent; }
+    @property --bar-c1 { syntax: '<color>'; inherits: false; initial-value: transparent; }
+    .fleet-skin {
+      --hpbar-g-0: var(--meter-ok-start); --hpbar-g-1: var(--ok);
+      --hpbar-y-0: var(--meter-gold-start); --hpbar-y-1: var(--gold);
+      --hpbar-o-0: var(--meter-warn-start); --hpbar-o-1: var(--warn);
+      --hpbar-r-0: var(--meter-bad-start); --hpbar-r-1: var(--bad);
+      --hpbar-d-0: var(--meter-teal-start); --hpbar-d-1: var(--expedition-soft);
+    }
+    .fleet-skin .hp-g i { --bar-c0: var(--hpbar-g-0); --bar-c1: var(--hpbar-g-1); background: linear-gradient(90deg, var(--bar-c0), var(--bar-c1)); }
+    .fleet-skin .hp-y i { --bar-c0: var(--hpbar-y-0); --bar-c1: var(--hpbar-y-1); background: linear-gradient(90deg, var(--bar-c0), var(--bar-c1)); }
+    .fleet-skin .hp-o i { --bar-c0: var(--hpbar-o-0); --bar-c1: var(--hpbar-o-1); background: linear-gradient(90deg, var(--bar-c0), var(--bar-c1)); }
+    .fleet-skin .hp-r i { --bar-c0: var(--hpbar-r-0); --bar-c1: var(--hpbar-r-1); background: linear-gradient(90deg, var(--bar-c0), var(--bar-c1)); }
+    .fleet-skin .hp-d i { --bar-c0: var(--hpbar-d-0); --bar-c1: var(--hpbar-d-1); background: linear-gradient(90deg, var(--bar-c0), var(--bar-c1)); }
     .fleet-skin .fa2 { display: flex; flex-direction: column; gap: 3px; }
     .fleet-skin .fa2 .b { height: 4px; border-radius: 2px; background: var(--stat-track); overflow: hidden; }
     .fleet-skin .fa2 .b i { display: block; height: 100%; }
@@ -9284,6 +9557,15 @@
       font-size: 10px; color: var(--dim); background: var(--bg0); border: 1px solid var(--line-soft);
     }
     .mod-ji .day.on { color: var(--bg0); background: var(--ok); border-color: var(--ok); font-weight: 700; }
+    .mod-ji .day.out { color: var(--warn); border-color: var(--warn); text-decoration: line-through; }
+    .mod-ji .day.on.observed { box-shadow: 0 0 0 1px var(--bg0), 0 0 0 2px var(--accent); }
+    .mod-ji .improve-helper .ih-row { display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; padding: 5px 0 5px 8px; border-bottom: 1px dashed var(--line-soft); }
+    .mod-ji .improve-helper .ih-row.today { box-shadow: inset 2px 0 0 var(--ok); }
+    .mod-ji .improve-helper .ih-eq { flex: 1 1 180px; min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
+    .mod-ji .improve-helper .ih-eq i { font-style: normal; font-size: 10.5px; color: var(--dim); margin-left: 6px; }
+    .mod-ji .improve-helper .ih-to { flex-basis: 100%; font-size: 11px; color: var(--sub); }
+    .mod-ji .improve-helper .ih-forms { margin-top: 8px; font-size: 11px; color: var(--sub); }
+    .mod-ji .improve-helper .ih-forms a { color: var(--accent); cursor: pointer; }
     .mod-ji .ak-to { display: flex; justify-content: flex-end; }
     .mod-ji .ak-imp .to { font-size: 11px; color: var(--sub); }
     .mod-ji .ak-imp .to.none { color: var(--dim); }
@@ -9523,8 +9805,40 @@
       .mod-ji .ship-list .grp, .mod-ji .ship-list .sister-head,
       .mod-ji .ship-list > .cat-more { grid-column: 1/-1; }
     }
+    /* 改修日程的游戏实测（shared/improve-observed）：实测角标、展开层与详情里的实测行、页底「实测今日不可」折叠 */
+    .mod-ji .ti-observed { font: 9.5px var(--mono); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: 3px; padding: 0 3px; }
+    .mod-ji .ti-observed-row i, .mod-ji .ak-observed i { font-style: normal; color: var(--dim); }
+    .mod-ji .ak-observed { margin-top: 6px; font-size: 11px; color: var(--warn); }
+    .mod-ji .ak-observed.ok { color: var(--ok); }
+    .mod-ji .ak-learned { margin-top: 6px; font-size: 11px; color: var(--sub); }
+    .mod-ji .ak-learned i { font-style: normal; color: var(--dim); }
+    .mod-ji .today-observed-out { margin: 8px 0 4px; border-top: 1px dashed var(--line); }
+    .mod-ji .today-observed-out > summary { padding: 8px 12px; cursor: pointer; font-size: 11.5px; color: var(--dim); }
+    .mod-ji .today-observed-out > summary i { font-style: normal; color: var(--sub); margin-left: 4px; }
+    .mod-ji .today-observed-out .improve-row { opacity: .62; }
     .mod-ji .map-bgm-line .k9 { font-size: 10px; color: var(--dim); margin-right: 2px; }
     .mod-ji .own-pill.bgm { cursor: default; }
+    /* 鉴 · 海域卷 海域/BGM 分栏（BGM 反查）：形状照深海卷分栏，颜色走海域的青 */
+    .mod-ji .ab-tabs.map-tabs .ab-tab.on { color: var(--map-area-ink); border-color: var(--tint-teal-done-line); background: var(--tint-teal-face); }
+    .mod-ji .face.bgm-face {
+      font: 600 11px var(--mono); letter-spacing: .02em; color: var(--map-code-soft);
+      background: var(--tint-teal-face); border-color: var(--tint-teal-face-line);
+    }
+    .mod-ji .hero.bgm-hero { background: radial-gradient(420px 200px at 85% 0%, color-mix(in srgb, var(--glow-map-face) 8%, transparent), transparent 65%), var(--bg1); }
+    .mod-ji .bgm-area + .bgm-area { margin-top: 10px; }
+    .mod-ji .bgm-area-h { font-size: 10.5px; color: var(--dim); margin-bottom: 4px; }
+    .mod-ji .bgm-map { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; padding: 4px 0; border-top: 1px dashed var(--line); font-size: 11.5px; }
+    .mod-ji .bgm-area-h + .bgm-map { border-top: 0; }
+    .mod-ji .bgm-map-name { min-width: 0; flex: 1 1 180px; }
+    .mod-ji .bgm-map-pills { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+    .mod-ji .bgm-map-pills .own-pill { padding: 0 7px; font-size: 10.5px; }
+    .mod-ji .bgm-map-pills .own-pill.past { color: var(--dim); border-style: dashed; }
+    .mod-ji .bgm-map.past .bgm-map-name { opacity: .7; }
+    .mod-ji .bgm-since { font: 10px var(--mono); color: var(--gold); }
+    .mod-ji .bgm-furniture { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; }
+    /* 曲名旁的「N 处」（海域页 BGM 行、家具详情）：比曲名低一档，悬停才亮 */
+    .bgm-uses { margin-left: 6px; font-size: .9em; opacity: .8; }
+    .bgm-uses:hover { opacity: 1; }
     .mod-ji .index-foot { padding: 9px 12px; border-top: 1px solid var(--line); font-size: 11px; color: var(--sub); }
     .mod-ji .index-foot .bar { height: 4px; border-radius: 2px; background: var(--bg3); margin-top: 5px; overflow: hidden; max-width: 480px; }
     .mod-ji .index-foot .bar i { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--accent-dim), var(--accent)); }
@@ -12048,11 +12362,13 @@
     :root[data-theme="light"] .mod-shi .shi-item-row b,
     :root[data-theme="light"] .mod-shi .shi-item-change b { font-weight: var(--weight-strong); }
     /* 浅色进度填充：消除透明度与渐变，空槽保留独立轨道色。 */
-    :root[data-theme="light"] .fleet-skin .hp-g i { background: var(--ok); }
-    :root[data-theme="light"] .fleet-skin .hp-y i { background: var(--gold); }
-    :root[data-theme="light"] .fleet-skin .hp-o i { background: var(--warn); }
-    :root[data-theme="light"] .fleet-skin .hp-r i { background: var(--bad); }
-    :root[data-theme="light"] .fleet-skin .hp-d i { background: var(--dock); }
+    :root[data-theme="light"] .fleet-skin {
+      --hpbar-g-0: var(--ok); --hpbar-g-1: var(--ok);
+      --hpbar-y-0: var(--gold); --hpbar-y-1: var(--gold);
+      --hpbar-o-0: var(--warn); --hpbar-o-1: var(--warn);
+      --hpbar-r-0: var(--bad); --hpbar-r-1: var(--bad);
+      --hpbar-d-0: var(--dock); --hpbar-d-1: var(--dock);
+    }
     :root[data-theme="light"] .mod-zi .br-row.in .bar i { background: var(--ok); }
     :root[data-theme="light"] .mod-zi .br-row.out .bar i { background: var(--bad); }
     :root[data-theme="light"] .mod-ji .index-foot .bar { background: var(--stat-track); }
@@ -13956,7 +14272,19 @@
       .fleet-skin .ship.shattered[data-fracture],
       .fleet-skin .hpc .bar .hp-ghost,
       .fleet-skin .hpc .dmg-pop,
+      .fleet-skin .ship[data-hit][data-hit-sev],
+      .fleet-skin .ship[data-hit][data-hit-sev] .fc,
+      .fleet-skin .ship[data-hit][data-crack="heavy"],
+      .fleet-skin .ship[data-hit][data-hit-kind="torp"],
+      .fleet-skin .ship[data-hit][data-hit-kind="asw"],
+      .fleet-skin .ship[data-crack]::after,
+      .fleet-skin .ship .water-body > i,
       .mod-shi .shi-battle-drawer { animation: none; }
+      /* 编队被弹与特色入渠：只留静态战损与静态维修进度（倾角、积水、弹孔照画），焊修扫描与排气慢泡这类循环不播 */
+      .fleet-skin .ship .dock-weld-scan,
+      .fleet-skin .ship .dock-derust,
+      .fleet-skin .ship .dock-sub-bubble { display: none; }
+      .fleet-skin .ship[data-listed="1"] { transition: none; }
       .dock,
       /* 浮层打开时的内容入场：JS 那边 reduceMotion 就直接不放了，这条是双保险 */
       [data-kuma-open] { animation: none !important; }

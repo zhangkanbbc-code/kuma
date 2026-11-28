@@ -67,6 +67,10 @@ export const LEDGER_PERMANENT_TABLES = [
   'seasonal_backfill_state',
   'event_map_catalog',
   'fit_observations',
+  'map_bgm_history',
+  'improve_observations',
+  'improve_remodels',
+  'improve_remodel_backfill_state',
 ] as const
 
 /** 保留天数的上限（10 年）。填得再大也没有意义，且要挡住 1e18 那种输入。 */

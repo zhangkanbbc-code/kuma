@@ -232,6 +232,8 @@ async function consume(packs, raw) {
     improveCoverageMax: shared('equip-sources').improvePackCoverageMax(d('equip-improve') ?? []), kcwikiAkashiLode: p('kcwiki-akashi-improve'), akashiListLode: p('akashi-list'),
     unlockedEquipCount: () => 0, equipVisualLink: (id, name) => esc(name ?? friendlyEquips.get(id)?.api_name ?? id), improvementMaterialLink: (_id, name) => esc(name),
     jstDayOfWeek: () => 0, JST_WEEKDAY_LABELS: ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'],
+    // 改修实测行里的日期（kernel 的 fmtMonthDay 牵着 electron，这里给同口径的纯函数）
+    fmtMonthDay: value => new Date(value).toISOString().slice(5, 10),
   }
   mg.materials = {}; mg.useitems = {}
   const improveRender = host.extract(source, ['improveSectionHtml', 'foldedNote'], improveState).api

@@ -15,6 +15,7 @@
 // ③ **不代操作**。废弃、改修、卸装一律在游戏里做，这里只出清单。
 import { alvIconHtml } from '../alv-icon'
 import { bgmPreviewHtml } from '../bgm-preview'
+import { BGM_USAGE_EVENT, bgmUsesLinkHtml } from '../bgm-usage'
 import { useItemIconHtml } from '../entity-art'
 import {
   EQUIP_CHIPS,
@@ -702,7 +703,7 @@ const furnitureRowHtml = (f: FurnitureMst, owned: boolean, placed: boolean, focu
   return `${row}<div class="fst-detail">
     ${url ? `<img src="${esc(url)}" alt="" loading="lazy" decoding="async" data-fst-img${rewardUrl && rewardUrl !== url ? ` data-fst-fallback="${esc(rewardUrl)}"` : ''}>` : ''}
     <div class="fst-desc">${esc(f.description)}</div>
-    ${f.bgmId > 0 ? `<div class="fst-bgm">附带母港 BGM：${bgmPreviewHtml(f.bgmId, 'port')}</div>` : ''}
+    ${f.bgmId > 0 ? `<div class="fst-bgm">附带母港 BGM：${bgmPreviewHtml(f.bgmId, 'port')}${bgmUsesLinkHtml('port', f.bgmId)}</div>` : ''}
     <div class="fst-meta">${esc(FURNITURE_TYPE_LABELS[f.type]?.[0] ?? '装饰品')}${
       f.rarity > 0 ? ` · ${'★'.repeat(Math.min(f.rarity, 6))}` : ''
     } · ${price}${placed ? ' · 布置中' : ''}</div>
@@ -1113,6 +1114,8 @@ export const openEquipCleanup = () => {
 // mountStockView 是可重入的（切视图、重试装配都会再进来一次）。按元素记一次，别叠加。
 const stockFoldingWired = new WeakSet<HTMLElement>()
 
+let bgmUsageWired = false
+
 export const mountStockView = (element: HTMLElement) => {
   pane = element
   invalidateStockRowsIfEquipmentChanged()
@@ -1124,6 +1127,11 @@ export const mountStockView = (element: HTMLElement) => {
     installSectionFolding(element, [
       { section: '.fst-group', head: '.fst-head', title: firstTextTitle, openAllByDefault: true },
     ])
+  }
+  if (!bgmUsageWired) {
+    // 家具详情里「附带母港 BGM」旁的「N 处」：反查索引攒好时补上
+    bgmUsageWired = true
+    document.addEventListener(BGM_USAGE_EVENT, renderIfFurnitureView)
   }
   if (!resizeObserver) {
     resizeObserver = new ResizeObserver(() => {

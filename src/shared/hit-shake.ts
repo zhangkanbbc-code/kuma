@@ -2,7 +2,8 @@
 // 编队行掉血侦测、4 档物理冲击分级、常驻伤势档位，以及确定性随机玻璃裂纹骨架 + 危险线 Glitch 错相参数。
 // 纯逻辑层，无 DOM/Electron 依赖，供锐的编队面板与单元测试共用。
 import { damageTierOf, type DamageTier } from './battle-damage'
-import { HIT_FX, hitFxTotal, hitGhostAt, hitGhostDur, hitStampAt } from './fleet-fx-timing'
+import { HIT_FX, HIT_REPORT_FX, hitFxTotal, hitGhostAt, hitGhostDur, hitStampAt, holeSpreadTotal } from './fleet-fx-timing'
+import type { HitMotion } from './hit-damage'
 
 export interface HitShakeInput {
   before: number
@@ -39,6 +40,18 @@ export interface HitShakeParams {
   popMs: number
   /** 整段演出播完的时长：重画期间续挂被弹属性到这一刻 */
   totalMs: number
+  /**
+   * 战报驱动的动作（交接包 v2）：shell 水平后坐、torp 破口侧下沉倾侧、asw 垂直水压浮沉。
+   * leadMs 是扣血整体往后挪的那一拍（反潜等深弹起爆、鱼雷等航迹切入），上面几个时刻都已含它。
+   */
+  kind: HitMotion['kind']
+  leadMs: number
+  /** 倾侧：这一下之前 / 落定 / 冲击峰值（deg，正＝右沉） */
+  listFrom: number
+  listRest: number
+  listPeak: number
+  /** 反潜浮沉幅度（px） */
+  heaveAmp: number
 }
 
 export interface HpWatchShip {
@@ -68,7 +81,24 @@ export const hitCrackTier = ({ nowhp, maxhp }: HitCrackInput): DamageTier | null
   return damageTierOf(nowhp, maxhp)
 }
 
-export const hitShakeParams = ({ before, after, max }: HitShakeInput): HitShakeParams | null => {
+const IMPACT_ONLY: Pick<HitMotion, 'kind' | 'leadMs' | 'listFrom' | 'listRest' | 'listPeak' | 'heaveAmp'> = {
+  kind: 'shell',
+  leadMs: 0,
+  listFrom: 0,
+  listRest: 0,
+  listPeak: 0,
+  heaveAmp: 0,
+}
+
+/**
+ * motion 来自战报归因（shared/hit-damage 的 applyHitReport）；不给就按一发普通炮击。
+ * newHoles 是这一下新添的弹孔数：整段时长要盖过它们延展完、碎片飞完。
+ */
+export const hitShakeParams = (
+  { before, after, max }: HitShakeInput,
+  motion: Pick<HitMotion, 'kind' | 'leadMs' | 'listFrom' | 'listRest' | 'listPeak' | 'heaveAmp'> = IMPACT_ONLY,
+  newHoles = 0,
+): HitShakeParams | null => {
   if (max <= 0 || after >= before) return null
   const dmg = Math.max(1, Math.round(before - after))
   const loss = clamp01((before - after) / max)
@@ -96,12 +126,25 @@ export const hitShakeParams = ({ before, after, max }: HitShakeInput): HitShakeP
     severity,
     crossedTier,
     glitchBurst: prevTier !== 'heavy' && nextTier === 'heavy',
-    ghostAtMs: hitGhostAt(severity),
+    ghostAtMs: motion.leadMs + hitGhostAt(severity),
     ghostDurMs: hitGhostDur(severity),
-    stampAtMs: hitStampAt(severity),
+    stampAtMs: motion.leadMs + hitStampAt(severity),
     stampMs: HIT_FX.stamp,
     popMs: HIT_FX.pop,
-    totalMs: hitFxTotal(severity, crossedTier),
+    totalMs:
+      motion.leadMs +
+      Math.max(
+        hitFxTotal(severity, crossedTier),
+        motion.kind === 'torp' ? HIT_REPORT_FX.list : motion.kind === 'asw' ? HIT_REPORT_FX.heave : 0,
+        holeSpreadTotal(newHoles),
+        newHoles > 0 ? (newHoles - 1) * HIT_REPORT_FX.shard.holeStep + HIT_REPORT_FX.shard.large + 7 * HIT_REPORT_FX.shard.step : 0,
+      ),
+    kind: motion.kind,
+    leadMs: motion.leadMs,
+    listFrom: motion.listFrom,
+    listRest: motion.listRest,
+    listPeak: motion.listPeak,
+    heaveAmp: motion.heaveAmp,
   }
 }
 

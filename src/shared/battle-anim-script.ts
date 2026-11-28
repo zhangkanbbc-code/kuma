@@ -230,6 +230,48 @@ const GUN_TYPES = new Set([1, 2, 3, 4, 38]) // 小中大口径主炮 / 副炮 / 
 const BOMBER_TYPES = new Set([7, 11, 57]) // 舰爆 / 水爆 / 喷式战斗轰炸机
 const TORPEDO_BOMBER_TYPES = new Set([8, 58]) // 舰攻 / 喷式攻击机
 
+/** 判一击用什么打的所需的上下文：攻方与（第一个）受击方的舰种、这一击实际用到的装备分类 */
+export interface AttackWeaponContext {
+  attackerStype: number | null
+  targetStype: number | null
+  /** api_si_list → 图鉴分类（api_type[2]）；没有就给空数组 */
+  usedTypes: readonly number[]
+  /** 这一击属于舰队特殊攻击的一段 */
+  special: boolean
+}
+
+/**
+ * 炮击 / 雷击 / 夜战阶段的一击是用什么打的。动画复盘与编队被弹演出（shared/hit-report）共用这一份，别各写一遍。
+ * 航空阶段（陆航、航空战、喷气强袭、友军航空）的一击不走这里——那几段由飞机打，鱼雷还是炸弹看 hits[].airKind。
+ */
+export const attackWeaponOf = (
+  attack: Pick<BattleAttack, 'phase' | 'carrierNightAttack' | 'ciKind' | 'ciType'>,
+  { attackerStype, targetStype, usedTypes, special }: AttackWeaponContext,
+): AnimWeapon => {
+  if (attack.phase === 'radar') return 'radar-shell'
+  const attackerCarrier = attackerStype != null && CARRIER_STYPES.has(attackerStype)
+  if (attack.phase === 'openingAsw' || (targetStype != null && SUBMARINE_STYPES.has(targetStype))) {
+    return attackerCarrier ? 'air-asw' : 'asw'
+  }
+  // 夜袭 CI（夜 6）只有空母打得出；有的报文（较早的、演习的）这一击没立 api_n_mother_list，
+  // 账本里 10 次夜袭 CI 有 2 次这样，按 CI 种类兜底，别画成炮弹
+  if (attack.carrierNightAttack || (attack.ciKind === 'night' && attack.ciType === 6)) return 'night-carrier'
+  if (TORPEDO_PHASES.has(attack.phase)) return 'torpedo'
+  // 瑞云立体攻击（昼 200）/ 瑞云夜袭（夜 200）是水上轰炸机打的；这一击的装备里还有炮（瑞云夜袭实测是
+  // 试制夜间瑞云 + 两门主炮）就是炮弹与炸弹一起落下（维护者 2026-11-26 问「夜瑞云的特殊攻击」）
+  if (attack.ciType === 200) return usedTypes.some((type) => GUN_TYPES.has(type)) ? 'gun-seaplane' : 'seaplane'
+  if (special) return 'special'
+  if (attackerCarrier && !isNightPhase(attack.phase)) return 'carrier'
+  // 潜艇的出手只可能是鱼雷（夜战的潜艇攻击也是）
+  if (attackerStype != null && SUBMARINE_STYPES.has(attackerStype)) return 'torpedo'
+  if (isNightPhase(attack.phase)) {
+    if (usedTypes.some((type) => TORPEDO_TYPES.has(type))) {
+      return usedTypes.some((type) => GUN_TYPES.has(type)) ? 'gun-torpedo' : 'torpedo'
+    }
+  }
+  return 'shell'
+}
+
 const AIR_PHASES = new Set<AnimPhase>(['lbas', 'injection', 'air', 'air2', 'friendlyAir'])
 // 烟幕只压水面交战：航空、陆航、支援打完，接敌开火之前展开
 const SURFACE_PHASES = new Set<AnimPhase>(['openingAsw', 'openingTorp', 'gun1', 'gun2', 'gun3', 'torp', 'radar'])
@@ -396,32 +438,13 @@ export const compileBattleAnimScript = (battle: BattleView, options: CompileOpti
       .filter((type): type is number => type != null)
 
   const weaponOf = (attack: BattleAttack, targetSide: AnimSide, special: boolean): AnimWeapon => {
-    if (attack.phase === 'radar') return 'radar-shell'
-    const attackerStype = stypeOf(attack.side, attack.attacker)
-    const attackerCarrier = attackerStype != null && CARRIER_STYPES.has(attackerStype)
     const firstTarget = attack.hits[0]?.target
-    const targetStype = firstTarget == null ? null : stypeOf(targetSide, firstTarget)
-    if (attack.phase === 'openingAsw' || (targetStype != null && SUBMARINE_STYPES.has(targetStype))) {
-      return attackerCarrier ? 'air-asw' : 'asw'
-    }
-    // 夜袭 CI（夜 6）只有空母打得出；有的报文（较早的、演习的）这一击没立 api_n_mother_list，
-    // 账本里 10 次夜袭 CI 有 2 次这样，按 CI 种类兜底，别画成炮弹
-    if (attack.carrierNightAttack || (attack.ciKind === 'night' && attack.ciType === 6)) return 'night-carrier'
-    if (TORPEDO_PHASES.has(attack.phase)) return 'torpedo'
-    // 瑞云立体攻击（昼 200）/ 瑞云夜袭（夜 200）是水上轰炸机打的；这一击的装备里还有炮（瑞云夜袭实测是
-    // 试制夜间瑞云 + 两门主炮）就是炮弹与炸弹一起落下（维护者 2026-11-26 问「夜瑞云的特殊攻击」）
-    if (attack.ciType === 200) return usedTypes(attack).some((type) => GUN_TYPES.has(type)) ? 'gun-seaplane' : 'seaplane'
-    if (special) return 'special'
-    if (attackerCarrier && !isNightPhase(attack.phase)) return 'carrier'
-    // 潜艇的出手只可能是鱼雷（夜战的潜艇攻击也是）
-    if (attackerStype != null && SUBMARINE_STYPES.has(attackerStype)) return 'torpedo'
-    if (isNightPhase(attack.phase)) {
-      const types = usedTypes(attack)
-      if (types.some((type) => TORPEDO_TYPES.has(type))) {
-        return types.some((type) => GUN_TYPES.has(type)) ? 'gun-torpedo' : 'torpedo'
-      }
-    }
-    return 'shell'
+    return attackWeaponOf(attack, {
+      attackerStype: stypeOf(attack.side, attack.attacker),
+      targetStype: firstTarget == null ? null : stypeOf(targetSide, firstTarget),
+      usedTypes: usedTypes(attack),
+      special,
+    })
   }
 
   const aircraftOf = (attack: BattleAttack, weapon: AnimWeapon): AnimAircraft | null => {
